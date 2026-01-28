@@ -827,23 +827,21 @@ body.theme-green {
     grid-template-columns: 35px 1fr 45px 35px; 
     gap: 4px;
     align-items: center;
+    margin-top: 5px;
 }
 
-/* Align the number input with the buttons exactly */
+/* Force standard height and alignment for the number input */
 .media-row-complex input {
-    height: 42px; /* Matches button height */
+    height: 42px; /* Exact match to button height */
     background: #000;
     border: 1px solid var(--border);
-    color: var(--accent);
+    color: var(--y); /* Caution Gold for input visibility */
     text-align: center;
     font-family: 'JetBrains Mono', monospace;
     font-size: 11px;
     width: 100%;
     margin-bottom: 0 !important;
-}#btn-media {
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
+    outline: none;
 }
 .q-label {
     opacity: 0.5;
