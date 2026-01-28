@@ -2164,9 +2164,18 @@ document.addEventListener('DOMContentLoaded', () => {
     // Theme
     document.querySelectorAll('.pal').forEach(p => p.onclick = () => setTheme(p.dataset.t));
     
-    // Session
+    // --- UPDATED SESSION WIRING ---
     $('btn-save').onclick = saveSession;
-    $('btn-load').onclick = loadSession;
+    
+    // Logic: Left-click triggers the file browser
+    $('btn-load').onclick = () => vgdInput.click(); 
+    
+    // Logic: Right-click triggers the internal browser memory
+    $('btn-load').oncontextmenu = (e) => { 
+        e.preventDefault(); 
+        loadSession(); 
+    };
+
     $('btn-export-dna').onclick = exportDNA;
     // --- VGD FILE IMPORT WIRING ---
     const vgdInput = document.createElement('input');
