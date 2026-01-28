@@ -166,7 +166,15 @@ const APP = {
         morphs: ['m1','m2','m3','m4','m5','m6','m7','m8','m9','m10','m11','m12','m13','m14','m15']
     }
 };
+/* --- PARTY MODE THEME ENGINE --- */
+const partyThemes = ['theme-cyan', 'theme-magenta', 'theme-green', 'theme-purple', 'theme-gold'];
+let currentThemeIndex = 0;
 
+function cyclePartyThemes() {
+    document.body.classList.remove(...partyThemes);
+    currentThemeIndex = (currentThemeIndex + 1) % partyThemes.length;
+    document.body.classList.add(partyThemes[currentThemeIndex]);
+}
 // ═══════════════════════════════════════════════════════════════════════════
 // UTILITIES
 // ═══════════════════════════════════════════════════════════════════════════
@@ -357,16 +365,40 @@ function renderLoop(timestamp) {
     
     APP.render.lastTime = timestamp;
 }
+function triggerSeismic(intensity = 1.0) {
+    APP.vj.shakeIntensity = intensity;
+    log('SEISMIC_MANUAL_OVERRIDE');
+    
+    if (!APP.vj.rumbleEnabled) {
+        const manualDecay = () => {
+            if (APP.vj.shakeIntensity > 0.05) {
+                applyGlobalShake();
+                APP.vj.shakeIntensity *= 0.9;
+                requestAnimationFrame(manualDecay);
+            } else {
+                APP.vj.shakeIntensity = 0;
+                const target = $('console-wrapper') || document.body;
+                target.style.transform = '';
+            }
+        };
+        manualDecay();
+    }
+}
 
-// ═══════════════════════════════════════════════════════════════════════════
-// IMPACT FX (Musical Performance)
-// ═══════════════════════════════════════════════════════════════════════════
-function triggerImpact() {
-    // Remove and force reflow for rapid-fire triggers
-    document.body.classList.remove('impact-flash');
-    void document.body.offsetWidth; // Force reflow
-    document.body.classList.add('impact-flash');
-    setTimeout(() => document.body.classList.remove('impact-flash'), 200);
+function applyGlobalShake() {
+    // 1. THE PARTY TRIGGER: If UI Reactivity is ON, swap the theme colors
+    if (APP.vj.uiReactivity) {
+        cyclePartyThemes(); 
+    }
+
+    // 2. THE SEISMIC PHYSICS: Calculate the 3D displacement
+    const x = (Math.random() - 0.5) * 25 * APP.vj.shakeIntensity;
+    const y = (Math.random() - 0.5) * 18 * APP.vj.shakeIntensity;
+    const r = (Math.random() - 0.5) * 3 * APP.vj.shakeIntensity;
+    
+    // Target the console-wrapper we fixed in your HTML
+    const target = $('console-wrapper') || document.body;
+    target.style.transform = `translate3d(${x}px, ${y}px, 0) rotate(${r}deg)`;
 }
 
 function triggerChromaticAberration() {
@@ -1063,22 +1095,19 @@ function updateVU() {
     APP.audio.bassLevel = currentBass;
     
     // SEISMIC ENGINE: Target ONLY the #stage, not the whole body
+    // REFINED SEISMIC ENGINE (Inside updateVU)
     if (APP.vj.rumbleEnabled) {
         if (bassDelta > 40 && currentBass > 150) {
-            APP.vj.shakeIntensity = Math.min(1, currentBass / 200);
+            APP.vj.shakeIntensity = Math.min(1.2, currentBass / 180);
         }
         
         if (APP.vj.shakeIntensity > 0.05) {
-            const x = (Math.random() - 0.5) * 20 * APP.vj.shakeIntensity;
-            const y = (Math.random() - 0.5) * 15 * APP.vj.shakeIntensity;
-            const r = (Math.random() - 0.5) * 4 * APP.vj.shakeIntensity;
-            
-            // FIX: translate3d triggers the GPU; targeting 'stage' keeps UI stable
-            $('stage').style.transform = `translate3d(${x}px, ${y}px, 0) rotate(${r}deg)`;
+            applyGlobalShake(); // Calls the global engine
             APP.vj.shakeIntensity *= 0.88;
         } else {
             APP.vj.shakeIntensity = 0;
-            $('stage').style.transform = '';
+            const target = $('console-wrapper') || document.body;
+            target.style.transform = '';
         }
     }
     
@@ -1098,7 +1127,21 @@ function updateVU() {
         }
     }
     
-    APP.vj.lastBassLevel = currentBass;
+    APP.vj.lastBassLevel = currentBass;// --- PRICE-ACTION LOGO PULSE ---
+if (APP.vj.uiReactivity && APP.audio.bassLevel > 180) {
+    const btcUp = APP.state.lastPrices.btc > (APP.state.lastPrices.btc_prev || 0);
+    if (btcUp) {
+        const logo = $('main-logo');
+        logo.style.textShadow = `0 0 30px var(--accent), 0 0 60px var(--accent)`;
+        logo.style.transform = `scale(1.1)`;
+        setTimeout(() => {
+            logo.style.textShadow = '';
+            logo.style.transform = '';
+        }, 100);
+    }
+}
+// Store prev for next frame comparison
+APP.state.lastPrices.btc_prev = APP.state.lastPrices.btc;
 }
 
 function stopAudio() {
@@ -1727,30 +1770,43 @@ async function fetchCrypto() {
     try {
         const res = await fetch('https://api.coingecko.com/api/v3/simple/price?ids=bitcoin,ethereum,solana&vs_currencies=usd');
         const data = await res.json();
-        const fmt = n => n >= 1000 ? (n/1000).toFixed(1) + 'K' : n.toFixed(0);
         
-        // Track price direction
-        const btc = data.bitcoin.usd;
-        const eth = data.ethereum.usd;
-        const sol = data.solana.usd;
+        // Define assets for the loop
+        const assets = [
+            { id: 'btc', apiId: 'bitcoin', symbol: 'BTC', price: data.bitcoin.usd },
+            { id: 'eth', apiId: 'ethereum', symbol: 'ETH', price: data.ethereum.usd },
+            { id: 'sol', apiId: 'solana', symbol: 'SOL', price: data.solana.usd }
+        ];
+
+        let tickerHtml = '';
+
+        assets.forEach((asset, index) => {
+            const lastPrice = APP.state.lastPrices[asset.id] || asset.price;
+            
+            // 1. Determine Direction & CSS Class
+            const direction = asset.price > lastPrice ? '▲' : asset.price < lastPrice ? '▼' : '—';
+            const statusClass = asset.price > lastPrice ? 'price-up' : asset.price < lastPrice ? 'price-down' : '';
+            
+            // 2. Format Price (e.g., 64.2K)
+            const displayPrice = asset.price >= 1000 
+                ? (asset.price / 1000).toFixed(1) + 'K' 
+                : asset.price.toFixed(2);
+
+            // 3. Build HTML String
+            tickerHtml += `
+                <span class="${statusClass}">${asset.symbol} $${displayPrice}${direction}</span>
+                ${index < assets.length - 1 ? '<span class="ticker-sep">|</span>' : ''}
+            `;
+
+            // 4. Update state for next cycle comparison
+            APP.state.lastPrices[asset.id] = asset.price;
+        });
+
+        $('ticker-crypto').innerHTML = tickerHtml;
         
-        const btcDir = btc > APP.state.lastPrices.btc ? '▲' : btc < APP.state.lastPrices.btc ? '▼' : '';
-        const ethDir = eth > APP.state.lastPrices.eth ? '▲' : eth < APP.state.lastPrices.eth ? '▼' : '';
-        const solDir = sol > APP.state.lastPrices.sol ? '▲' : sol < APP.state.lastPrices.sol ? '▼' : '';
-        
-        const btcColor = btc >= APP.state.lastPrices.btc ? 'var(--g)' : 'var(--r)';
-        const ethColor = eth >= APP.state.lastPrices.eth ? 'var(--g)' : 'var(--r)';
-        const solColor = sol >= APP.state.lastPrices.sol ? 'var(--g)' : 'var(--r)';
-        
-        // Store for next comparison
-        APP.state.lastPrices = { btc, eth, sol };
-        
-        // Build HTML with colored prices
-        $('ticker-crypto').innerHTML = 
-            `<span style="color:${btcColor}">BTC $${fmt(btc)}${btcDir}</span> | ` +
-            `<span style="color:${ethColor}">ETH $${fmt(eth)}${ethDir}</span> | ` +
-            `<span style="color:${solColor}">SOL $${fmt(sol)}${solDir}</span>`;
-    } catch(e) {}
+    } catch(e) {
+        log('TICKER_FETCH_ERR');
+    }
 }
 
 function saveSession() {
@@ -2237,6 +2293,7 @@ document.addEventListener('DOMContentLoaded', () => {
         if (e.target.tagName === 'INPUT') return;
         switch (e.key) {
             case ' ': e.preventDefault(); rotateMedia(); break;
+            case 's': case 'S': triggerSeismic(1.5); break;
             case 'Escape': masterReset(); break;
             case 'h': case 'H': toggleFullscreen(); break;
             case 'b': case 'B': toggleBug(); break;

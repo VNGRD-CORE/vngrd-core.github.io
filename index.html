@@ -23,7 +23,40 @@
             --p: #ff0055; --c: #00f3ff; --g: #00ff88; --y: #ffcc00; --r: #ff3333; --o: #ff9d00; --v: #b000ff;
             --bg: #050508; --panel: #08080c; --panel-light: #0c0c12; --border: #151520; --border-light: #202030;
             --text: #a0a0a8; --text-dim: #505058; --text-bright: #e8e8ec;
-        }
+        }/* ════════════════════════════════════════════════════════════════ 
+   SEISMIC CHASSIS & PARTY THEMES
+   ════════════════════════════════════════════════════════════════ */
+
+/* GPU-ACCELERATED WRAPPER */
+#console-wrapper {
+    width: 100vw;
+    height: 100vh;
+    overflow: hidden;
+    position: relative;
+    will-change: transform;
+    backface-visibility: hidden;
+    display: flex;
+    flex-direction: column;
+}
+
+/* ADDITIONAL PARTY THEMES (Used by the Bass-Trigger Logic) */
+body.theme-gold { 
+    --accent: #ffcc00; 
+    --accent-dim: rgba(255, 204, 0, 0.2); 
+    --accent-glow: rgba(255, 204, 0, 0.5); 
+}
+body.theme-purple { 
+    --accent: #b000ff; 
+    --accent-dim: rgba(176, 0, 255, 0.2); 
+    --accent-glow: rgba(176, 0, 255, 0.5); 
+}
+body.theme-green { 
+    --accent: #00ff88; 
+    --accent-dim: rgba(0, 255, 136, 0.2); 
+    --accent-glow: rgba(0, 255, 136, 0.5); 
+}
+
+/* ════════════════════════════════════════════════════════════════ */
         
         /* THEMES */
         body.theme-magenta { --accent: #ff0055; --accent-dim: rgba(255,0,85,0.2); --accent-glow: rgba(255,0,85,0.5); }
@@ -666,7 +699,21 @@
         body.vhs #stage::before { background: repeating-linear-gradient(0deg, transparent, transparent 2px, rgba(0,0,0,0.15) 2px, rgba(0,0,0,0.15) 4px); animation: vhs-track 0.1s steps(3) infinite; opacity: 0.6; }
         @keyframes vhs-track { 0% { background-position: 0 0; } 100% { background-position: 0 4px; } }
         body.crt #stage::after { background: radial-gradient(ellipse at center, transparent 30%, rgba(0,0,0,0.6) 100%); }
-    /* --- SOVEREIGN MOBILE ADAPTATION --- */
+    /* ... existing styles above ... */
+
+        .pal[data-t="gold"] { background: #ffd700; }
+        .pal[data-t="night"] { background: linear-gradient(135deg, #0a0a15, #1a1a2a); border-color: #334455; }
+
+        /* ═══════════════════════════════════════════════════════════════
+           TICKER UTILITIES (New Polish)
+           ═══════════════════════════════════════════════════════════════ */
+        .price-up { color: var(--g); text-shadow: 0 0 8px rgba(0, 255, 136, 0.4); }
+        .price-down { color: var(--r); text-shadow: 0 0 8px rgba(255, 51, 51, 0.4); }
+        .ticker-sep { opacity: 0.3; margin: 0 8px; color: var(--accent); }
+
+        /* --- SOVEREIGN MOBILE ADAPTATION --- */
+        @media screen and (max-width: 950px) {
+        /* ... existing mobile styles ... *//* --- SOVEREIGN MOBILE ADAPTATION --- */
 @media screen and (max-width: 950px) {
     /* Stack UI vertically on mobile */
     #main-container {
@@ -846,6 +893,8 @@
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
 </head>
 <body>
+    <div id="console-wrapper">
+    <svg style="position:absolute;width:0;height:0;"> ... </svg>
     <!-- SVG Filter: Chromatic Ghost (GPU-accelerated RGB split) -->
     <svg style="position:absolute;width:0;height:0;">
         <defs>
@@ -888,7 +937,7 @@
         <!-- HTML OVERLAY LAYER (Sharp Typography) -->
         <div id="overlay-layer">
             <!-- Station Bug -->
-            <div id="station-bug">DRIS//core</div>
+            <div id="station-bug" class="station-bug cyan">DRIS//core</div>
             
             <!-- Lower Third -->
             <div id="lower-third">
@@ -1191,8 +1240,9 @@
     <input type="file" id="file-logo" accept="image/*">
     <audio id="audio-el"></audio>
     <div id="media-container" style="display:none;"></div>
+    </div> 
 
-    
-    <script type="module" src="src/app.js"></script>
+    <script src="src/app.js"></script>
 </body>
 </html>
+
