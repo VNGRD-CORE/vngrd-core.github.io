@@ -192,14 +192,24 @@ function checkMobile() {
 // ═══════════════════════════════════════════════════════════════════════════
 function initCanvas() {
     APP.render.canvas = $('vj-canvas');
-    APP.render.ctx = APP.render.canvas.getContext('2d', { alpha: false, desynchronized: true });
+    
+    // desynchronized: true is critical for low-latency VJing
+    APP.render.ctx = APP.render.canvas.getContext('2d', { 
+        alpha: false, 
+        desynchronized: true,
+        willReadFrequently: false 
+    });
+    
+    // Tell the browser this is a high-performance layer
+    APP.render.canvas.style.transform = 'translateZ(0)';
+    APP.render.canvas.style.backfaceVisibility = 'hidden';
     
     resizeCanvas();
     window.addEventListener('resize', () => {
         resizeCanvas();
         checkMobile();
     });
-    log('CANVAS_INIT');
+    log('CANVAS_INIT: GPU_LOCKED');
 }
 
 function resizeCanvas() {
@@ -817,6 +827,7 @@ function goLive() {
             document.querySelector('.preview-label').textContent = 'LIVE';
             sovereignStrobe(); // Final strobe on LIVE
             log('LIVE');
+            if (APP.state.isCycle) toggleCycle(); // <--- ADD THIS AT THE VERY END
         }
     }, 1000);
 }
@@ -1032,62 +1043,55 @@ function updateVU() {
     
     APP.audio.analyzer.getByteFrequencyData(APP.audio.vuData);
     const bars = $('vu').children;
-    for (let i = 0; i < bars.length; i++) {
-        bars[i].style.height = Math.max(2, (APP.audio.vuData[i * 2] / 255) * 28) + 'px';
+    
+    // Performance: Only update VU bars if they actually exist
+    if (bars.length > 0) {
+        for (let i = 0; i < bars.length; i++) {
+            bars[i].style.height = Math.max(2, (APP.audio.vuData[i * 2] / 255) * 28) + 'px';
+        }
     }
     
     const currentBass = (APP.audio.vuData[0] + APP.audio.vuData[1] + APP.audio.vuData[2]) / 3;
     const bassDelta = currentBass - APP.vj.lastBassLevel;
     APP.audio.bassLevel = currentBass;
     
-    // RHYTHMIC SEISMIC ENGINE (Peak Detection)
+    // SEISMIC ENGINE: Target ONLY the #stage, not the whole body
     if (APP.vj.rumbleEnabled) {
-        // Detect bass 'hit' - significant upward spike
         if (bassDelta > 40 && currentBass > 150) {
             APP.vj.shakeIntensity = Math.min(1, currentBass / 200);
         }
         
-        // Apply decaying shake with translate3d (GPU optimized)
         if (APP.vj.shakeIntensity > 0.05) {
             const x = (Math.random() - 0.5) * 20 * APP.vj.shakeIntensity;
             const y = (Math.random() - 0.5) * 15 * APP.vj.shakeIntensity;
             const r = (Math.random() - 0.5) * 4 * APP.vj.shakeIntensity;
-            document.body.style.transform = `translate3d(${x}px, ${y}px, 0) rotate(${r}deg)`;
             
-            // Decay for smooth physical 'thump' feel
+            // FIX: translate3d triggers the GPU; targeting 'stage' keeps UI stable
+            $('stage').style.transform = `translate3d(${x}px, ${y}px, 0) rotate(${r}deg)`;
             APP.vj.shakeIntensity *= 0.88;
         } else {
             APP.vj.shakeIntensity = 0;
-            document.body.style.transform = 'translate3d(0, 0, 0) rotate(0)';
+            $('stage').style.transform = '';
         }
     }
     
-    // Store for next frame delta
-    APP.vj.lastBassLevel = currentBass;
-    
-    // PARTY MODE: Shock Light & Skin Swap (No border glow - just flash effects)
+    // PARTY MODE: Optimized skin swapping
     if (APP.vj.uiReactivity) {
-        // Bass Hit Detection for Party Effects
-        if (bassDelta > 40 && currentBass > 150) {
-            // SHOCK LIGHT: Trigger logo-flash brightness effect
-            document.body.classList.remove('logo-flash');
-            void document.body.offsetWidth; // Force reflow
-            document.body.classList.add('logo-flash');
-            setTimeout(() => document.body.classList.remove('logo-flash'), 400);
+        if (bassDelta > 45 && currentBass > 160) {
+            // Flash logo without forcing whole-page reflow where possible
+            const logo = $('main-logo');
+            logo.style.filter = 'brightness(2)';
+            setTimeout(() => logo.style.filter = '', 150);
             
-            // SKIN SWAP: Strong hits trigger random theme
-            if (bassDelta > 60 && currentBass > 180 && Math.random() > 0.6) {
-                const themes = ['cyan', 'magenta', 'gold', 'purple', 'lime', 'orange'];
-                const currentTheme = APP.state.theme;
-                let newTheme = themes[Math.floor(Math.random() * themes.length)];
-                // Ensure we actually change
-                while (newTheme === currentTheme && themes.length > 1) {
-                    newTheme = themes[Math.floor(Math.random() * themes.length)];
-                }
-                setTheme(newTheme);
+            if (bassDelta > 65 && Math.random() > 0.7) {
+                const themes = ['cyan', 'magenta', 'gold', 'purple', 'green'];
+                const next = themes[Math.floor(Math.random() * themes.length)];
+                if (next !== APP.state.theme) setTheme(next);
             }
         }
     }
+    
+    APP.vj.lastBassLevel = currentBass;
 }
 
 function stopAudio() {
