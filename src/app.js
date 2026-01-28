@@ -733,11 +733,11 @@ function hideLowerThird() {
 function updateBug() {
     const bug = $('station-bug');
     if (APP.bug.image) {
-        bug.innerHTML = `<img src="${APP.bug.image}" alt="Logo">`;
+        // Clear text and show IMAGE ONLY
+        bug.innerHTML = `<img src="${APP.bug.image}" alt="Logo" style="display:block; max-height:60px;">`;
     } else {
-        // Use input value if available, else stored text, else default
-        const inputVal = $('bug-text')?.value;
-        bug.textContent = inputVal || APP.bug.text || 'DRIS//core';
+        // Clear image and show TEXT ONLY
+        bug.textContent = APP.bug.text || 'DRIS//core';
     }
 }
 
@@ -752,11 +752,16 @@ function loadLogoFile(input) {
     if (!input.files.length) return;
     const reader = new FileReader();
     reader.onload = (e) => {
-        // This converts the image to a permanent Base64 string
         APP.bug.image = e.target.result; 
+        
+        // Force the bug to be visible so the user sees the new logo
+        APP.bug.visible = true;
+        $('station-bug').classList.remove('hidden');
+        $('btn-bug-toggle').classList.add('on');
+        
         updateBug();
-        saveSession(); // Force an auto-save so it remembers the logo
-        log('LOGO_PERMANENT_SAVED');
+        saveSession(); 
+        log('LOGO_UPLOAD_SUCCESS');
     };
     reader.readAsDataURL(input.files[0]);
 }
@@ -2092,12 +2097,21 @@ document.addEventListener('DOMContentLoaded', () => {
     
     // Station Bug
     $('btn-upload-logo').onclick = () => $('file-logo').click();
+    // Master Clear for Station Bug
+// MASTER CLEAR FOR STATION BUG
     $('btn-clear-logo').onclick = () => { 
         APP.bug.image = null; 
-        APP.bug.text = 'DRIS//core';
+        APP.bug.text = 'DRIS//core'; 
         $('bug-text').value = 'DRIS//core';
+        
+        // Force it to be visible so you see the reset happen
+        APP.bug.visible = true;
+        $('station-bug').classList.remove('hidden');
+        $('btn-bug-toggle').classList.add('on');
+        
         updateBug(); 
-        log('LOGO_RESET'); 
+        saveSession(); 
+        log('BUG_FACTORY_RESET'); 
     };
     $('file-logo').onchange = e => loadLogoFile(e.target);
     $('bug-text').oninput = e => { APP.bug.text = e.target.value; APP.bug.image = null; updateBug(); };
