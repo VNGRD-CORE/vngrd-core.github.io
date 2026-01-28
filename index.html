@@ -750,6 +750,49 @@
     background: #ff3333 !important;
     color: #fff !important;
     box-shadow: 0 0 40px rgba(255, 51, 51, 0.8) !important;
+}/* SURGICAL FIX: Unified Sidebar Modules */
+.camera-box .sec-body, .media-box .sec-body {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+}
+
+/* Force standard height and font for all module buttons */
+.camera-box .btn, .media-box .btn {
+    font-family: 'JetBrains Mono', monospace !important; 
+    height: 42px;
+    text-transform: uppercase;
+    letter-spacing: 1px;
+    font-size: 10px;
+    margin-bottom: 0 !important;
+}
+
+/* 1-2-1 Grid for Camera */
+.camera-box .btn-row {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 8px;
+}
+
+/* Professional 4-Column Grid for Media Deck (Arrow-Cycle-Input-Arrow) */
+.media-row-complex {
+    display: grid;
+    grid-template-columns: 35px 1fr 45px 35px; 
+    gap: 4px;
+    align-items: center;
+}
+
+/* Align the number input with the buttons exactly */
+.media-row-complex input {
+    height: 42px; /* Matches button height */
+    background: #000;
+    border: 1px solid var(--border);
+    color: var(--accent);
+    text-align: center;
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 11px;
+    width: 100%;
+    margin-bottom: 0 !important;
 }</style>
     <meta name="theme-color" content="#00f3ff">
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
@@ -813,8 +856,7 @@
 
     <!-- LEFT PANEL -->
     <aside class="sidebar" id="left-panel">
-        <!-- CAMERA -->
-        <div class="section">
+        <div class="section camera-box">
             <div class="sec-head">
                 <span class="sec-title">CAMERA</span>
                 <div class="sec-dot off" id="cam-dot"></div>
@@ -841,28 +883,25 @@
             </div>
         </div>
         
-        <!-- MEDIA DECK -->
-        <div class="section">
+        <div class="section media-box">
             <div class="sec-head">
                 <span class="sec-title">MEDIA DECK</span>
                 <div class="sec-dot off" id="media-dot"></div>
             </div>
             <div class="sec-body">
-                <button class="btn" id="btn-media" style="display:flex;justify-content:space-between; margin-bottom:4px;">
+                <button class="btn" id="btn-media" style="display:flex; justify-content:space-between; margin-bottom:8px !important;">
                     <span>+ IMPORT MEDIA</span>
                     <span style="opacity:0.5; font-size:9px;">Q: <span id="q-count">0</span></span>
                 </button>
-                
-                <div style="display:flex; gap:4px;">
-                    <button class="btn" id="btn-prev" style="width:30px;">&lt;</button>
-                    <button class="btn" id="btn-cycle" style="flex:1; color:var(--y); border-color:var(--border);">CYCLE: OFF</button>
-                    <input type="number" id="cycle-time" value="8" min="1" max="60" style="width:36px; background:#000; border:1px solid var(--border); color:var(--accent); text-align:center; font-family:'JetBrains Mono', monospace; font-size:11px;" title="Image Secs">
-                    <button class="btn" id="btn-rotate" style="width:30px;">&gt;</button>
+                <div class="media-row-complex">
+                    <button class="btn" id="btn-prev">&lt;</button>
+                    <button class="btn" id="btn-cycle" style="color:var(--y);">CYCLE: OFF</button>
+                    <input type="number" id="cycle-time" value="8" min="1" max="60" title="Image Secs">
+                    <button class="btn" id="btn-rotate">&gt;</button>
                 </div>
             </div>
         </div>
         
-        <!-- COMMAND CENTER -->
         <div class="section">
             <div class="sec-head">
                 <span class="sec-title">COMMAND</span>
@@ -879,7 +918,6 @@
             </div>
         </div>
         
-        <!-- LOWER THIRDS -->
         <div class="section">
             <div class="sec-head">
                 <span class="sec-title">LOWER THIRD</span>
@@ -897,7 +935,6 @@
             </div>
         </div>
         
-        <!-- STATION BUG -->
         <div class="section">
             <div class="sec-head">
                 <span class="sec-title">STATION BUG</span>
@@ -914,9 +951,7 @@
         </div>
     </aside>
 
-    <!-- RIGHT PANEL -->
     <aside class="sidebar" id="right-panel">
-        <!-- AUDIO -->
         <div class="section">
             <div class="sec-head">
                 <span class="sec-title">AUDIO</span>
@@ -933,7 +968,7 @@
                     <button class="btn" id="btn-stop">STOP</button>
                 </div>
                 <div class="lbl" style="margin-top:8px;">SPATIAL MODE</div>
-                <div class="btn-grid-3">
+                <div class="btn-grid-3 camera-box"> 
                     <button class="btn on" id="btn-stereo">STEREO</button>
                     <button class="btn" id="btn-spatial">3D</button>
                     <button class="btn" id="btn-dolby">DOLBY</button>
@@ -945,7 +980,6 @@
             </div>
         </div>
         
-        <!-- IMPACT FX -->
         <div class="section">
             <div class="sec-head">
                 <span class="sec-title">IMPACT FX</span>
@@ -960,7 +994,6 @@
             </div>
         </div>
         
-        <!-- VJ ENGINE -->
         <div class="section">
             <div class="sec-head">
                 <span class="sec-title">VJ ENGINE</span>
@@ -986,7 +1019,6 @@
             </div>
         </div>
         
-        <!-- CANVAS FX -->
         <div class="section">
             <div class="sec-head">
                 <span class="sec-title">CANVAS FX</span>
@@ -1016,7 +1048,6 @@
             </div>
         </div>
         
-        <!-- OVERLAYS -->
         <div class="section">
             <div class="sec-head">
                 <span class="sec-title">OVERLAYS</span>
@@ -1032,7 +1063,6 @@
             </div>
         </div>
         
-        <!-- THEME -->
         <div class="section">
             <div class="sec-head">
                 <span class="sec-title">THEME</span>
@@ -1050,7 +1080,6 @@
             </div>
         </div>
         
-        <!-- SESSION -->
         <div class="section">
             <div class="sec-head">
                 <span class="sec-title">SESSION</span>
@@ -1068,7 +1097,6 @@
             </div>
         </div>
         
-        <!-- P2P GUEST -->
         <div class="section">
             <div class="sec-head">
                 <span class="sec-title">P2P GUEST</span>
