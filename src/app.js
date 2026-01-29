@@ -1689,7 +1689,19 @@ function xrRenderLoop(time, frame) {
     gl.disableVertexAttribArray(APP.xr.aPosition);
     gl.disableVertexAttribArray(APP.xr.aTexCoord);
 }
-
+// ═══════════════════════════════════════════════════════════════════════════
+// IMPACT FX HELPER
+// ═══════════════════════════════════════════════════════════════════════════
+function triggerImpact() {
+    const canvas = APP.render.canvas;
+    if (!canvas) return;
+    
+    // Tactile Feedback: A quick "kick" to the visuals
+    canvas.style.filter = 'brightness(1.8) contrast(1.2)';
+    setTimeout(() => {
+        canvas.style.filter = 'none';
+    }, 50);
+}
 // ═══════════════════════════════════════════════════════════════════════════
 // MASTER RESET
 // ═══════════════════════════════════════════════════════════════════════════
@@ -2306,9 +2318,7 @@ document.addEventListener('DOMContentLoaded', () => {
     
     log('INIT_OK');
     
-    // ═══════════════════════════════════════════════════════════════════════════
     // MATERIAL BLUR REVEAL
-    // ═══════════════════════════════════════════════════════════════════════════
     const blurReveal = $('blur-reveal');
     if (blurReveal) {
         setTimeout(() => blurReveal.remove(), 600);
