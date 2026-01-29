@@ -1225,6 +1225,9 @@ function openProjector() {
 // ═══════════════════════════════════════════════════════════════════════════
 // SPATIAL AUDIO (3D HRTF)
 // ═══════════════════════════════════════════════════════════════════════════
+// ═══════════════════════════════════════════════════════════════════════════
+// SPATIAL AUDIO ENGINE (FIXED)
+// ═══════════════════════════════════════════════════════════════════════════
 function setSpatialMode(mode) {
     if (!APP.audio.ctx || !APP.audio.panner) {
         log('LOAD_AUDIO_FIRST');
@@ -1269,7 +1272,6 @@ function setSpatialMode(mode) {
     }
 }
 
-// Legacy toggle function for backward compat
 function toggleSpatialAudio() {
     if (APP.audio.spatialMode === '3d') {
         setSpatialMode('stereo');
@@ -1278,12 +1280,8 @@ function toggleSpatialAudio() {
     }
 }
 
-// Position audio in 3D space (x: left/right, y: up/down, z: front/back)
 function positionAudio(x, y, z) {
-    // If panner doesn't exist, we stop.
     if (!APP.audio.panner) return;
-    
-    // We force spatialEnabled to true so coordinates always update
     APP.audio.spatialEnabled = true; 
     
     if (APP.audio.panner.positionX) {
