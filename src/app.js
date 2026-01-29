@@ -1692,6 +1692,9 @@ function xrRenderLoop(time, frame) {
 // ═══════════════════════════════════════════════════════════════════════════
 // IMPACT FX HELPER
 // ═══════════════════════════════════════════════════════════════════════════
+// ═══════════════════════════════════════════════════════════════════════════
+// IMPACT FX HELPER
+// ═══════════════════════════════════════════════════════════════════════════
 function triggerImpact() {
     const canvas = APP.render.canvas;
     if (!canvas) return;
@@ -1702,6 +1705,7 @@ function triggerImpact() {
         canvas.style.filter = 'none';
     }, 50);
 }
+
 // ═══════════════════════════════════════════════════════════════════════════
 // MASTER RESET
 // ═══════════════════════════════════════════════════════════════════════════
@@ -2157,7 +2161,7 @@ document.addEventListener('DOMContentLoaded', () => {
     // Station Bug
     $('btn-upload-logo').onclick = () => $('file-logo').click();
     // Master Clear for Station Bug
-// MASTER CLEAR FOR STATION BUG
+    // MASTER CLEAR FOR STATION BUG
     $('btn-clear-logo').onclick = () => { 
         APP.bug.image = null; 
         APP.bug.text = 'DRIS//core'; 
@@ -2211,7 +2215,7 @@ document.addEventListener('DOMContentLoaded', () => {
     $('btn-invert').onclick = impactInvert;
     $('btn-crush').onclick = impactCrush;
     $('btn-rumble').onclick = () => { APP.vj.rumbleEnabled = !APP.vj.rumbleEnabled; $('btn-rumble').classList.toggle('on'); log('SEISMIC_' + (APP.vj.rumbleEnabled ? 'ON' : 'OFF')); };
-    $('btn-ui-react').onclick = () => {      APP.vj.uiReactivity = !APP.vj.uiReactivity;      $('btn-ui-react').classList.toggle('on');           // IF TURNING ON: Give it a kickstart so you see it work immediately     if (APP.vj.uiReactivity) {         cyclePartyThemes();          triggerImpact(); // Add a visual flash so you know it's alive     }          log('PARTY_MODE_' + (APP.vj.uiReactivity ? 'ON' : 'OFF'));  };
+    $('btn-ui-react').onclick = () => {       APP.vj.uiReactivity = !APP.vj.uiReactivity;       $('btn-ui-react').classList.toggle('on');            // IF TURNING ON: Give it a kickstart so you see it work immediately     if (APP.vj.uiReactivity) {          cyclePartyThemes();           triggerImpact(); // Add a visual flash so you know it's alive      }           log('PARTY_MODE_' + (APP.vj.uiReactivity ? 'ON' : 'OFF'));  };
     
     // VJ sliders
     $('sl-b').oninput = e => { APP.vj.brightness = e.target.value / 100; $('val-b').textContent = e.target.value + '%'; };
