@@ -23,40 +23,7 @@
             --p: #ff0055; --c: #00f3ff; --g: #00ff88; --y: #ffcc00; --r: #ff3333; --o: #ff9d00; --v: #b000ff;
             --bg: #050508; --panel: #08080c; --panel-light: #0c0c12; --border: #151520; --border-light: #202030;
             --text: #a0a0a8; --text-dim: #505058; --text-bright: #e8e8ec;
-        }/* ════════════════════════════════════════════════════════════════ 
-   SEISMIC CHASSIS & PARTY THEMES
-   ════════════════════════════════════════════════════════════════ */
-
-/* GPU-ACCELERATED WRAPPER */
-#console-wrapper {
-    width: 100vw;
-    height: 100vh;
-    overflow: hidden;
-    position: relative;
-    will-change: transform;
-    backface-visibility: hidden;
-    display: flex;
-    flex-direction: column;
-}
-
-/* ADDITIONAL PARTY THEMES (Used by the Bass-Trigger Logic) */
-body.theme-gold { 
-    --accent: #ffcc00; 
-    --accent-dim: rgba(255, 204, 0, 0.2); 
-    --accent-glow: rgba(255, 204, 0, 0.5); 
-}
-body.theme-purple { 
-    --accent: #b000ff; 
-    --accent-dim: rgba(176, 0, 255, 0.2); 
-    --accent-glow: rgba(176, 0, 255, 0.5); 
-}
-body.theme-green { 
-    --accent: #00ff88; 
-    --accent-dim: rgba(0, 255, 136, 0.2); 
-    --accent-glow: rgba(0, 255, 136, 0.5); 
-}
-
-/* ════════════════════════════════════════════════════════════════ */
+        }
         
         /* THEMES */
         body.theme-magenta { --accent: #ff0055; --accent-dim: rgba(255,0,85,0.2); --accent-glow: rgba(255,0,85,0.5); }
@@ -699,26 +666,13 @@ body.theme-green {
         body.vhs #stage::before { background: repeating-linear-gradient(0deg, transparent, transparent 2px, rgba(0,0,0,0.15) 2px, rgba(0,0,0,0.15) 4px); animation: vhs-track 0.1s steps(3) infinite; opacity: 0.6; }
         @keyframes vhs-track { 0% { background-position: 0 0; } 100% { background-position: 0 4px; } }
         body.crt #stage::after { background: radial-gradient(ellipse at center, transparent 30%, rgba(0,0,0,0.6) 100%); }
-    /* ... existing styles above ... */
-
-        .pal[data-t="gold"] { background: #ffd700; }
-        .pal[data-t="night"] { background: linear-gradient(135deg, #0a0a15, #1a1a2a); border-color: #334455; }
-
-        /* ═══════════════════════════════════════════════════════════════
-           TICKER UTILITIES (New Polish)
-           ═══════════════════════════════════════════════════════════════ */
-        .price-up { color: var(--g); text-shadow: 0 0 8px rgba(0, 255, 136, 0.4); }
-        .price-down { color: var(--r); text-shadow: 0 0 8px rgba(255, 51, 51, 0.4); }
-        .ticker-sep { opacity: 0.3; margin: 0 8px; color: var(--accent); }
-
-        /* --- SOVEREIGN MOBILE ADAPTATION --- */
-        @media screen and (max-width: 950px) {
-        /* ... existing mobile styles ... *//* --- SOVEREIGN MOBILE ADAPTATION --- */
+    /* --- SOVEREIGN MOBILE ADAPTATION --- */
 @media screen and (max-width: 950px) {
     /* Stack UI vertically on mobile */
-    #console-wrapper {
-    flex-direction: column !important;
-}
+    #main-container {
+        flex-direction: column !important;
+        height: 100vh;
+    }
 
     /* Step 1: Center the Stage */
     #stage {
@@ -804,7 +758,14 @@ body.theme-green {
 }
 
 /* Force standard height and font for all module buttons */
-
+.camera-box .btn, .media-box .btn {
+    font-family: 'JetBrains Mono', monospace !important; 
+    height: 42px;
+    text-transform: uppercase;
+    letter-spacing: 1px;
+    font-size: 10px;
+    margin-bottom: 0 !important;
+}
 
 /* 1-2-1 Grid for Camera */
 .camera-box .btn-row {
@@ -819,21 +780,23 @@ body.theme-green {
     grid-template-columns: 35px 1fr 45px 35px; 
     gap: 4px;
     align-items: center;
-    margin-top: 5px;
 }
 
-/* Force standard height and alignment for the number input */
+/* Align the number input with the buttons exactly */
 .media-row-complex input {
-    height: 42px; /* Exact match to button height */
+    height: 42px; /* Matches button height */
     background: #000;
     border: 1px solid var(--border);
-    color: var(--y); /* Caution Gold for input visibility */
+    color: var(--accent);
     text-align: center;
     font-family: 'JetBrains Mono', monospace;
     font-size: 11px;
     width: 100%;
     margin-bottom: 0 !important;
-    outline: none;
+}#btn-media {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
 }
 .q-label {
     opacity: 0.5;
@@ -883,8 +846,6 @@ body.theme-green {
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
 </head>
 <body>
-    <div id="console-wrapper">
-   
     <!-- SVG Filter: Chromatic Ghost (GPU-accelerated RGB split) -->
     <svg style="position:absolute;width:0;height:0;">
         <defs>
@@ -927,7 +888,7 @@ body.theme-green {
         <!-- HTML OVERLAY LAYER (Sharp Typography) -->
         <div id="overlay-layer">
             <!-- Station Bug -->
-            <div id="station-bug" class="station-bug cyan">DRIS//core</div>
+            <div id="station-bug">DRIS//core</div>
             
             <!-- Lower Third -->
             <div id="lower-third">
@@ -956,13 +917,8 @@ body.theme-green {
                 </div>
                 <button class="btn" id="btn-init-cam">SENSORS ONLINE</button>
                 <div id="cam-ctrls" style="display:none">
-                    <button class="btn" id="btn-go-live" style="color:var(--y)">GO LIVE [3-2-1]</button>
-                    <div class="btn-row">
-                        <button class="btn" id="btn-clip">CLIP 10s</button>
-                        <button class="btn" id="btn-mic">MIC</button>
-                    </div>
-                </div>
-                <div id="live-ctrls" style="display:none">
+    <button class="btn" id="btn-go-live" style="color:var(--y)">GO LIVE [3-2-1]</button>
+</div> <div id="live-ctrls" style="display:none">
                     <button class="btn rec" id="btn-rec">● REC</button>
                     <button class="btn" id="btn-end">END LIVE</button>
                 </div>
@@ -1032,13 +988,19 @@ body.theme-green {
                     <button class="btn" id="btn-upload-logo">UPLOAD LOGO</button>
                     <button class="btn" id="btn-clear-logo">CLEAR</button>
                 </div>
+                
+                <select class="inp" id="bug-style-select" style="cursor:pointer; color:var(--accent);">
+                    <option value="cyan">STYLE: CYAN CORE</option>
+                    <option value="magenta">STYLE: MAGENTA VIBE</option>
+                    <option value="gold">STYLE: GOLD STATUS</option>
+                    <option value="vanguard">STYLE: VANGUARD GLITCH</option>
+                </select>
+
                 <input type="text" class="inp" id="bug-text" placeholder="Station name..." value="DRIS//core">
                 <button class="btn" id="btn-bug-toggle">[B] SHOW/HIDE</button>
             </div>
         </div>
-    </aside>
-
-    <aside class="sidebar" id="right-panel">
+    </aside> <aside class="sidebar" id="right-panel">
         <div class="section">
             <div class="sec-head">
                 <span class="sec-title">AUDIO</span>
@@ -1107,33 +1069,33 @@ body.theme-green {
         </div>
         
         <div class="section">
-            <div class="sec-head">
-                <span class="sec-title">CANVAS FX</span>
-                <div class="sec-dot"></div>
-            </div>
-            <div class="sec-body">
-                <div class="btn-row">
-                    <button class="btn" id="btn-trails">TRAILS</button>
-                    <button class="btn" id="btn-rgb">RGB</button>
-                </div>
-                <div class="slider-wrap">
-                    <div class="slider-top"><span class="slider-lbl">TRAIL α</span><span class="slider-val" id="val-trail">0.92</span></div>
-                    <input type="range" min="50" max="98" value="92" id="sl-trail">
-                </div>
-                <div class="slider-wrap">
-                    <div class="slider-top"><span class="slider-lbl">RGB SHIFT</span><span class="slider-val" id="val-rgb">0</span></div>
-                    <input type="range" min="0" max="30" value="0" id="sl-rgb">
-                </div>
-                <div class="btn-row">
-                    <button class="btn" id="btn-pixelate">PIXEL</button>
-                    <button class="btn" id="btn-bass-link">BASS→RGB</button>
-                </div>
-                <div class="slider-wrap">
-                    <div class="slider-top"><span class="slider-lbl">PIXEL SIZE</span><span class="slider-val" id="val-pix">1</span></div>
-                    <input type="range" min="1" max="32" value="1" id="sl-pix">
-                </div>
-            </div>
+    <div class="sec-head">
+        <span class="sec-title">CANVAS FX</span>
+        <div class="sec-dot"></div>
+    </div>
+    <div class="sec-body">
+        <div class="slider-wrap">
+            <div class="slider-top"><span class="slider-lbl">TRAIL α</span><span class="slider-val" id="val-trail">0.92</span></div>
+            <input type="range" min="50" max="98" value="92" id="sl-trail">
         </div>
+        <div class="slider-wrap">
+            <div class="slider-top"><span class="slider-lbl">RGB SHIFT</span><span class="slider-val" id="val-rgb">0</span></div>
+            <input type="range" min="0" max="30" value="0" id="sl-rgb">
+        </div>
+        <div class="btn-row">
+            <button class="btn" id="btn-pixelate">PIXEL</button>
+            <button class="btn" id="btn-trails">TRAILS</button> 
+        </div>
+        <div class="btn-row">
+            <button class="btn" id="btn-rgb">RGB SHIFT</button>
+            <button class="btn" id="btn-bass-link">BASS→RGB</button>
+        </div>
+        <div class="slider-wrap">
+            <div class="slider-top"><span class="slider-lbl">PIXEL SIZE</span><span class="slider-val" id="val-pix">1</span></div>
+            <input type="range" min="1" max="32" value="1" id="sl-pix">
+        </div>
+    </div>
+</div>
         
         <div class="section">
             <div class="sec-head">
@@ -1202,14 +1164,11 @@ body.theme-green {
     </aside>
 
     <!-- BOTTOM BAR -->
-   <footer id="bottom-bar">
+    <footer id="bottom-bar">
         <div id="ticker-wrap">
             <div id="ticker-label">SYS</div>
             <div id="ticker-scroll">
-                <div id="ticker-text">
-                    DRIS//core VNGRD v22.1 // HYBRID BROADCAST // 
-                    <span id="ticker-crypto">BTC $--- | ETH $--- | SOL $---</span>
-                </div>
+                <div id="ticker-text">DRIS//core VNGRD v22.1 // HYBRID BROADCAST // [H] FULLSCREEN [SPACE] NEXT [B] BUG [ESC] RESET // IMPACT FX: STUTTER • INVERT • CRUSH // <span id="ticker-crypto">BTC $--- | ETH $--- | SOL $---</span></div>
             </div>
         </div>
         <div id="info-bar">
@@ -1223,6 +1182,8 @@ body.theme-green {
             </div>
         </div>
     </footer>
+
+    <!-- SYS LOG -->
     <div id="sys-log"></div>
 
     <!-- HIDDEN -->
@@ -1231,9 +1192,8 @@ body.theme-green {
     <input type="file" id="file-logo" accept="image/*">
     <audio id="audio-el"></audio>
     <div id="media-container" style="display:none;"></div>
-    </div> 
 
-    <script src="src/app.js"></script>
+    
+    <script type="module" src="src/app.js"></script>
 </body>
 </html>
-
