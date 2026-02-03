@@ -5196,8 +5196,23 @@ function activateHeatHaze(active) {
                 });
             };
             input.click();
-        };
-    }
+        }; // Closes upload-trigger onclick
+    } // Closes container check
+
+    // --- GLOBAL ENGINE START ---
+    window.addEventListener('load', () => {
+        console.log("VNGRD_SYSTEM: ONLINE");
+        
+        // 1. Start the Location/Weather engine
+        if (typeof initAtmosphere === 'function') {
+            initAtmosphere();
+        }
+        
+        // 2. Lock the 3D grid to the phone/desktop dimensions
+        if (typeof syncMobileViewport === 'function') {
+            syncMobileViewport();
+        } 
+    });
 </script>
 </body>
 </html>
