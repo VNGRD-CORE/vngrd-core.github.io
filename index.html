@@ -2,14 +2,20 @@
 <html lang="en">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>DRIS//CORE VNGRD V34 ULTRA // WEATHER_REACTIVE_ENGINE</title>
-    <script src="https://unpkg.com/peerjs@1.5.2/dist/peerjs.min.js"></script>
-    <script src="https://cdn.ethers.io/lib/ethers-5.7.umd.min.js"></script>
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
-    <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/loaders/GLTFLoader.js"></script>
-    <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/loaders/OBJLoader.js"></script>
-    <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/loaders/STLLoader.js"></script>
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">    
+   <title>DRIS//CORE VNGRD V34 ULTRA // WEATHER_REACTIVE_ENGINE</title>
+<script src="https://unpkg.com/peerjs@1.5.2/dist/peerjs.min.js"></script>
+<script src="https://cdn.ethers.io/lib/ethers-5.7.umd.min.js"></script>
+<script type="importmap">
+{
+    "imports": {
+        "three": "https://unpkg.com/three@0.160.0/build/three.module.js",
+        "three/addons/": "https://unpkg.com/three@0.160.0/examples/jsm/"
+    }
+}
+</script>
+    <script src="https://unpkg.com/three@0.160.0/examples/jsm/loaders/OBJLoader.js" type="module"></script>
+<script src="https://unpkg.com/three@0.160.0/examples/jsm/loaders/STLLoader.js" type="module"></script>
     <style>
         @import url('https://fonts.googleapis.com/css2?family=Orbitron:wght@400;600;800;900&family=JetBrains+Mono:wght@300;400;500&family=Bebas+Neue&family=Russo+One&display=swap');
         
@@ -19,6 +25,11 @@
             --bg: #050508; --panel: #08080c; --panel-light: #0c0c12; --border: #151520; --border-light: #202030;
             --text: #a0a0a8; --text-dim: #505058; --text-bright: #e8e8ec;
         }
+        * {
+    box-sizing: border-box;
+    margin: 0;
+    padding: 0;
+}
         
         body.theme-magenta { --accent: #ff0055; --accent-dim: rgba(255,0,85,0.2); --accent-glow: rgba(255,0,85,0.5); }
         body.theme-green { --accent: #00ff88; --accent-dim: rgba(0,255,136,0.2); --accent-glow: rgba(0,255,136,0.5); }
@@ -65,21 +76,26 @@
         /* Hide Scrollbars Globally */
         ::-webkit-scrollbar { display: none; }
         html, body { 
-            scrollbar-width: none; 
-            -ms-overflow-style: none; 
-            overflow: hidden; 
-            height: 100vh; width: 100vw; 
-            background: var(--bg); color: var(--text); 
-            font-family: 'JetBrains Mono', monospace; 
-            font-size: 12px; 
-            overscroll-behavior: none; 
-            touch-action: none; 
-            transition: background 0.1s linear; 
-        }
+    scrollbar-width: none; 
+    -ms-overflow-style: none; 
+    overflow: hidden; 
+    height: 100%; /* Change from 100vh to 100% */
+    width: 100%;  /* Change from 100vw to 100% */
+    background: var(--bg); color: var(--text); 
+    font-family: 'JetBrains Mono', monospace; 
+    font-size: 12px; 
+    overscroll-behavior: none; 
+    touch-action: none; 
+    transition: background 0.1s linear; 
+}
+        body::-webkit-scrollbar {
+    display: none;
+  }
 
         input, textarea { 
             user-select: text; 
-            cursor: text !important; 
+            cursor: text !important;
+            touch-action: auto !important;
         }
 
         /* SYSTEM FAILURE MODE (REPLACES PSYCHOSIS STROBE) */
@@ -125,6 +141,24 @@
             98% { opacity: 1; color: var(--r); }
             100% { opacity: 0.6; color: var(--accent); }
         }
+        /* THE HEAT VIBRATION (Sensor Stress) */
+@keyframes heat-vibration {
+    0% { transform: translate(0.3px, 0.3px); }
+    50% { transform: translate(-0.3px, -0.3px); }
+    100% { transform: translate(0.3px, 0.3px); }
+}
+
+/* THE LIGHTNING STRIKE (For Code 95+) */
+@keyframes lightning-strike {
+    0% { filter: brightness(10) saturate(0); }
+    10% { filter: brightness(0.5) saturate(2); }
+    20% { filter: brightness(8) saturate(0); }
+    100% { filter: brightness(1) saturate(1); }
+}
+
+.weather-lightning {
+    animation: lightning-strike 0.4s ease-out;
+}
 
         .logo.m1 { color: #00f3ff; text-shadow: 0 0 20px #00f3ff; animation: pulse-glow 2s infinite; }
         .logo.m2 { color: #ff0055; text-shadow: 2px 2px 0px #fff; animation: glitch-text 0.3s infinite; }
@@ -248,22 +282,26 @@
         }
         
         /* HOLOGRAM WIDGET - REACTOR CORE */
-        #widget-layer {
-            position: absolute; top: 30px; right: 30px; z-index: 2550;
-            width: 150px; height: 150px;
-            pointer-events: auto !important;
-            cursor: move;
-        }
-        #hologram-canvas {
-            width: 100%; height: 100%;
-            background: transparent;
-            border: 1px solid var(--accent-dim);
-            box-shadow: 0 0 20px var(--accent-dim);
-        }
-        #widget-layer.drag-target {
-            border: 2px dashed var(--accent);
-            background: rgba(0,243,255,0.1);
-        }
+       #widget-layer {
+    position: absolute;
+    width: 150px;
+    height: 150px;
+    background: transparent !important; /* Forces background to stay clear */
+    border: none !important;            /* Removes the 1px solid border */
+    z-index: 2600;
+    pointer-events: auto !important;
+    display: block;
+    opacity: 1;
+}
+
+#hologram-canvas {
+    width: 100% !important;
+    height: 100% !important;
+    background: transparent !important; /* Ensures the canvas itself has no color */
+    border: none !important;           /* Removes the dashed/solid lines */
+    box-shadow: none !important;       /* Removes the glow until a model is loaded */
+    display: block;
+}
         
         /* STRUCTURAL INTEGRITY BAR */
         #integrity-bar {
@@ -589,13 +627,25 @@
         .nft-bar { width: 200px; height: 4px; background: #333; margin-top: 10px; }
         .nft-fill { height: 100%; background: var(--r); transition: width 0.1s linear; }
 
-        .blur-reveal { position: fixed; inset: 0; backdrop-filter: blur(50px); -webkit-backdrop-filter: blur(50px); z-index: 99999; pointer-events: none; animation: material-reveal 0.5s ease forwards; }
-        @keyframes material-reveal { 0% { backdrop-filter: blur(50px); opacity: 1; } 100% { backdrop-filter: blur(0px); opacity: 0; } }
+     .blur-reveal {
+    position: fixed;
+    inset: 0;
+    background: #000;
+    /* This creates the 'weird effect' - high contrast makes it pop */
+    backdrop-filter: blur(20px) contrast(160%) brightness(1.4);
+    -webkit-backdrop-filter: blur(20px) contrast(160%) brightness(1.4);
+    z-index: 2000000;
+    pointer-events: none;
+    /* FAST SNAP: 0.4s feels mechanical and high-tech */
+    transition: backdrop-filter 0.4s cubic-bezier(0.15, 0.85, 0.35, 1), 
+                opacity 0.5s ease;
+}
 
-        input[type="file"] { display: none; }
-        body.vhs #stage::before { background: repeating-linear-gradient(0deg, transparent, transparent 2px, rgba(0,0,0,0.15) 2px, rgba(0,0,0,0.15) 4px); animation: vhs-track 0.1s steps(3) infinite; opacity: 0.6; }
-        @keyframes vhs-track { 0% { background-position: 0 0; } 100% { background-position: 0 4px; } }
-        body.crt #stage::after { background: radial-gradient(ellipse at center, transparent 30%, rgba(0,0,0,0.6) 100%); }
+/* The 'Snap-Back' state */
+.blur-reveal.active {
+    backdrop-filter: blur(0px) contrast(100%) brightness(1);
+    opacity: 0;
+}
         
         /* CONSOLE_HARDWARE BUTTON EFFECTS - HIGH-END GLOW AND PULSE */
         .btn {
@@ -786,9 +836,9 @@
             filter: blur(0.5px);
         }
         
-        bodyfalse-active #stage {
-            animation: heat-shimmer 0.15s infinite;
-        }
+        body.heat-active #stage {
+    animation: heat-shimmer 0.15s infinite;
+}
         @keyframes heat-shimmer {
             0%, 100% { transform: translateX(0); }
             25% { transform: translateX(1px); }
@@ -811,57 +861,173 @@
         }
         body.seismic-active { animation: seismic-shake 0.08s infinite; }
         
-    /* HORIZONTAL TV/MOBILE OVERRIDE */
-@media (orientation: landscape) and (max-width: 1024px) {
-    .sidebar, #top-bar, #bottom-bar, #sys-log { 
-        display: none !important; 
-    }
-    #stage {
-        position: fixed !important;
-        inset: 0 !important;
-        border: none !important;
-        z-index: 9999;
-    }
-    #overlay-layer {
-        padding: 5vh 5vw;
-    }
-}
-/* --- V34_MOBILE_ORIENTATION_LOCK --- */
-@media screen and (max-width: 768px) {
-    /* Scale the terminal to fit small screens */
-    #widget-layer {
-        transform: scale(0.65) !important;
-        transform-origin: top left !important;
-        left: 10px !important;
-        top: 10% !important;
-        width: 140% !important; /* Counter-scale to prevent text squashing */
-    }
+   /* ========================================
+   MASTER MOBILE CALIBRATION (V34 ULTRA)
+   ======================================== */
 
-    /* Fix for Landscape/Rotate view */
-    @media (orientation: landscape) {
-        #widget-layer {
-            transform: scale(0.45) !important;
-            top: 5% !important;
-            display: grid;
-            grid-template-columns: 1fr 1fr; /* Side-by-side layout when sideways */
-            gap: 15px;
-        }
-    }
-
-    /* Adjust entrance text for mobile */
-    .entrance-text {
-        font-size: 1.8rem !important;
-        width: 85% !important;
+/* 1. PORTRAIT GUARD - SHOWS ONLY ON VERTICAL PHONES */
+@media screen and (orientation: portrait) {
+    #orientation-warning { 
+        display: flex !important; 
+        flex-direction: column;
+        align-items: center;
+        justify-content: center;
+        position: fixed;
+        inset: 0;
+        z-index: 999999;
+        background: #000;
         text-align: center;
     }
+}
 
-    /* Reduce 3D overhead to keep mobile FPS high */
-    #vanguard-grid {
-        opacity: 0.3 !important;
+/* 2. LANDSCAPE AUTO-SYNC - HIDES WARNING WHEN ROTATED */
+@media screen and (orientation: landscape) {
+    #orientation-warning {
+        display: none !important;
+    }
+}
+
+    /* 2. LANDSCAPE ENGINE - FIXES THE "SUCK" FROM YOUR SCREENSHOT */
+    @media screen and (max-width: 950px) {
+        /* Pushes Title out of the corner/notch */
+        .vngrd-title, h1 {
+            position: fixed !important;
+            top: 25px !important; 
+            left: 25px !important;
+            font-size: 20px !important;
+            z-index: 999999 !important;
+            letter-spacing: 4px !important;
+            margin: 0 !important;
+        }
+
+        /* Forces the 3D Engine/Liquid to fill the whole screen */
+        #trasudate-layer, #trasudate-canvas, canvas, #stage {
+            width: 100vw !important;
+            height: 100vh !important;
+            position: fixed !important;
+            inset: 0 !important;
+            border: none !important;
+        }
+
+        /* Docks the Sidebar at the bottom so it doesn't squash the view */
+        .sidebar, #left-panel {
+            width: 100vw !important;
+            height: 70px !important;
+            position: fixed !important;
+            bottom: 0 !important;
+            left: 0 !important;
+            flex-direction: row !important;
+            justify-content: space-around !important;
+            background: rgba(0, 0, 0, 0.8) !important;
+            backdrop-filter: blur(10px) !important;
+            border-right: none !important;
+            border-top: 1px solid var(--accent) !important;
+            z-index: 1000 !important;
+            padding: 0 10px !important;
+        }
+
+        /* Hide desktop-specific clutter */
+        #top-bar, #sys-log, .desktop-only {
+            display: none !important;
+        }
+    }
+        @media screen and (max-width: 950px) {
+    /* ... your existing mobile code ... */
+
+    #stage {
+        left: 0 !important;   /* Stretches the 3D view to the edges */
+        right: 0 !important;
+        top: 0 !important;
+        bottom: 0 !important;
+        border: none !important;
+    }
+}
+/* ========================================
+   MASTER MOBILE CALIBRATION (V34 ULTRA)
+   ======================================== */
+
+@media screen and (max-width: 950px) {
+    /* 1. RESET THE STAGE: Full bleed, no desktop offsets */
+    #stage {
+        left: 0 !important;
+        top: 0 !important;
+        width: 100vw !important;
+        height: 100vh !important;
+        position: fixed !important;
+    }
+
+    /* 2. REPOSITION SIDEBAR: Dock to bottom as a nav-bar */
+    .sidebar {
+        width: 100% !important;
+        height: 60px !important;
+        bottom: 0 !important;
+        top: auto !important;
+        left: 0 !important;
+        flex-direction: row !important; /* Icons go left-to-right */
+        justify-content: space-around !important;
+        background: rgba(5, 5, 8, 0.95) !important;
+        backdrop-filter: blur(10px);
+        border-top: 1px solid var(--accent-dim);
+        padding: 5px !important;
+        z-index: 1000 !important;
+    }
+
+    /* 3. HIDE CLUTTER: Clean up the 3D space */
+    #sys-log, #system-logs, .desktop-only {
+        display: none !important;
+    }
+
+    /* 4. CAM PREVIEW: Shrink for mobile screen */
+    #cam-preview-float {
+        width: 100px !important;
+        height: 130px !important;
+        bottom: 70px !important; /* Sits just above the new bottom bar */
+        right: 10px !important;
+    }
+}/* ========================================
+   THE "PERFECT ROTATION" RE-CENTER
+   ======================================== */
+
+@media screen and (max-width: 950px) and (orientation: landscape) {
+    /* 1. Force the Stage to 100% of the glass */
+    #stage {
+        left: 0 !important;
+        top: 0 !important;
+        width: 100vw !important;
+        height: 100vh !important;
+        margin: 0 !important;
+        position: fixed !important;
+    }
+
+    /* 2. Dock the Sidebar so it doesn't squash the 3D engine */
+    .sidebar {
+        width: 100% !important;
+        height: 50px !important;
+        bottom: 0 !important;
+        top: auto !important;
+        left: 0 !important;
+        flex-direction: row !important;
+        background: rgba(5, 5, 8, 0.9) !important;
+        backdrop-filter: blur(10px);
+        padding: 0 20px !important;
+        z-index: 9999;
+    }
+
+    /* 3. Hide the messy desktop logs that "shit" on the view */
+    #sys-log, #system-logs {
+        display: none !important;
     }
 }</style>
 </head>
 <body oncontextmenu="return false;">
+ <div id="orientation-warning">
+    <div style="letter-spacing: 5px; font-weight: 900; color: #00ffcc !important; text-transform: uppercase;">
+        Rotate Device
+    </div>
+    <div style="font-size: 10px; margin-top: 8px; opacity: 0.8; color: #00ffcc !important; letter-spacing: 2px;">
+        LANDSCAPE_MODE_REQUIRED_FOR_V34_SYNC
+    </div>
+</div>
     <!-- SHOOTING_OVERLAY -->
     <div id="shooting-overlay"></div>
     
@@ -1289,7 +1455,29 @@
 
 <script>
 const $ = id => document.getElementById(id);
+    window.addEventListener('load', () => {
+    const reveal = $('blur-reveal');
+    if (reveal) {
+        // Wait 1 second so the user feels the blur, then melt away
+   // 150ms is just enough for the eye to catch the "weird distortion"
+        setTimeout(() => {
+            reveal.classList.add('active');
+            console.log("VNGRD_SYSTEM: Kinetic Snap Executed.");
+        }, 150); 
+    }
+});
 
+// --- VNGRD AUDIO ENGINE: PLAYLIST ---
+const playlist = ["track1.mp3", "track2.mp3", "track3.mp3"]; 
+let currentTrack = 0;
+const audioPlayer = new Audio(playlist[currentTrack]);
+
+audioPlayer.addEventListener('ended', () => {
+    currentTrack = (currentTrack + 1) % playlist.length;
+    audioPlayer.src = playlist[currentTrack];
+    audioPlayer.play();
+    console.log("VNGRD_SYSTEM: Transitioning to next track...");
+});
 // --- BROADCAST SAFE DRAG MODULE ---
 function makeLogSafeDraggable(el) {
     let isDragging = false;
@@ -1809,67 +1997,47 @@ function impactCrush() { const oRGB = APP.vj.rgbIntensity, oPix = APP.vj.pixelSi
 
 // SIMPLE DRAGGABLE - DIRECT LEFT/TOP POSITIONING
 function makeDraggable(el) {
-    if (!el) return;
+    let isDown = false, iX, iY, cX = 0, cY = 0;
     
-    let isDragging = false;
-    let startMouseX = 0, startMouseY = 0;
-    let startElX = 0, startElY = 0;
-    
-    el.style.cursor = 'move';
-    
-    el.addEventListener('mousedown', function(e) {
-        if (e.target.tagName === 'BUTTON' || e.target.tagName === 'INPUT' || e.target.tagName === 'CANVAS') return;
-        if (window.getComputedStyle(el).display === 'none') return;
-        
-        isDragging = true;
-        el.classList.add('dragging');
-        
-        const rect = el.getBoundingClientRect();
-        startMouseX = e.clientX;
-        startMouseY = e.clientY;
-        startElX = rect.left;
-        startElY = rect.top;
-        
-        // Convert to fixed positioning
-        el.style.position = 'fixed';
-        el.style.left = startElX + 'px';
-        el.style.top = startElY + 'px';
-        el.style.right = 'auto';
-        el.style.bottom = 'auto';
-        el.style.transform = 'none';
-        el.style.zIndex = '10000';
-        
-        e.preventDefault();
+    el.addEventListener('mousedown', e => {
+        isDown = true;
+        iX = e.clientX - cX;
+        iY = e.clientY - cY;
+        el.style.cursor = 'grabbing';
         e.stopPropagation();
     });
-    
-    document.addEventListener('mousemove', function(e) {
-        if (!isDragging) return;
+
+    document.addEventListener('mousemove', e => {
+        if (!isDown) return;
+        e.preventDefault();
         
-        const dx = e.clientX - startMouseX;
-        const dy = e.clientY - startMouseY;
-        
-        let newX = startElX + dx;
-        let newY = startElY + dy;
-        
-        // Constrain to stage
+        let nextX = e.clientX - iX;
+        let nextY = e.clientY - iY;
+
+        // --- SAFE AREA CONSTRAINTS ---
         const stage = $('stage');
         if (stage) {
-            const bounds = stage.getBoundingClientRect();
-            newX = Math.max(bounds.left + 10, Math.min(newX, bounds.right - 80));
-            newY = Math.max(bounds.top + 10, Math.min(newY, bounds.bottom - 40));
+            const sRect = stage.getBoundingClientRect();
+            const eRect = el.getBoundingClientRect();
+
+            // Calculate limits (relative to current position)
+            // Left/Right bounds
+            if (eRect.left + (nextX - cX) < sRect.left) nextX = cX - (eRect.left - sRect.left);
+            if (eRect.right + (nextX - cX) > sRect.right) nextX = cX + (sRect.right - eRect.right);
+            
+            // Top/Bottom bounds
+            if (eRect.top + (nextY - cY) < sRect.top) nextY = cY - (eRect.top - sRect.top);
+            if (eRect.bottom + (nextY - cY) > sRect.bottom) nextY = cY + (sRect.bottom - eRect.bottom);
         }
-        
-        el.style.left = newX + 'px';
-        el.style.top = newY + 'px';
+
+        cX = nextX;
+        cY = nextY;
+        el.style.transform = `translate3d(${cX}px, ${cY}px, 0)`;
     });
-    
-    document.addEventListener('mouseup', function() {
-        if (isDragging) {
-            isDragging = false;
-            el.classList.remove('dragging');
-            el.style.zIndex = '';
-        }
+
+    document.addEventListener('mouseup', () => {
+        isDown = false;
+        el.style.cursor = 'grab';
     });
 }
 
@@ -1963,75 +2131,86 @@ if ($('sl-layer-logo')) {
 }
 
 // 3D MODEL - Upload (STL, OBJ, GLB, GLTF)
+// --- V34 HOLOGRAM INJECTION ENGINE ---
+// --- V34 FINAL 3D REPAIR (FIXES .OBJ VISIBILITY) ---
 if ($('btn-inject-3d')) {
-    $('btn-inject-3d').onclick = () => $('file-3d-model').click();
-}
+    $('btn-inject-3d').onclick = () => {
+        const input = document.createElement('input');
+        input.type = 'file';
+        input.accept = '.stl,.obj';
+        
+        input.onchange = (e) => {
+            const file = e.target.files[0];
+            if(!file) return;
+            const url = URL.createObjectURL(file);
+            const ext = file.name.toLowerCase().split('.').pop();
+            
+            // 1. Prepare Container
+            const container = $('widget-layer');
+            container.innerHTML = '<canvas id="hologram-canvas"></canvas>';
+            container.style.opacity = '1';
+            
+            // 2. Setup Scene
+            const scene = new THREE.Scene();
+            const camera = new THREE.PerspectiveCamera(75, 1, 0.1, 1000);
+            const renderer = new THREE.WebGLRenderer({ 
+                canvas: $('hologram-canvas'), 
+                alpha: true, 
+                antialias: true 
+            });
+            renderer.setClearColor(0x000000, 0);
+            renderer.setSize(150, 150);
+            
+            // Add strong lights so the model isn't black
+            const light = new THREE.DirectionalLight(0xffffff, 1);
+            light.position.set(1, 1, 2).normalize();
+            scene.add(light);
+            scene.add(new THREE.AmbientLight(0xffffff, 0.8));
 
-if ($('file-3d-model')) {
-    $('file-3d-model').onchange = e => {
-        if (!e.target.files.length) return;
-        
-        const file = e.target.files[0];
-        const ext = file.name.toLowerCase().split('.').pop();
-        const url = URL.createObjectURL(file);
-        
-        log('3D_LOADING: ' + file.name.toUpperCase());
-        
-        // Clear existing mesh
-        if (APP.hologram.scene && APP.hologram.mesh) {
-            APP.hologram.scene.remove(APP.hologram.mesh);
-            APP.hologram.mesh = null;
-        }
-        
-        // Show hologram widget
-        const widget = $('widget-layer');
-        if (widget) {
-            widget.style.opacity = '1';
-            widget.style.pointerEvents = 'auto';
-        }
-        
-        // Load based on file type
-        if (ext === 'glb' || ext === 'gltf') {
-            const loader = new THREE.GLTFLoader();
-            loader.load(url, (gltf) => {
-                APP.hologram.mesh = gltf.scene;
-                APP.hologram.mesh.traverse(child => {
+            // 3. Loader Logic
+            let loader = (ext === 'obj') ? new THREE.OBJLoader() : new THREE.STLLoader();
+            
+            log('LOADING_3D: ' + file.name.toUpperCase());
+
+            loader.load(url, (object) => {
+                let mesh;
+                if (ext === 'obj') {
+                    mesh = object; // OBJLoader returns a Group
+                } else {
+                    const material = new THREE.MeshNormalMaterial({ wireframe: true });
+                    mesh = new THREE.Mesh(object, material); // STLLoader returns Geometry
+                }
+
+                // Apply wireframe to all parts of OBJ
+                mesh.traverse(child => {
                     if (child.isMesh) {
-                        child.material = new THREE.MeshBasicMaterial({ color: 0x00f3ff, wireframe: true });
+                        child.material = new THREE.MeshNormalMaterial({ wireframe: true });
                     }
                 });
-                normalizeAndAddMesh(APP.hologram.mesh);
-                log('3D_LOADED: GLB/GLTF');
-            }, undefined, err => {
-                log('3D_ERROR: LOAD_FAILED');
+
+                // --- THE "FORCE VISIBLE" MATH ---
+                const box = new THREE.Box3().setFromObject(mesh);
+                const center = box.getCenter(new THREE.Vector3());
+                const size = box.getSize(new THREE.Vector3());
+                const maxDim = Math.max(size.x, size.y, size.z);
+                const scale = 2.0 / maxDim; // Scale to fit our 150px window
+
+                mesh.position.sub(center); // Move center of object to 0,0,0
+                mesh.scale.multiplyScalar(scale);
+                
+                scene.add(mesh);
+                camera.position.z = 4; // Back up the camera
+
+                const animate = () => {
+                    requestAnimationFrame(animate);
+                    mesh.rotation.y += 0.01;
+                    renderer.render(scene, camera);
+                };
+                animate();
+                log('3D_STATUS: RENDER_ACTIVE');
             });
-        } else if (ext === 'obj') {
-            const loader = new THREE.OBJLoader();
-            loader.load(url, (obj) => {
-                APP.hologram.mesh = obj;
-                obj.traverse(child => {
-                    if (child.isMesh) {
-                        child.material = new THREE.MeshBasicMaterial({ color: 0x00f3ff, wireframe: true });
-                    }
-                });
-                normalizeAndAddMesh(APP.hologram.mesh);
-                log('3D_LOADED: OBJ');
-            }, undefined, err => {
-                log('3D_ERROR: LOAD_FAILED');
-            });
-        } else if (ext === 'stl') {
-            const loader = new THREE.STLLoader();
-            loader.load(url, (geometry) => {
-                const material = new THREE.MeshBasicMaterial({ color: 0x00f3ff, wireframe: true });
-                APP.hologram.mesh = new THREE.Mesh(geometry, material);
-                normalizeAndAddMesh(APP.hologram.mesh);
-                log('3D_LOADED: STL');
-            }, undefined, err => {
-                log('3D_ERROR: LOAD_FAILED');
-            });
-        } else {
-            log('3D_ERROR: UNSUPPORTED_FORMAT');
-        }
+        };
+        input.click();
     };
 }
 
@@ -3968,24 +4147,45 @@ document.addEventListener('DOMContentLoaded', () => {
     // GEO_HANDSHAKE + OPEN-METEO API + REFRACTIVE RAIN
     // ========================================
     
-    // Initialize atmosphere canvas and refraction buffer
-    function initAtmosphereCanvas() {
-        APP.atmosphere.canvas = $('atmos-canvas');
-        APP.atmosphere.refractionCanvas = $('refraction-buffer');
-        
-        if (APP.atmosphere.canvas) {
-            APP.atmosphere.ctx = APP.atmosphere.canvas.getContext('2d');
-            const stage = $('stage');
-            APP.atmosphere.canvas.width = stage.clientWidth;
-            APP.atmosphere.canvas.height = stage.clientHeight;
-        }
-        
-        if (APP.atmosphere.refractionCanvas) {
-            APP.atmosphere.refractionCtx = APP.atmosphere.refractionCanvas.getContext('2d');
-            APP.atmosphere.refractionCanvas.width = APP.render.canvas.width;
-            APP.atmosphere.refractionCanvas.height = APP.render.canvas.height;
-        }
+function initAtmosphereCanvas() {
+    APP.atmosphere.canvas = $('atmos-canvas');
+    APP.atmosphere.refractionCanvas = $('refraction-buffer');
+    
+    // Initial size variables
+    const w = window.innerWidth;
+    const h = window.innerHeight;
+    
+    if (APP.atmosphere.canvas) {
+        APP.atmosphere.ctx = APP.atmosphere.canvas.getContext('2d');
+        APP.atmosphere.canvas.width = w;
+        APP.atmosphere.canvas.height = h;
     }
+    
+    if (APP.atmosphere.refractionCanvas) {
+        APP.atmosphere.refractionCtx = APP.atmosphere.refractionCanvas.getContext('2d');
+        APP.atmosphere.refractionCanvas.width = w;
+        APP.atmosphere.refractionCanvas.height = h;
+    }
+
+    // THE MASTER RESIZE LISTENER (Handles both layers)
+    window.addEventListener('resize', () => {
+        const newW = window.innerWidth;
+        const newH = window.innerHeight;
+
+        if (APP.atmosphere.canvas) {
+            APP.atmosphere.canvas.width = newW;
+            APP.atmosphere.canvas.height = newH;
+        }
+
+        if (APP.atmosphere.refractionCanvas) {
+            APP.atmosphere.refractionCanvas.width = newW;
+            APP.atmosphere.refractionCanvas.height = newH;
+        }
+        
+        // Log to console for debugging mobile rotations
+        console.log(`V34_ENGINE: CALIBRATED_TO_${newW}x${newH}`);
+    });
+}
     
     // GEO_HANDSHAKE: Get real coordinates
     async function initAtmosphere() {
@@ -4122,315 +4322,122 @@ document.addEventListener('DOMContentLoaded', () => {
         }
         $('refraction-buffer').classList.add('active');
     }
+   function renderRefractiveRain() {
+    if (!APP.atmosphere.ctx || !APP.trasudate.active) return;
     
-    // CLEAN RAIN DROP - realistic stutter-and-slide physics
-    function createRefractiveRainDrop() {
-        if (!APP.atmosphere.ctx) return;
-        
-        const canvas = APP.atmosphere.canvas;
-        const intensity = APP.atmosphere.intensity || 50;
-        const drop = {
-            x: Math.random() * canvas.width,
-            y: -30,
-            length: 15 + Math.random() * 25,
-            speed: 8 + Math.random() * 12 + (intensity / 10),
-            opacity: 0.3 + Math.random() * 0.4,
-            // Stutter-and-slide physics
-            velocity: 0,
-            gravity: 0.6 + Math.random() * 0.4,
-            stutter: Math.random() < 0.2,
-            stutterCounter: 0,
-            maxStutter: 3 + Math.floor(Math.random() * 6),
-            refractIndex: 1.15 + Math.random() * 0.2
-        };
-        APP.atmosphere.rainDrops.push(drop);
+    const ctx = APP.atmosphere.ctx;
+    const canvas = APP.atmosphere.canvas;
+    const vjCanvas = APP.render.canvas;
+    const intensity = APP.atmosphere.intensity || 50;
+    
+    ctx.clearRect(0, 0, canvas.width, canvas.height);
+    
+    if (Math.random() < (intensity / 30)) {
+        createRefractiveRainDrop();
     }
     
-    // Render CLEAN realistic rain - no psychedelic colors
-    function renderRefractiveRain() {
-        if (!APP.atmosphere.ctx || !APP.trasudate.active) return;
-        
-        const ctx = APP.atmosphere.ctx;
-        const canvas = APP.atmosphere.canvas;
-        const vjCanvas = APP.render.canvas;
-        const intensity = APP.atmosphere.intensity || 50;
-        
-        ctx.clearRect(0, 0, canvas.width, canvas.height);
-        
-        // Create new drops based on intensity
-        const spawnRate = intensity / 30;
-        if (Math.random() < spawnRate) {
-            createRefractiveRainDrop();
-        }
-        
-        // Update and draw drops with stutter-and-slide physics
-        APP.atmosphere.rainDrops = APP.atmosphere.rainDrops.filter(drop => {
-            // Stutter-and-slide gravity
-            if (drop.stutter && drop.stutterCounter < drop.maxStutter) {
-                drop.stutterCounter++;
-                drop.velocity *= 0.4;
-            } else {
-                drop.velocity += drop.gravity;
-                drop.stutter = Math.random() < 0.03;
-                drop.stutterCounter = 0;
-            }
-            
-            drop.y += drop.velocity;
-            
-            // Draw CLEAN rain drop - realistic blue/white gradient
-            const gradient = ctx.createLinearGradient(drop.x, drop.y, drop.x, drop.y + drop.length);
-            gradient.addColorStop(0, 'transparent');
-            gradient.addColorStop(0.2, `rgba(200, 220, 255, ${drop.opacity * 0.3})`);
-            gradient.addColorStop(0.5, `rgba(180, 200, 240, ${drop.opacity * 0.6})`);
-            gradient.addColorStop(0.8, `rgba(160, 180, 220, ${drop.opacity * 0.4})`);
-            gradient.addColorStop(1, 'transparent');
-            
-            ctx.strokeStyle = gradient;
-            ctx.lineWidth = 2;
-            ctx.lineCap = 'round';
-            ctx.beginPath();
-            ctx.moveTo(drop.x, drop.y);
-            ctx.lineTo(drop.x, drop.y + drop.length);
-            ctx.stroke();
-            
-            // Subtle magnification effect
-            if (APP.atmosphere.refractionCtx && vjCanvas) {
-                try {
-                    const scale = drop.refractIndex;
-                    const sourceX = (drop.x / canvas.width) * vjCanvas.width;
-                    const sourceY = (drop.y / canvas.height) * vjCanvas.height;
-                    const sourceW = 15;
-                    const sourceH = drop.length * 1.5;
-                    
-                    APP.atmosphere.refractionCtx.globalAlpha = 0.08;
-                    APP.atmosphere.refractionCtx.drawImage(
-                        vjCanvas,
-                        sourceX - sourceW/2, sourceY - sourceH/2, sourceW, sourceH,
-                        drop.x - sourceW*scale/2, drop.y - sourceH*scale/2, sourceW * scale, sourceH * scale
-                    );
-                    APP.atmosphere.refractionCtx.globalAlpha = 1;
-                } catch (e) { /* ignore */ }
-            }
-            
-            return drop.y < canvas.height + 50;
-        });
-        
-        if (APP.trasudate.active) {
-            requestAnimationFrame(renderRefractiveRain);
-        }
-    }
-    
-    // ========================================
-    // GEOLOCATION -> SATELLITE -> TRASUDATE
-    // Auto-weather integration (no manual buttons)
-    // ========================================
-    
-    // Update weather UI status displays
-    function updateWeatherUI(condition, isRaining) {
-        const weatherStatus = $('weather-status');
-        const rainStatus = $('rain-status');
-        const atmosDot = $('atmos-dot');
-        
-        if (weatherStatus) weatherStatus.textContent = 'WEATHER: ' + condition.toUpperCase();
-        
-        if (rainStatus) {
-            if (isRaining) {
-                rainStatus.textContent = 'RAIN: AUTO_ENABLED';
-                rainStatus.style.color = 'var(--c)';
-            } else {
-                rainStatus.textContent = 'RAIN: AUTO_DISABLED';
-                rainStatus.style.color = 'var(--text-dim)';
-            }
-        }
-        
-        if (atmosDot) atmosDot.classList.toggle('off', !isRaining);
-    }
-    
-    // Enable rain automatically based on satellite weather
-    function enableRainAuto() {
-        if (!APP.trasudate.active) {
-            APP.trasudate.active = true;
-            initTrasudateEngine();
-            initAtmosphereCanvas();
-            initRefractionBuffer();
-            renderRefractiveRain();
-            log('WEATHER_AUTO: RAIN_ENABLED');
-        }
-    }
-    
-    // Disable rain automatically
-    function disableRainAuto() {
-        if (APP.trasudate.active) {
-            APP.trasudate.active = false;
-            stopTrasudateEngine();
-            APP.atmosphere.rainDrops = [];
-            if (APP.atmosphere.ctx) {
-                APP.atmosphere.ctx.clearRect(0, 0, APP.atmosphere.canvas.width, APP.atmosphere.canvas.height);
-            }
-            log('WEATHER_AUTO: RAIN_DISABLED');
-        }
-    }
-    
-    // Parse weather condition and trigger visual effects automatically
-    function processWeatherCondition(weatherCode, condition) {
-        // Weather codes: 51,53,55 = drizzle, 61,63,65 = rain, 80,81,82 = showers, 95,96,99 = thunderstorm
-        const rainCodes = [51, 53, 55, 61, 63, 65, 80, 81, 82, 95, 96, 99];
-        const isRaining = rainCodes.includes(weatherCode);
-        const temp = APP.atmosphere.temperature || 20;
-        const isHot = temp > 30;
-        
-        updateWeatherUI(condition, isRaining);
-        
-        // AUTO LENS DRIP - Rain triggers water droplet effect
-        if (isRaining) {
-            enableRainAuto();
-            activateLensDrip(true);
-            if ($('weather-fx')) $('weather-fx').textContent = 'FX: LENS_DRIP (RAIN)';
+    APP.atmosphere.rainDrops = APP.atmosphere.rainDrops.filter(drop => {
+        // 1. Physics update
+        if (drop.stutter && drop.stutterCounter < drop.maxStutter) {
+            drop.stutterCounter++;
+            drop.velocity *= 0.4;
         } else {
-            disableRainAuto();
-            activateLensDrip(false);
+            drop.velocity += drop.gravity;
+            drop.stutter = Math.random() < 0.03;
+            drop.stutterCounter = 0;
+        }
+        drop.y += drop.velocity;
+
+        // 2. DEFINE THE GRADIENT (Crucial fix: Define before using)
+        const gradient = ctx.createLinearGradient(drop.x, drop.y, drop.x, drop.y + drop.length);
+        gradient.addColorStop(0, 'transparent');
+        gradient.addColorStop(0.2, `rgba(200, 220, 255, ${drop.opacity * 0.3})`);
+        gradient.addColorStop(0.5, `rgba(180, 200, 240, ${drop.opacity * 0.6})`);
+        gradient.addColorStop(0.8, `rgba(160, 180, 220, ${drop.opacity * 0.4})`);
+        gradient.addColorStop(1, 'transparent');
+
+        // 3. OPTICAL LIGHT PASS
+        ctx.globalCompositeOperation = 'lighter';
+        ctx.strokeStyle = gradient;
+        ctx.lineWidth = 2;
+        ctx.lineCap = 'round';
+        ctx.beginPath();
+        ctx.moveTo(drop.x, drop.y);
+        ctx.lineTo(drop.x, drop.y + drop.length);
+        ctx.stroke();
+
+        // 4. THE SPECULAR GLINT (Expensive glass spark)
+        ctx.globalCompositeOperation = 'source-over';
+        ctx.fillStyle = `rgba(255, 255, 255, ${drop.opacity * 0.9})`;
+        ctx.beginPath();
+        ctx.arc(drop.x, drop.y + 2, 0.8, 0, Math.PI * 2); 
+        ctx.fill();
+
+        // 5. OPTICAL REFRACTION (The "Magnifying Glass" effect)
+        if (APP.atmosphere.refractionCtx && vjCanvas) {
+            const rCtx = APP.atmosphere.refractionCtx;
+            rCtx.globalCompositeOperation = 'overlay';
+            rCtx.globalAlpha = 0.15; // Balanced for high-end look
+            
+            try {
+                const scale = drop.refractIndex;
+                const sourceX = (drop.x / canvas.width) * vjCanvas.width;
+                const sourceY = (drop.y / canvas.height) * vjCanvas.height;
+                const sourceW = 15;
+                const sourceH = drop.length * 1.5;
+                
+                rCtx.drawImage(
+                    vjCanvas,
+                    sourceX - sourceW/2, sourceY - sourceH/2, sourceW, sourceH,
+                    drop.x - (sourceW*scale)/2, drop.y - (sourceH*scale)/2, sourceW * scale, sourceH * scale
+                );
+            } catch (e) {}
+            rCtx.globalAlpha = 1.0;
         }
         
-        // AUTO HEAT HAZE - Hot weather (>30C) triggers distortion
-        if (isHot && !isRaining) {
-            activateHeatHaze(true);
-            if ($('weather-fx')) $('weather-fx').textContent = 'FX: HEAT_HAZE (' + temp + 'C)';
-        } else if (!isRaining) {
-            activateHeatHaze(false);
-            if ($('weather-fx')) $('weather-fx').textContent = 'FX: NONE';
-        }
-    }
+        return drop.y < canvas.height + 50;
+    });
     
-    // LENS DRIP EFFECT - Water droplets on lens during rain
-    function activateLensDrip(active) {
-        const canvas = $('lens-drip-canvas');
-        if (!canvas) return;
-        
-        APP.shaders.lensDrip.active = active;
-        canvas.classList.toggle('active', active);
-        
-        if (active && !APP.shaders.lensDrip.rafId) {
-            animateLensDrip();
-        }
+    if (APP.trasudate.active) {
+        requestAnimationFrame(renderRefractiveRain);
     }
-    
-    function animateLensDrip() {
-        if (!APP.shaders.lensDrip.active) {
-            APP.shaders.lensDrip.rafId = null;
-            return;
-        }
-        
-        const canvas = $('lens-drip-canvas');
-        const ctx = canvas.getContext('2d');
-        if (!ctx) return;
-        
-        const stage = $('stage');
-        if (stage) {
-            canvas.width = stage.clientWidth;
-            canvas.height = stage.clientHeight;
-        }
-        
-        ctx.clearRect(0, 0, canvas.width, canvas.height);
-        
-        const time = APP.shaders.lensDrip.time++;
-        const intensity = (APP.atmosphere.intensity || 50) / 100;
-        
-        // Draw water droplets
-        for (let i = 0; i < Math.floor(20 * intensity); i++) {
-            const x = (Math.sin(time * 0.01 + i * 1.7) * 0.4 + 0.5) * canvas.width;
-            const y = ((time * 2 + i * 70) % (canvas.height + 120)) - 60;
-            const size = 12 + Math.sin(i * 0.8) * 6;
-            
-            // Droplet with refraction
-            const gradient = ctx.createRadialGradient(x, y, 0, x, y + size * 0.2, size);
-            gradient.addColorStop(0, 'rgba(220, 240, 255, 0.3)');
-            gradient.addColorStop(0.5, 'rgba(200, 220, 255, 0.15)');
-            gradient.addColorStop(1, 'transparent');
-            
-            ctx.fillStyle = gradient;
-            ctx.beginPath();
-            ctx.ellipse(x, y, size * 0.5, size, 0, 0, Math.PI * 2);
-            ctx.fill();
-            
-            // Highlight
-            ctx.fillStyle = 'rgba(255, 255, 255, 0.4)';
-            ctx.beginPath();
-            ctx.arc(x - size * 0.15, y - size * 0.2, size * 0.12, 0, Math.PI * 2);
-            ctx.fill();
-        }
-        
-        APP.shaders.lensDrip.rafId = requestAnimationFrame(animateLensDrip);
-    }
+}
     
     // HEAT HAZE EFFECT - Thermal distortion during hot weather
-    function activateHeatHaze(active) {
-        const canvas = $('heat-haze-canvas');
-        if (!canvas) return;
-        
-        APP.shaders.heatHaze.active = active;
-        canvas.classList.toggle('active', active);
-        
-        if (active && !APP.shaders.heatHaze.rafId) {
-            animateHeatHaze();
-        }
-    }
-    
-    function animateHeatHaze() {
-        if (!APP.shaders.heatHaze.active) {
-            APP.shaders.heatHaze.rafId = null;
-            return;
-        }
-        
-        const canvas = $('heat-haze-canvas');
-        const ctx = canvas.getContext('2d');
-        if (!ctx) return;
-        
-        const stage = $('stage');
-        if (stage) {
-            canvas.width = stage.clientWidth;
-            canvas.height = stage.clientHeight;
-        }
-        
-        ctx.clearRect(0, 0, canvas.width, canvas.height);
-        
-        const time = APP.shaders.heatHaze.time++;
+    // --- THE THERMAL OVERLOAD ENGINE (High-End Heat) ---
+function activateHeatHaze(active) {
+    const stage = $('stage');
+    if (!stage) return;
+
+    APP.shaders.heatHaze.active = active;
+
+    if (active) {
         const temp = APP.atmosphere.temperature || 25;
-        const intensity = Math.min((temp - 25) / 20, 1);
+        // Calculate intensity: Higher temp = more "Bloom" and "Bleed"
+        const intensity = Math.min((temp - 25) / 20, 1); 
         
-        if (intensity <= 0) return;
-        
-        // Draw heat waves from bottom
-        ctx.save();
-        ctx.globalAlpha = 0.1 * intensity;
-        
-        for (let y = canvas.height; y > canvas.height * 0.4; y -= 25) {
-            const waveOffset = Math.sin(time * 0.03 + y * 0.005) * 6 * intensity;
-            const heatColor = `rgba(255, ${Math.floor(200 - (canvas.height - y) / canvas.height * 100)}, 80, ${0.08 * intensity})`;
+        if (intensity > 0) {
+            // OPTICAL BLOOM: Brightness and Saturation increase with heat
+            const b = 1 + (0.15 * intensity);
+            const s = 1 + (0.4 * intensity);
+            const blur = 0.3 * intensity;
+
+            stage.style.filter = `brightness(${b}) contrast(1.1) saturate(${s}) blur(${blur}px)`;
             
-            ctx.strokeStyle = heatColor;
-            ctx.lineWidth = 2;
-            ctx.beginPath();
-            ctx.moveTo(0, y);
+            // SENSOR VIBRATION: Mimics air molecules moving (very fast, tiny)
+            stage.style.animation = 'heat-vibration 0.1s infinite';
             
-            for (let x = 0; x < canvas.width; x += 12) {
-                const wave = Math.sin(time * 0.04 + x * 0.012) * waveOffset;
-                ctx.lineTo(x, y + wave);
-            }
-            ctx.stroke();
+            log(`SYSTEM: THERMAL_STRESS_LEVEL_${Math.round(intensity * 100)}`);
         }
-        
-        ctx.restore();
-        APP.shaders.heatHaze.rafId = requestAnimationFrame(animateHeatHaze);
+    } else {
+        // Reset to nominal
+        stage.style.filter = '';
+        stage.style.animation = '';
     }
-    
-    // Initialize shaders state
-    APP.shaders = APP.shaders || {
-        lensDrip: { active: false, time: 0, rafId: null },
-        heatHaze: { active: false, time: 0, rafId: null }
-    };
-    
-    // Initialize satellite atmosphere on load
-    initAtmosphere();
+}
+
+// NOTE: You can delete the animateHeatHaze() function entirely. 
+// The GPU now handles the "heat" via CSS filters, saving you CPU power!
 
     // ========================================
     // NFT_VAULT: SCAN WALLET ASSETS
@@ -5110,36 +5117,87 @@ document.addEventListener('DOMContentLoaded', () => {
         playImpactSoundWithSpatial(x || window.innerWidth/2, y || window.innerHeight/2);
     };
 
-    // --- FINAL DRAG INITIALIZATION ---
-    makeDraggable($('widget-layer'));
-    makeDraggable($('station-bug'));
-    makeDraggable($('user-logo-layer'));
+    // --- INDEPENDENT LOGO DRAG INITIALIZATION ---
+    // This targets the three specific layers you want to move
+    const logoLayers = ['widget-layer', 'user-logo-layer', 'station-bug'];
+
+    logoLayers.forEach(id => {
+        const el = $(id);
+        if (el) {
+            // Ensure the element is visible and interactive
+            el.style.pointerEvents = 'auto'; 
+            // Apply the smooth GPU dragging logic
+            makeDraggable(el);
+        }
+    });
+
+    // KEEP THIS: Initialize geo ticker injection
+    setTimeout(injectGeoToTicker, 3000);
     
     // Initialize geo ticker injection
     setTimeout(injectGeoToTicker, 3000);
 
 }); // THIS IS THE END of the startup block. Do not put code after this line.
-/* --- MOBILE_ORIENTATION_HANDSHAKE --- */
-function syncMobileViewport() {
-    if (typeof camera !== 'undefined' && typeof renderer !== 'undefined') {
-        camera.aspect = window.innerWidth / window.innerHeight;
-        camera.updateProjectionMatrix();
-        renderer.setSize(window.innerWidth, window.innerHeight);
-        renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
-    }
-    
-    // Fix for the Rain Canvas sizing on rotate
-    const rainCanvas = document.getElementById('atmos-canvas');
-    if (rainCanvas) {
-        rainCanvas.width = window.innerWidth;
-        rainCanvas.height = window.innerHeight;
-    }
-}
+</script>
+<script type="module">
+    import * as THREE from 'three';
+    import { STLLoader } from 'three/addons/loaders/STLLoader.js';
+    import { OBJLoader } from 'three/addons/loaders/OBJLoader.js';
 
-// Listen for both resize and orientation flip
-window.addEventListener('resize', syncMobileViewport);
-window.addEventListener('orientationchange', () => {
-    setTimeout(syncMobileViewport, 300); // 300ms delay to let the phone finish the animation
-});</script>
+    // This specific piece of 3D logic lives in its own module world
+    const btn = document.getElementById('btn-inject-3d');
+    if (btn) {
+        btn.onclick = () => {
+            const input = document.createElement('input');
+            input.type = 'file';
+            input.accept = '.stl,.obj';
+            input.onchange = (e) => {
+                const file = e.target.files[0];
+                if(!file) return;
+                const url = URL.createObjectURL(file);
+                const ext = file.name.toLowerCase().split('.').pop();
+                
+                const container = document.getElementById('widget-layer');
+                container.innerHTML = '<canvas id="hologram-canvas"></canvas>';
+                container.style.opacity = '1';
+                
+                const scene = new THREE.Scene();
+                const camera = new THREE.PerspectiveCamera(75, 1, 0.1, 1000);
+                const renderer = new THREE.WebGLRenderer({ 
+                    canvas: document.getElementById('hologram-canvas'), 
+                    alpha: true, antialias: true 
+                });
+                renderer.setClearColor(0x000000, 0);
+                renderer.setSize(150, 150);
+                scene.add(new THREE.AmbientLight(0xffffff, 2.5));
+                camera.position.z = 5;
+
+                const loader = (ext === 'obj') ? new OBJLoader() : new STLLoader();
+                loader.load(url, (data) => {
+                    let model = data.scene ? data.scene : (data.isBufferGeometry ? new THREE.Mesh(data) : data);
+                    model.traverse(child => {
+                        if (child.isMesh) child.material = new THREE.MeshNormalMaterial({ wireframe: true });
+                    });
+                    const box = new THREE.Box3().setFromObject(model);
+                    const center = box.getCenter(new THREE.Vector3());
+                    const size = box.getSize(new THREE.Vector3());
+                    const maxDim = Math.max(size.x, size.y, size.z);
+                    model.position.x += (model.position.x - center.x);
+                    model.position.y += (model.position.y - center.y);
+                    model.position.z += (model.position.z - center.z);
+                    model.scale.setScalar(3.0 / maxDim);
+                    scene.add(model);
+                    const anim = () => {
+                        requestAnimationFrame(anim);
+                        model.rotation.y += 0.01;
+                        renderer.render(scene, camera);
+                    };
+                    anim();
+                });
+            };
+            input.click();
+        };
+    }
+</script>
 </body>
 </html>
