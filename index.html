@@ -861,104 +861,173 @@
         }
         body.seismic-active { animation: seismic-shake 0.08s infinite; }
         
-   /* --- THE MASTER STAGE (Desktop Default) --- */
-#stage {
-    position: fixed;
-    top: 45px;
-    bottom: 55px;
-    left: 200px;
-    right: 200px;
-    background: #000;
-    border: 1px solid var(--border);
-    overflow: hidden;
-    transition: all 0.4s cubic-bezier(0.15, 0.85, 0.35, 1);
-    z-index: 10;
+   /* ========================================
+   MASTER MOBILE CALIBRATION (V34 ULTRA)
+   ======================================== */
+
+/* 1. PORTRAIT GUARD - SHOWS ONLY ON VERTICAL PHONES */
+@media screen and (orientation: portrait) {
+    #orientation-warning { 
+        display: flex !important; 
+        flex-direction: column;
+        align-items: center;
+        justify-content: center;
+        position: fixed;
+        inset: 0;
+        z-index: 999999;
+        background: #000;
+        text-align: center;
+    }
 }
 
-/* --- V34 ULTRA: UNIVERSAL MOBILE & MINIMIZED ENGINE --- */
-@media screen and (max-width: 950px) {
-    
-    /* 1. FULL BLEED TAKE_OVER */
-    #stage, #trasudate-layer, #trasudate-canvas, canvas, #atmos-canvas {
-        left: 0 !important;
-        right: 0 !important;
-        top: 0 !important;
-        bottom: 0 !important;
-        width: 100vw !important;
-        height: 100vh !important;
-        border: none !important;
-    }
-
-    /* 2. THE HUD SIDEBAR (Docked & Blurred) */
-    .sidebar, #left-panel {
-        width: 100vw !important;
-        height: 65px !important;
-        position: fixed !important;
-        bottom: 0 !important;
-        top: auto !important;
-        left: 0 !important;
-        flex-direction: row !important;
-        justify-content: space-around !important;
-        align-items: center !important;
-        background: rgba(5, 5, 8, 0.9) !important;
-        backdrop-filter: blur(15px);
-        border-top: 1px solid var(--accent-dim);
-        z-index: 10000 !important;
-        padding: 0 10px !important;
-        overflow: hidden;
-    }
-
-    /* 3. SAFE-ZONE TITLE */
-    .vngrd-title, h1, .logo {
-        position: fixed !important;
-        top: 20px !important;
-        left: 20px !important;
-        font-size: 18px !important;
-        z-index: 100001 !important;
-        margin: 0 !important;
-    }
-
-    /* 4. CAM PREVIEW (Floating Corner) */
-    #cam-preview-float {
-        width: 80px !important;
-        height: 110px !important;
-        bottom: 75px !important; /* Floats just above the HUD */
-        right: 15px !important;
-        z-index: 10001 !important;
-    }
-
-    /* 5. CLEANUP: REMOVE DESKTOP TRASH */
-    #top-bar, #sys-log, #system-logs, .desktop-only, #ticker-wrap {
+/* 2. LANDSCAPE AUTO-SYNC - HIDES WARNING WHEN ROTATED */
+@media screen and (orientation: landscape) {
+    #orientation-warning {
         display: none !important;
     }
 }
 
-/* --- PORTRAIT PROTOCOL --- */
-@media screen and (orientation: portrait) and (max-width: 600px) {
-    #orientation-warning {
-        display: flex !important;
-        position: fixed;
-        inset: 0;
-        background: #000;
-        z-index: 999999;
-        flex-direction: column;
-        justify-content: center;
-        align-items: center;
+    /* 2. LANDSCAPE ENGINE - FIXES THE "SUCK" FROM YOUR SCREENSHOT */
+    @media screen and (max-width: 950px) {
+        /* Pushes Title out of the corner/notch */
+        .vngrd-title, h1 {
+            position: fixed !important;
+            top: 25px !important; 
+            left: 25px !important;
+            font-size: 20px !important;
+            z-index: 999999 !important;
+            letter-spacing: 4px !important;
+            margin: 0 !important;
+        }
+
+        /* Forces the 3D Engine/Liquid to fill the whole screen */
+        #trasudate-layer, #trasudate-canvas, canvas, #stage {
+            width: 100vw !important;
+            height: 100vh !important;
+            position: fixed !important;
+            inset: 0 !important;
+            border: none !important;
+        }
+
+        /* Docks the Sidebar at the bottom so it doesn't squash the view */
+        .sidebar, #left-panel {
+            width: 100vw !important;
+            height: 70px !important;
+            position: fixed !important;
+            bottom: 0 !important;
+            left: 0 !important;
+            flex-direction: row !important;
+            justify-content: space-around !important;
+            background: rgba(0, 0, 0, 0.8) !important;
+            backdrop-filter: blur(10px) !important;
+            border-right: none !important;
+            border-top: 1px solid var(--accent) !important;
+            z-index: 1000 !important;
+            padding: 0 10px !important;
+        }
+
+        /* Hide desktop-specific clutter */
+        #top-bar, #sys-log, .desktop-only {
+            display: none !important;
+        }
+    }
+        @media screen and (max-width: 950px) {
+    /* ... your existing mobile code ... */
+
+    #stage {
+        left: 0 !important;   /* Stretches the 3D view to the edges */
+        right: 0 !important;
+        top: 0 !important;
+        bottom: 0 !important;
+        border: none !important;
+    }
+}
+/* ========================================
+   MASTER MOBILE CALIBRATION (V34 ULTRA)
+   ======================================== */
+
+@media screen and (max-width: 950px) {
+    /* 1. RESET THE STAGE: Full bleed, no desktop offsets */
+    #stage {
+        left: 0 !important;
+        top: 0 !important;
+        width: 100vw !important;
+        height: 100vh !important;
+        position: fixed !important;
+    }
+
+    /* 2. REPOSITION SIDEBAR: Dock to bottom as a nav-bar */
+    .sidebar {
+        width: 100% !important;
+        height: 60px !important;
+        bottom: 0 !important;
+        top: auto !important;
+        left: 0 !important;
+        flex-direction: row !important; /* Icons go left-to-right */
+        justify-content: space-around !important;
+        background: rgba(5, 5, 8, 0.95) !important;
+        backdrop-filter: blur(10px);
+        border-top: 1px solid var(--accent-dim);
+        padding: 5px !important;
+        z-index: 1000 !important;
+    }
+
+    /* 3. HIDE CLUTTER: Clean up the 3D space */
+    #sys-log, #system-logs, .desktop-only {
+        display: none !important;
+    }
+
+    /* 4. CAM PREVIEW: Shrink for mobile screen */
+    #cam-preview-float {
+        width: 100px !important;
+        height: 130px !important;
+        bottom: 70px !important; /* Sits just above the new bottom bar */
+        right: 10px !important;
+    }
+}/* ========================================
+   THE "PERFECT ROTATION" RE-CENTER
+   ======================================== */
+
+@media screen and (max-width: 950px) and (orientation: landscape) {
+    /* 1. Force the Stage to 100% of the glass */
+    #stage {
+        left: 0 !important;
+        top: 0 !important;
+        width: 100vw !important;
+        height: 100vh !important;
+        margin: 0 !important;
+        position: fixed !important;
+    }
+
+    /* 2. Dock the Sidebar so it doesn't squash the 3D engine */
+    .sidebar {
+        width: 100% !important;
+        height: 50px !important;
+        bottom: 0 !important;
+        top: auto !important;
+        left: 0 !important;
+        flex-direction: row !important;
+        background: rgba(5, 5, 8, 0.9) !important;
+        backdrop-filter: blur(10px);
+        padding: 0 20px !important;
+        z-index: 9999;
+    }
+
+    /* 3. Hide the messy desktop logs that "shit" on the view */
+    #sys-log, #system-logs {
+        display: none !important;
     }
 }</style>
 </head>
 <body oncontextmenu="return false;">
-    <div id="orientation-warning">
-        <div style="letter-spacing: 5px; font-weight: 900; color: #00ffcc !important; text-transform: uppercase;">
-            Rotate Device
-        </div>
-        <div style="font-size: 8px; color: #666; margin-top: 10px; letter-spacing: 2px;">
-            LANDSCAPE_MODE_REQUIRED
-        </div>
+ <div id="orientation-warning">
+    <div style="letter-spacing: 5px; font-weight: 900; color: #00ffcc !important; text-transform: uppercase;">
+        Rotate Device
     </div>
-
-    <div class="blur-reveal"></div>
-
+    <div style="font-size: 10px; margin-top: 8px; opacity: 0.8; color: #00ffcc !important; letter-spacing: 2px;">
+        LANDSCAPE_MODE_REQUIRED_FOR_V34_SYNC
+    </div>
+</div>
     <!-- SHOOTING_OVERLAY -->
     <div id="shooting-overlay"></div>
     
@@ -1010,7 +1079,8 @@
         <div id="integrity-text">INTEGRITY: 100%</div>
     </div>
     
-<div id="blur-reveal" class="blur-reveal"></div>    
+    <div class="blur-reveal" id="blur-reveal"></div>
+    
     <header id="top-bar">
         <div id="brand">
             <!-- TRIPLE-STACK IDENTITY: [Image] [Text] [Controls] -->
@@ -2699,40 +2769,12 @@ $('btn-reset').onclick = () => {
     log('FX_RESET_ONLY');
 };
 
-document.addEventListener('DOMContentLoaded', async () => {
-    // 1. HARDWARE LOG
-    log('DRIS//core_VNGRD_V34_ULTRA_INIT');
-    
-    // 2. CORE SYSTEMS
-    checkMobile(); 
-    initCanvas(); 
-    initAtmosphereCanvas(); // The Glass Engine
-    ghostInit(); 
+document.addEventListener('DOMContentLoaded', () => {
+    log('DRIS//core_VNGRD_v23.5_SYSTEM_FAILURE');
+    checkMobile(); initCanvas(); ghostInit(); fetchCrypto(); setInterval(fetchCrypto, 60000);
     loadFromMemory(); 
-    
-    // 3. THE SATELLITE HANDSHAKE (Background)
-    // This looks for Milan/Amsterdam while the screen is still blurred
-    initAtmosphere(); 
-    
-    // 4. DATA PIPELINES
-    fetchCrypto(); 
-    setInterval(fetchCrypto, 60000);
-    updateClock(); 
-    setInterval(updateClock, 1000);
-    
-    // 5. THE CINEMATIC ENTRANCE (The Blur Snap)
-    const reveal = document.querySelector('.blur-reveal');
-    setTimeout(() => {
-        if (reveal) {
-            log('HARDWARE: OPTICAL_FOCUS_LOCKED');
-            reveal.classList.add('active'); // Snaps the lens to clear
-        }
-        log('VANGUARD: STATUS_NOMINAL');
-    }, 1500); 
-
-    // 6. START THE ENGINE
     requestAnimationFrame(renderLoop);
-});
+    updateClock(); setInterval(updateClock, 1000); morphLogo(); setTimeout(morphLogo, 4000);
     
     // Wire UI
     $('btn-init-cam').onclick = initCamera; $('btn-go-live').onclick = goLive; $('btn-end').onclick = endLive; $('btn-kill').onclick = killCamera;
@@ -4126,66 +4168,63 @@ function initAtmosphereCanvas() {
     }
 
     // THE MASTER RESIZE LISTENER (Handles both layers)
-   window.addEventListener('resize', () => {
-    const stage = $('stage');
-    if (!stage) return;
+    window.addEventListener('resize', () => {
+        const newW = window.innerWidth;
+        const newH = window.innerHeight;
 
-    // Get the exact pixel dimensions of the stage container
-    const newW = stage.clientWidth;
-    const newH = stage.clientHeight;
+        if (APP.atmosphere.canvas) {
+            APP.atmosphere.canvas.width = newW;
+            APP.atmosphere.canvas.height = newH;
+        }
 
-    // Sync the Rain Canvas
-    if (APP.atmosphere.canvas) {
-        APP.atmosphere.canvas.width = newW;
-        APP.atmosphere.canvas.height = newH;
-    }
-
-    // Sync the Refraction Buffer (The "Melt" Layer)
-    if (APP.atmosphere.refractionCanvas) {
-        APP.atmosphere.refractionCanvas.width = newW;
-        APP.atmosphere.refractionCanvas.height = newH;
-    }
-    
-    log(`ENGINE: RESOLUTION_SYNC_${newW}x${newH}`);
-});
-}
-    
-   async function initAtmosphere() {
-    log('GEO_HANDSHAKE: INITIATING...');
-    const geoStatus = $('geo-status');
-    if (geoStatus) geoStatus.textContent = 'GEO: ACQUIRING...';
-    
-    return new Promise((resolve) => {
-        // 1. PRIMARY: SATELLITE GPS
-        navigator.geolocation.getCurrentPosition(
-            async (pos) => {
-                APP.atmosphere.latitude = pos.coords.latitude;
-                APP.atmosphere.longitude = pos.coords.longitude;
-                log(`GEO_SYNC: SATELLITE_LOCK`);
-                await fetchSatelliteWeather();
-                resolve(true);
-            },
-            async (err) => {
-                // 2. FALLBACK: NETWORK IP LOOKUP (No popup needed)
-                log('GEO_SYNC: PINGING_NETWORK...');
-                try {
-                    const response = await fetch('https://ipapi.co/json/');
-                    const data = await response.json();
-                    APP.atmosphere.latitude = data.latitude;
-                    APP.atmosphere.longitude = data.longitude;
-                    APP.atmosphere.city = data.city.toUpperCase();
-                    log(`GEO_SYNC: NETWORK_LOCK [${APP.atmosphere.city}]`);
-                    await fetchSatelliteWeather();
-                } catch (e) {
-                    log('GEO_SYNC: TOTAL_SIGNAL_LOSS');
-                    if (geoStatus) geoStatus.textContent = 'GEO: OFFLINE';
-                }
-                resolve(false);
-            },
-            { timeout: 5000 } 
-        );
+        if (APP.atmosphere.refractionCanvas) {
+            APP.atmosphere.refractionCanvas.width = newW;
+            APP.atmosphere.refractionCanvas.height = newH;
+        }
+        
+        // Log to console for debugging mobile rotations
+        console.log(`V34_ENGINE: CALIBRATED_TO_${newW}x${newH}`);
     });
 }
+    
+    // GEO_HANDSHAKE: Get real coordinates
+    async function initAtmosphere() {
+        log('GEO_HANDSHAKE: ACQUIRING...');
+        const geoStatus = $('geo-status');
+        if (geoStatus) geoStatus.textContent = 'GEO: ACQUIRING...';
+        
+        return new Promise((resolve) => {
+            if (!navigator.geolocation) {
+                log('GEO: NOT_AVAILABLE');
+                if (geoStatus) geoStatus.textContent = 'GEO: NOT_AVAILABLE';
+                resolve(false);
+                return;
+            }
+            
+            navigator.geolocation.getCurrentPosition(
+                async (position) => {
+                    APP.atmosphere.latitude = position.coords.latitude;
+                    APP.atmosphere.longitude = position.coords.longitude;
+                    log(`GEO: ${APP.atmosphere.latitude.toFixed(2)}, ${APP.atmosphere.longitude.toFixed(2)}`);
+                    if (geoStatus) geoStatus.textContent = `GEO: ${APP.atmosphere.latitude.toFixed(2)}, ${APP.atmosphere.longitude.toFixed(2)}`;
+                    
+                    // Fetch weather and city data
+                    await fetchSatelliteWeather();
+                    resolve(true);
+                },
+                (error) => {
+                    log('GEO_ERROR: ' + error.message);
+                    if (geoStatus) geoStatus.textContent = 'GEO: FALLBACK_COORDS';
+                    // Fallback to default coords (Berlin)
+                    APP.atmosphere.latitude = 52.52;
+                    APP.atmosphere.longitude = 13.41;
+                    fetchSatelliteWeather();
+                    resolve(false);
+                },
+                { enableHighAccuracy: true, timeout: 10000 }
+            );
+        });
+    }
     
     // Fetch weather from Open-Meteo with reverse geocoding
     async function fetchSatelliteWeather() {
@@ -5079,21 +5118,26 @@ function activateHeatHaze(active) {
     };
 
     // --- INDEPENDENT LOGO DRAG INITIALIZATION ---
+    // This targets the three specific layers you want to move
     const logoLayers = ['widget-layer', 'user-logo-layer', 'station-bug'];
 
     logoLayers.forEach(id => {
         const el = $(id);
         if (el) {
+            // Ensure the element is visible and interactive
             el.style.pointerEvents = 'auto'; 
-            // Ensure makeDraggable is defined in your core-v34 logic
-            if (typeof makeDraggable === 'function') makeDraggable(el);
+            // Apply the smooth GPU dragging logic
+            makeDraggable(el);
         }
     });
 
-    // Initialize geo ticker injection after 3s to allow satellite handshake
+    // KEEP THIS: Initialize geo ticker injection
+    setTimeout(injectGeoToTicker, 3000);
+    
+    // Initialize geo ticker injection
     setTimeout(injectGeoToTicker, 3000);
 
-}); // <--- THIS WAS MISSING OR MISPLACED
+}); // THIS IS THE END of the startup block. Do not put code after this line.
 </script>
 <script type="module">
     import * as THREE from 'three';
