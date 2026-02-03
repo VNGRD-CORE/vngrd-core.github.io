@@ -960,20 +960,16 @@
 
     <aside class="sidebar" id="left-panel">
         <div class="section">
-    <div class="sec-head"><span class="sec-title">CAMERA_4K</span><div class="sec-dot off" id="cam-dot"></div></div>
-    <div class="sec-body">
-        <button class="btn" id="btn-init-cam">SENSORS ONLINE [4K]</button>
-        
-        <div id="cam-preview" style="display:none; margin-top:10px; border:1px solid var(--accent); background:#000; position:relative; overflow:hidden; width:100%; height:180px; z-index:10;">
-            <video id="preview-vid" autoplay playsinline muted style="width:100%; height:100%; object-fit:cover; display:block; transform: scaleX(-1);"></video>
-            <div style="position:absolute; bottom:0; width:100%; font-size:8px; color:var(--accent); text-align:center; padding:4px; background:rgba(0,0,0,0.7); border-top:1px solid var(--accent-dim); pointer-events:none;">MONITOR_01</div>
-        </div>
-
-        <div id="cam-ctrls" style="display:none">
-            <button class="btn" id="btn-go-live" style="color:var(--y)">GO LIVE [3-2-1]</button>
-        </div>
-    </div>
-</div>
+            <div class="sec-head"><span class="sec-title">CAMERA_4K</span><div class="sec-dot off" id="cam-dot"></div></div>
+            <div class="sec-body">
+                <button class="btn" id="btn-init-cam">SENSORS ONLINE [4K]</button>
+                <div id="cam-ctrls" style="display:none">
+                    <button class="btn" id="btn-go-live" style="color:var(--y)">GO LIVE [3-2-1]</button>
+                    <div class="btn-row">
+                        <button class="btn" id="btn-inject">INJECT LOOP (10s)</button>
+                        <button class="btn" id="btn-mic">MIC</button>
+                    </div>
+                </div>
                 <div id="live-ctrls" style="display:none">
                     <button class="btn rec" id="btn-rec">REC_BROADCAST</button>
                     <button class="btn" id="btn-end">END LIVE</button>
@@ -2571,21 +2567,8 @@ document.addEventListener('DOMContentLoaded', () => {
     updateClock(); setInterval(updateClock, 1000); morphLogo(); setTimeout(morphLogo, 4000);
     
     // Wire UI
-$('btn-init-cam').onclick = async () => {
-    const stream = await navigator.mediaDevices.getUserMedia({ video: true });
+    $('btn-init-cam').onclick = initCamera; $('btn-go-live').onclick = goLive; $('btn-end').onclick = endLive; $('btn-kill').onclick = killCamera;
     
-    // This MUST match your HTML IDs
-    const sidebarBox = document.getElementById('cam-preview');
-    const sidebarVid = document.getElementById('preview-vid');
-    
-    sidebarBox.style.display = 'block'; // Shows the 180px box
-    sidebarVid.srcObject = stream;      // Connects the pixels
-    
-    // UI Feedback
-    document.getElementById('cam-dot').classList.replace('off', 'on');
-    document.getElementById('btn-init-cam').style.display = 'none';
-    document.getElementById('cam-ctrls').style.display = 'block';
-};    
     // --- COMPACT MEDIA DECK WIRING ---
     $('btn-load-media').onclick = () => $('file-media').click();
     $('btn-cycle-toggle').onclick = toggleCycle;
