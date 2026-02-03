@@ -313,58 +313,123 @@
         
         /* CAMERA PREVIEW BOX - FLOATING */
         #cam-preview-float {
-            position: fixed;
-            bottom: 70px;
-            left: 210px;
-            width: 180px;
-            height: 120px;
-            background: #000;
-            border: 2px solid var(--border);
-            z-index: 6500;
-            display: none;
-            overflow: hidden;
-        }
-        #cam-preview-float.active { display: block; border-color: var(--accent); }
-        #cam-preview-float video {
-            width: 100%;
-            height: 100%;
-            object-fit: cover;
-            transform: scaleX(-1);
-        }
-        #cam-preview-float .preview-label {
-            position: absolute;
-            bottom: 4px;
-            left: 4px;
-            font-size: 8px;
-            color: var(--accent);
-            background: rgba(0,0,0,0.8);
-            padding: 2px 6px;
-            border-left: 2px solid var(--accent);
-            letter-spacing: 1px;
-        }
-        #cam-preview-float .rec-indicator {
-            position: absolute;
-            top: 4px;
-            right: 4px;
-            width: 8px;
-            height: 8px;
-            background: var(--r);
-            border-radius: 50%;
-            display: none;
-            animation: rec-blink 1s infinite;
-        }
-        #cam-preview-float .rec-indicator.on { display: block; }
+    position: fixed;
+    /* Desktop Default Position */
+    bottom: 30px;
+    right: 30px; 
+    width: 180px;
+    height: 120px;
+    background: #000;
+    border: 1px solid var(--border);
+    z-index: 10000; /* Pushed to the front */
+    display: none; /* Stays hidden until camera wakes up */
+    overflow: hidden;
+    box-shadow: 0 0 20px rgba(0,0,0,0.5);
+    transition: border-color 0.3s ease;
+}
+/* THE GUEST SIGNAL DOCK */
+#guest-video-feed {
+    position: absolute;
+    top: 25px;
+    right: 25px;
+    width: 280px;
+    height: 157px; /* Perfect 16:9 ratio */
+    border: 1px solid var(--g); /* V34 Green Signal Border */
+    background: #000;
+    z-index: 8000; /* High enough to see, but below the top HUD */
+    object-fit: cover;
+    box-shadow: 0 0 20px rgba(0, 255, 136, 0.2);
+    border-radius: 2px;
+    pointer-events: auto;
+}
+
+/* MOBILE RE-DOCKING */
+@media screen and (max-width: 950px) {
+    #guest-video-feed {
+        width: 150px;
+        height: 85px;
+        top: 15px;
+        right: 15px;
+        border-width: 1px;
+    }
+}
+/* This is what we trigger via JS */
+#cam-preview-float.active { 
+    display: block !important; 
+    border-color: var(--accent); 
+    box-shadow: 0 0 15px var(--accent-glow);
+}
+
+#cam-preview-float video {
+    width: 100%;
+    height: 100%;
+    object-fit: cover; /* No stretching */
+    transform: scaleX(-1); /* Mirrored natural view */
+}
+
+#cam-preview-float .preview-label {
+    position: absolute;
+    bottom: 0;
+    left: 0;
+    font-size: 9px;
+    color: var(--accent);
+    background: rgba(0,0,0,0.7);
+    padding: 2px 8px;
+    border-top-right-radius: 4px;
+    font-family: 'JetBrains Mono', monospace;
+    text-transform: uppercase;
+}
+
+#cam-preview-float .rec-indicator {
+    position: absolute;
+    top: 8px;
+    right: 8px;
+    width: 8px;
+    height: 8px;
+    background: var(--r);
+    border-radius: 50%;
+    display: none;
+    animation: rec-blink 1s steps(2) infinite;
+}
+
+#cam-preview-float .rec-indicator.on { display: block; }
+
+/* MOBILE RE-CALIBRATION */
+@media screen and (max-width: 950px) {
+    #cam-preview-float {
+        bottom: 80px !important; /* Above the mobile nav bar */
+        right: 15px !important;
+        left: auto !important; /* Kills the 210px desktop offset */
+        width: 130px !important;
+        height: 100px !important;
+    }
+}
         
         /* AUTO-INVERT FOR TV LEGIBILITY */
         #station-bug {
             mix-blend-mode: difference;
             color: #ffffff !important;
             background: transparent !important;
-        }
-        #ticker-text {
+       #ticker-text {
             mix-blend-mode: difference;
+            color: #fff; /* Base color must be white for 'difference' to work best */
+            display: flex;
+            gap: 20px;
+            white-space: nowrap;
         }
-        
+
+        /* This allows the green/red/violet to remain visible */
+        #ticker-text span {
+            mix-blend-mode: normal !important; /* Forces specific colors to stop 'differencing' */
+            display: inline-block;
+            font-weight: bold;
+        }
+
+        /* Force the STAY_IN_THE_NODE color */
+        .node-highlight {
+            color: var(--v) !important;
+            text-shadow: 0 0 10px var(--v-glow);
+        }
         /* MIDI LEARN MODE */
         body.midi-learn-active .btn,
         body.midi-learn-active input[type="range"] {
@@ -373,6 +438,10 @@
         @keyframes midi-learn-pulse {
             0% { box-shadow: 0 0 5px var(--v); }
             100% { box-shadow: 0 0 20px var(--v), inset 0 0 10px rgba(176,0,255,0.2); }
+        }
+        @keyframes rec-blink {
+            from { opacity: 1; }
+            to { opacity: 0; }
         }
         .midi-bound {
             position: relative;
@@ -1437,15 +1506,16 @@
 
 <script>
 const $ = id => document.getElementById(id);
-    window.addEventListener('load', () => {
+
+// DOMContentLoaded fires WAY faster than 'load'
+document.addEventListener('DOMContentLoaded', () => {
     const reveal = $('blur-reveal');
     if (reveal) {
-        // Wait 1 second so the user feels the blur, then melt away
-   // 150ms is just enough for the eye to catch the "weird distortion"
+        // Reduced to 100ms for that high-tension "flicker"
         setTimeout(() => {
             reveal.classList.add('active');
             console.log("VNGRD_SYSTEM: Kinetic Snap Executed.");
-        }, 150); 
+        }, 100); 
     }
 });
 
@@ -3850,6 +3920,7 @@ document.addEventListener('DOMContentLoaded', () => {
                                 APP.guest.videoElement.muted = false;
                             }
                             APP.guest.videoElement.srcObject = remoteStream;
+                            $('stage').appendChild(APP.guest.videoElement);
                             APP.guest.stream = remoteStream;
                             APP.guest.isActive = true;
                             
@@ -3915,8 +3986,18 @@ document.addEventListener('DOMContentLoaded', () => {
                     APP.guest.videoElement = document.createElement('video');
                     APP.guest.videoElement.autoplay = true;
                     APP.guest.videoElement.playsInline = true;
+                    // Give it an ID so the CSS can find it
+                    APP.guest.videoElement.id = 'guest-video-feed'; 
                 }
+
                 APP.guest.videoElement.srcObject = remoteStream;
+
+                // --- ADD THESE TWO LINES HERE ---
+                if (!document.getElementById('guest-video-feed')) {
+                    $('stage').appendChild(APP.guest.videoElement);
+                }
+                // --------------------------------
+
                 APP.guest.stream = remoteStream;
                 APP.guest.isActive = true;
                 
@@ -3924,7 +4005,6 @@ document.addEventListener('DOMContentLoaded', () => {
                 $('call-status').style.color = 'var(--g)';
                 log('CALL_CONNECTED: ' + remoteId);
             });
-            
             call.on('close', () => {
                 log('CALL_ENDED');
                 $('call-status').textContent = 'CALL_ENDED';
@@ -4278,18 +4358,22 @@ function initAtmosphereCanvas() {
         }
     }
     
-    // Update bottom ticker with location and METAR
     function updateTickerWithMetar() {
-        const ticker = $('ticker-text');
-        if (ticker && APP.atmosphere.city && APP.atmosphere.metar) {
-            const metarString = `[LOC: ${APP.atmosphere.city}] // [METAR: ${APP.atmosphere.metar}]`;
-            // Append to existing ticker or replace
-            const currentText = ticker.textContent;
-            if (!currentText.includes('[LOC:')) {
-                ticker.textContent = metarString + ' // ' + currentText;
-            }
-        }
-    }
+    const ticker = $('ticker-text');
+    if (!ticker || !APP.atmosphere.city) return;
+
+    // Create the Location/Weather block
+    const locBlock = `<span style="color: var(--accent)">[LOC: ${APP.atmosphere.city}]</span>`;
+    const metarBlock = APP.atmosphere.metar ? ` // <span style="color: var(--text-dim)">[METAR: ${APP.atmosphere.metar}]</span>` : '';
+    
+    // Create the Crypto block with colors
+    // This assumes you have price data in your APP state
+    const btcColor = APP.crypto.btcUp ? 'var(--g)' : 'var(--r)';
+    const cryptoBlock = ` // BTC: <span style="color: ${btcColor}">$${APP.crypto.btcPrice}</span>`;
+
+    // Inject everything as HTML so colors work
+    ticker.innerHTML = `${locBlock}${metarBlock}${cryptoBlock} // <span id="stay-node" style="color: var(--v); text-shadow: 0 0 8px var(--v);">STAY_IN_THE_NODE</span>`;
+}
     
     // Initialize refraction buffer for displacement mapping
     function initRefractionBuffer() {
