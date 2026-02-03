@@ -839,13 +839,13 @@
 }
 /* MOBILE ORIENTATION OVERLAY */
 #orientation-warning {
-    display: none;
+    display: none; /* Hidden on Desktop */
     position: fixed;
     top: 0; left: 0;
     width: 100vw; height: 100vh;
-    background: #000;
-    color: #00ffcc; 
-    z-index: 999999; 
+    background: #000000 !important; /* Force Black Background */
+    color: #00ffcc !important;    /* Force Neon Accent Text */
+    z-index: 9999999 !important;  /* Higher than everything else */
     flex-direction: column;
     justify-content: center;
     align-items: center;
@@ -854,9 +854,14 @@
 }
 
 #orientation-warning .rotate-icon {
-    font-size: 50px;
+    font-size: 60px;
     margin-bottom: 20px;
+    color: #ff0055 !important; /* Pink icon for high visibility */
     animation: rotateAnim 2s infinite ease-in-out;
+}
+
+@media screen and (orientation: portrait) {
+    #orientation-warning { display: flex !important; }
 }
 
 @keyframes rotateAnim {
