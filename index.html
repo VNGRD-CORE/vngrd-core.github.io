@@ -141,6 +141,24 @@
             98% { opacity: 1; color: var(--r); }
             100% { opacity: 0.6; color: var(--accent); }
         }
+        /* THE HEAT VIBRATION (Sensor Stress) */
+@keyframes heat-vibration {
+    0% { transform: translate(0.3px, 0.3px); }
+    50% { transform: translate(-0.3px, -0.3px); }
+    100% { transform: translate(0.3px, 0.3px); }
+}
+
+/* THE LIGHTNING STRIKE (For Code 95+) */
+@keyframes lightning-strike {
+    0% { filter: brightness(10) saturate(0); }
+    10% { filter: brightness(0.5) saturate(2); }
+    20% { filter: brightness(8) saturate(0); }
+    100% { filter: brightness(1) saturate(1); }
+}
+
+.weather-lightning {
+    animation: lightning-strike 0.4s ease-out;
+}
 
         .logo.m1 { color: #00f3ff; text-shadow: 0 0 20px #00f3ff; animation: pulse-glow 2s infinite; }
         .logo.m2 { color: #ff0055; text-shadow: 2px 2px 0px #fff; animation: glitch-text 0.3s infinite; }
@@ -4304,315 +4322,122 @@ function initAtmosphereCanvas() {
         }
         $('refraction-buffer').classList.add('active');
     }
+   function renderRefractiveRain() {
+    if (!APP.atmosphere.ctx || !APP.trasudate.active) return;
     
-    // CLEAN RAIN DROP - realistic stutter-and-slide physics
-    function createRefractiveRainDrop() {
-        if (!APP.atmosphere.ctx) return;
-        
-        const canvas = APP.atmosphere.canvas;
-        const intensity = APP.atmosphere.intensity || 50;
-        const drop = {
-            x: Math.random() * canvas.width,
-            y: -30,
-            length: 15 + Math.random() * 25,
-            speed: 8 + Math.random() * 12 + (intensity / 10),
-            opacity: 0.3 + Math.random() * 0.4,
-            // Stutter-and-slide physics
-            velocity: 0,
-            gravity: 0.6 + Math.random() * 0.4,
-            stutter: Math.random() < 0.2,
-            stutterCounter: 0,
-            maxStutter: 3 + Math.floor(Math.random() * 6),
-            refractIndex: 1.15 + Math.random() * 0.2
-        };
-        APP.atmosphere.rainDrops.push(drop);
+    const ctx = APP.atmosphere.ctx;
+    const canvas = APP.atmosphere.canvas;
+    const vjCanvas = APP.render.canvas;
+    const intensity = APP.atmosphere.intensity || 50;
+    
+    ctx.clearRect(0, 0, canvas.width, canvas.height);
+    
+    if (Math.random() < (intensity / 30)) {
+        createRefractiveRainDrop();
     }
     
-    // Render CLEAN realistic rain - no psychedelic colors
-    function renderRefractiveRain() {
-        if (!APP.atmosphere.ctx || !APP.trasudate.active) return;
-        
-        const ctx = APP.atmosphere.ctx;
-        const canvas = APP.atmosphere.canvas;
-        const vjCanvas = APP.render.canvas;
-        const intensity = APP.atmosphere.intensity || 50;
-        
-        ctx.clearRect(0, 0, canvas.width, canvas.height);
-        
-        // Create new drops based on intensity
-        const spawnRate = intensity / 30;
-        if (Math.random() < spawnRate) {
-            createRefractiveRainDrop();
-        }
-        
-        // Update and draw drops with stutter-and-slide physics
-        APP.atmosphere.rainDrops = APP.atmosphere.rainDrops.filter(drop => {
-            // Stutter-and-slide gravity
-            if (drop.stutter && drop.stutterCounter < drop.maxStutter) {
-                drop.stutterCounter++;
-                drop.velocity *= 0.4;
-            } else {
-                drop.velocity += drop.gravity;
-                drop.stutter = Math.random() < 0.03;
-                drop.stutterCounter = 0;
-            }
-            
-            drop.y += drop.velocity;
-            
-            // Draw CLEAN rain drop - realistic blue/white gradient
-            const gradient = ctx.createLinearGradient(drop.x, drop.y, drop.x, drop.y + drop.length);
-            gradient.addColorStop(0, 'transparent');
-            gradient.addColorStop(0.2, `rgba(200, 220, 255, ${drop.opacity * 0.3})`);
-            gradient.addColorStop(0.5, `rgba(180, 200, 240, ${drop.opacity * 0.6})`);
-            gradient.addColorStop(0.8, `rgba(160, 180, 220, ${drop.opacity * 0.4})`);
-            gradient.addColorStop(1, 'transparent');
-            
-            ctx.strokeStyle = gradient;
-            ctx.lineWidth = 2;
-            ctx.lineCap = 'round';
-            ctx.beginPath();
-            ctx.moveTo(drop.x, drop.y);
-            ctx.lineTo(drop.x, drop.y + drop.length);
-            ctx.stroke();
-            
-            // Subtle magnification effect
-            if (APP.atmosphere.refractionCtx && vjCanvas) {
-                try {
-                    const scale = drop.refractIndex;
-                    const sourceX = (drop.x / canvas.width) * vjCanvas.width;
-                    const sourceY = (drop.y / canvas.height) * vjCanvas.height;
-                    const sourceW = 15;
-                    const sourceH = drop.length * 1.5;
-                    
-                    APP.atmosphere.refractionCtx.globalAlpha = 0.08;
-                    APP.atmosphere.refractionCtx.drawImage(
-                        vjCanvas,
-                        sourceX - sourceW/2, sourceY - sourceH/2, sourceW, sourceH,
-                        drop.x - sourceW*scale/2, drop.y - sourceH*scale/2, sourceW * scale, sourceH * scale
-                    );
-                    APP.atmosphere.refractionCtx.globalAlpha = 1;
-                } catch (e) { /* ignore */ }
-            }
-            
-            return drop.y < canvas.height + 50;
-        });
-        
-        if (APP.trasudate.active) {
-            requestAnimationFrame(renderRefractiveRain);
-        }
-    }
-    
-    // ========================================
-    // GEOLOCATION -> SATELLITE -> TRASUDATE
-    // Auto-weather integration (no manual buttons)
-    // ========================================
-    
-    // Update weather UI status displays
-    function updateWeatherUI(condition, isRaining) {
-        const weatherStatus = $('weather-status');
-        const rainStatus = $('rain-status');
-        const atmosDot = $('atmos-dot');
-        
-        if (weatherStatus) weatherStatus.textContent = 'WEATHER: ' + condition.toUpperCase();
-        
-        if (rainStatus) {
-            if (isRaining) {
-                rainStatus.textContent = 'RAIN: AUTO_ENABLED';
-                rainStatus.style.color = 'var(--c)';
-            } else {
-                rainStatus.textContent = 'RAIN: AUTO_DISABLED';
-                rainStatus.style.color = 'var(--text-dim)';
-            }
-        }
-        
-        if (atmosDot) atmosDot.classList.toggle('off', !isRaining);
-    }
-    
-    // Enable rain automatically based on satellite weather
-    function enableRainAuto() {
-        if (!APP.trasudate.active) {
-            APP.trasudate.active = true;
-            initTrasudateEngine();
-            initAtmosphereCanvas();
-            initRefractionBuffer();
-            renderRefractiveRain();
-            log('WEATHER_AUTO: RAIN_ENABLED');
-        }
-    }
-    
-    // Disable rain automatically
-    function disableRainAuto() {
-        if (APP.trasudate.active) {
-            APP.trasudate.active = false;
-            stopTrasudateEngine();
-            APP.atmosphere.rainDrops = [];
-            if (APP.atmosphere.ctx) {
-                APP.atmosphere.ctx.clearRect(0, 0, APP.atmosphere.canvas.width, APP.atmosphere.canvas.height);
-            }
-            log('WEATHER_AUTO: RAIN_DISABLED');
-        }
-    }
-    
-    // Parse weather condition and trigger visual effects automatically
-    function processWeatherCondition(weatherCode, condition) {
-        // Weather codes: 51,53,55 = drizzle, 61,63,65 = rain, 80,81,82 = showers, 95,96,99 = thunderstorm
-        const rainCodes = [51, 53, 55, 61, 63, 65, 80, 81, 82, 95, 96, 99];
-        const isRaining = rainCodes.includes(weatherCode);
-        const temp = APP.atmosphere.temperature || 20;
-        const isHot = temp > 30;
-        
-        updateWeatherUI(condition, isRaining);
-        
-        // AUTO LENS DRIP - Rain triggers water droplet effect
-        if (isRaining) {
-            enableRainAuto();
-            activateLensDrip(true);
-            if ($('weather-fx')) $('weather-fx').textContent = 'FX: LENS_DRIP (RAIN)';
+    APP.atmosphere.rainDrops = APP.atmosphere.rainDrops.filter(drop => {
+        // 1. Physics update
+        if (drop.stutter && drop.stutterCounter < drop.maxStutter) {
+            drop.stutterCounter++;
+            drop.velocity *= 0.4;
         } else {
-            disableRainAuto();
-            activateLensDrip(false);
+            drop.velocity += drop.gravity;
+            drop.stutter = Math.random() < 0.03;
+            drop.stutterCounter = 0;
+        }
+        drop.y += drop.velocity;
+
+        // 2. DEFINE THE GRADIENT (Crucial fix: Define before using)
+        const gradient = ctx.createLinearGradient(drop.x, drop.y, drop.x, drop.y + drop.length);
+        gradient.addColorStop(0, 'transparent');
+        gradient.addColorStop(0.2, `rgba(200, 220, 255, ${drop.opacity * 0.3})`);
+        gradient.addColorStop(0.5, `rgba(180, 200, 240, ${drop.opacity * 0.6})`);
+        gradient.addColorStop(0.8, `rgba(160, 180, 220, ${drop.opacity * 0.4})`);
+        gradient.addColorStop(1, 'transparent');
+
+        // 3. OPTICAL LIGHT PASS
+        ctx.globalCompositeOperation = 'lighter';
+        ctx.strokeStyle = gradient;
+        ctx.lineWidth = 2;
+        ctx.lineCap = 'round';
+        ctx.beginPath();
+        ctx.moveTo(drop.x, drop.y);
+        ctx.lineTo(drop.x, drop.y + drop.length);
+        ctx.stroke();
+
+        // 4. THE SPECULAR GLINT (Expensive glass spark)
+        ctx.globalCompositeOperation = 'source-over';
+        ctx.fillStyle = `rgba(255, 255, 255, ${drop.opacity * 0.9})`;
+        ctx.beginPath();
+        ctx.arc(drop.x, drop.y + 2, 0.8, 0, Math.PI * 2); 
+        ctx.fill();
+
+        // 5. OPTICAL REFRACTION (The "Magnifying Glass" effect)
+        if (APP.atmosphere.refractionCtx && vjCanvas) {
+            const rCtx = APP.atmosphere.refractionCtx;
+            rCtx.globalCompositeOperation = 'overlay';
+            rCtx.globalAlpha = 0.15; // Balanced for high-end look
+            
+            try {
+                const scale = drop.refractIndex;
+                const sourceX = (drop.x / canvas.width) * vjCanvas.width;
+                const sourceY = (drop.y / canvas.height) * vjCanvas.height;
+                const sourceW = 15;
+                const sourceH = drop.length * 1.5;
+                
+                rCtx.drawImage(
+                    vjCanvas,
+                    sourceX - sourceW/2, sourceY - sourceH/2, sourceW, sourceH,
+                    drop.x - (sourceW*scale)/2, drop.y - (sourceH*scale)/2, sourceW * scale, sourceH * scale
+                );
+            } catch (e) {}
+            rCtx.globalAlpha = 1.0;
         }
         
-        // AUTO HEAT HAZE - Hot weather (>30C) triggers distortion
-        if (isHot && !isRaining) {
-            activateHeatHaze(true);
-            if ($('weather-fx')) $('weather-fx').textContent = 'FX: HEAT_HAZE (' + temp + 'C)';
-        } else if (!isRaining) {
-            activateHeatHaze(false);
-            if ($('weather-fx')) $('weather-fx').textContent = 'FX: NONE';
-        }
-    }
+        return drop.y < canvas.height + 50;
+    });
     
-    // LENS DRIP EFFECT - Water droplets on lens during rain
-    function activateLensDrip(active) {
-        const canvas = $('lens-drip-canvas');
-        if (!canvas) return;
-        
-        APP.shaders.lensDrip.active = active;
-        canvas.classList.toggle('active', active);
-        
-        if (active && !APP.shaders.lensDrip.rafId) {
-            animateLensDrip();
-        }
+    if (APP.trasudate.active) {
+        requestAnimationFrame(renderRefractiveRain);
     }
-    
-    function animateLensDrip() {
-        if (!APP.shaders.lensDrip.active) {
-            APP.shaders.lensDrip.rafId = null;
-            return;
-        }
-        
-        const canvas = $('lens-drip-canvas');
-        const ctx = canvas.getContext('2d');
-        if (!ctx) return;
-        
-        const stage = $('stage');
-        if (stage) {
-            canvas.width = stage.clientWidth;
-            canvas.height = stage.clientHeight;
-        }
-        
-        ctx.clearRect(0, 0, canvas.width, canvas.height);
-        
-        const time = APP.shaders.lensDrip.time++;
-        const intensity = (APP.atmosphere.intensity || 50) / 100;
-        
-        // Draw water droplets
-        for (let i = 0; i < Math.floor(20 * intensity); i++) {
-            const x = (Math.sin(time * 0.01 + i * 1.7) * 0.4 + 0.5) * canvas.width;
-            const y = ((time * 2 + i * 70) % (canvas.height + 120)) - 60;
-            const size = 12 + Math.sin(i * 0.8) * 6;
-            
-            // Droplet with refraction
-            const gradient = ctx.createRadialGradient(x, y, 0, x, y + size * 0.2, size);
-            gradient.addColorStop(0, 'rgba(220, 240, 255, 0.3)');
-            gradient.addColorStop(0.5, 'rgba(200, 220, 255, 0.15)');
-            gradient.addColorStop(1, 'transparent');
-            
-            ctx.fillStyle = gradient;
-            ctx.beginPath();
-            ctx.ellipse(x, y, size * 0.5, size, 0, 0, Math.PI * 2);
-            ctx.fill();
-            
-            // Highlight
-            ctx.fillStyle = 'rgba(255, 255, 255, 0.4)';
-            ctx.beginPath();
-            ctx.arc(x - size * 0.15, y - size * 0.2, size * 0.12, 0, Math.PI * 2);
-            ctx.fill();
-        }
-        
-        APP.shaders.lensDrip.rafId = requestAnimationFrame(animateLensDrip);
-    }
+}
     
     // HEAT HAZE EFFECT - Thermal distortion during hot weather
-    function activateHeatHaze(active) {
-        const canvas = $('heat-haze-canvas');
-        if (!canvas) return;
-        
-        APP.shaders.heatHaze.active = active;
-        canvas.classList.toggle('active', active);
-        
-        if (active && !APP.shaders.heatHaze.rafId) {
-            animateHeatHaze();
-        }
-    }
-    
-    function animateHeatHaze() {
-        if (!APP.shaders.heatHaze.active) {
-            APP.shaders.heatHaze.rafId = null;
-            return;
-        }
-        
-        const canvas = $('heat-haze-canvas');
-        const ctx = canvas.getContext('2d');
-        if (!ctx) return;
-        
-        const stage = $('stage');
-        if (stage) {
-            canvas.width = stage.clientWidth;
-            canvas.height = stage.clientHeight;
-        }
-        
-        ctx.clearRect(0, 0, canvas.width, canvas.height);
-        
-        const time = APP.shaders.heatHaze.time++;
+    // --- THE THERMAL OVERLOAD ENGINE (High-End Heat) ---
+function activateHeatHaze(active) {
+    const stage = $('stage');
+    if (!stage) return;
+
+    APP.shaders.heatHaze.active = active;
+
+    if (active) {
         const temp = APP.atmosphere.temperature || 25;
-        const intensity = Math.min((temp - 25) / 20, 1);
+        // Calculate intensity: Higher temp = more "Bloom" and "Bleed"
+        const intensity = Math.min((temp - 25) / 20, 1); 
         
-        if (intensity <= 0) return;
-        
-        // Draw heat waves from bottom
-        ctx.save();
-        ctx.globalAlpha = 0.1 * intensity;
-        
-        for (let y = canvas.height; y > canvas.height * 0.4; y -= 25) {
-            const waveOffset = Math.sin(time * 0.03 + y * 0.005) * 6 * intensity;
-            const heatColor = `rgba(255, ${Math.floor(200 - (canvas.height - y) / canvas.height * 100)}, 80, ${0.08 * intensity})`;
+        if (intensity > 0) {
+            // OPTICAL BLOOM: Brightness and Saturation increase with heat
+            const b = 1 + (0.15 * intensity);
+            const s = 1 + (0.4 * intensity);
+            const blur = 0.3 * intensity;
+
+            stage.style.filter = `brightness(${b}) contrast(1.1) saturate(${s}) blur(${blur}px)`;
             
-            ctx.strokeStyle = heatColor;
-            ctx.lineWidth = 2;
-            ctx.beginPath();
-            ctx.moveTo(0, y);
+            // SENSOR VIBRATION: Mimics air molecules moving (very fast, tiny)
+            stage.style.animation = 'heat-vibration 0.1s infinite';
             
-            for (let x = 0; x < canvas.width; x += 12) {
-                const wave = Math.sin(time * 0.04 + x * 0.012) * waveOffset;
-                ctx.lineTo(x, y + wave);
-            }
-            ctx.stroke();
+            log(`SYSTEM: THERMAL_STRESS_LEVEL_${Math.round(intensity * 100)}`);
         }
-        
-        ctx.restore();
-        APP.shaders.heatHaze.rafId = requestAnimationFrame(animateHeatHaze);
+    } else {
+        // Reset to nominal
+        stage.style.filter = '';
+        stage.style.animation = '';
     }
-    
-    // Initialize shaders state
-    APP.shaders = APP.shaders || {
-        lensDrip: { active: false, time: 0, rafId: null },
-        heatHaze: { active: false, time: 0, rafId: null }
-    };
-    
-    // Initialize satellite atmosphere on load
-    initAtmosphere();
+}
+
+// NOTE: You can delete the animateHeatHaze() function entirely. 
+// The GPU now handles the "heat" via CSS filters, saving you CPU power!
 
     // ========================================
     // NFT_VAULT: SCAN WALLET ASSETS
