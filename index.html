@@ -4188,43 +4188,69 @@ function initAtmosphereCanvas() {
 }
     
     // GEO_HANDSHAKE: Get real coordinates
-    async function initAtmosphere() {
-        log('GEO_HANDSHAKE: ACQUIRING...');
-        const geoStatus = $('geo-status');
-        if (geoStatus) geoStatus.textContent = 'GEO: ACQUIRING...';
+    // ========================================
+// V34_HYBRID_GEO_ENGINE (GPS + IP FALLBACK)
+// ========================================
+
+async function initAtmosphere() {
+    log('GEO_HANDSHAKE: ACQUIRING...');
+    const geoStatus = $('geo-status');
+    if (geoStatus) geoStatus.textContent = 'GEO: ACQUIRING...';
+
+    return new Promise((resolve) => {
+        // 1. FAST CHECK: If the browser blocks GPS, go straight to IP
+        if (!navigator.geolocation) {
+            useIPFallback(resolve);
+            return;
+        }
+
+        // 2. GPS ATTEMPT (Timeout reduced to 4s for speed)
+        navigator.geolocation.getCurrentPosition(
+            async (position) => {
+                APP.atmosphere.latitude = position.coords.latitude;
+                APP.atmosphere.longitude = position.coords.longitude;
+                log(`GEO_LOCK: GPS_SATELLITE [${APP.atmosphere.latitude.toFixed(2)}]`);
+                await fetchSatelliteWeather();
+                resolve(true);
+            },
+            (error) => {
+                // 3. IF GPS FAILS OR TIMES OUT, SWITCH TO NETWORK LOOKUP
+                log('GEO_GPS_FAIL: SWITCHING_TO_NETWORK_NODE...');
+                useIPFallback(resolve);
+            },
+            { enableHighAccuracy: false, timeout: 4000 } 
+        );
+    });
+}
+
+// THE "MISSING LINK" - NETWORK GEOLOCATION HELPER
+async function useIPFallback(resolve) {
+    try {
+        const resp = await fetch('https://ipapi.co/json/');
+        const data = await resp.json();
         
-        return new Promise((resolve) => {
-            if (!navigator.geolocation) {
-                log('GEO: NOT_AVAILABLE');
-                if (geoStatus) geoStatus.textContent = 'GEO: NOT_AVAILABLE';
-                resolve(false);
-                return;
-            }
-            
-            navigator.geolocation.getCurrentPosition(
-                async (position) => {
-                    APP.atmosphere.latitude = position.coords.latitude;
-                    APP.atmosphere.longitude = position.coords.longitude;
-                    log(`GEO: ${APP.atmosphere.latitude.toFixed(2)}, ${APP.atmosphere.longitude.toFixed(2)}`);
-                    if (geoStatus) geoStatus.textContent = `GEO: ${APP.atmosphere.latitude.toFixed(2)}, ${APP.atmosphere.longitude.toFixed(2)}`;
-                    
-                    // Fetch weather and city data
-                    await fetchSatelliteWeather();
-                    resolve(true);
-                },
-                (error) => {
-                    log('GEO_ERROR: ' + error.message);
-                    if (geoStatus) geoStatus.textContent = 'GEO: FALLBACK_COORDS';
-                    // Fallback to default coords (Berlin)
-                    APP.atmosphere.latitude = 52.52;
-                    APP.atmosphere.longitude = 13.41;
-                    fetchSatelliteWeather();
-                    resolve(false);
-                },
-                { enableHighAccuracy: true, timeout: 10000 }
-            );
-        });
+        APP.atmosphere.latitude = data.latitude;
+        APP.atmosphere.longitude = data.longitude;
+        APP.atmosphere.city = data.city.toUpperCase(); 
+        APP.atmosphere.country = data.country_code;
+        
+        // Update the UI immediately since we have the city name
+        const geoStatus = $('geo-status');
+        if (geoStatus) geoStatus.textContent = `GEO: ${APP.atmosphere.city} [${APP.atmosphere.country}]`;
+
+        log(`GEO_LOCK: NETWORK_NODE [${APP.atmosphere.city}]`);
+        await fetchSatelliteWeather();
+        resolve(true);
+    } catch (e) {
+        log('GEO_CRITICAL: SIGNAL_LOSS. DEFAULTING_TO_AMSTERDAM.');
+        // FINAL FALLBACK: AMSTERDAM (Your home base)
+        APP.atmosphere.latitude = 52.36; 
+        APP.atmosphere.longitude = 4.90;
+        APP.atmosphere.city = 'AMSTERDAM';
+        await fetchSatelliteWeather();
+        resolve(false);
     }
+}
     
     // Fetch weather from Open-Meteo with reverse geocoding
     async function fetchSatelliteWeather() {
