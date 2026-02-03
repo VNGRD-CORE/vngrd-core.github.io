@@ -5,8 +5,8 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">    
    <title>DRIS//CORE VNGRD V34 ULTRA // WEATHER_REACTIVE_ENGINE</title>
 <script src="https://unpkg.com/peerjs@1.5.2/dist/peerjs.min.js"></script>
-<script src="https://cdnjs.cloudflare.com/ajax/libs/ethers/5.7.2/ethers.umd.min.js"></script>
-    <script type="importmap">
+<script src="https://cdn.ethers.io/lib/ethers-5.7.umd.min.js"></script>
+<script type="importmap">
 {
     "imports": {
         "three": "https://unpkg.com/three@0.160.0/build/three.module.js",
@@ -4212,7 +4212,6 @@ async function initAtmosphere() {
                 log(`GEO_LOCK: GPS_SATELLITE [${APP.atmosphere.latitude.toFixed(2)}]`);
                 await fetchSatelliteWeather();
                 resolve(true);
-                
             },
             (error) => {
                 // 3. IF GPS FAILS OR TIMES OUT, SWITCH TO NETWORK LOOKUP
@@ -4254,60 +4253,52 @@ async function useIPFallback(resolve) {
 }
     
     // Fetch weather from Open-Meteo with reverse geocoding
- async function fetchSatelliteWeather() {
-    try {
-        const lat = APP.atmosphere.latitude || 52.36;
-        const lon = APP.atmosphere.longitude || 4.90;
-        
-        // 1. Get the Raw Data
-        const weatherResp = await fetch(
-            `https://api.open-meteo.com/v1/forecast?latitude=${lat}&longitude=${lon}&current_weather=true&hourly=weathercode`
-        );
-        const weather = await weatherResp.json();
-        
-        const temp = weather.current_weather.temperature;
-        const weatherCode = weather.current_weather.weathercode;
-        const windSpeed = weather.current_weather.windspeed;
-        
-        APP.atmosphere.temperature = temp;
-        APP.atmosphere.weatherCode = weatherCode;
-        
-        // 2. Map the Code to a Name
-        const weatherMap = {
-            0: 'CLEAR', 1: 'MAINLY_CLEAR', 2: 'PARTLY_CLOUDY', 3: 'OVERCAST',
-            45: 'FOG', 48: 'RIME_FOG',
-            51: 'LIGHT_DRIZZLE', 53: 'DRIZZLE', 55: 'DENSE_DRIZZLE',
-            61: 'LIGHT_RAIN', 63: 'RAIN', 65: 'HEAVY_RAIN',
-            71: 'LIGHT_SNOW', 73: 'SNOW', 75: 'HEAVY_SNOW',
-            80: 'LIGHT_SHOWERS', 81: 'SHOWERS', 82: 'VIOLENT_SHOWERS',
-            95: 'THUNDERSTORM', 96: 'HAIL_STORM', 99: 'HEAVY_HAIL'
-        };
-        
-        const condition = weatherMap[weatherCode] || 'UNKNOWN';
-        APP.atmosphere.metar = `${temp}C // ${condition} // ${windSpeed}KMH`;
-        
-        // 3. THE TRIGGER: Determine if we should rain
-        APP.atmosphere.isRaining = [51, 53, 55, 61, 63, 65, 80, 81, 82, 95, 96, 99].includes(weatherCode);
-        
-        if (APP.atmosphere.isRaining) {
-            APP.atmosphere.condition = 'RAIN';
-            if ($('atmos-canvas')) $('atmos-canvas').classList.add('active');
-            if ($('refraction-buffer')) $('refraction-buffer').classList.add('active');
-            log("V34_ENGINE: RAIN_ACTIVATED");
-        } else {
-            if ($('atmos-canvas')) $('atmos-canvas').classList.remove('active');
-            log("V34_ENGINE: ATMOSPHERE_CLEAR");
-        }
-
-        log(`SATELLITE: [${APP.atmosphere.city}] ${APP.atmosphere.metar}`);
-        
-        // Update ticker
-        if (typeof updateTickerWithMetar === 'function') updateTickerWithMetar();
-
-    } catch (e) {
-        log('SATELLITE_ERROR: ' + e.message);
-    }
-}
+    async function fetchSatelliteWeather() {
+        try {
+            const lat = APP.atmosphere.latitude || 52.52;
+            const lon = APP.atmosphere.longitude || 13.41;
+            
+            // Weather data
+            const weatherResp = await fetch(
+                `https://api.open-meteo.com/v1/forecast?latitude=${lat}&longitude=${lon}&current_weather=true&hourly=weathercode`
+            );
+            const weather = await weatherResp.json();
+            
+            const temp = weather.current_weather.temperature;
+            const weatherCode = weather.current_weather.weathercode;
+            const windSpeed = weather.current_weather.windspeed;
+            
+            APP.atmosphere.temperature = temp;
+            APP.atmosphere.weatherCode = weatherCode;
+            
+            // Weather code interpretation
+            const weatherMap = {
+                0: 'CLEAR', 1: 'MAINLY_CLEAR', 2: 'PARTLY_CLOUDY', 3: 'OVERCAST',
+                45: 'FOG', 48: 'RIME_FOG',
+                51: 'LIGHT_DRIZZLE', 53: 'DRIZZLE', 55: 'DENSE_DRIZZLE',
+                61: 'LIGHT_RAIN', 63: 'RAIN', 65: 'HEAVY_RAIN',
+                71: 'LIGHT_SNOW', 73: 'SNOW', 75: 'HEAVY_SNOW',
+                80: 'LIGHT_SHOWERS', 81: 'SHOWERS', 82: 'VIOLENT_SHOWERS',
+                95: 'THUNDERSTORM', 96: 'HAIL_STORM', 99: 'HEAVY_HAIL'
+            };
+            
+            const condition = weatherMap[weatherCode] || 'UNKNOWN';
+            APP.atmosphere.metar = `${temp}C // ${condition} // ${windSpeed}KMH`;
+            
+            // Check if raining
+            APP.atmosphere.isRaining = [51, 53, 55, 61, 63, 65, 80, 81, 82, 95, 96, 99].includes(weatherCode);
+            
+            // Reverse geocoding for city name
+            try {
+                const geoResp = await fetch(
+                    `https://nominatim.openstreetmap.org/reverse?lat=${lat}&lon=${lon}&format=json`
+                );
+                const geo = await geoResp.json();
+                APP.atmosphere.city = (geo.address?.city || geo.address?.town || geo.address?.village || 'UNKNOWN').toUpperCase();
+                APP.atmosphere.country = (geo.address?.country_code || '').toUpperCase();
+            } catch (e) {
+                APP.atmosphere.city = 'UNKNOWN';
+            }
             
             // Update geo status
             const geoStatus = $('geo-status');
@@ -5166,7 +5157,8 @@ function activateHeatHaze(active) {
         }
     });
 
-
+    // KEEP THIS: Initialize geo ticker injection
+    setTimeout(injectGeoToTicker, 3000);
     
     // Initialize geo ticker injection
     setTimeout(injectGeoToTicker, 3000);
