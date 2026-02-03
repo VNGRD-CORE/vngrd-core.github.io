@@ -826,7 +826,40 @@
         padding: 5vh 5vw;
     }
 }
-</style>
+/* --- V34_MOBILE_ORIENTATION_LOCK --- */
+@media screen and (max-width: 768px) {
+    /* Scale the terminal to fit small screens */
+    #widget-layer {
+        transform: scale(0.65) !important;
+        transform-origin: top left !important;
+        left: 10px !important;
+        top: 10% !important;
+        width: 140% !important; /* Counter-scale to prevent text squashing */
+    }
+
+    /* Fix for Landscape/Rotate view */
+    @media (orientation: landscape) {
+        #widget-layer {
+            transform: scale(0.45) !important;
+            top: 5% !important;
+            display: grid;
+            grid-template-columns: 1fr 1fr; /* Side-by-side layout when sideways */
+            gap: 15px;
+        }
+    }
+
+    /* Adjust entrance text for mobile */
+    .entrance-text {
+        font-size: 1.8rem !important;
+        width: 85% !important;
+        text-align: center;
+    }
+
+    /* Reduce 3D overhead to keep mobile FPS high */
+    #vanguard-grid {
+        opacity: 0.3 !important;
+    }
+}</style>
 </head>
 <body oncontextmenu="return false;">
     <!-- SHOOTING_OVERLAY -->
@@ -5086,6 +5119,27 @@ document.addEventListener('DOMContentLoaded', () => {
     setTimeout(injectGeoToTicker, 3000);
 
 }); // THIS IS THE END of the startup block. Do not put code after this line.
-</script>
+/* --- MOBILE_ORIENTATION_HANDSHAKE --- */
+function syncMobileViewport() {
+    if (typeof camera !== 'undefined' && typeof renderer !== 'undefined') {
+        camera.aspect = window.innerWidth / window.innerHeight;
+        camera.updateProjectionMatrix();
+        renderer.setSize(window.innerWidth, window.innerHeight);
+        renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+    }
+    
+    // Fix for the Rain Canvas sizing on rotate
+    const rainCanvas = document.getElementById('atmos-canvas');
+    if (rainCanvas) {
+        rainCanvas.width = window.innerWidth;
+        rainCanvas.height = window.innerHeight;
+    }
+}
+
+// Listen for both resize and orientation flip
+window.addEventListener('resize', syncMobileViewport);
+window.addEventListener('orientationchange', () => {
+    setTimeout(syncMobileViewport, 300); // 300ms delay to let the phone finish the animation
+});</script>
 </body>
 </html>
