@@ -25,6 +25,11 @@
             --bg: #050508; --panel: #08080c; --panel-light: #0c0c12; --border: #151520; --border-light: #202030;
             --text: #a0a0a8; --text-dim: #505058; --text-bright: #e8e8ec;
         }
+        * {
+    box-sizing: border-box;
+    margin: 0;
+    padding: 0;
+}
         
         body.theme-magenta { --accent: #ff0055; --accent-dim: rgba(255,0,85,0.2); --accent-glow: rgba(255,0,85,0.5); }
         body.theme-green { --accent: #00ff88; --accent-dim: rgba(0,255,136,0.2); --accent-glow: rgba(0,255,136,0.5); }
@@ -83,10 +88,14 @@
     touch-action: none; 
     transition: background 0.1s linear; 
 }
+        body::-webkit-scrollbar {
+    display: none;
+  }
 
         input, textarea { 
             user-select: text; 
-            cursor: text !important; 
+            cursor: text !important;
+            touch-action: auto !important;
         }
 
         /* SYSTEM FAILURE MODE (REPLACES PSYCHOSIS STROBE) */
@@ -912,7 +921,49 @@
         border: none !important;
     }
 }
-</style>
+/* ========================================
+   MASTER MOBILE CALIBRATION (V34 ULTRA)
+   ======================================== */
+
+@media screen and (max-width: 950px) {
+    /* 1. RESET THE STAGE: Full bleed, no desktop offsets */
+    #stage {
+        left: 0 !important;
+        top: 0 !important;
+        width: 100vw !important;
+        height: 100vh !important;
+        position: fixed !important;
+    }
+
+    /* 2. REPOSITION SIDEBAR: Dock to bottom as a nav-bar */
+    .sidebar {
+        width: 100% !important;
+        height: 60px !important;
+        bottom: 0 !important;
+        top: auto !important;
+        left: 0 !important;
+        flex-direction: row !important; /* Icons go left-to-right */
+        justify-content: space-around !important;
+        background: rgba(5, 5, 8, 0.95) !important;
+        backdrop-filter: blur(10px);
+        border-top: 1px solid var(--accent-dim);
+        padding: 5px !important;
+        z-index: 1000 !important;
+    }
+
+    /* 3. HIDE CLUTTER: Clean up the 3D space */
+    #sys-log, #system-logs, .desktop-only {
+        display: none !important;
+    }
+
+    /* 4. CAM PREVIEW: Shrink for mobile screen */
+    #cam-preview-float {
+        width: 100px !important;
+        height: 130px !important;
+        bottom: 70px !important; /* Sits just above the new bottom bar */
+        right: 10px !important;
+    }
+}</style>
 </head>
 <body oncontextmenu="return false;">
  <div id="orientation-warning">
