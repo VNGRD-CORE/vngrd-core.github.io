@@ -1234,7 +1234,7 @@
             <div class="sec-head"><span class="sec-title">IDENTITY</span><div class="sec-dot"></div></div>
             <div class="sec-body">
                 <!-- STATION BUG -->
-                <input type="text" class="inp" id="bug-text" placeholder="STATION_NAME..." value="VNGRD_V34">
+                <input type="text" class="inp" id="bug-text" placeholder="STATION_NAME..." value="VNGRD">
                 <div class="btn-row">
                     <button class="btn" id="btn-set-station" style="flex:2;">SET BUG</button>
                     <button class="btn" id="btn-bug-toggle" title="Toggle Bug">[X]</button>
@@ -1544,7 +1544,7 @@ const APP = {
     wallet: { connected: false, address: null, chainId: null, nfts: [] },
     camera: { stream: null, recorder: null, chunks: [], mode: 'off', isRecording: false, videoEl: null, previewEl: null },
     render: { canvas: null, ctx: null, width: 3840, height: 2160, fps: 0, frameCount: 0, lastTime: 0, lastFpsUpdate: 0, rafId: null, scale: 1.0, pixelCanvas: null, pixelCtx: null, rgbActive: false },
-    bug: { visible: true, text: 'VNGRD_V34', image: null, textMode: 0, textVisible: true, imageVisible: false },
+    bug: { visible: true, text: 'VNGRD', image: null, textMode: 0, textVisible: true, imageVisible: false },
     layers: { logoScale: 1.0, logoSrc: null },
     lowerThird: { visible: false, preset: 'guest' },
     ui: { logoMorph: 0, morphs: ['m1','m2','m3','m4','m5','m6'] },
@@ -2050,7 +2050,7 @@ function makeDraggable(el) {
 if ($('btn-set-station')) {
     $('btn-set-station').onclick = () => {
         const bug = $('station-bug');
-        const text = $('bug-text').value || 'VNGRD_V34';
+        const text = $('bug-text').value || 'VNGRD';
         if (bug) {
             bug.textContent = text;
             bug.style.display = 'block';
