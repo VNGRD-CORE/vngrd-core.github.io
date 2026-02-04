@@ -1483,6 +1483,57 @@
 
 <script>
 const $ = id => document.getElementById(id);
+// --- METAMASK FIX: AUTHENTICATION ENGINE ---
+async function connectWallet() {
+    if (window.ethereum) {
+        try {
+            const accounts = await window.ethereum.request({ method: 'eth_requestAccounts' });
+            const userAddress = accounts[0];
+            const provider = new ethers.providers.Web3Provider(window.ethereum);
+            
+            const badge = $('wallet-badge');
+            if (badge) {
+                // Using your CSS variable --g for the neon green glow
+                badge.innerHTML = `<span class="dot" id="wallet-dot" style="background:var(--g);box-shadow:0 0 10px var(--g);"></span> ${userAddress.substring(0, 6)}...${userAddress.substring(38)}`;
+                badge.style.borderColor = 'var(--g)';
+                badge.style.color = 'var(--g)';
+            }
+
+            // FIX: Check if APP exists before writing to it
+            if (typeof APP !== 'undefined') {
+                APP.wallet.connected = true;
+                APP.wallet.address = userAddress;
+            }
+
+            const logElement = $('sys-log');
+            if (logElement) {
+                logElement.innerHTML += `<div class="log-line"><span class="ts">[${new Date().toLocaleTimeString()}]</span> L2_AUTH_SUCCESS: ${userAddress}</div>`;
+            }
+
+            scanWalletAssets(userAddress);
+
+        } catch (err) {
+            console.error("L2_AUTH_REJECTED:", err);
+        }
+    } else {
+        alert("MetaMask not detected.");
+    }
+}
+
+// Function to handle the "Scan" logic for your NFT_VAULT
+function scanWalletAssets(address) {
+    console.log("VNGRD_SYSTEM: Scanning Vault for address", address);
+    const vaultDot = $('vault-dot');
+    if (vaultDot) {
+        vaultDot.classList.remove('off');
+        vaultDot.classList.add('gold'); // Turns yellow while scanning
+    }
+}
+
+// Attach to your existing button
+if ($('wallet-badge')) {
+    $('wallet-badge').onclick = connectWallet;
+}
     window.addEventListener('load', () => {
     const reveal = $('blur-reveal');
     if (reveal) {
@@ -4621,41 +4672,55 @@ function activateHeatHaze(active) {
     // NFT_VAULT: SCAN WALLET ASSETS
     // ========================================
     $('btn-scan-nfts').onclick = async () => {
-        if (!APP.wallet.connected || !APP.wallet.address) {
-            $('nft-vault-list').innerHTML = 'CONNECT_WALLET_FIRST';
-            return;
-        }
+    // 1. Check if wallet is linked (from our previous fix)
+    if (!APP.wallet.connected || !APP.wallet.address) {
+        $('nft-vault-list').innerHTML = '<span style="color:var(--r)">ERROR: LINK_WALLET_FIRST</span>';
+        return;
+    }
+    
+    $('nft-vault-list').innerHTML = '<span class="loading">SYNCING_L2_VAULT...</span>';
+    
+    try {
+        // 2. Using Alchemy L2 Endpoint (Polygon in this example)
+        // Note: Change 'polygon-mainnet' to 'base-mainnet' or 'arb-mainnet' as needed
+        const apiKey = 'demo'; 
+        const url = `https://polygon-mainnet.g.alchemy.com/nft/v2/${apiKey}/getNFTs?owner=${APP.wallet.address}&pageSize=5`;
         
-        $('nft-vault-list').innerHTML = 'SCANNING...';
-        log('NFT_VAULT: SCANNING...');
+        const resp = await fetch(url);
+        const data = await resp.json();
         
-        try {
-            // Using Alchemy API (free tier)
-            const alchemyKey = 'demo'; // Replace with actual key for production
-            const resp = await fetch(`https://eth-mainnet.g.alchemy.com/nft/v2/${alchemyKey}/getNFTs?owner=${APP.wallet.address}&pageSize=10`);
-            const data = await resp.json();
+        if (data.ownedNfts && data.ownedNfts.length > 0) {
+            // Update the global state
+            APP.wallet.nfts = data.ownedNfts;
             
-            if (data.ownedNfts && data.ownedNfts.length > 0) {
-                APP.wallet.nfts = data.ownedNfts;
-                $('nft-count').textContent = 'ASSETS: ' + data.totalCount;
+            // Update your 'nft-count' element
+            if ($('nft-count')) $('nft-count').textContent = 'ASSETS: ' + data.totalCount;
+            
+            // Turn your Vault Dot Yellow (Scanning Success)
+            if ($('vault-dot')) {
                 $('vault-dot').classList.remove('off');
-                
-                let html = '';
-                data.ownedNfts.slice(0, 5).forEach(nft => {
-                    const name = nft.title || nft.contract.name || 'UNKNOWN';
-                    html += `<div style="margin:2px 0;color:var(--accent);">${name.substring(0, 20)}</div>`;
-                });
-                $('nft-vault-list').innerHTML = html;
-                log('NFT_VAULT: ' + data.totalCount + ' ASSETS');
-            } else {
-                $('nft-vault-list').innerHTML = 'NO_NFTS_FOUND';
-                $('nft-count').textContent = 'ASSETS: 0';
+                $('vault-dot').style.background = 'var(--y)'; 
             }
-        } catch (e) {
-            $('nft-vault-list').innerHTML = 'SCAN_FAILED';
-            log('NFT_VAULT_ERROR: ' + e.message);
+            
+            // 3. Generate the UI List
+            let html = '';
+            data.ownedNfts.forEach(nft => {
+                const name = nft.title || 'UNNAMED_ASSET';
+                // Using your --accent color for the cyberpunk look
+                html += `<div class="nft-item" style="border-bottom:1px solid var(--border); padding:4px 0;">
+                            <span style="color:var(--g)">[+]</span> ${name.substring(0, 18)}
+                         </div>`;
+            });
+            $('nft-vault-list').innerHTML = html;
+            
+        } else {
+            $('nft-vault-list').innerHTML = 'NO_L2_ASSETS_FOUND';
         }
-    };
+    } catch (e) {
+        $('nft-vault-list').innerHTML = '<span style="color:var(--r)">SCAN_FAILED</span>';
+        console.error("VAULT_SYNC_ERROR:", e);
+    }
+};
 
     // ========================================
     // NEURAL_INJECT: AI IMAGE GENERATION
