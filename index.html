@@ -2480,8 +2480,12 @@ function playTrack(idx) {
     const track = APP.audio.playlist[APP.audio.currentTrack];
     APP.audio.currentTrackName = track.name;
     APP.audio.element.src = track.url;
+
+    // --- ADD THIS LINE HERE ---
+    // Automatically calls your nextTrack function when the file finishes
+    APP.audio.element.onended = () => { nextTrack(); }; 
+    // --------------------------
     
-    // Ensure Context
     if (!APP.audio.ctx) APP.audio.ctx = new (window.AudioContext || window.webkitAudioContext)();
     
     APP.audio.element.play().then(() => { 
