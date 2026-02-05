@@ -2,10 +2,11 @@
 <html lang="en">
 <head>
     <meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">    
-   <title>DRIS//CORE VNGRD</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    
+   <title>DRIS//CORE VNGRD V34 ULTRA // WEATHER_REACTIVE_ENGINE</title>
 <script src="https://unpkg.com/peerjs@1.5.2/dist/peerjs.min.js"></script>
-<script src="https://cdn.jsdelivr.net/npm/ethers@5.7.2/dist/ethers.umd.min.js"></script>
+<script src="https://cdn.ethers.io/lib/ethers-5.7.umd.min.js"></script>
 <script type="importmap">
 {
     "imports": {
@@ -14,8 +15,8 @@
     }
 }
 </script>
-    <script src="https://unpkg.com/three@0.160.0/examples/jsm/loaders/OBJLoader.js" type="module"></script>
-<script src="https://unpkg.com/three@0.160.0/examples/jsm/loaders/STLLoader.js" type="module"></script>
+    <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/loaders/OBJLoader.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/loaders/STLLoader.js"></script>
     <style>
         @import url('https://fonts.googleapis.com/css2?family=Orbitron:wght@400;600;800;900&family=JetBrains+Mono:wght@300;400;500&family=Bebas+Neue&family=Russo+One&display=swap');
         
@@ -25,11 +26,6 @@
             --bg: #050508; --panel: #08080c; --panel-light: #0c0c12; --border: #151520; --border-light: #202030;
             --text: #a0a0a8; --text-dim: #505058; --text-bright: #e8e8ec;
         }
-        * {
-    box-sizing: border-box;
-    margin: 0;
-    padding: 0;
-}
         
         body.theme-magenta { --accent: #ff0055; --accent-dim: rgba(255,0,85,0.2); --accent-glow: rgba(255,0,85,0.5); }
         body.theme-green { --accent: #00ff88; --accent-dim: rgba(0,255,136,0.2); --accent-glow: rgba(0,255,136,0.5); }
@@ -76,26 +72,21 @@
         /* Hide Scrollbars Globally */
         ::-webkit-scrollbar { display: none; }
         html, body { 
-    scrollbar-width: none; 
-    -ms-overflow-style: none; 
-    overflow: hidden; 
-    height: 100%; /* Change from 100vh to 100% */
-    width: 100%;  /* Change from 100vw to 100% */
-    background: var(--bg); color: var(--text); 
-    font-family: 'JetBrains Mono', monospace; 
-    font-size: 12px; 
-    overscroll-behavior: none; 
-    touch-action: none; 
-    transition: background 0.1s linear; 
-}
-        body::-webkit-scrollbar {
-    display: none;
-  }
+            scrollbar-width: none; 
+            -ms-overflow-style: none; 
+            overflow: hidden; 
+            height: 100vh; width: 100vw; 
+            background: var(--bg); color: var(--text); 
+            font-family: 'JetBrains Mono', monospace; 
+            font-size: 12px; 
+            overscroll-behavior: none; 
+            touch-action: none; 
+            transition: background 0.1s linear; 
+        }
 
         input, textarea { 
             user-select: text; 
-            cursor: text !important;
-            touch-action: auto !important;
+            cursor: text !important; 
         }
 
         /* SYSTEM FAILURE MODE (REPLACES PSYCHOSIS STROBE) */
@@ -141,24 +132,6 @@
             98% { opacity: 1; color: var(--r); }
             100% { opacity: 0.6; color: var(--accent); }
         }
-        /* THE HEAT VIBRATION (Sensor Stress) */
-@keyframes heat-vibration {
-    0% { transform: translate(0.3px, 0.3px); }
-    50% { transform: translate(-0.3px, -0.3px); }
-    100% { transform: translate(0.3px, 0.3px); }
-}
-
-/* THE LIGHTNING STRIKE (For Code 95+) */
-@keyframes lightning-strike {
-    0% { filter: brightness(10) saturate(0); }
-    10% { filter: brightness(0.5) saturate(2); }
-    20% { filter: brightness(8) saturate(0); }
-    100% { filter: brightness(1) saturate(1); }
-}
-
-.weather-lightning {
-    animation: lightning-strike 0.4s ease-out;
-}
 
         .logo.m1 { color: #00f3ff; text-shadow: 0 0 20px #00f3ff; animation: pulse-glow 2s infinite; }
         .logo.m2 { color: #ff0055; text-shadow: 2px 2px 0px #fff; animation: glitch-text 0.3s infinite; }
@@ -255,45 +228,31 @@
         }
         
         /* V29 MANUAL LAYER ELEMENTS */
-       #station-bug { 
+        #station-bug { 
             position: absolute; top: 30px; left: 30px; z-index: 2600; 
             font-family: 'Orbitron', sans-serif; font-size: 28px; font-weight: 800; 
-            
-            /* CLEANUP: White text with a subtle dark lift, NO BLUE GLOW */
             color: rgba(255,255,255,0.9); 
-            text-shadow: 2px 2px 4px rgba(0,0,0,0.5); 
-            
-            background: transparent !important; 
-            border: none !important; 
-            backdrop-filter: none !important;
+            text-shadow: 0 0 20px var(--accent), 0 0 40px var(--accent-dim); 
+            background: transparent !important; border: none !important; backdrop-filter: none !important;
             cursor: move;
             pointer-events: auto !important;
         }
         #station-bug.hidden { opacity: 0; pointer-events: none; }
         #station-bug img { max-height: 60px; filter: drop-shadow(0 0 10px var(--accent)); }
         
-      #user-logo-layer { 
-    /* POSITION & SCALE */
-    position: absolute; 
-    top: 30px; 
-    right: 30px; 
-    z-index: 2550; 
-    max-width: 150px; 
-    max-height: 100px; 
-    object-fit: contain; 
-    transform-origin: top right;
-    display: none;
-    cursor: move;
-    pointer-events: auto !important;
-
-    /* SURGICAL CLEANUP: NO GLOW, NO BOX */
-    background: transparent !important;
-    border: none !important;
-    box-shadow: none !important;
-
-    /* REPLACED: Professional depth instead of blue neon */
-    filter: drop-shadow(2px 2px 4px rgba(0,0,0,0.8)) !important;
-}
+        #user-logo-layer { 
+            position: absolute; top: 30px; right: 30px; z-index: 2550; 
+            max-width: 150px; max-height: 100px; object-fit: contain; 
+            filter: drop-shadow(0 0 10px var(--accent)); 
+            transform-origin: top right;
+            display: none;
+            cursor: move;
+            pointer-events: auto !important;
+            /* CLEAN - NO BLACK SQUARE */
+            background: transparent !important;
+            border: none !important;
+            box-shadow: none !important;
+        }
         
         /* HOLOGRAM WIDGET - REACTOR CORE */
        #widget-layer {
@@ -308,14 +267,7 @@
     opacity: 1;
 }
 
-#hologram-canvas {
-    width: 100% !important;
-    height: 100% !important;
-    background: transparent !important; /* Ensures the canvas itself has no color */
-    border: none !important;           /* Removes the dashed/solid lines */
-    box-shadow: none !important;       /* Removes the glow until a model is loaded */
-    display: block;
-}
+
         
         /* STRUCTURAL INTEGRITY BAR */
         #integrity-bar {
@@ -343,71 +295,50 @@
             100% { transform: translateY(120vh) rotate(720deg); opacity: 0; }
         }
         
-      /* --- CLEAN BROADCAST PREVIEW --- */
-/* --- EMERGENCY PREVIEW RECOVERY --- */
-/* --- RESTORED BROADCAST PREVIEW --- */
-#cam-preview-float { 
-    display: none; /* Hidden by default */
-    position: absolute;
-    top: 25px; 
-    left: 25px;
-    width: 240px; /* Compact size */
-    aspect-ratio: 16 / 9;
-    background: #000;
-    border: 1px solid var(--v); /* Professional purple accent */
-    box-shadow: 0 10px 30px rgba(0,0,0,0.5);
-    z-index: 10000;
-    overflow: hidden;
-    pointer-events: auto;
-}
-
-/* This is the "Light Switch" */
-#cam-preview-float.active { 
-    display: block !important; 
-}
-
-#cam-preview-float video {
-    width: 100%;
-    height: 100%;
-    object-fit: cover;
-    transform: scaleX(-1); /* Mirror view */
-}
-
-/* Visibility Trigger */
-#cam-preview-float.active { 
-    display: block !important; 
-}
-
-/* Mirror Logic for Sensors */
-#cam-preview-float video {
-    width: 100%;
-    height: 100%;
-    object-fit: cover;
-    transform: scaleX(-1); /* Corrected mirror view */
-}
-
-/* Label & REC UI */
-#cam-preview-float .preview-label {
-    position: absolute;
-    bottom: 0; left: 0; width: 100%;
-    font-size: 10px;
-    color: var(--accent);
-    background: rgba(0,0,0,0.7);
-    padding: 4px 8px;
-    border-top: 1px solid rgba(255,255,255,0.1);
-    text-transform: uppercase;
-}
-
-#cam-preview-float .rec-indicator {
-    position: absolute;
-    top: 8px; right: 8px;
-    width: 8px; height: 8px;
-    background: #ff0000;
-    border-radius: 50%;
-    display: none;
-    box-shadow: 0 0 10px #ff0000;
-}
-#cam-preview-float .rec-indicator.on { display: block; }
+        /* CAMERA PREVIEW BOX - FLOATING */
+        #cam-preview-float {
+            position: fixed;
+            bottom: 70px;
+            left: 210px;
+            width: 180px;
+            height: 120px;
+            background: #000;
+            border: 2px solid var(--border);
+            z-index: 6500;
+            display: none;
+            overflow: hidden;
+        }
+        #cam-preview-float.active { display: block; border-color: var(--accent); }
+        #cam-preview-float video {
+            width: 100%;
+            height: 100%;
+            object-fit: cover;
+            transform: scaleX(-1);
+        }
+        #cam-preview-float .preview-label {
+            position: absolute;
+            bottom: 4px;
+            left: 4px;
+            font-size: 8px;
+            color: var(--accent);
+            background: rgba(0,0,0,0.8);
+            padding: 2px 6px;
+            border-left: 2px solid var(--accent);
+            letter-spacing: 1px;
+        }
+        #cam-preview-float .rec-indicator {
+            position: absolute;
+            top: 4px;
+            right: 4px;
+            width: 8px;
+            height: 8px;
+            background: var(--r);
+            border-radius: 50%;
+            display: none;
+            animation: rec-blink 1s infinite;
+        }
+        #cam-preview-float .rec-indicator.on { display: block; }
+        
         /* AUTO-INVERT FOR TV LEGIBILITY */
         #station-bug {
             mix-blend-mode: difference;
@@ -662,25 +593,13 @@
         .nft-bar { width: 200px; height: 4px; background: #333; margin-top: 10px; }
         .nft-fill { height: 100%; background: var(--r); transition: width 0.1s linear; }
 
-     .blur-reveal {
-    position: fixed;
-    inset: 0;
-    background: #000;
-    /* This creates the 'weird effect' - high contrast makes it pop */
-    backdrop-filter: blur(20px) contrast(160%) brightness(1.4);
-    -webkit-backdrop-filter: blur(20px) contrast(160%) brightness(1.4);
-    z-index: 2000000;
-    pointer-events: none;
-    /* FAST SNAP: 0.4s feels mechanical and high-tech */
-    transition: backdrop-filter 0.4s cubic-bezier(0.15, 0.85, 0.35, 1), 
-                opacity 0.5s ease;
-}
+        .blur-reveal { position: fixed; inset: 0; backdrop-filter: blur(50px); -webkit-backdrop-filter: blur(50px); z-index: 99999; pointer-events: none; animation: material-reveal 0.5s ease forwards; }
+        @keyframes material-reveal { 0% { backdrop-filter: blur(50px); opacity: 1; } 100% { backdrop-filter: blur(0px); opacity: 0; } }
 
-/* The 'Snap-Back' state */
-.blur-reveal.active {
-    backdrop-filter: blur(0px) contrast(100%) brightness(1);
-    opacity: 0;
-}
+        input[type="file"] { display: none; }
+        body.vhs #stage::before { background: repeating-linear-gradient(0deg, transparent, transparent 2px, rgba(0,0,0,0.15) 2px, rgba(0,0,0,0.15) 4px); animation: vhs-track 0.1s steps(3) infinite; opacity: 0.6; }
+        @keyframes vhs-track { 0% { background-position: 0 0; } 100% { background-position: 0 4px; } }
+        body.crt #stage::after { background: radial-gradient(ellipse at center, transparent 30%, rgba(0,0,0,0.6) 100%); }
         
         /* CONSOLE_HARDWARE BUTTON EFFECTS - HIGH-END GLOW AND PULSE */
         .btn {
@@ -871,9 +790,9 @@
             filter: blur(0.5px);
         }
         
-        body.heat-active #stage {
-    animation: heat-shimmer 0.15s infinite;
-}
+        bodyfalse-active #stage {
+            animation: heat-shimmer 0.15s infinite;
+        }
         @keyframes heat-shimmer {
             0%, 100% { transform: translateX(0); }
             25% { transform: translateX(1px); }
@@ -896,166 +815,24 @@
         }
         body.seismic-active { animation: seismic-shake 0.08s infinite; }
         
-   /* ========================================
-   MASTER MOBILE CALIBRATION (V34 ULTRA)
-   ======================================== */
-
-/* 1. PORTRAIT GUARD - SHOWS ONLY ON VERTICAL PHONES */
-@media screen and (orientation: portrait) {
-    #orientation-warning { 
-        display: flex !important; 
-        flex-direction: column;
-        align-items: center;
-        justify-content: center;
-        position: fixed;
-        inset: 0;
-        z-index: 999999;
-        background: #000;
-        text-align: center;
+    /* HORIZONTAL TV/MOBILE OVERRIDE */
+@media (orientation: landscape) and (max-width: 1024px) {
+    .sidebar, #top-bar, #bottom-bar, #sys-log { 
+        display: none !important; 
     }
-}
-
-/* 2. LANDSCAPE AUTO-SYNC - HIDES WARNING WHEN ROTATED */
-@media screen and (orientation: landscape) {
-    #orientation-warning {
-        display: none !important;
-    }
-}
-
-    /* 2. LANDSCAPE ENGINE - FIXES THE "SUCK" FROM YOUR SCREENSHOT */
-    @media screen and (max-width: 950px) {
-        /* Pushes Title out of the corner/notch */
-        .vngrd-title, h1 {
-            position: fixed !important;
-            top: 25px !important; 
-            left: 25px !important;
-            font-size: 20px !important;
-            z-index: 999999 !important;
-            letter-spacing: 4px !important;
-            margin: 0 !important;
-        }
-
-        /* Forces the 3D Engine/Liquid to fill the whole screen */
-        #trasudate-layer, #trasudate-canvas, canvas, #stage {
-            width: 100vw !important;
-            height: 100vh !important;
-            position: fixed !important;
-            inset: 0 !important;
-            border: none !important;
-        }
-
-        /* Docks the Sidebar at the bottom so it doesn't squash the view */
-        .sidebar, #left-panel {
-            width: 100vw !important;
-            height: 70px !important;
-            position: fixed !important;
-            bottom: 0 !important;
-            left: 0 !important;
-            flex-direction: row !important;
-            justify-content: space-around !important;
-            background: rgba(0, 0, 0, 0.8) !important;
-            backdrop-filter: blur(10px) !important;
-            border-right: none !important;
-            border-top: 1px solid var(--accent) !important;
-            z-index: 1000 !important;
-            padding: 0 10px !important;
-        }
-
-        /* Hide desktop-specific clutter */
-        #top-bar, #sys-log, .desktop-only {
-            display: none !important;
-        }
-    }
-        @media screen and (max-width: 950px) {
-    /* ... your existing mobile code ... */
-
     #stage {
-        left: 0 !important;   /* Stretches the 3D view to the edges */
-        right: 0 !important;
-        top: 0 !important;
-        bottom: 0 !important;
+        position: fixed !important;
+        inset: 0 !important;
         border: none !important;
-    }
-}
-/* ========================================
-   MASTER MOBILE CALIBRATION (V34 ULTRA)
-   ======================================== */
-
-@media screen and (max-width: 950px) {
-    /* 1. RESET THE STAGE: Full bleed, no desktop offsets */
-    #stage {
-        left: 0 !important;
-        top: 0 !important;
-        width: 100vw !important;
-        height: 100vh !important;
-        position: fixed !important;
-    }
-
-    /* 2. REPOSITION SIDEBAR: Dock to bottom as a nav-bar */
-    .sidebar {
-        width: 100% !important;
-        height: 60px !important;
-        bottom: 0 !important;
-        top: auto !important;
-        left: 0 !important;
-        flex-direction: row !important; /* Icons go left-to-right */
-        justify-content: space-around !important;
-        background: rgba(5, 5, 8, 0.95) !important;
-        backdrop-filter: blur(10px);
-        border-top: 1px solid var(--accent-dim);
-        padding: 5px !important;
-        z-index: 1000 !important;
-    }
-
-    /* 3. HIDE CLUTTER: Clean up the 3D space */
-    #sys-log, #system-logs, .desktop-only {
-        display: none !important;
-    }
-
-    /* ========================================
-   THE "PERFECT ROTATION" RE-CENTER
-   ======================================== */
-
-@media screen and (max-width: 950px) and (orientation: landscape) {
-    /* 1. Force the Stage to 100% of the glass */
-    #stage {
-        left: 0 !important;
-        top: 0 !important;
-        width: 100vw !important;
-        height: 100vh !important;
-        margin: 0 !important;
-        position: fixed !important;
-    }
-
-    /* 2. Dock the Sidebar so it doesn't squash the 3D engine */
-    .sidebar {
-        width: 100% !important;
-        height: 50px !important;
-        bottom: 0 !important;
-        top: auto !important;
-        left: 0 !important;
-        flex-direction: row !important;
-        background: rgba(5, 5, 8, 0.9) !important;
-        backdrop-filter: blur(10px);
-        padding: 0 20px !important;
         z-index: 9999;
     }
-
-    /* 3. Hide the messy desktop logs that "shit" on the view */
-    #sys-log, #system-logs {
-        display: none !important;
+    #overlay-layer {
+        padding: 5vh 5vw;
     }
-}</style>
+}
+</style>
 </head>
 <body oncontextmenu="return false;">
- <div id="orientation-warning">
-    <div style="letter-spacing: 5px; font-weight: 900; color: #00ffcc !important; text-transform: uppercase;">
-        Rotate Device
-    </div>
-    <div style="font-size: 10px; margin-top: 8px; opacity: 0.8; color: #00ffcc !important; letter-spacing: 2px;">
-        LANDSCAPE_MODE_REQUIRED_FOR_V34_SYNC
-    </div>
-</div>
     <!-- SHOOTING_OVERLAY -->
     <div id="shooting-overlay"></div>
     
@@ -1139,11 +916,10 @@
         <div id="glass-fracture-layer"></div>
         <div id="overlay-layer">
             <!-- V33 MANUAL LAYER SEPARATION -->
-            <div id="station-bug">VNGRD</div>
+            <div id="station-bug">VNGRD_V34</div>
             <img id="user-logo-layer" src="" alt="Logo">
             <!-- HOLOGRAM WIDGET - REACTOR CORE -->
             <div id="widget-layer">
-                <canvas id="hologram-canvas"></canvas>
             </div>
             <div id="lower-third">
                 <div class="lt-container lt-guest">
@@ -1262,7 +1038,7 @@
             <div class="sec-head"><span class="sec-title">IDENTITY</span><div class="sec-dot"></div></div>
             <div class="sec-body">
                 <!-- STATION BUG -->
-                <input type="text" class="inp" id="bug-text" placeholder="STATION_NAME..." value="VNGRD">
+                <input type="text" class="inp" id="bug-text" placeholder="STATION_NAME..." value="VNGRD_V34">
                 <div class="btn-row">
                     <button class="btn" id="btn-set-station" style="flex:2;">SET BUG</button>
                     <button class="btn" id="btn-bug-toggle" title="Toggle Bug">[X]</button>
@@ -1483,103 +1259,7 @@
 
 <script>
 const $ = id => document.getElementById(id);
-// --- UNIFIED METAMASK ENGINE ---
-async function connectWallet() {
-    console.log("VNGRD_AUTH: Initializing...");
-    
-    if (typeof window.ethereum === 'undefined') {
-        alert("MetaMask not found! Please use a Web3 browser like Chrome with the MetaMask extension.");
-        return;
-    }
 
-    try {
-        // 1. Initialize provider with 'any' to handle extension conflicts
-        const provider = new ethers.providers.Web3Provider(window.ethereum, "any");
-        
-        // 2. Request account access
-        const accounts = await window.ethereum.request({ method: 'eth_requestAccounts' });
-        const address = accounts[0];
-        
-        // 3. Update UI Badge (Neon Green Glow)
-        const badge = document.getElementById('wallet-badge');
-        if (badge) {
-            badge.innerHTML = `<span class="dot" id="wallet-dot" style="background:var(--g);box-shadow:0 0 10px var(--g);"></span> ${address.substring(0,6)}...${address.substring(38)}`;
-            badge.style.color = "var(--g)";
-            badge.style.borderColor = "var(--g)";
-        }
-
-        // 4. Save to global APP state
-        if (typeof APP !== 'undefined') {
-            APP.wallet.connected = true;
-            APP.wallet.address = address;
-        }
-
-        // 5. System Terminal Feedback
-        const logElement = document.getElementById('sys-log');
-        if (logElement) {
-            logElement.innerHTML += `<div class="log-line"><span class="ts">[${new Date().toLocaleTimeString()}]</span> L2_AUTH_SUCCESS: ${address}</div>`;
-        }
-        
-        console.log("Wallet Linked:", address);
-        
-        // 6. Trigger Asset Scan
-        scanWalletAssets(address);
-
-    } catch (err) {
-        console.error("AUTH_ERROR:", err);
-        if (err.code === -32002) {
-            alert("Connection already pending! Please open your MetaMask extension manually to approve.");
-        }
-    }
-}
-
-// THE TRIGGER: This ensures the button works even after page loads
-window.addEventListener('load', () => {
-    const btn = document.getElementById('wallet-badge');
-    if (btn) {
-        btn.onclick = (e) => {
-            e.preventDefault();
-            connectWallet();
-        };
-    }
-});
-
-function scanWalletAssets(address) {
-    console.log("VNGRD_SYSTEM: Scanning Vault...", address);
-    const vaultDot = document.getElementById('vault-dot');
-    if (vaultDot) {
-        vaultDot.classList.remove('off');
-        vaultDot.style.background = 'var(--y)'; // Set to yellow/gold while scanning
-    }
-}
-
-// Attach to your existing button
-if ($('wallet-badge')) {
-    $('wallet-badge').onclick = connectWallet;
-}
-    window.addEventListener('load', () => {
-    const reveal = $('blur-reveal');
-    if (reveal) {
-        // Wait 1 second so the user feels the blur, then melt away
-   // 150ms is just enough for the eye to catch the "weird distortion"
-        setTimeout(() => {
-            reveal.classList.add('active');
-            console.log("VNGRD_SYSTEM: Kinetic Snap Executed.");
-        }, 150); 
-    }
-});
-
-// --- VNGRD AUDIO ENGINE: PLAYLIST ---
-const playlist = ["track1.mp3", "track2.mp3", "track3.mp3"]; 
-let currentTrack = 0;
-const audioPlayer = new Audio(playlist[currentTrack]);
-
-audioPlayer.addEventListener('ended', () => {
-    currentTrack = (currentTrack + 1) % playlist.length;
-    audioPlayer.src = playlist[currentTrack];
-    audioPlayer.play();
-    console.log("VNGRD_SYSTEM: Transitioning to next track...");
-});
 // --- BROADCAST SAFE DRAG MODULE ---
 function makeLogSafeDraggable(el) {
     let isDragging = false;
@@ -1646,7 +1326,7 @@ const APP = {
     wallet: { connected: false, address: null, chainId: null, nfts: [] },
     camera: { stream: null, recorder: null, chunks: [], mode: 'off', isRecording: false, videoEl: null, previewEl: null },
     render: { canvas: null, ctx: null, width: 3840, height: 2160, fps: 0, frameCount: 0, lastTime: 0, lastFpsUpdate: 0, rafId: null, scale: 1.0, pixelCanvas: null, pixelCtx: null, rgbActive: false },
-    bug: { visible: true, text: 'VNGRD', image: null, textMode: 0, textVisible: true, imageVisible: false },
+    bug: { visible: true, text: 'VNGRD_V34', image: null, textMode: 0, textVisible: true, imageVisible: false },
     layers: { logoScale: 1.0, logoSrc: null },
     lowerThird: { visible: false, preset: 'guest' },
     ui: { logoMorph: 0, morphs: ['m1','m2','m3','m4','m5','m6'] },
@@ -1706,13 +1386,7 @@ const APP = {
             maxDrops: 50
         }
     },
-    // HOLOGRAM_ENGINE - THREE.JS REACTOR CORE
-    hologram: {
-        scene: null, camera: null, renderer: null,
-        mesh: null, rafId: null,
-        scale: 1.0, rotationSpeed: 0.01,
-        loadedModel: null
-    },
+    
     // LEXICA_NANO
     neural: { generating: false, lastImage: null }
 };
@@ -2152,7 +1826,7 @@ function makeDraggable(el) {
 if ($('btn-set-station')) {
     $('btn-set-station').onclick = () => {
         const bug = $('station-bug');
-        const text = $('bug-text').value || 'VNGRD';
+        const text = $('bug-text').value || 'VNGRD_V34';
         if (bug) {
             bug.textContent = text;
             bug.style.display = 'block';
@@ -2232,132 +1906,7 @@ if ($('sl-layer-logo')) {
     };
 }
 
-// 3D MODEL - Upload (STL, OBJ, GLB, GLTF)
-// --- V34 HOLOGRAM INJECTION ENGINE ---
-// --- V34 FINAL 3D REPAIR (FIXES .OBJ VISIBILITY) ---
-if ($('btn-inject-3d')) {
-    $('btn-inject-3d').onclick = () => {
-        const input = document.createElement('input');
-        input.type = 'file';
-        input.accept = '.stl,.obj';
-        
-        input.onchange = (e) => {
-            const file = e.target.files[0];
-            if(!file) return;
-            const url = URL.createObjectURL(file);
-            const ext = file.name.toLowerCase().split('.').pop();
-            
-            // 1. Prepare Container
-            const container = $('widget-layer');
-            container.innerHTML = '<canvas id="hologram-canvas"></canvas>';
-            container.style.opacity = '1';
-            
-            // 2. Setup Scene
-            const scene = new THREE.Scene();
-            const camera = new THREE.PerspectiveCamera(75, 1, 0.1, 1000);
-            const renderer = new THREE.WebGLRenderer({ 
-                canvas: $('hologram-canvas'), 
-                alpha: true, 
-                antialias: true 
-            });
-            renderer.setClearColor(0x000000, 0);
-            renderer.setSize(150, 150);
-            
-            // Add strong lights so the model isn't black
-            const light = new THREE.DirectionalLight(0xffffff, 1);
-            light.position.set(1, 1, 2).normalize();
-            scene.add(light);
-            scene.add(new THREE.AmbientLight(0xffffff, 0.8));
-
-            // 3. Loader Logic
-            let loader = (ext === 'obj') ? new THREE.OBJLoader() : new THREE.STLLoader();
-            
-            log('LOADING_3D: ' + file.name.toUpperCase());
-
-            loader.load(url, (object) => {
-                let mesh;
-                if (ext === 'obj') {
-                    mesh = object; // OBJLoader returns a Group
-                } else {
-                    const material = new THREE.MeshNormalMaterial({ wireframe: true });
-                    mesh = new THREE.Mesh(object, material); // STLLoader returns Geometry
-                }
-
-                // Apply wireframe to all parts of OBJ
-                mesh.traverse(child => {
-                    if (child.isMesh) {
-                        child.material = new THREE.MeshNormalMaterial({ wireframe: true });
-                    }
-                });
-
-                // --- THE "FORCE VISIBLE" MATH ---
-                const box = new THREE.Box3().setFromObject(mesh);
-                const center = box.getCenter(new THREE.Vector3());
-                const size = box.getSize(new THREE.Vector3());
-                const maxDim = Math.max(size.x, size.y, size.z);
-                const scale = 2.0 / maxDim; // Scale to fit our 150px window
-
-                mesh.position.sub(center); // Move center of object to 0,0,0
-                mesh.scale.multiplyScalar(scale);
-                
-                scene.add(mesh);
-                camera.position.z = 4; // Back up the camera
-
-                const animate = () => {
-                    requestAnimationFrame(animate);
-                    mesh.rotation.y += 0.01;
-                    renderer.render(scene, camera);
-                };
-                animate();
-                log('3D_STATUS: RENDER_ACTIVE');
-            });
-        };
-        input.click();
-    };
-}
-
-// Helper: Normalize mesh size and add to scene
-function normalizeAndAddMesh(mesh) {
-    if (!APP.hologram.scene || !mesh) return;
     
-    // Compute bounding box
-    const box = new THREE.Box3().setFromObject(mesh);
-    const size = box.getSize(new THREE.Vector3());
-    const maxDim = Math.max(size.x, size.y, size.z);
-    
-    // Scale to fit in unit cube
-    const scale = 2 / maxDim;
-    mesh.scale.setScalar(scale);
-    
-    // Center
-    box.setFromObject(mesh);
-    const center = box.getCenter(new THREE.Vector3());
-    mesh.position.sub(center);
-    
-    APP.hologram.scene.add(mesh);
-}
-
-// 3D MODEL - Toggle [X] (visible -> hidden -> cleared)
-if ($('btn-3d-x')) {
-    $('btn-3d-x').onclick = () => {
-        const widget = $('widget-layer');
-        if (!widget) return;
-        
-        if (widget.style.opacity !== '0' && APP.hologram.mesh) {
-            // Visible -> Hidden
-            widget.style.opacity = '0';
-            widget.style.pointerEvents = 'none';
-            log('3D_MODEL: HIDDEN');
-        } else if (APP.hologram.mesh) {
-            // Hidden -> Clear
-            APP.hologram.scene.remove(APP.hologram.mesh);
-            APP.hologram.mesh = null;
-            widget.style.opacity = '0';
-            log('3D_MODEL: CLEARED');
-        }
-    };
-}
-
 // MEDIA & CYCLE LOGIC
 function loadMediaFiles(input) {
     const isFirstLoad = APP.media.currentIndex === -1;
@@ -2511,139 +2060,17 @@ $('btn-inject').onclick = () => {
 
 function goLive() {
     if (!APP.camera.stream) return;
-    
-    // START DUCKING IMMEDIATELY
-    duckAudio(true); 
-
-    const overlay = $('countdown'); 
-    const num = $('countdown-num'); 
-    const btn = $('btn-go-live');
-    
-    overlay.style.display = 'flex'; 
-    let count = 3; 
-    num.textContent = count; 
-    btn.textContent = `LIVE IN ${count}...`; 
-    
+    const overlay = $('countdown'); const num = $('countdown-num'); const btn = $('btn-go-live');
+    overlay.style.display = 'flex'; let count = 3; num.textContent = count; btn.textContent = `LIVE IN ${count}...`; 
     const interval = setInterval(() => {
         count--;
-        if (count > 0) { 
-            num.textContent = count; 
-            btn.textContent = `LIVE IN ${count}...`; 
-        } else { 
-            clearInterval(interval); 
-            overlay.style.display = 'none'; 
-            APP.state.isLive = true; 
-            APP.camera.mode = 'live'; 
-            
-            $('cam-ctrls').style.display = 'none'; 
-            $('live-ctrls').style.display = 'block'; 
-            $('tally').style.display = 'block'; 
-            $('status-text').textContent = 'LIVE'; 
-            $('main-dot').classList.add('live'); 
-            
-            document.querySelector('.preview-label').textContent = 'LIVE'; 
-            log('LIVE_PODCAST_MODE'); 
+        if (count > 0) { num.textContent = count; btn.textContent = `LIVE IN ${count}...`; }
+        else { 
+            clearInterval(interval); overlay.style.display = 'none'; APP.state.isLive = true; APP.camera.mode = 'live'; 
+            $('cam-ctrls').style.display = 'none'; $('live-ctrls').style.display = 'block'; $('tally').style.display = 'block'; $('status-text').textContent = 'LIVE'; $('main-dot').classList.add('live'); 
+            document.querySelector('.preview-label').textContent = 'LIVE'; log('LIVE_PODCAST_MODE'); 
         }
     }, 1000);
-}
-
-// Keep this outside or inside, but it MUST be called above
-// 1. THE SHARED UTILITY (Place this in your main script area)
-// 1. DUCK AUDIO (KEEP THIS SEPARATE)
-function duckAudio(isLive) {
-    const audio = APP.audio.element;
-    if (!audio) return;
-
-    // CONFIG
-    const fadeDuration = 1200; // 1.2 seconds for a high-end cinematic feel
-    const frameRate = 30; // 30 updates per second for maximum smoothness
-    const totalSteps = (fadeDuration / 1000) * frameRate;
-    
-    const masterVol = ($('sl-vol')) ? $('sl-vol').value / 100 : 1.0;
-    const targetVol = isLive ? 0.15 : masterVol; // Dropped to 15% for better voice clarity
-    const startVol = audio.volume;
-
-    if (APP.audio.fadeInterval) clearInterval(APP.audio.fadeInterval);
-
-    let currentStep = 0;
-    log(isLive ? 'ESTABLISHING_VOICE_PRIORITY...' : 'RESTORING_MASTER_LEVEL...');
-
-    APP.audio.fadeInterval = setInterval(() => {
-        currentStep++;
-        const progress = currentStep / totalSteps;
-        
-        // "Ease-In-Out" Power Curve (Logarithmic mimic)
-        // This makes the transition feel natural to the ear
-        const ease = progress < 0.5 
-            ? 2 * progress * progress 
-            : 1 - Math.pow(-2 * progress + 2, 2) / 2;
-
-        audio.volume = startVol + (targetVol - startVol) * ease;
-
-        if (currentStep >= totalSteps) {
-            audio.volume = targetVol;
-            clearInterval(APP.audio.fadeInterval);
-        }
-    }, 1000 / frameRate);
-}
-
-// 2. GO LIVE (THE TRIGGER)
-function goLive() {
-    // Check if camera is actually ready
-    if (!APP.camera.stream) {
-        log('ERR: CAMERA_NOT_READY');
-        return;
-    }
-    
-    // Start ducking immediately
-    duckAudio(true); 
-
-    const overlay = $('countdown'); 
-    const num = $('countdown-num'); 
-    const btn = $('btn-go-live');
-    
-    overlay.style.display = 'flex'; 
-    let count = 3; 
-    num.textContent = count; 
-    btn.textContent = `LIVE IN ${count}...`; 
-    
-    const interval = setInterval(() => {
-        count--;
-        if (count > 0) { 
-            num.textContent = count; 
-            btn.textContent = `LIVE IN ${count}...`; 
-        } else { 
-            clearInterval(interval); 
-            overlay.style.display = 'none'; 
-            APP.state.isLive = true; 
-            APP.camera.mode = 'live'; 
-            
-            $('cam-ctrls').style.display = 'none'; 
-            $('live-ctrls').style.display = 'block'; 
-            $('tally').style.display = 'block'; 
-            $('status-text').textContent = 'LIVE'; 
-            if($('main-dot')) $('main-dot').classList.add('live'); 
-            
-            log('LIVE_PODCAST_MODE'); 
-        }
-    }, 1000);
-}
-
-// 3. END LIVE (THE RESET)
-function endLive() { 
-    APP.state.isLive = false; 
-    APP.camera.mode = 'preview'; 
-    $('live-ctrls').style.display = 'none'; 
-    $('cam-ctrls').style.display = 'block'; 
-    $('tally').style.display = 'none'; 
-    $('status-text').textContent = 'STANDBY'; 
-    if($('main-dot')) $('main-dot').classList.remove('live'); 
-    $('btn-go-live').textContent = 'GO LIVE [3-2-1]'; 
-    
-    if($('rec-status')) $('rec-status').style.display = 'none';
-
-    duckAudio(false); // Restore music
-    log('END_LIVE: AUDIO_RESTORED');
 }
 
 $('btn-rec').onclick = () => {
@@ -2672,9 +2099,8 @@ function endLive() {
     APP.state.isLive = false; APP.camera.mode = 'preview'; $('live-ctrls').style.display = 'none'; $('cam-ctrls').style.display = 'block'; $('tally').style.display = 'none'; $('status-text').textContent = 'STANDBY'; $('main-dot').classList.remove('live'); $('btn-go-live').textContent = 'GO LIVE [3-2-1]'; 
     log('END_LIVE'); 
     $('rec-status').style.display = 'none';
-  duckAudio(false); // Restore music volume
-    log('END_LIVE: AUDIO_RESTORED');
 }
+
 function killCamera() { 
     if (APP.camera.stream) APP.camera.stream.getTracks().forEach(t => t.stop()); 
     if (APP.camera.videoEl) { APP.camera.videoEl.srcObject = null; APP.camera.videoEl = null; } 
@@ -2705,12 +2131,8 @@ function playTrack(idx) {
     const track = APP.audio.playlist[APP.audio.currentTrack];
     APP.audio.currentTrackName = track.name;
     APP.audio.element.src = track.url;
-
-    // --- ADD THIS LINE HERE ---
-    // Automatically calls your nextTrack function when the file finishes
-    APP.audio.element.onended = () => { nextTrack(); }; 
-    // --------------------------
     
+    // Ensure Context
     if (!APP.audio.ctx) APP.audio.ctx = new (window.AudioContext || window.webkitAudioContext)();
     
     APP.audio.element.play().then(() => { 
@@ -4376,126 +3798,77 @@ document.addEventListener('DOMContentLoaded', () => {
     // GEO_HANDSHAKE + OPEN-METEO API + REFRACTIVE RAIN
     // ========================================
     
-function initAtmosphereCanvas() {
-    // 1. Setup Canvases
-    APP.atmosphere.canvas = $('atmos-canvas');
-    APP.atmosphere.refractionCanvas = $('refraction-buffer');
-    
-    const setCanvasSize = () => {
-        const w = window.innerWidth;
-        const h = window.innerHeight;
+    // Initialize atmosphere canvas and refraction buffer
+    function initAtmosphereCanvas() {
+        APP.atmosphere.canvas = $('atmos-canvas');
+        APP.atmosphere.refractionCanvas = $('refraction-buffer');
+        
         if (APP.atmosphere.canvas) {
-            APP.atmosphere.canvas.width = w;
-            APP.atmosphere.canvas.height = h;
+            APP.atmosphere.ctx = APP.atmosphere.canvas.getContext('2d');
+            const stage = $('stage');
+            APP.atmosphere.canvas.width = stage.clientWidth;
+            APP.atmosphere.canvas.height = stage.clientHeight;
         }
+        
         if (APP.atmosphere.refractionCanvas) {
-            APP.atmosphere.refractionCanvas.width = w;
-            APP.atmosphere.refractionCanvas.height = h;
+            APP.atmosphere.refractionCtx = APP.atmosphere.refractionCanvas.getContext('2d');
+            APP.atmosphere.refractionCanvas.width = APP.render.canvas.width;
+            APP.atmosphere.refractionCanvas.height = APP.render.canvas.height;
         }
-        console.log(`V34_ENGINE: CALIBRATED_TO_${w}x${h}`);
+    }
+    
+    // GEO_HANDSHAKE: Get real coordinates
+   // --- UNIFIED ATMOSPHERE ENGINE ---
+async function startAtmosphereSync() {
+    const geoStatus = document.getElementById('geo-status');
+    const weatherStatus = document.getElementById('weather-status');
+    
+    const updateUI = (lat, lon, city, temp, condition) => {
+        if (geoStatus) geoStatus.innerHTML = `GEO: ${city.toUpperCase()} [${lat.toFixed(2)}]`;
+        if (weatherStatus) weatherStatus.textContent = `WEATHER: ${temp}°C // ${condition}`;
     };
 
-    setCanvasSize();
-    window.addEventListener('resize', setCanvasSize);
-
-    // 2. THE GEOLOCATION ENGINE
-    log('SYNCING_GEO_SENSORS...');
-    
-    const geoOptions = { timeout: 5000, enableHighAccuracy: false };
+    const fetchWeather = async (lat, lon, city) => {
+        try {
+            // Using a free, reliable weather API
+            const res = await fetch(`https://api.open-meteo.com/v1/forecast?latitude=${lat}&longitude=${lon}&current_weather=true`);
+            const data = await res.json();
+            const temp = data.current_weather.temperature;
+            const code = data.current_weather.weathercode;
+            const condition = code > 50 ? 'RAIN' : 'CLEAR';
+            
+            updateUI(lat, lon, city, temp, condition);
+            
+            // Link to your visual effects
+            if (code > 50 && document.getElementById('lens-drip-canvas')) {
+                document.getElementById('lens-drip-canvas').style.display = 'block';
+                console.log("VNGRD_SYSTEM: LENS_DRIP_ACTIVE");
+            }
+        } catch (e) {
+            console.error("WEATHER_SYNC: OFFLINE");
+        }
+    };
 
     if (navigator.geolocation) {
         navigator.geolocation.getCurrentPosition(
-            (pos) => {
-                APP.atmosphere.lat = pos.coords.latitude;
-                APP.atmosphere.lon = pos.coords.longitude;
-                log(`GPS_LOCKED: ${APP.atmosphere.lat.toFixed(2)}`);
-                updateAtmosphereData(); // Trigger weather sync
+            async (pos) => {
+                const lat = pos.coords.latitude;
+                const lon = pos.coords.longitude;
+                // Reverse Geocode for City Name
+                try {
+                    const geo = await fetch(`https://nominatim.openstreetmap.org/reverse?lat=${lat}&lon=${lon}&format=json`).then(r => r.json());
+                    fetchWeather(lat, lon, geo.address.city || geo.address.town || "SECTOR_L2");
+                } catch(e) { fetchWeather(lat, lon, "UNKNOWN_REGION"); }
             },
-            () => {
-                log('GPS_BLOCKED: USING_IP_FALLBACK');
-                fallbackToIPGeo();
+            async () => {
+                // FALLBACK: Use IP-based location if GPS is blocked or unavailable
+                const ip = await fetch('https://ipapi.co/json/').then(r => r.json());
+                fetchWeather(ip.latitude, ip.longitude, ip.city || "IP_FALLBACK");
             },
-            geoOptions
+            { timeout: 5000 }
         );
-    } else {
-        fallbackToIPGeo();
     }
 }
-
-// 3. IP-BASED FALLBACK (Crucial for local files)
-async function fallbackToIPGeo() {
-    try {
-        const res = await fetch('https://ipapi.co/json/');
-        const data = await res.json();
-        if (data.latitude) {
-            APP.atmosphere.lat = data.latitude;
-            APP.atmosphere.lon = data.longitude;
-            APP.atmosphere.city = data.city;
-            log(`IP_GEO_LOCKED: ${data.city.toUpperCase()}`);
-            updateAtmosphereData();
-        }
-    } catch (e) {
-        log('GEO_OFFLINE');
-    }
-}
-    
-    // GEO_HANDSHAKE: Get real coordinates
-    async function initAtmosphere() {
-        log('GEO_HANDSHAKE: ACQUIRING...');
-        const geoStatus = $('geo-status');
-        if (geoStatus) geoStatus.textContent = 'GEO: ACQUIRING...';
-        
-        return new Promise((resolve) => {
-            if (!navigator.geolocation) {
-                log('GEO: NOT_AVAILABLE');
-                if (geoStatus) geoStatus.textContent = 'GEO: NOT_AVAILABLE';
-                resolve(false);
-                return;
-            }
-            
-            navigator.geolocation.getCurrentPosition(
-                async (position) => {
-                    APP.atmosphere.latitude = position.coords.latitude;
-                    APP.atmosphere.longitude = position.coords.longitude;
-                    log(`GEO: ${APP.atmosphere.latitude.toFixed(2)}, ${APP.atmosphere.longitude.toFixed(2)}`);
-                    if (geoStatus) geoStatus.textContent = `GEO: ${APP.atmosphere.latitude.toFixed(2)}, ${APP.atmosphere.longitude.toFixed(2)}`;
-                    
-                    // Fetch weather and city data
-                    await fetchSatelliteWeather();
-                    resolve(true);
-                },
-                (error) => {
-                    log('GEO_ERROR: ' + error.message);
-                    if (geoStatus) geoStatus.textContent = 'GEO: FALLBACK_COORDS';
-                    // Fallback to default coords (Berlin)
-                    APP.atmosphere.latitude = 52.52;
-                    APP.atmosphere.longitude = 13.41;
-                    fetchSatelliteWeather();
-                    resolve(false);
-                },
-                { enableHighAccuracy: true, timeout: 10000 }
-            );
-        });
-    }
-    
-    // Fetch weather from Open-Meteo with reverse geocoding
-    async function fetchSatelliteWeather() {
-        try {
-            const lat = APP.atmosphere.latitude || 52.52;
-            const lon = APP.atmosphere.longitude || 13.41;
-            
-            // Weather data
-            const weatherResp = await fetch(
-                `https://api.open-meteo.com/v1/forecast?latitude=${lat}&longitude=${lon}&current_weather=true&hourly=weathercode`
-            );
-            const weather = await weatherResp.json();
-            
-            const temp = weather.current_weather.temperature;
-            const weatherCode = weather.current_weather.weathercode;
-            const windSpeed = weather.current_weather.windspeed;
-            
-            APP.atmosphere.temperature = temp;
-            APP.atmosphere.weatherCode = weatherCode;
             
             // Weather code interpretation
             const weatherMap = {
@@ -4546,8 +3919,6 @@ async function fallbackToIPGeo() {
             const weatherStatus = $('weather-status');
             if (weatherStatus) weatherStatus.textContent = 'WEATHER: ERROR';
         }
-    }
-    
     // Update bottom ticker with location and METAR
     function updateTickerWithMetar() {
         const ticker = $('ticker-text');
@@ -4574,176 +3945,355 @@ async function fallbackToIPGeo() {
         }
         $('refraction-buffer').classList.add('active');
     }
-   function renderRefractiveRain() {
-    if (!APP.atmosphere.ctx || !APP.trasudate.active) return;
     
-    const ctx = APP.atmosphere.ctx;
-    const canvas = APP.atmosphere.canvas;
-    const vjCanvas = APP.render.canvas;
-    const intensity = APP.atmosphere.intensity || 50;
-    
-    ctx.clearRect(0, 0, canvas.width, canvas.height);
-    
-    if (Math.random() < (intensity / 30)) {
-        createRefractiveRainDrop();
+    // CLEAN RAIN DROP - realistic stutter-and-slide physics
+    function createRefractiveRainDrop() {
+        if (!APP.atmosphere.ctx) return;
+        
+        const canvas = APP.atmosphere.canvas;
+        const intensity = APP.atmosphere.intensity || 50;
+        const drop = {
+            x: Math.random() * canvas.width,
+            y: -30,
+            length: 15 + Math.random() * 25,
+            speed: 8 + Math.random() * 12 + (intensity / 10),
+            opacity: 0.3 + Math.random() * 0.4,
+            // Stutter-and-slide physics
+            velocity: 0,
+            gravity: 0.6 + Math.random() * 0.4,
+            stutter: Math.random() < 0.2,
+            stutterCounter: 0,
+            maxStutter: 3 + Math.floor(Math.random() * 6),
+            refractIndex: 1.15 + Math.random() * 0.2
+        };
+        APP.atmosphere.rainDrops.push(drop);
     }
     
-    APP.atmosphere.rainDrops = APP.atmosphere.rainDrops.filter(drop => {
-        // 1. Physics update
-        if (drop.stutter && drop.stutterCounter < drop.maxStutter) {
-            drop.stutterCounter++;
-            drop.velocity *= 0.4;
-        } else {
-            drop.velocity += drop.gravity;
-            drop.stutter = Math.random() < 0.03;
-            drop.stutterCounter = 0;
-        }
-        drop.y += drop.velocity;
-
-        // 2. DEFINE THE GRADIENT (Crucial fix: Define before using)
-        const gradient = ctx.createLinearGradient(drop.x, drop.y, drop.x, drop.y + drop.length);
-        gradient.addColorStop(0, 'transparent');
-        gradient.addColorStop(0.2, `rgba(200, 220, 255, ${drop.opacity * 0.3})`);
-        gradient.addColorStop(0.5, `rgba(180, 200, 240, ${drop.opacity * 0.6})`);
-        gradient.addColorStop(0.8, `rgba(160, 180, 220, ${drop.opacity * 0.4})`);
-        gradient.addColorStop(1, 'transparent');
-
-        // 3. OPTICAL LIGHT PASS
-        ctx.globalCompositeOperation = 'lighter';
-        ctx.strokeStyle = gradient;
-        ctx.lineWidth = 2;
-        ctx.lineCap = 'round';
-        ctx.beginPath();
-        ctx.moveTo(drop.x, drop.y);
-        ctx.lineTo(drop.x, drop.y + drop.length);
-        ctx.stroke();
-
-        // 4. THE SPECULAR GLINT (Expensive glass spark)
-        ctx.globalCompositeOperation = 'source-over';
-        ctx.fillStyle = `rgba(255, 255, 255, ${drop.opacity * 0.9})`;
-        ctx.beginPath();
-        ctx.arc(drop.x, drop.y + 2, 0.8, 0, Math.PI * 2); 
-        ctx.fill();
-
-        // 5. OPTICAL REFRACTION (The "Magnifying Glass" effect)
-        if (APP.atmosphere.refractionCtx && vjCanvas) {
-            const rCtx = APP.atmosphere.refractionCtx;
-            rCtx.globalCompositeOperation = 'overlay';
-            rCtx.globalAlpha = 0.15; // Balanced for high-end look
-            
-            try {
-                const scale = drop.refractIndex;
-                const sourceX = (drop.x / canvas.width) * vjCanvas.width;
-                const sourceY = (drop.y / canvas.height) * vjCanvas.height;
-                const sourceW = 15;
-                const sourceH = drop.length * 1.5;
-                
-                rCtx.drawImage(
-                    vjCanvas,
-                    sourceX - sourceW/2, sourceY - sourceH/2, sourceW, sourceH,
-                    drop.x - (sourceW*scale)/2, drop.y - (sourceH*scale)/2, sourceW * scale, sourceH * scale
-                );
-            } catch (e) {}
-            rCtx.globalAlpha = 1.0;
+    // Render CLEAN realistic rain - no psychedelic colors
+    function renderRefractiveRain() {
+        if (!APP.atmosphere.ctx || !APP.trasudate.active) return;
+        
+        const ctx = APP.atmosphere.ctx;
+        const canvas = APP.atmosphere.canvas;
+        const vjCanvas = APP.render.canvas;
+        const intensity = APP.atmosphere.intensity || 50;
+        
+        ctx.clearRect(0, 0, canvas.width, canvas.height);
+        
+        // Create new drops based on intensity
+        const spawnRate = intensity / 30;
+        if (Math.random() < spawnRate) {
+            createRefractiveRainDrop();
         }
         
-        return drop.y < canvas.height + 50;
-    });
-    
-    if (APP.trasudate.active) {
-        requestAnimationFrame(renderRefractiveRain);
+        // Update and draw drops with stutter-and-slide physics
+        APP.atmosphere.rainDrops = APP.atmosphere.rainDrops.filter(drop => {
+            // Stutter-and-slide gravity
+            if (drop.stutter && drop.stutterCounter < drop.maxStutter) {
+                drop.stutterCounter++;
+                drop.velocity *= 0.4;
+            } else {
+                drop.velocity += drop.gravity;
+                drop.stutter = Math.random() < 0.03;
+                drop.stutterCounter = 0;
+            }
+            
+            drop.y += drop.velocity;
+            
+            // Draw CLEAN rain drop - realistic blue/white gradient
+            const gradient = ctx.createLinearGradient(drop.x, drop.y, drop.x, drop.y + drop.length);
+            gradient.addColorStop(0, 'transparent');
+            gradient.addColorStop(0.2, `rgba(200, 220, 255, ${drop.opacity * 0.3})`);
+            gradient.addColorStop(0.5, `rgba(180, 200, 240, ${drop.opacity * 0.6})`);
+            gradient.addColorStop(0.8, `rgba(160, 180, 220, ${drop.opacity * 0.4})`);
+            gradient.addColorStop(1, 'transparent');
+            
+            ctx.strokeStyle = gradient;
+            ctx.lineWidth = 2;
+            ctx.lineCap = 'round';
+            ctx.beginPath();
+            ctx.moveTo(drop.x, drop.y);
+            ctx.lineTo(drop.x, drop.y + drop.length);
+            ctx.stroke();
+            
+            // Subtle magnification effect
+            if (APP.atmosphere.refractionCtx && vjCanvas) {
+                try {
+                    const scale = drop.refractIndex;
+                    const sourceX = (drop.x / canvas.width) * vjCanvas.width;
+                    const sourceY = (drop.y / canvas.height) * vjCanvas.height;
+                    const sourceW = 15;
+                    const sourceH = drop.length * 1.5;
+                    
+                    APP.atmosphere.refractionCtx.globalAlpha = 0.08;
+                    APP.atmosphere.refractionCtx.drawImage(
+                        vjCanvas,
+                        sourceX - sourceW/2, sourceY - sourceH/2, sourceW, sourceH,
+                        drop.x - sourceW*scale/2, drop.y - sourceH*scale/2, sourceW * scale, sourceH * scale
+                    );
+                    APP.atmosphere.refractionCtx.globalAlpha = 1;
+                } catch (e) { /* ignore */ }
+            }
+            
+            return drop.y < canvas.height + 50;
+        });
+        
+        if (APP.trasudate.active) {
+            requestAnimationFrame(renderRefractiveRain);
+        }
     }
-}
+    
+    // ========================================
+    // GEOLOCATION -> SATELLITE -> TRASUDATE
+    // Auto-weather integration (no manual buttons)
+    // ========================================
+    
+    // Update weather UI status displays
+    function updateWeatherUI(condition, isRaining) {
+        const weatherStatus = $('weather-status');
+        const rainStatus = $('rain-status');
+        const atmosDot = $('atmos-dot');
+        
+        if (weatherStatus) weatherStatus.textContent = 'WEATHER: ' + condition.toUpperCase();
+        
+        if (rainStatus) {
+            if (isRaining) {
+                rainStatus.textContent = 'RAIN: AUTO_ENABLED';
+                rainStatus.style.color = 'var(--c)';
+            } else {
+                rainStatus.textContent = 'RAIN: AUTO_DISABLED';
+                rainStatus.style.color = 'var(--text-dim)';
+            }
+        }
+        
+        if (atmosDot) atmosDot.classList.toggle('off', !isRaining);
+    }
+    
+    // Enable rain automatically based on satellite weather
+    function enableRainAuto() {
+        if (!APP.trasudate.active) {
+            APP.trasudate.active = true;
+            initTrasudateEngine();
+            initAtmosphereCanvas();
+            initRefractionBuffer();
+            renderRefractiveRain();
+            log('WEATHER_AUTO: RAIN_ENABLED');
+        }
+    }
+    
+    // Disable rain automatically
+    function disableRainAuto() {
+        if (APP.trasudate.active) {
+            APP.trasudate.active = false;
+            stopTrasudateEngine();
+            APP.atmosphere.rainDrops = [];
+            if (APP.atmosphere.ctx) {
+                APP.atmosphere.ctx.clearRect(0, 0, APP.atmosphere.canvas.width, APP.atmosphere.canvas.height);
+            }
+            log('WEATHER_AUTO: RAIN_DISABLED');
+        }
+    }
+    
+    // Parse weather condition and trigger visual effects automatically
+    function processWeatherCondition(weatherCode, condition) {
+        // Weather codes: 51,53,55 = drizzle, 61,63,65 = rain, 80,81,82 = showers, 95,96,99 = thunderstorm
+        const rainCodes = [51, 53, 55, 61, 63, 65, 80, 81, 82, 95, 96, 99];
+        const isRaining = rainCodes.includes(weatherCode);
+        const temp = APP.atmosphere.temperature || 20;
+        const isHot = temp > 30;
+        
+        updateWeatherUI(condition, isRaining);
+        
+        // AUTO LENS DRIP - Rain triggers water droplet effect
+        if (isRaining) {
+            enableRainAuto();
+            activateLensDrip(true);
+            if ($('weather-fx')) $('weather-fx').textContent = 'FX: LENS_DRIP (RAIN)';
+        } else {
+            disableRainAuto();
+            activateLensDrip(false);
+        }
+        
+        // AUTO HEAT HAZE - Hot weather (>30C) triggers distortion
+        if (isHot && !isRaining) {
+            activateHeatHaze(true);
+            if ($('weather-fx')) $('weather-fx').textContent = 'FX: HEAT_HAZE (' + temp + 'C)';
+        } else if (!isRaining) {
+            activateHeatHaze(false);
+            if ($('weather-fx')) $('weather-fx').textContent = 'FX: NONE';
+        }
+    }
+    
+    // LENS DRIP EFFECT - Water droplets on lens during rain
+    function activateLensDrip(active) {
+        const canvas = $('lens-drip-canvas');
+        if (!canvas) return;
+        
+        APP.shaders.lensDrip.active = active;
+        canvas.classList.toggle('active', active);
+        
+        if (active && !APP.shaders.lensDrip.rafId) {
+            animateLensDrip();
+        }
+    }
+    
+    function animateLensDrip() {
+        if (!APP.shaders.lensDrip.active) {
+            APP.shaders.lensDrip.rafId = null;
+            return;
+        }
+        
+        const canvas = $('lens-drip-canvas');
+        const ctx = canvas.getContext('2d');
+        if (!ctx) return;
+        
+        const stage = $('stage');
+        if (stage) {
+            canvas.width = stage.clientWidth;
+            canvas.height = stage.clientHeight;
+        }
+        
+        ctx.clearRect(0, 0, canvas.width, canvas.height);
+        
+        const time = APP.shaders.lensDrip.time++;
+        const intensity = (APP.atmosphere.intensity || 50) / 100;
+        
+        // Draw water droplets
+        for (let i = 0; i < Math.floor(20 * intensity); i++) {
+            const x = (Math.sin(time * 0.01 + i * 1.7) * 0.4 + 0.5) * canvas.width;
+            const y = ((time * 2 + i * 70) % (canvas.height + 120)) - 60;
+            const size = 12 + Math.sin(i * 0.8) * 6;
+            
+            // Droplet with refraction
+            const gradient = ctx.createRadialGradient(x, y, 0, x, y + size * 0.2, size);
+            gradient.addColorStop(0, 'rgba(220, 240, 255, 0.3)');
+            gradient.addColorStop(0.5, 'rgba(200, 220, 255, 0.15)');
+            gradient.addColorStop(1, 'transparent');
+            
+            ctx.fillStyle = gradient;
+            ctx.beginPath();
+            ctx.ellipse(x, y, size * 0.5, size, 0, 0, Math.PI * 2);
+            ctx.fill();
+            
+            // Highlight
+            ctx.fillStyle = 'rgba(255, 255, 255, 0.4)';
+            ctx.beginPath();
+            ctx.arc(x - size * 0.15, y - size * 0.2, size * 0.12, 0, Math.PI * 2);
+            ctx.fill();
+        }
+        
+        APP.shaders.lensDrip.rafId = requestAnimationFrame(animateLensDrip);
+    }
     
     // HEAT HAZE EFFECT - Thermal distortion during hot weather
-    // --- THE THERMAL OVERLOAD ENGINE (High-End Heat) ---
-function activateHeatHaze(active) {
-    const stage = $('stage');
-    if (!stage) return;
-
-    APP.shaders.heatHaze.active = active;
-
-    if (active) {
-        const temp = APP.atmosphere.temperature || 25;
-        // Calculate intensity: Higher temp = more "Bloom" and "Bleed"
-        const intensity = Math.min((temp - 25) / 20, 1); 
+    function activateHeatHaze(active) {
+        const canvas = $('heat-haze-canvas');
+        if (!canvas) return;
         
-        if (intensity > 0) {
-            // OPTICAL BLOOM: Brightness and Saturation increase with heat
-            const b = 1 + (0.15 * intensity);
-            const s = 1 + (0.4 * intensity);
-            const blur = 0.3 * intensity;
-
-            stage.style.filter = `brightness(${b}) contrast(1.1) saturate(${s}) blur(${blur}px)`;
-            
-            // SENSOR VIBRATION: Mimics air molecules moving (very fast, tiny)
-            stage.style.animation = 'heat-vibration 0.1s infinite';
-            
-            log(`SYSTEM: THERMAL_STRESS_LEVEL_${Math.round(intensity * 100)}`);
+        APP.shaders.heatHaze.active = active;
+        canvas.classList.toggle('active', active);
+        
+        if (active && !APP.shaders.heatHaze.rafId) {
+            animateHeatHaze();
         }
-    } else {
-        // Reset to nominal
-        stage.style.filter = '';
-        stage.style.animation = '';
     }
-}
-
-// NOTE: You can delete the animateHeatHaze() function entirely. 
-// The GPU now handles the "heat" via CSS filters, saving you CPU power!
+    
+    function animateHeatHaze() {
+        if (!APP.shaders.heatHaze.active) {
+            APP.shaders.heatHaze.rafId = null;
+            return;
+        }
+        
+        const canvas = $('heat-haze-canvas');
+        const ctx = canvas.getContext('2d');
+        if (!ctx) return;
+        
+        const stage = $('stage');
+        if (stage) {
+            canvas.width = stage.clientWidth;
+            canvas.height = stage.clientHeight;
+        }
+        
+        ctx.clearRect(0, 0, canvas.width, canvas.height);
+        
+        const time = APP.shaders.heatHaze.time++;
+        const temp = APP.atmosphere.temperature || 25;
+        const intensity = Math.min((temp - 25) / 20, 1);
+        
+        if (intensity <= 0) return;
+        
+        // Draw heat waves from bottom
+        ctx.save();
+        ctx.globalAlpha = 0.1 * intensity;
+        
+        for (let y = canvas.height; y > canvas.height * 0.4; y -= 25) {
+            const waveOffset = Math.sin(time * 0.03 + y * 0.005) * 6 * intensity;
+            const heatColor = `rgba(255, ${Math.floor(200 - (canvas.height - y) / canvas.height * 100)}, 80, ${0.08 * intensity})`;
+            
+            ctx.strokeStyle = heatColor;
+            ctx.lineWidth = 2;
+            ctx.beginPath();
+            ctx.moveTo(0, y);
+            
+            for (let x = 0; x < canvas.width; x += 12) {
+                const wave = Math.sin(time * 0.04 + x * 0.012) * waveOffset;
+                ctx.lineTo(x, y + wave);
+            }
+            ctx.stroke();
+        }
+        
+        ctx.restore();
+        APP.shaders.heatHaze.rafId = requestAnimationFrame(animateHeatHaze);
+    }
+    
+    // Initialize shaders state
+    APP.shaders = APP.shaders || {
+        lensDrip: { active: false, time: 0, rafId: null },
+        heatHaze: { active: false, time: 0, rafId: null }
+    };
+    
+    // Initialize satellite atmosphere on load
+    initAtmosphere();
 
     // ========================================
     // NFT_VAULT: SCAN WALLET ASSETS
     // ========================================
     $('btn-scan-nfts').onclick = async () => {
-    // 1. Check if wallet is linked (from our previous fix)
-    if (!APP.wallet.connected || !APP.wallet.address) {
-        $('nft-vault-list').innerHTML = '<span style="color:var(--r)">ERROR: LINK_WALLET_FIRST</span>';
-        return;
-    }
-    
-    $('nft-vault-list').innerHTML = '<span class="loading">SYNCING_L2_VAULT...</span>';
-    
-    try {
-        // 2. Using Alchemy L2 Endpoint (Polygon in this example)
-        // Note: Change 'polygon-mainnet' to 'base-mainnet' or 'arb-mainnet' as needed
-        const apiKey = 'demo'; 
-        const url = `https://polygon-mainnet.g.alchemy.com/nft/v2/${apiKey}/getNFTs?owner=${APP.wallet.address}&pageSize=5`;
-        
-        const resp = await fetch(url);
-        const data = await resp.json();
-        
-        if (data.ownedNfts && data.ownedNfts.length > 0) {
-            // Update the global state
-            APP.wallet.nfts = data.ownedNfts;
-            
-            // Update your 'nft-count' element
-            if ($('nft-count')) $('nft-count').textContent = 'ASSETS: ' + data.totalCount;
-            
-            // Turn your Vault Dot Yellow (Scanning Success)
-            if ($('vault-dot')) {
-                $('vault-dot').classList.remove('off');
-                $('vault-dot').style.background = 'var(--y)'; 
-            }
-            
-            // 3. Generate the UI List
-            let html = '';
-            data.ownedNfts.forEach(nft => {
-                const name = nft.title || 'UNNAMED_ASSET';
-                // Using your --accent color for the cyberpunk look
-                html += `<div class="nft-item" style="border-bottom:1px solid var(--border); padding:4px 0;">
-                            <span style="color:var(--g)">[+]</span> ${name.substring(0, 18)}
-                         </div>`;
-            });
-            $('nft-vault-list').innerHTML = html;
-            
-        } else {
-            $('nft-vault-list').innerHTML = 'NO_L2_ASSETS_FOUND';
+        if (!APP.wallet.connected || !APP.wallet.address) {
+            $('nft-vault-list').innerHTML = 'CONNECT_WALLET_FIRST';
+            return;
         }
-    } catch (e) {
-        $('nft-vault-list').innerHTML = '<span style="color:var(--r)">SCAN_FAILED</span>';
-        console.error("VAULT_SYNC_ERROR:", e);
-    }
-};
+        
+        $('nft-vault-list').innerHTML = 'SCANNING...';
+        log('NFT_VAULT: SCANNING...');
+        
+        try {
+            // Using Alchemy API (free tier)
+            const alchemyKey = 'demo'; // Replace with actual key for production
+            const resp = await fetch(`https://eth-mainnet.g.alchemy.com/nft/v2/${alchemyKey}/getNFTs?owner=${APP.wallet.address}&pageSize=10`);
+            const data = await resp.json();
+            
+            if (data.ownedNfts && data.ownedNfts.length > 0) {
+                APP.wallet.nfts = data.ownedNfts;
+                $('nft-count').textContent = 'ASSETS: ' + data.totalCount;
+                $('vault-dot').classList.remove('off');
+                
+                let html = '';
+                data.ownedNfts.slice(0, 5).forEach(nft => {
+                    const name = nft.title || nft.contract.name || 'UNKNOWN';
+                    html += `<div style="margin:2px 0;color:var(--accent);">${name.substring(0, 20)}</div>`;
+                });
+                $('nft-vault-list').innerHTML = html;
+                log('NFT_VAULT: ' + data.totalCount + ' ASSETS');
+            } else {
+                $('nft-vault-list').innerHTML = 'NO_NFTS_FOUND';
+                $('nft-count').textContent = 'ASSETS: 0';
+            }
+        } catch (e) {
+            $('nft-vault-list').innerHTML = 'SCAN_FAILED';
+            log('NFT_VAULT_ERROR: ' + e.message);
+        }
+    };
 
     // ========================================
     // NEURAL_INJECT: AI IMAGE GENERATION
@@ -5016,129 +4566,6 @@ function activateHeatHaze(active) {
     }
 
     // ========================================
-    // HOLOGRAM_ENGINE - THREE.JS (NO DEFAULT MESH)
-    // ========================================
-    
-    function initHologram() {
-        const canvas = $('hologram-canvas');
-        const container = $('widget-layer');
-        if (!canvas || !container || typeof THREE === 'undefined') {
-            log('HOLOGRAM: THREE.JS_NOT_LOADED');
-            return;
-        }
-        
-        // HIDE WIDGET BY DEFAULT - Only show when user uploads 3D model
-        container.style.opacity = '0';
-        container.style.pointerEvents = 'none';
-        
-        // Scene setup
-        APP.hologram.scene = new THREE.Scene();
-        
-        // Camera
-        APP.hologram.camera = new THREE.PerspectiveCamera(50, 1, 0.1, 1000);
-        APP.hologram.camera.position.z = 3;
-        
-        // Renderer with transparency
-        APP.hologram.renderer = new THREE.WebGLRenderer({ 
-            canvas: canvas, 
-            alpha: true, 
-            antialias: true 
-        });
-        APP.hologram.renderer.setSize(150, 150);
-        APP.hologram.renderer.setClearColor(0x000000, 0);
-        
-        // NO DEFAULT MESH - Wait for user to upload 3D model
-        APP.hologram.mesh = null;
-        
-        // Animation loop
-        function animateHologram() {
-            APP.hologram.rafId = requestAnimationFrame(animateHologram);
-            
-            if (APP.hologram.mesh) {
-                // Rotation
-                APP.hologram.mesh.rotation.x += APP.hologram.rotationSpeed;
-                APP.hologram.mesh.rotation.y += APP.hologram.rotationSpeed * 1.3;
-                
-                // Audio sync
-                const bass = APP.audio.bassLevel || 0;
-                const audioScale = 1 + (bass / 200);
-                APP.hologram.mesh.scale.setScalar(APP.hologram.scale * audioScale);
-            }
-            
-            APP.hologram.renderer.render(APP.hologram.scene, APP.hologram.camera);
-        }
-        
-        animateHologram();
-        log('HOLOGRAM: ENGINE_READY');
-    }
-    
-    // Wheel event for scaling
-    const widgetLayer = $('widget-layer');
-    if (widgetLayer) {
-        widgetLayer.addEventListener('wheel', e => {
-            e.preventDefault();
-            const delta = e.deltaY > 0 ? -0.1 : 0.1;
-            APP.hologram.scale = Math.max(0.3, Math.min(3, APP.hologram.scale + delta));
-            
-            if (APP.hologram.mesh) {
-                APP.hologram.mesh.scale.setScalar(APP.hologram.scale);
-            }
-            
-            if ($('sl-layer-logo')) {
-                $('sl-layer-logo').value = APP.hologram.scale * 100;
-                $('val-layer-logo').textContent = APP.hologram.scale.toFixed(1);
-            }
-        }, { passive: false });
-        
-        // Drag and drop for 3D models
-        widgetLayer.addEventListener('dragover', e => {
-            e.preventDefault();
-            widgetLayer.classList.add('drag-target');
-        });
-        
-        widgetLayer.addEventListener('dragleave', () => {
-            widgetLayer.classList.remove('drag-target');
-        });
-        
-        widgetLayer.addEventListener('drop', async e => {
-            e.preventDefault();
-            widgetLayer.classList.remove('drag-target');
-            
-            const file = e.dataTransfer.files[0];
-            if (!file) return;
-            
-            const ext = file.name.toLowerCase().split('.').pop();
-            
-            if (ext === 'obj' || ext === 'glb' || ext === 'gltf') {
-                log('HOLOGRAM: LOADING_' + file.name.toUpperCase());
-                
-                // For now, just acknowledge - full OBJ/GLB loading requires additional loaders
-                ghostLog('3D_MODEL: ' + file.name, 'ai');
-                ghostLog('NOTE: FULL_LOADER_REQUIRES_OBJLOADER', 'ai');
-                
-                // Create a placeholder indicating model was received
-                if (APP.hologram.scene && APP.hologram.mesh) {
-                    // Change to a different geometry to show model changed
-                    const newGeo = new THREE.TorusKnotGeometry(0.6, 0.2, 64, 8);
-                    const newMat = new THREE.MeshBasicMaterial({ 
-                        color: 0x00f3ff, 
-                        wireframe: true 
-                    });
-                    
-                    APP.hologram.scene.remove(APP.hologram.mesh);
-                    APP.hologram.mesh = new THREE.Mesh(newGeo, newMat);
-                    APP.hologram.scene.add(APP.hologram.mesh);
-                    
-                    log('HOLOGRAM: MODEL_PLACEHOLDER_LOADED');
-                }
-            }
-        });
-    }
-    
-    // Initialize hologram after a short delay
-    setTimeout(initHologram, 500);
-
-    // ========================================
     // WEBGL LENS DRIP SHADER
     // ========================================
     function initLensDripShader() {
@@ -5403,213 +4830,116 @@ function activateHeatHaze(active) {
     // Initialize geo ticker injection
     setTimeout(injectGeoToTicker, 3000);
 
-}); // END of your startup block.
-
-// --- SURGICAL 3D CORE CONTROL ---
-document.addEventListener('DOMContentLoaded', () => {
-    const btnX = document.getElementById('btn-3d-x');
-    const widgetLayer = document.getElementById('widget-layer');
-    const scaleSlider = document.getElementById('sl-widget-scale'); 
-    const scaleLabel = document.getElementById('val-widget-scale');
-
-    // 1. UNIFIED RELAUNCHABLE TOGGLE
-    if (btnX && widgetLayer) {
-        btnX.onclick = () => {
-            const isHidden = widgetLayer.style.display === 'none';
-            widgetLayer.style.display = isHidden ? 'block' : 'none';
-            
-            // Sync button text and style with your screenshot
-            btnX.textContent = isHidden ? '[X]' : '[ ]';
-            btnX.style.borderColor = isHidden ? 'var(--v)' : 'var(--text-dim)';
-            btnX.style.opacity = isHidden ? '1' : '0.5';
-            
-            log(isHidden ? '3D_LAYER_ACTIVE' : '3D_LAYER_HIDDEN');
-        };
-    }
-
-    // 2. ENLARGE (SCALE) LOGIC
-    if (scaleSlider && widgetLayer) {
-        scaleSlider.oninput = (e) => {
-            const val = e.target.value;
-            if (scaleLabel) scaleLabel.textContent = parseFloat(val).toFixed(1);
-            
-            // Professional GPU Scaling
-            widgetLayer.style.transform = `scale(${val})`;
-            widgetLayer.style.transformOrigin = 'center center';
-        };
-    }
-});
-</script>
-
-<script type="module">
-    import * as THREE from 'three';
-    import { STLLoader } from 'three/addons/loaders/STLLoader.js';
-    import { OBJLoader } from 'three/addons/loaders/OBJLoader.js';
-
-    const btn = document.getElementById('btn-inject-3d');
-    const btnX = document.getElementById('btn-3d-x'); // Reference the [X] button
-    
-    if (btn) {
-        btn.onclick = () => {
-            const input = document.createElement('input');
-            input.type = 'file';
-            input.accept = '.stl,.obj';
-            input.onchange = (e) => {
-                const file = e.target.files[0];
-                if(!file) return;
-                const url = URL.createObjectURL(file);
-                const ext = file.name.toLowerCase().split('.').pop();
-                
-                const container = document.getElementById('widget-layer');
-                container.innerHTML = '<canvas id="hologram-canvas"></canvas>';
-                
-                // SURGICAL: Force visibility and reset [X] button on new load
-                container.style.display = 'block';
-                container.style.opacity = '1';
-                if(btnX) {
-                    btnX.textContent = '[X]';
-                    btnX.style.borderColor = 'var(--v)';
-                    btnX.style.opacity = '1';
-                }
-                
-                const scene = new THREE.Scene();
-                const camera = new THREE.PerspectiveCamera(75, 1, 0.1, 1000);
-                const renderer = new THREE.WebGLRenderer({ 
-                    canvas: document.getElementById('hologram-canvas'), 
-                    alpha: true, antialias: true 
-                });
-                renderer.setClearColor(0x000000, 0);
-                renderer.setSize(150, 150);
-                scene.add(new THREE.AmbientLight(0xffffff, 2.5));
-                camera.position.z = 5;
-
-                const loader = (ext === 'obj') ? new OBJLoader() : new STLLoader();
-                loader.load(url, (data) => {
-                    let model = data.scene ? data.scene : (data.isBufferGeometry ? new THREE.Mesh(data) : data);
-                    model.traverse(child => {
-                        if (child.isMesh) child.material = new THREE.MeshNormalMaterial({ wireframe: true });
-                    });
-                    const box = new THREE.Box3().setFromObject(model);
-                    const center = box.getCenter(new THREE.Vector3());
-                    const size = box.getSize(new THREE.Vector3());
-                    const maxDim = Math.max(size.x, size.y, size.z);
-                    model.position.x += (model.position.x - center.x);
-                    model.position.y += (model.position.y - center.y);
-                    model.position.z += (model.position.z - center.z);
-                    model.scale.setScalar(3.0 / maxDim);
-                    scene.add(model);
-                    const anim = () => {
-                        requestAnimationFrame(anim);
-                        model.rotation.y += 0.01;
-                        renderer.render(scene, camera);
-                    };
-                    anim();
-                    log('3D_MODEL_INJECTED_AND_READY');
-                });
-            };
-            input.click();
-        }; 
-    }
-</script>
-<script type="module">
-    import * as THREE from 'three';
-    import { STLLoader } from 'three/addons/loaders/STLLoader.js';
-    import { OBJLoader } from 'three/addons/loaders/OBJLoader.js';
-
-    // This specific piece of 3D logic lives in its own module world
-    const btn = document.getElementById('btn-inject-3d');
-    if (btn) {
-        btn.onclick = () => {
-            const input = document.createElement('input');
-            input.type = 'file';
-            input.accept = '.stl,.obj';
-            input.onchange = (e) => {
-                const file = e.target.files[0];
-                if(!file) return;
-                const url = URL.createObjectURL(file);
-                const ext = file.name.toLowerCase().split('.').pop();
-                
-                const container = document.getElementById('widget-layer');
-                container.innerHTML = '<canvas id="hologram-canvas"></canvas>';
-                container.style.opacity = '1';
-                
-                const scene = new THREE.Scene();
-                const camera = new THREE.PerspectiveCamera(75, 1, 0.1, 1000);
-                const renderer = new THREE.WebGLRenderer({ 
-                    canvas: document.getElementById('hologram-canvas'), 
-                    alpha: true, antialias: true 
-                });
-                renderer.setClearColor(0x000000, 0);
-                renderer.setSize(150, 150);
-                scene.add(new THREE.AmbientLight(0xffffff, 2.5));
-                camera.position.z = 5;
-
-                const loader = (ext === 'obj') ? new OBJLoader() : new STLLoader();
-                loader.load(url, (data) => {
-                    let model = data.scene ? data.scene : (data.isBufferGeometry ? new THREE.Mesh(data) : data);
-                    model.traverse(child => {
-                        if (child.isMesh) child.material = new THREE.MeshNormalMaterial({ wireframe: true });
-                    });
-                    const box = new THREE.Box3().setFromObject(model);
-                    const center = box.getCenter(new THREE.Vector3());
-                    const size = box.getSize(new THREE.Vector3());
-                    const maxDim = Math.max(size.x, size.y, size.z);
-                    model.position.x += (model.position.x - center.x);
-                    model.position.y += (model.position.y - center.y);
-                    model.position.z += (model.position.z - center.z);
-                    model.scale.setScalar(3.0 / maxDim);
-                    scene.add(model);
-                    const anim = () => {
-                        requestAnimationFrame(anim);
-                        model.rotation.y += 0.01;
-                        renderer.render(scene, camera);
-                    };
-                    anim();
-                });
-            };
-            input.click();
-        }; // Closes upload-trigger onclick
-    } // Closes container check
-
-    // --- GLOBAL ENGINE START ---
-    window.addEventListener('load', () => {
-        console.log("VNGRD_SYSTEM: ONLINE");
+; // THIS IS THE END of the startup block. Do not put code after this line.
+// --- V34 SUPREME 3D AUTO-REINSTALL ENGINE (FINAL RECOVERY) ---
+const REINSTALL_3D = {
+    init: () => {
+        const widget = document.getElementById('widget-layer');
+        if (!widget) return;
         
-        // 1. Force Viewport Calibration
-        // This ensures images and canvases fit the screen perfectly on mobile
-        const calibrate = () => {
-            const vh = window.innerHeight * 0.01;
-            document.documentElement.style.setProperty('--vh', `${vh}px`);
-            
-            if (typeof syncMobileViewport === 'function') {
-                syncMobileViewport();
-            }
+        // 1. REINSTALL CANVAS: Force a fresh canvas into the layer
+        widget.innerHTML = '<canvas id="hologram-canvas" style="width:100%; height:100%;"></canvas>';
+        widget.style.display = 'block';
+        widget.style.opacity = '1';
+        widget.style.pointerEvents = 'auto';
+
+        // 2. SETUP THREE.JS CORE: Fresh Scene, Camera, and Renderer
+        const scene = new THREE.Scene();
+        const camera = new THREE.PerspectiveCamera(75, 1, 0.1, 1000);
+        const renderer = new THREE.WebGLRenderer({ 
+            canvas: document.getElementById('hologram-canvas'), 
+            alpha: true, 
+            antialias: true 
+        });
+        
+        renderer.setSize(widget.clientWidth || 150, widget.clientHeight || 150);
+        renderer.setPixelRatio(window.devicePixelRatio);
+        
+        const ambient = new THREE.AmbientLight(0xffffff, 1.2);
+        scene.add(ambient);
+        camera.position.z = 5;
+
+        // 3. GLOBAL BINDING: Store in the main APP object
+        window.APP = window.APP || {};
+        window.APP.hologram = { scene, camera, renderer, mesh: null };
+        
+        log('3D_CORE: REINSTALLED_SUCCESS', 'success');
+    },
+
+    inject: (mesh) => {
+        const h = window.APP.hologram;
+        if (!h || !h.scene) return;
+        
+        if (h.mesh) h.scene.remove(h.mesh);
+        
+        // 4. SCREEN FIT LOGIC: Auto-center and Scale to fit
+        const box = new THREE.Box3().setFromObject(mesh);
+        const size = box.getSize(new THREE.Vector3());
+        const maxDim = Math.max(size.x, size.y, size.z);
+        
+        mesh.scale.setScalar(2.5 / (maxDim || 1));
+        mesh.position.sub(box.getCenter(new THREE.Vector3()));
+        
+        // Apply Neon Wireframe Style
+        mesh.traverse(n => {
+            if(n.isMesh) n.material = new THREE.MeshNormalMaterial({wireframe: true});
+        });
+
+        h.mesh = mesh;
+        h.scene.add(mesh);
+
+        const renderLoop = () => {
+            if (!h.mesh || !h.renderer) return; 
+            requestAnimationFrame(renderLoop);
+            h.mesh.rotation.y += 0.01;
+            h.renderer.render(h.scene, h.camera);
         };
+        renderLoop();
+    }
+};
 
-        calibrate();
-        window.addEventListener('resize', calibrate);
-        window.addEventListener('orientationchange', () => setTimeout(calibrate, 200));
+// --- BINDING: INJECT BUTTON ---
+if (document.getElementById('btn-inject-3d')) {
+    document.getElementById('btn-inject-3d').onclick = () => {
+        const input = document.createElement('input');
+        input.type = 'file';
+        input.accept = '.stl,.obj';
+        input.onchange = (e) => {
+            const file = e.target.files[0];
+            if (!file) return;
 
-        // 2. Start the Location/Weather engine with a "Quiet" Fallback
-        if (typeof initAtmosphere === 'function') {
-            // Delay geo-sync so it doesn't block the UI rendering
-            setTimeout(() => {
-                initAtmosphere();
-            }, 1500);
+            // ALWAYS REINSTALL ON NEW UPLOAD: This fixes the "hidden" bug permanently.
+            REINSTALL_3D.init();
+
+            const url = URL.createObjectURL(file);
+            const ext = file.name.toLowerCase().split('.').pop();
+            const loader = (ext === 'obj') ? new THREE.OBJLoader() : new THREE.STLLoader();
+
+            loader.load(url, (res) => {
+                const mesh = (ext === 'obj') ? res : new THREE.Mesh(res);
+                REINSTALL_3D.inject(mesh);
+                URL.revokeObjectURL(url);
+                log('SYSTEM: 3D_RENDER_ACTIVE');
+            });
+        };
+        input.click();
+    };
+}
+
+// --- BINDING: KILL SWITCH [X] ---
+if (document.getElementById('btn-3d-x')) {
+    document.getElementById('btn-3d-x').onclick = () => {
+        const widget = document.getElementById('widget-layer');
+        if (window.APP.hologram) {
+            window.APP.hologram.mesh = null; 
+            window.APP.hologram.scene = null;
         }
-
-        // 3. MOBILE PERMISSION OVERRIDE
-        // Mobile browsers block the camera/audio if they aren't triggered by a touch.
-        // We attach a one-time listener to the whole body to "unlock" the hardware.
-        document.body.addEventListener('click', () => {
-            if (APP.audio.ctx && APP.audio.ctx.state === 'suspended') {
-                APP.audio.ctx.resume();
-                console.log("AUDIO_CONTEXT: UNLOCKED");
-            }
-        }, { once: true });
-
-        log('V34_ULTRA: READY');
-    });
-</script>
-<canvas id="master-broadcast-canvas" width="1920" height="1080" style="display:none;"></canvas></body>
+        if (widget) {
+            widget.style.opacity = '0';
+            widget.innerHTML = ''; 
+        }
+        log('3D_SYSTEM: FULL_PURGE');
+    };
+}</script>
+</body>
 </html>
