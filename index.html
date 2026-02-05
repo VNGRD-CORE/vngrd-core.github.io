@@ -658,7 +658,33 @@
         .dented {
             box-shadow: inset 4px 4px 10px rgba(0,0,0,0.8), inset -2px -2px 6px rgba(30,30,30,0.5) !important;
         }
-        
+        /* --- V34 FINAL SHOOTING MODE --- */
+
+/* 1. FORCE CROSSHAIR EVERYWHERE */
+body.shooting-mode, 
+body.shooting-mode * {
+    cursor: crosshair !important;
+}
+
+/* 2. MAKE CONSOLE "GHOSTLY" BUT VISIBLE */
+/* This allows bullets to hit the buttons instead of clicking them */
+body.shooting-mode .sidebar .btn, 
+body.shooting-mode .sidebar input,
+body.shooting-mode .logo-layer {
+    pointer-events: none !important; /* IGNORE CLICKS (So you can shoot through) */
+    /* NO OPACITY CHANGE - KEEPS IT LOOKING NORMAL */
+}
+
+/* 3. THE DISARM BUTTON (MUST WORK) */
+body.shooting-mode #btn-shooting {
+    pointer-events: auto !important; /* CLICKABLE */
+    cursor: cell !important;
+    background: var(--r) !important; /* RED ALERT */
+    color: #000 !important;
+    font-weight: 900 !important;
+    box-shadow: 0 0 20px var(--r);
+    z-index: 999999;
+}
         /* MACHINE_GUN SHOOTING FX */
         #btn-shooting {
             z-index: 9999 !important;
@@ -3232,39 +3258,7 @@ document.addEventListener('DOMContentLoaded', () => {
         osc.stop(ctx.currentTime + 0.35);
     }
     
-    // HYDRAULIC HISS: Repair sound
-    function playHydraulicHiss() {
-        const ctx = getAudioCtx();
-        
-        const bufferSize = ctx.sampleRate * 0.8;
-        const buffer = ctx.createBuffer(1, bufferSize, ctx.sampleRate);
-        const data = buffer.getChannelData(0);
-        for (let i = 0; i < bufferSize; i++) {
-            data[i] = Math.random() * 2 - 1;
-        }
-        
-        const noise = ctx.createBufferSource();
-        noise.buffer = buffer;
-        
-        const filter = ctx.createBiquadFilter();
-        filter.type = 'bandpass';
-        filter.frequency.setValueAtTime(2000, ctx.currentTime);
-        filter.frequency.linearRampToValueAtTime(8000, ctx.currentTime + 0.4);
-        filter.frequency.linearRampToValueAtTime(2000, ctx.currentTime + 0.8);
-        filter.Q.value = 3;
-        
-        const gain = ctx.createGain();
-        gain.gain.setValueAtTime(0.0, ctx.currentTime);
-        gain.gain.linearRampToValueAtTime(0.3, ctx.currentTime + 0.1);
-        gain.gain.linearRampToValueAtTime(0.25, ctx.currentTime + 0.6);
-        gain.gain.linearRampToValueAtTime(0.0, ctx.currentTime + 0.8);
-        
-        noise.connect(filter);
-        filter.connect(gain);
-        gain.connect(ctx.destination);
-        noise.start(ctx.currentTime);
-        noise.stop(ctx.currentTime + 0.8);
-    }
+   
     
     // STRUCTURAL INTEGRITY SYSTEM
     function updateIntegrityBar() {
@@ -5316,86 +5310,6 @@ document.addEventListener('click', (e) => {
     if (id === 'btn-end' || id === 'btn-end-live' || id === 'btn-kill') applyAudioDuck(false);
 }, true);
 
-// --- FORCE MOUNT: WALLET LOGIC + AUTO-LOAD ---
-// Paste this at the very bottom of your script, before </script>
-
-setTimeout(() => {
-    const walletBtn = document.getElementById('wallet-badge');
-    
-    if (walletBtn) {
-        // Kill any old listeners to prevent duplicates
-        walletBtn.onclick = null; 
-        
-        walletBtn.onclick = async () => {
-            // 1. Check Environment
-            if (typeof window.ethereum === 'undefined') {
-                alert('CRITICAL: METAMASK NOT DETECTED.\nPlease install the browser extension.');
-                return;
-            }
-
-            // 2. Handle Disconnect
-            if (APP.wallet && APP.wallet.connected) {
-                if (confirm('DISCONNECT WALLET AND RESET PROFILE?')) {
-                    APP.wallet.connected = false;
-                    walletBtn.innerHTML = '<span class="dot off"></span>WALLET';
-                    walletBtn.style.color = 'var(--o)';
-                    walletBtn.style.borderColor = 'var(--o)';
-                    // Optional: Reset to Cyan/Default theme here
-                    log('WALLET: TERMINATED');
-                }
-                return;
-            }
-
-            // 3. Connect & Auto-Load
-            try {
-                log('CONNECTING_TO_CHAIN...');
-                const accounts = await window.ethereum.request({ method: 'eth_requestAccounts' });
-                const address = accounts[0];
-                
-                // Update State
-                APP.wallet = { connected: true, address: address };
-                
-                // Update Visuals
-                const shortAddr = address.substring(0,6) + '...' + address.substring(38);
-                walletBtn.innerHTML = `<span class="dot" style="background:var(--g);box-shadow:0 0 8px var(--g)"></span>${shortAddr}`;
-                walletBtn.style.color = 'var(--g)';
-                walletBtn.style.borderColor = 'var(--g)';
-                log(`WALLET_LINKED: ${shortAddr}`);
-
-                // --- THE AUTO-LOAD FEATURE ---
-                const savedSkin = localStorage.getItem(`VNGRD_SKIN_${address}`);
-                if (savedSkin) {
-                    log('RECOGNIZED_OPERATOR: LOADING_DNA...');
-                    const skinData = JSON.parse(savedSkin);
-                    
-                    // Inject Colors
-                    if (skinData.cssVars) {
-                        for (const [key, value] of Object.entries(skinData.cssVars)) {
-                            document.documentElement.style.setProperty(key, value);
-                        }
-                    }
-                    // Inject Settings
-                    if (skinData.vj) APP.vj = { ...APP.vj, ...skinData.vj };
-                    if (skinData.bug) {
-                        APP.bug.text = skinData.bug;
-                        if (document.getElementById('station-bug')) {
-                            document.getElementById('station-bug').textContent = skinData.bug;
-                        }
-                    }
-                    log('PROFILE_RESTORED_SUCCESSFULLY');
-                } else {
-                    log('NEW_ID_DETECTED: INITIALIZING_DEFAULT_SKIN');
-                }
-
-            } catch (err) {
-                log('CONNECTION_FAILED: ' + err.message);
-                console.error(err);
-            }
-        };
-        console.log("SYSTEM: WALLET_LISTENER_MOUNTED_FORCEFULLY");
-    } else {
-        console.error("SYSTEM_ERR: Wallet Badge ID not found.");
-    }
-}, 1000); // 1-second delay ensures DOM is ready</script>
+</script>
 </body>
 </html>
