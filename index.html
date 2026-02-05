@@ -228,31 +228,46 @@
         }
         
         /* V29 MANUAL LAYER ELEMENTS */
-        #station-bug { 
+       /* --- V29 INDUSTRIAL OVERRIDE (NO GLOW) --- */
+ #station-bug { 
             position: absolute; top: 30px; left: 30px; z-index: 2600; 
             font-family: 'Orbitron', sans-serif; font-size: 28px; font-weight: 800; 
+            
+            /* CLEANUP: White text with a subtle dark lift, NO BLUE GLOW */
             color: rgba(255,255,255,0.9); 
-            text-shadow: 0 0 20px var(--accent), 0 0 40px var(--accent-dim); 
-            background: transparent !important; border: none !important; backdrop-filter: none !important;
+            text-shadow: 2px 2px 4px rgba(0,0,0,0.5); 
+            
+            background: transparent !important; 
+            border: none !important; 
+            backdrop-filter: none !important;
             cursor: move;
             pointer-events: auto !important;
         }
         #station-bug.hidden { opacity: 0; pointer-events: none; }
         #station-bug img { max-height: 60px; filter: drop-shadow(0 0 10px var(--accent)); }
         
-        #user-logo-layer { 
-            position: absolute; top: 30px; right: 30px; z-index: 2550; 
-            max-width: 150px; max-height: 100px; object-fit: contain; 
-            filter: drop-shadow(0 0 10px var(--accent)); 
-            transform-origin: top right;
-            display: none;
-            cursor: move;
-            pointer-events: auto !important;
-            /* CLEAN - NO BLACK SQUARE */
-            background: transparent !important;
-            border: none !important;
-            box-shadow: none !important;
-        }
+      #user-logo-layer { 
+    /* POSITION & SCALE */
+    position: absolute; 
+    top: 30px; 
+    right: 30px; 
+    z-index: 2550; 
+    max-width: 150px; 
+    max-height: 100px; 
+    object-fit: contain; 
+    transform-origin: top right;
+    display: none;
+    cursor: move;
+    pointer-events: auto !important;
+
+    /* SURGICAL CLEANUP: NO GLOW, NO BOX */
+    background: transparent !important;
+    border: none !important;
+    box-shadow: none !important;
+
+    /* REPLACED: Professional depth instead of blue neon */
+    filter: drop-shadow(2px 2px 4px rgba(0,0,0,0.8)) !important;
+}
         
         /* HOLOGRAM WIDGET - REACTOR CORE */
        #widget-layer {
@@ -267,25 +282,39 @@
     opacity: 1;
 }
 
+#hologram-canvas {
+    width: 100% !important;
+    height: 100% !important;
+    background: transparent !important; /* Ensures the canvas itself has no color */
+    border: none !important;           /* Removes the dashed/solid lines */
+    box-shadow: none !important;       /* Removes the glow until a model is loaded */
+    display: block;
+}
 
-        
-        /* STRUCTURAL INTEGRITY BAR */
-        #integrity-bar {
-            position: fixed; top: 50px; left: 50%; transform: translateX(-50%);
-            width: 200px; height: 6px;
-            background: rgba(0,0,0,0.5); border: 1px solid var(--border);
-            z-index: 99998; display: none;
-        }
-        #integrity-bar.active { display: block; }
-        #integrity-fill {
-            height: 100%; width: 100%;
-            background: linear-gradient(90deg, var(--r) 0%, var(--y) 50%, var(--g) 100%);
-            transition: width 0.1s;
-        }
-        #integrity-text {
-            position: absolute; top: -16px; left: 50%; transform: translateX(-50%);
-            font-size: 9px; color: var(--accent); font-family: 'Orbitron', sans-serif;
-        }
+/* STRUCTURAL INTEGRITY BAR (FLAT) */
+#integrity-bar {
+    position: fixed; top: 50px; left: 50%; transform: translateX(-50%);
+    width: 200px; height: 6px;
+    background: #111; /* Solid dark background */
+    border: 1px solid var(--border-light);
+    z-index: 99998; display: none;
+    box-shadow: none !important;
+}
+
+#integrity-fill {
+    height: 100%; width: 100%;
+    /* Solid colors feel more industrial than soft gradients */
+    background: var(--g); 
+    transition: width 0.1s;
+}
+
+#integrity-text {
+    position: absolute; top: -16px; left: 50%; transform: translateX(-50%);
+    font-size: 9px; 
+    color: var(--text-bright); 
+    text-shadow: none !important; /* GLOW REMOVED */
+    font-family: 'Orbitron', sans-serif;
+}
         
         /* LENS FAILURE STATE */
         body.lens-shattered #stage { backdrop-filter: none !important; filter: none !important; }
@@ -830,7 +859,31 @@
         padding: 5vh 5vw;
     }
 }
-</style>
+/* --- KINETIC SHUTTER TRANSITION --- */
+.kinetic-shutter {
+    animation: shutter-wipe 0.4s cubic-bezier(0.85, 0, 0.15, 1) forwards;
+}
+
+@keyframes shutter-wipe {
+    0% { 
+        clip-path: inset(0 0 0 0);
+        transform: scale(1);
+        filter: brightness(1) contrast(1);
+    }
+    45% { 
+        clip-path: inset(0 100% 0 0); /* Horizontal wipe */
+        transform: scale(1.03);
+        filter: brightness(1.4) contrast(1.1);
+    }
+    50% { 
+        clip-path: inset(0 0 0 100%); /* Reset wipe position */
+    }
+    100% { 
+        clip-path: inset(0 0 0 0);
+        transform: scale(1);
+        filter: brightness(1) contrast(1);
+    }
+}</style>
 </head>
 <body oncontextmenu="return false;">
     <!-- SHOOTING_OVERLAY -->
@@ -892,7 +945,7 @@
             <img id="brand-logo-slot" src="" alt="" style="display:none;">
             <span class="logo m1" id="main-logo">DRIS<span style="font-size:14px;font-weight:400;color:var(--accent);opacity:0.6;margin-left:2px;letter-spacing:1px">//&nbsp;CORE</span></span>
             <span class="sub-tag">VNGRD</span>
-            <span class="version">V33</span>
+            <span class="version">V34</span>
         </div>
         <div id="status-bar">
             <div id="wallet-badge" class="badge" style="cursor:pointer;border-color:var(--o);color:var(--o);"><span class="dot off" id="wallet-dot"></span>WALLET</div>
@@ -920,6 +973,7 @@
             <img id="user-logo-layer" src="" alt="Logo">
             <!-- HOLOGRAM WIDGET - REACTOR CORE -->
             <div id="widget-layer">
+                <canvas id="hologram-canvas"></canvas>
             </div>
             <div id="lower-third">
                 <div class="lt-container lt-guest">
@@ -1056,7 +1110,7 @@
                 <!-- 3D HOLOGRAM -->
                 <div class="btn-row">
                     <button class="btn" id="btn-inject-3d" style="flex:2;color:var(--v);border-color:var(--v);">3D MODEL</button>
-                    <button class="btn" id="btn-3d-x" title="Hide/Clear 3D">[X]</button>
+                    <button class="btn" id="btn-3d-x" title="HIDE / CLEAR 3D">[X]</button>
                 </div>
                 <input type="file" id="file-3d-model" accept=".stl,.obj,.glb,.gltf" style="display:none;">
             </div>
@@ -1386,7 +1440,13 @@ const APP = {
             maxDrops: 50
         }
     },
-    
+    // HOLOGRAM_ENGINE - THREE.JS REACTOR CORE
+    hologram: {
+        scene: null, camera: null, renderer: null,
+        mesh: null, rafId: null,
+        scale: 1.0, rotationSpeed: 0.01,
+        loadedModel: null
+    },
     // LEXICA_NANO
     neural: { generating: false, lastImage: null }
 };
@@ -1906,7 +1966,53 @@ if ($('sl-layer-logo')) {
     };
 }
 
-    
+// --- V34 UNIFIED HOLOGRAM ENGINE ---
+
+// 1. FILE SELECTION & INJECTION
+if ($('btn-inject-3d')) {
+    $('btn-inject-3d').onclick = () => {
+        const input = document.createElement('input');
+        input.type = 'file';
+        input.accept = '.stl,.obj';
+        
+        input.onchange = (e) => {
+            const file = e.target.files[0];
+            if(!file) return;
+            
+            const ext = file.name.toLowerCase().split('.').pop();
+            const url = URL.createObjectURL(file);
+            let loader = (ext === 'obj') ? new THREE.OBJLoader() : new THREE.STLLoader();
+            
+            log(`SYSTEM: LOADING_${ext.toUpperCase()}...`);
+
+            loader.load(url, (result) => {
+                let mesh;
+                if (ext === 'obj') {
+                    mesh = result; 
+                } else {
+                    const mat = new THREE.MeshPhongMaterial({ wireframe: true });
+                    mesh = new THREE.Mesh(result, mat);
+                }
+                
+                normalizeAndAddMesh(mesh);
+                URL.revokeObjectURL(url); 
+            });
+        };
+        input.click();
+    };
+}
+
+// SIMPLE HIDE ENGINE
+if ($('btn-3d-x')) {
+    $('btn-3d-x').onclick = () => {
+        const widget = $('widget-layer');
+        if (widget) {
+            widget.style.display = 'none';
+            log('SYSTEM: 3D_WINDOW_CLOSED');
+        }
+    };
+}
+
 // MEDIA & CYCLE LOGIC
 function loadMediaFiles(input) {
     const isFirstLoad = APP.media.currentIndex === -1;
@@ -2316,7 +2422,23 @@ function stopNFTRecording() { if (!APP.nft.isRecording) return; APP.nft.recorder
 function updateNFTTimer() { if (!APP.nft.isRecording) return; const elapsed = Date.now() - APP.nft.startTime; const secs = Math.floor(elapsed / 1000); $('nft-timer').textContent = `00:${String(secs).padStart(2,'0')}`; $('nft-fill').style.width = `${Math.min(100, (elapsed / 30000) * 100)}%`; requestAnimationFrame(updateNFTTimer); }
 function finalizeNFT() { const blob = new Blob(APP.nft.chunks, { type: 'video/webm' }); const url = URL.createObjectURL(blob); const a = document.createElement('a'); a.href = url; a.download = `VNGRD_NFT_${Date.now()}.webm`; a.click(); APP.nft.chunks = []; log('NFT_EXPORTED'); }
 function openProjector() { if (APP.projector.isOpen) return; APP.projector.stream = APP.render.canvas.captureStream(60); APP.projector.window = window.open('', 'DRIS_Projector', 'width=1280,height=720,menubar=no,toolbar=no'); APP.projector.window.document.write('<!DOCTYPE html><html><body style="margin:0;background:#000;overflow:hidden"><video id="pf" autoplay muted playsinline style="width:100vw;height:100vh;object-fit:contain"></video><script>document.getElementById("pf").srcObject = window.opener.APP.projector.stream;<\/script></body></html>'); APP.projector.isOpen = true; $('btn-projector').classList.add('on'); log('PROJECTOR_OPEN'); }
+// --- KINETIC SNAP ENGINE ---
+function triggerIndustrialSnap(nextImageUrl) {
+    const stage = document.getElementById('main-stage-img'); 
+    if (!stage) return;
 
+    stage.classList.remove('kinetic-shutter');
+    void stage.offsetWidth; // Force CSS restart
+    stage.classList.add('kinetic-shutter');
+
+    setTimeout(() => {
+        stage.src = nextImageUrl;
+        log('SYSTEM: FRAME_CAPTURED');
+    }, 200); 
+}
+
+// THE TRIGGER: This ensures the projector logic and snap logic coexist
+if (typeof log === 'function') log('PROJECTOR_SYSTEM_LINKED');
 // UI
 function setTheme(theme) { document.body.className = document.body.className.replace(/theme-\w+/g, '').replace('system-failure', ''); if (theme !== 'cyan') document.body.classList.add(`theme-${theme}`); APP.state.theme = theme; document.querySelectorAll('.pal').forEach(p => p.classList.toggle('on', p.dataset.t === theme)); log(`THEME: ${theme}`); }
 function toggleVHS() { document.body.classList.toggle('vhs'); $('btn-vhs').classList.toggle('on'); log('VHS'); }
@@ -3818,57 +3940,67 @@ document.addEventListener('DOMContentLoaded', () => {
     }
     
     // GEO_HANDSHAKE: Get real coordinates
-   // --- UNIFIED ATMOSPHERE ENGINE ---
-async function startAtmosphereSync() {
-    const geoStatus = document.getElementById('geo-status');
-    const weatherStatus = document.getElementById('weather-status');
+   async function initAtmosphere() {
+    log('GEO_HANDSHAKE: ACQUIRING...');
+    const geoStatus = $('geo-status');
+    if (geoStatus) geoStatus.textContent = 'GEO: ACQUIRING...';
     
-    const updateUI = (lat, lon, city, temp, condition) => {
-        if (geoStatus) geoStatus.innerHTML = `GEO: ${city.toUpperCase()} [${lat.toFixed(2)}]`;
-        if (weatherStatus) weatherStatus.textContent = `WEATHER: ${temp}°C // ${condition}`;
-    };
-
-    const fetchWeather = async (lat, lon, city) => {
-        try {
-            // Using a free, reliable weather API
-            const res = await fetch(`https://api.open-meteo.com/v1/forecast?latitude=${lat}&longitude=${lon}&current_weather=true`);
-            const data = await res.json();
-            const temp = data.current_weather.temperature;
-            const code = data.current_weather.weathercode;
-            const condition = code > 50 ? 'RAIN' : 'CLEAR';
-            
-            updateUI(lat, lon, city, temp, condition);
-            
-            // Link to your visual effects
-            if (code > 50 && document.getElementById('lens-drip-canvas')) {
-                document.getElementById('lens-drip-canvas').style.display = 'block';
-                console.log("VNGRD_SYSTEM: LENS_DRIP_ACTIVE");
-            }
-        } catch (e) {
-            console.error("WEATHER_SYNC: OFFLINE");
+    return new Promise((resolve) => {
+        if (!navigator.geolocation) {
+            log('GEO: NOT_SUPPORTED');
+            resolve(false);
+            return;
         }
-    };
-
-    if (navigator.geolocation) {
+        
+        // This triggers the real browser popup
         navigator.geolocation.getCurrentPosition(
-            async (pos) => {
-                const lat = pos.coords.latitude;
-                const lon = pos.coords.longitude;
-                // Reverse Geocode for City Name
+            async (position) => {
+                APP.atmosphere.latitude = position.coords.latitude;
+                APP.atmosphere.longitude = position.coords.longitude;
+                log(`GPS_LOCKED: ${APP.atmosphere.latitude.toFixed(2)}`);
+                await fetchSatelliteWeather();
+                resolve(true);
+            },
+            async (error) => {
+                log('GPS_DENIED: FALLBACK_ENGAGED');
+                // Use the IP lookup ONLY if the user said NO to GPS
                 try {
-                    const geo = await fetch(`https://nominatim.openstreetmap.org/reverse?lat=${lat}&lon=${lon}&format=json`).then(r => r.json());
-                    fetchWeather(lat, lon, geo.address.city || geo.address.town || "SECTOR_L2");
-                } catch(e) { fetchWeather(lat, lon, "UNKNOWN_REGION"); }
+                    const res = await fetch('https://ipapi.co/json/');
+                    const data = await res.json();
+                    APP.atmosphere.latitude = data.latitude;
+                    APP.atmosphere.longitude = data.longitude;
+                    APP.atmosphere.city = data.city.toUpperCase();
+                    await fetchSatelliteWeather();
+                } catch (e) {
+                    APP.atmosphere.latitude = 52.52; // Absolute backup
+                    APP.atmosphere.longitude = 13.41;
+                    await fetchSatelliteWeather();
+                }
+                resolve(false);
             },
-            async () => {
-                // FALLBACK: Use IP-based location if GPS is blocked or unavailable
-                const ip = await fetch('https://ipapi.co/json/').then(r => r.json());
-                fetchWeather(ip.latitude, ip.longitude, ip.city || "IP_FALLBACK");
-            },
-            { timeout: 5000 }
+            { enableHighAccuracy: true, timeout: 8000 }
         );
-    }
+    });
 }
+    
+    // Fetch weather from Open-Meteo with reverse geocoding
+    async function fetchSatelliteWeather() {
+        try {
+            const lat = APP.atmosphere.latitude || 52.52;
+            const lon = APP.atmosphere.longitude || 13.41;
+            
+            // Weather data
+            const weatherResp = await fetch(
+                `https://api.open-meteo.com/v1/forecast?latitude=${lat}&longitude=${lon}&current_weather=true&hourly=weathercode`
+            );
+            const weather = await weatherResp.json();
+            
+            const temp = weather.current_weather.temperature;
+            const weatherCode = weather.current_weather.weathercode;
+            const windSpeed = weather.current_weather.windspeed;
+            
+            APP.atmosphere.temperature = temp;
+            APP.atmosphere.weatherCode = weatherCode;
             
             // Weather code interpretation
             const weatherMap = {
@@ -3919,18 +4051,23 @@ async function startAtmosphereSync() {
             const weatherStatus = $('weather-status');
             if (weatherStatus) weatherStatus.textContent = 'WEATHER: ERROR';
         }
-    // Update bottom ticker with location and METAR
-    function updateTickerWithMetar() {
-        const ticker = $('ticker-text');
-        if (ticker && APP.atmosphere.city && APP.atmosphere.metar) {
-            const metarString = `[LOC: ${APP.atmosphere.city}] // [METAR: ${APP.atmosphere.metar}]`;
-            // Append to existing ticker or replace
-            const currentText = ticker.textContent;
-            if (!currentText.includes('[LOC:')) {
-                ticker.textContent = metarString + ' // ' + currentText;
-            }
-        }
     }
+    
+    // Update bottom ticker with location and METAR
+  function updateTickerWithMetar() {
+    const ticker = $('ticker-text');
+    if (ticker && APP.atmosphere.city) {
+        // This line forces the ticker to use the ACTUAL data fetched from the API
+        const city = APP.atmosphere.city;
+        const temp = APP.atmosphere.temperature;
+        const status = APP.atmosphere.isRaining ? "PRECIPITATION_DETECTED" : "ATMOS_STABLE";
+        
+        ticker.innerHTML = `[LOC: ${city}] // [TEMP: ${temp}°C] // [SYSTEM: ${status}] // [SAT_LINK: 100%]`;
+        
+        // This is the "Truth" log
+        log(`REAL_TIME_SYNC: ${city} @ ${temp}°C`);
+    }
+}
     
     // Initialize refraction buffer for displacement mapping
     function initRefractionBuffer() {
@@ -4566,6 +4703,129 @@ async function startAtmosphereSync() {
     }
 
     // ========================================
+    // HOLOGRAM_ENGINE - THREE.JS (NO DEFAULT MESH)
+    // ========================================
+    
+    function initHologram() {
+        const canvas = $('hologram-canvas');
+        const container = $('widget-layer');
+        if (!canvas || !container || typeof THREE === 'undefined') {
+            log('HOLOGRAM: THREE.JS_NOT_LOADED');
+            return;
+        }
+        
+        // HIDE WIDGET BY DEFAULT - Only show when user uploads 3D model
+        container.style.opacity = '0';
+        container.style.pointerEvents = 'none';
+        
+        // Scene setup
+        APP.hologram.scene = new THREE.Scene();
+        
+        // Camera
+        APP.hologram.camera = new THREE.PerspectiveCamera(50, 1, 0.1, 1000);
+        APP.hologram.camera.position.z = 3;
+        
+        // Renderer with transparency
+        APP.hologram.renderer = new THREE.WebGLRenderer({ 
+            canvas: canvas, 
+            alpha: true, 
+            antialias: true 
+        });
+        APP.hologram.renderer.setSize(150, 150);
+        APP.hologram.renderer.setClearColor(0x000000, 0);
+        
+        // NO DEFAULT MESH - Wait for user to upload 3D model
+        APP.hologram.mesh = null;
+        
+        // Animation loop
+        function animateHologram() {
+            APP.hologram.rafId = requestAnimationFrame(animateHologram);
+            
+            if (APP.hologram.mesh) {
+                // Rotation
+                APP.hologram.mesh.rotation.x += APP.hologram.rotationSpeed;
+                APP.hologram.mesh.rotation.y += APP.hologram.rotationSpeed * 1.3;
+                
+                // Audio sync
+                const bass = APP.audio.bassLevel || 0;
+                const audioScale = 1 + (bass / 200);
+                APP.hologram.mesh.scale.setScalar(APP.hologram.scale * audioScale);
+            }
+            
+            APP.hologram.renderer.render(APP.hologram.scene, APP.hologram.camera);
+        }
+        
+        animateHologram();
+        log('HOLOGRAM: ENGINE_READY');
+    }
+    
+    // Wheel event for scaling
+    const widgetLayer = $('widget-layer');
+    if (widgetLayer) {
+        widgetLayer.addEventListener('wheel', e => {
+            e.preventDefault();
+            const delta = e.deltaY > 0 ? -0.1 : 0.1;
+            APP.hologram.scale = Math.max(0.3, Math.min(3, APP.hologram.scale + delta));
+            
+            if (APP.hologram.mesh) {
+                APP.hologram.mesh.scale.setScalar(APP.hologram.scale);
+            }
+            
+            if ($('sl-layer-logo')) {
+                $('sl-layer-logo').value = APP.hologram.scale * 100;
+                $('val-layer-logo').textContent = APP.hologram.scale.toFixed(1);
+            }
+        }, { passive: false });
+        
+        // Drag and drop for 3D models
+        widgetLayer.addEventListener('dragover', e => {
+            e.preventDefault();
+            widgetLayer.classList.add('drag-target');
+        });
+        
+        widgetLayer.addEventListener('dragleave', () => {
+            widgetLayer.classList.remove('drag-target');
+        });
+        
+        widgetLayer.addEventListener('drop', async e => {
+            e.preventDefault();
+            widgetLayer.classList.remove('drag-target');
+            
+            const file = e.dataTransfer.files[0];
+            if (!file) return;
+            
+            const ext = file.name.toLowerCase().split('.').pop();
+            
+            if (ext === 'obj' || ext === 'glb' || ext === 'gltf') {
+                log('HOLOGRAM: LOADING_' + file.name.toUpperCase());
+                
+                // For now, just acknowledge - full OBJ/GLB loading requires additional loaders
+                ghostLog('3D_MODEL: ' + file.name, 'ai');
+                ghostLog('NOTE: FULL_LOADER_REQUIRES_OBJLOADER', 'ai');
+                
+                // Create a placeholder indicating model was received
+                if (APP.hologram.scene && APP.hologram.mesh) {
+                    // Change to a different geometry to show model changed
+                    const newGeo = new THREE.TorusKnotGeometry(0.6, 0.2, 64, 8);
+                    const newMat = new THREE.MeshBasicMaterial({ 
+                        color: 0x00f3ff, 
+                        wireframe: true 
+                    });
+                    
+                    APP.hologram.scene.remove(APP.hologram.mesh);
+                    APP.hologram.mesh = new THREE.Mesh(newGeo, newMat);
+                    APP.hologram.scene.add(APP.hologram.mesh);
+                    
+                    log('HOLOGRAM: MODEL_PLACEHOLDER_LOADED');
+                }
+            }
+        });
+    }
+    
+    // Initialize hologram after a short delay
+    setTimeout(initHologram, 500);
+
+    // ========================================
     // WEBGL LENS DRIP SHADER
     // ========================================
     function initLensDripShader() {
@@ -4830,115 +5090,204 @@ async function startAtmosphereSync() {
     // Initialize geo ticker injection
     setTimeout(injectGeoToTicker, 3000);
 
-; // THIS IS THE END of the startup block. Do not put code after this line.
-// --- V34 SUPREME 3D AUTO-REINSTALL ENGINE (FINAL RECOVERY) ---
-const REINSTALL_3D = {
-    init: () => {
-        const widget = document.getElementById('widget-layer');
-        if (!widget) return;
-        
-        // 1. REINSTALL CANVAS: Force a fresh canvas into the layer
-        widget.innerHTML = '<canvas id="hologram-canvas" style="width:100%; height:100%;"></canvas>';
-        widget.style.display = 'block';
-        widget.style.opacity = '1';
-        widget.style.pointerEvents = 'auto';
+}); // THIS IS THE END of the startup block. Do not put code after this line.
+</script>
+<script type="module">
+    import * as THREE from 'three';
+    import { STLLoader } from 'three/addons/loaders/STLLoader.js';
+    import { OBJLoader } from 'three/addons/loaders/OBJLoader.js';
 
-        // 2. SETUP THREE.JS CORE: Fresh Scene, Camera, and Renderer
-        const scene = new THREE.Scene();
-        const camera = new THREE.PerspectiveCamera(75, 1, 0.1, 1000);
-        const renderer = new THREE.WebGLRenderer({ 
-            canvas: document.getElementById('hologram-canvas'), 
-            alpha: true, 
-            antialias: true 
-        });
-        
-        renderer.setSize(widget.clientWidth || 150, widget.clientHeight || 150);
-        renderer.setPixelRatio(window.devicePixelRatio);
-        
-        const ambient = new THREE.AmbientLight(0xffffff, 1.2);
-        scene.add(ambient);
-        camera.position.z = 5;
+    // This specific piece of 3D logic lives in its own module world
+    const btn = document.getElementById('btn-inject-3d');
+    if (btn) {
+        btn.onclick = () => {
+            const input = document.createElement('input');
+            input.type = 'file';
+            input.accept = '.stl,.obj';
+            input.onchange = (e) => {
+                const file = e.target.files[0];
+                if(!file) return;
+                const url = URL.createObjectURL(file);
+                const ext = file.name.toLowerCase().split('.').pop();
+                
+                const container = document.getElementById('widget-layer');
+                container.innerHTML = '<canvas id="hologram-canvas"></canvas>';
+                container.style.opacity = '1';
+                
+                const scene = new THREE.Scene();
+                const camera = new THREE.PerspectiveCamera(75, 1, 0.1, 1000);
+                const renderer = new THREE.WebGLRenderer({ 
+                    canvas: document.getElementById('hologram-canvas'), 
+                    alpha: true, antialias: true 
+                });
+                renderer.setClearColor(0x000000, 0);
+                renderer.setSize(150, 150);
+                scene.add(new THREE.AmbientLight(0xffffff, 2.5));
+                camera.position.z = 5;
 
-        // 3. GLOBAL BINDING: Store in the main APP object
-        window.APP = window.APP || {};
-        window.APP.hologram = { scene, camera, renderer, mesh: null };
-        
-        log('3D_CORE: REINSTALLED_SUCCESS', 'success');
-    },
-
-    inject: (mesh) => {
-        const h = window.APP.hologram;
-        if (!h || !h.scene) return;
-        
-        if (h.mesh) h.scene.remove(h.mesh);
-        
-        // 4. SCREEN FIT LOGIC: Auto-center and Scale to fit
-        const box = new THREE.Box3().setFromObject(mesh);
-        const size = box.getSize(new THREE.Vector3());
-        const maxDim = Math.max(size.x, size.y, size.z);
-        
-        mesh.scale.setScalar(2.5 / (maxDim || 1));
-        mesh.position.sub(box.getCenter(new THREE.Vector3()));
-        
-        // Apply Neon Wireframe Style
-        mesh.traverse(n => {
-            if(n.isMesh) n.material = new THREE.MeshNormalMaterial({wireframe: true});
-        });
-
-        h.mesh = mesh;
-        h.scene.add(mesh);
-
-        const renderLoop = () => {
-            if (!h.mesh || !h.renderer) return; 
-            requestAnimationFrame(renderLoop);
-            h.mesh.rotation.y += 0.01;
-            h.renderer.render(h.scene, h.camera);
+                const loader = (ext === 'obj') ? new OBJLoader() : new STLLoader();
+                loader.load(url, (data) => {
+                    let model = data.scene ? data.scene : (data.isBufferGeometry ? new THREE.Mesh(data) : data);
+                    model.traverse(child => {
+                        if (child.isMesh) child.material = new THREE.MeshNormalMaterial({ wireframe: true });
+                    });
+                    const box = new THREE.Box3().setFromObject(model);
+                    const center = box.getCenter(new THREE.Vector3());
+                    const size = box.getSize(new THREE.Vector3());
+                    const maxDim = Math.max(size.x, size.y, size.z);
+                    model.position.x += (model.position.x - center.x);
+                    model.position.y += (model.position.y - center.y);
+                    model.position.z += (model.position.z - center.z);
+                    model.scale.setScalar(3.0 / maxDim);
+                    scene.add(model);
+                    const anim = () => {
+                        requestAnimationFrame(anim);
+                        model.rotation.y += 0.01;
+                        renderer.render(scene, camera);
+                    };
+                    anim();
+                });
+            };
+            input.click();
         };
-        renderLoop();
     }
+// --- AUDIO ROTATION SYSTEM ---
+const V_PLAYLIST = {
+    tracks: [],
+    index: 0,
+    player: document.getElementById('audio-el')
 };
 
-// --- BINDING: INJECT BUTTON ---
-if (document.getElementById('btn-inject-3d')) {
-    document.getElementById('btn-inject-3d').onclick = () => {
-        const input = document.createElement('input');
-        input.type = 'file';
-        input.accept = '.stl,.obj';
-        input.onchange = (e) => {
-            const file = e.target.files[0];
-            if (!file) return;
+// Connect your file input to the handler
+document.getElementById('file-audio').addEventListener('change', function(e) {
+    handleAudioPlaylist(e.target.files);
+});
 
-            // ALWAYS REINSTALL ON NEW UPLOAD: This fixes the "hidden" bug permanently.
-            REINSTALL_3D.init();
+// Auto-advance when song ends
+V_PLAYLIST.player.addEventListener('ended', () => {
+    if (V_PLAYLIST.tracks.length > 0) {
+        V_PLAYLIST.index = (V_PLAYLIST.index + 1) % V_PLAYLIST.tracks.length;
+        runVanguardTrack();
+    }
+});
 
-            const url = URL.createObjectURL(file);
-            const ext = file.name.toLowerCase().split('.').pop();
-            const loader = (ext === 'obj') ? new THREE.OBJLoader() : new THREE.STLLoader();
+function handleAudioPlaylist(files) {
+    // DO NOT reset V_PLAYLIST.tracks = [] here
+    const isFirstLoad = V_PLAYLIST.tracks.length === 0;
 
-            loader.load(url, (res) => {
-                const mesh = (ext === 'obj') ? res : new THREE.Mesh(res);
-                REINSTALL_3D.inject(mesh);
-                URL.revokeObjectURL(url);
-                log('SYSTEM: 3D_RENDER_ACTIVE');
-            });
-        };
-        input.click();
-    };
+    Array.from(files).forEach(f => {
+        if (f.type.startsWith('audio/')) {
+            // APPEND to the existing array
+            V_PLAYLIST.tracks.push(URL.createObjectURL(f));
+        }
+    });
+
+    if (V_PLAYLIST.tracks.length > 0) {
+        log(`QUEUE_UPDATE: ${V_PLAYLIST.tracks.length} TOTAL_TRACKS`);
+        
+        // Only trigger the player if nothing is playing yet
+        if (isFirstLoad) {
+            V_PLAYLIST.index = 0;
+            runVanguardTrack();
+        }
+    }
 }
 
-// --- BINDING: KILL SWITCH [X] ---
-if (document.getElementById('btn-3d-x')) {
-    document.getElementById('btn-3d-x').onclick = () => {
-        const widget = document.getElementById('widget-layer');
-        if (window.APP.hologram) {
-            window.APP.hologram.mesh = null; 
-            window.APP.hologram.scene = null;
+function runVanguardTrack() {
+    const url = V_PLAYLIST.tracks[V_PLAYLIST.index];
+    V_PLAYLIST.player.src = url;
+    V_PLAYLIST.player.play();
+    
+    // UPDATED: Target the audio module label instead of the bottom ticker
+    const trackID = `TRACK_0${V_PLAYLIST.index + 1}`;
+    const audioLabel = document.querySelector('.audio-engine .module-header') || $('audio-status');
+    
+    if (audioLabel) {
+        audioLabel.textContent = `AUDIO_ENGINE // ${trackID}`;
+    }
+    
+    log(`AUDIO_SYNC: ${trackID}_STARTED`);
+}// --- HOLOGRAM CONTROL ENGINE ---
+function toggleHologramVisibility(show) {
+    const hologramLayer = document.getElementById('widget-layer');
+    if (!hologramLayer) return;
+
+    if (show) {
+        hologramLayer.style.display = 'block';
+        log('SYSTEM: 3D_HOLOGRAM_ACTIVE');
+    } else {
+        // Stage 1: Hide
+        hologramLayer.style.display = 'none';
+        
+        // Stage 2: Purge existing model to allow fresh load
+        if (APP.hologram.mesh) {
+            APP.hologram.scene.remove(APP.hologram.mesh);
+            APP.hologram.mesh = null; 
+            log('SYSTEM: MESH_PURGED_FOR_RELOAD');
         }
-        if (widget) {
-            widget.style.opacity = '0';
-            widget.innerHTML = ''; 
+    }
+}
+
+// Ensure the layer is visible BEFORE adding a new mesh
+// --- THE ONLY 3D NORMALIZER YOU NEED ---
+function normalizeAndAddMesh(mesh) {
+    const widget = $('widget-layer');
+    if (!widget) return;
+
+    // 1. FORCE VISIBILITY
+    widget.style.display = 'block';
+    widget.style.opacity = '1';
+
+    // 2. RE-INITIALIZE CANVAS (If it was wiped)
+    if (!document.getElementById('hologram-canvas')) {
+        widget.innerHTML = '<canvas id="hologram-canvas" style="width:100%; height:100%;"></canvas>';
+        log('SYSTEM: REBUILDING_3D_CANVAS');
+    }
+
+    // 3. SAFETY CHECK: If the Scene died, we stop here
+    if (!APP.hologram || !APP.hologram.scene) {
+        log('ERROR: 3D_CORE_MISSING');
+        return;
+    }
+
+    // 4. PURGE: Remove any existing mesh
+    if (APP.hologram.mesh) {
+        APP.hologram.scene.remove(APP.hologram.mesh);
+        APP.hologram.mesh = null;
+    }
+
+    // 5. MATERIAL: Neon Blue
+    mesh.traverse((node) => {
+        if (node.isMesh) {
+            node.material = new THREE.MeshPhongMaterial({
+                color: 0x00f3ff,
+                emissive: 0x00f3ff,
+                emissiveIntensity: 0.5,
+                wireframe: true
+            });
         }
-        log('3D_SYSTEM: FULL_PURGE');
+    });
+
+    // 6. SCALE & CENTER
+    const box = new THREE.Box3().setFromObject(mesh);
+    const size = box.getSize(new THREE.Vector3());
+    const maxDim = Math.max(size.x, size.y, size.z);
+    mesh.scale.setScalar(maxDim > 0 ? (2 / maxDim) : 1);
+    
+    const center = box.getCenter(new THREE.Vector3());
+    mesh.position.sub(center);
+    
+    // 7. INJECT
+    APP.hologram.mesh = mesh; 
+    APP.hologram.scene.add(mesh);
+    log('SYSTEM: RELAUNCH_COMPLETE');
+}
+
+// SIMPLEST HIDE BUTTON
+if ($('btn-3d-x')) {
+    $('btn-3d-x').onclick = () => {
+        $('widget-layer').style.display = 'none';
+        log('SYSTEM: 3D_WINDOW_STASHED');
     };
 }</script>
 </body>
