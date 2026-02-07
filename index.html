@@ -17,6 +17,7 @@
 </script>
     <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/loaders/OBJLoader.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/loaders/STLLoader.js"></script>
+<script src="src/Compositor.js"></script>
     <style>
         @import url('https://fonts.googleapis.com/css2?family=Orbitron:wght@400;600;800;900&family=JetBrains+Mono:wght@300;400;500&family=Bebas+Neue&family=Russo+One&display=swap');
         
@@ -1430,6 +1431,12 @@ const APP = {
         passthrough: false,
         synthCtx: null, synthOsc: null, synthGain: null
     },
+    // Phase 1: Compositor (Iron-Clad Recorder Engine)
+    compositor: null,
+    // Phase 3: Web3 Sovereign DNA
+    web3: { provider: null, signer: null, address: null, isConnected: false, mode: 'guest' },
+    // Phase 5: Layer Saver
+    layerSaver: { textureReady: false, fontReady: false, audioReady: false, allReady: false },
     vr: null,
     // PRO-AUDIO: 48kHz RAW
     inputDevices: { 
@@ -2217,7 +2224,11 @@ $('btn-rec').onclick = () => {
             APP.audio.source.connect(dest); 
             if(dest.stream.getAudioTracks().length > 0) stream.addTrack(dest.stream.getAudioTracks()[0]);
         }
-        APP.broadcast.chunks = []; APP.broadcast.recorder = new MediaRecorder(stream, { mimeType: 'video/webm' });
+        APP.broadcast.chunks = [];
+        // Phase 1: 15Mbps VP9 codec enforcement
+        let bcastOpts = { mimeType: 'video/webm;codecs=vp9,opus', videoBitsPerSecond: 15000000, audioBitsPerSecond: 128000 };
+        try { APP.broadcast.recorder = new MediaRecorder(stream, bcastOpts); }
+        catch(e) { APP.broadcast.recorder = new MediaRecorder(stream, { mimeType: 'video/webm' }); }
         APP.broadcast.recorder.ondataavailable = e => APP.broadcast.chunks.push(e.data);
         APP.broadcast.recorder.onstop = () => {
             const blob = new Blob(APP.broadcast.chunks, { type: 'video/webm' }); const url = URL.createObjectURL(blob); const a = document.createElement('a'); a.href = url; a.download = `VNGRD_BROADCAST_${Date.now()}.webm`; a.click(); btn.innerText = 'REC_BROADCAST'; log('BROADCAST_SAVED');
@@ -2338,11 +2349,65 @@ function setupAudioChain() {
     APP.audio.compressor.knee.value = 30;
     APP.audio.compressor.ratio.value = 1; 
 
-    // Routing
-    APP.audio.source.connect(APP.audio.panner).connect(APP.audio.lowShelf).connect(APP.audio.highShelf).connect(APP.audio.compressor).connect(APP.audio.analyzer).connect(APP.audio.masterGain).connect(ctx.destination);
-    
+    // ═══ Phase 2: OUTPUT LIMITER (Hard 0dB ceiling) ═══
+    APP.audio.outputLimiter = ctx.createDynamicsCompressor();
+    APP.audio.outputLimiter.threshold.setValueAtTime(-1, ctx.currentTime);
+    APP.audio.outputLimiter.knee.setValueAtTime(0, ctx.currentTime);
+    APP.audio.outputLimiter.ratio.setValueAtTime(20, ctx.currentTime);
+    APP.audio.outputLimiter.attack.setValueAtTime(0.001, ctx.currentTime);
+    APP.audio.outputLimiter.release.setValueAtTime(0.1, ctx.currentTime);
+
+    // ═══ Phase 2: SIDE-CHAIN DUCKING GAIN ═══
+    APP.audio.duckingGain = ctx.createGain();
+    APP.audio.duckingGain.gain.setValueAtTime(1.0, ctx.currentTime);
+
+    // ═══ Phase 2: TRIPLE-PATH STEREO TAP ═══
+    APP.audio.stereoGain = ctx.createGain();
+    APP.audio.stereoGain.gain.setValueAtTime(1.0, ctx.currentTime);
+
+    // ═══ Phase 2: DOLBY HRTF PATH ═══
+    APP.audio.dolbyPanner = ctx.createPanner();
+    APP.audio.dolbyPanner.panningModel = 'HRTF';
+    APP.audio.dolbyPanner.distanceModel = 'inverse';
+    APP.audio.dolbyPanner.refDistance = 1;
+    if (APP.audio.dolbyPanner.positionX) {
+        APP.audio.dolbyPanner.positionX.setValueAtTime(0, ctx.currentTime);
+        APP.audio.dolbyPanner.positionY.setValueAtTime(5, ctx.currentTime);
+        APP.audio.dolbyPanner.positionZ.setValueAtTime(-2, ctx.currentTime);
+    }
+
+    // ═══ Phase 2: SURROUND 5.1 SPLITTER ═══
+    try {
+        APP.audio.surroundSplitter = ctx.createChannelSplitter(6);
+        APP.audio.surroundMerger = ctx.createChannelMerger(6);
+    } catch(e) { /* 5.1 not supported */ }
+
+    // ═══ Phase 2: Mic analyzer for ducking ═══
+    APP.audio.micAnalyzer = ctx.createAnalyser();
+    APP.audio.micAnalyzer.fftSize = 256;
+
+    // Upgraded routing: Source -> Panner -> EQ -> Comp -> Ducking -> Analyzer -> MasterGain -> Limiter -> Destination
+    APP.audio.source
+        .connect(APP.audio.panner)
+        .connect(APP.audio.lowShelf)
+        .connect(APP.audio.highShelf)
+        .connect(APP.audio.compressor)
+        .connect(APP.audio.duckingGain)
+        .connect(APP.audio.analyzer)
+        .connect(APP.audio.masterGain)
+        .connect(APP.audio.outputLimiter)
+        .connect(ctx.destination);
+
+    // Stereo monitoring tap
+    APP.audio.masterGain.connect(APP.audio.stereoGain);
+
+    // Dolby HRTF parallel path
+    APP.audio.source.connect(APP.audio.dolbyPanner);
+    APP.audio.dolbyPanner.connect(APP.audio.outputLimiter);
+
     APP.audio.vuData = new Uint8Array(APP.audio.analyzer.frequencyBinCount); 
     APP.audio.isConnected = true;
+    log('DAW_ENGINE: TRIPLE_PATH + LIMITER + DUCKING');
     updateVU();
 }
 
@@ -2432,7 +2497,10 @@ function startNFTRecording() {
     if (APP.nft.isRecording) { stopNFTRecording(); return; }
     try {
         const canvasStream = APP.render.canvas.captureStream(60);
-        APP.nft.recorder = new MediaRecorder(canvasStream, { mimeType: 'video/webm' });
+        // Phase 1: 15Mbps VP9 codec enforcement
+        let nftRecorderOpts = { mimeType: 'video/webm;codecs=vp9,opus', videoBitsPerSecond: 15000000, audioBitsPerSecond: 128000 };
+        try { APP.nft.recorder = new MediaRecorder(canvasStream, nftRecorderOpts); }
+        catch(e) { APP.nft.recorder = new MediaRecorder(canvasStream, { mimeType: 'video/webm' }); }
         APP.nft.chunks = [];
         APP.nft.recorder.ondataavailable = e => APP.nft.chunks.push(e.data);
         APP.nft.recorder.onstop = finalizeNFT;
@@ -2568,10 +2636,196 @@ $('btn-reset').onclick = () => {
     log('FX_RESET_ONLY');
 };
 
+
+// ═══════════════════════════════════════════════════════════════════════════
+// Phase 2: SIDE-CHAIN DUCKING ENGINE
+// ═══════════════════════════════════════════════════════════════════════════
+function initMicDucking(micStream) {
+    if (!APP.audio.ctx || !micStream) return;
+    try {
+        APP.audio.micSource = APP.audio.ctx.createMediaStreamSource(micStream);
+        APP.audio.micSource.connect(APP.audio.micAnalyzer);
+        APP.audio.duckingActive = true;
+        monitorDucking();
+        log('DUCKING: ARMED_-20dB');
+    } catch (e) { log('DUCKING_ERR: ' + e.message); }
+}
+
+function monitorDucking() {
+    if (!APP.audio.duckingActive || !APP.audio.micAnalyzer) return;
+    requestAnimationFrame(monitorDucking);
+    const buf = new Float32Array(APP.audio.micAnalyzer.frequencyBinCount);
+    APP.audio.micAnalyzer.getFloatTimeDomainData(buf);
+    let sum = 0;
+    for (let i = 0; i < buf.length; i++) sum += buf[i] * buf[i];
+    const db = 20 * Math.log10(Math.max(Math.sqrt(sum / buf.length), 1e-10));
+    const now = APP.audio.ctx.currentTime;
+    if (db > -20) {
+        APP.audio.duckingGain.gain.linearRampToValueAtTime(0.3, now + 0.05);
+    } else {
+        APP.audio.duckingGain.gain.linearRampToValueAtTime(1.0, now + 0.3);
+    }
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
+// Phase 3: WEB3 SOVEREIGN DNA
+// ═══════════════════════════════════════════════════════════════════════════
+async function initWeb3() {
+    try {
+        if (typeof window.ethereum !== 'undefined') {
+            APP.web3.provider = window.ethereum;
+            const accounts = await window.ethereum.request({ method: 'eth_requestAccounts' });
+            if (accounts.length > 0) {
+                APP.web3.address = accounts[0];
+                APP.web3.isConnected = true;
+                APP.web3.mode = 'sovereign';
+                log('WEB3: SOVEREIGN [' + APP.web3.address.slice(0, 8) + '...]');
+            }
+        } else {
+            APP.web3.mode = 'guest';
+            log('WEB3: GUEST_MODE');
+        }
+    } catch (e) {
+        APP.web3.mode = 'guest';
+        log('WEB3: GUEST_FALLBACK');
+    }
+}
+
+async function signVideoDNA(videoBlob) {
+    const result = { hash: null, signature: null, timestamp: Date.now(), address: APP.web3.address || 'guest', mode: APP.web3.mode };
+    try {
+        const ab = await videoBlob.arrayBuffer();
+        const hashBuf = await window.crypto.subtle.digest('SHA-256', ab);
+        result.hash = Array.from(new Uint8Array(hashBuf)).map(b => b.toString(16).padStart(2, '0')).join('');
+        if (APP.web3.mode === 'sovereign' && APP.web3.provider) {
+            const msg = 'VNGRD_DNA_SEAL:' + result.hash + ':' + result.timestamp;
+            result.signature = await APP.web3.provider.request({ method: 'personal_sign', params: [msg, APP.web3.address] });
+            log('DNA: SEALED + ETH_SIG');
+        } else {
+            localStorage.setItem('vngrd_last_hash', result.hash);
+            log('DNA: SEALED_SHA256 (GUEST)');
+        }
+    } catch (e) { log('DNA_SEAL_ERR'); }
+    return result;
+}
+
+function injectDNAHeader(dna, seal) {
+    if (!dna || !seal) return dna;
+    dna.sovereign = {
+        hash: seal.hash, signature: seal.signature, timestamp: seal.timestamp,
+        address: seal.address, mode: seal.mode,
+        traits: { resolution: APP.render.width + 'x' + APP.render.height, codec: 'vp9+opus', bitrate: '15Mbps', spatialMode: APP.audio.spatialMode, theme: APP.state.theme, version: 'VNGRD_23.5_SERVERLESS' }
+    };
+    return dna;
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
+// Phase 4: PODCASTER PORTAL UI + MIDI Visual/Audio Mapping
+// ═══════════════════════════════════════════════════════════════════════════
+function portalCamPreview() {
+    const cam = $('cam-preview-float');
+    if (!cam) return;
+    document.body.appendChild(cam);
+    cam.style.zIndex = '9999';
+    cam.style.position = 'fixed';
+    log('PORTAL: CAM_ELEVATED');
+}
+
+function triggerVisualEffect(note, velocity) {
+    const i = velocity / 127;
+    if (note >= 36 && note <= 39) { [impactStutter, impactInvert, impactCrush, triggerSeismic][(note - 36)]?.(); }
+    else if (note >= 40 && note <= 47) { setTheme(['cyan','magenta','gold','purple','green'][(note - 40) % 5]); }
+    else if (note >= 48 && note <= 59) { APP.vj.rgbIntensity = Math.round(i * 30); APP.vj.rgbEnabled = i > 0.1; }
+    else if (note >= 60 && i > 0.5) { rotateMedia(); }
+}
+
+function setMidiAudioFilter(cc, value) {
+    const n = value / 127;
+    if (cc === 1) APP.vj.brightness = 0.2 + n * 1.8;
+    else if (cc === 7 && APP.audio.masterGain) APP.audio.masterGain.gain.setValueAtTime(n, APP.audio.ctx.currentTime);
+    else if (cc === 71) APP.vj.contrast = 0.2 + n * 1.8;
+    else if (cc === 74) APP.vj.hue = Math.round(n * 360);
+    else if (cc === 91) { APP.vj.trailAlpha = 0.8 + n * 0.19; APP.vj.trailsEnabled = n > 0.05; }
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
+// Phase 5: LAYER SAVER (yPodcaster Protection)
+// ═══════════════════════════════════════════════════════════════════════════
+async function checkLayerReadiness() {
+    try {
+        const [tex, font, audio] = await Promise.all([
+            Promise.resolve(!!(APP.render.canvas && APP.render.ctx)),
+            document.fonts ? document.fonts.ready.then(() => true).catch(() => true) : Promise.resolve(true),
+            Promise.resolve(!!(APP.audio.ctx && APP.audio.ctx.state !== 'closed'))
+        ]);
+        APP.layerSaver.textureReady = tex;
+        APP.layerSaver.fontReady = font;
+        APP.layerSaver.audioReady = audio;
+        APP.layerSaver.allReady = tex && font && audio;
+        if (APP.layerSaver.allReady) {
+            log('LAYER_SAVER: ALL_READY');
+            enableRecordButtons(true);
+        } else {
+            const missing = [];
+            if (!tex) missing.push('TEXTURE');
+            if (!font) missing.push('FONT');
+            if (!audio) missing.push('AUDIO');
+            log('LAYER_SAVER: MISSING [' + missing.join(', ') + ']');
+            enableRecordButtons(false);
+        }
+        return APP.layerSaver.allReady;
+    } catch (e) { enableRecordButtons(false); return false; }
+}
+
+function enableRecordButtons(enabled) {
+    ['btn-nft-30', 'btn-broadcast'].forEach(id => {
+        const btn = $(id);
+        if (btn) { btn.disabled = !enabled; btn.style.opacity = enabled ? '1' : '0.3'; }
+    });
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
+// Phase 1: COMPOSITOR INTEGRATION
+// ═══════════════════════════════════════════════════════════════════════════
+function initCompositor() {
+    if (!window.Compositor) { log('COMPOSITOR: NOT_LOADED'); return; }
+    APP.compositor = new Compositor({
+        width: APP.render.width,
+        height: APP.render.height,
+        fps: 60,
+        bitrate: 15000000,
+        audioBitrate: 128000
+    });
+    APP.compositor.setLayer('overlay', APP.render.canvas);
+    if (APP.camera.stream) {
+        const vid = $('preview-vid') || APP.camera.videoEl;
+        if (vid) APP.compositor.setLayer('camera', vid);
+    }
+    // Feed hologram canvas as 3D scene
+    const holoCanvas = $('hologram-canvas');
+    if (holoCanvas) APP.compositor.setLayer('scene3D', holoCanvas);
+
+    APP.compositor.initRecorder(APP.audio.ctx, APP.audio.masterGain);
+    APP.compositor.onWorkerMessage((type, payload) => {
+        if (type === 'STATUS') log('COMPOSITOR: ' + payload);
+    });
+    APP.compositor.startRecording(1000);
+    log('COMPOSITOR: 15Mbps_VP9_PIPELINE_ACTIVE');
+}
+
 document.addEventListener('DOMContentLoaded', () => {
     log('DRIS//core_VNGRD_v23.5_SYSTEM_FAILURE');
     checkMobile(); initCanvas(); ghostInit(); fetchCrypto(); setInterval(fetchCrypto, 60000);
-    loadFromMemory(); 
+    loadFromMemory();
+    // Phase 1: Initialize Compositor
+    initCompositor();
+    // Phase 3: Initialize Web3 (Hybrid Gate)
+    initWeb3();
+    // Phase 4: Portal UI
+    portalCamPreview();
+    // Phase 5: Layer Saver
+    checkLayerReadiness();
+ 
     requestAnimationFrame(renderLoop);
     updateClock(); setInterval(updateClock, 1000); morphLogo(); setTimeout(morphLogo, 4000);
     

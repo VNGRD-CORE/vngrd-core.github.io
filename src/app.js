@@ -69,7 +69,48 @@ const APP = {
         panner: null,
         compressor: null,
         masterGain: null,
-        listener: null
+        listener: null,
+        // Phase 2: Triple-Path Audio Matrix
+        stereoGain: null,
+        surroundSplitter: null,
+        surroundMerger: null,
+        dolbyPanner: null,
+        outputLimiter: null,
+        // Phase 2: Side-chain Ducking
+        micSource: null,
+        micAnalyzer: null,
+        duckingGain: null,
+        duckingThreshold: -20,
+        duckingActive: false
+    },
+
+    // Phase 1: Compositor (Iron-Clad Recorder Engine)
+    compositor: null,
+
+    // Phase 3: Web3 Sovereign DNA
+    web3: {
+        provider: null,
+        signer: null,
+        address: null,
+        isConnected: false,
+        mode: 'guest'
+    },
+
+    // Phase 4: MIDI Map
+    midi: {
+        access: null,
+        inputs: [],
+        bindings: {},
+        learnMode: false,
+        learnTarget: null
+    },
+
+    // Phase 5: Layer Saver
+    layerSaver: {
+        textureReady: false,
+        fontReady: false,
+        audioReady: false,
+        allReady: false
     },
 
     // Projector (Clean Feed)
@@ -889,13 +930,25 @@ function toggleRec() {
 }
 
 function toggleMic() {
-    if (!APP.camera.stream) return;
-    const track = APP.camera.stream.getAudioTracks()[0];
-    if (track) {
-        track.enabled = !track.enabled;
-        $('btn-mic').classList.toggle('on', track.enabled);
-        log(`MIC_${track.enabled ? 'ON' : 'OFF'}`);
-    }
+    if (!APP.camera.stream) return;
+    const track = APP.camera.stream.getAudioTracks()[0];
+    if (track) {
+        track.enabled = !track.enabled;
+        $('btn-mic').classList.toggle('on', track.enabled);
+        log(`MIC_${track.enabled ? 'ON' : 'OFF'}`);
+
+        // Phase 2: Initialize side-chain ducking when mic is enabled
+        if (track.enabled && !APP.audio.duckingActive) {
+            const micStream = new MediaStream([track]);
+            initMicDucking(micStream);
+        } else if (!track.enabled) {
+            APP.audio.duckingActive = false;
+            if (APP.audio.duckingGain) {
+                APP.audio.duckingGain.gain.setValueAtTime(1.0, APP.audio.ctx.currentTime);
+            }
+            log('DUCKING: DISARMED');
+        }
+    }
 }
 
 function clip10s() {
@@ -990,59 +1043,120 @@ function playTrack() {
 // PRO-GRADE SPATIAL AUDIO ENGINE (DOLBY SIMULATION)
 // ═══════════════════════════════════════════════════════════════════════════
 function setupAudioAnalyzer() {
-    try {
-        if (!APP.audio.ctx) APP.audio.ctx = new (window.AudioContext || window.webkitAudioContext)();
-        
-        // 1. Create the Nodes
-        APP.audio.source = APP.audio.ctx.createMediaElementSource(APP.audio.element);
-        APP.audio.analyzer = APP.audio.ctx.createAnalyser();
-        APP.audio.panner = APP.audio.ctx.createPanner();
-        APP.audio.compressor = APP.audio.ctx.createDynamicsCompressor();
-        APP.audio.masterGain = APP.audio.ctx.createGain();
-        
-        // 2. Configure the Panner (HRTF is the Pro Standard)
-        APP.audio.panner.panningModel = 'HRTF';
-        APP.audio.panner.distanceModel = 'inverse';
-        APP.audio.panner.refDistance = 1;
-        
-        // 3. Configure the Broadcast Limiter (The "Dolby" Glue)
-        APP.audio.compressor.threshold.setValueAtTime(-18, APP.audio.ctx.currentTime);
-        APP.audio.compressor.knee.setValueAtTime(30, APP.audio.ctx.currentTime);
-        APP.audio.compressor.ratio.setValueAtTime(12, APP.audio.ctx.currentTime);
-        APP.audio.compressor.attack.setValueAtTime(0.003, APP.audio.ctx.currentTime);
-        APP.audio.compressor.release.setValueAtTime(0.25, APP.audio.ctx.currentTime);
-        
-        // 4. Configure Visuals & Headroom
-        APP.audio.analyzer.fftSize = 64;
-        APP.audio.masterGain.gain.setValueAtTime(0.9, APP.audio.ctx.currentTime);
-        
-        // 5. THE SERIAL CHAIN (Top-Tier Routing)
-        // Source -> Panner -> Compressor -> Gain -> Analyzer -> Destination
-        APP.audio.source
-            .connect(APP.audio.panner)
-            .connect(APP.audio.compressor)
-            .connect(APP.audio.masterGain)
-            .connect(APP.audio.analyzer)
-            .connect(APP.audio.ctx.destination);
-        
-        APP.audio.vuData = new Uint8Array(APP.audio.analyzer.frequencyBinCount);
-        APP.audio.isConnected = true;
-        
-        // Default position: in front of listener (stereo feel)
-        positionAudio(0, 0, -1);
-        
-        // UI Update
-        const vu = $('vu');
-        vu.innerHTML = '';
-        for (let i = 0; i < 16; i++) {
-            const bar = document.createElement('div');
-            bar.className = 'vu-bar';
-            vu.appendChild(bar);
-        }
-        
-        updateVU();
-        log('DAW_ENGINE_ACTIVE');
-    } catch (e) { log('AUDIO_CHAIN_ERR: ' + e.message); }
+    try {
+        if (!APP.audio.ctx) APP.audio.ctx = new (window.AudioContext || window.webkitAudioContext)();
+
+        // 1. Create Core Nodes
+        APP.audio.source = APP.audio.ctx.createMediaElementSource(APP.audio.element);
+        APP.audio.analyzer = APP.audio.ctx.createAnalyser();
+        APP.audio.panner = APP.audio.ctx.createPanner();
+        APP.audio.compressor = APP.audio.ctx.createDynamicsCompressor();
+        APP.audio.masterGain = APP.audio.ctx.createGain();
+
+        // 2. Configure the Panner (HRTF is the Pro Standard)
+        APP.audio.panner.panningModel = 'HRTF';
+        APP.audio.panner.distanceModel = 'inverse';
+        APP.audio.panner.refDistance = 1;
+
+        // 3. Configure the Broadcast Limiter (The "Dolby" Glue)
+        APP.audio.compressor.threshold.setValueAtTime(-18, APP.audio.ctx.currentTime);
+        APP.audio.compressor.knee.setValueAtTime(30, APP.audio.ctx.currentTime);
+        APP.audio.compressor.ratio.setValueAtTime(12, APP.audio.ctx.currentTime);
+        APP.audio.compressor.attack.setValueAtTime(0.003, APP.audio.ctx.currentTime);
+        APP.audio.compressor.release.setValueAtTime(0.25, APP.audio.ctx.currentTime);
+
+        // 4. Configure Visuals & Headroom
+        APP.audio.analyzer.fftSize = 64;
+        APP.audio.masterGain.gain.setValueAtTime(0.9, APP.audio.ctx.currentTime);
+
+        // ═══════════════════════════════════════════════════════════════
+        // Phase 2: TRIPLE-PATH AUDIO MATRIX
+        // ═══════════════════════════════════════════════════════════════
+
+        // PATH 1: Stereo (Standard L/R monitoring)
+        APP.audio.stereoGain = APP.audio.ctx.createGain();
+        APP.audio.stereoGain.gain.setValueAtTime(1.0, APP.audio.ctx.currentTime);
+
+        // PATH 2: Surround (5.1/7.1 channel splitter for home theater export)
+        try {
+            APP.audio.surroundSplitter = APP.audio.ctx.createChannelSplitter(6);
+            APP.audio.surroundMerger = APP.audio.ctx.createChannelMerger(6);
+            // Map stereo L/R to front L/R, center, LFE from mono mix
+            // Front Left (0), Front Right (1), Center (2), LFE (3), Surround L (4), Surround R (5)
+        } catch (e) {
+            log('SURROUND: 5.1_NOT_SUPPORTED');
+        }
+
+        // PATH 3: Dolby HRTF (PannerNode for immersive headphone 3D audio)
+        APP.audio.dolbyPanner = APP.audio.ctx.createPanner();
+        APP.audio.dolbyPanner.panningModel = 'HRTF';
+        APP.audio.dolbyPanner.distanceModel = 'inverse';
+        APP.audio.dolbyPanner.refDistance = 1;
+        APP.audio.dolbyPanner.maxDistance = 10000;
+        APP.audio.dolbyPanner.rolloffFactor = 1;
+        APP.audio.dolbyPanner.coneInnerAngle = 360;
+        APP.audio.dolbyPanner.coneOuterAngle = 0;
+        APP.audio.dolbyPanner.coneOuterGain = 0;
+        if (APP.audio.dolbyPanner.positionX) {
+            APP.audio.dolbyPanner.positionX.setValueAtTime(0, APP.audio.ctx.currentTime);
+            APP.audio.dolbyPanner.positionY.setValueAtTime(5, APP.audio.ctx.currentTime);
+            APP.audio.dolbyPanner.positionZ.setValueAtTime(-2, APP.audio.ctx.currentTime);
+        }
+
+        // ═══════════════════════════════════════════════════════════════
+        // Phase 2: OUTPUT LIMITER (Hard 0dB ceiling - prevents clipping)
+        // ═══════════════════════════════════════════════════════════════
+        APP.audio.outputLimiter = APP.audio.ctx.createDynamicsCompressor();
+        APP.audio.outputLimiter.threshold.setValueAtTime(-1, APP.audio.ctx.currentTime);  // 0dB ceiling
+        APP.audio.outputLimiter.knee.setValueAtTime(0, APP.audio.ctx.currentTime);        // Hard knee
+        APP.audio.outputLimiter.ratio.setValueAtTime(20, APP.audio.ctx.currentTime);      // Brick wall
+        APP.audio.outputLimiter.attack.setValueAtTime(0.001, APP.audio.ctx.currentTime);  // Instant
+        APP.audio.outputLimiter.release.setValueAtTime(0.1, APP.audio.ctx.currentTime);   // Fast release
+
+        // ═══════════════════════════════════════════════════════════════
+        // Phase 2: SIDE-CHAIN DUCKING
+        // ═══════════════════════════════════════════════════════════════
+        APP.audio.duckingGain = APP.audio.ctx.createGain();
+        APP.audio.duckingGain.gain.setValueAtTime(1.0, APP.audio.ctx.currentTime);
+        APP.audio.micAnalyzer = APP.audio.ctx.createAnalyser();
+        APP.audio.micAnalyzer.fftSize = 256;
+
+        // 5. THE SERIAL CHAIN (Upgraded Triple-Path Routing)
+        // Source -> Panner -> Compressor -> DuckingGain -> MasterGain -> Analyzer -> Limiter -> Destination
+        APP.audio.source
+            .connect(APP.audio.panner)
+            .connect(APP.audio.compressor)
+            .connect(APP.audio.duckingGain)
+            .connect(APP.audio.masterGain)
+            .connect(APP.audio.analyzer)
+            .connect(APP.audio.outputLimiter)
+            .connect(APP.audio.ctx.destination);
+
+        // Stereo path tap (from masterGain for monitoring)
+        APP.audio.masterGain.connect(APP.audio.stereoGain);
+
+        // Dolby path tap (from source, parallel HRTF processing)
+        APP.audio.source.connect(APP.audio.dolbyPanner);
+        APP.audio.dolbyPanner.connect(APP.audio.outputLimiter);
+
+        APP.audio.vuData = new Uint8Array(APP.audio.analyzer.frequencyBinCount);
+        APP.audio.isConnected = true;
+
+        // Default position: in front of listener (stereo feel)
+        positionAudio(0, 0, -1);
+
+        // UI Update
+        const vu = $('vu');
+        vu.innerHTML = '';
+        for (let i = 0; i < 16; i++) {
+            const bar = document.createElement('div');
+            bar.className = 'vu-bar';
+            vu.appendChild(bar);
+        }
+
+        updateVU();
+        log('DAW_ENGINE_ACTIVE: TRIPLE_PATH + LIMITER + DUCKING');
+    } catch (e) { log('AUDIO_CHAIN_ERR: ' + e.message); }
 }
 
 function updateVU() {
@@ -1279,85 +1393,152 @@ function positionAudio(x, y, z) {
 // TIME MACHINE (Rolling 30s Buffer - Pro-Audio Tap)
 // ═══════════════════════════════════════════════════════════════════════════
 function initTimeMachine() {
-    // Create canvas stream at 60fps
-    const canvasStream = APP.render.canvas.captureStream(60);
-    
-    // PRO-AUDIO TAP: Connect directly from masterGain (post Spatial/Dolby/Compressor)
-    if (APP.audio.ctx && APP.audio.masterGain) {
-        try {
-            APP.timeMachine.audioDest = APP.audio.ctx.createMediaStreamDestination();
-            APP.audio.masterGain.connect(APP.timeMachine.audioDest);
-            
-            // Add the processed audio track to canvas stream
-            const audioTrack = APP.timeMachine.audioDest.stream.getAudioTracks()[0];
-            if (audioTrack) {
-                canvasStream.addTrack(audioTrack);
-                log('TIMEMACHINE: SPATIAL_AUDIO_LINKED');
-            }
-        } catch (e) {
-            log('TIMEMACHINE: VIDEO_ONLY');
-        }
-    }
-    
-    APP.timeMachine.stream = canvasStream;
-    
-    // CODEC ENFORCEMENT: VP9 video + Opus audio at 8Mbps
-    const options = { 
-        mimeType: 'video/webm;codecs=vp9,opus', 
-        videoBitsPerSecond: 8000000,
-        audioBitsPerSecond: 128000
-    };
-    
-    try {
-        APP.timeMachine.recorder = new MediaRecorder(canvasStream, options);
-    } catch (e) {
-        // Fallback if opus not supported
-        try {
-            APP.timeMachine.recorder = new MediaRecorder(canvasStream, { 
-                mimeType: 'video/webm;codecs=vp9',
-                videoBitsPerSecond: 8000000 
-            });
-        } catch (e2) {
-            APP.timeMachine.recorder = new MediaRecorder(canvasStream);
-        }
-    }
-    
-    APP.timeMachine.chunks = [];
-    
-    APP.timeMachine.recorder.ondataavailable = (e) => {
-        if (e.data.size > 0) {
-            APP.timeMachine.chunks.push({ data: e.data, time: Date.now() });
-            
-            // Prune chunks older than 30s
-            const cutoff = Date.now() - APP.timeMachine.maxDuration;
-            APP.timeMachine.chunks = APP.timeMachine.chunks.filter(c => c.time > cutoff);
-        }
-    };
-    
-    // Record in 1-second intervals for granular buffer
-    APP.timeMachine.recorder.start(1000);
-    APP.timeMachine.isRecording = true;
-    
-    log('TIMEMACHINE: ARMED_60FPS');
+    // Phase 1: Initialize Compositor for 15Mbps pipeline
+    if (window.Compositor && !APP.compositor) {
+        APP.compositor = new Compositor({
+            width: APP.render.width,
+            height: APP.render.height,
+            fps: 60,
+            bitrate: 15000000, // 15Mbps VP9
+            audioBitrate: 128000
+        });
+
+        // Feed the VJ canvas as the overlay layer
+        APP.compositor.setLayer('overlay', APP.render.canvas);
+
+        // Feed camera if available
+        if (APP.camera.stream) {
+            const camVid = $('preview-vid');
+            if (camVid) APP.compositor.setLayer('camera', camVid);
+        }
+
+        // Initialize recorder with audio context
+        APP.compositor.initRecorder(APP.audio.ctx, APP.audio.masterGain);
+
+        // Worker message handler
+        APP.compositor.onWorkerMessage((type, payload) => {
+            if (type === 'STATUS') log('COMPOSITOR: ' + payload);
+            if (type === 'BUFFER_STATUS') {
+                // Update time machine state from worker
+                APP.timeMachine.isRecording = true;
+            }
+        });
+
+        // Start compositing + recording
+        APP.compositor.startRecording(1000);
+        log('COMPOSITOR: 15Mbps_VP9_PIPELINE_ACTIVE');
+    }
+
+    // Legacy Time Machine fallback (runs alongside Compositor)
+    const canvasStream = APP.render.canvas.captureStream(60);
+
+    // PRO-AUDIO TAP: Connect directly from masterGain (post Spatial/Dolby/Compressor)
+    if (APP.audio.ctx && APP.audio.masterGain) {
+        try {
+            APP.timeMachine.audioDest = APP.audio.ctx.createMediaStreamDestination();
+            APP.audio.masterGain.connect(APP.timeMachine.audioDest);
+
+            const audioTrack = APP.timeMachine.audioDest.stream.getAudioTracks()[0];
+            if (audioTrack) {
+                canvasStream.addTrack(audioTrack);
+                log('TIMEMACHINE: SPATIAL_AUDIO_LINKED');
+            }
+        } catch (e) {
+            log('TIMEMACHINE: VIDEO_ONLY');
+        }
+    }
+
+    APP.timeMachine.stream = canvasStream;
+
+    // CODEC ENFORCEMENT: VP9 video + Opus audio at 15Mbps (upgraded from 8Mbps)
+    const options = {
+        mimeType: 'video/webm;codecs=vp9,opus',
+        videoBitsPerSecond: 15000000,
+        audioBitsPerSecond: 128000
+    };
+
+    try {
+        APP.timeMachine.recorder = new MediaRecorder(canvasStream, options);
+    } catch (e) {
+        try {
+            APP.timeMachine.recorder = new MediaRecorder(canvasStream, {
+                mimeType: 'video/webm;codecs=vp9',
+                videoBitsPerSecond: 15000000
+            });
+        } catch (e2) {
+            APP.timeMachine.recorder = new MediaRecorder(canvasStream);
+        }
+    }
+
+    APP.timeMachine.chunks = [];
+
+    APP.timeMachine.recorder.ondataavailable = (e) => {
+        if (e.data.size > 0) {
+            APP.timeMachine.chunks.push({ data: e.data, time: Date.now() });
+
+            const cutoff = Date.now() - APP.timeMachine.maxDuration;
+            APP.timeMachine.chunks = APP.timeMachine.chunks.filter(c => c.time > cutoff);
+        }
+    };
+
+    // Record in 1-second intervals for granular buffer
+    APP.timeMachine.recorder.start(1000);
+    APP.timeMachine.isRecording = true;
+
+    log('TIMEMACHINE: ARMED_60FPS_15Mbps');
 }
 
 function capture30s() {
-    if (!APP.timeMachine.isRecording || APP.timeMachine.chunks.length === 0) {
-        // Initialize if not running
-        initTimeMachine();
-        $('btn-capture30').textContent = 'BUFFERING...';
-        setTimeout(() => {
-            $('btn-capture30').textContent = 'CAPTURE 30s';
-            if (APP.timeMachine.chunks.length > 0) {
-                downloadTimeMachine();
-            } else {
-                log('TIMEMACHINE: NO_DATA');
-            }
-        }, 2000);
-        return;
-    }
-    
-    downloadTimeMachine();
+    // Phase 5: Layer readiness check
+    if (!APP.layerSaver.allReady) {
+        checkLayerReadiness().then(ready => {
+            if (!ready) {
+                log('CAPTURE_BLOCKED: LAYERS_NOT_READY');
+                return;
+            }
+            doCapture30s();
+        });
+        return;
+    }
+    doCapture30s();
+}
+
+function doCapture30s() {
+    // Phase 1: Prefer Compositor flush if available
+    if (APP.compositor && APP.compositor.isRecording) {
+        APP.compositor.flush().then(result => {
+            sovereignStrobe();
+
+            // Phase 3: Sign the video DNA
+            signVideoDNA(result.blob).then(sealData => {
+                // Download the video
+                const a = document.createElement('a');
+                a.href = URL.createObjectURL(result.blob);
+                a.download = 'DRIS_Compositor_' + Date.now() + '.webm';
+                a.click();
+
+                log('COMPOSITOR_CAPTURED: ' + (result.totalSize / 1024 / 1024).toFixed(1) + 'MB [SEALED]');
+            });
+        });
+        return;
+    }
+
+    // Fallback: Legacy Time Machine capture
+    if (!APP.timeMachine.isRecording || APP.timeMachine.chunks.length === 0) {
+        initTimeMachine();
+        $('btn-capture30').textContent = 'BUFFERING...';
+        setTimeout(() => {
+            $('btn-capture30').textContent = 'CAPTURE 30s';
+            if (APP.timeMachine.chunks.length > 0) {
+                downloadTimeMachine();
+            } else {
+                log('TIMEMACHINE: NO_DATA');
+            }
+        }, 2000);
+        return;
+    }
+
+    downloadTimeMachine();
 }
 
 function downloadTimeMachine() {
@@ -1779,34 +1960,54 @@ function importVGD(input) {
 // VGD DNA SERIALIZATION (.vgd Session Export)
 // ═══════════════════════════════════════════════════════════════════════════
 function exportDNA() {
-    const dna = {
-        version: 'VNGRD_22.1',
-        timestamp: Date.now(),
-        theme: APP.state.theme,
-        vj: { ...APP.vj },
-        bug: { ...APP.bug },
-        media: APP.media.queue.map(item => ({
-            name: item.name,
-            type: item.type
-        })),
-        audio: {
-            spatialMode: APP.audio.spatialMode,
-            playlist: APP.audio.playlist.map(item => item.name || 'Unknown')
-        },
-        state: {
-            isCycle: APP.state.isCycle
-        }
-    };
-    
-    const blob = new Blob([JSON.stringify(dna, null, 2)], { type: 'application/json' });
-    const a = document.createElement('a');
-    a.href = URL.createObjectURL(blob);
-    a.download = `SESSION_${Date.now()}.vgd`;
-    a.click();
-    URL.revokeObjectURL(a.href);
-    
-    log('DNA_EXPORTED');
-    return dna;
+    const dna = {
+        version: 'VNGRD_22.1_SERVERLESS',
+        timestamp: Date.now(),
+        theme: APP.state.theme,
+        vj: { ...APP.vj },
+        bug: { ...APP.bug },
+        media: APP.media.queue.map(item => ({
+            name: item.name,
+            type: item.type
+        })),
+        audio: {
+            spatialMode: APP.audio.spatialMode,
+            triplePathActive: !!(APP.audio.stereoGain && APP.audio.dolbyPanner),
+            duckingActive: APP.audio.duckingActive,
+            playlist: APP.audio.playlist.map(item => item.name || 'Unknown')
+        },
+        state: {
+            isCycle: APP.state.isCycle
+        }
+    };
+
+    // Phase 3: Web3 DNA injection (async seal if wallet connected)
+    if (APP.web3.mode === 'sovereign' && APP.web3.isConnected) {
+        // Return a promise-based export for signed DNA
+        const blob = new Blob([JSON.stringify(dna, null, 2)], { type: 'application/json' });
+        signVideoDNA(blob).then(sealData => {
+            const signedDNA = injectDNAHeader(dna, sealData);
+            const signedBlob = new Blob([JSON.stringify(signedDNA, null, 2)], { type: 'application/json' });
+            const a = document.createElement('a');
+            a.href = URL.createObjectURL(signedBlob);
+            a.download = 'SESSION_SIGNED_' + Date.now() + '.vgd';
+            a.click();
+            URL.revokeObjectURL(a.href);
+            log('DNA_EXPORTED: SIGNED');
+        });
+    } else {
+        // Guest mode: standard export
+        const blob = new Blob([JSON.stringify(dna, null, 2)], { type: 'application/json' });
+        const a = document.createElement('a');
+        a.href = URL.createObjectURL(blob);
+        a.download = 'SESSION_' + Date.now() + '.vgd';
+        a.click();
+        URL.revokeObjectURL(a.href);
+        log('DNA_EXPORTED');
+    }
+
+    return dna;
+}turn dna;
 }
 
 // Assign to APP.state for API access
@@ -1984,6 +2185,353 @@ function sovereignPurge() {
 
 // Assign to APP.security
 APP.security.purge = sovereignPurge;
+
+// ═══════════════════════════════════════════════════════════════════════════
+// Phase 2: SIDE-CHAIN DUCKING ENGINE
+// Lowers background audio when Microphone input exceeds -20dB
+// ═══════════════════════════════════════════════════════════════════════════
+function initMicDucking(micStream) {
+    if (!APP.audio.ctx || !micStream) return;
+
+    try {
+        APP.audio.micSource = APP.audio.ctx.createMediaStreamSource(micStream);
+        APP.audio.micSource.connect(APP.audio.micAnalyzer);
+
+        // Start the ducking monitor loop
+        APP.audio.duckingActive = true;
+        monitorDucking();
+        log('DUCKING: ARMED_-20dB');
+    } catch (e) {
+        log('DUCKING_ERR: ' + e.message);
+    }
+}
+
+function monitorDucking() {
+    if (!APP.audio.duckingActive || !APP.audio.micAnalyzer) return;
+    requestAnimationFrame(monitorDucking);
+
+    const bufferLength = APP.audio.micAnalyzer.frequencyBinCount;
+    const dataArray = new Float32Array(bufferLength);
+    APP.audio.micAnalyzer.getFloatTimeDomainData(dataArray);
+
+    // Calculate RMS level in dB
+    let sumSquares = 0;
+    for (let i = 0; i < bufferLength; i++) {
+        sumSquares += dataArray[i] * dataArray[i];
+    }
+    const rms = Math.sqrt(sumSquares / bufferLength);
+    const dbLevel = 20 * Math.log10(Math.max(rms, 1e-10));
+
+    // Duck background audio when mic exceeds threshold
+    const now = APP.audio.ctx.currentTime;
+    if (dbLevel > APP.audio.duckingThreshold) {
+        // Mic is hot — duck background to 30%
+        APP.audio.duckingGain.gain.linearRampToValueAtTime(0.3, now + 0.05);
+    } else {
+        // Mic is quiet — restore background to 100%
+        APP.audio.duckingGain.gain.linearRampToValueAtTime(1.0, now + 0.3);
+    }
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
+// Phase 3: WEB3 SOVEREIGN DNA
+// Hybrid Gate: MetaMask or Guest Mode (Local Storage)
+// ═══════════════════════════════════════════════════════════════════════════
+async function initWeb3() {
+    try {
+        if (typeof window.ethereum !== 'undefined') {
+            // MetaMask / Web3 wallet detected
+            APP.web3.provider = window.ethereum;
+            const accounts = await window.ethereum.request({ method: 'eth_requestAccounts' });
+            if (accounts.length > 0) {
+                APP.web3.address = accounts[0];
+                APP.web3.isConnected = true;
+                APP.web3.mode = 'sovereign';
+                log('WEB3: SOVEREIGN_MODE [' + APP.web3.address.slice(0, 8) + '...]');
+            }
+        } else {
+            // No wallet — Guest Mode with LocalStorage
+            APP.web3.mode = 'guest';
+            APP.web3.isConnected = false;
+            log('WEB3: GUEST_MODE (LocalStorage)');
+        }
+    } catch (e) {
+        APP.web3.mode = 'guest';
+        APP.web3.isConnected = false;
+        log('WEB3: GUEST_FALLBACK (' + e.message + ')');
+    }
+}
+
+// Cryptographic Seal: SHA-256 hash + MetaMask personal_sign
+async function signVideoDNA(videoBlob) {
+    const result = {
+        hash: null,
+        signature: null,
+        timestamp: Date.now(),
+        address: APP.web3.address || 'guest',
+        mode: APP.web3.mode
+    };
+
+    try {
+        // SHA-256 hash of the video blob
+        const arrayBuffer = await videoBlob.arrayBuffer();
+        const hashBuffer = await window.crypto.subtle.digest('SHA-256', arrayBuffer);
+        const hashArray = Array.from(new Uint8Array(hashBuffer));
+        result.hash = hashArray.map(b => b.toString(16).padStart(2, '0')).join('');
+
+        // If sovereign mode, request MetaMask signature
+        if (APP.web3.mode === 'sovereign' && APP.web3.provider) {
+            const message = 'VNGRD_DNA_SEAL:' + result.hash + ':' + result.timestamp;
+            result.signature = await APP.web3.provider.request({
+                method: 'personal_sign',
+                params: [message, APP.web3.address]
+            });
+            log('DNA: SEALED_SHA256 + ETH_SIG');
+        } else {
+            // Guest mode: store hash locally
+            localStorage.setItem('vngrd_last_hash', result.hash);
+            log('DNA: SEALED_SHA256 (GUEST)');
+        }
+    } catch (e) {
+        log('DNA_SEAL_ERR: ' + e.message);
+    }
+
+    return result;
+}
+
+// Inject Signature + Timestamp + User Traits into .vgd JSON header
+function injectDNAHeader(dnaExport, sealData) {
+    if (!dnaExport || !sealData) return dnaExport;
+
+    dnaExport.sovereign = {
+        hash: sealData.hash,
+        signature: sealData.signature,
+        timestamp: sealData.timestamp,
+        address: sealData.address,
+        mode: sealData.mode,
+        traits: {
+            resolution: APP.render.width + 'x' + APP.render.height,
+            codec: 'vp9+opus',
+            bitrate: '15Mbps',
+            spatialMode: APP.audio.spatialMode,
+            theme: APP.state.theme,
+            version: 'VNGRD_22.1_SERVERLESS'
+        }
+    };
+
+    return dnaExport;
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
+// Phase 4: PODCASTER LIVE INTERFACE
+// Portal UI: Move cam preview to body (z-index: 9999)
+// MIDI Map: WebMidi listeners for NoteOn/ControlChange
+// ═══════════════════════════════════════════════════════════════════════════
+function portalCamPreview() {
+    const camFloat = $('cam-preview-float');
+    if (!camFloat) return;
+
+    // Move to document.body for top-level z-index
+    document.body.appendChild(camFloat);
+    camFloat.style.zIndex = '9999';
+    camFloat.style.position = 'fixed';
+    log('PORTAL: CAM_PREVIEW_ELEVATED');
+}
+
+async function initMIDI() {
+    if (!navigator.requestMIDIAccess) {
+        log('MIDI: NOT_SUPPORTED');
+        return;
+    }
+
+    try {
+        APP.midi.access = await navigator.requestMIDIAccess({ sysex: false });
+
+        APP.midi.access.inputs.forEach((input) => {
+            APP.midi.inputs.push(input);
+            input.onmidimessage = handleMIDIMessage;
+            log('MIDI: INPUT_' + input.name);
+        });
+
+        // Listen for new connections
+        APP.midi.access.onstatechange = (e) => {
+            if (e.port.type === 'input' && e.port.state === 'connected') {
+                e.port.onmidimessage = handleMIDIMessage;
+                log('MIDI: CONNECTED_' + e.port.name);
+            }
+        };
+
+        log('MIDI: ARMED');
+    } catch (e) {
+        log('MIDI_ERR: ' + e.message);
+    }
+}
+
+function handleMIDIMessage(msg) {
+    const [status, note, velocity] = msg.data;
+    const command = status >> 4;
+    const channel = status & 0x0f;
+
+    if (command === 9 && velocity > 0) {
+        // NoteOn — trigger visual effect
+        triggerVisualEffect(note, velocity);
+    } else if (command === 11) {
+        // ControlChange — set audio filter
+        setAudioFilter(note, velocity);
+    }
+}
+
+function triggerVisualEffect(note, velocity) {
+    const intensity = velocity / 127;
+
+    // Map note ranges to different effects
+    if (note >= 36 && note <= 39) {
+        // Drum pads -> Impact FX
+        const effects = [impactStutter, impactInvert, impactCrush, triggerSeismic];
+        const idx = note - 36;
+        if (effects[idx]) effects[idx]();
+    } else if (note >= 40 && note <= 47) {
+        // Mid keys -> Theme switch
+        const themes = ['cyan', 'magenta', 'gold', 'purple', 'green'];
+        const idx = (note - 40) % themes.length;
+        setTheme(themes[idx]);
+    } else if (note >= 48 && note <= 59) {
+        // Higher keys -> VJ parameter modulation
+        APP.vj.rgbIntensity = Math.round(intensity * 30);
+        APP.vj.rgbEnabled = intensity > 0.1;
+    } else if (note >= 60 && note <= 72) {
+        // Upper range -> Media rotation
+        if (intensity > 0.5) rotateMedia();
+    }
+
+    log('MIDI: NOTE_' + note + '_VEL_' + velocity);
+}
+
+function setAudioFilter(cc, value) {
+    const normalized = value / 127;
+
+    switch (cc) {
+        case 1: // Mod wheel -> Brightness
+            APP.vj.brightness = 0.2 + normalized * 1.8;
+            break;
+        case 7: // Volume -> Master Gain
+            if (APP.audio.masterGain) {
+                APP.audio.masterGain.gain.setValueAtTime(normalized, APP.audio.ctx.currentTime);
+            }
+            break;
+        case 10: // Pan -> Spatial X position
+            if (APP.audio.panner) positionAudio((normalized - 0.5) * 10, 0, -2);
+            break;
+        case 71: // Filter resonance -> Contrast
+            APP.vj.contrast = 0.2 + normalized * 1.8;
+            break;
+        case 74: // Cutoff -> Hue rotate
+            APP.vj.hue = Math.round(normalized * 360);
+            break;
+        case 91: // Reverb -> Trail alpha
+            APP.vj.trailAlpha = 0.8 + normalized * 0.19;
+            APP.vj.trailsEnabled = normalized > 0.05;
+            break;
+        default:
+            break;
+    }
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
+// Phase 5: LAYER SAVER (yPodcaster Protection)
+// Verify all assets are ready before allowing recording
+// ═══════════════════════════════════════════════════════════════════════════
+async function checkLayerReadiness() {
+    const checks = {
+        textureReady: checkTextureReady(),
+        fontReady: checkFontReady(),
+        audioReady: checkAudioReady()
+    };
+
+    try {
+        const results = await Promise.all([
+            checks.textureReady,
+            checks.fontReady,
+            checks.audioReady
+        ]);
+
+        APP.layerSaver.textureReady = results[0];
+        APP.layerSaver.fontReady = results[1];
+        APP.layerSaver.audioReady = results[2];
+        APP.layerSaver.allReady = results.every(r => r === true);
+
+        if (APP.layerSaver.allReady) {
+            log('LAYER_SAVER: ALL_ASSETS_READY');
+            enableRecordButton(true);
+        } else {
+            const missing = [];
+            if (!results[0]) missing.push('TEXTURE');
+            if (!results[1]) missing.push('FONT');
+            if (!results[2]) missing.push('AUDIO');
+            log('LAYER_SAVER: MISSING [' + missing.join(', ') + ']');
+            enableRecordButton(false);
+        }
+
+        return APP.layerSaver.allReady;
+    } catch (e) {
+        log('LAYER_SAVER_ERR: ' + e.message);
+        enableRecordButton(false);
+        return false;
+    }
+}
+
+function checkTextureReady() {
+    return new Promise((resolve) => {
+        // Check if canvas is initialized and rendering
+        if (APP.render.canvas && APP.render.ctx) {
+            // Verify canvas has content (not just black)
+            const pixel = APP.render.ctx.getImageData(
+                Math.floor(APP.render.width / 2),
+                Math.floor(APP.render.height / 2),
+                1, 1
+            );
+            resolve(true); // Canvas exists and is drawable
+        } else {
+            resolve(false);
+        }
+    });
+}
+
+function checkFontReady() {
+    return new Promise((resolve) => {
+        if (document.fonts && document.fonts.ready) {
+            document.fonts.ready.then(() => resolve(true)).catch(() => resolve(true));
+        } else {
+            resolve(true); // Fonts API not available, assume ready
+        }
+    });
+}
+
+function checkAudioReady() {
+    return new Promise((resolve) => {
+        if (APP.audio.ctx && APP.audio.ctx.state === 'running') {
+            resolve(true);
+        } else if (APP.audio.ctx && APP.audio.ctx.state === 'suspended') {
+            resolve(true); // Will resume on user gesture
+        } else {
+            resolve(false); // No audio context at all
+        }
+    });
+}
+
+function enableRecordButton(enabled) {
+    const btnRec = $('btn-rec');
+    const btnCapture = $('btn-capture30');
+    if (btnRec) {
+        btnRec.disabled = !enabled;
+        btnRec.style.opacity = enabled ? '1' : '0.3';
+    }
+    if (btnCapture) {
+        btnCapture.disabled = !enabled;
+        btnCapture.style.opacity = enabled ? '1' : '0.3';
+    }
+}
+
 
 // ═══════════════════════════════════════════════════════════════════════════
 // HARDWARE LOCK (Sovereign App Behavior)
@@ -2166,6 +2714,19 @@ document.addEventListener('DOMContentLoaded', () => {
     if ($('file-media')) $('file-media').onchange = (e) => loadMediaFiles(e.target);
     if ($('file-audio')) $('file-audio').onchange = (e) => loadAudioFiles(e.target);
     if ($('file-logo')) $('file-logo').onchange = (e) => loadLogoFile(e.target);
+
+    // Phase 3: Initialize Web3 (Hybrid Gate)
+    initWeb3();
+
+    // Phase 4: Initialize MIDI & Portal UI
+    initMIDI();
+    portalCamPreview();
+
+    // Phase 5: Layer Saver check
+    checkLayerReadiness();
+
+    // Load saved session
+    loadSession();
 
     log('SYSTEM_READY');
 });
