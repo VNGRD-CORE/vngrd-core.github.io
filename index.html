@@ -1982,42 +1982,7 @@ function renderLoop(timestamp) {
             ctx.restore();
         }
     }
-    
-    // ═══ LOWER THIRD BURN-IN — drawn onto canvas for 15Mbps recording ═══
-    if (APP.lowerThird.visible) {
-        var lt = $('lower-third');
-        var ltTitle = $('lt-title-text');
-        var ltSub = $('lt-subtitle-text');
-        if (lt && ltTitle) {
-            ctx.save();
-            var ltX = w * 0.02;
-            var ltY = h * 0.85;
-            var ltW = Math.min(w * 0.35, 400 * (w / 1920));
-            var ltH = h * 0.09;
-            var ltPreset = APP.lowerThird.preset || 'guest';
-            var ltAccent = ltPreset === 'track' ? '#00ff88' : ltPreset === 'breaking' ? '#ff3333' : '#00f3ff';
-            // Background bar
-            ctx.fillStyle = 'rgba(0,0,0,0.85)';
-            ctx.fillRect(ltX, ltY, ltW, ltH);
-            // Accent border-left
-            ctx.fillStyle = ltAccent;
-            ctx.fillRect(ltX, ltY, w * 0.003, ltH);
-            // Title text
-            var ltTitleFS = Math.max(12, h * 0.022);
-            ctx.font = '700 ' + ltTitleFS + 'px Orbitron, sans-serif';
-            ctx.fillStyle = '#ffffff';
-            ctx.textAlign = 'left'; ctx.textBaseline = 'top';
-            ctx.fillText(ltTitle.textContent || '', ltX + w * 0.012, ltY + ltH * 0.15);
-            // Subtitle text
-            if (ltSub) {
-                var ltSubFS = Math.max(9, h * 0.013);
-                ctx.font = '400 ' + ltSubFS + 'px JetBrains Mono, monospace';
-                ctx.fillStyle = ltAccent;
-                ctx.fillText((ltSub.textContent || '').toUpperCase(), ltX + w * 0.012, ltY + ltH * 0.6);
-            }
-            ctx.restore();
-        }
-    }
+        
 
     // ═══ PERMANENT SIGNATURE — untouchable, not part of Trinity ═══
     ctx.save();
@@ -5566,57 +5531,83 @@ document.addEventListener('DOMContentLoaded', () => {
     import { OBJLoader } from 'three/addons/loaders/OBJLoader.js';
 
     // ═══ SINGLE 3D ENGINE — no duplicate rAF, renderLoop drives animation ═══
-    const btn = document.getElementById('btn-inject-3d');
-    if (btn) {
-        btn.onclick = () => {
-            const input = document.createElement('input');
-            input.type = 'file';
-            input.accept = '.stl,.obj,.glb,.gltf,.fbx,.3ds,.dae,.ply';
-            input.onchange = (e) => {
-                const file = e.target.files[0];
-                if (!file) return;
-                const url = URL.createObjectURL(file);
-                const ext = file.name.toLowerCase().split('.').pop();
+    // ═══ THE HYBRID FERRARI (Wide Support + Visibility Fix) ═══
+const btn = document.getElementById('btn-inject-3d');
+if (btn) {
+    btn.onclick = () => {
+        const input = document.createElement('input');
+        input.type = 'file';
+        // 1. KEEP CLAUDE'S WIDE SUPPORT
+        input.accept = '.stl,.obj,.glb,.gltf,.fbx,.3ds,.dae,.ply';
+        
+        input.onchange = (e) => {
+            const file = e.target.files[0];
+            if (!file) return;
+            const url = URL.createObjectURL(file);
+            const ext = file.name.toLowerCase().split('.').pop();
 
-                // Dispose previous mesh only (keep renderer/scene if they exist)
-                if (APP.hologram.mesh && APP.hologram.scene) {
-                    APP.hologram.scene.remove(APP.hologram.mesh);
-                    APP.hologram.mesh.traverse(child => {
-                        if (child.isMesh) {
-                            if (child.geometry) child.geometry.dispose();
-                            if (child.material) child.material.dispose();
-                        }
-                    });
-                    APP.hologram.mesh = null;
-                }
-/// 1. Kill the old legacy layers completely
-const container = document.getElementById('widget-layer');
-if (container) {
-    container.innerHTML = ''; 
-    container.style.display = 'none';
+            // 2. THE IGNITION (Fixes "Invisible Model")
+            // If the engine is cold, we wake it up with Lights & Camera
+            if (!APP.hologram.scene) {
+                console.log("IGNITION: FIRING_MAIN_ENGINE");
+                APP.hologram.scene = new THREE.Scene();
+                APP.hologram.camera = new THREE.PerspectiveCamera(50, 1, 0.1, 1000);
+                APP.hologram.camera.position.z = 5; // Pull back to see the model
+                
+                // Add Lights (So it's not black)
+                const ambient = new THREE.AmbientLight(0xffffff, 1.5);
+                const directional = new THREE.DirectionalLight(0xffffff, 2.0);
+                directional.position.set(2, 5, 5);
+                APP.hologram.scene.add(ambient);
+                APP.hologram.scene.add(directional);
+            }
+
+            // 3. THE GHOST KILLER (Physical & Memory)
+            const legacyLayer = document.getElementById('widget-layer');
+            if (legacyLayer) { legacyLayer.innerHTML = ''; legacyLayer.style.display = 'none'; }
+
+            if (APP.hologram.mesh) {
+                APP.hologram.scene.remove(APP.hologram.mesh);
+                if (APP.hologram.mesh.geometry) APP.hologram.mesh.geometry.dispose();
+                APP.hologram.mesh = null;
+            }
+
+            // 4. SMART LOADER SELECTION
+            // We expand this to actually handle the files you accepted
+            let loader;
+            if (ext === 'obj') loader = new THREE.OBJLoader();
+            else if (ext === 'stl') loader = new THREE.STLLoader();
+            else if (ext === 'glb' || ext === 'gltf') loader = new THREE.GLTFLoader(); // Added GLTF support
+            else {
+                console.warn(`Loader for .${ext} not ready yet. Defaulting to OBJ.`);
+                loader = new THREE.OBJLoader();
+            }
+
+            loader.load(url, (data) => {
+                let model = data.scene ? data.scene : (data.isBufferGeometry ? new THREE.Mesh(data) : data);
+
+                // 5. MATRIX STYLING
+                model.traverse(child => {
+                    if (child.isMesh) child.material = new THREE.MeshNormalMaterial({ wireframe: true });
+                });
+
+                // 6. AUTO-SCALE & CENTER
+                const box = new THREE.Box3().setFromObject(model);
+                const size = box.getSize(new THREE.Vector3());
+                const maxDim = Math.max(size.x, size.y, size.z);
+                model.scale.setScalar(3.0 / maxDim);
+
+                // 7. LAUNCH
+                APP.hologram.mesh = model;
+                APP.hologram.scene.add(model);
+                APP.trinity.holo.visible = true;
+                
+                console.log(`SYSTEM: 3D_ACTOR_LIVE [${ext}]`);
+            });
+        };
+        input.click();
+    };
 }
-
-// 2. Load the model and hand it to the Identity Trinity system
-const loader = (ext === 'obj') ? new OBJLoader() : new STLLoader();
-loader.load(url, (data) => {
-    let model = data.scene ? data.scene : (data.isBufferGeometry ? new THREE.Mesh(data) : data);
-    
-    model.traverse(child => {
-        if (child.isMesh) child.material = new THREE.MeshNormalMaterial({ wireframe: true });
-    });
-
-    // 3. CENTER & SCALE (Keep this so it fits the screen)
-    const box = new THREE.Box3().setFromObject(model);
-    const size = box.getSize(new THREE.Vector3());
-    const maxDim = Math.max(size.x, size.y, size.z);
-    model.scale.setScalar(3.0 / maxDim);
-
-    // 4. THE HAND-OFF
-    // No new Scene. No new Renderer. No anim() loop.
-    // We just give the mesh to the Trinity system merged in PR #7.
-    APP.hologram.mesh = model; 
-    APP.trinity.holo.visible = true;
-});
 // --- AUDIO ROTATION SYSTEM ---
 const V_PLAYLIST = {
     tracks: [],
