@@ -5598,56 +5598,34 @@ document.addEventListener('DOMContentLoaded', () => {
                     APP.hologram.camera = null;
                     APP.hologram.rafId = null;
                 }
+/// 1. Kill the old legacy layers completely
+const container = document.getElementById('widget-layer');
+if (container) {
+    container.innerHTML = ''; 
+    container.style.display = 'none';
+}
 
-                const container = document.getElementById('widget-layer');
-                container.innerHTML = '<canvas id="hologram-canvas"></canvas>';
-                container.style.opacity = '1';
-                container.style.display = 'block';
-                
-                const scene = new THREE.Scene();
-                const camera = new THREE.PerspectiveCamera(75, 1, 0.1, 1000);
-                const renderer = new THREE.WebGLRenderer({ 
-                    canvas: document.getElementById('hologram-canvas'), 
-                    alpha: true, antialias: true,
-                    preserveDrawingBuffer: true 
-                });
-                renderer.setClearColor(0x000000, 0);
-                renderer.setSize(300, 300);
-                scene.add(new THREE.AmbientLight(0xffffff, 2.5));
-                camera.position.z = 5;
+// 2. Load the model and hand it to the Identity Trinity system
+const loader = (ext === 'obj') ? new OBJLoader() : new STLLoader();
+loader.load(url, (data) => {
+    let model = data.scene ? data.scene : (data.isBufferGeometry ? new THREE.Mesh(data) : data);
+    
+    model.traverse(child => {
+        if (child.isMesh) child.material = new THREE.MeshNormalMaterial({ wireframe: true });
+    });
 
-                const loader = (ext === 'obj') ? new OBJLoader() : new STLLoader();
-                loader.load(url, (data) => {
-                    let model = data.scene ? data.scene : (data.isBufferGeometry ? new THREE.Mesh(data) : data);
-                    model.traverse(child => {
-                        if (child.isMesh) child.material = new THREE.MeshNormalMaterial({ wireframe: true });
-                    });
-                    const box = new THREE.Box3().setFromObject(model);
-                    const center = box.getCenter(new THREE.Vector3());
-                    const size = box.getSize(new THREE.Vector3());
-                    const maxDim = Math.max(size.x, size.y, size.z);
-                    model.position.x += (model.position.x - center.x);
-                    model.position.y += (model.position.y - center.y);
-                    model.position.z += (model.position.z - center.z);
-                    model.scale.setScalar(3.0 / maxDim);
-                    scene.add(model);
-                    // Store references for proper teardown on next load/delete
-                    APP.hologram.scene = scene;
-                    APP.hologram.camera = camera;
-                    APP.hologram.renderer = renderer;
-                    APP.hologram.mesh = model;
-                    APP.trinity.holo.visible = true;
-                    const anim = () => {
-                        APP.hologram.rafId = requestAnimationFrame(anim);
-                        model.rotation.y += 0.01;
-                        renderer.render(scene, camera);
-                    };
-                    anim();
-                });
-            };
-            input.click();
-        };
-    }
+    // 3. CENTER & SCALE (Keep this so it fits the screen)
+    const box = new THREE.Box3().setFromObject(model);
+    const size = box.getSize(new THREE.Vector3());
+    const maxDim = Math.max(size.x, size.y, size.z);
+    model.scale.setScalar(3.0 / maxDim);
+
+    // 4. THE HAND-OFF
+    // No new Scene. No new Renderer. No anim() loop.
+    // We just give the mesh to the Trinity system merged in PR #7.
+    APP.hologram.mesh = model; 
+    APP.trinity.holo.visible = true;
+});
 // --- AUDIO ROTATION SYSTEM ---
 const V_PLAYLIST = {
     tracks: [],
@@ -5713,38 +5691,44 @@ function runVanguardTrack() {
 // 1. SIMPLEST HIDE BUTTON
 if ($('btn-3d-x')) {
     $('btn-3d-x').onclick = () => {
-        // Full GPU teardown via Compositor.disposeScene
-        if (APP.hologram && APP.hologram.scene) {
-            if (window.Compositor) Compositor.disposeRenderer(APP.hologram.renderer);
-            if (APP.compositor) APP.compositor.disposeScene(APP.hologram.scene);
-            APP.hologram.mesh = null;
-            APP.hologram.renderer = null;
-            APP.hologram.scene = null;
-            APP.hologram.camera = null;
-            if (APP.hologram.rafId) cancelAnimationFrame(APP.hologram.rafId);
+        // 1. Kill the Zombie Loop
+        if (APP.hologram && APP.hologram.rafId) {
+            cancelAnimationFrame(APP.hologram.rafId);
             APP.hologram.rafId = null;
         }
-        $('widget-layer').style.display = 'none';
+
+        // 2. Wipe the Canvas References
+        if (APP.hologram && APP.hologram.renderer) {
+            APP.hologram.renderer.dispose();
+            APP.hologram.renderer.forceContextLoss();
+            APP.hologram.renderer = null;
+        }
+
+        // 3. Hide the Legacy Layer
+        const layer = $('widget-layer');
+        if (layer) {
+            layer.innerHTML = ''; // Physically removes the duplicate canvas
+            layer.style.display = 'none';
+        }
+
+        // 4. Update the Trinity State
         APP.trinity.holo.visible = false;
-        log('SYSTEM: 3D_DISPOSED_AND_STASHED');
+        console.log('SYSTEM: GHOST_3D_PURGED');
     };
 }
 
 // 2. MASTER DUCKING FUNCTION
 const applyAudioDuck = (isActive) => {
-    if (window.APP && APP.audio && APP.audio.duckingGain) {
+    // Priority: Ducking Gain Node -> Master Gain Node
+    const gainNode = (APP.audio && APP.audio.duckingGain) ? APP.audio.duckingGain : (APP.audio && APP.audio.masterGain ? APP.audio.masterGain : null);
+    
+    if (gainNode) {
         const now = APP.audio.ctx ? APP.audio.ctx.currentTime : 0;
-        // -12dB duck = gain 0.25
-        const targetValue = isActive ? 0.25 : 1.0;
+        const targetValue = isActive ? 0.25 : 1.0; // -12dB dip for broadcast
         
-        console.log(isActive ? "CORE: DUCKING_ACTIVE [-12dB]" : "CORE: DUCKING_RESTORED");
-        
-        // Professional fade to avoid pops
-        APP.audio.duckingGain.gain.setTargetAtTime(targetValue, now, 0.05);
-    } else if (window.APP && APP.audio && APP.audio.masterGain) {
-        const now = APP.audio.ctx ? APP.audio.ctx.currentTime : 0;
-        const targetValue = isActive ? 0.25 : 1.0;
-        APP.audio.masterGain.gain.setTargetAtTime(targetValue, now, 0.05);
+        // Professional fade (50ms) to avoid "pops" in the 15Mbps recording
+        gainNode.gain.setTargetAtTime(targetValue, now, 0.05);
+        console.log(isActive ? "CORE: BROADCAST_DUCKING_ON" : "CORE: BROADCAST_DUCKING_OFF");
     }
 };
 
