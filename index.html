@@ -1145,6 +1145,10 @@ body.shooting-mode #btn-shooting {
                     <button class="btn" id="btn-3d-x" title="HIDE / CLEAR 3D">[X]</button>
                 </div>
                 <input type="file" id="file-3d-model" accept=".stl,.obj,.glb,.gltf" style="display:none;">
+                <div class="slider-wrap">
+                    <div class="slider-top"><span class="slider-lbl">3D SCALE</span><span class="slider-val" id="val-3d-scale">1.0</span></div>
+                    <input type="range" min="10" max="1000" value="100" id="sl-3d-scale">
+                </div>
             </div>
         </div>
     </aside>
@@ -1414,6 +1418,12 @@ const APP = {
     render: { canvas: null, ctx: null, width: 3840, height: 2160, fps: 0, frameCount: 0, lastTime: 0, lastFpsUpdate: 0, rafId: null, scale: 1.0, pixelCanvas: null, pixelCtx: null, rgbActive: false },
     bug: { visible: true, text: 'VNGRD', image: null, textMode: 0, textVisible: true, imageVisible: false },
     layers: { logoScale: 1.0, logoSrc: null, bugScale: 1.0 },
+    // IDENTITY TRINITY — three independent broadcast actors
+    trinity: {
+        bug:  { x: 0.015, y: 0.015, scale: 1.0, visible: true },
+        logo: { x: 0.85,  y: 0.015, scale: 1.0, visible: false },
+        holo: { x: 0.42,  y: 0.75,  scale: 1.0, visible: false }
+    },
     lowerThird: { visible: false, preset: 'guest' },
     ui: { logoMorph: 0, morphs: ['m1','m2','m3','m4','m5','m6'] },
     ghost: { seismicEnergy: 0, nodesSecured: 0, directoryHandle: null },
@@ -1848,68 +1858,75 @@ function renderLoop(timestamp) {
         ctx.restore();
     }
     
-    // --- ORIGINAL ASSET COMPOSITING (burns real DOM assets into recording) ---
+    // ═══ IDENTITY TRINITY — three independent actors burned into canvas ═══
     ctx.filter = 'none';
     ctx.globalAlpha = 1;
     ctx.globalCompositeOperation = 'source-over';
+    var T = APP.trinity;
     
-    // 1. Station Bug — draw the ORIGINAL element (image child or text)
-    const bugEl = $('station-bug');
-    if (bugEl && !bugEl.classList.contains('hidden') && bugEl.style.display !== 'none') {
-        const bugImg = bugEl.querySelector('img');
-        const bugScale = APP.layers.bugScale || 1.0;
-        const bx = 30 * (w / 1920);
-        const by = 30 * (h / 1080);
-        if (bugImg && bugImg.complete && bugImg.naturalWidth > 0) {
-            // ORIGINAL uploaded bug image via drawImage
+    // ACTOR 1: STATION BUG (text or uploaded image)
+    if (T.bug.visible) {
+        var bugEl = $('station-bug');
+        var bx = T.bug.x * w, by = T.bug.y * h, bScale = T.bug.scale;
+        if (bugEl) {
+            var bugImg = bugEl.querySelector('img');
+            if (bugImg && bugImg.complete && bugImg.naturalWidth > 0) {
+                ctx.save();
+                var bw = bugImg.naturalWidth * bScale * (w / 1920);
+                var bh = bugImg.naturalHeight * bScale * (h / 1080);
+                ctx.drawImage(bugImg, bx, by, bw, bh);
+                ctx.restore();
+            } else if (APP.bug.text) {
+                ctx.save();
+                var bugFS = Math.max(14, 28 * bScale * (h / 1080));
+                ctx.font = '800 ' + bugFS + 'px Orbitron, sans-serif';
+                ctx.fillStyle = 'rgba(255,255,255,0.9)';
+                ctx.textAlign = 'left'; ctx.textBaseline = 'top';
+                ctx.shadowColor = 'rgba(0,0,0,0.5)'; ctx.shadowBlur = 4;
+                ctx.shadowOffsetX = 2; ctx.shadowOffsetY = 2;
+                ctx.fillText(APP.bug.text, bx, by);
+                ctx.restore();
+            }
+        }
+    }
+    
+    // ACTOR 2: 2D LOGO (uploaded image via drawImage — no size cap)
+    if (T.logo.visible) {
+        var logoImg = $('user-logo-layer');
+        if (logoImg && logoImg.src && logoImg.src !== window.location.href && logoImg.naturalWidth > 0) {
             ctx.save();
-            const bw = bugImg.naturalWidth * bugScale * (w / 1920);
-            const bh = bugImg.naturalHeight * bugScale * (h / 1080);
-            ctx.drawImage(bugImg, bx, by, bw, bh);
-            ctx.restore();
-        } else if (APP.bug.text) {
-            // Station bug text — matches original DOM styling exactly
-            ctx.save();
-            const bugFontSize = Math.max(20, 28 * bugScale * (h / 1080));
-            ctx.font = '800 ' + bugFontSize + 'px Orbitron, sans-serif';
-            ctx.fillStyle = 'rgba(255,255,255,0.9)';
-            ctx.textAlign = 'left';
-            ctx.textBaseline = 'top';
-            ctx.shadowColor = 'rgba(0,0,0,0.5)';
-            ctx.shadowBlur = 4;
-            ctx.shadowOffsetX = 2;
-            ctx.shadowOffsetY = 2;
-            ctx.fillText(APP.bug.text, bx, by);
+            var lScale = T.logo.scale;
+            var lw = logoImg.naturalWidth * lScale * (w / 1920);
+            var lh = logoImg.naturalHeight * lScale * (h / 1080);
+            var lx = T.logo.x * w, ly = T.logo.y * h;
+            ctx.drawImage(logoImg, lx, ly, lw, lh);
             ctx.restore();
         }
     }
     
-    // 2. 2D Logo — drawImage of the ORIGINAL uploaded <img> element (no size cap)
-    const logoImg = $('user-logo-layer');
-    if (logoImg && logoImg.src && logoImg.src !== window.location.href && logoImg.style.display !== 'none' && logoImg.naturalWidth > 0) {
-        ctx.save();
-        const lScale = APP.layers.logoScale || 1.0;
-        const lw = logoImg.naturalWidth * lScale * (w / 1920);
-        const lh = logoImg.naturalHeight * lScale * (h / 1080);
-        const lx = w - lw - (30 * (w / 1920));
-        const ly = 30 * (h / 1080);
-        ctx.drawImage(logoImg, lx, ly, lw, lh);
-        ctx.restore();
+    // ACTOR 3: 3D HOLOGRAM (drawImage of live Three.js WebGL canvas buffer)
+    if (T.holo.visible) {
+        var holoCanvas = $('hologram-canvas');
+        if (holoCanvas && holoCanvas.width > 0) {
+            ctx.save();
+            var hScale = T.holo.scale;
+            var hw = holoCanvas.width * hScale * (w / 1920);
+            var hh = holoCanvas.height * hScale * (h / 1080);
+            var hx = T.holo.x * w, hy = T.holo.y * h;
+            try { ctx.drawImage(holoCanvas, hx, hy, hw, hh); } catch(e) {}
+            ctx.restore();
+        }
     }
     
-    // 3. 3D Hologram — drawImage of the ORIGINAL Three.js WebGL canvas buffer
-    const holoCanvas = $('hologram-canvas');
-    const widgetEl = $('widget-layer');
-    if (holoCanvas && widgetEl && widgetEl.style.display !== 'none' && widgetEl.style.opacity !== '0' && holoCanvas.width > 0) {
-        ctx.save();
-        const hScale = APP.hologram.scale || 1.0;
-        const hw = holoCanvas.width * hScale * (w / 1920);
-        const hh = holoCanvas.height * hScale * (h / 1080);
-        const hx = (w - hw) / 2;
-        const hy = h - hh - (30 * (h / 1080));
-        try { ctx.drawImage(holoCanvas, hx, hy, hw, hh); } catch(e) {}
-        ctx.restore();
-    }
+    // ═══ PERMANENT SIGNATURE — untouchable, not part of Trinity ═══
+    ctx.save();
+    var sigFS = Math.max(14, h * 0.012);
+    ctx.font = '900 ' + sigFS + 'px Orbitron';
+    ctx.fillStyle = 'rgba(255,255,255,0.3)';
+    ctx.textAlign = 'right'; ctx.textBaseline = 'bottom';
+    ctx.shadowColor = 'rgba(0,0,0,0.6)'; ctx.shadowBlur = sigFS / 8;
+    ctx.fillText('VNGRD', w - (w * 0.01), h - (h * 0.01));
+    ctx.restore();
 }
 
 function triggerImpact() { document.body.classList.remove('impact-flash'); void document.body.offsetWidth; document.body.classList.add('impact-flash'); setTimeout(() => document.body.classList.remove('impact-flash'), 200); }
@@ -1918,51 +1935,86 @@ function impactStutter() { const oT = APP.vj.trailsEnabled, oA = APP.vj.trailAlp
 function impactInvert() { APP.vj.invert = true; triggerChromaticAberration(); setTimeout(() => { APP.vj.invert = false; }, 500); }
 function impactCrush() { const oRGB = APP.vj.rgbIntensity, oPix = APP.vj.pixelSize, oRE = APP.vj.rgbEnabled, oPE = APP.vj.pixelateEnabled; APP.vj.rgbEnabled = true; APP.vj.pixelateEnabled = true; APP.vj.rgbIntensity = 25; APP.vj.pixelSize = 16; setTimeout(() => { APP.vj.rgbEnabled = oRE; APP.vj.pixelateEnabled = oPE; APP.vj.rgbIntensity = oRGB; APP.vj.pixelSize = oPix; }, 500); }
 
-// SIMPLE DRAGGABLE - DIRECT LEFT/TOP POSITIONING
+// SIMPLE DRAGGABLE - DIRECT LEFT/TOP POSITIONING (for non-Trinity DOM elements)
 function makeDraggable(el) {
     let isDown = false, iX, iY, cX = 0, cY = 0;
-    
     el.addEventListener('mousedown', e => {
-        isDown = true;
-        iX = e.clientX - cX;
-        iY = e.clientY - cY;
-        el.style.cursor = 'grabbing';
-        e.stopPropagation();
+        isDown = true; iX = e.clientX - cX; iY = e.clientY - cY;
+        el.style.cursor = 'grabbing'; e.stopPropagation();
     });
-
     document.addEventListener('mousemove', e => {
-        if (!isDown) return;
-        e.preventDefault();
-        
-        let nextX = e.clientX - iX;
-        let nextY = e.clientY - iY;
-
-        // --- SAFE AREA CONSTRAINTS ---
-        const stage = $('stage');
-        if (stage) {
-            const sRect = stage.getBoundingClientRect();
-            const eRect = el.getBoundingClientRect();
-
-            // Calculate limits (relative to current position)
-            // Left/Right bounds
-            if (eRect.left + (nextX - cX) < sRect.left) nextX = cX - (eRect.left - sRect.left);
-            if (eRect.right + (nextX - cX) > sRect.right) nextX = cX + (sRect.right - eRect.right);
-            
-            // Top/Bottom bounds
-            if (eRect.top + (nextY - cY) < sRect.top) nextY = cY - (eRect.top - sRect.top);
-            if (eRect.bottom + (nextY - cY) > sRect.bottom) nextY = cY + (sRect.bottom - eRect.bottom);
-        }
-
-        cX = nextX;
-        cY = nextY;
-        el.style.transform = `translate3d(${cX}px, ${cY}px, 0)`;
+        if (!isDown) return; e.preventDefault();
+        cX = e.clientX - iX; cY = e.clientY - iY;
+        el.style.transform = 'translate3d(' + cX + 'px, ' + cY + 'px, 0)';
     });
-
-    document.addEventListener('mouseup', () => {
-        isDown = false;
-        el.style.cursor = 'grab';
-    });
+    document.addEventListener('mouseup', () => { isDown = false; el.style.cursor = 'grab'; });
 }
+
+// ═══ IDENTITY TRINITY CANVAS-SPACE DRAG ═══
+// Maps mouse position on the visible canvas to normalized 0-1 coords in APP.trinity
+(function initTrinityDrag() {
+    var activeActor = null, offsetX = 0, offsetY = 0;
+    
+    function canvasCoords(e) {
+        var canvas = APP.render.canvas;
+        if (!canvas) return null;
+        var rect = canvas.getBoundingClientRect();
+        return { x: (e.clientX - rect.left) / rect.width, y: (e.clientY - rect.top) / rect.height };
+    }
+    
+    function hitTest(pos) {
+        var T = APP.trinity, w = APP.render.width, h = APP.render.height;
+        // Hit test in reverse draw order (3D on top, then 2D, then bug)
+        // ACTOR 3: 3D Hologram
+        if (T.holo.visible) {
+            var hc = $('hologram-canvas');
+            if (hc && hc.width > 0) {
+                var hw = (hc.width * T.holo.scale * (w / 1920)) / w;
+                var hh = (hc.height * T.holo.scale * (h / 1080)) / h;
+                if (pos.x >= T.holo.x && pos.x <= T.holo.x + hw && pos.y >= T.holo.y && pos.y <= T.holo.y + hh) return 'holo';
+            }
+        }
+        // ACTOR 2: 2D Logo
+        if (T.logo.visible) {
+            var li = $('user-logo-layer');
+            if (li && li.naturalWidth > 0) {
+                var lw = (li.naturalWidth * T.logo.scale * (w / 1920)) / w;
+                var lh = (li.naturalHeight * T.logo.scale * (h / 1080)) / h;
+                if (pos.x >= T.logo.x && pos.x <= T.logo.x + lw && pos.y >= T.logo.y && pos.y <= T.logo.y + lh) return 'logo';
+            }
+        }
+        // ACTOR 1: Station Bug (approx text/image bounding box)
+        if (T.bug.visible) {
+            var bw = Math.max(0.08, 0.08 * T.bug.scale);
+            var bh = Math.max(0.03, 0.03 * T.bug.scale);
+            if (pos.x >= T.bug.x && pos.x <= T.bug.x + bw && pos.y >= T.bug.y && pos.y <= T.bug.y + bh) return 'bug';
+        }
+        return null;
+    }
+    
+    document.addEventListener('mousedown', function(e) {
+        if (e.target.closest('.sidebar') || e.target.closest('#ghost-bar') || e.target.closest('button') || e.target.closest('input')) return;
+        var pos = canvasCoords(e);
+        if (!pos) return;
+        var actor = hitTest(pos);
+        if (!actor) return;
+        activeActor = actor;
+        offsetX = pos.x - APP.trinity[actor].x;
+        offsetY = pos.y - APP.trinity[actor].y;
+        e.preventDefault();
+    });
+    
+    document.addEventListener('mousemove', function(e) {
+        if (!activeActor) return;
+        var pos = canvasCoords(e);
+        if (!pos) return;
+        APP.trinity[activeActor].x = Math.max(0, Math.min(0.95, pos.x - offsetX));
+        APP.trinity[activeActor].y = Math.max(0, Math.min(0.95, pos.y - offsetY));
+        e.preventDefault();
+    });
+    
+    document.addEventListener('mouseup', function() { activeActor = null; });
+})();
 
 
 // ========================================
@@ -2014,6 +2066,7 @@ if ($('file-2d-logo')) {
                 logoLayer.style.boxShadow = 'none';
                 logoLayer.style.pointerEvents = 'auto';
             }
+            APP.trinity.logo.visible = true;
             log('2D_LOGO: ' + file.name.toUpperCase());
         }
     };
@@ -2027,12 +2080,14 @@ if ($('btn-2d-x')) {
         const logoLayer = $('user-logo-layer');
         if (!logoLayer) return;
         
-        if (logoLayer.style.display === 'block') {
+        if (APP.trinity.logo.visible) {
             // Visible -> Hidden
+            APP.trinity.logo.visible = false;
             logoLayer.style.display = 'none';
             log('2D_LOGO: HIDDEN');
         } else if (logoLayer.src && logoLayer.src !== window.location.href) {
             // Hidden -> Clear
+            APP.trinity.logo.visible = false;
             logoLayer.src = '';
             logoLayer.style.display = 'none';
             log('2D_LOGO: CLEARED');
@@ -2040,29 +2095,28 @@ if ($('btn-2d-x')) {
     };
 }
 
-// LOGO SCALE
+// 2D LOGO SCALE — writes to APP.trinity.logo
 if ($('sl-layer-logo')) {
     $('sl-layer-logo').oninput = e => {
-        APP.layers.logoScale = e.target.value / 100;
-        $('val-layer-logo').textContent = APP.layers.logoScale.toFixed(1);
-        const logoLayer = $('user-logo-layer');
-        if (logoLayer) {
-            logoLayer.style.transformOrigin = 'top right';
-            logoLayer.style.transform = `scale(${APP.layers.logoScale})`;
-        }
+        APP.trinity.logo.scale = e.target.value / 100;
+        $('val-layer-logo').textContent = APP.trinity.logo.scale.toFixed(1);
     };
 }
 
-// BUG SCALE
+// BUG SCALE — writes to APP.trinity.bug
 if ($('sl-bug-scale')) {
     $('sl-bug-scale').oninput = e => {
-        APP.layers.bugScale = e.target.value / 100;
-        $('val-bug-scale').textContent = APP.layers.bugScale.toFixed(1);
-        const bugEl = $('station-bug');
-        if (bugEl) {
-            bugEl.style.transformOrigin = 'top left';
-            bugEl.style.transform = `scale(${APP.layers.bugScale})`;
-        }
+        APP.trinity.bug.scale = e.target.value / 100;
+        $('val-bug-scale').textContent = APP.trinity.bug.scale.toFixed(1);
+    };
+}
+
+// 3D HOLOGRAM SCALE — writes to APP.trinity.holo
+if ($('sl-3d-scale')) {
+    $('sl-3d-scale').oninput = e => {
+        APP.trinity.holo.scale = e.target.value / 100;
+        APP.hologram.scale = APP.trinity.holo.scale;
+        $('val-3d-scale').textContent = APP.trinity.holo.scale.toFixed(1);
     };
 }
 
@@ -2963,6 +3017,10 @@ document.addEventListener('DOMContentLoaded', () => {
     // Phase 5: Layer Saver
     checkLayerReadiness();
  
+    // Hide DOM overlays — Trinity actors are drawn directly on canvas
+    var _sb = $('station-bug'); if (_sb) _sb.style.opacity = '0';
+    var _ul = $('user-logo-layer'); if (_ul) _ul.style.opacity = '0';
+    
     requestAnimationFrame(renderLoop);
     updateClock(); setInterval(updateClock, 1000); morphLogo(); setTimeout(morphLogo, 4000);
     
@@ -5188,7 +5246,7 @@ document.addEventListener('DOMContentLoaded', () => {
         widgetLayer.addEventListener('wheel', e => {
             e.preventDefault();
             const delta = e.deltaY > 0 ? -0.1 : 0.1;
-            APP.hologram.scale = Math.max(0.1, Math.min(5, APP.hologram.scale + delta));
+            APP.hologram.scale = Math.max(0.1, Math.min(10, APP.hologram.scale + delta)); APP.trinity.holo.scale = APP.hologram.scale; if ($('sl-3d-scale')) { $('sl-3d-scale').value = Math.round(APP.hologram.scale * 100); $('val-3d-scale').textContent = APP.hologram.scale.toFixed(1); }
             
             if (APP.hologram.mesh) {
                 APP.hologram.mesh.scale.setScalar(APP.hologram.scale);
@@ -5490,19 +5548,7 @@ document.addEventListener('DOMContentLoaded', () => {
         playImpactSoundWithSpatial(x || window.innerWidth/2, y || window.innerHeight/2);
     };
 
-    // --- INDEPENDENT LOGO DRAG INITIALIZATION ---
-    // This targets the three specific layers you want to move
-    const logoLayers = ['widget-layer', 'user-logo-layer', 'station-bug'];
-
-    logoLayers.forEach(id => {
-        const el = $(id);
-        if (el) {
-            // Ensure the element is visible and interactive
-            el.style.pointerEvents = 'auto'; 
-            // Apply the smooth GPU dragging logic
-            makeDraggable(el);
-        }
-    });
+    // Trinity drag is now canvas-space (initTrinityDrag) — no DOM drag needed
 
     // KEEP THIS: Initialize geo ticker injection
     setTimeout(injectGeoToTicker, 3000);
@@ -5581,6 +5627,7 @@ document.addEventListener('DOMContentLoaded', () => {
                     APP.hologram.camera = camera;
                     APP.hologram.renderer = renderer;
                     APP.hologram.mesh = model;
+                    APP.trinity.holo.visible = true;
                     const anim = () => {
                         APP.hologram.rafId = requestAnimationFrame(anim);
                         model.rotation.y += 0.01;
@@ -5745,6 +5792,7 @@ if ($('btn-3d-x')) {
             APP.hologram.rafId = null;
         }
         $('widget-layer').style.display = 'none';
+        APP.trinity.holo.visible = false;
         log('SYSTEM: 3D_DISPOSED_AND_STASHED');
     };
 }
