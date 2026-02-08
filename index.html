@@ -325,18 +325,17 @@
             100% { transform: translateY(120vh) rotate(720deg); opacity: 0; }
         }
         
-        /* CAMERA PREVIEW BOX - FLOATING */
+        /* CAMERA PREVIEW BOX - INLINE SIDEBAR */
         #cam-preview-float {
-            position: fixed;
-            bottom: 70px;
-            left: 210px;
-            width: 180px;
-            height: 120px;
+            position: relative;
+            width: 100%;
+            aspect-ratio: 16 / 9;
             background: #000;
-            border: 2px solid var(--border);
-            z-index: 6500;
+            border: 1px solid var(--border);
+            border-radius: 2px;
             display: none;
             overflow: hidden;
+            margin: 6px 0;
         }
         #cam-preview-float.active { display: block; border-color: var(--accent); }
         #cam-preview-float video {
@@ -344,24 +343,26 @@
             height: 100%;
             object-fit: cover;
             transform: scaleX(-1);
+            display: block;
         }
         #cam-preview-float .preview-label {
             position: absolute;
-            bottom: 4px;
-            left: 4px;
-            font-size: 8px;
+            top: 3px;
+            left: 3px;
+            font-size: 7px;
             color: var(--accent);
-            background: rgba(0,0,0,0.8);
-            padding: 2px 6px;
-            border-left: 2px solid var(--accent);
-            letter-spacing: 1px;
+            background: rgba(0,0,0,0.7);
+            padding: 1px 5px;
+            border-left: 1px solid var(--accent);
+            letter-spacing: 1.5px;
+            font-family: 'Orbitron', sans-serif;
         }
         #cam-preview-float .rec-indicator {
             position: absolute;
-            top: 4px;
-            right: 4px;
-            width: 8px;
-            height: 8px;
+            top: 3px;
+            right: 3px;
+            width: 6px;
+            height: 6px;
             background: var(--r);
             border-radius: 50%;
             display: none;
@@ -1012,12 +1013,7 @@ body.shooting-mode #btn-shooting {
         <div id="countdown"><div id="countdown-num">3</div></div>
     </main>
     
-    <!-- FLOATING CAMERA PREVIEW -->
-    <div id="cam-preview-float">
-        <video id="preview-vid-float" autoplay muted playsinline></video>
-        <div class="preview-label">PREVIEW</div>
-        <div class="rec-indicator" id="rec-dot-float"></div>
-    </div>
+    <!-- Camera preview moved inline into sidebar CAMERA_4K section -->
 
     <div id="ghost-terminal">
         <div id="ghost-terminal-header">
@@ -1036,6 +1032,11 @@ body.shooting-mode #btn-shooting {
             <div class="sec-head"><span class="sec-title">CAMERA_4K</span><div class="sec-dot off" id="cam-dot"></div></div>
             <div class="sec-body">
                 <button class="btn" id="btn-init-cam">SENSORS ONLINE [4K]</button>
+                <div id="cam-preview-float">
+                    <video id="preview-vid-float" autoplay muted playsinline></video>
+                    <div class="preview-label">PREVIEW</div>
+                    <div class="rec-indicator" id="rec-dot-float"></div>
+                </div>
                 <div id="cam-ctrls" style="display:none">
                     <button class="btn" id="btn-go-live" style="color:var(--y)">GO LIVE [3-2-1]</button>
                     <div class="btn-row">
@@ -1405,10 +1406,10 @@ const APP = {
     guest: { peer: null, connection: null, stream: null, videoElement: null, audioSource: null, isActive: false, peerId: null },
     peer: { peer: null, call: null, localStream: null },
     wallet: { connected: false, address: null, chainId: null, nfts: [] },
-    camera: { stream: null, recorder: null, chunks: [], mode: 'off', isRecording: false, videoEl: null, previewEl: null },
+    camera: { stream: null, recorder: null, chunks: [], mode: 'off', isRecording: false, videoEl: null, previewEl: null, micStream: null },
     render: { canvas: null, ctx: null, width: 3840, height: 2160, fps: 0, frameCount: 0, lastTime: 0, lastFpsUpdate: 0, rafId: null, scale: 1.0, pixelCanvas: null, pixelCtx: null, rgbActive: false },
     bug: { visible: true, text: 'VNGRD', image: null, textMode: 0, textVisible: true, imageVisible: false },
-    layers: { logoScale: 1.0, logoSrc: null },
+    layers: { logoScale: 1.0, logoSrc: null, bugScale: 1.0 },
     lowerThird: { visible: false, preset: 'guest' },
     ui: { logoMorph: 0, morphs: ['m1','m2','m3','m4','m5','m6'] },
     ghost: { seismicEnergy: 0, nodesSecured: 0, directoryHandle: null },
@@ -1849,10 +1850,57 @@ function renderLoop(timestamp) {
         ctx.restore();
     }
     
-    // --- WATERMARK ---
+    // --- CANVAS-BURNED BRANDING (visible in recordings) ---
+    ctx.filter = 'none';
+    
+    // 1. Station Bug text (VNGRD or custom)
+    const bugEl = $('station-bug');
+    if (bugEl && !bugEl.classList.contains('hidden') && bugEl.style.display !== 'none') {
+        ctx.save();
+        const bugScale = APP.layers.bugScale || 1.0;
+        const bugFontSize = Math.max(20, 28 * bugScale * (h / 1080));
+        ctx.font = '900 ' + bugFontSize + 'px Orbitron';
+        ctx.fillStyle = 'rgba(255,255,255,0.9)';
+        ctx.textAlign = 'left';
+        ctx.shadowColor = 'rgba(0,0,0,0.5)';
+        ctx.shadowBlur = 4;
+        const bugX = 30 * (w / 1920);
+        const bugY = 50 * (h / 1080);
+        ctx.fillText(APP.bug.text || 'VNGRD', bugX, bugY);
+        ctx.restore();
+    }
+    
+    // 2. 2D Logo layer
+    const logoImg = $('user-logo-layer');
+    if (logoImg && logoImg.src && logoImg.style.display !== 'none' && logoImg.naturalWidth > 0) {
+        ctx.save();
+        const lScale = APP.layers.logoScale || 1.0;
+        const lw = Math.min(150 * lScale * (w / 1920), w * 0.2);
+        const lh = (logoImg.naturalHeight / logoImg.naturalWidth) * lw;
+        const lx = w - lw - (30 * (w / 1920));
+        const ly = 30 * (h / 1080);
+        ctx.drawImage(logoImg, lx, ly, lw, lh);
+        ctx.restore();
+    }
+    
+    // 3. 3D Hologram canvas composite
+    const holoCanvas = $('hologram-canvas');
+    const widgetEl = $('widget-layer');
+    if (holoCanvas && widgetEl && widgetEl.style.display !== 'none' && widgetEl.style.opacity !== '0') {
+        ctx.save();
+        const hScale = APP.hologram.scale || 1.0;
+        const hw = 150 * hScale * (w / 1920);
+        const hh = 150 * hScale * (h / 1080);
+        const hx = (w - hw) / 2;
+        const hy = h - hh - (30 * (h / 1080));
+        try { ctx.drawImage(holoCanvas, hx, hy, hw, hh); } catch(e) {}
+        ctx.restore();
+    }
+    
+    // 4. Bottom-right engine watermark
     ctx.save();
     const fontSize = Math.max(20, h * 0.015); 
-    ctx.font = `900 ${fontSize}px Orbitron`;
+    ctx.font = '900 ' + fontSize + 'px Orbitron';
     ctx.fillStyle = 'rgba(255, 255, 255, 0.4)'; ctx.textAlign = 'right'; ctx.shadowColor = 'rgba(0, 0, 0, 0.8)'; ctx.shadowBlur = fontSize / 8;
     const posX = w - (w * 0.02); const posY = h - (h * 0.02);
     ctx.fillText('VNGRD', posX, posY); ctx.restore();
@@ -2224,7 +2272,7 @@ function goLive() {
         count--;
         if (count > 0) { num.textContent = count; btn.textContent = `LIVE IN ${count}...`; }
         else { 
-            clearInterval(interval); overlay.style.display = 'none'; APP.state.isLive = true; APP.camera.mode = 'live'; 
+            clearInterval(interval); overlay.style.display = 'none'; APP.state.isLive = true; APP.camera.mode = 'live'; var _pf = $('cam-preview-float'); if (_pf) { _pf.classList.remove('active'); _pf.style.display = 'none'; } 
             $('cam-ctrls').style.display = 'none'; $('live-ctrls').style.display = 'block'; $('tally').style.display = 'block'; $('status-text').textContent = 'LIVE'; $('main-dot').classList.add('live'); 
             document.querySelector('.preview-label').textContent = 'LIVE'; log('LIVE_PODCAST_MODE'); 
         }
@@ -2258,7 +2306,7 @@ $('btn-rec').onclick = () => {
 };
 
 function endLive() { 
-    APP.state.isLive = false; APP.camera.mode = 'preview'; $('live-ctrls').style.display = 'none'; $('cam-ctrls').style.display = 'block'; $('tally').style.display = 'none'; $('status-text').textContent = 'STANDBY'; $('main-dot').classList.remove('live'); $('btn-go-live').textContent = 'GO LIVE [3-2-1]'; 
+    APP.state.isLive = false; APP.camera.mode = 'preview'; $('live-ctrls').style.display = 'none'; $('cam-ctrls').style.display = 'block'; $('tally').style.display = 'none'; $('status-text').textContent = 'STANDBY'; $('main-dot').classList.remove('live'); $('btn-go-live').textContent = 'GO LIVE [3-2-1]'; var _pf3 = $('cam-preview-float'); if (_pf3 && APP.camera.stream) { _pf3.style.display = ''; _pf3.classList.add('active'); } 
     log('END_LIVE'); 
     $('rec-status').style.display = 'none';
 }
@@ -2266,7 +2314,7 @@ function endLive() {
 function killCamera() { 
     if (APP.camera.stream) APP.camera.stream.getTracks().forEach(t => t.stop()); 
     if (APP.camera.videoEl) { APP.camera.videoEl.srcObject = null; APP.camera.videoEl = null; } 
-    APP.camera.mode = 'off'; APP.state.isLive = false; $('live-ctrls').style.display = 'none'; $('cam-ctrls').style.display = 'none'; $('btn-init-cam').style.display = 'block'; $('btn-kill').style.display = 'none'; $('cam-dot').classList.add('off'); $('tally').style.display = 'none'; $('status-text').textContent = 'STANDBY'; $('main-dot').classList.remove('live'); log('CAM_OFF'); 
+    APP.camera.mode = 'off'; APP.state.isLive = false; $('live-ctrls').style.display = 'none'; $('cam-ctrls').style.display = 'none'; $('btn-init-cam').style.display = 'block'; $('btn-kill').style.display = 'none'; $('cam-dot').classList.add('off'); $('tally').style.display = 'none'; $('status-text').textContent = 'STANDBY'; $('main-dot').classList.remove('live'); var _pf2 = $('cam-preview-float'); if (_pf2) { _pf2.classList.remove('active'); _pf2.style.display = 'none'; } if (APP.camera.previewEl) { APP.camera.previewEl.srcObject = null; APP.camera.previewEl = null; } log('CAM_OFF'); 
     $('rec-status').style.display = 'none';
 }
 
@@ -2488,7 +2536,7 @@ function updateVU() {
 }
 
 $('btn-save-session').onclick = () => {
-    const session = { vj: APP.vj, theme: APP.state.theme, bug: APP.bug.text, layers: APP.layers, timestamp: Date.now() };
+    const session = { vj: APP.vj, theme: APP.state.theme, bug: APP.bug.text, layers: APP.layers, hologramScale: APP.hologram.scale, timestamp: Date.now() };
     localStorage.setItem('VNGRD_SESSION', JSON.stringify(session));
     log('RAM_SECURED');
     if(confirm("SESSION SECURED IN INTERNAL RAM.\n\nDOWNLOAD PHYSICAL BACKUP (.VGD)?")) {
@@ -2497,6 +2545,46 @@ $('btn-save-session').onclick = () => {
         const a = document.createElement('a'); a.href = url; a.download = `VNGRD_SESSION_${Date.now()}.vgd`; a.click();
         log('BACKUP_SAVED');
     }
+};
+
+// VGD FILE IMPORT
+$('btn-import-dna').onclick = () => $('file-vgd').click();
+$('file-vgd').onchange = (e) => {
+    const file = e.target.files[0];
+    if (!file) return;
+    const reader = new FileReader();
+    reader.onload = (ev) => {
+        try {
+            const s = JSON.parse(ev.target.result);
+            // Dispose existing 3D scene before importing new state
+            if (APP.hologram && APP.hologram.scene) {
+                if (window.Compositor && APP.compositor) APP.compositor.disposeScene(APP.hologram.scene);
+                if (window.Compositor) Compositor.disposeRenderer(APP.hologram.renderer);
+                if (APP.hologram.rafId) cancelAnimationFrame(APP.hologram.rafId);
+                APP.hologram.mesh = null; APP.hologram.renderer = null; APP.hologram.scene = null; APP.hologram.camera = null; APP.hologram.rafId = null;
+            }
+            // Restore state
+            if (s.theme) setTheme(s.theme);
+            if (s.bug) { APP.bug.text = s.bug; $('bug-text').value = s.bug; $('station-bug').textContent = s.bug; }
+            if (s.vj) { APP.vj = { ...APP.vj, ...s.vj }; }
+            if (s.layers) {
+                APP.layers = { ...APP.layers, ...s.layers };
+                $('sl-layer-logo').value = APP.layers.logoScale * 100;
+                $('val-layer-logo').textContent = APP.layers.logoScale.toFixed(1);
+                $('user-logo-layer').style.transform = 'scale(' + APP.layers.logoScale + ')';
+            }
+            if (s.hologramScale) APP.hologram.scale = s.hologramScale;
+            // Restore VJ sliders
+            if ($('sl-b')) $('sl-b').value = Math.round(APP.vj.brightness * 100);
+            if ($('sl-c')) $('sl-c').value = Math.round(APP.vj.contrast * 100);
+            if ($('sl-s')) $('sl-s').value = Math.round(APP.vj.saturation * 100);
+            if ($('sl-h')) $('sl-h').value = APP.vj.hue;
+            log('VGD_IMPORTED: ' + file.name.toUpperCase());
+            alert('Session restored from ' + file.name);
+        } catch(err) { log('VGD_IMPORT_ERR: ' + err.message); alert('Invalid VGD file'); }
+    };
+    reader.readAsText(file);
+    e.target.value = '';
 };
 
 function loadFromMemory() {
@@ -2516,6 +2604,13 @@ function startNFTRecording() {
     if (APP.nft.isRecording) { stopNFTRecording(); return; }
     try {
         const canvasStream = APP.render.canvas.captureStream(60);
+        // Mix audio into NFT recording
+        if (APP.audio.ctx) {
+            const nftDest = APP.audio.ctx.createMediaStreamDestination();
+            if (APP.audio.masterGain) APP.audio.masterGain.connect(nftDest);
+            if (APP.audio.micGainNode) APP.audio.micGainNode.connect(nftDest);
+            if (nftDest.stream.getAudioTracks().length > 0) canvasStream.addTrack(nftDest.stream.getAudioTracks()[0]);
+        }
         // Phase 1: 15Mbps VP9 codec enforcement
         let nftRecorderOpts = { mimeType: 'video/webm;codecs=vp9,opus', videoBitsPerSecond: 15000000, audioBitsPerSecond: 128000 };
         try { APP.nft.recorder = new MediaRecorder(canvasStream, nftRecorderOpts); }
@@ -2693,12 +2788,18 @@ async function initWeb3() {
     try {
         if (typeof window.ethereum !== 'undefined') {
             APP.web3.provider = window.ethereum;
-            const accounts = await window.ethereum.request({ method: 'eth_requestAccounts' });
+            // Check already-connected accounts without triggering popup
+            const accounts = await window.ethereum.request({ method: 'eth_accounts' });
             if (accounts.length > 0) {
                 APP.web3.address = accounts[0];
                 APP.web3.isConnected = true;
                 APP.web3.mode = 'sovereign';
+                APP.layerSaver.allReady = true;
+                enableRecordButtons(true);
                 log('WEB3: SOVEREIGN [' + APP.web3.address.slice(0, 8) + '...]');
+            } else {
+                APP.web3.mode = 'guest';
+                log('WEB3: GUEST_MODE (CONNECT VIA WALLET BADGE)');
             }
         } else {
             APP.web3.mode = 'guest';
@@ -2742,12 +2843,10 @@ function injectDNAHeader(dna, seal) {
 // Phase 4: PODCASTER PORTAL UI + MIDI Visual/Audio Mapping
 // ═══════════════════════════════════════════════════════════════════════════
 function portalCamPreview() {
+    // Preview is now inline in the CAMERA_4K sidebar section — no repositioning needed
     const cam = $('cam-preview-float');
     if (!cam) return;
-    // Elevate z-index without reparenting — moving the node breaks camera init wiring
-    cam.style.zIndex = '9999';
-    cam.style.position = 'fixed';
-    log('PORTAL: CAM_ELEVATED');
+    log('PORTAL: CAM_INLINE');
 }
 
 function triggerVisualEffect(note, velocity) {
@@ -2772,15 +2871,16 @@ function setMidiAudioFilter(cc, value) {
 // ═══════════════════════════════════════════════════════════════════════════
 async function checkLayerReadiness() {
     try {
-        const [tex, font, audio] = await Promise.all([
+        const [tex, font] = await Promise.all([
             Promise.resolve(!!(APP.render.canvas && APP.render.ctx)),
-            document.fonts ? document.fonts.ready.then(() => true).catch(() => true) : Promise.resolve(true),
-            Promise.resolve(!!(APP.audio.ctx && APP.audio.ctx.state !== 'closed'))
+            document.fonts ? document.fonts.ready.then(() => true).catch(() => true) : Promise.resolve(true)
         ]);
+        // Audio check: pass if ctx exists OR if wallet is connected (studio unlocked)
+        const audio = !!(APP.audio.ctx && APP.audio.ctx.state !== 'closed') || (APP.wallet && APP.wallet.connected);
         APP.layerSaver.textureReady = tex;
         APP.layerSaver.fontReady = font;
         APP.layerSaver.audioReady = audio;
-        APP.layerSaver.allReady = tex && font && audio;
+        APP.layerSaver.allReady = tex && font;
         if (APP.layerSaver.allReady) {
             log('LAYER_SAVER: ALL_READY');
             enableRecordButtons(true);
@@ -2788,7 +2888,6 @@ async function checkLayerReadiness() {
             const missing = [];
             if (!tex) missing.push('TEXTURE');
             if (!font) missing.push('FONT');
-            if (!audio) missing.push('AUDIO');
             log('LAYER_SAVER: MISSING [' + missing.join(', ') + ']');
             enableRecordButtons(false);
         }
@@ -2850,6 +2949,39 @@ document.addEventListener('DOMContentLoaded', () => {
     
     // Wire UI
     $('btn-init-cam').onclick = initCamera; $('btn-go-live').onclick = goLive; $('btn-end').onclick = endLive; $('btn-kill').onclick = killCamera;
+    
+    // MIC TOGGLE — routes mic into broadcast recording + triggers ducking
+    $('btn-mic').onclick = async () => {
+        const btn = $('btn-mic');
+        if (APP.camera.micStream) {
+            // Turn OFF mic
+            APP.camera.micStream.getTracks().forEach(t => t.stop());
+            APP.camera.micStream = null;
+            APP.audio.duckingActive = false;
+            if (APP.audio.micGainNode) { APP.audio.micGainNode.disconnect(); APP.audio.micGainNode = null; }
+            btn.classList.remove('on');
+            btn.textContent = 'MIC';
+            log('MIC: OFF');
+            return;
+        }
+        try {
+            if (!APP.audio.ctx) APP.audio.ctx = new (window.AudioContext || window.webkitAudioContext)();
+            APP.camera.micStream = await navigator.mediaDevices.getUserMedia({ audio: { echoCancellation: true, noiseSuppression: true, sampleRate: 48000 } });
+            // Create mic source and route to audio context for monitoring + recording
+            const micSource = APP.audio.ctx.createMediaStreamSource(APP.camera.micStream);
+            APP.audio.micGainNode = APP.audio.ctx.createGain();
+            APP.audio.micGainNode.gain.value = 1.0;
+            micSource.connect(APP.audio.micGainNode);
+            APP.audio.micGainNode.connect(APP.audio.ctx.destination);
+            // Arm ducking
+            initMicDucking(APP.camera.micStream);
+            btn.classList.add('on');
+            btn.textContent = 'MIC [ON]';
+            log('MIC: ARMED_48kHz');
+            // Re-check layer readiness with audio context now available
+            checkLayerReadiness();
+        } catch(e) { log('MIC_ERR: ' + e.message); }
+    };
     
     // --- COMPACT MEDIA DECK WIRING ---
     $('btn-load-media').onclick = () => $('file-media').click();
@@ -2999,7 +3131,7 @@ document.addEventListener('DOMContentLoaded', () => {
             $('wallet-badge').style.borderColor = 'var(--g)';
             $('wallet-badge').style.color = 'var(--g)';
             $('wallet-badge').innerHTML = `<span class="dot" style="background:var(--g);box-shadow:0 0 6px var(--g)"></span>${network}:${short}`;
-            log('WALLET: ' + network + ' ' + short);
+            log('WALLET: ' + network + ' ' + short); APP.layerSaver.allReady = true; enableRecordButtons(true); log('LAYER_SAVER: WALLET_UNLOCKED');
             
             // Get balance
             try {
@@ -3018,6 +3150,7 @@ document.addEventListener('DOMContentLoaded', () => {
                     $('wallet-badge').style.borderColor = 'var(--o)';
                     $('wallet-badge').style.color = 'var(--o)';
                     $('wallet-badge').innerHTML = '<span class="dot off"></span>WALLET';
+                    checkLayerReadiness();
                     log('WALLET: DISCONNECTED');
                 } else {
                     const newShort = accounts[0].slice(0, 6) + '...' + accounts[0].slice(-4);
@@ -5041,10 +5174,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 APP.hologram.mesh.scale.setScalar(APP.hologram.scale);
             }
             
-            if ($('sl-layer-logo')) {
-                $('sl-layer-logo').value = APP.hologram.scale * 100;
-                $('val-layer-logo').textContent = APP.hologram.scale.toFixed(1);
-            }
+            // 3D scaling handled via wheel only — no slider hijack
         }, { passive: false });
         
         // Drag and drop for 3D models
@@ -5600,14 +5730,19 @@ if ($('btn-3d-x')) {
 
 // 2. MASTER DUCKING FUNCTION
 const applyAudioDuck = (isActive) => {
-    if (window.APP && APP.audio && APP.audio.masterGain) {
-        const now = APP.audio.context.currentTime;
-        const targetValue = isActive ? 0.15 : 1.0;
+    if (window.APP && APP.audio && APP.audio.duckingGain) {
+        const now = APP.audio.ctx ? APP.audio.ctx.currentTime : 0;
+        // -12dB duck = gain 0.25
+        const targetValue = isActive ? 0.25 : 1.0;
         
-        console.log(isActive ? "CORE: DUCKING_ACTIVE [-16dB]" : "CORE: DUCKING_RESTORED");
+        console.log(isActive ? "CORE: DUCKING_ACTIVE [-12dB]" : "CORE: DUCKING_RESTORED");
         
         // Professional fade to avoid pops
-        APP.audio.masterGain.gain.setTargetAtTime(targetValue, now, 0.4);
+        APP.audio.duckingGain.gain.setTargetAtTime(targetValue, now, 0.05);
+    } else if (window.APP && APP.audio && APP.audio.masterGain) {
+        const now = APP.audio.ctx ? APP.audio.ctx.currentTime : 0;
+        const targetValue = isActive ? 0.25 : 1.0;
+        APP.audio.masterGain.gain.setTargetAtTime(targetValue, now, 0.05);
     }
 };
 
