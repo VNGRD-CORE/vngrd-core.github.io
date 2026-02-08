@@ -2171,14 +2171,22 @@ async function initCamera() {
         APP.camera.videoEl = document.createElement('video');
         APP.camera.videoEl.srcObject = APP.camera.stream;
         APP.camera.videoEl.muted = true; APP.camera.videoEl.playsInline = true; APP.camera.videoEl.play().catch(() => {});
-        // Camera preview removed - video goes directly to stage
         APP.camera.mode = 'preview';
-        $('btn-init-cam').style.display = 'none'; 
-        $('cam-ctrls').style.display = 'block'; 
-        $('btn-kill').style.display = 'block'; 
+        $('btn-init-cam').style.display = 'none';
+        $('cam-ctrls').style.display = 'block';
+        $('btn-kill').style.display = 'block';
         $('cam-dot').classList.remove('off');
         log('CAM_ONLINE');
         if (!APP.audio.ctx) { APP.audio.ctx = new (window.AudioContext || window.webkitAudioContext)(); }
+
+        // Activate floating camera preview box
+        const preview = $('cam-preview-float');
+        const previewVid = $('preview-vid-float');
+        if (preview && previewVid) {
+            previewVid.srcObject = APP.camera.stream;
+            preview.classList.add('active');
+            APP.camera.previewEl = previewVid;
+        }
     } catch (e) { log('CAM_DENIED'); }
 }
 
