@@ -2025,14 +2025,13 @@ if ($('btn-set-station')) {
     };
 }
 
-// STATION BUG - Toggle [X] (visible -> hidden)
+// STATION BUG - Toggle [X] (visible -> hidden via Trinity state)
 if ($('btn-bug-toggle')) {
     $('btn-bug-toggle').onclick = () => {
-        const bug = $('station-bug');
-        if (bug) {
-            const hidden = bug.style.display === 'none';
-            bug.style.display = hidden ? 'block' : 'none';
-        }
+        APP.trinity.bug.visible = !APP.trinity.bug.visible;
+        var bug = $('station-bug');
+        if (bug) bug.classList.toggle('hidden', !APP.trinity.bug.visible);
+        log(APP.trinity.bug.visible ? 'BUG: VISIBLE' : 'BUG: HIDDEN');
     };
 }
 
@@ -2165,63 +2164,7 @@ if ($('btn-2d-x')) {
     document.addEventListener('touchend', function() { pinchActor = null; lastDist = 0; });
 })();
 
-// --- V34 UNIFIED HOLOGRAM ENGINE ---
-
-// 1. FILE SELECTION & INJECTION
-if ($('btn-inject-3d')) {
-    $('btn-inject-3d').onclick = () => {
-        const input = document.createElement('input');
-        input.type = 'file';
-        input.accept = '.stl,.obj,.glb,.gltf,.fbx,.3ds,.dae,.ply';
-        
-        input.onchange = (e) => {
-            const file = e.target.files[0];
-            if(!file) return;
-            
-            const ext = file.name.toLowerCase().split('.').pop();
-            const url = URL.createObjectURL(file);
-            let loader = (ext === 'obj') ? new THREE.OBJLoader() : new THREE.STLLoader();
-            
-            log(`SYSTEM: LOADING_${ext.toUpperCase()}...`);
-
-            loader.load(url, (result) => {
-                let mesh;
-                if (ext === 'obj') {
-                    mesh = result; 
-                } else {
-                    const mat = new THREE.MeshPhongMaterial({ wireframe: true });
-                    mesh = new THREE.Mesh(result, mat);
-                }
-                
-                normalizeAndAddMesh(mesh);
-                URL.revokeObjectURL(url); 
-            });
-        };
-        input.click();
-    };
-}
-
-// SIMPLE HIDE ENGINE
-if ($('btn-3d-x')) {
-    $('btn-3d-x').onclick = () => {
-        const widget = $('widget-layer');
-        if (widget) {
-            // Full GPU teardown via Compositor.disposeScene
-            if (APP.hologram && APP.hologram.scene) {
-                if (window.Compositor) Compositor.disposeRenderer(APP.hologram.renderer);
-                if (APP.compositor) APP.compositor.disposeScene(APP.hologram.scene);
-                APP.hologram.mesh = null;
-                APP.hologram.renderer = null;
-                APP.hologram.scene = null;
-                APP.hologram.camera = null;
-                if (APP.hologram.rafId) cancelAnimationFrame(APP.hologram.rafId);
-                APP.hologram.rafId = null;
-            }
-            widget.style.display = 'none';
-            log('SYSTEM: 3D_DISPOSED_AND_CLOSED');
-        }
-    };
-}
+// 3D handled exclusively by module script — no inline handlers
 
 // MEDIA & CYCLE LOGIC
 function loadMediaFiles(input) {
@@ -5562,7 +5505,7 @@ document.addEventListener('DOMContentLoaded', () => {
         btn.onclick = () => {
             const input = document.createElement('input');
             input.type = 'file';
-            input.accept = '.stl,.obj';
+            input.accept = '.stl,.obj,.glb,.gltf,.fbx,.3ds,.dae,.ply';
             input.onchange = (e) => {
                 const file = e.target.files[0];
                 if(!file) return;
@@ -5688,85 +5631,9 @@ function runVanguardTrack() {
     }
     
     log(`AUDIO_SYNC: ${trackID}_STARTED`);
-}// --- HOLOGRAM CONTROL ENGINE ---
-function toggleHologramVisibility(show) {
-    const hologramLayer = document.getElementById('widget-layer');
-    if (!hologramLayer) return;
-
-    if (show) {
-        hologramLayer.style.display = 'block';
-        log('SYSTEM: 3D_HOLOGRAM_ACTIVE');
-    } else {
-        hologramLayer.style.display = 'none';
-        // Full GPU teardown — dispose geometry, materials, textures, renderer
-        if (APP.hologram && APP.hologram.scene) {
-            if (window.Compositor) Compositor.disposeRenderer(APP.hologram.renderer);
-            if (APP.compositor) APP.compositor.disposeScene(APP.hologram.scene);
-            APP.hologram.mesh = null;
-            APP.hologram.renderer = null;
-            APP.hologram.scene = null;
-            APP.hologram.camera = null;
-            if (APP.hologram.rafId) cancelAnimationFrame(APP.hologram.rafId);
-            APP.hologram.rafId = null;
-            log('SYSTEM: 3D_FULLY_DISPOSED');
-        }
-    }
 }
 
-// Ensure the layer is visible BEFORE adding a new mesh
-// --- THE ONLY 3D NORMALIZER YOU NEED ---
-function normalizeAndAddMesh(mesh) {
-    const widget = $('widget-layer');
-    if (!widget) return;
 
-    // 1. FORCE VISIBILITY
-    widget.style.display = 'block';
-    widget.style.opacity = '1';
-
-    // 2. RE-INITIALIZE CANVAS (If it was wiped)
-    if (!document.getElementById('hologram-canvas')) {
-        widget.innerHTML = '<canvas id="hologram-canvas" style="width:100%; height:100%;"></canvas>';
-        log('SYSTEM: REBUILDING_3D_CANVAS');
-    }
-
-    // 3. SAFETY CHECK: If the Scene died, we stop here
-    if (!APP.hologram || !APP.hologram.scene) {
-        log('ERROR: 3D_CORE_MISSING');
-        return;
-    }
-
-    // 4. PURGE: Remove any existing mesh
-    if (APP.hologram.mesh) {
-        APP.hologram.scene.remove(APP.hologram.mesh);
-        APP.hologram.mesh = null;
-    }
-
-    // 5. MATERIAL: Neon Blue
-    mesh.traverse((node) => {
-        if (node.isMesh) {
-            node.material = new THREE.MeshPhongMaterial({
-                color: 0x00f3ff,
-                emissive: 0x00f3ff,
-                emissiveIntensity: 0.5,
-                wireframe: true
-            });
-        }
-    });
-
-    // 6. SCALE & CENTER
-    const box = new THREE.Box3().setFromObject(mesh);
-    const size = box.getSize(new THREE.Vector3());
-    const maxDim = Math.max(size.x, size.y, size.z);
-    mesh.scale.setScalar(maxDim > 0 ? (2 / maxDim) : 1);
-    
-    const center = box.getCenter(new THREE.Vector3());
-    mesh.position.sub(center);
-    
-   // 7. INJECT
-    APP.hologram.mesh = mesh; 
-    APP.hologram.scene.add(mesh);
-    log('SYSTEM: RELAUNCH_COMPLETE');
-}
 
 // --- INTEGRATED AUDIO DUCKING & UI CONTROLS ---
 
