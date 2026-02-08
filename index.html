@@ -932,10 +932,22 @@ body.shooting-mode #btn-shooting {
     }
 
     /* LANDSCAPE MOBILE — 1:1 desktop parity (full UI mirrored) */
+    /* LANDSCAPE MOBILE — 1:1 desktop mirror, full UI, 0→1 coords intact */
     @media (max-width: 1024px) and (orientation: landscape) {
         html, body { font-size: 10px; }
-        .sidebar { width: 220px; min-width: 180px; overflow-y: auto; }
-        #stage { flex: 1; }
+        .sidebar {
+            width: 200px; min-width: 160px;
+            overflow-y: auto; overflow-x: hidden;
+            -webkit-overflow-scrolling: touch;
+        }
+        #stage { flex: 1; min-height: 0; }
+        #top-bar { height: 36px; }
+        #bottom-bar { height: 40px; }
+        #sys-log { max-height: 60px; font-size: 9px; }
+        #lower-third { bottom: 40px; left: 15px; }
+        .lt-container { min-width: 200px; max-width: 300px; padding: 8px 16px 8px 10px; }
+        .lt-title { font-size: 14px; }
+        .lt-subtitle { font-size: 9px; }
     }
 
 /* --- KINETIC SHUTTER TRANSITION --- */
@@ -1540,9 +1552,8 @@ const APP = {
     // HOLOGRAM_ENGINE - THREE.JS REACTOR CORE
     hologram: {
         scene: null, camera: null, renderer: null,
-        mesh: null, rafId: null,
-        scale: 1.0, rotationSpeed: 0.01,
-        loadedModel: null
+        mesh: null,
+        scale: 1.0, rotationSpeed: 0.01
     },
     // LEXICA_NANO
     neural: { generating: false, lastImage: null }
@@ -1953,10 +1964,15 @@ function renderLoop(timestamp) {
         }
     }
     
-    // ACTOR 3: 3D HOLOGRAM (drawImage of live Three.js WebGL canvas buffer)
+    // ACTOR 3: 3D MODEL (renderLoop drives rotation + render, zero zombie loops)
     if (T.holo.visible) {
         var holoCanvas = $('hologram-canvas');
         if (holoCanvas && holoCanvas.width > 0) {
+            // Drive 3D animation from renderLoop — single rAF for everything
+            if (APP.hologram.mesh && APP.hologram.renderer && APP.hologram.scene && APP.hologram.camera) {
+                APP.hologram.mesh.rotation.y += APP.hologram.rotationSpeed;
+                APP.hologram.renderer.render(APP.hologram.scene, APP.hologram.camera);
+            }
             ctx.save();
             var hScale = T.holo.scale;
             var hw = holoCanvas.width * hScale * (w / 1920);
@@ -1967,6 +1983,42 @@ function renderLoop(timestamp) {
         }
     }
     
+    // ═══ LOWER THIRD BURN-IN — drawn onto canvas for 15Mbps recording ═══
+    if (APP.lowerThird.visible) {
+        var lt = $('lower-third');
+        var ltTitle = $('lt-title-text');
+        var ltSub = $('lt-subtitle-text');
+        if (lt && ltTitle) {
+            ctx.save();
+            var ltX = w * 0.02;
+            var ltY = h * 0.85;
+            var ltW = Math.min(w * 0.35, 400 * (w / 1920));
+            var ltH = h * 0.09;
+            var ltPreset = APP.lowerThird.preset || 'guest';
+            var ltAccent = ltPreset === 'track' ? '#00ff88' : ltPreset === 'breaking' ? '#ff3333' : '#00f3ff';
+            // Background bar
+            ctx.fillStyle = 'rgba(0,0,0,0.85)';
+            ctx.fillRect(ltX, ltY, ltW, ltH);
+            // Accent border-left
+            ctx.fillStyle = ltAccent;
+            ctx.fillRect(ltX, ltY, w * 0.003, ltH);
+            // Title text
+            var ltTitleFS = Math.max(12, h * 0.022);
+            ctx.font = '700 ' + ltTitleFS + 'px Orbitron, sans-serif';
+            ctx.fillStyle = '#ffffff';
+            ctx.textAlign = 'left'; ctx.textBaseline = 'top';
+            ctx.fillText(ltTitle.textContent || '', ltX + w * 0.012, ltY + ltH * 0.15);
+            // Subtitle text
+            if (ltSub) {
+                var ltSubFS = Math.max(9, h * 0.013);
+                ctx.font = '400 ' + ltSubFS + 'px JetBrains Mono, monospace';
+                ctx.fillStyle = ltAccent;
+                ctx.fillText((ltSub.textContent || '').toUpperCase(), ltX + w * 0.012, ltY + ltH * 0.6);
+            }
+            ctx.restore();
+        }
+    }
+
     // ═══ PERMANENT SIGNATURE — untouchable, not part of Trinity ═══
     ctx.save();
     var sigFS = Math.max(14, h * 0.012);
@@ -2692,10 +2744,12 @@ $('file-vgd').onchange = (e) => {
             const s = JSON.parse(ev.target.result);
             // Dispose existing 3D scene before importing new state
             if (APP.hologram && APP.hologram.scene) {
-                if (window.Compositor && APP.compositor) APP.compositor.disposeScene(APP.hologram.scene);
-                if (window.Compositor) Compositor.disposeRenderer(APP.hologram.renderer);
-                if (APP.hologram.rafId) cancelAnimationFrame(APP.hologram.rafId);
-                APP.hologram.mesh = null; APP.hologram.renderer = null; APP.hologram.scene = null; APP.hologram.camera = null; APP.hologram.rafId = null;
+                if (APP.hologram.mesh) {
+                    APP.hologram.scene.remove(APP.hologram.mesh);
+                    APP.hologram.mesh.traverse(function(c) { if (c.isMesh) { if (c.geometry) c.geometry.dispose(); if (c.material) c.material.dispose(); } });
+                }
+                if (APP.hologram.renderer) APP.hologram.renderer.dispose();
+                APP.hologram.mesh = null; APP.hologram.renderer = null; APP.hologram.scene = null; APP.hologram.camera = null;
             }
             // Restore state
             if (s.theme) setTheme(s.theme);
@@ -2907,10 +2961,11 @@ function monitorDucking() {
     for (let i = 0; i < buf.length; i++) sum += buf[i] * buf[i];
     const db = 20 * Math.log10(Math.max(Math.sqrt(sum / buf.length), 1e-10));
     const now = APP.audio.ctx.currentTime;
+    // setTargetAtTime: exponential approach = zero pops/clicks in 15Mbps recording
     if (db > -20) {
-        APP.audio.duckingGain.gain.linearRampToValueAtTime(0.3, now + 0.05);
+        APP.audio.duckingGain.gain.setTargetAtTime(0.25, now, 0.05);
     } else {
-        APP.audio.duckingGain.gain.linearRampToValueAtTime(1.0, now + 0.3);
+        APP.audio.duckingGain.gain.setTargetAtTime(1.0, now, 0.15);
     }
 }
 
@@ -5242,72 +5297,10 @@ document.addEventListener('DOMContentLoaded', () => {
         APP.trasudate.rafId = requestAnimationFrame(trasudatePhysicsLoop);
     }
 
-    // HOLOGRAM ENGINE removed — 3D is now handled exclusively by the
-    // module script btn-inject-3d (no duplicate scene/renderer)
-    function initHologram() {
-        var container = $('widget-layer');
-        if (container) { container.style.opacity = '0'; container.style.pointerEvents = 'none'; }
-    }
+    // initHologram() REMOVED — single 3D engine lives in module script
+    // Widget-layer is hidden by default; only the module btn-inject-3d activates it
     
-    // Wheel event for scaling
-    const widgetLayer = $('widget-layer');
-    if (widgetLayer) {
-        widgetLayer.addEventListener('wheel', e => {
-            e.preventDefault();
-            const delta = e.deltaY > 0 ? -0.1 : 0.1;
-            APP.hologram.scale = Math.max(0.1, Math.min(10, APP.hologram.scale + delta)); APP.trinity.holo.scale = APP.hologram.scale;
-            
-            if (APP.hologram.mesh) {
-                APP.hologram.mesh.scale.setScalar(APP.hologram.scale);
-            }
-            
-            // 3D scaling handled via wheel only — no slider hijack
-        }, { passive: false });
-        
-        // Drag and drop for 3D models
-        widgetLayer.addEventListener('dragover', e => {
-            e.preventDefault();
-            widgetLayer.classList.add('drag-target');
-        });
-        
-        widgetLayer.addEventListener('dragleave', () => {
-            widgetLayer.classList.remove('drag-target');
-        });
-        
-        widgetLayer.addEventListener('drop', async e => {
-            e.preventDefault();
-            widgetLayer.classList.remove('drag-target');
-            
-            const file = e.dataTransfer.files[0];
-            if (!file) return;
-            
-            const ext = file.name.toLowerCase().split('.').pop();
-            
-            if (ext === 'obj' || ext === 'glb' || ext === 'gltf') {
-                log('HOLOGRAM: LOADING_' + file.name.toUpperCase());
-                
-                // For now, just acknowledge - full OBJ/GLB loading requires additional loaders
-                ghostLog('3D_MODEL: ' + file.name, 'ai');
-                ghostLog('NOTE: FULL_LOADER_REQUIRES_OBJLOADER', 'ai');
-                
-                // Create a placeholder indicating model was received
-                if (APP.hologram.scene && APP.hologram.mesh) {
-                    // Change to a different geometry to show model changed
-                    const newGeo = new THREE.TorusKnotGeometry(0.6, 0.2, 64, 8);
-                    const newMat = new THREE.MeshBasicMaterial({ 
-                        color: 0x00f3ff, 
-                        wireframe: true 
-                    });
-                    
-                    APP.hologram.scene.remove(APP.hologram.mesh);
-                    APP.hologram.mesh = new THREE.Mesh(newGeo, newMat);
-                    APP.hologram.scene.add(APP.hologram.mesh);
-                    
-                    log('HOLOGRAM: MODEL_PLACEHOLDER_LOADED');
-                }
-            }
-        });
-    }
+    // Widget-layer wheel/drag handlers REMOVED — Touch-Bridge handles all scaling
     
     // Initialize hologram after a short delay
     setTimeout(initHologram, 500);
@@ -5572,7 +5565,7 @@ document.addEventListener('DOMContentLoaded', () => {
     import { STLLoader } from 'three/addons/loaders/STLLoader.js';
     import { OBJLoader } from 'three/addons/loaders/OBJLoader.js';
 
-    // This specific piece of 3D logic lives in its own module world
+    // ═══ SINGLE 3D ENGINE — no duplicate rAF, renderLoop drives animation ═══
     const btn = document.getElementById('btn-inject-3d');
     if (btn) {
         btn.onclick = () => {
@@ -5581,40 +5574,48 @@ document.addEventListener('DOMContentLoaded', () => {
             input.accept = '.stl,.obj,.glb,.gltf,.fbx,.3ds,.dae,.ply';
             input.onchange = (e) => {
                 const file = e.target.files[0];
-                if(!file) return;
+                if (!file) return;
                 const url = URL.createObjectURL(file);
                 const ext = file.name.toLowerCase().split('.').pop();
-                
-                // Dispose previous hologram to prevent renderer/context leak
-                if (APP.hologram && APP.hologram.scene) {
-                    if (window.Compositor) {
-                        APP.compositor && APP.compositor.disposeScene(APP.hologram.scene);
-                        Compositor.disposeRenderer(APP.hologram.renderer);
-                    }
-                    if (APP.hologram.rafId) cancelAnimationFrame(APP.hologram.rafId);
+
+                // Dispose previous mesh only (keep renderer/scene if they exist)
+                if (APP.hologram.mesh && APP.hologram.scene) {
+                    APP.hologram.scene.remove(APP.hologram.mesh);
+                    APP.hologram.mesh.traverse(child => {
+                        if (child.isMesh) {
+                            if (child.geometry) child.geometry.dispose();
+                            if (child.material) child.material.dispose();
+                        }
+                    });
                     APP.hologram.mesh = null;
-                    APP.hologram.renderer = null;
-                    APP.hologram.scene = null;
-                    APP.hologram.camera = null;
-                    APP.hologram.rafId = null;
                 }
 
-                const container = document.getElementById('widget-layer');
-                container.innerHTML = '<canvas id="hologram-canvas"></canvas>';
-                container.style.opacity = '1';
-                container.style.display = 'block';
-                
-                const scene = new THREE.Scene();
-                const camera = new THREE.PerspectiveCamera(75, 1, 0.1, 1000);
-                const renderer = new THREE.WebGLRenderer({ 
-                    canvas: document.getElementById('hologram-canvas'), 
-                    alpha: true, antialias: true,
-                    preserveDrawingBuffer: true 
-                });
-                renderer.setClearColor(0x000000, 0);
-                renderer.setSize(300, 300);
-                scene.add(new THREE.AmbientLight(0xffffff, 2.5));
-                camera.position.z = 5;
+                // Create renderer/scene/camera ONLY if they don't exist yet
+                if (!APP.hologram.renderer) {
+                    const container = document.getElementById('widget-layer');
+                    container.innerHTML = '<canvas id="hologram-canvas"></canvas>';
+                    container.style.opacity = '1';
+                    container.style.display = 'block';
+
+                    const scene = new THREE.Scene();
+                    scene.add(new THREE.AmbientLight(0xffffff, 2.5));
+                    const camera = new THREE.PerspectiveCamera(75, 1, 0.1, 1000);
+                    camera.position.z = 5;
+                    const renderer = new THREE.WebGLRenderer({
+                        canvas: document.getElementById('hologram-canvas'),
+                        alpha: true, antialias: true,
+                        preserveDrawingBuffer: true
+                    });
+                    renderer.setClearColor(0x000000, 0);
+                    renderer.setSize(300, 300);
+
+                    APP.hologram.scene = scene;
+                    APP.hologram.camera = camera;
+                    APP.hologram.renderer = renderer;
+                } else {
+                    const container = document.getElementById('widget-layer');
+                    if (container) { container.style.opacity = '1'; container.style.display = 'block'; }
+                }
 
                 const loader = (ext === 'obj') ? new OBJLoader() : new STLLoader();
                 loader.load(url, (data) => {
@@ -5630,19 +5631,14 @@ document.addEventListener('DOMContentLoaded', () => {
                     model.position.y += (model.position.y - center.y);
                     model.position.z += (model.position.z - center.z);
                     model.scale.setScalar(3.0 / maxDim);
-                    scene.add(model);
-                    // Store references for proper teardown on next load/delete
-                    APP.hologram.scene = scene;
-                    APP.hologram.camera = camera;
-                    APP.hologram.renderer = renderer;
+
+                    APP.hologram.scene.add(model);
                     APP.hologram.mesh = model;
                     APP.trinity.holo.visible = true;
-                    const anim = () => {
-                        APP.hologram.rafId = requestAnimationFrame(anim);
-                        model.rotation.y += 0.01;
-                        renderer.render(scene, camera);
-                    };
-                    anim();
+
+                    // NO requestAnimationFrame — renderLoop drives rotation + render
+                    APP.hologram.renderer.render(APP.hologram.scene, APP.hologram.camera);
+                    if (typeof log === 'function') log('3D_MODEL: ' + file.name.toUpperCase() + ' LOADED');
                 });
             };
             input.click();
@@ -5713,18 +5709,27 @@ function runVanguardTrack() {
 // 1. SIMPLEST HIDE BUTTON
 if ($('btn-3d-x')) {
     $('btn-3d-x').onclick = () => {
-        // Full GPU teardown via Compositor.disposeScene
+        // Full GPU teardown — single engine cleanup
         if (APP.hologram && APP.hologram.scene) {
-            if (window.Compositor) Compositor.disposeRenderer(APP.hologram.renderer);
-            if (APP.compositor) APP.compositor.disposeScene(APP.hologram.scene);
-            APP.hologram.mesh = null;
-            APP.hologram.renderer = null;
+            if (APP.hologram.mesh) {
+                APP.hologram.scene.remove(APP.hologram.mesh);
+                APP.hologram.mesh.traverse(child => {
+                    if (child.isMesh) {
+                        if (child.geometry) child.geometry.dispose();
+                        if (child.material) child.material.dispose();
+                    }
+                });
+                APP.hologram.mesh = null;
+            }
+            if (APP.hologram.renderer) {
+                APP.hologram.renderer.dispose();
+                APP.hologram.renderer = null;
+            }
             APP.hologram.scene = null;
             APP.hologram.camera = null;
-            if (APP.hologram.rafId) cancelAnimationFrame(APP.hologram.rafId);
-            APP.hologram.rafId = null;
         }
-        $('widget-layer').style.display = 'none';
+        const wl = document.getElementById('widget-layer');
+        if (wl) wl.style.display = 'none';
         APP.trinity.holo.visible = false;
         log('SYSTEM: 3D_DISPOSED_AND_STASHED');
     };
@@ -5732,20 +5737,21 @@ if ($('btn-3d-x')) {
 
 // 2. MASTER DUCKING FUNCTION
 const applyAudioDuck = (isActive) => {
-    if (window.APP && APP.audio && APP.audio.duckingGain) {
-        const now = APP.audio.ctx ? APP.audio.ctx.currentTime : 0;
-        // -12dB duck = gain 0.25
-        const targetValue = isActive ? 0.25 : 1.0;
-        
-        console.log(isActive ? "CORE: DUCKING_ACTIVE [-12dB]" : "CORE: DUCKING_RESTORED");
-        
-        // Professional fade to avoid pops
-        APP.audio.duckingGain.gain.setTargetAtTime(targetValue, now, 0.05);
-    } else if (window.APP && APP.audio && APP.audio.masterGain) {
-        const now = APP.audio.ctx ? APP.audio.ctx.currentTime : 0;
-        const targetValue = isActive ? 0.25 : 1.0;
-        APP.audio.masterGain.gain.setTargetAtTime(targetValue, now, 0.05);
+    if (!window.APP || !APP.audio) return;
+    const ctx = APP.audio.ctx;
+    if (!ctx) return;
+    const now = ctx.currentTime;
+    const target = isActive ? 0.25 : 1.0;  // -12dB duck or 0dB restore
+    const tau = 0.05;  // 50ms time constant — smooth exponential, zero pops
+
+    if (APP.audio.duckingGain) {
+        APP.audio.duckingGain.gain.cancelScheduledValues(now);
+        APP.audio.duckingGain.gain.setTargetAtTime(target, now, tau);
+    } else if (APP.audio.masterGain) {
+        APP.audio.masterGain.gain.cancelScheduledValues(now);
+        APP.audio.masterGain.gain.setTargetAtTime(target, now, tau);
     }
+    if (typeof log === 'function') log(isActive ? 'DUCKING: ACTIVE [-12dB]' : 'DUCKING: RESTORED [0dB]');
 };
 
 // 3. EVENT INTERCEPTOR (Priority Phase)
