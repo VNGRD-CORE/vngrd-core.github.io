@@ -5530,80 +5530,90 @@ document.addEventListener('DOMContentLoaded', () => {
     import { STLLoader } from 'three/addons/loaders/STLLoader.js';
     import { OBJLoader } from 'three/addons/loaders/OBJLoader.js';
 
-    // ═══ SINGLE 3D ENGINE — no duplicate rAF, renderLoop drives animation ═══
     // ═══ THE HYBRID FERRARI (Wide Support + Visibility Fix) ═══
+// ═══ 3D IGNITION: FINAL FERRARI BUILD (AUTO-CENTER & FIT) ═══
 const btn = document.getElementById('btn-inject-3d');
 if (btn) {
     btn.onclick = () => {
+        // 1. Safety Checks: Create the Engine State if Missing
+        if (!window.APP) window.APP = {};
+        if (!window.APP.hologram) window.APP.hologram = { scene: null, mesh: null, camera: null };
+        if (!window.APP.trinity) window.APP.trinity = { holo: { visible: false } };
+
         const input = document.createElement('input');
         input.type = 'file';
-        // 1. KEEP CLAUDE'S WIDE SUPPORT
-        input.accept = '.stl,.obj,.glb,.gltf,.fbx,.3ds,.dae,.ply';
-        
+        input.accept = '.obj,.stl'; // Rock-solid formats only
+
         input.onchange = (e) => {
             const file = e.target.files[0];
             if (!file) return;
             const url = URL.createObjectURL(file);
-            const ext = file.name.toLowerCase().split('.').pop();
+            const ext = file.name.split('.').pop().toLowerCase();
 
-            // 2. THE IGNITION (Fixes "Invisible Model")
-            // If the engine is cold, we wake it up with Lights & Camera
-            if (!APP.hologram.scene) {
+            // 2. ENGINE START: Create Scene & Lights (The "Dark Room" Fix)
+            if (!window.APP.hologram.scene) {
                 console.log("IGNITION: FIRING_MAIN_ENGINE");
-                APP.hologram.scene = new THREE.Scene();
-                APP.hologram.camera = new THREE.PerspectiveCamera(50, 1, 0.1, 1000);
-                APP.hologram.camera.position.z = 5; // Pull back to see the model
+                const scene = new THREE.Scene();
+                const camera = new THREE.PerspectiveCamera(50, 1, 0.1, 1000);
+                camera.position.z = 5; // Standard viewing distance
                 
-                // Add Lights (So it's not black)
+                // Lighting: Essential for visibility
                 const ambient = new THREE.AmbientLight(0xffffff, 1.5);
-                const directional = new THREE.DirectionalLight(0xffffff, 2.0);
-                directional.position.set(2, 5, 5);
-                APP.hologram.scene.add(ambient);
-                APP.hologram.scene.add(directional);
+                const dirLight = new THREE.DirectionalLight(0xffffff, 2.0);
+                dirLight.position.set(2, 5, 5);
+                scene.add(ambient);
+                scene.add(dirLight);
+
+                window.APP.hologram.scene = scene;
+                window.APP.hologram.camera = camera;
             }
 
-            // 3. THE GHOST KILLER (Physical & Memory)
-            const legacyLayer = document.getElementById('widget-layer');
-            if (legacyLayer) { legacyLayer.innerHTML = ''; legacyLayer.style.display = 'none'; }
-
-            if (APP.hologram.mesh) {
-                APP.hologram.scene.remove(APP.hologram.mesh);
-                if (APP.hologram.mesh.geometry) APP.hologram.mesh.geometry.dispose();
-                APP.hologram.mesh = null;
+            // 3. CLEANUP: Remove Old Mesh
+            if (window.APP.hologram.mesh) {
+                window.APP.hologram.scene.remove(window.APP.hologram.mesh);
+                // Try to dispose memory to prevent leaks
+                if (window.APP.hologram.mesh.geometry) window.APP.hologram.mesh.geometry.dispose();
+                window.APP.hologram.mesh = null;
             }
 
-            // 4. SMART LOADER SELECTION
-            // We expand this to actually handle the files you accepted
-            let loader;
-            if (ext === 'obj') loader = new THREE.OBJLoader();
-            else if (ext === 'stl') loader = new THREE.STLLoader();
-            else if (ext === 'glb' || ext === 'gltf') loader = new THREE.GLTFLoader(); // Added GLTF support
-            else {
-                console.warn(`Loader for .${ext} not ready yet. Defaulting to OBJ.`);
-                loader = new THREE.OBJLoader();
-            }
+            // 4. LOAD & PROCESS
+            let loader = (ext === 'obj') ? new THREE.OBJLoader() : new THREE.STLLoader();
 
             loader.load(url, (data) => {
+                // Handle different return types (Group vs Mesh)
                 let model = data.scene ? data.scene : (data.isBufferGeometry ? new THREE.Mesh(data) : data);
 
-                // 5. MATRIX STYLING
+                // A. Apply Matrix Style (Wireframe)
                 model.traverse(child => {
-                    if (child.isMesh) child.material = new THREE.MeshNormalMaterial({ wireframe: true });
+                    if (child.isMesh) {
+                        child.material = new THREE.MeshNormalMaterial({ wireframe: true });
+                    }
                 });
 
-                // 6. AUTO-SCALE & CENTER
+                // B. AUTO-CENTERING LOGIC (The Fix)
                 const box = new THREE.Box3().setFromObject(model);
+                const center = box.getCenter(new THREE.Vector3());
                 const size = box.getSize(new THREE.Vector3());
-                const maxDim = Math.max(size.x, size.y, size.z);
-                model.scale.setScalar(3.0 / maxDim);
-
-                // 7. LAUNCH
-                APP.hologram.mesh = model;
-                APP.hologram.scene.add(model);
-                APP.trinity.holo.visible = true;
                 
-                console.log(`SYSTEM: 3D_ACTOR_LIVE [${ext}]`);
-            });
+                // Shift the model so its visual center is at (0,0,0)
+                model.position.x += (model.position.x - center.x);
+                model.position.y += (model.position.y - center.y);
+                model.position.z += (model.position.z - center.z);
+
+                // C. AUTO-SCALING LOGIC
+                const maxDim = Math.max(size.x, size.y, size.z);
+                const scaleFactor = 3.0 / maxDim; // 3.0 fits perfectly in z=5 camera
+                model.scale.setScalar(scaleFactor);
+
+                // 5. GO LIVE
+                window.APP.hologram.scene.add(model);
+                window.APP.hologram.mesh = model;
+                window.APP.trinity.holo.visible = true;
+
+                console.log(`SYSTEM: 3D_ACTOR_READY [Scale: ${scaleFactor.toFixed(2)}x]`);
+            }, 
+            undefined, 
+            (err) => console.error("LOADER_ERROR:", err));
         };
         input.click();
     };
