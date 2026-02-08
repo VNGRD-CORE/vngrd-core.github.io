@@ -1125,6 +1125,10 @@ body.shooting-mode #btn-shooting {
                     <button class="btn" id="btn-set-station" style="flex:2;">SET BUG</button>
                     <button class="btn" id="btn-bug-toggle" title="Toggle Bug">[X]</button>
                 </div>
+                <div class="slider-wrap">
+                    <div class="slider-top"><span class="slider-lbl">BUG SCALE</span><span class="slider-val" id="val-bug-scale">1.0</span></div>
+                    <input type="range" min="10" max="500" value="100" id="sl-bug-scale">
+                </div>
                 <!-- 2D LOGO -->
                 <div class="btn-row" style="margin-top:6px;">
                     <button class="btn" id="btn-upload-2d" style="flex:2;">2D LOGO</button>
@@ -1133,7 +1137,7 @@ body.shooting-mode #btn-shooting {
                 <input type="file" id="file-2d-logo" accept=".png,.jpg,.jpeg,.gif,.webp" style="display:none;">
                 <div class="slider-wrap">
                     <div class="slider-top"><span class="slider-lbl">SCALE</span><span class="slider-val" id="val-layer-logo">1.0</span></div>
-                    <input type="range" min="30" max="200" value="100" id="sl-layer-logo">
+                    <input type="range" min="10" max="500" value="100" id="sl-layer-logo">
                 </div>
                 <!-- 3D HOLOGRAM -->
                 <div class="btn-row">
@@ -1793,16 +1797,10 @@ function renderLoop(timestamp) {
         }
     }
 
-    // --- TRAILS ---
-    if (APP.vj.trailsEnabled) { 
-        ctx.globalAlpha = APP.vj.trailAlpha; 
-        ctx.fillStyle = '#000';
-        ctx.fillRect(0,0,w,h);
-        ctx.globalAlpha = 1;
-    } else { 
-        ctx.fillStyle = '#000'; 
-        ctx.fillRect(0, 0, w, h); 
-    }
+    // --- CLEAR FRAME (kill ghosting on logos) ---
+    ctx.clearRect(0, 0, w, h);
+    ctx.fillStyle = '#000';
+    ctx.fillRect(0, 0, w, h);
     
     // FILTER STACK - values are decimals (1.0 = 100%), convert to proper CSS
     const filterStr = `brightness(${APP.vj.brightness}) contrast(${APP.vj.contrast}) saturate(${APP.vj.saturation}) hue-rotate(${APP.vj.hue}deg)${APP.vj.invert ? ' invert(1)' : ''}`;
@@ -1850,60 +1848,68 @@ function renderLoop(timestamp) {
         ctx.restore();
     }
     
-    // --- CANVAS-BURNED BRANDING (visible in recordings) ---
+    // --- ORIGINAL ASSET COMPOSITING (burns real DOM assets into recording) ---
     ctx.filter = 'none';
+    ctx.globalAlpha = 1;
+    ctx.globalCompositeOperation = 'source-over';
     
-    // 1. Station Bug text (VNGRD or custom)
+    // 1. Station Bug — draw the ORIGINAL element (image child or text)
     const bugEl = $('station-bug');
     if (bugEl && !bugEl.classList.contains('hidden') && bugEl.style.display !== 'none') {
-        ctx.save();
+        const bugImg = bugEl.querySelector('img');
         const bugScale = APP.layers.bugScale || 1.0;
-        const bugFontSize = Math.max(20, 28 * bugScale * (h / 1080));
-        ctx.font = '900 ' + bugFontSize + 'px Orbitron';
-        ctx.fillStyle = 'rgba(255,255,255,0.9)';
-        ctx.textAlign = 'left';
-        ctx.shadowColor = 'rgba(0,0,0,0.5)';
-        ctx.shadowBlur = 4;
-        const bugX = 30 * (w / 1920);
-        const bugY = 50 * (h / 1080);
-        ctx.fillText(APP.bug.text || 'VNGRD', bugX, bugY);
-        ctx.restore();
+        const bx = 30 * (w / 1920);
+        const by = 30 * (h / 1080);
+        if (bugImg && bugImg.complete && bugImg.naturalWidth > 0) {
+            // ORIGINAL uploaded bug image via drawImage
+            ctx.save();
+            const bw = bugImg.naturalWidth * bugScale * (w / 1920);
+            const bh = bugImg.naturalHeight * bugScale * (h / 1080);
+            ctx.drawImage(bugImg, bx, by, bw, bh);
+            ctx.restore();
+        } else if (APP.bug.text) {
+            // Station bug text — matches original DOM styling exactly
+            ctx.save();
+            const bugFontSize = Math.max(20, 28 * bugScale * (h / 1080));
+            ctx.font = '800 ' + bugFontSize + 'px Orbitron, sans-serif';
+            ctx.fillStyle = 'rgba(255,255,255,0.9)';
+            ctx.textAlign = 'left';
+            ctx.textBaseline = 'top';
+            ctx.shadowColor = 'rgba(0,0,0,0.5)';
+            ctx.shadowBlur = 4;
+            ctx.shadowOffsetX = 2;
+            ctx.shadowOffsetY = 2;
+            ctx.fillText(APP.bug.text, bx, by);
+            ctx.restore();
+        }
     }
     
-    // 2. 2D Logo layer
+    // 2. 2D Logo — drawImage of the ORIGINAL uploaded <img> element (no size cap)
     const logoImg = $('user-logo-layer');
-    if (logoImg && logoImg.src && logoImg.style.display !== 'none' && logoImg.naturalWidth > 0) {
+    if (logoImg && logoImg.src && logoImg.src !== window.location.href && logoImg.style.display !== 'none' && logoImg.naturalWidth > 0) {
         ctx.save();
         const lScale = APP.layers.logoScale || 1.0;
-        const lw = Math.min(150 * lScale * (w / 1920), w * 0.2);
-        const lh = (logoImg.naturalHeight / logoImg.naturalWidth) * lw;
+        const lw = logoImg.naturalWidth * lScale * (w / 1920);
+        const lh = logoImg.naturalHeight * lScale * (h / 1080);
         const lx = w - lw - (30 * (w / 1920));
         const ly = 30 * (h / 1080);
         ctx.drawImage(logoImg, lx, ly, lw, lh);
         ctx.restore();
     }
     
-    // 3. 3D Hologram canvas composite
+    // 3. 3D Hologram — drawImage of the ORIGINAL Three.js WebGL canvas buffer
     const holoCanvas = $('hologram-canvas');
     const widgetEl = $('widget-layer');
-    if (holoCanvas && widgetEl && widgetEl.style.display !== 'none' && widgetEl.style.opacity !== '0') {
+    if (holoCanvas && widgetEl && widgetEl.style.display !== 'none' && widgetEl.style.opacity !== '0' && holoCanvas.width > 0) {
         ctx.save();
         const hScale = APP.hologram.scale || 1.0;
-        const hw = 150 * hScale * (w / 1920);
-        const hh = 150 * hScale * (h / 1080);
+        const hw = holoCanvas.width * hScale * (w / 1920);
+        const hh = holoCanvas.height * hScale * (h / 1080);
         const hx = (w - hw) / 2;
         const hy = h - hh - (30 * (h / 1080));
         try { ctx.drawImage(holoCanvas, hx, hy, hw, hh); } catch(e) {}
         ctx.restore();
     }
-    
-    // 4. Bottom-right engine watermark
-    ctx.save();
-    const fontSize = Math.max(20, h * 0.015); 
-    ctx.font = '900 ' + fontSize + 'px Orbitron';
-    ctx.fillStyle = 'rgba(255, 255, 255, 0.4)'; ctx.textAlign = 'right'; ctx.shadowColor = 'rgba(0, 0, 0, 0.8)'; ctx.shadowBlur = fontSize / 8;
-    const posX = w - (w * 0.02); const posY = h - (h * 0.02);
-    ctx.fillText('VNGRD', posX, posY); ctx.restore();
 }
 
 function triggerImpact() { document.body.classList.remove('impact-flash'); void document.body.offsetWidth; document.body.classList.add('impact-flash'); setTimeout(() => document.body.classList.remove('impact-flash'), 200); }
@@ -2043,6 +2049,19 @@ if ($('sl-layer-logo')) {
         if (logoLayer) {
             logoLayer.style.transformOrigin = 'top right';
             logoLayer.style.transform = `scale(${APP.layers.logoScale})`;
+        }
+    };
+}
+
+// BUG SCALE
+if ($('sl-bug-scale')) {
+    $('sl-bug-scale').oninput = e => {
+        APP.layers.bugScale = e.target.value / 100;
+        $('val-bug-scale').textContent = APP.layers.bugScale.toFixed(1);
+        const bugEl = $('station-bug');
+        if (bugEl) {
+            bugEl.style.transformOrigin = 'top left';
+            bugEl.style.transform = `scale(${APP.layers.bugScale})`;
         }
     };
 }
@@ -5132,7 +5151,8 @@ document.addEventListener('DOMContentLoaded', () => {
         APP.hologram.renderer = new THREE.WebGLRenderer({ 
             canvas: canvas, 
             alpha: true, 
-            antialias: true 
+            antialias: true,
+            preserveDrawingBuffer: true 
         });
         APP.hologram.renderer.setSize(150, 150);
         APP.hologram.renderer.setClearColor(0x000000, 0);
@@ -5168,7 +5188,7 @@ document.addEventListener('DOMContentLoaded', () => {
         widgetLayer.addEventListener('wheel', e => {
             e.preventDefault();
             const delta = e.deltaY > 0 ? -0.1 : 0.1;
-            APP.hologram.scale = Math.max(0.3, Math.min(3, APP.hologram.scale + delta));
+            APP.hologram.scale = Math.max(0.1, Math.min(5, APP.hologram.scale + delta));
             
             if (APP.hologram.mesh) {
                 APP.hologram.mesh.scale.setScalar(APP.hologram.scale);
@@ -5533,7 +5553,8 @@ document.addEventListener('DOMContentLoaded', () => {
                 const camera = new THREE.PerspectiveCamera(75, 1, 0.1, 1000);
                 const renderer = new THREE.WebGLRenderer({ 
                     canvas: document.getElementById('hologram-canvas'), 
-                    alpha: true, antialias: true 
+                    alpha: true, antialias: true,
+                    preserveDrawingBuffer: true 
                 });
                 renderer.setClearColor(0x000000, 0);
                 renderer.setSize(150, 150);
