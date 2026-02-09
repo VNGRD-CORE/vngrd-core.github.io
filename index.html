@@ -57,7 +57,7 @@
         body.shooting-mode .sidebar .btn { cursor: pointer; }
 
         /* GPU PROMOTION - THE ENGINE CORE */
-        #widget-layer, #sys-log, #stage, .sidebar {
+        #sys-log, #stage, .sidebar {
             will-change: transform;
             backface-visibility: hidden;
             transform: translate3d(0,0,0);
@@ -275,22 +275,23 @@
         /* HOLOGRAM WIDGET - REACTOR CORE */
        #widget-layer {
     position: absolute;
-    width: 150px;
-    height: 150px;
-    background: transparent !important; /* Forces background to stay clear */
-    border: none !important;            /* Removes the 1px solid border */
-    z-index: 2600;
-    pointer-events: auto !important;
+    width: 512px;
+    height: 512px;
+    background: transparent !important;
+    border: none !important;
+    z-index: 1;
+    pointer-events: none !important;
     display: block;
-    opacity: 1;
+    opacity: 0;
 }
 
 #hologram-canvas {
     width: 100% !important;
     height: 100% !important;
-    background: transparent !important; /* Ensures the canvas itself has no color */
-    border: none !important;           /* Removes the dashed/solid lines */
-    box-shadow: none !important;       /* Removes the glow until a model is loaded */
+    background: transparent !important;
+    border: none !important;
+    box-shadow: none !important;
+    pointer-events: none !important;
     display: block;
 }
 
@@ -2012,9 +2013,8 @@ function renderLoop(timestamp) {
         }
     }
 
-    // ═══ LOWER THIRD BURN-IN — only if DOM version is hidden ═══
-    var ltDOM = $('lower-third');
-    if (APP.lowerThird && APP.lowerThird.visible && ltDOM && !ltDOM.classList.contains('visible')) {
+    // ═══ LOWER THIRD BURN-IN — always draw when active (captured by NFT/broadcast) ═══
+    if (APP.lowerThird && APP.lowerThird.visible) {
         var ltTitle = $('lt-title-text');
         var ltSub = $('lt-subtitle-text');
         if (ltTitle) {
@@ -2532,7 +2532,7 @@ $('btn-rec').onclick = () => {
         APP.broadcast.recorder.onstop = () => {
             const blob = new Blob(APP.broadcast.chunks, { type: 'video/webm' }); const url = URL.createObjectURL(blob); const a = document.createElement('a'); a.href = url; a.download = `VNGRD_BROADCAST_${Date.now()}.webm`; a.click(); btn.innerText = 'REC_BROADCAST'; log('BROADCAST_SAVED');
         };
-        APP.broadcast.recorder.start(); APP.broadcast.isRecording = true; btn.innerText = '■ STOP & SAVE'; btn.classList.add('active'); 
+        APP.broadcast.recorder.start(1000); APP.broadcast.isRecording = true; btn.innerText = '■ STOP & SAVE'; btn.classList.add('active'); 
         $('rec-status').style.display = 'block'; 
     }
 };
@@ -2851,7 +2851,7 @@ function startNFTRecording() {
         APP.nft.chunks = [];
         APP.nft.recorder.ondataavailable = e => APP.nft.chunks.push(e.data);
         APP.nft.recorder.onstop = finalizeNFT;
-        APP.nft.recorder.start();
+        APP.nft.recorder.start(1000);
         APP.nft.isRecording = true; APP.nft.startTime = Date.now();
         $('btn-nft-30').textContent = '■ STOP REC'; $('btn-nft-30').classList.add('on'); $('nft-hud').classList.add('active');
         updateNFTTimer();
@@ -5724,6 +5724,10 @@ window.addEventListener('load', function() {
                         var cube = new THREE.Mesh(geo, mat);
                         target.scene.add(cube);
                         target.mesh = cube;
+                        target.rotationSpeed = 0.02;
+                        trinity.holo.x = 0.35;
+                        trinity.holo.y = 0.25;
+                        trinity.holo.scale = 1.0;
                         trinity.holo.visible = true;
                         target.renderer.render(target.scene, target.camera);
                         if (window.log) log('VGD_LOADED: ' + file.name);
@@ -5766,6 +5770,7 @@ window.addEventListener('load', function() {
 
                 target.scene.add(model);
                 target.mesh = model;
+                target.rotationSpeed = 0.02;
                 trinity.holo.x = 0.35;
                 trinity.holo.y = 0.25;
                 trinity.holo.scale = 1.0;
