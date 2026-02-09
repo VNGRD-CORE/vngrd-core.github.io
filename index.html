@@ -1210,7 +1210,7 @@ body.shooting-mode #btn-shooting {
                     <button class="btn" id="btn-inject-3d" style="flex:2;color:var(--v);border-color:var(--v);">3D MODEL</button>
                     <button class="btn" id="btn-3d-x" title="HIDE / CLEAR 3D">[X]</button>
                 </div>
-                <input type="file" id="file-3d-model" accept=".stl,.obj,.glb,.gltf" style="display:none;">
+                <input type="file" id="file-3d-model" accept=".stl,.obj,.glb,.gltf,.vgd,.json" style="display:none;">
 
             </div>
         </div>
@@ -5607,92 +5607,181 @@ document.addEventListener('DOMContentLoaded', () => {
 }); // THIS IS THE END of the startup block. Do not put code after this line.
 </script>
 <script>
-// ═══ 3D TEST CUBE — proves the entire pipeline works ═══
-// Click btn-inject-3d → spawns a wireframe cube → renderLoop composites it
-window.APP = window.APP || {};
-window.APP.hologram = window.APP.hologram || { scene: null, camera: null, renderer: null, mesh: null, scale: 1.0, rotationSpeed: 0.01 };
-window.APP.trinity = window.APP.trinity || { holo: { x: 0.42, y: 0.75, scale: 1.0, visible: false } };
-(function() {
+// ═══ 3D ENGINE — wrapped in window.load for guaranteed APP init ═══
+window.addEventListener('load', function() {
+    // Global scope guard
+    window.APP = window.APP || {};
+    window.APP.hologram = window.APP.hologram || { scene: null, camera: null, renderer: null, mesh: null, scale: 1.0, rotationSpeed: 0.01 };
+    window.APP.trinity = window.APP.trinity || { holo: { x: 0.42, y: 0.75, scale: 1.0, visible: false } };
+
     var btn = document.getElementById('btn-inject-3d');
     if (!btn) return;
 
     btn.onclick = function() {
-        // 1. Critical Check
+        // Explicit target
+        var target = window.APP.hologram;
+        var trinity = window.APP.trinity;
+
+        // 1. Critical check
         if (typeof THREE === 'undefined') {
-            console.error('THREE is not defined — check script tags');
+            console.error('THREE is not defined');
             alert('Error: Three.js not loaded.');
             return;
         }
-        console.log('THREE loaded OK, version:', THREE.REVISION);
+        console.log('THREE OK, r' + THREE.REVISION);
 
-        // 2. Get the hologram canvas
+        // 2. Get hologram canvas
         var holoCanvas = document.getElementById('hologram-canvas');
         if (!holoCanvas) {
-            console.error('hologram-canvas not found in DOM');
-            alert('Error: hologram-canvas missing.');
+            console.error('hologram-canvas missing');
+            alert('Error: hologram-canvas not in DOM.');
             return;
         }
-        console.log('hologram-canvas found:', holoCanvas.width, 'x', holoCanvas.height);
 
-        // 3. Build scene
-        var scene = new THREE.Scene();
-        var camera = new THREE.PerspectiveCamera(50, 1, 0.1, 1000);
-        camera.position.z = 4;
-        scene.add(new THREE.AmbientLight(0xffffff, 1.0));
-        var dirLight = new THREE.DirectionalLight(0xffffff, 1.5);
-        dirLight.position.set(2, 3, 5);
-        scene.add(dirLight);
+        // 3. Build engine (scene + camera + renderer) if not already built
+        if (!target.scene) {
+            var scene = new THREE.Scene();
+            var camera = new THREE.PerspectiveCamera(50, 1, 0.1, 1000);
+            camera.position.z = 4;
+            scene.add(new THREE.AmbientLight(0xffffff, 1.0));
+            var dirLight = new THREE.DirectionalLight(0xffffff, 1.5);
+            dirLight.position.set(2, 3, 5);
+            scene.add(dirLight);
+            target.scene = scene;
+            target.camera = camera;
 
-        // 4. Build renderer on hologram-canvas
-        holoCanvas.width = 512;
-        holoCanvas.height = 512;
-        var renderer;
-        try {
-            renderer = new THREE.WebGLRenderer({
-                canvas: holoCanvas,
-                alpha: true,
-                antialias: true,
-                preserveDrawingBuffer: true
+            holoCanvas.width = 512;
+            holoCanvas.height = 512;
+            try {
+                var renderer = new THREE.WebGLRenderer({
+                    canvas: holoCanvas,
+                    alpha: true,
+                    antialias: true,
+                    preserveDrawingBuffer: true
+                });
+                renderer.setSize(512, 512, false);
+                renderer.setClearColor(0x000000, 0);
+                target.renderer = renderer;
+                console.log('WebGLRenderer created OK');
+            } catch (err) {
+                console.error('WebGLRenderer FAILED:', err);
+                return;
+            }
+
+            var wl = document.getElementById('widget-layer');
+            if (wl) wl.style.display = 'block';
+        }
+
+        // 4. Cleanup previous mesh
+        if (target.mesh && target.scene) {
+            target.scene.remove(target.mesh);
+            target.mesh.traverse(function(c) {
+                if (c.isMesh) {
+                    if (c.geometry) c.geometry.dispose();
+                    if (c.material) c.material.dispose();
+                }
             });
-            renderer.setSize(512, 512, false);
-            renderer.setClearColor(0x000000, 0);
-            console.log('WebGLRenderer created OK');
-        } catch (err) {
-            console.error('WebGLRenderer FAILED:', err);
-            alert('Error: WebGL failed — ' + err.message);
-            return;
+            target.mesh = null;
         }
 
-        // 5. Build test cube — wireframe, neon green
-        var geo = new THREE.BoxGeometry(2, 2, 2);
-        var mat = new THREE.MeshNormalMaterial({ wireframe: true });
-        var cube = new THREE.Mesh(geo, mat);
-        scene.add(cube);
+        // 5. File picker — supports OBJ, STL, GLB, GLTF, VGD (JSON)
+        var input = document.createElement('input');
+        input.type = 'file';
+        input.accept = '.obj,.stl,.glb,.gltf,.vgd,.json';
 
-        // 6. Store in APP.hologram so renderLoop drives it
-        window.APP.hologram.scene = scene;
-        window.APP.hologram.camera = camera;
-        window.APP.hologram.renderer = renderer;
-        window.APP.hologram.mesh = cube;
+        input.onchange = function(e) {
+            var file = e.target.files[0];
+            if (!file) return;
+            var ext = file.name.split('.').pop().toLowerCase();
+            console.log('Loading:', file.name, '(' + ext + ')');
 
-        // 7. Position at center of canvas and make visible
-        window.APP.trinity.holo.x = 0.35;
-        window.APP.trinity.holo.y = 0.25;
-        window.APP.trinity.holo.scale = 1.0;
-        window.APP.trinity.holo.visible = true;
+            // ─── VGD / JSON PATH ───
+            if (ext === 'vgd' || ext === 'json') {
+                var reader = new FileReader();
+                reader.onload = function(ev) {
+                    try {
+                        var data = JSON.parse(ev.target.result);
+                        console.log('VGD parsed OK:', Object.keys(data));
 
-        // 8. Do one immediate test render to verify
-        renderer.render(scene, camera);
-        console.log('Test render done — cube should be on hologram-canvas');
+                        // Restore session state from VGD
+                        if (data.vj && window.APP.vj) {
+                            window.APP.vj = Object.assign(window.APP.vj, data.vj);
+                        }
+                        if (data.hologramScale) target.scale = data.hologramScale;
+                        if (data.theme && typeof setTheme === 'function') setTheme(data.theme);
+                        if (data.bug) {
+                            window.APP.bug.text = data.bug;
+                            var bugInput = document.getElementById('bug-text');
+                            if (bugInput) bugInput.value = data.bug;
+                        }
+                        if (data.layers && window.APP.layers) {
+                            window.APP.layers = Object.assign(window.APP.layers, data.layers);
+                        }
 
-        // Show widget layer
-        var wl = document.getElementById('widget-layer');
-        if (wl) wl.style.display = 'block';
+                        // Spawn a test cube so user sees 3D is alive
+                        var geo = new THREE.BoxGeometry(2, 2, 2);
+                        var mat = new THREE.MeshNormalMaterial({ wireframe: true });
+                        var cube = new THREE.Mesh(geo, mat);
+                        target.scene.add(cube);
+                        target.mesh = cube;
+                        trinity.holo.visible = true;
+                        target.renderer.render(target.scene, target.camera);
+                        if (window.log) log('VGD_LOADED: ' + file.name);
+                    } catch (err) {
+                        console.error('VGD parse error:', err);
+                        alert('Invalid VGD/JSON file');
+                    }
+                };
+                reader.readAsText(file);
+                return;
+            }
 
-        if (window.log) log('3D_TEST_CUBE: INJECTED');
-        console.log('Test Cube pipeline complete. renderLoop ACTOR 3 will now drive it.');
+            // ─── STANDARD 3D PATH (OBJ / STL / GLB / GLTF) ───
+            var url = URL.createObjectURL(file);
+            var loader;
+            try {
+                if (ext === 'obj') loader = new THREE.OBJLoader();
+                else if (ext === 'stl') loader = new THREE.STLLoader();
+                else if (ext === 'glb' || ext === 'gltf') loader = new THREE.GLTFLoader();
+                else loader = new THREE.OBJLoader();
+            } catch (err) {
+                console.error('Loader init failed:', err);
+                return;
+            }
+
+            loader.load(url, function(data) {
+                var model = data.scene || data;
+                if (data.isBufferGeometry) model = new THREE.Mesh(data);
+
+                model.traverse(function(c) {
+                    if (c.isMesh) c.material = new THREE.MeshNormalMaterial({ wireframe: true });
+                });
+
+                var box = new THREE.Box3().setFromObject(model);
+                var center = box.getCenter(new THREE.Vector3());
+                var size = box.getSize(new THREE.Vector3());
+                model.position.sub(center);
+                var maxDim = Math.max(size.x, size.y, size.z);
+                if (maxDim > 0) model.scale.setScalar(4.0 / maxDim);
+
+                target.scene.add(model);
+                target.mesh = model;
+                trinity.holo.x = 0.35;
+                trinity.holo.y = 0.25;
+                trinity.holo.scale = 1.0;
+                trinity.holo.visible = true;
+                target.renderer.render(target.scene, target.camera);
+                URL.revokeObjectURL(url);
+                if (window.log) log('3D_LOADED: ' + file.name);
+                console.log('Model loaded and rendered:', file.name);
+            }, undefined, function(err) {
+                console.error('Model load error:', err);
+            });
+        };
+        input.click();
     };
-})();
+    console.log('3D Engine ready (window.load)');
+});
 </script>
 <script type="module">
 // --- AUDIO ROTATION SYSTEM ---
