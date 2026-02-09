@@ -2003,11 +2003,13 @@ function renderLoop(timestamp) {
                 APP.hologram.renderer.render(APP.hologram.scene, APP.hologram.camera);
             }
             ctx.save();
+            ctx.globalCompositeOperation = 'screen'; // black bg = invisible, lit model = hologram glow
             var hScale = T.holo.scale;
             var hw = holoCanvas.width * hScale * (w / 1920);
             var hh = holoCanvas.height * hScale * (h / 1080);
             var hx = T.holo.x * w, hy = T.holo.y * h;
             try { ctx.drawImage(holoCanvas, hx, hy, hw, hh); } catch(e) {}
+            ctx.globalCompositeOperation = 'source-over';
             ctx.restore();
         }
     }
@@ -2040,74 +2042,114 @@ function renderLoop(timestamp) {
     }
 
     // ══════════════════════════════════════════════════
-    // BURN-IN LOWER THIRD — Broadcast-Grade Canvas Render
+    // BURN-IN LOWER THIRD — Premium Broadcast Canvas Render
+    // Draws directly to captureStream canvas = ALWAYS in recording
     // ══════════════════════════════════════════════════
     if (APP.lowerThird && APP.lowerThird.visible) {
-        // A. Kill the DOM ghost so it never doubles
-        var ghost = document.getElementById('lower-third');
-        if (ghost) ghost.style.display = 'none';
+        ctx.save();
+        ctx.globalCompositeOperation = 'source-over';
+        ctx.globalAlpha = 1;
+        ctx.filter = 'none';
 
-        // B. Preset accent color
+        // A. Preset accent + secondary color
         var ltAccent = '#00f3ff';
-        if (APP.lowerThird.preset === 'track') ltAccent = '#00ff88';
-        else if (APP.lowerThird.preset === 'breaking') ltAccent = '#ff3333';
+        var ltGlow = 'rgba(0,243,255,';
+        if (APP.lowerThird.preset === 'track') { ltAccent = '#00ff88'; ltGlow = 'rgba(0,255,136,'; }
+        else if (APP.lowerThird.preset === 'breaking') { ltAccent = '#ff3333'; ltGlow = 'rgba(255,51,51,'; }
 
-        // C. Read text (textContent works on display:none, innerText does NOT)
+        // B. Read text — textContent works on display:none elements
         var ltTitle = document.getElementById('lt-title-text');
         var ltSub = document.getElementById('lt-subtitle-text');
-        var titleText = (ltTitle && ltTitle.textContent) ? ltTitle.textContent : 'LIVE BROADCAST';
-        var subText = (ltSub && ltSub.textContent) ? ltSub.textContent : '';
+        var titleText = (ltTitle && ltTitle.textContent && ltTitle.textContent.trim()) ? ltTitle.textContent.trim() : 'LIVE BROADCAST';
+        var subText = (ltSub && ltSub.textContent && ltSub.textContent.trim()) ? ltSub.textContent.trim() : '';
 
-        // D. Responsive sizing
-        var ltX = w * 0.02;
-        var ltY = h - (h * 0.09);
-        var ltPad = h * 0.014;
-        var titleFS = Math.max(18, h * 0.026);
-        var subFS = Math.max(11, h * 0.014);
+        // C. Responsive sizing — scales to any resolution
+        var ltMargin = Math.round(w * 0.025);
+        var ltBottom = Math.round(h * 0.065);
+        var ltPad = Math.round(h * 0.015);
+        var titleFS = Math.max(20, Math.round(h * 0.03));
+        var subFS = Math.max(12, Math.round(h * 0.016));
+        var accentW = Math.max(4, Math.round(h * 0.004));
 
-        // E. Measure for background box
-        ctx.save();
-        ctx.font = '700 ' + titleFS + 'px Orbitron, sans-serif';
+        // D. Measure text for dynamic box width
+        ctx.font = '800 ' + titleFS + 'px Orbitron, sans-serif';
         var titleW = ctx.measureText(titleText).width;
-        ctx.font = '400 ' + subFS + 'px "JetBrains Mono", monospace';
-        var subW = ctx.measureText(subText).width;
-        var boxW = Math.max(titleW, subW) + ltPad * 4;
-        var boxH = titleFS + (subText ? subFS + 6 : 0) + ltPad * 2.2;
+        ctx.font = '500 ' + subFS + 'px "JetBrains Mono", monospace';
+        var subW = subText ? ctx.measureText(subText.toUpperCase()).width : 0;
+        var contentW = Math.max(titleW, subW);
+        var boxW = contentW + ltPad * 4 + accentW;
+        var minW = w * 0.25;
+        if (boxW < minW) boxW = minW;
+        var boxH = ltPad + titleFS + (subText ? 6 + subFS : 0) + ltPad;
+        var boxX = ltMargin;
+        var boxY = h - ltBottom - boxH;
 
-        // F. Background — gradient bar with glass feel
-        var grad = ctx.createLinearGradient(ltX, 0, ltX + boxW, 0);
-        grad.addColorStop(0, 'rgba(0,0,0,0.92)');
-        grad.addColorStop(0.85, 'rgba(0,0,0,0.65)');
-        grad.addColorStop(1, 'rgba(0,0,0,0)');
-        ctx.fillStyle = grad;
-        ctx.fillRect(ltX, ltY - boxH, boxW, boxH);
+        // E. Background — dark glass panel
+        var bgGrad = ctx.createLinearGradient(boxX, 0, boxX + boxW, 0);
+        bgGrad.addColorStop(0, 'rgba(8,8,12,0.95)');
+        bgGrad.addColorStop(0.7, 'rgba(8,8,12,0.85)');
+        bgGrad.addColorStop(1, 'rgba(8,8,12,0)');
+        ctx.fillStyle = bgGrad;
+        ctx.fillRect(boxX, boxY, boxW, boxH);
 
-        // G. Accent stripe — left edge (3px, full height)
+        // F. Bottom accent line — full width colored bar
         ctx.fillStyle = ltAccent;
+        ctx.fillRect(boxX, boxY + boxH, boxW * 0.6, 2);
+        // Faded tail
+        var tailGrad = ctx.createLinearGradient(boxX + boxW * 0.6, 0, boxX + boxW, 0);
+        tailGrad.addColorStop(0, ltAccent);
+        tailGrad.addColorStop(1, 'rgba(0,0,0,0)');
+        ctx.fillStyle = tailGrad;
+        ctx.fillRect(boxX + boxW * 0.6, boxY + boxH, boxW * 0.4, 2);
+
+        // G. Left accent stripe with neon glow
         ctx.shadowColor = ltAccent;
-        ctx.shadowBlur = 12;
-        ctx.fillRect(ltX, ltY - boxH, 3, boxH);
+        ctx.shadowBlur = 16;
+        ctx.fillStyle = ltAccent;
+        ctx.fillRect(boxX, boxY, accentW, boxH);
         ctx.shadowBlur = 0;
 
-        // H. Top hairline — subtle highlight
-        ctx.fillStyle = 'rgba(255,255,255,0.08)';
-        ctx.fillRect(ltX + 3, ltY - boxH, boxW - 3, 1);
+        // H. Top edge hairline
+        ctx.fillStyle = 'rgba(255,255,255,0.06)';
+        ctx.fillRect(boxX + accentW, boxY, boxW - accentW, 1);
 
-        // I. Title text
-        ctx.font = '700 ' + titleFS + 'px Orbitron, sans-serif';
+        // I. Title — bold white, left-aligned
+        ctx.font = '800 ' + titleFS + 'px Orbitron, sans-serif';
         ctx.fillStyle = '#ffffff';
         ctx.textAlign = 'left';
         ctx.textBaseline = 'top';
-        ctx.shadowColor = 'rgba(0,0,0,0.7)';
-        ctx.shadowBlur = 4;
-        ctx.fillText(titleText, ltX + ltPad, ltY - boxH + ltPad);
+        ctx.shadowColor = 'rgba(0,0,0,0.8)';
+        ctx.shadowBlur = 6;
+        ctx.shadowOffsetX = 1;
+        ctx.shadowOffsetY = 1;
+        ctx.fillText(titleText, boxX + accentW + ltPad, boxY + ltPad);
         ctx.shadowBlur = 0;
+        ctx.shadowOffsetX = 0;
+        ctx.shadowOffsetY = 0;
 
-        // J. Subtitle text — accent colored, uppercase
+        // J. Subtitle — accent colored, uppercase monospace
         if (subText) {
-            ctx.font = '400 ' + subFS + 'px "JetBrains Mono", monospace';
+            ctx.font = '500 ' + subFS + 'px "JetBrains Mono", monospace';
             ctx.fillStyle = ltAccent;
-            ctx.fillText(subText.toUpperCase(), ltX + ltPad, ltY - boxH + ltPad + titleFS + 4);
+            ctx.globalAlpha = 0.9;
+            ctx.fillText(subText.toUpperCase(), boxX + accentW + ltPad, boxY + ltPad + titleFS + 6);
+            ctx.globalAlpha = 1;
+        }
+
+        // K. Live indicator dot (breaking preset only)
+        if (APP.lowerThird.preset === 'breaking') {
+            var dotR = Math.max(4, titleFS * 0.18);
+            var dotX = boxX + accentW + ltPad + contentW + ltPad;
+            var dotY = boxY + ltPad + titleFS * 0.5;
+            var pulse = 0.5 + 0.5 * Math.sin(timestamp * 0.005);
+            ctx.beginPath();
+            ctx.arc(dotX, dotY, dotR, 0, Math.PI * 2);
+            ctx.fillStyle = ltGlow + (0.6 + pulse * 0.4) + ')';
+            ctx.fill();
+            ctx.shadowColor = ltAccent;
+            ctx.shadowBlur = 8 + pulse * 8;
+            ctx.fill();
+            ctx.shadowBlur = 0;
         }
 
         ctx.restore();
@@ -5687,10 +5729,10 @@ document.addEventListener('DOMContentLoaded', () => {
         dirLight.position.set(5, 10, 7);
         scene.add(dirLight);
 
-        // C. Setup Renderer
+        // C. Setup Renderer — opaque black bg + screen blend = bulletproof hologram
         holoCanvas.width = 512; holoCanvas.height = 512;
-        var renderer = new THREE.WebGLRenderer({ canvas: holoCanvas, alpha: true, antialias: true, preserveDrawingBuffer: true, premultipliedAlpha: false });
-        renderer.setSize(512, 512, false); renderer.setClearColor(0x000000, 0);
+        var renderer = new THREE.WebGLRenderer({ canvas: holoCanvas, antialias: true, preserveDrawingBuffer: true });
+        renderer.setSize(512, 512, false); renderer.setClearColor(0x000000, 1);
 
         // D. FILE HUNTER: Target the CORRECT 3D file input by ID
         var fileInput = document.getElementById('file-3d-model');
