@@ -6,7 +6,7 @@
     
    <title>DRIS//CORE VNGRD</title>
 <script src="https://unpkg.com/peerjs@1.5.2/dist/peerjs.min.js"></script>
-<script src="https://cdn.ethers.io/lib/ethers-5.7.umd.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/ethers/5.7.2/ethers.umd.min.js"></script>
 <script type="importmap">
 {
     "imports": {
@@ -2845,7 +2845,7 @@ function startNFTRecording() {
             if (nftDest.stream.getAudioTracks().length > 0) canvasStream.addTrack(nftDest.stream.getAudioTracks()[0]);
         }
         // Phase 1: 15Mbps VP9 codec enforcement
-        let nftRecorderOpts = { mimeType: 'video/webm;codecs=vp9,opus', videoBitsPerSecond: 15000000, audioBitsPerSecond: 128000 };
+        let nftRecorderOpts = { mimeType: 'video/webm;codecs=vp9,opus', videoBitsPerSecond: 5000000, audioBitsPerSecond: 128000 };
         try { APP.nft.recorder = new MediaRecorder(canvasStream, nftRecorderOpts); }
         catch(e) { APP.nft.recorder = new MediaRecorder(canvasStream, { mimeType: 'video/webm' }); }
         APP.nft.chunks = [];
@@ -5609,6 +5609,9 @@ document.addEventListener('DOMContentLoaded', () => {
 <script>
 // ═══ 3D TEST CUBE — proves the entire pipeline works ═══
 // Click btn-inject-3d → spawns a wireframe cube → renderLoop composites it
+window.APP = window.APP || {};
+window.APP.hologram = window.APP.hologram || { scene: null, camera: null, renderer: null, mesh: null, scale: 1.0, rotationSpeed: 0.01 };
+window.APP.trinity = window.APP.trinity || { holo: { x: 0.42, y: 0.75, scale: 1.0, visible: false } };
 (function() {
     var btn = document.getElementById('btn-inject-3d');
     if (!btn) return;
@@ -5635,7 +5638,7 @@ document.addEventListener('DOMContentLoaded', () => {
         var scene = new THREE.Scene();
         var camera = new THREE.PerspectiveCamera(50, 1, 0.1, 1000);
         camera.position.z = 4;
-        scene.add(new THREE.AmbientLight(0xffffff, 0.5));
+        scene.add(new THREE.AmbientLight(0xffffff, 1.0));
         var dirLight = new THREE.DirectionalLight(0xffffff, 1.5);
         dirLight.position.set(2, 3, 5);
         scene.add(dirLight);
