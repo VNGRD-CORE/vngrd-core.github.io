@@ -5529,6 +5529,95 @@ document.addEventListener('DOMContentLoaded', () => {
     import * as THREE from 'three';
     import { STLLoader } from 'three/addons/loaders/STLLoader.js';
     import { OBJLoader } from 'three/addons/loaders/OBJLoader.js';
+    import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
+
+    // ═══ SINGLE 3D ENGINE — robust loader with auto-center/scale ═══
+    // Supports OBJ, STL, GLTF/GLB. Lazy-inits scene/camera/renderer.
+    // renderLoop drives rotation + render — zero rAF here.
+
+    function ensureHologramEngine() {
+        // Lazy-init: create renderer/scene/camera only once
+        if (APP.hologram.renderer) return;
+
+        const container = document.getElementById('widget-layer');
+        container.innerHTML = '<canvas id="hologram-canvas"></canvas>';
+        container.style.opacity = '1';
+        container.style.display = 'block';
+
+        const scene = new THREE.Scene();
+        // Two-point lighting for depth on all model types
+        scene.add(new THREE.AmbientLight(0xffffff, 1.5));
+        const dirLight = new THREE.DirectionalLight(0xffffff, 1.0);
+        dirLight.position.set(5, 5, 5);
+        scene.add(dirLight);
+
+        const camera = new THREE.PerspectiveCamera(75, 1, 0.1, 1000);
+        camera.position.z = 5;
+
+        const renderer = new THREE.WebGLRenderer({
+            canvas: document.getElementById('hologram-canvas'),
+            alpha: true, antialias: true,
+            preserveDrawingBuffer: true
+        });
+        renderer.setClearColor(0x000000, 0);
+        renderer.setSize(300, 300);
+
+        APP.hologram.scene = scene;
+        APP.hologram.camera = camera;
+        APP.hologram.renderer = renderer;
+    }
+
+    function disposePreviousMesh() {
+        if (!APP.hologram.mesh || !APP.hologram.scene) return;
+        APP.hologram.scene.remove(APP.hologram.mesh);
+        APP.hologram.mesh.traverse(child => {
+            if (child.isMesh) {
+                if (child.geometry) child.geometry.dispose();
+                if (child.material) {
+                    // Material can be array or single
+                    const mats = Array.isArray(child.material) ? child.material : [child.material];
+                    mats.forEach(m => m.dispose());
+                }
+            }
+        });
+        APP.hologram.mesh = null;
+    }
+
+    function centerAndScale(model) {
+        // Auto-correct: center at origin, scale to fit camera view
+        const box = new THREE.Box3().setFromObject(model);
+        const center = box.getCenter(new THREE.Vector3());
+        const size = box.getSize(new THREE.Vector3());
+        const maxDim = Math.max(size.x, size.y, size.z) || 1;
+
+        // Negate the center offset so the model sits at (0,0,0)
+        model.position.set(-center.x, -center.y, -center.z);
+
+        // Scale to fit camera frustum: camera.z = 5, FOV = 75
+        // Visible height at z=0 = 2 * 5 * tan(37.5°) ≈ 7.7
+        // Target ~60% of visible area = ~4.6 units
+        const fitScale = 4.0 / maxDim;
+        model.scale.setScalar(fitScale);
+    }
+
+    function injectModel(model, fileName) {
+        // Apply wireframe normal material for consistent look
+        model.traverse(child => {
+            if (child.isMesh) {
+                child.material = new THREE.MeshNormalMaterial({ wireframe: true });
+            }
+        });
+
+        centerAndScale(model);
+
+        APP.hologram.scene.add(model);
+        APP.hologram.mesh = model;
+        APP.trinity.holo.visible = true;
+
+        // One initial render so canvas isn't blank — renderLoop takes over
+        APP.hologram.renderer.render(APP.hologram.scene, APP.hologram.camera);
+        if (typeof log === 'function') log('3D_MODEL: ' + fileName.toUpperCase() + ' LOADED');
+    }
 
     // ═══ THE HYBRID FERRARI (Wide Support + Visibility Fix) ═══
 // ═══ 3D IGNITION: FINAL FERRARI BUILD (AUTO-CENTER & FIT) ═══
