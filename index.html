@@ -2040,27 +2040,76 @@ function renderLoop(timestamp) {
     }
 
     // ══════════════════════════════════════════════════
-    // BURN-IN LOWER THIRD (No Double Vision)
+    // BURN-IN LOWER THIRD — Broadcast-Grade Canvas Render
     // ══════════════════════════════════════════════════
     if (APP.lowerThird && APP.lowerThird.visible) {
-        // A. Hide the HTML Ghost (The Fix)
-        var ghost = document.getElementById('lower-third-container');
+        // A. Kill the DOM ghost so it never doubles
+        var ghost = document.getElementById('lower-third');
         if (ghost) ghost.style.display = 'none';
 
-        // B. Draw to Canvas (The Recordable Layer)
+        // B. Preset accent color
+        var ltAccent = '#00f3ff';
+        if (APP.lowerThird.preset === 'track') ltAccent = '#00ff88';
+        else if (APP.lowerThird.preset === 'breaking') ltAccent = '#ff3333';
+
+        // C. Read text (textContent works on display:none, innerText does NOT)
+        var ltTitle = document.getElementById('lt-title-text');
+        var ltSub = document.getElementById('lt-subtitle-text');
+        var titleText = (ltTitle && ltTitle.textContent) ? ltTitle.textContent : 'LIVE BROADCAST';
+        var subText = (ltSub && ltSub.textContent) ? ltSub.textContent : '';
+
+        // D. Responsive sizing
+        var ltX = w * 0.02;
+        var ltY = h - (h * 0.09);
+        var ltPad = h * 0.014;
+        var titleFS = Math.max(18, h * 0.026);
+        var subFS = Math.max(11, h * 0.014);
+
+        // E. Measure for background box
         ctx.save();
-        ctx.fillStyle = 'rgba(0, 0, 0, 0.85)';
-        ctx.fillRect(0, h - 120, w, 120);
+        ctx.font = '700 ' + titleFS + 'px Orbitron, sans-serif';
+        var titleW = ctx.measureText(titleText).width;
+        ctx.font = '400 ' + subFS + 'px "JetBrains Mono", monospace';
+        var subW = ctx.measureText(subText).width;
+        var boxW = Math.max(titleW, subW) + ltPad * 4;
+        var boxH = titleFS + (subText ? subFS + 6 : 0) + ltPad * 2.2;
 
-        ctx.fillStyle = '#00FF41';
-        ctx.font = 'bold 40px Courier New';
-        ctx.textAlign = 'center';
+        // F. Background — gradient bar with glass feel
+        var grad = ctx.createLinearGradient(ltX, 0, ltX + boxW, 0);
+        grad.addColorStop(0, 'rgba(0,0,0,0.92)');
+        grad.addColorStop(0.85, 'rgba(0,0,0,0.65)');
+        grad.addColorStop(1, 'rgba(0,0,0,0)');
+        ctx.fillStyle = grad;
+        ctx.fillRect(ltX, ltY - boxH, boxW, boxH);
 
-        // Get text from hidden input or default
-        // NOTE: textContent works on display:none elements, innerText does NOT
-        var ltEl = document.getElementById('lt-title-text');
-        var txt = (ltEl && ltEl.textContent) ? ltEl.textContent : (APP.lowerThird.text || 'LIVE BROADCAST');
-        ctx.fillText(txt, w / 2, h - 40);
+        // G. Accent stripe — left edge (3px, full height)
+        ctx.fillStyle = ltAccent;
+        ctx.shadowColor = ltAccent;
+        ctx.shadowBlur = 12;
+        ctx.fillRect(ltX, ltY - boxH, 3, boxH);
+        ctx.shadowBlur = 0;
+
+        // H. Top hairline — subtle highlight
+        ctx.fillStyle = 'rgba(255,255,255,0.08)';
+        ctx.fillRect(ltX + 3, ltY - boxH, boxW - 3, 1);
+
+        // I. Title text
+        ctx.font = '700 ' + titleFS + 'px Orbitron, sans-serif';
+        ctx.fillStyle = '#ffffff';
+        ctx.textAlign = 'left';
+        ctx.textBaseline = 'top';
+        ctx.shadowColor = 'rgba(0,0,0,0.7)';
+        ctx.shadowBlur = 4;
+        ctx.fillText(titleText, ltX + ltPad, ltY - boxH + ltPad);
+        ctx.shadowBlur = 0;
+
+        // J. Subtitle text — accent colored, uppercase
+        if (subText) {
+            ctx.font = '400 ' + subFS + 'px "JetBrains Mono", monospace';
+            ctx.fillStyle = ltAccent;
+            ctx.fillText(subText.toUpperCase(), ltX + ltPad, ltY - boxH + ltPad + titleFS + 4);
+        }
+
         ctx.restore();
     }
 
@@ -5640,7 +5689,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
         // C. Setup Renderer
         holoCanvas.width = 512; holoCanvas.height = 512;
-        var renderer = new THREE.WebGLRenderer({ canvas: holoCanvas, alpha: true, antialias: true, preserveDrawingBuffer: true });
+        var renderer = new THREE.WebGLRenderer({ canvas: holoCanvas, alpha: true, antialias: true, preserveDrawingBuffer: true, premultipliedAlpha: false });
         renderer.setSize(512, 512, false); renderer.setClearColor(0x000000, 0);
 
         // D. FILE HUNTER: Target the CORRECT 3D file input by ID
