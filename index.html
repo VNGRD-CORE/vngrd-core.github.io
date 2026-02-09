@@ -2032,21 +2032,43 @@ function renderLoop(timestamp) {
         }
     }
 
-    // ═══ LOWER THIRD BURN-IN — canvas only, DOM hidden ═══
-    if (APP.lowerThird && APP.lowerThird.visible) {
-        ctx.save();
-        ctx.fillStyle = 'rgba(0, 0, 0, 0.8)';
-        ctx.fillRect(0, h - 120, w, 120);
-        ctx.fillStyle = '#00FF00';
-        ctx.font = 'bold 40px Courier New';
-        ctx.textAlign = 'center';
-        var ltText = '';
-        var ltEl = $('lt-title-text');
-        if (ltEl) ltText = ltEl.textContent || '';
-        if (!ltText && APP.lowerThird.text) ltText = APP.lowerThird.text;
-        ctx.fillText(ltText, w / 2, h - 50);
-        ctx.restore();
+    // ═══ LOWER THIRD (SINGLE LAYER ONLY) ═══
+// 1. Define Dimensions (Prevents Crash)
+var w = canvas.width;
+var h = canvas.height;
+
+// 2. FORCE HIDE the HTML Ghost (Ensures "No Double")
+var ghostEl = document.getElementById('lower-third-container');
+if (ghostEl) ghostEl.style.display = 'none'; 
+
+// 3. DRAW the Single Clean Layer
+if (APP.lowerThird && APP.lowerThird.visible) {
+    ctx.save();
+    
+    // A. Black Bar background
+    ctx.fillStyle = 'rgba(0, 0, 0, 0.8)'; 
+    ctx.fillRect(0, h - 120, w, 120);
+    
+    // B. Green Text
+    ctx.fillStyle = '#00FF00';
+    ctx.font = 'bold 40px Courier New';
+    ctx.textAlign = 'center';
+    
+    // C. Get Text (Safely)
+    var ltText = APP.lowerThird.text || "LIVE FEED";
+    
+    // Check if there is text in the hidden UI input to override
+    var inputEl = document.getElementById('lt-title-text');
+    if (inputEl && inputEl.innerText && inputEl.innerText.length > 0) {
+        ltText = inputEl.innerText;
     }
+
+    // Burn into video
+    ctx.fillText(ltText, w / 2, h - 40);
+    
+    ctx.restore();
+}
+// ═══════════════════════════════════════
 
     // ═══ PERMANENT SIGNATURE — untouchable, not part of Trinity ═══
     ctx.save();
