@@ -15,8 +15,10 @@
     }
 }
 </script>
+    <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/build/three.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/loaders/OBJLoader.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/loaders/STLLoader.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/loaders/GLTFLoader.js"></script>
 <script src="src/Compositor.js"></script>
     <style>
         @import url('https://fonts.googleapis.com/css2?family=Orbitron:wght@400;600;800;900&family=JetBrains+Mono:wght@300;400;500&family=Bebas+Neue&family=Russo+One&display=swap');
@@ -5268,7 +5270,7 @@ document.addEventListener('DOMContentLoaded', () => {
     // Widget-layer wheel/drag handlers REMOVED — Touch-Bridge handles all scaling
     
     // Initialize hologram after a short delay
-    setTimeout(initHologram, 500);
+    // initHologram() call REMOVED — function no longer exists
 
     // ========================================
     // WEBGL LENS DRIP SHADER
@@ -5525,113 +5527,27 @@ document.addEventListener('DOMContentLoaded', () => {
 
 }); // THIS IS THE END of the startup block. Do not put code after this line.
 </script>
-<script type="module">
-    import * as THREE from 'three';
-    import { STLLoader } from 'three/addons/loaders/STLLoader.js';
-    import { OBJLoader } from 'three/addons/loaders/OBJLoader.js';
-    import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
-
-    // ═══ SINGLE 3D ENGINE — robust loader with auto-center/scale ═══
-    // Supports OBJ, STL, GLTF/GLB. Lazy-inits scene/camera/renderer.
-    // renderLoop drives rotation + render — zero rAF here.
-
-    function ensureHologramEngine() {
-        // Lazy-init: create renderer/scene/camera only once
-        if (APP.hologram.renderer) return;
-
-        const container = document.getElementById('widget-layer');
-        container.innerHTML = '<canvas id="hologram-canvas"></canvas>';
-        container.style.opacity = '1';
-        container.style.display = 'block';
-
-        const scene = new THREE.Scene();
-        // Two-point lighting for depth on all model types
-        scene.add(new THREE.AmbientLight(0xffffff, 1.5));
-        const dirLight = new THREE.DirectionalLight(0xffffff, 1.0);
-        dirLight.position.set(5, 5, 5);
-        scene.add(dirLight);
-
-        const camera = new THREE.PerspectiveCamera(75, 1, 0.1, 1000);
-        camera.position.z = 5;
-
-        const renderer = new THREE.WebGLRenderer({
-            canvas: document.getElementById('hologram-canvas'),
-            alpha: true, antialias: true,
-            preserveDrawingBuffer: true
-        });
-        renderer.setClearColor(0x000000, 0);
-        renderer.setSize(300, 300);
-
-        APP.hologram.scene = scene;
-        APP.hologram.camera = camera;
-        APP.hologram.renderer = renderer;
-    }
-
-    function disposePreviousMesh() {
-        if (!APP.hologram.mesh || !APP.hologram.scene) return;
-        APP.hologram.scene.remove(APP.hologram.mesh);
-        APP.hologram.mesh.traverse(child => {
-            if (child.isMesh) {
-                if (child.geometry) child.geometry.dispose();
-                if (child.material) {
-                    // Material can be array or single
-                    const mats = Array.isArray(child.material) ? child.material : [child.material];
-                    mats.forEach(m => m.dispose());
-                }
-            }
-        });
-        APP.hologram.mesh = null;
-    }
-
-    function centerAndScale(model) {
-        // Auto-correct: center at origin, scale to fit camera view
-        const box = new THREE.Box3().setFromObject(model);
-        const center = box.getCenter(new THREE.Vector3());
-        const size = box.getSize(new THREE.Vector3());
-        const maxDim = Math.max(size.x, size.y, size.z) || 1;
-
-        // Negate the center offset so the model sits at (0,0,0)
-        model.position.set(-center.x, -center.y, -center.z);
-
-        // Scale to fit camera frustum: camera.z = 5, FOV = 75
-        // Visible height at z=0 = 2 * 5 * tan(37.5°) ≈ 7.7
-        // Target ~60% of visible area = ~4.6 units
-        const fitScale = 4.0 / maxDim;
-        model.scale.setScalar(fitScale);
-    }
-
-    function injectModel(model, fileName) {
-        // Apply wireframe normal material for consistent look
-        model.traverse(child => {
-            if (child.isMesh) {
-                child.material = new THREE.MeshNormalMaterial({ wireframe: true });
-            }
-        });
-
-        centerAndScale(model);
-
-        APP.hologram.scene.add(model);
-        APP.hologram.mesh = model;
-        APP.trinity.holo.visible = true;
-
-        // One initial render so canvas isn't blank — renderLoop takes over
-        APP.hologram.renderer.render(APP.hologram.scene, APP.hologram.camera);
-        if (typeof log === 'function') log('3D_MODEL: ' + fileName.toUpperCase() + ' LOADED');
-    }
-
-    // ═══ THE HYBRID FERRARI (Wide Support + Visibility Fix) ═══
-// ═══ 3D IGNITION: FINAL FERRARI BUILD (AUTO-CENTER & FIT) ═══
+<script>
+// ═══ SAFETY-FIRST 3D LOADER — uses global THREE (r128) ═══
+// Checks THREE exists. Supports OBJ, STL, GLTF/GLB.
+// Auto-centers and scales to camera. Zero new rAF — renderLoop drives.
 const btn = document.getElementById('btn-inject-3d');
 if (btn) {
     btn.onclick = () => {
-        // 1. Safety Checks: Create the Engine State if Missing
+        // 1. Critical Check
+        if (typeof THREE === 'undefined') {
+            alert('Error: Three.js library not loaded yet.');
+            return;
+        }
+
+        // 2. Initialize State
         if (!window.APP) window.APP = {};
         if (!window.APP.hologram) window.APP.hologram = { scene: null, mesh: null, camera: null };
         if (!window.APP.trinity) window.APP.trinity = { holo: { visible: false } };
 
         const input = document.createElement('input');
         input.type = 'file';
-        input.accept = '.obj,.stl'; // Rock-solid formats only
+        input.accept = '.obj,.stl,.glb,.gltf';
 
         input.onchange = (e) => {
             const file = e.target.files[0];
@@ -5639,74 +5555,62 @@ if (btn) {
             const url = URL.createObjectURL(file);
             const ext = file.name.split('.').pop().toLowerCase();
 
-            // 2. ENGINE START: Create Scene & Lights (The "Dark Room" Fix)
+            // 3. Engine Setup
             if (!window.APP.hologram.scene) {
-                console.log("IGNITION: FIRING_MAIN_ENGINE");
                 const scene = new THREE.Scene();
                 const camera = new THREE.PerspectiveCamera(50, 1, 0.1, 1000);
-                camera.position.z = 5; // Standard viewing distance
-                
-                // Lighting: Essential for visibility
-                const ambient = new THREE.AmbientLight(0xffffff, 1.5);
+                camera.position.z = 5;
+                scene.add(new THREE.AmbientLight(0xffffff, 1.5));
                 const dirLight = new THREE.DirectionalLight(0xffffff, 2.0);
                 dirLight.position.set(2, 5, 5);
-                scene.add(ambient);
                 scene.add(dirLight);
-
                 window.APP.hologram.scene = scene;
                 window.APP.hologram.camera = camera;
             }
 
-            // 3. CLEANUP: Remove Old Mesh
+            // 4. Cleanup
             if (window.APP.hologram.mesh) {
                 window.APP.hologram.scene.remove(window.APP.hologram.mesh);
-                // Try to dispose memory to prevent leaks
-                if (window.APP.hologram.mesh.geometry) window.APP.hologram.mesh.geometry.dispose();
                 window.APP.hologram.mesh = null;
             }
 
-            // 4. LOAD & PROCESS
-            let loader = (ext === 'obj') ? new THREE.OBJLoader() : new THREE.STLLoader();
+            // 5. Load
+            let loader;
+            try {
+                if (ext === 'obj') loader = new THREE.OBJLoader();
+                else if (ext === 'stl') loader = new THREE.STLLoader();
+                else if (ext === 'glb' || ext === 'gltf') loader = new THREE.GLTFLoader();
+                else loader = new THREE.OBJLoader();
+            } catch (err) {
+                console.error(err);
+                return;
+            }
 
             loader.load(url, (data) => {
-                // Handle different return types (Group vs Mesh)
-                let model = data.scene ? data.scene : (data.isBufferGeometry ? new THREE.Mesh(data) : data);
+                let model = data.scene || data;
+                if (data.isBufferGeometry) model = new THREE.Mesh(data);
 
-                // A. Apply Matrix Style (Wireframe)
-                model.traverse(child => {
-                    if (child.isMesh) {
-                        child.material = new THREE.MeshNormalMaterial({ wireframe: true });
-                    }
-                });
+                // Wireframe
+                model.traverse(c => { if (c.isMesh) c.material = new THREE.MeshNormalMaterial({ wireframe: true }); });
 
-                // B. AUTO-CENTERING LOGIC (The Fix)
+                // Center & Scale
                 const box = new THREE.Box3().setFromObject(model);
                 const center = box.getCenter(new THREE.Vector3());
                 const size = box.getSize(new THREE.Vector3());
-                
-                // Shift the model so its visual center is at (0,0,0)
-                model.position.x += (model.position.x - center.x);
-                model.position.y += (model.position.y - center.y);
-                model.position.z += (model.position.z - center.z);
-
-                // C. AUTO-SCALING LOGIC
+                model.position.sub(center);
                 const maxDim = Math.max(size.x, size.y, size.z);
-                const scaleFactor = 3.0 / maxDim; // 3.0 fits perfectly in z=5 camera
-                model.scale.setScalar(scaleFactor);
+                model.scale.setScalar(4.0 / maxDim);
 
-                // 5. GO LIVE
                 window.APP.hologram.scene.add(model);
                 window.APP.hologram.mesh = model;
                 window.APP.trinity.holo.visible = true;
-
-                console.log(`SYSTEM: 3D_ACTOR_READY [Scale: ${scaleFactor.toFixed(2)}x]`);
-            }, 
-            undefined, 
-            (err) => console.error("LOADER_ERROR:", err));
+            });
         };
         input.click();
     };
 }
+</script>
+<script type="module">
 // --- AUDIO ROTATION SYSTEM ---
 const V_PLAYLIST = {
     tracks: [],
@@ -5772,29 +5676,27 @@ function runVanguardTrack() {
 // 1. SIMPLEST HIDE BUTTON
 if ($('btn-3d-x')) {
     $('btn-3d-x').onclick = () => {
-        // 1. Kill the Zombie Loop
-        if (APP.hologram && APP.hologram.rafId) {
-            cancelAnimationFrame(APP.hologram.rafId);
-            APP.hologram.rafId = null;
+        // Dispose mesh
+        if (APP.hologram && APP.hologram.mesh && APP.hologram.scene) {
+            APP.hologram.scene.remove(APP.hologram.mesh);
+            APP.hologram.mesh = null;
         }
-
-        // 2. Wipe the Canvas References
+        // Dispose renderer
         if (APP.hologram && APP.hologram.renderer) {
             APP.hologram.renderer.dispose();
-            APP.hologram.renderer.forceContextLoss();
             APP.hologram.renderer = null;
         }
-
-        // 3. Hide the Legacy Layer
-        const layer = $('widget-layer');
-        if (layer) {
-            layer.innerHTML = ''; // Physically removes the duplicate canvas
-            layer.style.display = 'none';
+        // Clear scene/camera so next load creates fresh
+        if (APP.hologram) {
+            APP.hologram.scene = null;
+            APP.hologram.camera = null;
         }
-
-        // 4. Update the Trinity State
+        // Hide widget-layer
+        var layer = $('widget-layer');
+        if (layer) { layer.innerHTML = ''; layer.style.display = 'none'; }
+        // Update Trinity state
         APP.trinity.holo.visible = false;
-        console.log('SYSTEM: GHOST_3D_PURGED');
+        log('SYSTEM: 3D_DISPOSED');
     };
 }
 
