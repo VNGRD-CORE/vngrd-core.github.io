@@ -2057,8 +2057,9 @@ function renderLoop(timestamp) {
         ctx.textAlign = 'center';
 
         // Get text from hidden input or default
+        // NOTE: textContent works on display:none elements, innerText does NOT
         var ltEl = document.getElementById('lt-title-text');
-        var txt = (ltEl && ltEl.innerText) ? ltEl.innerText : (APP.lowerThird.text || 'LIVE BROADCAST');
+        var txt = (ltEl && ltEl.textContent) ? ltEl.textContent : (APP.lowerThird.text || 'LIVE BROADCAST');
         ctx.fillText(txt, w / 2, h - 40);
         ctx.restore();
     }
@@ -5642,33 +5643,41 @@ document.addEventListener('DOMContentLoaded', () => {
         var renderer = new THREE.WebGLRenderer({ canvas: holoCanvas, alpha: true, antialias: true, preserveDrawingBuffer: true });
         renderer.setSize(512, 512, false); renderer.setClearColor(0x000000, 0);
 
-        // D. FILE HUNTER: Find ANY file input (Fixes ID mismatch)
-        var fileInput = document.querySelector('input[type="file"]');
+        // D. FILE HUNTER: Target the CORRECT 3D file input by ID
+        var fileInput = document.getElementById('file-3d-model');
         var file = (fileInput && fileInput.files.length > 0) ? fileInput.files[0] : null;
 
-        if (file) {
-            console.log("LOG: Loading User Model...");
+        function loadModelFile(f) {
             var reader = new FileReader();
             reader.onload = function(e) {
-                // Ensure GLTFLoader exists
                 if (typeof THREE.GLTFLoader === 'undefined') { alert("GLTFLoader missing!"); addFallbackCube(); return; }
-
                 var loader = new THREE.GLTFLoader();
                 loader.parse(e.target.result, '', function(gltf) {
-                    // SUCCESS: Load the Model
                     var userMesh = gltf.scene;
-                    // Auto-Scale logic
                     var box = new THREE.Box3().setFromObject(userMesh);
                     var size = box.getSize(new THREE.Vector3()).length();
                     var scale = 3 / size;
                     userMesh.scale.set(scale, scale, scale);
-
                     finalizeInjection(scene, camera, renderer, userMesh);
                 }, function(err) { console.error(err); addFallbackCube(); });
             };
-            reader.readAsArrayBuffer(file);
+            reader.readAsArrayBuffer(f);
+        }
+
+        if (file) {
+            loadModelFile(file);
+        } else if (fileInput) {
+            // No file pre-selected — open dialog and load on selection
+            fileInput.onchange = function() {
+                if (fileInput.files.length > 0) {
+                    loadModelFile(fileInput.files[0]);
+                } else {
+                    addFallbackCube();
+                }
+            };
+            fileInput.click();
+            return;
         } else {
-            console.warn("No file found. Loading Fallback Cube.");
             addFallbackCube();
         }
 
