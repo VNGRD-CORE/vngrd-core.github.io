@@ -5739,20 +5739,53 @@ document.addEventListener('DOMContentLoaded', () => {
         var file = (fileInput && fileInput.files.length > 0) ? fileInput.files[0] : null;
 
         function loadModelFile(f) {
+            var ext = f.name.split('.').pop().toLowerCase();
             var reader = new FileReader();
-            reader.onload = function(e) {
-                if (typeof THREE.GLTFLoader === 'undefined') { alert("GLTFLoader missing!"); addFallbackCube(); return; }
-                var loader = new THREE.GLTFLoader();
-                loader.parse(e.target.result, '', function(gltf) {
-                    var userMesh = gltf.scene;
-                    var box = new THREE.Box3().setFromObject(userMesh);
-                    var size = box.getSize(new THREE.Vector3()).length();
-                    var scale = 3 / size;
-                    userMesh.scale.set(scale, scale, scale);
-                    finalizeInjection(scene, camera, renderer, userMesh);
-                }, function(err) { console.error(err); addFallbackCube(); });
-            };
-            reader.readAsArrayBuffer(f);
+
+            if (ext === 'obj') {
+                // OBJ files are text-based (e.g. MagicaVoxel exports)
+                reader.onload = function(e) {
+                    if (typeof THREE.OBJLoader === 'undefined') { alert("OBJLoader missing!"); addFallbackCube(); return; }
+                    var loader = new THREE.OBJLoader();
+                    try {
+                        var obj = loader.parse(e.target.result);
+                        autoScaleAndInject(obj);
+                    } catch(err) { console.error('OBJ parse error:', err); addFallbackCube(); }
+                };
+                reader.readAsText(f);
+            } else if (ext === 'stl') {
+                // STL files are binary geometry
+                reader.onload = function(e) {
+                    if (typeof THREE.STLLoader === 'undefined') { alert("STLLoader missing!"); addFallbackCube(); return; }
+                    var loader = new THREE.STLLoader();
+                    try {
+                        var geometry = loader.parse(e.target.result);
+                        var mesh = new THREE.Mesh(geometry, new THREE.MeshStandardMaterial({ color: 0xcccccc, metalness: 0.3, roughness: 0.6 }));
+                        autoScaleAndInject(mesh);
+                    } catch(err) { console.error('STL parse error:', err); addFallbackCube(); }
+                };
+                reader.readAsArrayBuffer(f);
+            } else {
+                // GLB/GLTF/VGD/JSON → GLTFLoader
+                reader.onload = function(e) {
+                    if (typeof THREE.GLTFLoader === 'undefined') { alert("GLTFLoader missing!"); addFallbackCube(); return; }
+                    var loader = new THREE.GLTFLoader();
+                    loader.parse(e.target.result, '', function(gltf) {
+                        autoScaleAndInject(gltf.scene);
+                    }, function(err) { console.error('GLTF parse error:', err); addFallbackCube(); });
+                };
+                reader.readAsArrayBuffer(f);
+            }
+
+            function autoScaleAndInject(mesh) {
+                var box = new THREE.Box3().setFromObject(mesh);
+                var size = box.getSize(new THREE.Vector3()).length();
+                var center = box.getCenter(new THREE.Vector3());
+                mesh.position.sub(center); // center the model
+                var scale = 3 / size;
+                mesh.scale.set(scale, scale, scale);
+                finalizeInjection(scene, camera, renderer, mesh);
+            }
         }
 
         if (file) {
