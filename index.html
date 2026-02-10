@@ -5811,6 +5811,8 @@ document.addEventListener('DOMContentLoaded', () => {
         renderer.setSize(512, 512, false); renderer.setClearColor(0x000000, 1);
 
         // D. GLOBAL INIT: Assign scene/camera/renderer to APP immediately
+        window.APP = window.APP || {};
+        window.APP.hologram = window.APP.hologram || {};
         window.APP.hologram.scene = scene;
         window.APP.hologram.camera = camera;
         window.APP.hologram.renderer = renderer;
