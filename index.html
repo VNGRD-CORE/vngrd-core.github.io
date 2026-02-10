@@ -1207,15 +1207,66 @@ body.shooting-mode #btn-shooting {
                     <button class="btn" id="btn-2d-x" title="Hide/Clear 2D">[X]</button>
                 </div>
                 <input type="file" id="file-2d-logo" accept=".png,.jpg,.jpeg,.gif,.webp" style="display:none;">
-                <!-- 3D HOLOGRAM -->
-                <div class="btn-row">
-                    <button class="btn" id="btn-inject-3d" onclick="document.getElementById('file-3d-model').click()" style="flex:2;color:var(--v);border-color:var(--v);">3D MODEL</button>
-                    <button class="btn" id="btn-3d-x" title="HIDE / CLEAR 3D">[X]</button>
-                </div>
-                <input type="file" id="file-3d-model" accept=".stl,.obj,.glb,.gltf,.vgd,.json" style="display:none;">
+               <div class="btn-row">
+    <button class="btn" id="btn-inject-3d" 
+            onclick="document.getElementById('file-3d-model').click()" 
+            style="flex:2;color:var(--v);border-color:var(--v);">3D MODEL</button>
+    <button class="btn" id="btn-3d-x" title="HIDE / CLEAR 3D">[X]</button>
+</div>
+<input type="file" id="file-3d-model" accept=".stl,.obj,.glb,.gltf,.vgd,.json" style="display:none;">
 
-            </div>
-        </div>
+<script>
+(function() {
+    // Ensure the door is open for the file picker
+    const fileInput = document.getElementById('file-3d-model');
+    
+    fileInput.onchange = function(e) {
+        if (!e.target.files.length) return;
+        const file = e.target.files[0];
+        console.log("VGD_CORE: Loading " + file.name);
+
+        // Wake up the 3D Engine if it's asleep
+        if (!window.APP.hologram.scene) {
+            initHologramEngine(); 
+        }
+
+        const reader = new FileReader();
+        reader.onload = (event) => {
+            const ext = file.name.split('.').pop().toLowerCase();
+            let loader;
+            
+            if (ext === 'obj') loader = new THREE.OBJLoader();
+            else if (ext === 'stl') loader = new THREE.STLLoader();
+            else loader = new THREE.GLTFLoader();
+
+            loader.parse(event.target.result, '', (result) => {
+                const mesh = result.scene || result;
+                
+                // Clear old model
+                if (window.APP.hologram.mesh) window.APP.hologram.scene.remove(window.APP.hologram.mesh);
+                
+                // Auto-Center and Scale
+                const box = new THREE.Box3().setFromObject(mesh);
+                const size = box.getSize(new THREE.Vector3()).length();
+                const center = box.getCenter(new THREE.Vector3());
+                mesh.position.sub(center);
+                const s = 3 / size;
+                mesh.scale.set(s, s, s);
+                
+                mesh.layers.set(0);
+                window.APP.hologram.scene.add(mesh);
+                window.APP.hologram.mesh = mesh;
+                
+                // Final force-render
+                window.APP.hologram.renderer.render(window.APP.hologram.scene, window.APP.hologram.camera);
+            });
+        };
+
+        if (ext === 'obj') reader.readAsText(file);
+        else reader.readAsArrayBuffer(file);
+    };
+})();
+</script>
     </aside>
 
     <aside class="sidebar" id="right-panel">
