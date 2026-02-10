@@ -1326,7 +1326,7 @@ body.shooting-mode #btn-shooting {
         <div class="section">
             <div class="sec-head"><span class="sec-title">NFT_FACTORY</span><div class="sec-dot"></div></div>
             <div class="sec-body">
-                <button class="btn rec" id="btn-nft-30">REC_30S_NFT</button>
+                <button class="btn rec" id="btn-nft-30">CAPTURE_VGD_CLIP</button>
                 <button class="btn" id="btn-save-session">SAVE_SESSION</button>
                 <button class="btn" id="btn-import-dna">IMPORT_VGD</button>
                 <div class="btn-row">
@@ -1563,6 +1563,7 @@ const APP = {
     hologram: {
         scene: null, camera: null, renderer: null,
         mesh: null,
+        logoGroup: null,
         scale: 1.0, rotationSpeed: 0.01,
         targetScale: 1.0
     },
@@ -1982,6 +1983,10 @@ function renderLoop(timestamp) {
             // Drive 3D animation from renderLoop — single rAF for everything
             if (APP.hologram.mesh && APP.hologram.renderer && APP.hologram.scene && APP.hologram.camera) {
                 APP.hologram.mesh.rotation.y += APP.hologram.rotationSpeed;
+                // Rotate 3D Logo independently (slower, Y-axis)
+                if (APP.hologram.logoGroup && APP.hologram.logoGroup.children.length > 0) {
+                    APP.hologram.logoGroup.rotation.y += 0.008;
+                }
 
                 // SEISMIC SCALE — lerp toward targetScale (bass*0.6 + MIDI*0.4)
                 var bassScale = 1.0;
@@ -2858,7 +2863,34 @@ function updateVU() {
 }
 
 $('btn-save-session').onclick = () => {
-    const session = { vj: APP.vj, theme: APP.state.theme, bug: APP.bug.text, layers: APP.layers, hologramScale: APP.hologram.scale, timestamp: Date.now() };
+    // Capture 2D Logo as Base64
+    var logo64 = null;
+    var logoEl = $('user-logo-layer');
+    if (logoEl && logoEl.src && logoEl.src !== window.location.href && logoEl.naturalWidth > 0) {
+        try {
+            var tmpC = document.createElement('canvas');
+            tmpC.width = logoEl.naturalWidth;
+            tmpC.height = logoEl.naturalHeight;
+            tmpC.getContext('2d').drawImage(logoEl, 0, 0);
+            logo64 = tmpC.toDataURL('image/png');
+        } catch(e) { log('LOGO_CAPTURE_ERR'); }
+    }
+    // Capture Lower Third text
+    var ltTitleEl = $('lt-title-text');
+    var ltSubEl = $('lt-subtitle-text');
+    var ltTitle = (ltTitleEl && ltTitleEl.textContent) ? ltTitleEl.textContent : '';
+    var ltSub = (ltSubEl && ltSubEl.textContent) ? ltSubEl.textContent : '';
+
+    const session = {
+        vj: APP.vj,
+        theme: APP.state.theme,
+        bug: APP.bug.text,
+        layers: APP.layers,
+        hologramScale: APP.hologram.scale,
+        logo2d: logo64,
+        lowerThird: { title: ltTitle, subtitle: ltSub, preset: APP.lowerThird.preset, visible: APP.lowerThird.visible },
+        timestamp: Date.now()
+    };
     localStorage.setItem('VNGRD_SESSION', JSON.stringify(session));
     log('RAM_SECURED');
     if(confirm("SESSION SECURED IN INTERNAL RAM.\n\nDOWNLOAD PHYSICAL BACKUP (.VGD)?")) {
@@ -2897,6 +2929,26 @@ $('file-vgd').onchange = (e) => {
                 APP.trinity.bug.scale = APP.layers.bugScale || 1.5;
             }
             if (s.hologramScale) APP.hologram.scale = s.hologramScale;
+            // Restore 2D Logo from Base64
+            if (s.logo2d) {
+                var logoLayer = $('user-logo-layer');
+                if (logoLayer) {
+                    logoLayer.src = s.logo2d;
+                    logoLayer.style.display = 'block';
+                    APP.trinity.logo.visible = true;
+                    log('2D_LOGO: RESTORED_FROM_VGD');
+                }
+            }
+            // Restore Lower Third text + state
+            if (s.lowerThird) {
+                if (s.lowerThird.title && $('lt-title-text')) $('lt-title-text').textContent = s.lowerThird.title;
+                if (s.lowerThird.subtitle && $('lt-subtitle-text')) $('lt-subtitle-text').textContent = s.lowerThird.subtitle;
+                if (s.lowerThird.title && $('lt-title')) $('lt-title').value = s.lowerThird.title;
+                if (s.lowerThird.subtitle && $('lt-sub')) $('lt-sub').value = s.lowerThird.subtitle;
+                if (s.lowerThird.preset) APP.lowerThird.preset = s.lowerThird.preset;
+                APP.lowerThird.visible = !!s.lowerThird.visible;
+                log('LOWER_THIRD: RESTORED_FROM_VGD');
+            }
             // Restore VJ sliders
             if ($('sl-b')) $('sl-b').value = Math.round(APP.vj.brightness * 100);
             if ($('sl-c')) $('sl-c').value = Math.round(APP.vj.contrast * 100);
@@ -2919,6 +2971,15 @@ function loadFromMemory() {
         if(s.bug) { APP.bug.text = s.bug; $('bug-text').value = s.bug; updateBug(); }
         if(s.vj) { APP.vj = { ...APP.vj, ...s.vj }; }
         if(s.layers) { APP.layers = { ...APP.layers, ...s.layers }; APP.trinity.logo.scale = APP.layers.logoScale || 1.0; APP.trinity.bug.scale = APP.layers.bugScale || 1.5; }
+        // Restore 2D Logo from Base64
+        if (s.logo2d) { var _ll = $('user-logo-layer'); if (_ll) { _ll.src = s.logo2d; _ll.style.display = 'block'; APP.trinity.logo.visible = true; } }
+        // Restore Lower Third
+        if (s.lowerThird) {
+            if (s.lowerThird.title && $('lt-title-text')) $('lt-title-text').textContent = s.lowerThird.title;
+            if (s.lowerThird.subtitle && $('lt-subtitle-text')) $('lt-subtitle-text').textContent = s.lowerThird.subtitle;
+            if (s.lowerThird.preset) APP.lowerThird.preset = s.lowerThird.preset;
+            APP.lowerThird.visible = !!s.lowerThird.visible;
+        }
         log('MEMORY_RESTORED');
     } catch(e) { log('MEMORY_CORRUPT'); }
 }
@@ -2949,7 +3010,7 @@ function startNFTRecording() {
         log('NFT_REC_START');
     } catch (e) { log('NFT_REC_ERR'); }
 }
-function stopNFTRecording() { if (!APP.nft.isRecording) return; APP.nft.recorder.stop(); APP.nft.isRecording = false; $('btn-nft-30').textContent = 'REC_30S_NFT'; $('btn-nft-30').classList.remove('on'); $('nft-hud').classList.remove('active'); log('NFT_REC_STOP'); }
+function stopNFTRecording() { if (!APP.nft.isRecording) return; APP.nft.recorder.stop(); APP.nft.isRecording = false; $('btn-nft-30').textContent = 'CAPTURE_VGD_CLIP'; $('btn-nft-30').classList.remove('on'); $('nft-hud').classList.remove('active'); log('NFT_REC_STOP'); }
 function updateNFTTimer() { if (!APP.nft.isRecording) return; const elapsed = Date.now() - APP.nft.startTime; const secs = Math.floor(elapsed / 1000); $('nft-timer').textContent = `00:${String(secs).padStart(2,'0')}`; $('nft-fill').style.width = `${Math.min(100, (elapsed / 30000) * 100)}%`; requestAnimationFrame(updateNFTTimer); }
 function finalizeNFT() { const blob = new Blob(APP.nft.chunks, { type: 'video/webm' }); const url = URL.createObjectURL(blob); const a = document.createElement('a'); a.href = url; a.download = `VNGRD_NFT_${Date.now()}.webm`; a.click(); APP.nft.chunks = []; log('NFT_EXPORTED'); }
 function openProjector() { if (APP.projector.isOpen) return; APP.projector.stream = APP.render.canvas.captureStream(60); APP.projector.window = window.open('', 'DRIS_Projector', 'width=1280,height=720,menubar=no,toolbar=no'); APP.projector.window.document.write('<!DOCTYPE html><html><body style="margin:0;background:#000;overflow:hidden"><video id="pf" autoplay muted playsinline style="width:100vw;height:100vh;object-fit:contain"></video><script>document.getElementById("pf").srcObject = window.opener.APP.projector.stream;<\/script></body></html>'); APP.projector.isOpen = true; $('btn-projector').classList.add('on'); log('PROJECTOR_OPEN'); }
@@ -5825,6 +5886,15 @@ document.addEventListener('DOMContentLoaded', () => {
             window.APP.hologram.rotationSpeed = 0.02;
             window.APP.hologram.targetScale = 1.0;
 
+            // Create 3D Logo Group (bottom-left, non-overlapping)
+            if (!window.APP.hologram.logoGroup) {
+                var logoGroup = new THREE.Group();
+                logoGroup.position.set(-2.5, -2.2, 0);
+                logoGroup.scale.set(0.4, 0.4, 0.4);
+                scene.add(logoGroup);
+                window.APP.hologram.logoGroup = logoGroup;
+            }
+
             window.APP.trinity.holo.x = 0.35;
             window.APP.trinity.holo.y = 0.25;
             window.APP.trinity.holo.scale = 1.0;
@@ -5834,6 +5904,83 @@ document.addEventListener('DOMContentLoaded', () => {
             if (window.log) log('3D_INJECTED');
         }
     };
+})();
+</script>
+<script>
+// ══════════════════════════════════════════════════
+// 3D LOGO INJECTOR — loads into APP.hologram.logoGroup
+// ══════════════════════════════════════════════════
+(function() {
+    // Reuse the file-2d-logo input for 3D logo when holding Shift
+    // Or provide a dedicated function callable from console
+    window.inject3DLogo = function(file) {
+        if (!window.APP || !window.APP.hologram || !window.APP.hologram.scene) {
+            console.warn('3D Logo: Inject a 3D model first to create the scene.');
+            return;
+        }
+        var scene = window.APP.hologram.scene;
+        // Ensure logoGroup exists
+        if (!window.APP.hologram.logoGroup) {
+            var g = new THREE.Group();
+            g.position.set(-2.5, -2.2, 0);
+            g.scale.set(0.4, 0.4, 0.4);
+            scene.add(g);
+            window.APP.hologram.logoGroup = g;
+        }
+        var logoGroup = window.APP.hologram.logoGroup;
+        // Clear existing logo children
+        while (logoGroup.children.length > 0) {
+            var child = logoGroup.children[0];
+            logoGroup.remove(child);
+            if (child.geometry) child.geometry.dispose();
+            if (child.material) child.material.dispose();
+        }
+        if (!file) {
+            // Default: small rotating VNGRD text cube
+            var cubeGeo = new THREE.BoxGeometry(1.5, 1.5, 1.5);
+            var cubeMat = new THREE.MeshStandardMaterial({ color: 0x00f3ff, wireframe: true, emissive: 0x003344 });
+            var cube = new THREE.Mesh(cubeGeo, cubeMat);
+            logoGroup.add(cube);
+            if (window.log) log('3D_LOGO: DEFAULT_CUBE');
+            return;
+        }
+        var ext = file.name.split('.').pop().toLowerCase();
+        var reader = new FileReader();
+        if (ext === 'obj') {
+            reader.onload = function(e) {
+                if (typeof THREE.OBJLoader === 'undefined') return;
+                var obj = new THREE.OBJLoader().parse(e.target.result);
+                autoScaleLogo(obj, logoGroup);
+            };
+            reader.readAsText(file);
+        } else if (ext === 'stl') {
+            reader.onload = function(e) {
+                if (typeof THREE.STLLoader === 'undefined') return;
+                var geo = new THREE.STLLoader().parse(e.target.result);
+                var mesh = new THREE.Mesh(geo, new THREE.MeshStandardMaterial({ color: 0x00f3ff, metalness: 0.5, roughness: 0.4 }));
+                autoScaleLogo(mesh, logoGroup);
+            };
+            reader.readAsArrayBuffer(file);
+        } else {
+            reader.onload = function(e) {
+                if (typeof THREE.GLTFLoader === 'undefined') return;
+                new THREE.GLTFLoader().parse(e.target.result, '', function(gltf) {
+                    autoScaleLogo(gltf.scene, logoGroup);
+                }, function(err) { console.error('3D Logo load error:', err); });
+            };
+            reader.readAsArrayBuffer(file);
+        }
+    };
+    function autoScaleLogo(mesh, group) {
+        var box = new THREE.Box3().setFromObject(mesh);
+        var size = box.getSize(new THREE.Vector3()).length();
+        var center = box.getCenter(new THREE.Vector3());
+        mesh.position.sub(center);
+        var s = 2.5 / size;
+        mesh.scale.set(s, s, s);
+        group.add(mesh);
+        if (window.log) log('3D_LOGO: INJECTED');
+    }
 })();
 </script>
 <script type="module">
