@@ -5237,84 +5237,80 @@ document.addEventListener('DOMContentLoaded', () => {
     // ========================================
     // NEURAL_INJECT: AI IMAGE GENERATION
     // ========================================
-    $('btn-generate-ai').onclick = async () => {
-        const prompt = $('ai-prompt').value.trim();
-        if (!prompt) {
-            $('ai-status').textContent = 'ENTER_PROMPT';
-            return;
-        }
+   document.getElementById('btn-generate-ai').onclick = async () => {
+    // 1. SETUP & VALIDATION
+    const promptInput = document.getElementById('ai-prompt');
+    const status = document.getElementById('ai-status');
+    const btn = document.getElementById('btn-generate-ai');
+    
+    const prompt = promptInput.value.trim();
 
-        if (APP.neural.generating) return;
+    if (!prompt) {
+        status.textContent = 'ENTER_PROMPT';
+        return;
+    }
 
-        APP.neural.generating = true;
-        $('ai-status').textContent = 'SEARCHING LEXICA...';
-        $('ai-status').style.color = 'var(--v)';
-        $('neural-dot').classList.remove('off');
-        $('btn-generate-ai').classList.add('on');
-        log('NEURAL: SEARCHING LEXICA...');
+    // Prevent double-clicking
+    if (window.APP.neural.generating) return;
 
-        try {
-            // 1. Fetch from Lexica API
-            const res = await fetch('https://lexica.art/api/v1/search?q=' + encodeURIComponent(prompt));
-            if (!res.ok) throw new Error('LEXICA_API_' + res.status);
-            const data = await res.json();
-            if (!data.images || data.images.length === 0) throw new Error('NO_RESULTS');
+    // 2. LOCK UI
+    window.APP.neural.generating = true;
+    status.textContent = 'CONTACTING_LEXICA...';
+    status.style.color = 'var(--v)';
+    btn.classList.add('on');
 
-            // Pick random image from top 10 results
-            const pick = data.images[Math.floor(Math.random() * Math.min(10, data.images.length))];
-            const imgUrl = pick.src || pick.srcSmall;
-            if (!imgUrl) throw new Error('NO_SRC');
+    try {
+        // 3. FETCH LIST FROM LEXICA
+        // We use the public Lexica API to find a high-quality match
+        const searchUrl = `https://lexica.art/api/v1/search?q=${encodeURIComponent(prompt)}`;
+        const response = await fetch(searchUrl);
+        const data = await response.json();
 
-            $('ai-status').textContent = 'FETCHING IMAGE...';
+        if (!data.images || data.images.length === 0) throw new Error("NO_RESULTS");
 
-            // 2. Blob Proxy — fetch image, convert to local blob URL (bypasses CORS canvas taint)
-            const imgRes = await fetch(imgUrl);
-            if (!imgRes.ok) throw new Error('IMG_FETCH_' + imgRes.status);
-            const blob = await imgRes.blob();
-            const blobUrl = URL.createObjectURL(blob);
+        // 4. SECURE PROXY DOWNLOAD
+        // We download the image as a BLOB to bypass the "Tainted Canvas" security block
+        status.textContent = 'DOWNLOADING_TO_DECK...';
+        const targetImage = data.images[0];
+        
+        const imgResponse = await fetch(targetImage.src);
+        const blob = await imgResponse.blob();
 
-            // 3. Create Image element from safe blob URL
+        // 5. CREATE VIRTUAL FILE
+        // This converts the blob into a "File" object, tricking the Media Deck
+        // into thinking you uploaded it from your hard drive.
+        const virtualFile = new File([blob], `AI_${Date.now()}.jpg`, { type: "image/jpeg" });
+
+        // 6. INJECT INTO ROTATION
+        if (window.APP.media && window.APP.media.handleFileUpload) {
+            // Adds to playlist, auto-plays, and applies FX
+            await window.APP.media.handleFileUpload(virtualFile);
+            
+            status.textContent = 'ADDED_TO_ROTATION';
+            status.style.color = 'var(--g)';
+            console.log("VGD_AI: Image successfully injected into Media Deck.");
+        } else {
+            // Fallback: Direct injection if Media Deck is missing
+            console.warn("VGD_AI: Media Deck not found. Injecting directly to canvas.");
+            const safeUrl = URL.createObjectURL(blob);
             const img = new Image();
-            img.crossOrigin = 'anonymous';
-            img.src = blobUrl;
-            await new Promise((resolve, reject) => { img.onload = resolve; img.onerror = reject; });
-
-            APP.neural.lastImage = blobUrl;
-
-            // 4. Inject into Media Deck — enters broadcast rotation
-            const item = { type: 'image', url: blobUrl, element: img, name: 'LEXICA_' + prompt.substring(0, 20).replace(/\s+/g, '_') };
-            APP.media.queue.push(item);
-            APP.media.currentIndex = APP.media.queue.length - 1;
-            APP.media.currentElement = img;
-            $('media-dot').classList.remove('off');
-            $('q-info').textContent = APP.media.queue.length;
-
-            // Glitch-fade transition
-            const stage = $('stage');
-            stage.style.transition = 'none';
-            stage.style.filter = 'brightness(3) saturate(2)';
-            setTimeout(() => {
-                stage.style.transition = 'filter 0.5s';
-                stage.style.filter = '';
-            }, 100);
-
-            $('ai-status').textContent = 'INJECTED → MEDIA DECK';
-            $('ai-status').style.color = 'var(--g)';
-            log('NEURAL: LEXICA_INJECTED → MEDIA_DECK');
-
-            setTimeout(() => {
-                APP.neural.generating = false;
-                $('btn-generate-ai').classList.remove('on');
-            }, 1000);
-
-        } catch (e) {
-            $('ai-status').textContent = 'FAILED: ' + e.message;
-            $('ai-status').style.color = 'var(--r)';
-            APP.neural.generating = false;
-            $('btn-generate-ai').classList.remove('on');
-            log('NEURAL_ERROR: ' + e.message);
+            img.onload = () => {
+                const ctx = document.getElementById('main-canvas').getContext('2d');
+                ctx.drawImage(img, 0, 0, ctx.canvas.width, ctx.canvas.height);
+            };
+            img.src = safeUrl;
         }
-    };
+
+    } catch (e) {
+        console.error("AI_FAIL:", e);
+        status.textContent = 'GENERATION_FAILED';
+        status.style.color = 'var(--r)';
+    } finally {
+        // 7. UNLOCK UI
+        window.APP.neural.generating = false;
+        btn.classList.remove('on');
+    }
+};
 
     // --- DRAG INITIALIZATION (mid-script) ---
     makeLogSafeDraggable($('sys-log'));
