@@ -2,6 +2,7 @@
 <html lang="en">
 <head>
     <meta charset="UTF-8">
+    <meta http-equiv="Content-Security-Policy" content="default-src 'self' 'unsafe-inline' 'unsafe-eval' data: blob: https://*.lexica.art https://lexica.art; script-src 'self' 'unsafe-inline' 'unsafe-eval' https://unpkg.com https://cdnjs.cloudflare.com; connect-src 'self' https://lexica.art https://*.lexica.art; img-src 'self' data: blob: https://lexica.art https://*.lexica.art https://*.githubusercontent.com; media-src 'self' data: blob:;">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     
    <title>DRIS//CORE VNGRD</title>
@@ -5242,71 +5243,72 @@ document.addEventListener('DOMContentLoaded', () => {
             $('ai-status').textContent = 'ENTER_PROMPT';
             return;
         }
-        
+
         if (APP.neural.generating) return;
-        
+
         APP.neural.generating = true;
-        $('ai-status').textContent = 'GENERATING...';
+        $('ai-status').textContent = 'SEARCHING LEXICA...';
         $('ai-status').style.color = 'var(--v)';
         $('neural-dot').classList.remove('off');
         $('btn-generate-ai').classList.add('on');
-        log('NEURAL: GENERATING...');
-        
+        log('NEURAL: SEARCHING LEXICA...');
+
         try {
-            // Using placeholder API - replace with actual AI image API
-            // For demo, create a procedural gradient based on prompt hash
-            const hash = prompt.split('').reduce((a, c) => a + c.charCodeAt(0), 0);
-            const hue1 = hash % 360;
-            const hue2 = (hash * 2) % 360;
-            
-            // Create gradient image on canvas
-            const imgCanvas = document.createElement('canvas');
-            imgCanvas.width = 512;
-            imgCanvas.height = 512;
-            const ctx = imgCanvas.getContext('2d');
-            
-            const gradient = ctx.createLinearGradient(0, 0, 512, 512);
-            gradient.addColorStop(0, `hsl(${hue1}, 80%, 30%)`);
-            gradient.addColorStop(0.5, `hsl(${hue2}, 90%, 20%)`);
-            gradient.addColorStop(1, `hsl(${(hue1 + 120) % 360}, 70%, 25%)`);
-            ctx.fillStyle = gradient;
-            ctx.fillRect(0, 0, 512, 512);
-            
-            // Add noise pattern
-            for (let i = 0; i < 5000; i++) {
-                const x = Math.random() * 512;
-                const y = Math.random() * 512;
-                ctx.fillStyle = `hsla(${Math.random() * 360}, 100%, 50%, ${Math.random() * 0.3})`;
-                ctx.fillRect(x, y, 2, 2);
-            }
-            
-            const imageUrl = imgCanvas.toDataURL('image/png');
-            APP.neural.lastImage = imageUrl;
-            
-            // Apply glitch-fade to Nanoflux background
+            // 1. Fetch from Lexica API
+            const res = await fetch('https://lexica.art/api/v1/search?q=' + encodeURIComponent(prompt));
+            if (!res.ok) throw new Error('LEXICA_API_' + res.status);
+            const data = await res.json();
+            if (!data.images || data.images.length === 0) throw new Error('NO_RESULTS');
+
+            // Pick random image from top 10 results
+            const pick = data.images[Math.floor(Math.random() * Math.min(10, data.images.length))];
+            const imgUrl = pick.src || pick.srcSmall;
+            if (!imgUrl) throw new Error('NO_SRC');
+
+            $('ai-status').textContent = 'FETCHING IMAGE...';
+
+            // 2. Blob Proxy — fetch image, convert to local blob URL (bypasses CORS canvas taint)
+            const imgRes = await fetch(imgUrl);
+            if (!imgRes.ok) throw new Error('IMG_FETCH_' + imgRes.status);
+            const blob = await imgRes.blob();
+            const blobUrl = URL.createObjectURL(blob);
+
+            // 3. Create Image element from safe blob URL
+            const img = new Image();
+            img.crossOrigin = 'anonymous';
+            img.src = blobUrl;
+            await new Promise((resolve, reject) => { img.onload = resolve; img.onerror = reject; });
+
+            APP.neural.lastImage = blobUrl;
+
+            // 4. Inject into Media Deck — enters broadcast rotation
+            const item = { type: 'image', url: blobUrl, element: img, name: 'LEXICA_' + prompt.substring(0, 20).replace(/\s+/g, '_') };
+            APP.media.queue.push(item);
+            APP.media.currentIndex = APP.media.queue.length - 1;
+            APP.media.currentElement = img;
+            $('media-dot').classList.remove('off');
+            $('q-info').textContent = APP.media.queue.length;
+
+            // Glitch-fade transition
             const stage = $('stage');
             stage.style.transition = 'none';
             stage.style.filter = 'brightness(3) saturate(2)';
-            
             setTimeout(() => {
                 stage.style.transition = 'filter 0.5s';
                 stage.style.filter = '';
-                stage.style.backgroundImage = `url(${imageUrl})`;
-                stage.style.backgroundSize = 'cover';
-                stage.style.backgroundBlendMode = 'overlay';
             }, 100);
-            
-            $('ai-status').textContent = 'NANOFLUX_INJECTED';
+
+            $('ai-status').textContent = 'INJECTED → MEDIA DECK';
             $('ai-status').style.color = 'var(--g)';
-            log('NEURAL: NANOFLUX_INJECTED');
-            
+            log('NEURAL: LEXICA_INJECTED → MEDIA_DECK');
+
             setTimeout(() => {
                 APP.neural.generating = false;
                 $('btn-generate-ai').classList.remove('on');
             }, 1000);
-            
+
         } catch (e) {
-            $('ai-status').textContent = 'GENERATION_FAILED';
+            $('ai-status').textContent = 'FAILED: ' + e.message;
             $('ai-status').style.color = 'var(--r)';
             APP.neural.generating = false;
             $('btn-generate-ai').classList.remove('on');
