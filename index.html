@@ -2613,8 +2613,9 @@ $('btn-rec').onclick = () => {
         $('rec-status').style.display = 'none'; 
     } else {
         const stream = APP.render.canvas.captureStream(60);
-        if(APP.audio.ctx) {
+        if(APP.audio.source && APP.audio.ctx) {
             const dest = APP.audio.ctx.createMediaStreamDestination();
+            APP.audio.source.connect(dest);
             if(APP.audio.masterGain) APP.audio.masterGain.connect(dest);
             if(APP.audio.micGainNode) APP.audio.micGainNode.connect(dest);
             if(dest.stream.getAudioTracks().length > 0) stream.addTrack(dest.stream.getAudioTracks()[0]);
@@ -2988,8 +2989,9 @@ function startNFTRecording() {
     if (APP.nft.isRecording) { stopNFTRecording(); return; }
     try {
         const canvasStream = APP.render.canvas.captureStream(60);
-        if (APP.audio.ctx) {
+        if (APP.audio.source && APP.audio.ctx) {
             const nftDest = APP.audio.ctx.createMediaStreamDestination();
+            APP.audio.source.connect(nftDest);
             if (APP.audio.masterGain) APP.audio.masterGain.connect(nftDest);
             if (APP.audio.micGainNode) APP.audio.micGainNode.connect(nftDest);
             if (nftDest.stream.getAudioTracks().length > 0) canvasStream.addTrack(nftDest.stream.getAudioTracks()[0]);
