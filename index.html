@@ -2,6 +2,7 @@
 <html lang="en">
 <head>
     <meta charset="UTF-8">
+    <meta http-equiv="Content-Security-Policy" content="script-src 'self' 'unsafe-inline' 'unsafe-eval' https://unpkg.com https://cdn.jsdelivr.net https://cdnjs.cloudflare.com; img-src 'self' data: https://lexica.art https://*.lexica.art https://*.githubusercontent.com;">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     
    <title>DRIS//CORE VNGRD</title>
@@ -1120,7 +1121,7 @@ body.shooting-mode #btn-shooting {
                     </div>
                 </div>
                 <div id="live-ctrls" style="display:none">
-                    <button class="btn rec" id="btn-rec">REC_BROADCAST</button>
+                    <button class="btn rec" id="btn-record-broadcast">REC_BROADCAST</button>
                     <button class="btn" id="btn-end">END LIVE</button>
                 </div>
                 <button class="btn" id="btn-kill" style="display:none;color:var(--r)">SHUTDOWN CAM</button>
@@ -1208,7 +1209,7 @@ body.shooting-mode #btn-shooting {
                 <input type="file" id="file-2d-logo" accept=".png,.jpg,.jpeg,.gif,.webp" style="display:none;">
                 <!-- 3D HOLOGRAM -->
                 <div class="btn-row">
-                    <button class="btn" id="btn-inject-3d" style="flex:2;color:var(--v);border-color:var(--v);">3D MODEL</button>
+                    <button class="btn" id="btn-inject-3d" onclick="document.getElementById('file-3d-model').click()" style="flex:2;color:var(--v);border-color:var(--v);">3D MODEL</button>
                     <button class="btn" id="btn-3d-x" title="HIDE / CLEAR 3D">[X]</button>
                 </div>
                 <input type="file" id="file-3d-model" accept=".stl,.obj,.glb,.gltf,.vgd,.json" style="display:none;">
@@ -1326,7 +1327,7 @@ body.shooting-mode #btn-shooting {
         <div class="section">
             <div class="sec-head"><span class="sec-title">SESSION_LAB</span><div class="sec-dot"></div></div>
             <div class="sec-body">
-                <button class="btn rec" id="btn-nft-30">CAPTURE_VGD_CLIP</button>
+                <button class="btn rec" id="btn-capture-vgd-clip">CAPTURE_VGD_CLIP</button>
                 <button class="btn" id="btn-save-session">SAVE_SESSION</button>
                 <button class="btn" id="btn-import-dna">IMPORT_VGD</button>
                 <div class="btn-row">
@@ -1692,6 +1693,7 @@ function processGhostCommand(cmd) {
                                     APP.media.queue.push({ type: 'video', element: vid, name: entry.name });
                                 } else if (name.match(/\.(jpg|jpeg|png|gif)$/i)) {
                                     const img = new Image();
+                                    img.crossOrigin = 'anonymous';
                                     img.src = url;
                                     APP.media.queue.push({ type: 'image', element: img, name: entry.name });
                                 }
@@ -1930,53 +1932,13 @@ function renderLoop(timestamp) {
         ctx.restore();
     }
     
-    // ═══ IDENTITY TRINITY — three independent actors burned into canvas ═══
+    // ═══ UNIFIED COMPOSITOR — Camera → Effects → 3D → Weather → Overlays → LT ═══
     ctx.filter = 'none';
     ctx.globalAlpha = 1;
     ctx.globalCompositeOperation = 'source-over';
     var T = APP.trinity;
     
-    // ACTOR 1: STATION BUG (text or uploaded image)
-    if (T.bug.visible) {
-        var bugEl = $('station-bug');
-        var bx = T.bug.x * w, by = T.bug.y * h, bScale = T.bug.scale;
-        if (bugEl) {
-            var bugImg = bugEl.querySelector('img');
-            if (bugImg && bugImg.complete && bugImg.naturalWidth > 0) {
-                ctx.save();
-                var bw = bugImg.naturalWidth * bScale * (w / 1920);
-                var bh = bugImg.naturalHeight * bScale * (h / 1080);
-                ctx.drawImage(bugImg, bx, by, bw, bh);
-                ctx.restore();
-            } else if (APP.bug.text) {
-                ctx.save();
-                var bugFS = Math.max(14, 28 * bScale * (h / 1080));
-                ctx.font = '800 ' + bugFS + 'px Orbitron, sans-serif';
-                ctx.fillStyle = 'rgba(255,255,255,0.9)';
-                ctx.textAlign = 'left'; ctx.textBaseline = 'top';
-                ctx.shadowColor = 'rgba(0,0,0,0.5)'; ctx.shadowBlur = 4;
-                ctx.shadowOffsetX = 2; ctx.shadowOffsetY = 2;
-                ctx.fillText(APP.bug.text, bx, by);
-                ctx.restore();
-            }
-        }
-    }
-    
-    // ACTOR 2: 2D LOGO (uploaded image via drawImage — no size cap)
-    if (T.logo.visible) {
-        var logoImg = $('user-logo-layer');
-        if (logoImg && logoImg.src && logoImg.src !== window.location.href && logoImg.naturalWidth > 0) {
-            ctx.save();
-            var lScale = T.logo.scale;
-            var lw = logoImg.naturalWidth * lScale * (w / 1920);
-            var lh = logoImg.naturalHeight * lScale * (h / 1080);
-            var lx = T.logo.x * w, ly = T.logo.y * h;
-            ctx.drawImage(logoImg, lx, ly, lw, lh);
-            ctx.restore();
-        }
-    }
-    
-    // ACTOR 3: 3D MODEL (renderLoop drives rotation + render on hologram-canvas)
+    // MID-TOP: 3D HOLOGRAM (screen blend — black bg invisible, lit model glows)
     if (T.holo.visible) {
         var holoCanvas = $('hologram-canvas');
         if (holoCanvas && holoCanvas.width > 0) {
@@ -2046,6 +2008,46 @@ function renderLoop(timestamp) {
         }
     }
 
+    // TOP: STATION BUG (overlay)
+    if (T.bug.visible) {
+        var bugEl = $('station-bug');
+        var bx = T.bug.x * w, by = T.bug.y * h, bScale = T.bug.scale;
+        if (bugEl) {
+            var bugImg = bugEl.querySelector('img');
+            if (bugImg && bugImg.complete && bugImg.naturalWidth > 0) {
+                ctx.save();
+                var bw = bugImg.naturalWidth * bScale * (w / 1920);
+                var bh = bugImg.naturalHeight * bScale * (h / 1080);
+                ctx.drawImage(bugImg, bx, by, bw, bh);
+                ctx.restore();
+            } else if (APP.bug.text) {
+                ctx.save();
+                var bugFS = Math.max(14, 28 * bScale * (h / 1080));
+                ctx.font = '800 ' + bugFS + 'px Orbitron, sans-serif';
+                ctx.fillStyle = 'rgba(255,255,255,0.9)';
+                ctx.textAlign = 'left'; ctx.textBaseline = 'top';
+                ctx.shadowColor = 'rgba(0,0,0,0.5)'; ctx.shadowBlur = 4;
+                ctx.shadowOffsetX = 2; ctx.shadowOffsetY = 2;
+                ctx.fillText(APP.bug.text, bx, by);
+                ctx.restore();
+            }
+        }
+    }
+    
+    // TOP: 2D LOGO (overlay)
+    if (T.logo.visible) {
+        var logoImg = $('user-logo-layer');
+        if (logoImg && logoImg.src && logoImg.src !== window.location.href && logoImg.naturalWidth > 0) {
+            ctx.save();
+            var lScale = T.logo.scale;
+            var lw = logoImg.naturalWidth * lScale * (w / 1920);
+            var lh = logoImg.naturalHeight * lScale * (h / 1080);
+            var lx = T.logo.x * w, ly = T.logo.y * h;
+            ctx.drawImage(logoImg, lx, ly, lw, lh);
+            ctx.restore();
+        }
+    }
+    
     // ══════════════════════════════════════════════════
     // BURN-IN LOWER THIRD — Premium Broadcast Canvas Render
     // Draws directly to captureStream canvas = ALWAYS in recording
@@ -2440,7 +2442,7 @@ function loadMediaFiles(input) {
         const type = file.type.startsWith('video') ? 'video' : 'image';
         const item = { type, url, element: null, name: file.name };
         if (type === 'video') { const vid = document.createElement('video'); vid.src = url; vid.muted = true; vid.loop = !APP.state.isCycle; vid.playsInline = true; vid.preload = 'auto'; item.element = vid; $('media-container').appendChild(vid); }
-        else { const img = new Image(); img.src = url; item.element = img; }
+        else { const img = new Image(); img.crossOrigin = 'anonymous'; img.src = url; item.element = img; }
         APP.media.queue.push(item);
         if (isFirstLoad && idx === 0) rotateMedia();
     });
@@ -2606,31 +2608,137 @@ function goLive() {
     }, 1000);
 }
 
-$('btn-rec').onclick = () => {
-    const btn = $('btn-rec');
-    if(APP.broadcast.isRecording) {
-        APP.broadcast.recorder.stop(); APP.broadcast.isRecording = false; btn.innerText = 'SAVING...'; btn.classList.remove('active'); 
-        $('rec-status').style.display = 'none'; 
-    } else {
-        const stream = APP.render.canvas.captureStream(60);
-        if(APP.audio.ctx) {
-            const dest = APP.audio.ctx.createMediaStreamDestination();
-            if(APP.audio.masterGain) APP.audio.masterGain.connect(dest);
-            if(APP.audio.micGainNode) APP.audio.micGainNode.connect(dest);
-            if(dest.stream.getAudioTracks().length > 0) stream.addTrack(dest.stream.getAudioTracks()[0]);
-        }
-        APP.broadcast.chunks = [];
-        let bcastOpts = { mimeType: 'video/webm;codecs=vp9,opus', videoBitsPerSecond: 15000000, audioBitsPerSecond: 128000 };
-        try { APP.broadcast.recorder = new MediaRecorder(stream, bcastOpts); }
-        catch(e) { APP.broadcast.recorder = new MediaRecorder(stream, { mimeType: 'video/webm' }); }
-        APP.broadcast.recorder.ondataavailable = e => APP.broadcast.chunks.push(e.data);
-        APP.broadcast.recorder.onstop = () => {
-            const blob = new Blob(APP.broadcast.chunks, { type: 'video/webm' }); const url = URL.createObjectURL(blob); const a = document.createElement('a'); a.href = url; a.download = `VNGRD_BROADCAST_${Date.now()}.webm`; a.click(); btn.innerText = 'REC_BROADCAST'; log('BROADCAST_SAVED');
-        };
-        APP.broadcast.recorder.start(1000); APP.broadcast.isRecording = true; btn.innerText = '■ STOP & SAVE'; btn.classList.add('active'); 
-        $('rec-status').style.display = 'block'; 
+// ══════════════════════════════════════════════════
+// DUAL-MODE BROADCAST RECORDER — unified master output
+// ══════════════════════════════════════════════════
+function startVanguardRecording(mode) {
+    // mode: 'podcast' (full session) or 'clip' (30s capture)
+    var podcastBtn = document.getElementById('btn-record-broadcast');
+    var clipBtn = document.getElementById('btn-capture-vgd-clip');
+
+    // Toggle-off logic
+    if (mode === 'podcast' && APP.broadcast.isRecording) {
+        APP.broadcast.recorder.stop();
+        APP.broadcast.isRecording = false;
+        podcastBtn.innerText = 'SAVING...';
+        podcastBtn.classList.remove('active');
+        document.getElementById('rec-status').style.display = 'none';
+        // Restore gain levels
+        if (APP.audio.masterGain && APP.broadcast._origMasterGain !== undefined)
+            APP.audio.masterGain.gain.value = APP.broadcast._origMasterGain;
+        if (APP.audio.micGainNode && APP.broadcast._origMicGain !== undefined)
+            APP.audio.micGainNode.gain.value = APP.broadcast._origMicGain;
+        return;
     }
-};
+    if (mode === 'clip' && APP.nft.isRecording) {
+        stopVanguardClip();
+        return;
+    }
+
+    try {
+        // AUDIO BRIDGE: MediaStreamDestination from AudioContext
+        var canvasTrack = APP.render.canvas.captureStream(60).getVideoTracks()[0];
+        if (!canvasTrack) { log('REC_ERR: No video track'); return; }
+        var audioTrack = null;
+
+        if (APP.audio.ctx) {
+            var audioDest = APP.audio.ctx.createMediaStreamDestination();
+            if (APP.audio.masterGain) APP.audio.masterGain.connect(audioDest);
+            if (APP.audio.micGainNode) APP.audio.micGainNode.connect(audioDest);
+
+            // Podcast: boost voice, duck music
+            if (mode === 'podcast') {
+                APP.broadcast._origMicGain = APP.audio.micGainNode ? APP.audio.micGainNode.gain.value : 1;
+                APP.broadcast._origMasterGain = APP.audio.masterGain ? APP.audio.masterGain.gain.value : 1;
+                if (APP.audio.micGainNode) APP.audio.micGainNode.gain.value = Math.min(APP.broadcast._origMicGain * 1.3, 2.0);
+                if (APP.audio.masterGain) APP.audio.masterGain.gain.value = APP.broadcast._origMasterGain * 0.7;
+            }
+
+            var aTracks = audioDest.stream.getAudioTracks();
+            if (aTracks.length > 0) audioTrack = aTracks[0];
+        }
+
+        // CONSTRUCTOR: Both tracks initialized at the same time — prevents sync drift
+        var tracks = audioTrack ? [canvasTrack, audioTrack] : [canvasTrack];
+        var combinedStream = new MediaStream(tracks);
+
+        var bitrate = (mode === 'podcast') ? 15000000 : 5000000;
+        var opts = { mimeType: 'video/webm;codecs=vp9,opus', videoBitsPerSecond: bitrate, audioBitsPerSecond: 128000 };
+        var recorder;
+        try { recorder = new MediaRecorder(combinedStream, opts); }
+        catch(e) { recorder = new MediaRecorder(combinedStream, { mimeType: 'video/webm' }); }
+
+        var chunks = [];
+        recorder.ondataavailable = function(e) { chunks.push(e.data); };
+
+        if (mode === 'podcast') {
+            recorder.onstop = function() {
+                var blob = new Blob(chunks, { type: 'video/webm' });
+                var url = URL.createObjectURL(blob);
+                var a = document.createElement('a');
+                a.href = url; a.download = 'VNGRD_BROADCAST_' + Date.now() + '.webm'; a.click();
+                podcastBtn.innerText = 'REC_BROADCAST';
+                if (APP.audio.masterGain && APP.broadcast._origMasterGain !== undefined)
+                    APP.audio.masterGain.gain.value = APP.broadcast._origMasterGain;
+                if (APP.audio.micGainNode && APP.broadcast._origMicGain !== undefined)
+                    APP.audio.micGainNode.gain.value = APP.broadcast._origMicGain;
+                log('BROADCAST_SAVED');
+            };
+            APP.broadcast.recorder = recorder;
+            APP.broadcast.chunks = chunks;
+            recorder.start(1000);
+            APP.broadcast.isRecording = true;
+            podcastBtn.innerText = '■ STOP & SAVE';
+            podcastBtn.classList.add('active');
+            document.getElementById('rec-status').style.display = 'block';
+            log('PODCAST_REC_START');
+        } else {
+            recorder.onstop = function() {
+                var blob = new Blob(chunks, { type: 'video/webm' });
+                var url = URL.createObjectURL(blob);
+                var a = document.createElement('a');
+                a.href = url; a.download = 'VNGRD_CLIP_' + Date.now() + '.webm'; a.click();
+                APP.nft.chunks = [];
+                log('CLIP_EXPORTED');
+            };
+            APP.nft.recorder = recorder;
+            APP.nft.chunks = chunks;
+            recorder.start(1000);
+            APP.nft.isRecording = true;
+            APP.nft.startTime = Date.now();
+            clipBtn.textContent = '■ STOP REC';
+            clipBtn.classList.add('on');
+            document.getElementById('nft-hud').classList.add('active');
+            updateClipTimer();
+            setTimeout(function() { if (APP.nft.isRecording) stopVanguardClip(); }, 30000);
+            log('CLIP_REC_START');
+        }
+    } catch (e) {
+        console.error('Recording error:', e);
+        log('REC_ERR: ' + e.message);
+    }
+}
+
+function stopVanguardClip() {
+    if (!APP.nft.isRecording) return;
+    APP.nft.recorder.stop();
+    APP.nft.isRecording = false;
+    document.getElementById('btn-capture-vgd-clip').textContent = 'CAPTURE_VGD_CLIP';
+    document.getElementById('btn-capture-vgd-clip').classList.remove('on');
+    document.getElementById('nft-hud').classList.remove('active');
+    log('CLIP_REC_STOP');
+}
+
+function updateClipTimer() {
+    if (!APP.nft.isRecording) return;
+    var elapsed = Date.now() - APP.nft.startTime;
+    var secs = Math.floor(elapsed / 1000);
+    document.getElementById('nft-timer').textContent = '00:' + String(secs).padStart(2, '0');
+    document.getElementById('nft-fill').style.width = Math.min(100, (elapsed / 30000) * 100) + '%';
+    requestAnimationFrame(updateClipTimer);
+}
+
+document.getElementById('btn-record-broadcast').onclick = function() { startVanguardRecording('podcast'); };
 
 function endLive() { 
     APP.state.isLive = false; APP.camera.mode = 'preview'; $('live-ctrls').style.display = 'none'; $('cam-ctrls').style.display = 'block'; $('tally').style.display = 'none'; $('status-text').textContent = 'STANDBY'; $('main-dot').classList.remove('live'); $('btn-go-live').textContent = 'GO LIVE [3-2-1]'; var _pf3 = $('cam-preview-float'); if (_pf3 && APP.camera.stream) { _pf3.style.display = ''; _pf3.classList.add('active'); } 
@@ -2984,33 +3092,8 @@ function loadFromMemory() {
     } catch(e) { log('MEMORY_CORRUPT'); }
 }
 
-function startNFTRecording() {
-    if (APP.nft.isRecording) { stopNFTRecording(); return; }
-    try {
-        const canvasStream = APP.render.canvas.captureStream(60);
-        if (APP.audio.ctx) {
-            const nftDest = APP.audio.ctx.createMediaStreamDestination();
-            if (APP.audio.masterGain) APP.audio.masterGain.connect(nftDest);
-            if (APP.audio.micGainNode) APP.audio.micGainNode.connect(nftDest);
-            if (nftDest.stream.getAudioTracks().length > 0) canvasStream.addTrack(nftDest.stream.getAudioTracks()[0]);
-        }
-        let nftRecorderOpts = { mimeType: 'video/webm;codecs=vp9,opus', videoBitsPerSecond: 5000000, audioBitsPerSecond: 128000 };
-        try { APP.nft.recorder = new MediaRecorder(canvasStream, nftRecorderOpts); }
-        catch(e) { APP.nft.recorder = new MediaRecorder(canvasStream, { mimeType: 'video/webm' }); }
-        APP.nft.chunks = [];
-        APP.nft.recorder.ondataavailable = e => APP.nft.chunks.push(e.data);
-        APP.nft.recorder.onstop = finalizeNFT;
-        APP.nft.recorder.start(1000);
-        APP.nft.isRecording = true; APP.nft.startTime = Date.now();
-        $('btn-nft-30').textContent = '■ STOP REC'; $('btn-nft-30').classList.add('on'); $('nft-hud').classList.add('active');
-        updateNFTTimer();
-        setTimeout(() => { if (APP.nft.isRecording) stopNFTRecording(); }, 30000);
-        log('NFT_REC_START');
-    } catch (e) { log('NFT_REC_ERR'); }
-}
-function stopNFTRecording() { if (!APP.nft.isRecording) return; APP.nft.recorder.stop(); APP.nft.isRecording = false; $('btn-nft-30').textContent = 'CAPTURE_VGD_CLIP'; $('btn-nft-30').classList.remove('on'); $('nft-hud').classList.remove('active'); log('NFT_REC_STOP'); }
-function updateNFTTimer() { if (!APP.nft.isRecording) return; const elapsed = Date.now() - APP.nft.startTime; const secs = Math.floor(elapsed / 1000); $('nft-timer').textContent = `00:${String(secs).padStart(2,'0')}`; $('nft-fill').style.width = `${Math.min(100, (elapsed / 30000) * 100)}%`; requestAnimationFrame(updateNFTTimer); }
-function finalizeNFT() { const blob = new Blob(APP.nft.chunks, { type: 'video/webm' }); const url = URL.createObjectURL(blob); const a = document.createElement('a'); a.href = url; a.download = `VNGRD_NFT_${Date.now()}.webm`; a.click(); APP.nft.chunks = []; log('NFT_EXPORTED'); }
+// startNFTRecording / stopNFTRecording / updateNFTTimer / finalizeNFT
+// REPLACED by unified startVanguardRecording('clip') + stopVanguardClip() + updateClipTimer()
 function openProjector() { if (APP.projector.isOpen) return; APP.projector.stream = APP.render.canvas.captureStream(60); APP.projector.window = window.open('', 'DRIS_Projector', 'width=1280,height=720,menubar=no,toolbar=no'); APP.projector.window.document.write('<!DOCTYPE html><html><body style="margin:0;background:#000;overflow:hidden"><video id="pf" autoplay muted playsinline style="width:100vw;height:100vh;object-fit:contain"></video><script>document.getElementById("pf").srcObject = window.opener.APP.projector.stream;<\/script></body></html>'); APP.projector.isOpen = true; $('btn-projector').classList.add('on'); log('PROJECTOR_OPEN'); }
 // --- KINETIC SNAP ENGINE ---
 function triggerIndustrialSnap(nextImageUrl) {
@@ -3279,7 +3362,7 @@ async function checkLayerReadiness() {
 }
 
 function enableRecordButtons(enabled) {
-    ['btn-nft-30', 'btn-broadcast'].forEach(id => {
+    ['btn-capture-vgd-clip', 'btn-record-broadcast'].forEach(id => {
         const btn = $(id);
         if (btn) { btn.disabled = !enabled; btn.style.opacity = enabled ? '1' : '0.3'; }
     });
@@ -3960,7 +4043,7 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     };
 
-    $('btn-nft-30').onclick = startNFTRecording;
+    document.getElementById('btn-capture-vgd-clip').onclick = function() { startVanguardRecording('clip'); };
 
     // ========================================
     // ========================================
