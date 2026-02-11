@@ -1132,15 +1132,6 @@ body.shooting-mode #btn-shooting {
         </div>
         
         <div class="section">
-            <div class="sec-head"><span class="sec-title">WEATHER_SYNC</span><div class="sec-dot off" id="atmos-dot"></div></div>
-            <div class="sec-body">
-                <div id="geo-status" style="font-size:8px;color:var(--text-dim);margin-bottom:4px;">GEO: ACQUIRING...</div>
-                <div id="weather-status" style="font-size:9px;color:var(--accent);margin-bottom:4px;">WEATHER: STANDBY</div>
-                <div id="weather-fx" style="font-size:7px;color:var(--g);">FX: DISABLED (DATA ONLY)</div>
-            </div>
-        </div>
-        
-        <div class="section">
             <div class="sec-head"><span class="sec-title">IMPACT_FX</span><div class="sec-dot"></div></div>
             <div class="sec-body">
                 <div class="btn-grid-3">
@@ -5385,7 +5376,38 @@ const applyAudioDuck = (isActive) => {
     if (typeof log === 'function') log(isActive ? 'DUCKING: ACTIVE [-12dB]' : 'DUCKING: RESTORED [0dB]');
 };
 
-// 3. EVENT INTERCEPTOR (Priority Phase)
+// 1. FORCE INJECT COLORS
+const style = document.createElement('style');
+style.innerHTML = `
+  .tick-up { color: #00ff00 !important; font-weight: bold; text-shadow: 0 0 5px #00ff00; }
+  .tick-down { color: #ff0000 !important; font-weight: bold; text-shadow: 0 0 5px #ff0000; }
+`;
+document.head.appendChild(style);
+
+// 2. FORCE REFRESH TICKER WITH COLORS
+async function updateTickerLive() {
+    try {
+        const res = await fetch('https://api.binance.com/api/v3/ticker/24hr?symbol=BTCUSDT');
+        const data = await res.json();
+        const price = parseFloat(data.lastPrice).toFixed(2);
+        const change = parseFloat(data.priceChangePercent);
+        const colorClass = change >= 0 ? 'tick-up' : 'tick-down';
+        const arrow = change >= 0 ? '▲' : '▼';
+
+        const ticker = document.getElementById('ticker-text');
+        if (ticker) {
+            ticker.innerHTML = `BTC: $${price} <span class="${colorClass}">(${arrow}${change}%)</span> // [SIGNAL_STABLE]`;
+        }
+    } catch (e) {
+        console.error("Ticker update failed", e);
+    }
+}
+
+// Initial triggers
+updateTickerLive();
+setInterval(updateTickerLive, 600000); // 10 minute poll to save CPU
+
+//  EVENT INTERCEPTOR (Priority Phase)
 document.addEventListener('click', (e) => {
     const btn = e.target.closest('button');
     if (!btn) return;
