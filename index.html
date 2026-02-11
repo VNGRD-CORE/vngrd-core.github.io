@@ -1135,37 +1135,15 @@ body.shooting-mode #btn-shooting {
             <div class="sec-head"><span class="sec-title">IMPACT_FX</span><div class="sec-dot"></div></div>
             <div class="sec-body">
                 <div class="btn-grid-3">
-                    <button class="btn impact" id="btn-stutter">STUTTER</button>
-                    <button class="btn impact" id="btn-invert">INVERT</button>
-                    <button class="btn impact" id="btn-crush">CRUSH</button>
+                    <button class="btn" onmousedown="APP.fx.stutter=true" onmouseup="APP.fx.stutter=false">STUTTER</button>
+                    <button class="btn" onmousedown="APP.fx.crush=true" onmouseup="APP.fx.crush=false">CRUSH</button>
+                    <button class="btn" onmousedown="APP.fx.invert=true" onmouseup="APP.fx.invert=false">INVERT</button>
                 </div>
-            </div>
-        </div>
-        
-        <div class="section">
-            <div class="sec-head"><span class="sec-title">VJ_ENGINE</span><div class="sec-dot"></div></div>
-            <div class="sec-body">
-                <div class="slider-wrap"><div class="slider-top"><span class="slider-lbl">BRIGHTNESS</span><span class="slider-val" id="val-b">100%</span></div><input type="range" min="30" max="170" value="100" id="sl-b"></div>
-                <div class="slider-wrap"><div class="slider-top"><span class="slider-lbl">CONTRAST</span><span class="slider-val" id="val-c">100%</span></div><input type="range" min="30" max="170" value="100" id="sl-c" data-midi-target="contrast"></div>
-                <div class="slider-wrap"><div class="slider-top"><span class="slider-lbl">SATURATION</span><span class="slider-val" id="val-s">100%</span></div><input type="range" min="0" max="200" value="100" id="sl-s" data-midi-target="saturation"></div>
-                <div class="slider-wrap"><div class="slider-top"><span class="slider-lbl">HUE</span><span class="slider-val" id="val-h">0</span></div><input type="range" min="0" max="360" value="0" id="sl-h" data-midi-target="hue"></div>
-            </div>
-        </div>
-        
-        <div class="section">
-            <div class="sec-head"><span class="sec-title">CANVAS_FX</span><div class="sec-dot"></div></div>
-            <div class="sec-body">
-                <div class="btn-row">
-                    <button class="btn" id="btn-trails">TRAILS</button>
-                    <button class="btn" id="btn-rgb">RGB</button>
+                <div class="btn-grid-3" style="margin-top:4px;">
+                    <button class="btn" onmousedown="APP.fx.echo=true" onmouseup="APP.fx.echo=false">ECHO</button>
+                    <button class="btn" onmousedown="APP.fx.rgbSplit=20" onmouseup="APP.fx.rgbSplit=0">RGB_HIT</button>
+                    <button class="btn" onclick="resetAllFX()" style="color:var(--r)">RESET</button>
                 </div>
-                <div class="slider-wrap"><div class="slider-top"><span class="slider-lbl">TRAIL α</span><span class="slider-val" id="val-trail">0.92</span></div><input type="range" min="50" max="98" value="92" id="sl-trail"></div>
-                <div class="slider-wrap"><div class="slider-top"><span class="slider-lbl">RGB SHIFT</span><span class="slider-val" id="val-rgb">0</span></div><input type="range" min="0" max="30" value="0" id="sl-rgb"></div>
-                <div class="btn-row">
-                    <button class="btn" id="btn-pixelate">PIXEL</button>
-                    <button class="btn" id="btn-mask-mode">MASK MODE</button>
-                </div>
-                <div class="slider-wrap"><div class="slider-top"><span class="slider-lbl">PIXEL SIZE</span><span class="slider-val" id="val-pix">1</span></div><input type="range" min="1" max="32" value="1" id="sl-pix"></div>
             </div>
         </div>
         
@@ -1344,7 +1322,8 @@ console.log('[VNGRD] Version ' + window.VANGUARD_VERSION + ' build ' + window.VA
 
 const APP = {
     state: { isLive: false, isRecording: false, isFullscreen: false, isCycle: false, cycleTimer: null, isMobile: false, theme: 'cyan', startTime: Date.now(), psychosis: false },
-    vj: { 
+    fx: { stutter: false, crush: false, invert: false, echo: false, rgbSplit: 0, freezeFrame: null },
+    vj: {
         brightness: 1.0, contrast: 1.0, saturation: 1.0, hue: 0, trailsEnabled: false, trailAlpha: 0.92, rgbEnabled: false, rgbIntensity: 0, rgbBassLink: false, pixelateEnabled: false, pixelSize: 1, rumbleEnabled: false, invert: false, uiReactivity: false, shakeIntensity: 0, shockwave: 0, lastBassLevel: 0, avgVol: 0, maskMode: false, glitchSnap: 0,
         seismicVelocity: 0, seismicPosition: 0, springConstant: 0.8, damping: 0.9
     },
@@ -1779,17 +1758,62 @@ function renderLoop(timestamp) {
         }
     }
 
-    // --- RGB SHIFT ---
-    if (APP.vj.rgbEnabled && APP.vj.rgbIntensity > 0) {
-        const shift = APP.vj.rgbIntensity;
+    // ═══ IMPACT_RACK FX — additive, after source draw ═══
+
+    // ECHO: feedback trail from previous frame
+    if (APP.fx.echo) {
         ctx.save();
-        ctx.globalCompositeOperation = 'screen';
-        ctx.drawImage(APP.render.canvas, shift, 0);
-        ctx.drawImage(APP.render.canvas, -shift, 0);
+        ctx.globalAlpha = 0.7;
+        ctx.drawImage(APP.render.canvas, 2, 2);
         ctx.restore();
     }
-    
-    // ═══ IDENTITY TRINITY — three independent actors burned into canvas ═══
+
+    // STUTTER: freeze-frame hold
+    if (APP.fx.stutter) {
+        if (!APP.fx.freezeFrame) {
+            APP.fx.freezeFrame = document.createElement('canvas');
+            APP.fx.freezeFrame.width = w; APP.fx.freezeFrame.height = h;
+            APP.fx.freezeFrame.getContext('2d').drawImage(APP.render.canvas, 0, 0);
+        }
+        ctx.drawImage(APP.fx.freezeFrame, 0, 0, w, h);
+    } else if (APP.fx.freezeFrame) {
+        APP.fx.freezeFrame = null;
+    }
+
+    // CRUSH: extreme pixelate + RGB blast
+    if (APP.fx.crush) {
+        var crushSize = 16;
+        var cw = Math.ceil(w / crushSize), ch = Math.ceil(h / crushSize);
+        var crushBuf = APP.render.pixelCanvas;
+        if (crushBuf) {
+            crushBuf.width = cw; crushBuf.height = ch;
+            APP.render.pixelCtx.imageSmoothingEnabled = false;
+            APP.render.pixelCtx.drawImage(APP.render.canvas, 0, 0, cw, ch);
+            ctx.imageSmoothingEnabled = false;
+            ctx.drawImage(crushBuf, 0, 0, cw, ch, 0, 0, w, h);
+            ctx.imageSmoothingEnabled = true;
+        }
+    }
+
+    // INVERT: negate colors
+    if (APP.fx.invert) {
+        ctx.save();
+        ctx.filter = 'invert(1)';
+        ctx.drawImage(APP.render.canvas, 0, 0);
+        ctx.restore();
+    }
+
+    // RGB SPLIT: channel offset (IMPACT_RACK momentary or legacy slider)
+    var rgbAmt = APP.fx.rgbSplit || ((APP.vj.rgbEnabled && APP.vj.rgbIntensity > 0) ? APP.vj.rgbIntensity : 0);
+    if (rgbAmt > 0) {
+        ctx.save();
+        ctx.globalCompositeOperation = 'screen';
+        ctx.drawImage(APP.render.canvas, rgbAmt, 0);
+        ctx.drawImage(APP.render.canvas, -rgbAmt, 0);
+        ctx.restore();
+    }
+
+    // ═══ FIREWALL — clean state before Identity Trinity ═══
     ctx.filter = 'none';
     ctx.globalAlpha = 1;
     ctx.globalCompositeOperation = 'source-over';
@@ -2009,6 +2033,18 @@ function triggerChromaticAberration() { const c = APP.render.canvas; c.style.fil
 function impactStutter() { const oT = APP.vj.trailsEnabled, oA = APP.vj.trailAlpha; APP.vj.trailsEnabled = true; APP.vj.trailAlpha = 0.98; triggerChromaticAberration(); setTimeout(() => { APP.vj.trailsEnabled = oT; APP.vj.trailAlpha = oA; }, 500); }
 function impactInvert() { APP.vj.invert = true; triggerChromaticAberration(); setTimeout(() => { APP.vj.invert = false; }, 500); }
 function impactCrush() { const oRGB = APP.vj.rgbIntensity, oPix = APP.vj.pixelSize, oRE = APP.vj.rgbEnabled, oPE = APP.vj.pixelateEnabled; APP.vj.rgbEnabled = true; APP.vj.pixelateEnabled = true; APP.vj.rgbIntensity = 25; APP.vj.pixelSize = 16; setTimeout(() => { APP.vj.rgbEnabled = oRE; APP.vj.pixelateEnabled = oPE; APP.vj.rgbIntensity = oRGB; APP.vj.pixelSize = oPix; }, 500); }
+
+// RESET ALL FX — clears IMPACT_RACK flags + restores VJ defaults
+function resetAllFX() {
+    APP.fx.stutter = false; APP.fx.crush = false; APP.fx.invert = false;
+    APP.fx.echo = false; APP.fx.rgbSplit = 0; APP.fx.freezeFrame = null;
+    APP.vj.brightness = 1.0; APP.vj.contrast = 1.0; APP.vj.saturation = 1.0; APP.vj.hue = 0;
+    APP.vj.trailsEnabled = false; APP.vj.trailAlpha = 0.92;
+    APP.vj.rgbEnabled = false; APP.vj.rgbIntensity = 0;
+    APP.vj.pixelateEnabled = false; APP.vj.pixelSize = 1;
+    APP.vj.invert = false; APP.vj.maskMode = false;
+    log('FX_RESET: ALL_CLEAR');
+}
 
 // SIMPLE DRAGGABLE - DIRECT LEFT/TOP POSITIONING (for non-Trinity DOM elements)
 function makeDraggable(el) {
@@ -3243,17 +3279,7 @@ document.addEventListener('DOMContentLoaded', () => {
     $('btn-prev-track').onclick = prevTrack;
     $('btn-play-pause').onclick = togglePlayPause;
     
-    $('btn-stutter').onclick = impactStutter; $('btn-invert').onclick = impactInvert; $('btn-crush').onclick = impactCrush;
-    $('sl-b').oninput = e => { APP.vj.brightness = e.target.value / 100; $('val-b').textContent = e.target.value + '%'; };
-    $('sl-c').oninput = e => { APP.vj.contrast = e.target.value / 100; $('val-c').textContent = e.target.value + '%'; };
-    $('sl-s').oninput = e => { APP.vj.saturation = e.target.value / 100; $('val-s').textContent = e.target.value + '%'; };
-    $('sl-h').oninput = e => { APP.vj.hue = parseInt(e.target.value); $('val-h').textContent = e.target.value + '°'; };
-    $('btn-trails').onclick = () => { APP.vj.trailsEnabled = !APP.vj.trailsEnabled; $('btn-trails').classList.toggle('on'); };
-    $('btn-rgb').onclick = () => { APP.vj.rgbEnabled = !APP.vj.rgbEnabled; $('btn-rgb').classList.toggle('on'); };
-    $('btn-pixelate').onclick = () => { APP.vj.pixelateEnabled = !APP.vj.pixelateEnabled; $('btn-pixelate').classList.toggle('on'); };
-    $('sl-trail').oninput = e => { APP.vj.trailAlpha = parseInt(e.target.value) / 100; $('val-trail').textContent = (e.target.value / 100).toFixed(2); };
-    $('sl-rgb').oninput = e => { APP.vj.rgbIntensity = parseInt(e.target.value); $('val-rgb').textContent = e.target.value; };
-    $('sl-pix').oninput = e => { APP.vj.pixelSize = parseInt(e.target.value); $('val-pix').textContent = e.target.value; };
+    // IMPACT_RACK uses inline onmousedown/onmouseup — no getElementById wiring needed
     $('btn-vhs').onclick = toggleVHS; $('btn-crt').onclick = toggleCRT; $('btn-fs').onclick = toggleFullscreen;
     document.querySelectorAll('.pal').forEach(p => p.onclick = () => setTheme(p.dataset.t));
     $('btn-projector').onclick = openProjector;
