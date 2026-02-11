@@ -156,7 +156,7 @@
         .version { font-size: 10px; color: var(--accent); padding: 3px 8px; background: var(--accent-dim); border: 1px solid var(--accent); margin-left: 10px; }
 
         #stage { position: fixed; top: 45px; left: 200px; right: 200px; bottom: 55px; background: #000; border: 1px solid var(--border); overflow: hidden; }
-        #vj-canvas { position: absolute; top: 0; left: 0; width: 100%; height: 100%; z-index: 1000; }
+        #vj-canvas { position: absolute; top: 0; left: 0; width: 100%; height: 100%; z-index: 1000; pointer-events: none !important; }
         #overlay-layer { position: absolute; inset: 0; z-index: 2000; pointer-events: none; }
         
         #stage::before { content: ""; position: absolute; inset: 0; z-index: 3000; pointer-events: none; background: repeating-linear-gradient(0deg, transparent, transparent 2px, rgba(0,0,0,0.03) 2px, rgba(0,0,0,0.03) 4px); opacity: 0.3; }
@@ -636,6 +636,9 @@
         }
         .btn.on, .btn.active-mode {
             animation: btn-active-glow 0.8s ease-in-out infinite;
+        }
+        .active-mode {
+            background: #00f2ff !important; color: #000; box-shadow: 0 0 15px #00f2ff;
         }
         @keyframes btn-active-glow {
             0%, 100% { box-shadow: 0 0 15px var(--accent); }
@@ -2009,6 +2012,26 @@ function triggerChromaticAberration() { const c = APP.render.canvas; c.style.fil
 function impactStutter() { const oT = APP.vj.trailsEnabled, oA = APP.vj.trailAlpha; APP.vj.trailsEnabled = true; APP.vj.trailAlpha = 0.98; triggerChromaticAberration(); setTimeout(() => { APP.vj.trailsEnabled = oT; APP.vj.trailAlpha = oA; }, 500); }
 function impactInvert() { APP.vj.invert = true; triggerChromaticAberration(); setTimeout(() => { APP.vj.invert = false; }, 500); }
 function impactCrush() { const oRGB = APP.vj.rgbIntensity, oPix = APP.vj.pixelSize, oRE = APP.vj.rgbEnabled, oPE = APP.vj.pixelateEnabled; APP.vj.rgbEnabled = true; APP.vj.pixelateEnabled = true; APP.vj.rgbIntensity = 25; APP.vj.pixelSize = 16; setTimeout(() => { APP.vj.rgbEnabled = oRE; APP.vj.pixelateEnabled = oPE; APP.vj.rgbIntensity = oRGB; APP.vj.pixelSize = oPix; }, 500); }
+
+// RESET ALL FX — clears IMPACT_RACK flags + restores VJ defaults
+function resetAllFX() {
+    APP.fx.stutter = false; APP.fx.crush = false; APP.fx.invert = false;
+    APP.fx.echo = false; APP.fx.rgbSplit = 0; APP.fx.freezeFrame = null;
+    APP.vj.brightness = 1.0; APP.vj.contrast = 1.0; APP.vj.saturation = 1.0; APP.vj.hue = 0;
+    APP.vj.trailsEnabled = false; APP.vj.trailAlpha = 0.92;
+    APP.vj.rgbEnabled = false; APP.vj.rgbIntensity = 0;
+    APP.vj.pixelateEnabled = false; APP.vj.pixelSize = 1;
+    APP.vj.invert = false; APP.vj.maskMode = false;
+    document.querySelectorAll('.active-mode').forEach(el => el.classList.remove('active-mode'));
+    log('FX_RESET: ALL_CLEAR');
+}
+
+// TOGGLE FX — latch button with active-mode highlight
+function toggleFX(type, el) {
+    if (!APP.vj) APP.vj = {};
+    APP.vj[type] = !APP.vj[type];
+    el.classList.toggle('active-mode');
+}
 
 // SIMPLE DRAGGABLE - DIRECT LEFT/TOP POSITIONING (for non-Trinity DOM elements)
 function makeDraggable(el) {
