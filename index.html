@@ -883,47 +883,7 @@ body.shooting-mode #btn-shooting {
         transform: scale(1);
         filter: brightness(1) contrast(1);
     }
-}/* 1. UI UNLOCK - CRITICAL */
-#vj-canvas {
-    pointer-events: none !important;
-}
-
-/* 2. FX GRID LAYOUT */
-.fx-grid {
-    display: grid;
-    grid-template-columns: 1fr 1fr;
-    gap: 8px;
-    padding: 10px;
-}
-
-.vj-btn {
-    background: rgba(20, 20, 20, 0.8);
-    border: 1px solid #333;
-    color: #666;
-    padding: 10px 5px;
-    font-family: 'Courier New', monospace;
-    font-size: 10px;
-    text-transform: uppercase;
-    cursor: pointer;
-    transition: all 0.2s ease;
-}
-
-.vj-btn:hover {
-    border-color: #555;
-    color: #aaa;
-}
-
-/* 3. THE NEON LATCH STATE (Visual Confirmation) */
-.vj-btn.active-mode {
-    background: #00f2ff !important;
-    color: #000 !important;
-    font-weight: bold;
-    box-shadow: 0 0 15px #00f2ff;
-    border-color: #fff;
-}
-
-.full-btn { grid-column: span 2; border-color: #444; }
-.reset-btn { grid-column: span 2; color: #ff4444 !important; border-color: #552222; margin-top: 5px; }</style>
+}</style>
 </head>
 <body oncontextmenu="return false;">
     <!-- PORTRAIT ORIENTATION LOCK -->
@@ -1174,28 +1134,55 @@ body.shooting-mode #btn-shooting {
             </div>
         </div>
         
-       <div class="section">
-    <div class="sec-head"><span class="sec-title">_CORE_FX</span><div class="sec-dot"></div></div>
-    <div class="sec-body fx-grid">
-        <button class="vj-btn" onclick="toggleFX('stutter', this)">STUTTER</button>
-        <button class="vj-btn" onclick="toggleFX('invert', this)">INVERT</button>
-        <button class="vj-btn" onclick="toggleFX('pixelateEnabled', this)">CRUSH</button>
-        <button class="vj-btn" onclick="toggleFX('rgbEnabled', this)">RGB_SHIFT</button>
-        <button class="vj-btn" onclick="toggleFX('trailsEnabled', this)">TRAILS</button>
-        <button class="vj-btn" onclick="toggleFX('neon', this)">NEON</button>
-    </div>
-</div>
-
-<div class="section">
-    <div class="sec-head"><span class="sec-title">_ENGINE</span><div class="sec-dot"></div></div>
-    <div class="sec-body fx-grid">
-        <button class="vj-btn" onclick="toggleFX('vhs', this)">VHS_MODE</button>
-        <button class="vj-btn" onclick="toggleFX('crt', this)">CRT_SCAN</button>
-        <button class="vj-btn" onclick="toggleFX('maskMode', this)">MASK_ISO</button>
-        <button class="vj-btn full-btn" onclick="toggleFullScreen()">[H] FULLSCREEN</button>
-        <button class="vj-btn reset-btn" onclick="resetAllFX()">RESET ALL SYSTEM</button>
-    </div>
-</div>
+        <div class="section">
+            <div class="sec-head"><span class="sec-title">IMPACT_FX</span><div class="sec-dot"></div></div>
+            <div class="sec-body">
+                <div class="btn-grid-3">
+                    <button class="btn impact" id="btn-stutter">STUTTER</button>
+                    <button class="btn impact" id="btn-invert">INVERT</button>
+                    <button class="btn impact" id="btn-crush">CRUSH</button>
+                </div>
+            </div>
+        </div>
+        
+        <div class="section">
+            <div class="sec-head"><span class="sec-title">VJ_ENGINE</span><div class="sec-dot"></div></div>
+            <div class="sec-body">
+                <div class="slider-wrap"><div class="slider-top"><span class="slider-lbl">BRIGHTNESS</span><span class="slider-val" id="val-b">100%</span></div><input type="range" min="30" max="170" value="100" id="sl-b"></div>
+                <div class="slider-wrap"><div class="slider-top"><span class="slider-lbl">CONTRAST</span><span class="slider-val" id="val-c">100%</span></div><input type="range" min="30" max="170" value="100" id="sl-c" data-midi-target="contrast"></div>
+                <div class="slider-wrap"><div class="slider-top"><span class="slider-lbl">SATURATION</span><span class="slider-val" id="val-s">100%</span></div><input type="range" min="0" max="200" value="100" id="sl-s" data-midi-target="saturation"></div>
+                <div class="slider-wrap"><div class="slider-top"><span class="slider-lbl">HUE</span><span class="slider-val" id="val-h">0</span></div><input type="range" min="0" max="360" value="0" id="sl-h" data-midi-target="hue"></div>
+            </div>
+        </div>
+        
+        <div class="section">
+            <div class="sec-head"><span class="sec-title">CANVAS_FX</span><div class="sec-dot"></div></div>
+            <div class="sec-body">
+                <div class="btn-row">
+                    <button class="btn" id="btn-trails">TRAILS</button>
+                    <button class="btn" id="btn-rgb">RGB</button>
+                </div>
+                <div class="slider-wrap"><div class="slider-top"><span class="slider-lbl">TRAIL α</span><span class="slider-val" id="val-trail">0.92</span></div><input type="range" min="50" max="98" value="92" id="sl-trail"></div>
+                <div class="slider-wrap"><div class="slider-top"><span class="slider-lbl">RGB SHIFT</span><span class="slider-val" id="val-rgb">0</span></div><input type="range" min="0" max="30" value="0" id="sl-rgb"></div>
+                <div class="btn-row">
+                    <button class="btn" id="btn-pixelate">PIXEL</button>
+                    <button class="btn" id="btn-mask-mode">MASK MODE</button>
+                </div>
+                <div class="slider-wrap"><div class="slider-top"><span class="slider-lbl">PIXEL SIZE</span><span class="slider-val" id="val-pix">1</span></div><input type="range" min="1" max="32" value="1" id="sl-pix"></div>
+            </div>
+        </div>
+        
+        <div class="section">
+            <div class="sec-head"><span class="sec-title">OVERLAYS</span><div class="sec-dot"></div></div>
+            <div class="sec-body">
+                <div class="btn-grid">
+                    <button class="btn" id="btn-vhs">VHS</button>
+                    <button class="btn" id="btn-crt">CRT</button>
+                    <button class="btn" id="btn-reset">RESET FX</button>
+                    <button class="btn" id="btn-fs">[H] FULL</button>
+                </div>
+            </div>
+        </div>
         
         <div class="section">
             <div class="sec-head"><span class="sec-title">THEME</span><div class="sec-dot"></div></div>
@@ -5071,26 +5058,7 @@ document.addEventListener('DOMContentLoaded', () => {
     setTimeout(injectGeoToTicker, 3000);
 
 }); // THIS IS THE END of the startup block. Do not put code after this line.
-function toggleFX(type, el) {
-    if (!APP.vj) APP.vj = {};
-    // Toggle the boolean state
-    APP.vj[type] = !APP.vj[type];
-    // Toggle the visual neon glow
-    el.classList.toggle('active-mode');
-    log(`SYSTEM_LOG: FX_${type.toUpperCase()} is ${APP.vj[type] ? 'ON' : 'OFF'}`);
-}
-
-function resetAllFX() {
-    // Reset all data flags
-    if (APP.vj) {
-        Object.keys(APP.vj).forEach(key => {
-            if (typeof APP.vj[key] === 'boolean') APP.vj[key] = false;
-        });
-    }
-    // Clear all neon highlights
-    document.querySelectorAll('.vj-btn').forEach(btn => btn.classList.remove('active-mode'));
-    log("SYSTEM_LOG: ALL_CLEAR");
-}</script>
+</script>
 <script>
 // ══════════════════════════════════════════════════
 // SMART 3D LOADER (Fixes 'Always Cube' Bug)
