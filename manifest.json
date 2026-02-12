@@ -1,0 +1,15 @@
+{
+  "name": "VNGRD // CORE",
+  "short_name": "VNGRD",
+  "start_url": "./indexbackup.html",
+  "display": "standalone",
+  "background_color": "#0a0a0e",
+  "theme_color": "#0a0a0e",
+  "icons": [
+    {
+      "src": "https://cdn-icons-png.flaticon.com/512/7133/7133312.png",
+      "sizes": "512x512",
+      "type": "image/png"
+    }
+  ]
+}
