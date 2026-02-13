@@ -167,81 +167,26 @@
         body.fullscreen #stage { position: fixed; inset: 0; z-index: 9999; border: none; }
         body.fullscreen .sidebar, body.fullscreen #top-bar, body.fullscreen #bottom-bar, body.fullscreen #ghost-terminal { opacity: 0; pointer-events: none; }
 
-       /* --- V19 PRO BROADCAST LOWER-THIRD --- */
-#lower-third { 
-    position: absolute; 
-    bottom: 8%; /* Title Safe Area */
-    left: 5%; 
-    z-index: 1000;
-    visibility: hidden; /* Use visibility instead of display:none */
-    pointer-events: none; /* Allows clicking through to the 3D canvas */
-}
-
-/* Visibility Trigger */
-#lower-third.visible { 
-    visibility: visible; 
-}
-
-.lt-container { 
-    display: flex; 
-    flex-direction: column; 
-    /* Professional glassmorphism + gradient */
-    background: linear-gradient(90deg, rgba(0,0,0,0.9) 0%, rgba(0,0,0,0.5) 100%);
-    backdrop-filter: blur(10px); 
-    border-left: 4px solid var(--accent); 
-    padding: 12px 30px 12px 20px; 
-    min-width: 300px;
-    max-width: 450px;
-    opacity: 0; 
-    transform: translateX(-30px) skewX(-5deg); /* Cyberpunk skew */
-    transition: all 0.5s cubic-bezier(0.16, 1, 0.3, 1); /* Professional Ease-Out */
-}
-
-#lower-third.visible .lt-container { 
-    opacity: 1; 
-    transform: translateX(0) skewX(-5deg); 
-}
-
-/* Text Styling */
-.lt-title { 
-    font-family: 'Orbitron', sans-serif; 
-    font-size: 24px; 
-    font-weight: 800; 
-    color: #fff; 
-    text-transform: uppercase;
-    letter-spacing: 1.5px; 
-    line-height: 1.1;
-    text-shadow: 0 0 10px rgba(255,255,255,0.2);
-}
-
-.lt-subtitle { 
-    font-family: 'JetBrains Mono', monospace; 
-    font-size: 11px; 
-    color: var(--accent); 
-    text-transform: uppercase; 
-    letter-spacing: 3px; 
-    margin-top: 5px;
-    opacity: 0.9;
-}
-
-/* State Variants (Guest, Track, Breaking) */
-.lt-container.lt-guest { border-color: var(--c); }
-.lt-container.lt-guest .lt-subtitle { color: var(--c); }
-
-.lt-container.lt-track { border-color: var(--g); }
-.lt-container.lt-track .lt-subtitle { color: var(--g); }
-
-.lt-container.lt-breaking { 
-    border-color: var(--r); 
-    background: linear-gradient(90deg, rgba(150,0,0,0.7) 0%, rgba(0,0,0,0.4) 100%);
-    animation: lt-glitch 1.5s infinite; 
-}
-.lt-container.lt-breaking .lt-subtitle { color: #fff; background: var(--r); padding-left: 5px; }
-
-@keyframes lt-glitch { 
-    0%, 100% { border-left-width: 4px; border-color: var(--r); } 
-    50% { border-left-width: 12px; border-color: #fff; } 
-}
+        #lower-third { display: none !important; }
+        .lt-container { 
+            display: flex; flex-direction: column; 
+            background: linear-gradient(90deg, rgba(0,0,0,0.9) 0%, rgba(0,0,0,0.7) 100%);
+            border-left: 3px solid var(--accent); 
+            padding: 12px 25px 12px 15px; 
+            min-width: 280px; max-width: 400px;
+            opacity: 0; transform: translateX(-20px);
+            transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+        }
+        #lower-third.visible .lt-container { opacity: 1; transform: translateX(0); }
+        .lt-title { font-family: 'Orbitron', sans-serif; font-size: 20px; font-weight: 700; color: #fff; letter-spacing: 1px; line-height: 1.2; }
+        .lt-subtitle { font-family: 'JetBrains Mono', monospace; font-size: 11px; color: var(--accent); text-transform: uppercase; letter-spacing: 2px; margin-top: 2px; }
+        .lt-container.lt-guest { border-color: var(--c); }
+        .lt-container.lt-guest .lt-subtitle { color: var(--c); }
+        .lt-container.lt-track { border-color: var(--g); }
+        .lt-container.lt-track .lt-subtitle { color: var(--g); }
+        .lt-container.lt-breaking { border-color: var(--r); animation: lt-pulse 1s infinite; }
+        .lt-container.lt-breaking .lt-subtitle { color: var(--r); }
+        @keyframes lt-pulse { 0%, 100% { border-color: var(--r); } 50% { border-color: #fff; } }
 
         /* ========================================
            TRIPLE-STACK IDENTITY - HEADER BRAND
@@ -288,7 +233,6 @@
             text-shadow: none;
         }
         
-        /* V29 MANUAL LAYER ELEMENTS */
        /* --- V29 INDUSTRIAL OVERRIDE (NO GLOW) --- */
  #station-bug { 
             position: absolute; top: 30px; left: 30px; z-index: 2600; 
@@ -897,7 +841,6 @@ body.shooting-mode #btn-shooting {
         body > *:not(#portrait-lock) { display: none !important; }
     }
 
-    /* LANDSCAPE MOBILE — 1:1 desktop parity (full UI mirrored) */
     /* LANDSCAPE MOBILE — 1:1 desktop mirror, full UI, 0→1 coords intact */
     @media (max-width: 1024px) and (orientation: landscape) {
         html, body { font-size: 10px; }
@@ -1280,13 +1223,20 @@ body.shooting-mode #btn-shooting {
         </div>
         
         <div class="section">
-            <div class="sec-head"><span class="sec-title">V19_NEURAL</span><div class="sec-dot off" id="neural-dot"></div></div>
-            <div class="sec-body">
-                <input type="text" class="inp" id="ai-prompt" placeholder="DESCRIBE_IMAGE..." style="font-size:9px;">
-                <button class="btn" id="btn-gen-ai" style="color:var(--v);border-color:var(--v);">GENERATE (SMOOTH)</button>
-                <div id="ai-status" style="font-size:8px;color:var(--text-dim);margin-top:4px;">V19_AI: LEXICA + POLLINATIONS</div>
-            </div>
+    <div class="sec-head">
+       <div class="section">
+    <div class="sec-head"><span class="sec-title">V19_NEURAL</span><div class="sec-dot off" id="neural-dot"></div></div>
+    <div class="sec-body">
+        <input type="text" class="inp" id="ai-prompt" placeholder="DESCRIBE_IMAGE..." style="font-size:9px;">
+        <button class="btn" id="btn-generate-ai" style="color:var(--v);border-color:var(--v);">GENERATE (SMOOTH)</button>
+        
+        <div id="ai-prog" style="display:none; height:2px; background:rgba(255,255,255,0.1); margin-top:5px;">
+            <div id="ai-fill" style="height:100%; width:0%; background:var(--v); transition: width 0.4s ease;"></div>
         </div>
+
+        <div id="ai-status" style="font-size:8px;color:var(--text-dim);margin-top:4px;">V19_AI: READY</div>
+    </div>
+</div>
         
         <div class="section">
             <div class="sec-head"><span class="sec-title">P2P_E2E_CALL</span><div class="sec-dot off" id="guest-dot"></div></div>
@@ -1481,8 +1431,7 @@ const APP = {
         scale: 1.0, rotationSpeed: 0.01,
         targetScale: 1.0
     },
-    // LEXICA_NANO
-    neural: { generating: false, lastImage: null }
+  
 };
 
 // GHOST TERMINAL
@@ -2560,53 +2509,17 @@ function killCamera() {
 }
 
 function showLowerThird(preset) {
-    const lt = $('lower-third'); 
-    const container = lt.querySelector('.lt-container');
-    
-    // 1. THE KILL-SWITCH: Force stop any current animation
-    lt.classList.remove('visible');
-    
-    // Trigger a "Reflow" (This tells the browser: "The bar is officially gone")
-    void lt.offsetWidth; 
-
-    // 2. Clear all state classes
-    container.classList.remove('lt-guest', 'lt-track', 'lt-breaking'); 
-    
-    if (preset === 'off') {
-        hideLowerThird();
-        return;
-    }
-
-    // 3. Set Content (Using local class selectors for safety)
-    const titleEl = lt.querySelector('.lt-title');
-    const subEl = lt.querySelector('.lt-subtitle');
-
-    if (preset === 'track' && APP.audio.currentTrackName) { 
-        titleEl.textContent = APP.audio.currentTrackName; 
-        subEl.textContent = 'NOW PLAYING'; 
-    } 
-    else if (preset === 'breaking') { 
-        titleEl.textContent = $('lt-title')?.value || 'BREAKING NEWS'; 
-        subEl.textContent = $('lt-sub')?.value || 'LIVE UPDATE'; 
-    } 
-    else { 
-        titleEl.textContent = $('lt-title')?.value || 'GUEST NAME'; 
-        subEl.textContent = $('lt-sub')?.value || 'TITLE / ROLE'; 
-    }
-
-    // 4. Apply new preset and trigger fresh animation
-    container.classList.add(`lt-${preset}`);
-    APP.lowerThird.preset = preset; 
-    APP.lowerThird.visible = true;
-    
+    const lt = $('lower-third'); const container = lt.querySelector('.lt-container');
+    container.classList.remove('lt-guest', 'lt-track', 'lt-breaking'); container.classList.add(`lt-${preset}`);
+    APP.lowerThird.preset = preset; APP.lowerThird.visible = true;
+    if (preset === 'track' && APP.audio.currentTrackName) { $('lt-title-text').textContent = APP.audio.currentTrackName; $('lt-subtitle-text').textContent = 'NOW PLAYING'; }
+    else if (preset === 'breaking') { $('lt-title-text').textContent = $('lt-title').value || 'BREAKING NEWS'; $('lt-subtitle-text').textContent = $('lt-sub').value || 'LIVE UPDATE'; }
+    else { $('lt-title-text').textContent = $('lt-title').value || 'GUEST NAME'; $('lt-subtitle-text').textContent = $('lt-sub').value || 'TITLE / ROLE'; }
     lt.classList.add('visible');
-
-    // 5. Sync Buttons
-    ['guest', 'track', 'breaking', 'off'].forEach(p => { 
-        const btn = $(`btn-lt-${p}`);
-        if(btn) btn.classList.toggle('on', p === preset); 
-    });
+    ['guest', 'track', 'breaking', 'off'].forEach(p => { $(`btn-lt-${p}`).classList.toggle('on', p === preset); });
 }
+function hideLowerThird() { $('lower-third').classList.remove('visible'); APP.lowerThird.visible = false; ['guest', 'track', 'breaking', 'off'].forEach(p => { $(`btn-lt-${p}`).classList.remove('on'); }); $('btn-lt-off').classList.add('on'); }
+
 // AUDIO ENGINEER IMPLEMENTATION
 APP.audio.element = $('audio-el');
 function loadAudioFiles(input) { Array.from(input.files).forEach(file => { APP.audio.playlist.push({ url: URL.createObjectURL(file), name: file.name.replace(/\.[^.]+$/, '') }); }); $('audio-dot').classList.remove('off'); if (!APP.audio.isPlaying && APP.audio.playlist.length) playTrack(0); log(`AUDIO: +${input.files.length}`); }
@@ -4582,7 +4495,7 @@ document.addEventListener('DOMContentLoaded', () => {
         log('CALL_ENDED');
     };
 
-    
+   
     // ========================================
     // PRO-AUDIO: 48KHZ RAW DIRECT PATH
     // NO ECHO/NOISE PROCESSING
@@ -4741,6 +4654,7 @@ document.addEventListener('DOMContentLoaded', () => {
     };
 
     // ========================================
+    // SATELLITE_WEATHER_DATA (FX STRIPPED)
     // GEO_HANDSHAKE + OPEN-METEO API
     // ========================================
 
@@ -4860,12 +4774,6 @@ document.addEventListener('DOMContentLoaded', () => {
         updateTickerCycle();
         if (APP.atmosphere.city) log(`REAL_TIME_SYNC: ${APP.atmosphere.city} @ ${APP.atmosphere.temperature}°C`);
     }
-    
-
-    
-    
-    
-    
     // Update weather UI status displays (data only, no FX)
     function updateWeatherUI(condition, isRaining) {
         const weatherStatus = $('weather-status');
@@ -4874,19 +4782,7 @@ document.addEventListener('DOMContentLoaded', () => {
         if (atmosDot) atmosDot.classList.toggle('off', !isRaining);
         if ($('weather-fx')) $('weather-fx').textContent = isRaining ? 'RAIN_DETECTED (DATA ONLY)' : 'CLEAR (DATA ONLY)';
     }
-    
-
-    
-
-    
-    
-    
-    
-    
-    
-
-    
-    // Initialize satellite atmosphere on load (10-minute polling)
+     // Initialize satellite atmosphere on load (10-minute polling)
     initAtmosphere();
     setInterval(fetchSatelliteWeather, 600000); // 10 min refresh
 
@@ -4968,79 +4864,122 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     };
 
- //* --- 2. V19 WALLET (METAMASK EXCLUSIVE) --- */
-const v19_Wallet = {
-    connect: async () => {
-        // 1. Hunt specifically for MetaMask in a crowded browser
-        let mmProvider = null;
-
-        if (window.ethereum) {
-            if (window.ethereum.isMetaMask) {
-                mmProvider = window.ethereum;
-            } else if (window.ethereum.providers) {
-                // If multiple wallets are installed, find the one that is MetaMask
-                mmProvider = window.ethereum.providers.find(p => p.isMetaMask);
-            }
+    // v19 WALLET — bridges to existing wallet-badge handler
+    const v19_Wallet = {
+        connect: async () => {
+            if (window.ethereum) {
+                try {
+                    const accounts = await window.ethereum.request({ method: 'eth_requestAccounts' });
+                    const wallet = accounts[0];
+                    log('V19_WEB3: CONNECTED >> ' + wallet);
+                    const badge = $('wallet-badge');
+                    if (badge) {
+                        badge.innerHTML = `<span class="dot" style="background:var(--g);box-shadow:0 0 6px var(--g)"></span>${wallet.substring(0,6)}...`;
+                        badge.style.color = 'var(--g)'; badge.style.borderColor = 'var(--g)';
+                    }
+                    return wallet;
+                } catch (e) { log('V19_WEB3: USER_DENIED'); }
+            } else { log('V19_WEB3: NO_ETHEREUM_PROVIDER'); }
         }
+    };
+/* --- V19 NEURAL ENGINE (WITH AUTO-HIDE PROGRESS) --- */
+/* --- V19 NEURAL ENGINE (CONSOLIDATED & STABLE) --- */
+const v19_AI = {
+    generate: async (prompt) => {
+        const status = $('ai-status');
+        const btn = $('btn-generate-ai') || $('btn-gen-ai');
+        const prog = $('ai-prog'); 
+        const fill = $('ai-fill'); 
+        
+        // 1. Initialize State
+        if (!APP.neural) APP.neural = { generating: false };
+        if (!prompt) { if (status) status.textContent = 'ENTER_PROMPT'; return; }
+        if (APP.neural.generating) return;
+        
+        APP.neural.generating = true;
 
-        if (mmProvider) {
-            try {
-                log('V19_WEB3: TARGETING_METAMASK...');
-                
-                // 2. Fresh request to the filtered provider
-                const accounts = await mmProvider.request({ 
-                    method: 'eth_requestAccounts' 
-                });
-                
-                const wallet = accounts[0];
-                
-                // Sync with APP State
-                if (typeof APP !== 'undefined' && APP.wallet) {
-                    APP.wallet.address = wallet;
-                    APP.wallet.connected = true;
-                }
+        // 2. UI Start State
+        if (prog) prog.style.display = 'block'; 
+        if (fill) fill.style.width = '0%';
+        if (status) { status.textContent = 'NEURAL_PROCESSING...'; status.style.color = '#bf00ff'; }
+        if (btn) btn.classList.add('on');
+        
+        log('V19_AI: GENERATING >> ' + prompt);
 
-                log('V19_WEB3: MM_CONNECTED >> ' + wallet);
-                
-                
-                // Update UI
-                const badge = $('wallet-badge');
-                if (badge) {
-                    badge.innerHTML = `<span class="dot" style="background:var(--g);box-shadow:0 0 6px var(--g)"></span>${wallet.substring(0,6)}...`;
-                    badge.style.color = 'var(--g)';
-                }
-                return wallet;
+        // Simulated initial progress for feedback
+        setTimeout(() => { if(fill) fill.style.width = '35%'; }, 100);
 
-            } catch (e) { 
-                log('V19_WEB3: MM_DENIED');
-                console.error(e);
+        const seed = Math.floor(Math.random() * 9999);
+        const url = `https://image.pollinations.ai/prompt/${encodeURIComponent(prompt + ", cinematic, 8k")}?seed=${seed}&width=1280&height=720&nologo=true`;
+
+        const img = new Image();
+        img.crossOrigin = 'anonymous'; 
+        img.src = url;
+        
+        img.onload = () => {
+            // 3. UI Completion
+            if (fill) fill.style.width = '100%';
+            
+            if (typeof v19_Transitions !== 'undefined') v19_Transitions.swap(url);
+            
+            if (APP.media && APP.media.queue) {
+                APP.media.queue.push({ type: 'image', url: url, element: img, name: 'AI_' + Date.now() });
+                APP.media.currentIndex = APP.media.queue.length - 1; 
+                APP.media.currentElement = img;
             }
-        } else { 
-            log('V19_WEB3: MM_NOT_FOUND');
-            alert("METAMASK_REQUIRED: Please disable other wallets (Phantom/Coinbase) or set MetaMask as default.");
-        }
+            
+            if (status) { status.textContent = 'RENDER_COMPLETE'; status.style.color = '#0f0'; }
+            
+            // 4. Auto-Hide Bar
+            setTimeout(() => {
+                if (prog) prog.style.display = 'none';
+                APP.neural.generating = false;
+                if (btn) btn.classList.remove('on');
+            }, 1200);
+        };
+
+        img.onerror = () => {
+            if (status) { status.textContent = 'API_BUSY_RETRY'; status.style.color = '#f00'; }
+            if (prog) prog.style.display = 'none';
+            APP.neural.generating = false;
+            if (btn) btn.classList.remove('on');
+        };
     }
 };
 
-// 3. RE-WIRE THE BUTTON
-const connectBtn = $('btn-connect-wallet') || $('wallet-badge'); 
-if (connectBtn) {
-    connectBtn.onclick = () => v19_Wallet.connect();
+// Initialization
+if (typeof v19_Transitions !== 'undefined') v19_Transitions.init();
+
+// Single wiring — only if not handled by your global interceptor
+const aiBtnAction = $('btn-generate-ai') || $('btn-gen-ai');
+if (aiBtnAction) {
+    aiBtnAction.onclick = (e) => {
+        e.preventDefault();
+        const pInput = $('ai-prompt');
+        if (pInput) v19_AI.generate(pInput.value.trim());
+    };
 }
-    // Init v19 transitions CSS
-    v19_Transitions.init();
-
-    // Wire AI generate button to v19_AI
-    if ($('btn-generate-ai')) {
-        $('btn-generate-ai').onclick = () => {
-            const prompt = $('ai-prompt') ? $('ai-prompt').value.trim() : '';
-            v19_AI.generate(prompt);
-        };
-    }
-
     // --- DRAG INITIALIZATION (mid-script) ---
     makeLogSafeDraggable($('sys-log'));
 
+    // ========================================
+    // TRASUDATE_ENGINE - LIQUID_PHYSICS
+    // DISPLACEMENT_MAP WARPING ENTIRE UI
+    // ========================================
+    
+    
+    
+    
+
+    // initHologram() REMOVED — single 3D engine lives in module script
+    // Widget-layer is hidden by default; only the module btn-inject-3d activates it
+    
+    // Widget-layer wheel/drag handlers REMOVED — Touch-Bridge handles all scaling
+    
+    // Initialize hologram after a short delay
+    // initHologram() call REMOVED — function no longer exists
+
+    
     
 
     
