@@ -1135,55 +1135,29 @@ body.shooting-mode #btn-shooting {
         </div>
         
         <div class="section">
-            <div class="sec-head"><span class="sec-title">IMPACT_FX</span><div class="sec-dot"></div></div>
+            <div class="sec-head"><span class="sec-title">PRO_FX</span><div class="sec-dot on"></div></div>
             <div class="sec-body">
                 <div class="btn-grid-3">
-                    <button class="btn impact" id="btn-stutter">STUTTER</button>
-                    <button class="btn impact" id="btn-invert">INVERT</button>
-                    <button class="btn impact" id="btn-crush">CRUSH</button>
+                    <button class="btn" id="btn-stutter">STUTTER</button>
+                    <button class="btn" id="btn-invert">INVERT</button>
+                    <button class="btn" id="btn-crush">CRUSH</button>
                 </div>
-            </div>
-        </div>
-        
-        <div class="section">
-            <div class="sec-head"><span class="sec-title">VJ_ENGINE</span><div class="sec-dot"></div></div>
-            <div class="sec-body">
-                <div class="slider-wrap"><div class="slider-top"><span class="slider-lbl">BRIGHTNESS</span><span class="slider-val" id="val-b">100%</span></div><input type="range" min="30" max="170" value="100" id="sl-b"></div>
-                <div class="slider-wrap"><div class="slider-top"><span class="slider-lbl">CONTRAST</span><span class="slider-val" id="val-c">100%</span></div><input type="range" min="30" max="170" value="100" id="sl-c" data-midi-target="contrast"></div>
-                <div class="slider-wrap"><div class="slider-top"><span class="slider-lbl">SATURATION</span><span class="slider-val" id="val-s">100%</span></div><input type="range" min="0" max="200" value="100" id="sl-s" data-midi-target="saturation"></div>
-                <div class="slider-wrap"><div class="slider-top"><span class="slider-lbl">HUE</span><span class="slider-val" id="val-h">0</span></div><input type="range" min="0" max="360" value="0" id="sl-h" data-midi-target="hue"></div>
-            </div>
-        </div>
-        
-        <div class="section">
-            <div class="sec-head"><span class="sec-title">CANVAS_FX</span><div class="sec-dot"></div></div>
-            <div class="sec-body">
-                <div class="btn-row">
+                <div class="btn-grid-3" style="margin-top:4px;">
                     <button class="btn" id="btn-trails">TRAILS</button>
                     <button class="btn" id="btn-rgb">RGB</button>
-                </div>
-                <div class="slider-wrap"><div class="slider-top"><span class="slider-lbl">TRAIL α</span><span class="slider-val" id="val-trail">0.92</span></div><input type="range" min="50" max="98" value="92" id="sl-trail"></div>
-                <div class="slider-wrap"><div class="slider-top"><span class="slider-lbl">RGB SHIFT</span><span class="slider-val" id="val-rgb">0</span></div><input type="range" min="0" max="30" value="0" id="sl-rgb"></div>
-                <div class="btn-row">
                     <button class="btn" id="btn-pixelate">PIXEL</button>
-                    <button class="btn" id="btn-mask-mode">MASK MODE</button>
                 </div>
-                <div class="slider-wrap"><div class="slider-top"><span class="slider-lbl">PIXEL SIZE</span><span class="slider-val" id="val-pix">1</span></div><input type="range" min="1" max="32" value="1" id="sl-pix"></div>
-            </div>
-        </div>
-        
-        <div class="section">
-            <div class="sec-head"><span class="sec-title">OVERLAYS</span><div class="sec-dot"></div></div>
-            <div class="sec-body">
-                <div class="btn-grid">
+                <div class="btn-grid-3" style="margin-top:4px;">
                     <button class="btn" id="btn-vhs">VHS</button>
                     <button class="btn" id="btn-crt">CRT</button>
-                    <button class="btn" id="btn-reset">RESET FX</button>
+                    <button class="btn" id="btn-reset" style="color:var(--r)">RESET</button>
+                </div>
+                <div class="btn-row" style="margin-top:4px;">
                     <button class="btn" id="btn-fs">[H] FULL</button>
                 </div>
             </div>
         </div>
-        
+
         <div class="section">
             <div class="sec-head"><span class="sec-title">THEME</span><div class="sec-dot"></div></div>
             <div class="sec-body">
@@ -2973,7 +2947,13 @@ $('btn-psychosis').onclick = () => {
     }, 50);
 };
 
-// Legacy btn-reset/btn-mask-mode removed — resetAllFX() handles all FX clearing
+// PRO_FX: btn-reset delegates to resetAllFX (safe for compact layout)
+if ($('btn-reset')) $('btn-reset').onclick = () => {
+    resetAllFX();
+    document.body.classList.remove('vhs', 'crt', 'system-failure');
+    if ($('btn-vhs')) $('btn-vhs').classList.remove('on');
+    if ($('btn-crt')) $('btn-crt').classList.remove('on');
+};
 
 
 // ═══════════════════════════════════════════════════════════════════════════
@@ -3251,18 +3231,16 @@ document.addEventListener('DOMContentLoaded', () => {
     $('btn-prev-track').onclick = prevTrack;
     $('btn-play-pause').onclick = togglePlayPause;
     
-    $('btn-stutter').onclick = impactStutter; $('btn-invert').onclick = impactInvert; $('btn-crush').onclick = impactCrush;
-    $('sl-b').oninput = e => { APP.vj.brightness = e.target.value / 100; $('val-b').textContent = e.target.value + '%'; };
-    $('sl-c').oninput = e => { APP.vj.contrast = e.target.value / 100; $('val-c').textContent = e.target.value + '%'; };
-    $('sl-s').oninput = e => { APP.vj.saturation = e.target.value / 100; $('val-s').textContent = e.target.value + '%'; };
-    $('sl-h').oninput = e => { APP.vj.hue = parseInt(e.target.value); $('val-h').textContent = e.target.value + '°'; };
-    $('btn-trails').onclick = () => { APP.vj.trailsEnabled = !APP.vj.trailsEnabled; $('btn-trails').classList.toggle('on'); };
-    $('btn-rgb').onclick = () => { APP.vj.rgbEnabled = !APP.vj.rgbEnabled; $('btn-rgb').classList.toggle('on'); };
-    $('btn-pixelate').onclick = () => { APP.vj.pixelateEnabled = !APP.vj.pixelateEnabled; $('btn-pixelate').classList.toggle('on'); };
-    $('sl-trail').oninput = e => { APP.vj.trailAlpha = parseInt(e.target.value) / 100; $('val-trail').textContent = (e.target.value / 100).toFixed(2); };
-    $('sl-rgb').oninput = e => { APP.vj.rgbIntensity = parseInt(e.target.value); $('val-rgb').textContent = e.target.value; };
-    $('sl-pix').oninput = e => { APP.vj.pixelSize = parseInt(e.target.value); $('val-pix').textContent = e.target.value; };
-    $('btn-vhs').onclick = toggleVHS; $('btn-crt').onclick = toggleCRT; $('btn-fs').onclick = toggleFullscreen;
+    // PRO_FX wiring (faders removed — buttons only)
+    if ($('btn-stutter')) $('btn-stutter').onclick = impactStutter;
+    if ($('btn-invert')) $('btn-invert').onclick = impactInvert;
+    if ($('btn-crush')) $('btn-crush').onclick = impactCrush;
+    if ($('btn-trails')) $('btn-trails').onclick = () => { APP.vj.trailsEnabled = !APP.vj.trailsEnabled; $('btn-trails').classList.toggle('on'); };
+    if ($('btn-rgb')) $('btn-rgb').onclick = () => { APP.vj.rgbEnabled = !APP.vj.rgbEnabled; APP.vj.rgbIntensity = APP.vj.rgbEnabled ? 12 : 0; $('btn-rgb').classList.toggle('on'); };
+    if ($('btn-pixelate')) $('btn-pixelate').onclick = () => { APP.vj.pixelateEnabled = !APP.vj.pixelateEnabled; APP.vj.pixelSize = APP.vj.pixelateEnabled ? 8 : 1; $('btn-pixelate').classList.toggle('on'); };
+    if ($('btn-vhs')) $('btn-vhs').onclick = toggleVHS;
+    if ($('btn-crt')) $('btn-crt').onclick = toggleCRT;
+    if ($('btn-fs')) $('btn-fs').onclick = toggleFullscreen;
     document.querySelectorAll('.pal').forEach(p => p.onclick = () => setTheme(p.dataset.t));
     $('btn-projector').onclick = openProjector;
     
@@ -3653,9 +3631,9 @@ document.addEventListener('DOMContentLoaded', () => {
                         
                         // Default CC mappings
                         if (note === 1 || note === 74) { APP.vj.brightness = 0.5 + val; if ($('sl-b')) $('sl-b').value = APP.vj.brightness * 100; }
-                        if (note === 2 || note === 71) { APP.vj.contrast = 0.5 + val; if ($('sl-c')) $('sl-c').value = APP.vj.contrast * 100; }
-                        if (note === 3 || note === 76) { APP.vj.saturation = val * 2; if ($('sl-s')) $('sl-s').value = APP.vj.saturation * 100; }
-                        if (note === 4 || note === 77) { APP.vj.hue = val * 360; if ($('sl-h')) $('sl-h').value = APP.vj.hue; }
+                        if (note === 2 || note === 71) { APP.vj.contrast = 0.5 + val; if ($('sl-c')) if ($('sl-c')) $('sl-c').value = APP.vj.contrast * 100; }
+                        if (note === 3 || note === 76) { APP.vj.saturation = val * 2; if ($('sl-s')) if ($('sl-s')) $('sl-s').value = APP.vj.saturation * 100; }
+                        if (note === 4 || note === 77) { APP.vj.hue = val * 360; if ($('sl-h')) if ($('sl-h')) $('sl-h').value = APP.vj.hue; }
                         // CC 20/21 — reserved (weather FX stripped)
                     }
 
@@ -3796,9 +3774,9 @@ document.addEventListener('DOMContentLoaded', () => {
                         const binding = APP.midi.bindings['cc' + note];
                         if (binding) triggerMidiCCBinding(binding, val);
                         if (note === 1 || note === 74) { APP.vj.brightness = 0.5 + val; if ($('sl-b')) $('sl-b').value = APP.vj.brightness * 100; }
-                        if (note === 2 || note === 71) { APP.vj.contrast = 0.5 + val; if ($('sl-c')) $('sl-c').value = APP.vj.contrast * 100; }
-                        if (note === 3 || note === 76) { APP.vj.saturation = val * 2; if ($('sl-s')) $('sl-s').value = APP.vj.saturation * 100; }
-                        if (note === 4 || note === 77) { APP.vj.hue = val * 360; if ($('sl-h')) $('sl-h').value = APP.vj.hue; }
+                        if (note === 2 || note === 71) { APP.vj.contrast = 0.5 + val; if ($('sl-c')) if ($('sl-c')) $('sl-c').value = APP.vj.contrast * 100; }
+                        if (note === 3 || note === 76) { APP.vj.saturation = val * 2; if ($('sl-s')) if ($('sl-s')) $('sl-s').value = APP.vj.saturation * 100; }
+                        if (note === 4 || note === 77) { APP.vj.hue = val * 360; if ($('sl-h')) if ($('sl-h')) $('sl-h').value = APP.vj.hue; }
                     }
 
                     // Pitch bend → hue
@@ -4895,7 +4873,7 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     };
 
-    // v19 AI GENERATOR — Pollinations fallback + Lexica primary, with smooth transition
+    // v19 AI GENERATOR — Lexica blob proxy (CORS proxy for github.io) + Pollinations fallback
     const v19_AI = {
         generate: async (prompt) => {
             const status = $('ai-status');
@@ -4903,42 +4881,80 @@ document.addEventListener('DOMContentLoaded', () => {
             if (!prompt) { if (status) status.textContent = 'ENTER_PROMPT'; return; }
             if (APP.neural.generating) return;
             APP.neural.generating = true;
-            if (status) { status.textContent = 'GENERATING...'; status.style.color = 'var(--v)'; }
+            if (status) { status.textContent = 'SEARCHING...'; status.style.color = 'var(--v)'; }
             if (btn) btn.classList.add('on');
-            log('V19_AI: GENERATING >> ' + prompt);
+            if ($('neural-dot')) $('neural-dot').classList.remove('off');
+            log('NEURAL: GENERATING >> ' + prompt);
 
             try {
-                // Pollinations.ai — CORS-friendly, no API key required
-                const seed = Math.floor(Math.random() * 9999);
-                const pollinationsUrl = `https://image.pollinations.ai/prompt/${encodeURIComponent(prompt)}?seed=${seed}&width=1280&height=720&nologo=true`;
-                if (status) status.textContent = 'POLLINATIONS: RENDERING...';
+                // Primary: Lexica via CORS proxy (API blocks direct browser CORS)
+                const proxyUrl = 'https://corsproxy.io/?' + encodeURIComponent('https://lexica.art/api/v1/search?q=' + encodeURIComponent(prompt));
+                if (status) status.textContent = 'LEXICA: SEARCHING...';
+                const res = await fetch(proxyUrl);
+                if (!res.ok) throw new Error('PROXY_' + res.status);
+                const data = await res.json();
+                if (!data.images || data.images.length === 0) throw new Error('NO_RESULTS');
 
-                // Preload as blob for canvas-safe injection (no taint)
-                const imgRes = await fetch(pollinationsUrl);
+                const pick = data.images[Math.floor(Math.random() * Math.min(10, data.images.length))];
+                const imgUrl = pick.src || pick.srcSmall;
+                if (!imgUrl) throw new Error('NO_SRC');
+
+                if (status) status.textContent = 'DOWNLOADING...';
+                const imgRes = await fetch(imgUrl);
+                if (!imgRes.ok) throw new Error('IMG_' + imgRes.status);
                 const blob = await imgRes.blob();
                 const blobUrl = URL.createObjectURL(blob);
 
-                // Smooth transition overlay on stage
-                v19_Transitions.swap(blobUrl);
-
-                // Inject into media deck for canvas renderLoop
                 const img = new Image();
                 img.crossOrigin = 'anonymous';
                 img.src = blobUrl;
                 await new Promise((ok, fail) => { img.onload = ok; img.onerror = fail; });
-                APP.media.queue.push({ type: 'image', url: blobUrl, element: img, name: 'AI_' + Date.now() });
+
+                APP.neural.lastImage = blobUrl;
+                APP.media.queue.push({ type: 'image', url: blobUrl, element: img, name: 'AI_' + prompt.substring(0, 20).replace(/\s+/g, '_') });
                 APP.media.currentIndex = APP.media.queue.length - 1;
                 APP.media.currentElement = img;
+                if ($('media-dot')) $('media-dot').classList.remove('off');
+                if ($('q-info')) $('q-info').textContent = APP.media.queue.length;
 
-                if (status) { status.textContent = 'INJECTED_TO_DECK'; status.style.color = 'var(--g)'; }
-                if ($('neural-dot')) $('neural-dot').classList.remove('off');
-                log('V19_AI: POLLINATIONS_COMPLETE');
-            } catch (e) {
-                log('V19_AI: FAIL >> ' + e.message);
-                if (status) { status.textContent = 'GENERATION_FAILED'; status.style.color = 'var(--r)'; }
+                // Smooth transition
+                v19_Transitions.swap(blobUrl);
+
+                // Glitch-flash
+                const stage = $('stage');
+                if (stage) { stage.style.transition = 'none'; stage.style.filter = 'brightness(3) saturate(2)'; setTimeout(() => { stage.style.transition = 'filter 0.5s'; stage.style.filter = ''; }, 100); }
+
+                if (status) { status.textContent = 'INJECTED → MEDIA DECK'; status.style.color = 'var(--g)'; }
+                log('NEURAL: LEXICA_INJECTED');
+            } catch (lexErr) {
+                // Fallback: Pollinations (CORS-native, generates from prompt)
+                log('NEURAL: LEXICA_FAIL (' + lexErr.message + ') → POLLINATIONS');
+                try {
+                    if (status) status.textContent = 'POLLINATIONS: RENDERING...';
+                    const seed = Math.floor(Math.random() * 9999);
+                    const pollUrl = 'https://image.pollinations.ai/prompt/' + encodeURIComponent(prompt) + '?seed=' + seed + '&width=1280&height=720&nologo=true';
+                    const pRes = await fetch(pollUrl);
+                    if (!pRes.ok) throw new Error('POLL_' + pRes.status);
+                    const pBlob = await pRes.blob();
+                    const pBlobUrl = URL.createObjectURL(pBlob);
+
+                    const pImg = new Image();
+                    pImg.crossOrigin = 'anonymous';
+                    pImg.src = pBlobUrl;
+                    await new Promise((ok, fail) => { pImg.onload = ok; pImg.onerror = fail; });
+
+                    APP.media.queue.push({ type: 'image', url: pBlobUrl, element: pImg, name: 'AI_POLL_' + Date.now() });
+                    APP.media.currentIndex = APP.media.queue.length - 1;
+                    APP.media.currentElement = pImg;
+                    v19_Transitions.swap(pBlobUrl);
+                    if (status) { status.textContent = 'POLLINATIONS → DECK'; status.style.color = 'var(--g)'; }
+                    log('NEURAL: POLLINATIONS_INJECTED');
+                } catch (pollErr) {
+                    if (status) { status.textContent = 'BOTH_FAILED: ' + pollErr.message; status.style.color = 'var(--r)'; }
+                    log('NEURAL_ERROR: ' + pollErr.message);
+                }
             } finally {
-                APP.neural.generating = false;
-                if (btn) btn.classList.remove('on');
+                setTimeout(() => { APP.neural.generating = false; if (btn) btn.classList.remove('on'); }, 1000);
             }
         }
     };
@@ -4957,10 +4973,7 @@ document.addEventListener('DOMContentLoaded', () => {
     // --- DRAG INITIALIZATION (mid-script) ---
     makeLogSafeDraggable($('sys-log'));
 
-    // ========================================
-    // TRASUDATE_ENGINE - LIQUID_PHYSICS
-    // DISPLACEMENT_MAP WARPING ENTIRE UI
-    // ========================================
+
     
     
     
