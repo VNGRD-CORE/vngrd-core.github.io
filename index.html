@@ -1132,55 +1132,29 @@ body.shooting-mode #btn-shooting {
         </div>
         
         <div class="section">
-            <div class="sec-head"><span class="sec-title">IMPACT_FX</span><div class="sec-dot"></div></div>
+            <div class="sec-head"><span class="sec-title">PRO_FX</span><div class="sec-dot on"></div></div>
             <div class="sec-body">
                 <div class="btn-grid-3">
-                    <button class="btn impact" id="btn-stutter">STUTTER</button>
-                    <button class="btn impact" id="btn-invert">INVERT</button>
-                    <button class="btn impact" id="btn-crush">CRUSH</button>
+                    <button class="btn" id="btn-stutter">STUTTER</button>
+                    <button class="btn" id="btn-invert">INVERT</button>
+                    <button class="btn" id="btn-crush">CRUSH</button>
                 </div>
-            </div>
-        </div>
-        
-        <div class="section">
-            <div class="sec-head"><span class="sec-title">VJ_ENGINE</span><div class="sec-dot"></div></div>
-            <div class="sec-body">
-                <div class="slider-wrap"><div class="slider-top"><span class="slider-lbl">BRIGHTNESS</span><span class="slider-val" id="val-b">100%</span></div><input type="range" min="30" max="170" value="100" id="sl-b"></div>
-                <div class="slider-wrap"><div class="slider-top"><span class="slider-lbl">CONTRAST</span><span class="slider-val" id="val-c">100%</span></div><input type="range" min="30" max="170" value="100" id="sl-c" data-midi-target="contrast"></div>
-                <div class="slider-wrap"><div class="slider-top"><span class="slider-lbl">SATURATION</span><span class="slider-val" id="val-s">100%</span></div><input type="range" min="0" max="200" value="100" id="sl-s" data-midi-target="saturation"></div>
-                <div class="slider-wrap"><div class="slider-top"><span class="slider-lbl">HUE</span><span class="slider-val" id="val-h">0</span></div><input type="range" min="0" max="360" value="0" id="sl-h" data-midi-target="hue"></div>
-            </div>
-        </div>
-        
-        <div class="section">
-            <div class="sec-head"><span class="sec-title">CANVAS_FX</span><div class="sec-dot"></div></div>
-            <div class="sec-body">
-                <div class="btn-row">
+                <div class="btn-grid-3" style="margin-top:4px;">
                     <button class="btn" id="btn-trails">TRAILS</button>
                     <button class="btn" id="btn-rgb">RGB</button>
-                </div>
-                <div class="slider-wrap"><div class="slider-top"><span class="slider-lbl">TRAIL α</span><span class="slider-val" id="val-trail">0.92</span></div><input type="range" min="50" max="98" value="92" id="sl-trail"></div>
-                <div class="slider-wrap"><div class="slider-top"><span class="slider-lbl">RGB SHIFT</span><span class="slider-val" id="val-rgb">0</span></div><input type="range" min="0" max="30" value="0" id="sl-rgb"></div>
-                <div class="btn-row">
                     <button class="btn" id="btn-pixelate">PIXEL</button>
-                    <button class="btn" id="btn-mask-mode">MASK MODE</button>
                 </div>
-                <div class="slider-wrap"><div class="slider-top"><span class="slider-lbl">PIXEL SIZE</span><span class="slider-val" id="val-pix">1</span></div><input type="range" min="1" max="32" value="1" id="sl-pix"></div>
-            </div>
-        </div>
-        
-        <div class="section">
-            <div class="sec-head"><span class="sec-title">OVERLAYS</span><div class="sec-dot"></div></div>
-            <div class="sec-body">
-                <div class="btn-grid">
+                <div class="btn-grid-3" style="margin-top:4px;">
                     <button class="btn" id="btn-vhs">VHS</button>
                     <button class="btn" id="btn-crt">CRT</button>
-                    <button class="btn" id="btn-reset">RESET FX</button>
+                    <button class="btn" id="btn-reset" style="color:var(--r)">RESET</button>
+                </div>
+                <div class="btn-row" style="margin-top:4px;">
                     <button class="btn" id="btn-fs">[H] FULL</button>
                 </div>
             </div>
         </div>
-        
+
         <div class="section">
             <div class="sec-head"><span class="sec-title">THEME</span><div class="sec-dot"></div></div>
             <div class="sec-body">
@@ -3243,18 +3217,16 @@ document.addEventListener('DOMContentLoaded', () => {
     $('btn-prev-track').onclick = prevTrack;
     $('btn-play-pause').onclick = togglePlayPause;
     
-    $('btn-stutter').onclick = impactStutter; $('btn-invert').onclick = impactInvert; $('btn-crush').onclick = impactCrush;
-    $('sl-b').oninput = e => { APP.vj.brightness = e.target.value / 100; $('val-b').textContent = e.target.value + '%'; };
-    $('sl-c').oninput = e => { APP.vj.contrast = e.target.value / 100; $('val-c').textContent = e.target.value + '%'; };
-    $('sl-s').oninput = e => { APP.vj.saturation = e.target.value / 100; $('val-s').textContent = e.target.value + '%'; };
-    $('sl-h').oninput = e => { APP.vj.hue = parseInt(e.target.value); $('val-h').textContent = e.target.value + '°'; };
-    $('btn-trails').onclick = () => { APP.vj.trailsEnabled = !APP.vj.trailsEnabled; $('btn-trails').classList.toggle('on'); };
-    $('btn-rgb').onclick = () => { APP.vj.rgbEnabled = !APP.vj.rgbEnabled; $('btn-rgb').classList.toggle('on'); };
-    $('btn-pixelate').onclick = () => { APP.vj.pixelateEnabled = !APP.vj.pixelateEnabled; $('btn-pixelate').classList.toggle('on'); };
-    $('sl-trail').oninput = e => { APP.vj.trailAlpha = parseInt(e.target.value) / 100; $('val-trail').textContent = (e.target.value / 100).toFixed(2); };
-    $('sl-rgb').oninput = e => { APP.vj.rgbIntensity = parseInt(e.target.value); $('val-rgb').textContent = e.target.value; };
-    $('sl-pix').oninput = e => { APP.vj.pixelSize = parseInt(e.target.value); $('val-pix').textContent = e.target.value; };
-    $('btn-vhs').onclick = toggleVHS; $('btn-crt').onclick = toggleCRT; $('btn-fs').onclick = toggleFullscreen;
+    // PRO_FX wiring (faders removed — buttons only)
+    if ($('btn-stutter')) $('btn-stutter').onclick = impactStutter;
+    if ($('btn-invert')) $('btn-invert').onclick = impactInvert;
+    if ($('btn-crush')) $('btn-crush').onclick = impactCrush;
+    if ($('btn-trails')) $('btn-trails').onclick = () => { APP.vj.trailsEnabled = !APP.vj.trailsEnabled; $('btn-trails').classList.toggle('on'); };
+    if ($('btn-rgb')) $('btn-rgb').onclick = () => { APP.vj.rgbEnabled = !APP.vj.rgbEnabled; APP.vj.rgbIntensity = APP.vj.rgbEnabled ? 12 : 0; $('btn-rgb').classList.toggle('on'); };
+    if ($('btn-pixelate')) $('btn-pixelate').onclick = () => { APP.vj.pixelateEnabled = !APP.vj.pixelateEnabled; APP.vj.pixelSize = APP.vj.pixelateEnabled ? 8 : 1; $('btn-pixelate').classList.toggle('on'); };
+    if ($('btn-vhs')) $('btn-vhs').onclick = toggleVHS;
+    if ($('btn-crt')) $('btn-crt').onclick = toggleCRT;
+    if ($('btn-fs')) $('btn-fs').onclick = toggleFullscreen;
     document.querySelectorAll('.pal').forEach(p => p.onclick = () => setTheme(p.dataset.t));
     $('btn-projector').onclick = openProjector;
     
@@ -4914,10 +4886,7 @@ document.addEventListener('DOMContentLoaded', () => {
     // --- DRAG INITIALIZATION (mid-script) ---
     makeLogSafeDraggable($('sys-log'));
 
-    // ========================================
-    // TRASUDATE_ENGINE - LIQUID_PHYSICS
-    // DISPLACEMENT_MAP WARPING ENTIRE UI
-    // ========================================
+
     
     
     
