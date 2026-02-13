@@ -1,8 +1,6 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-    <link rel="manifest" href="manifest.json">
-<meta name="apple-mobile-web-app-capable" content="yes">
     <meta charset="UTF-8">
     <meta http-equiv="Content-Security-Policy" content="default-src * 'unsafe-inline' 'unsafe-eval' data: blob:; img-src * data: blob: 'unsafe-inline'; connect-src * 'unsafe-inline';">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
@@ -158,7 +156,7 @@
         .version { font-size: 10px; color: var(--accent); padding: 3px 8px; background: var(--accent-dim); border: 1px solid var(--accent); margin-left: 10px; }
 
         #stage { position: fixed; top: 45px; left: 200px; right: 200px; bottom: 55px; background: #000; border: 1px solid var(--border); overflow: hidden; }
-        #vj-canvas { position: absolute; top: 0; left: 0; width: 100%; height: 100%; z-index: 1000; pointer-events: none !important; }
+        #vj-canvas { position: absolute; top: 0; left: 0; width: 100%; height: 100%; z-index: 1000; }
         #overlay-layer { position: absolute; inset: 0; z-index: 2000; pointer-events: none; }
         
         #stage::before { content: ""; position: absolute; inset: 0; z-index: 3000; pointer-events: none; background: repeating-linear-gradient(0deg, transparent, transparent 2px, rgba(0,0,0,0.03) 2px, rgba(0,0,0,0.03) 4px); opacity: 0.3; }
@@ -638,9 +636,6 @@
         }
         .btn.on, .btn.active-mode {
             animation: btn-active-glow 0.8s ease-in-out infinite;
-        }
-        .active-mode {
-            background: #00f2ff !important; color: #000; box-shadow: 0 0 15px #00f2ff;
         }
         @keyframes btn-active-glow {
             0%, 100% { box-shadow: 0 0 15px var(--accent); }
@@ -1175,19 +1170,16 @@ body.shooting-mode #btn-shooting {
         </div>
         
         <div class="section">
-    <div class="sec-head"><span class="sec-title">HYBRID WORKSTATION CONTROLS</span><div class="sec-dot"></div></div>
-    <div class="sec-body">
-        <div class="btn-grid">
-            <button class="btn" id="btn-vhs">VHS</button>
-            <button class="btn" id="btn-crt">CRT</button>
-            <button class="btn" onclick="APP.vj.trailsEnabled = !APP.vj.trailsEnabled">TRAILS</button>
-            <button class="btn" onclick="APP.fx.invert = !APP.fx.invert">INVERT</button>
-            
-            <button class="btn" id="btn-reset" style="color: #ff4444; border-color: #ff4444;">RESET FX</button>
-            <button class="btn" id="btn-fs">[H] FULL</button>
+            <div class="sec-head"><span class="sec-title">OVERLAYS</span><div class="sec-dot"></div></div>
+            <div class="sec-body">
+                <div class="btn-grid">
+                    <button class="btn" id="btn-vhs">VHS</button>
+                    <button class="btn" id="btn-crt">CRT</button>
+                    <button class="btn" id="btn-reset">RESET FX</button>
+                    <button class="btn" id="btn-fs">[H] FULL</button>
+                </div>
+            </div>
         </div>
-    </div>
-</div>
         
         <div class="section">
             <div class="sec-head"><span class="sec-title">THEME</span><div class="sec-dot"></div></div>
@@ -1228,11 +1220,11 @@ body.shooting-mode #btn-shooting {
         </div>
         
         <div class="section">
-            <div class="sec-head"><span class="sec-title">V19_NEURAL</span><div class="sec-dot off" id="neural-dot"></div></div>
+            <div class="sec-head"><span class="sec-title">LEXICA_NANO</span><div class="sec-dot off" id="neural-dot"></div></div>
             <div class="sec-body">
                 <input type="text" class="inp" id="ai-prompt" placeholder="DESCRIBE_IMAGE..." style="font-size:9px;">
-                <button class="btn" id="btn-generate-ai" style="color:var(--v);border-color:var(--v);">GENERATE (SMOOTH)</button>
-                <div id="ai-status" style="font-size:8px;color:var(--text-dim);margin-top:4px;">V19_AI: LEXICA + POLLINATIONS</div>
+                <button class="btn" id="btn-generate-ai" style="color:var(--v);border-color:var(--v);">LEXICA GENERATE</button>
+                <div id="ai-status" style="font-size:8px;color:var(--text-dim);margin-top:4px;">LEXICA_API: READY</div>
             </div>
         </div>
         
@@ -2017,39 +2009,6 @@ function triggerChromaticAberration() { const c = APP.render.canvas; c.style.fil
 function impactStutter() { const oT = APP.vj.trailsEnabled, oA = APP.vj.trailAlpha; APP.vj.trailsEnabled = true; APP.vj.trailAlpha = 0.98; triggerChromaticAberration(); setTimeout(() => { APP.vj.trailsEnabled = oT; APP.vj.trailAlpha = oA; }, 500); }
 function impactInvert() { APP.vj.invert = true; triggerChromaticAberration(); setTimeout(() => { APP.vj.invert = false; }, 500); }
 function impactCrush() { const oRGB = APP.vj.rgbIntensity, oPix = APP.vj.pixelSize, oRE = APP.vj.rgbEnabled, oPE = APP.vj.pixelateEnabled; APP.vj.rgbEnabled = true; APP.vj.pixelateEnabled = true; APP.vj.rgbIntensity = 25; APP.vj.pixelSize = 16; setTimeout(() => { APP.vj.rgbEnabled = oRE; APP.vj.pixelateEnabled = oPE; APP.vj.rgbIntensity = oRGB; APP.vj.pixelSize = oPix; }, 500); }
-
-function resetAllFX() {
-    // 1. Reset all internal APP logic
-    APP.fx.stutter = false; APP.fx.crush = false; APP.fx.invert = false;
-    APP.fx.echo = false; APP.fx.rgbSplit = 0; APP.fx.freezeFrame = null;
-    APP.vj.brightness = 1.0; APP.vj.contrast = 1.0; APP.vj.saturation = 1.0; APP.vj.hue = 0;
-    APP.vj.trailsEnabled = false; APP.vj.trailAlpha = 0.92;
-    APP.vj.rgbEnabled = false; APP.vj.rgbIntensity = 0;
-    APP.vj.pixelateEnabled = false; APP.vj.pixelSize = 1;
-    APP.vj.invert = false; APP.vj.maskMode = false;
-
-    // 2. IMMEDIATE FIX: Clear visual engine
-    const canvas = document.querySelector('canvas');
-    if (canvas) {
-        canvas.style.filter = "none"; // Clears CSS-based FX
-        const ctx = canvas.getContext('2d');
-        if (ctx) ctx.filter = "none"; // Clears Canvas-internal FX
-    }
-
-    // 3. UI Cleanup: Remove highlight from active buttons
-    document.querySelectorAll('.active-mode, .btn-active').forEach(el => {
-        el.classList.remove('active-mode');
-        el.classList.remove('btn-active');
-    });
-
-    log('FX_RESET: ALL_CLEAR');
-}
-// TOGGLE FX — latch button with active-mode highlight
-function toggleFX(type, el) {
-    if (!APP.vj) APP.vj = {};
-    APP.vj[type] = !APP.vj[type];
-    el.classList.toggle('active-mode');
-}
 
 // SIMPLE DRAGGABLE - DIRECT LEFT/TOP POSITIONING (for non-Trinity DOM elements)
 function makeDraggable(el) {
@@ -2991,7 +2950,22 @@ $('btn-psychosis').onclick = () => {
     }, 50);
 };
 
-// Legacy btn-reset/btn-mask-mode removed — resetAllFX() handles all FX clearing
+$('btn-mask-mode').onclick = () => { APP.vj.maskMode = !APP.vj.maskMode; $('btn-mask-mode').classList.toggle('on'); log(`MASK_MODE: ${APP.vj.maskMode ? 'ON' : 'OFF'}`); };
+$('btn-reset').onclick = () => {
+    APP.vj.brightness = 1.0; $('sl-b').value = 100; $('val-b').textContent = '100%';
+    APP.vj.contrast = 1.0; $('sl-c').value = 100; $('val-c').textContent = '100%';
+    APP.vj.saturation = 1.0; $('sl-s').value = 100; $('val-s').textContent = '100%';
+    APP.vj.hue = 0; $('sl-h').value = 0; $('val-h').textContent = '0°';
+    APP.vj.trailsEnabled = false; $('btn-trails').classList.remove('on');
+    APP.vj.rgbEnabled = false; $('btn-rgb').classList.remove('on');
+    APP.vj.pixelateEnabled = false; $('btn-pixelate').classList.remove('on');
+    APP.vj.pixelSize = 1; $('sl-pix').value = 1; $('val-pix').textContent = '1';
+    APP.vj.rgbIntensity = 0; $('sl-rgb').value = 0; $('val-rgb').textContent = '0';
+    APP.vj.maskMode = false; $('btn-mask-mode').classList.remove('on');
+    document.body.classList.remove('vhs', 'crt', 'system-failure'); 
+    $('btn-vhs').classList.remove('on'); $('btn-crt').classList.remove('on');
+    log('FX_RESET_ONLY');
+};
 
 
 // ═══════════════════════════════════════════════════════════════════════════
@@ -3670,13 +3644,13 @@ document.addEventListener('DOMContentLoaded', () => {
                         }
                         
                         // Default CC mappings
-                        if (note === 1 || note === 74) { APP.vj.brightness = 0.5 + val; if ($('sl-b')) $('sl-b').value = APP.vj.brightness * 100; }
-                        if (note === 2 || note === 71) { APP.vj.contrast = 0.5 + val; if ($('sl-c')) $('sl-c').value = APP.vj.contrast * 100; }
-                        if (note === 3 || note === 76) { APP.vj.saturation = val * 2; if ($('sl-s')) $('sl-s').value = APP.vj.saturation * 100; }
-                        if (note === 4 || note === 77) { APP.vj.hue = val * 360; if ($('sl-h')) $('sl-h').value = APP.vj.hue; }
+                        if (note === 1 || note === 74) { APP.vj.brightness = 0.5 + val; $('sl-b').value = APP.vj.brightness * 100; $('val-b').textContent = Math.round(APP.vj.brightness*100)+'%'; }
+                        if (note === 2 || note === 71) { APP.vj.contrast = 0.5 + val; $('sl-c').value = APP.vj.contrast * 100; }
+                        if (note === 3 || note === 76) { APP.vj.saturation = val * 2; $('sl-s').value = APP.vj.saturation * 100; }
+                        if (note === 4 || note === 77) { APP.vj.hue = val * 360; $('sl-h').value = APP.vj.hue; }
                         // CC 20/21 — reserved (weather FX stripped)
                     }
-
+                    
                     // Pitch Bend - control hue
                     if (cmd === 14) {
                         const bend = ((velocity << 7) | note) - 8192;
@@ -3684,7 +3658,7 @@ document.addEventListener('DOMContentLoaded', () => {
                     }
                 };
             });
-
+            
             // Store outputs
             outputs.forEach(output => APP.midi.outputs.push(output));
             
@@ -3813,10 +3787,10 @@ document.addEventListener('DOMContentLoaded', () => {
                         const val = velocity / 127;
                         const binding = APP.midi.bindings['cc' + note];
                         if (binding) triggerMidiCCBinding(binding, val);
-                        if (note === 1 || note === 74) { APP.vj.brightness = 0.5 + val; if ($('sl-b')) $('sl-b').value = APP.vj.brightness * 100; }
-                        if (note === 2 || note === 71) { APP.vj.contrast = 0.5 + val; if ($('sl-c')) $('sl-c').value = APP.vj.contrast * 100; }
-                        if (note === 3 || note === 76) { APP.vj.saturation = val * 2; if ($('sl-s')) $('sl-s').value = APP.vj.saturation * 100; }
-                        if (note === 4 || note === 77) { APP.vj.hue = val * 360; if ($('sl-h')) $('sl-h').value = APP.vj.hue; }
+                        if (note === 1 || note === 74) { APP.vj.brightness = 0.5 + val; $('sl-b').value = APP.vj.brightness * 100; $('val-b').textContent = Math.round(APP.vj.brightness*100)+'%'; }
+                        if (note === 2 || note === 71) { APP.vj.contrast = 0.5 + val; $('sl-c').value = APP.vj.contrast * 100; }
+                        if (note === 3 || note === 76) { APP.vj.saturation = val * 2; $('sl-s').value = APP.vj.saturation * 100; }
+                        if (note === 4 || note === 77) { APP.vj.hue = val * 360; $('sl-h').value = APP.vj.hue; }
                     }
 
                     // Pitch bend → hue
@@ -4860,120 +4834,82 @@ document.addEventListener('DOMContentLoaded', () => {
     };
 
     // ========================================
-    // v19 FEATURE PACK: TRANSITIONS + WALLET + AI
+    // NEURAL_INJECT: AI IMAGE GENERATION
     // ========================================
+   document.getElementById('btn-generate-ai').onclick = async () => {
+    // 1. SETUP & VALIDATION
+    const promptInput = document.getElementById('ai-prompt');
+    const status = document.getElementById('ai-status');
+    const btn = document.getElementById('btn-generate-ai');
+    
+    const prompt = promptInput.value.trim();
 
-    // v19 SMOOTH TRANSITIONS — crossfade layers for AI/media swap
-    const v19_Transitions = {
-        init: () => {
-            const style = document.createElement('style');
-            style.innerHTML = `
-                .vngrd-layer { position: absolute; top: 0; left: 0; width: 100%; height: 100%;
-                    background-size: cover; background-position: center;
-                    transition: opacity 1.5s cubic-bezier(0.4, 0, 0.2, 1);
-                    opacity: 0; z-index: 1; pointer-events: none; }
-                .vngrd-layer.active { opacity: 1; z-index: 2; }
-            `;
-            document.head.appendChild(style);
-            log('V19_TRANSITIONS: ONLINE');
-        },
-        swap: (imgUrl) => {
-            const stage = $('stage');
-            if (!stage) return;
-            const active = stage.querySelector('.vngrd-layer.active');
-            const next = document.createElement('div');
-            next.className = 'vngrd-layer';
-            next.style.backgroundImage = `url('${imgUrl}')`;
-            stage.appendChild(next);
-            void next.offsetWidth;
-            next.classList.add('active');
-            if (active) {
-                active.classList.remove('active');
-                setTimeout(() => active.remove(), 1600);
-            }
-        }
-    };
-
-    // v19 WALLET — bridges to existing wallet-badge handler
-    const v19_Wallet = {
-        connect: async () => {
-            if (window.ethereum) {
-                try {
-                    const accounts = await window.ethereum.request({ method: 'eth_requestAccounts' });
-                    const wallet = accounts[0];
-                    log('V19_WEB3: CONNECTED >> ' + wallet);
-                    const badge = $('wallet-badge');
-                    if (badge) {
-                        badge.innerHTML = `<span class="dot" style="background:var(--g);box-shadow:0 0 6px var(--g)"></span>${wallet.substring(0,6)}...`;
-                        badge.style.color = 'var(--g)'; badge.style.borderColor = 'var(--g)';
-                    }
-                    return wallet;
-                } catch (e) { log('V19_WEB3: USER_DENIED'); }
-            } else { log('V19_WEB3: NO_ETHEREUM_PROVIDER'); }
-        }
-    };
-
-    // v19 AI GENERATOR — Pollinations fallback + Lexica primary, with smooth transition
-    const v19_AI = {
-        generate: async (prompt) => {
-            const status = $('ai-status');
-            const btn = $('btn-generate-ai');
-            if (!prompt) { if (status) status.textContent = 'ENTER_PROMPT'; return; }
-            if (APP.neural.generating) return;
-            APP.neural.generating = true;
-            if (status) { status.textContent = 'GENERATING...'; status.style.color = 'var(--v)'; }
-            if (btn) btn.classList.add('on');
-            log('V19_AI: GENERATING >> ' + prompt);
-
-            try {
-                // Primary: Lexica search + blob proxy
-                const res = await fetch('https://lexica.art/api/v1/search?q=' + encodeURIComponent(prompt));
-                const data = await res.json();
-                if (data.images && data.images.length > 0) {
-                    const pick = data.images[Math.floor(Math.random() * Math.min(10, data.images.length))];
-                    const imgRes = await fetch(pick.src || pick.srcSmall);
-                    const blob = await imgRes.blob();
-                    const blobUrl = URL.createObjectURL(blob);
-                    // Smooth transition into stage
-                    v19_Transitions.swap(blobUrl);
-                    // Also inject into media deck for canvas rendering
-                    const img = new Image();
-                    img.crossOrigin = 'anonymous';
-                    img.src = blobUrl;
-                    await new Promise((ok, fail) => { img.onload = ok; img.onerror = fail; });
-                    APP.media.queue.push({ type: 'image', url: blobUrl, element: img, name: 'AI_' + Date.now() });
-                    APP.media.currentIndex = APP.media.queue.length - 1;
-                    APP.media.currentElement = img;
-                    if (status) { status.textContent = 'INJECTED_TO_DECK'; status.style.color = 'var(--g)'; }
-                    log('V19_AI: LEXICA_COMPLETE');
-                } else {
-                    // Fallback: Pollinations
-                    const seed = Math.floor(Math.random() * 9999);
-                    const url = `https://image.pollinations.ai/prompt/${encodeURIComponent(prompt)}?seed=${seed}&width=1280&height=720&nologo=true`;
-                    v19_Transitions.swap(url);
-                    if (status) { status.textContent = 'POLLINATIONS_FALLBACK'; status.style.color = 'var(--o)'; }
-                    log('V19_AI: POLLINATIONS_FALLBACK');
-                }
-            } catch (e) {
-                log('V19_AI: FAIL >> ' + e.message);
-                if (status) { status.textContent = 'GENERATION_FAILED'; status.style.color = 'var(--r)'; }
-            } finally {
-                APP.neural.generating = false;
-                if (btn) btn.classList.remove('on');
-            }
-        }
-    };
-
-    // Init v19 transitions CSS
-    v19_Transitions.init();
-
-    // Wire AI generate button to v19_AI
-    if ($('btn-generate-ai')) {
-        $('btn-generate-ai').onclick = () => {
-            const prompt = $('ai-prompt') ? $('ai-prompt').value.trim() : '';
-            v19_AI.generate(prompt);
-        };
+    if (!prompt) {
+        status.textContent = 'ENTER_PROMPT';
+        return;
     }
+
+    // Prevent double-clicking
+    if (window.APP.neural.generating) return;
+
+    // 2. LOCK UI
+    window.APP.neural.generating = true;
+    status.textContent = 'CONTACTING_LEXICA...';
+    status.style.color = 'var(--v)';
+    btn.classList.add('on');
+
+    try {
+        // 3. FETCH LIST FROM LEXICA
+        // We use the public Lexica API to find a high-quality match
+        const searchUrl = `https://lexica.art/api/v1/search?q=${encodeURIComponent(prompt)}`;
+        const response = await fetch(searchUrl);
+        const data = await response.json();
+
+        if (!data.images || data.images.length === 0) throw new Error("NO_RESULTS");
+
+        // 4. SECURE PROXY DOWNLOAD
+        // We download the image as a BLOB to bypass the "Tainted Canvas" security block
+        status.textContent = 'DOWNLOADING_TO_DECK...';
+        const targetImage = data.images[0];
+        
+        const imgResponse = await fetch(targetImage.src);
+        const blob = await imgResponse.blob();
+
+        // 5. CREATE VIRTUAL FILE
+        // This converts the blob into a "File" object, tricking the Media Deck
+        // into thinking you uploaded it from your hard drive.
+        const virtualFile = new File([blob], `AI_${Date.now()}.jpg`, { type: "image/jpeg" });
+
+        // 6. INJECT INTO ROTATION
+        if (window.APP.media && window.APP.media.handleFileUpload) {
+            // Adds to playlist, auto-plays, and applies FX
+            await window.APP.media.handleFileUpload(virtualFile);
+            
+            status.textContent = 'ADDED_TO_ROTATION';
+            status.style.color = 'var(--g)';
+            console.log("VGD_AI: Image successfully injected into Media Deck.");
+        } else {
+            // Fallback: Direct injection if Media Deck is missing
+            console.warn("VGD_AI: Media Deck not found. Injecting directly to canvas.");
+            const safeUrl = URL.createObjectURL(blob);
+            const img = new Image();
+            img.onload = () => {
+                const ctx = document.getElementById('main-canvas').getContext('2d');
+                ctx.drawImage(img, 0, 0, ctx.canvas.width, ctx.canvas.height);
+            };
+            img.src = safeUrl;
+        }
+
+    } catch (e) {
+        console.error("AI_FAIL:", e);
+        status.textContent = 'GENERATION_FAILED';
+        status.style.color = 'var(--r)';
+    } finally {
+        // 7. UNLOCK UI
+        window.APP.neural.generating = false;
+        btn.classList.remove('on');
+    }
+};
 
     // --- DRAG INITIALIZATION (mid-script) ---
     makeLogSafeDraggable($('sys-log'));
@@ -5481,13 +5417,6 @@ document.addEventListener('click', (e) => {
     if (id === 'btn-end' || id === 'btn-end-live' || id === 'btn-kill') applyAudioDuck(false);
 }, true);
 
-</script>
-<script>
-  if ('serviceWorker' in navigator) {
-    navigator.serviceWorker.register('./sw.js')
-      .then(() => console.log("VGD_SYSTEM: PWA_ACTIVE"))
-      .catch(err => console.log("VGD_SYSTEM: PWA_OFFLINE", err));
-  }
 </script>
 </body>
 </html> 
