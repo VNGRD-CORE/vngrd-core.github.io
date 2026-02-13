@@ -1175,16 +1175,19 @@ body.shooting-mode #btn-shooting {
         </div>
         
         <div class="section">
-            <div class="sec-head"><span class="sec-title">OVERLAYS</span><div class="sec-dot"></div></div>
-            <div class="sec-body">
-                <div class="btn-grid">
-                    <button class="btn" id="btn-vhs">VHS</button>
-                    <button class="btn" id="btn-crt">CRT</button>
-                    <button class="btn" id="btn-reset">RESET FX</button>
-                    <button class="btn" id="btn-fs">[H] FULL</button>
-                </div>
-            </div>
+    <div class="sec-head"><span class="sec-title">HYBRID WORKSTATION CONTROLS</span><div class="sec-dot"></div></div>
+    <div class="sec-body">
+        <div class="btn-grid">
+            <button class="btn" id="btn-vhs">VHS</button>
+            <button class="btn" id="btn-crt">CRT</button>
+            <button class="btn" onclick="APP.vj.trailsEnabled = !APP.vj.trailsEnabled">TRAILS</button>
+            <button class="btn" onclick="APP.fx.invert = !APP.fx.invert">INVERT</button>
+            
+            <button class="btn" id="btn-reset" style="color: #ff4444; border-color: #ff4444;">RESET FX</button>
+            <button class="btn" id="btn-fs">[H] FULL</button>
         </div>
+    </div>
+</div>
         
         <div class="section">
             <div class="sec-head"><span class="sec-title">THEME</span><div class="sec-dot"></div></div>
@@ -2015,8 +2018,8 @@ function impactStutter() { const oT = APP.vj.trailsEnabled, oA = APP.vj.trailAlp
 function impactInvert() { APP.vj.invert = true; triggerChromaticAberration(); setTimeout(() => { APP.vj.invert = false; }, 500); }
 function impactCrush() { const oRGB = APP.vj.rgbIntensity, oPix = APP.vj.pixelSize, oRE = APP.vj.rgbEnabled, oPE = APP.vj.pixelateEnabled; APP.vj.rgbEnabled = true; APP.vj.pixelateEnabled = true; APP.vj.rgbIntensity = 25; APP.vj.pixelSize = 16; setTimeout(() => { APP.vj.rgbEnabled = oRE; APP.vj.pixelateEnabled = oPE; APP.vj.rgbIntensity = oRGB; APP.vj.pixelSize = oPix; }, 500); }
 
-// RESET ALL FX — clears IMPACT_RACK flags + restores VJ defaults
 function resetAllFX() {
+    // 1. Reset all internal APP logic
     APP.fx.stutter = false; APP.fx.crush = false; APP.fx.invert = false;
     APP.fx.echo = false; APP.fx.rgbSplit = 0; APP.fx.freezeFrame = null;
     APP.vj.brightness = 1.0; APP.vj.contrast = 1.0; APP.vj.saturation = 1.0; APP.vj.hue = 0;
@@ -2024,10 +2027,23 @@ function resetAllFX() {
     APP.vj.rgbEnabled = false; APP.vj.rgbIntensity = 0;
     APP.vj.pixelateEnabled = false; APP.vj.pixelSize = 1;
     APP.vj.invert = false; APP.vj.maskMode = false;
-    document.querySelectorAll('.active-mode').forEach(el => el.classList.remove('active-mode'));
+
+    // 2. IMMEDIATE FIX: Clear visual engine
+    const canvas = document.querySelector('canvas');
+    if (canvas) {
+        canvas.style.filter = "none"; // Clears CSS-based FX
+        const ctx = canvas.getContext('2d');
+        if (ctx) ctx.filter = "none"; // Clears Canvas-internal FX
+    }
+
+    // 3. UI Cleanup: Remove highlight from active buttons
+    document.querySelectorAll('.active-mode, .btn-active').forEach(el => {
+        el.classList.remove('active-mode');
+        el.classList.remove('btn-active');
+    });
+
     log('FX_RESET: ALL_CLEAR');
 }
-
 // TOGGLE FX — latch button with active-mode highlight
 function toggleFX(type, el) {
     if (!APP.vj) APP.vj = {};
