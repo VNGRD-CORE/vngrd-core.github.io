@@ -1629,22 +1629,29 @@ async function fetchCrypto() {
     try {
         const symbols = ['BTCUSDT', 'ETHUSDT', 'SOLUSDT', 'DOGEUSDT'];
         const labels = { BTCUSDT: 'BTC', ETHUSDT: 'ETH', SOLUSDT: 'SOL', DOGEUSDT: 'DOGE' };
+        
         const prices = await Promise.all(symbols.map(s =>
             fetch('https://api.binance.com/api/v3/ticker/price?symbol=' + s).then(r => r.json())
         ));
+
         APP.crypto.tickerHTML = prices.map(p => {
             const sym = labels[p.symbol] || p.symbol;
             const price = parseFloat(p.price);
             return `<span>${sym}: $${price < 1 ? price.toFixed(6) : price.toFixed(2)}</span>`;
         }).join('&nbsp;&nbsp;//&nbsp;&nbsp;');
+
         updateTickerCycle();
-        log('CRYPTO_FEED: BINANCE_LOCKED');
+        
+        // DELETED: log('CRYPTO_FEED: BINANCE_LOCKED'); 
+        // This removes the minute-by-minute text from your system log box.
+
     } catch(e) {
         APP.crypto.tickerHTML = '<span style="color:var(--r)">CRYPTO_FEED_OFFLINE</span>';
         updateTickerCycle();
+        // Console warning only - keeps the visible terminal clean for the "TV Station" look
+        console.warn("Binance data sync paused."); 
     }
 }
-
 // TICKER CYCLE ENGINE — [WEATHER] > [CRYPTO] > [IDENTITY]
 APP.crypto.tickerHTML = '';
 APP.ticker = { phase: 0, interval: null };
@@ -3126,7 +3133,7 @@ function initCompositor() {
 
 document.addEventListener('DOMContentLoaded', () => {
     log('DRIS//core_VNGRD_v23.5_SYSTEM_FAILURE');
-    checkMobile(); initCanvas(); ghostInit(); fetchCrypto(); setInterval(fetchCrypto, 60000);
+    checkMobile(); initCanvas(); ghostInit(); fetchCrypto(); setInterval(fetchCrypto, 600000);
     loadFromMemory();
     // Phase 1: Initialize Compositor
     initCompositor();
