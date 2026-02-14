@@ -2825,10 +2825,59 @@ function startNFTRecording() {
         log('NFT_REC_START');
     } catch (e) { log('NFT_REC_ERR'); }
 }
-function stopNFTRecording() { if (!APP.nft.isRecording) return; APP.nft.recorder.stop(); APP.nft.isRecording = false; $('btn-nft-30').textContent = 'CAPTURE_VGD_CLIP'; $('btn-nft-30').classList.remove('on'); $('nft-hud').classList.remove('active'); log('NFT_REC_STOP'); }
-function updateNFTTimer() { if (!APP.nft.isRecording) return; const elapsed = Date.now() - APP.nft.startTime; const secs = Math.floor(elapsed / 1000); $('nft-timer').textContent = `00:${String(secs).padStart(2,'0')}`; $('nft-fill').style.width = `${Math.min(100, (elapsed / 30000) * 100)}%`; requestAnimationFrame(updateNFTTimer); }
-function finalizeNFT() { const blob = new Blob(APP.nft.chunks, { type: 'video/webm' }); const url = URL.createObjectURL(blob); const a = document.createElement('a'); a.href = url; a.download = `VNGRD_NFT_${Date.now()}.webm`; a.click(); APP.nft.chunks = []; log('NFT_EXPORTED'); }
-function openProjector() { if (APP.projector.isOpen) return; APP.projector.stream = APP.render.canvas.captureStream(60); APP.projector.window = window.open('', 'DRIS_Projector', 'width=1280,height=720,menubar=no,toolbar=no'); APP.projector.window.document.write('<!DOCTYPE html><html><body style="margin:0;background:#000;overflow:hidden"><video id="pf" autoplay muted playsinline style="width:100vw;height:100vh;object-fit:contain"></video><script>document.getElementById("pf").srcObject = window.opener.APP.projector.stream;<\/script></body></html>'); APP.projector.isOpen = true; $('btn-projector').classList.add('on'); log('PROJECTOR_OPEN'); }
+function stopNFTRecording() { 
+    if (!APP.nft.isRecording) return; 
+    APP.nft.recorder.stop(); 
+    APP.nft.isRecording = false; 
+    
+    // UI - Keep the ID btn-nft-30 so the click still works, but change what the user sees
+    $('btn-nft-30').textContent = 'CAPTURE_VGD_CLIP'; 
+    $('btn-nft-30').classList.remove('on'); 
+    $('nft-hud').classList.remove('active'); 
+    
+    log('VGD_REC_STOP'); 
+}
+
+function updateNFTTimer() { 
+    if (!APP.nft.isRecording) return; 
+    
+    const elapsed = Date.now() - APP.nft.startTime; 
+    const totalSeconds = Math.floor(elapsed / 1000);
+    const mins = Math.floor(totalSeconds / 60);
+    const secs = totalSeconds % 60;
+    
+    // Dynamic timer that handles 30s, 30m, or 3 hours
+    $('nft-timer').textContent = `${String(mins).padStart(2,'0')}:${String(secs).padStart(2,'0')}`; 
+    
+    // Progress bar stays full/active instead of stopping at 30s
+    $('nft-fill').style.width = `100%`;
+    
+    requestAnimationFrame(updateNFTTimer); 
+}
+
+function finalizeNFT() { 
+    const blob = new Blob(APP.nft.chunks, { type: 'video/webm' }); 
+    const url = URL.createObjectURL(blob); 
+    const a = document.createElement('a'); 
+    a.href = url; 
+    
+    // THE FIX: Save as VGD, not NFT
+    a.download = `VNGRD_VGD_${Date.now()}.webm`; 
+    
+    a.click(); 
+    APP.nft.chunks = []; 
+    log('VGD_EXPORTED'); 
+}
+
+function openProjector() { 
+    if (APP.projector.isOpen) return; 
+    APP.projector.stream = APP.render.canvas.captureStream(60); 
+    APP.projector.window = window.open('', 'DRIS_Projector', 'width=1280,height=720,menubar=no,toolbar=no'); 
+    APP.projector.window.document.write('<!DOCTYPE html><html><body style="margin:0;background:#000;overflow:hidden"><video id="pf" autoplay muted playsinline style="width:100vw;height:100vh;object-fit:contain"></video><script>document.getElementById("pf").srcObject = window.opener.APP.projector.stream;<\/script></body></html>'); 
+    APP.projector.isOpen = true; 
+    $('btn-projector').classList.add('on'); 
+    log('PROJECTOR_OPEN'); 
+}
 // --- KINETIC SNAP ENGINE ---
 function triggerIndustrialSnap(nextImageUrl) {
     const stage = document.getElementById('main-stage-img'); 
