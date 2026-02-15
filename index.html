@@ -3161,7 +3161,24 @@ async function initWeb3() {
         if (typeof window.ethereum !== 'undefined') {
             APP.web3.provider = window.ethereum;
 
-            // FORCE REQUEST: This ensures the app 'really' sees the address
+            // 1. SURGICAL ADDITION: Account Watcher
+            // This makes the app 'reactive' so you don't have to reload to switch wallets
+            window.ethereum.on('accountsChanged', async (accounts) => {
+                if (accounts.length > 0) {
+                    APP.web3.address = accounts[0];
+                    APP.web3.isConnected = true;
+                    log('IDENTITY: SWAPPED_TO [' + accounts[0].slice(0, 8) + ']');
+                    
+                    // Re-scan NFTs for the new address
+                    if (typeof scanNFTs === 'function') await scanNFTs();
+                } else {
+                    APP.web3.isConnected = false;
+                    APP.web3.mode = 'guest';
+                    log('WEB3: DISCONNECTED');
+                }
+            });
+
+            // 2. FORCE REQUEST: Triggers the popup if not connected
             const accounts = await window.ethereum.request({ method: 'eth_requestAccounts' });
             
             if (accounts.length > 0) {
@@ -3169,7 +3186,7 @@ async function initWeb3() {
                 APP.web3.isConnected = true;
                 APP.web3.mode = 'sovereign';
                 
-                // Trigger the asset scan immediately on real connection
+                // Trigger asset scan immediately
                 if (typeof scanNFTs === 'function') scanNFTs();
                 
                 log('WEB3: SOVEREIGN_SYNC_OK [' + APP.web3.address.slice(0, 8) + ']');
@@ -3188,15 +3205,21 @@ async function signVideoDNA(videoBlob) {
         const ab = await videoBlob.arrayBuffer();
         const hashBuf = await window.crypto.subtle.digest('SHA-256', ab);
         result.hash = Array.from(new Uint8Array(hashBuf)).map(b => b.toString(16).padStart(2, '0')).join('');
-        if (APP.web3.mode === 'sovereign' && APP.web3.provider) {
+        
+        // FIX: Ensure provider exists before calling request
+        if (APP.web3.mode === 'sovereign' && APP.web3.isConnected && window.ethereum) {
             const msg = 'VNGRD_DNA_SEAL:' + result.hash + ':' + result.timestamp;
-            result.signature = await APP.web3.provider.request({ method: 'personal_sign', params: [msg, APP.web3.address] });
+            // Use window.ethereum directly if APP.web3.provider is flaky
+            result.signature = await window.ethereum.request({ method: 'personal_sign', params: [msg, APP.web3.address] });
             log('DNA: SEALED + ETH_SIG');
         } else {
             localStorage.setItem('vngrd_last_hash', result.hash);
             log('DNA: SEALED_SHA256 (GUEST)');
         }
-    } catch (e) { log('DNA_SEAL_ERR'); }
+    } catch (e) { 
+        console.error(e);
+        log('DNA_SEAL_ERR: ' + e.message); 
+    }
     return result;
 }
 
