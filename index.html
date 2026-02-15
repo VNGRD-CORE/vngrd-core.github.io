@@ -2974,11 +2974,15 @@ $('file-vgd').onchange = (e) => {
 };
 
 function isValidDataURI(str) {
-    // Reject null, empty, or corrupt data URIs (missing MIME, empty base64, bare prefix)
+    // Reject null, empty, or corrupt data URIs
     if (!str || typeof str !== 'string') return false;
-    if (str === 'data:;base64,=' || str === 'data:;base64,' || str === 'data:') return false;
-    // Must be data:image/<type>;base64,<actual-data>
-    if (!str.match(/^data:image\/[a-zA-Z+]+;base64,[A-Za-z0-9+/]+=*$/)) return false;
+    // Must start with data:image/ — reject data:; or data:application/ etc
+    if (!str.startsWith('data:image/')) return false;
+    // Must have ;base64, marker
+    if (str.indexOf(';base64,') === -1) return false;
+    // Must have actual base64 data after the comma (at least 100 chars for a real image)
+    var commaIdx = str.indexOf(',');
+    if (commaIdx === -1 || str.length - commaIdx < 100) return false;
     return true;
 }
 function loadFromMemory() {
@@ -5173,7 +5177,15 @@ document.addEventListener('DOMContentLoaded', () => {
             $('vault-dot').classList.remove('off');
             log('NFT_VAULT: ' + allNfts.length + ' TOTAL ASSETS LOADED');
         } else {
-            $('nft-vault-list').innerHTML = errors.length > 0 ? 'SCAN_FAILED: ' + errors.join(', ') : 'NO_NFTS_FOUND';
+            var msg = '';
+            if (errors.length > 0) {
+                msg = 'SCAN_ERR: ' + errors.join(', ');
+            } else if (hasEth && !hasTez) {
+                msg = 'NO_ETH_NFTS — ENTER tz1... ABOVE FOR TEZOS';
+            } else {
+                msg = 'NO_NFTS_FOUND';
+            }
+            $('nft-vault-list').innerHTML = msg;
             $('nft-count').textContent = 'ASSETS: 0';
         }
     };
@@ -5259,50 +5271,97 @@ document.addEventListener('DOMContentLoaded', () => {
             if ($('neural-dot')) $('neural-dot').classList.remove('off');
             log('NEURAL: GENERATING >> ' + prompt);
 
-            try {
-                // Primary: Pollinations (CORS-native, generates from prompt, no key needed)
-                if (status) status.textContent = 'POLLINATIONS: RENDERING...';
-                const seed = Math.floor(Math.random() * 9999);
-                const pollUrl = 'https://image.pollinations.ai/prompt/' + encodeURIComponent(prompt) + '?seed=' + seed + '&width=1280&height=720&nologo=true';
-                const pRes = await fetch(pollUrl);
-                if (!pRes.ok) throw new Error('POLL_' + pRes.status);
-                const pBlob = await pRes.blob();
-                if (pBlob.size < 1000) throw new Error('POLL_EMPTY');
-                const pBlobUrl = URL.createObjectURL(pBlob);
-                await injectAIImage(pBlobUrl, 'AI_' + prompt.substring(0, 20).replace(/\s+/g, '_'));
-                if (status) { status.textContent = 'INJECTED → MEDIA DECK'; status.style.color = 'var(--g)'; }
-                log('NEURAL: POLLINATIONS_INJECTED');
-            } catch (pollErr) {
-                // Fallback: Lexica search via CORS proxy
-                log('NEURAL: POLL_FAIL (' + pollErr.message + ') → LEXICA');
-                try {
-                    if (status) status.textContent = 'LEXICA: SEARCHING...';
-                    const proxyUrl = 'https://corsproxy.io/?' + encodeURIComponent('https://lexica.art/api/v1/search?q=' + encodeURIComponent(prompt));
-                    const res = await fetch(proxyUrl);
-                    if (!res.ok) throw new Error('PROXY_' + res.status);
-                    const data = await res.json();
-                    if (!data.images || data.images.length === 0) throw new Error('NO_RESULTS');
-
-                    const pick = data.images[Math.floor(Math.random() * Math.min(10, data.images.length))];
-                    const imgUrl = pick.src || pick.srcSmall;
-                    if (!imgUrl) throw new Error('NO_SRC');
-
-                    // Proxy the image download too (Lexica blocks direct browser CORS)
-                    if (status) status.textContent = 'DOWNLOADING...';
-                    const imgRes = await fetch('https://corsproxy.io/?' + encodeURIComponent(imgUrl));
-                    if (!imgRes.ok) throw new Error('IMG_' + imgRes.status);
-                    const blob = await imgRes.blob();
-                    const blobUrl = URL.createObjectURL(blob);
-                    await injectAIImage(blobUrl, 'AI_LEX_' + prompt.substring(0, 15).replace(/\s+/g, '_'));
-                    if (status) { status.textContent = 'LEXICA → MEDIA DECK'; status.style.color = 'var(--g)'; }
-                    log('NEURAL: LEXICA_INJECTED');
-                } catch (lexErr) {
-                    if (status) { status.textContent = 'FAILED: ' + lexErr.message; status.style.color = 'var(--r)'; }
-                    log('NEURAL_ERROR: ' + lexErr.message);
+            // Helper: try fetch with multiple CORS proxies
+            async function proxyFetch(url) {
+                var proxies = [
+                    'https://api.allorigins.win/raw?url=' + encodeURIComponent(url),
+                    'https://corsproxy.io/?' + encodeURIComponent(url),
+                    'https://api.codetabs.com/v1/proxy?quest=' + encodeURIComponent(url)
+                ];
+                for (var p = 0; p < proxies.length; p++) {
+                    try {
+                        var r = await fetch(proxies[p]);
+                        if (r.ok) return r;
+                    } catch(e) { /* try next proxy */ }
                 }
-            } finally {
-                setTimeout(() => { APP.neural.generating = false; if (btn) btn.classList.remove('on'); }, 1000);
+                throw new Error('ALL_PROXIES_FAILED');
             }
+
+            // Strategy 1: Pollinations (CORS-native text-to-image, multiple endpoint formats)
+            async function tryPollinations() {
+                if (status) status.textContent = 'POLLINATIONS: RENDERING...';
+                var seed = Math.floor(Math.random() * 9999);
+                // Try current API format first, then legacy format
+                var urls = [
+                    'https://image.pollinations.ai/prompt/' + encodeURIComponent(prompt) + '?width=1280&height=720&seed=' + seed + '&nologo=true&model=flux',
+                    'https://image.pollinations.ai/prompt/' + encodeURIComponent(prompt) + '?seed=' + seed + '&width=1280&height=720&nologo=true'
+                ];
+                for (var u = 0; u < urls.length; u++) {
+                    try {
+                        var res = await fetch(urls[u]);
+                        if (!res.ok) continue;
+                        var blob = await res.blob();
+                        if (blob.size < 1000 || !blob.type.startsWith('image/')) continue;
+                        return URL.createObjectURL(blob);
+                    } catch(e) { /* try next */ }
+                }
+                throw new Error('POLL_ALL_FAIL');
+            }
+
+            // Strategy 2: Lexica search via CORS proxy
+            async function tryLexica() {
+                if (status) status.textContent = 'LEXICA: SEARCHING...';
+                var res = await proxyFetch('https://lexica.art/api/v1/search?q=' + encodeURIComponent(prompt));
+                var data = await res.json();
+                if (!data.images || data.images.length === 0) throw new Error('NO_RESULTS');
+                var pick = data.images[Math.floor(Math.random() * Math.min(10, data.images.length))];
+                var imgUrl = pick.src || pick.srcSmall;
+                if (!imgUrl) throw new Error('NO_SRC');
+                if (status) status.textContent = 'DOWNLOADING...';
+                var imgRes = await proxyFetch(imgUrl);
+                var blob = await imgRes.blob();
+                return URL.createObjectURL(blob);
+            }
+
+            // Strategy 3: Unsplash search (photo search by keyword, CORS-native)
+            async function tryUnsplash() {
+                if (status) status.textContent = 'UNSPLASH: SEARCHING...';
+                // Unsplash Source API — random photo matching query, no key needed
+                var url = 'https://source.unsplash.com/1280x720/?' + encodeURIComponent(prompt) + '&sig=' + Date.now();
+                var res = await fetch(url);
+                if (!res.ok) throw new Error('UNSPLASH_' + res.status);
+                var blob = await res.blob();
+                if (blob.size < 1000) throw new Error('UNSPLASH_EMPTY');
+                return URL.createObjectURL(blob);
+            }
+
+            var strategies = [
+                { name: 'POLLINATIONS', fn: tryPollinations },
+                { name: 'LEXICA', fn: tryLexica },
+                { name: 'UNSPLASH', fn: tryUnsplash }
+            ];
+
+            var success = false;
+            for (var s = 0; s < strategies.length; s++) {
+                try {
+                    var blobUrl = await strategies[s].fn();
+                    await injectAIImage(blobUrl, 'AI_' + prompt.substring(0, 20).replace(/\s+/g, '_'));
+                    if (status) { status.textContent = strategies[s].name + ' → MEDIA DECK'; status.style.color = 'var(--g)'; }
+                    log('NEURAL: ' + strategies[s].name + '_INJECTED');
+                    success = true;
+                    break;
+                } catch(err) {
+                    log('NEURAL: ' + strategies[s].name + '_FAIL (' + err.message + ')');
+                    if (s < strategies.length - 1) log('NEURAL: TRYING → ' + strategies[s + 1].name);
+                }
+            }
+
+            if (!success) {
+                if (status) { status.textContent = 'ALL_SOURCES_FAILED'; status.style.color = 'var(--r)'; }
+                log('NEURAL_ERROR: ALL_STRATEGIES_EXHAUSTED');
+            }
+
+            setTimeout(() => { APP.neural.generating = false; if (btn) btn.classList.remove('on'); }, 1000);
         }
     };
 
