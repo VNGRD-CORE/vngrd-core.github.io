@@ -1257,7 +1257,7 @@ body.shooting-mode #btn-shooting {
     <input type="file" id="file-vgd" accept=".vgd,.json">
     <audio id="audio-el"></audio>
     <div id="media-container" style="display:none;"></div>
-    <div id="gif-host" style="position:fixed;top:-9999px;left:-9999px;z-index:-9999;opacity:0.01;pointer-events:none;overflow:hidden;"></div>
+    <div id="gif-host" style="position:fixed;bottom:0;left:0;width:10px;height:10px;z-index:-1;opacity:0.01;pointer-events:none;overflow:hidden;"></div>
 
 <script>
 const $ = id => document.getElementById(id);
@@ -2365,18 +2365,19 @@ if ($('file-2d-logo')) {
             const url = URL.createObjectURL(file);
             const logoLayer = $('user-logo-layer');
             if (logoLayer) {
-                // Set src FIRST — display:block BEFORE src ensures GIF animation starts
+                // display:block BEFORE src — triggers GIF animation on load
                 logoLayer.style.display = 'block';
                 logoLayer.src = url;
-                // Position off-screen at natural size so browser decodes all GIF frames
+                // ON-SCREEN behind canvas at 10px — browser composites = GIF frames advance
                 logoLayer.style.position = 'fixed';
-                logoLayer.style.top = '-9999px';
-                logoLayer.style.left = '-9999px';
-                logoLayer.style.maxWidth = 'none';
-                logoLayer.style.maxHeight = 'none';
+                logoLayer.style.bottom = '0';
+                logoLayer.style.left = '0';
+                logoLayer.style.width = '10px';
+                logoLayer.style.height = '10px';
                 logoLayer.style.opacity = '0.01';
                 logoLayer.style.pointerEvents = 'none';
                 logoLayer.style.zIndex = '-1';
+                logoLayer.style.objectFit = 'cover';
                 logoLayer.style.background = 'transparent';
                 logoLayer.style.border = 'none';
                 logoLayer.style.boxShadow = 'none';
@@ -2422,8 +2423,10 @@ function loadMediaFiles(input) {
         if (type === 'video') {
             const vid = document.createElement('video'); vid.src = url; vid.muted = true; vid.loop = !APP.state.isCycle; vid.playsInline = true; vid.preload = 'auto'; item.element = vid; $('media-container').appendChild(vid);
         } else {
-            // createObjectURL gives browser a native blob reference — required for GIF animation.
-            // Append to gif-host at NATURAL size (off-screen) so browser decodes + advances all frames.
+            // createObjectURL = native blob ref for GIF animation.
+            // gif-host is ON-SCREEN (10px, behind canvas, overflow:hidden, opacity:0.01).
+            // Browser composites the image = decoder advances GIF frames.
+            // drawImage() reads intrinsic naturalWidth x naturalHeight for full quality.
             const img = new Image();
             img.crossOrigin = 'anonymous';
             img.src = url;
@@ -2937,11 +2940,13 @@ $('file-vgd').onchange = (e) => {
                 if (logoLayer) {
                     logoLayer.style.display = 'block';
                     logoLayer.style.position = 'fixed';
-                    logoLayer.style.top = '-9999px';
-                    logoLayer.style.left = '-9999px';
-                    logoLayer.style.maxWidth = 'none';
-                    logoLayer.style.maxHeight = 'none';
+                    logoLayer.style.bottom = '0';
+                    logoLayer.style.left = '0';
+                    logoLayer.style.width = '10px';
+                    logoLayer.style.height = '10px';
                     logoLayer.style.opacity = '0.01';
+                    logoLayer.style.zIndex = '-1';
+                    logoLayer.style.objectFit = 'cover';
                     logoLayer.src = s.logo2d;
                     APP.trinity.logo.visible = true;
                     log('2D_LOGO: RESTORED_FROM_VGD');
@@ -2995,7 +3000,7 @@ function loadFromMemory() {
         if (s.logo2d) {
             if (isValidDataURI(s.logo2d)) {
                 var _ll = $('user-logo-layer');
-                if (_ll) { _ll.style.display = 'block'; _ll.style.position = 'fixed'; _ll.style.top = '-9999px'; _ll.style.left = '-9999px'; _ll.style.maxWidth = 'none'; _ll.style.maxHeight = 'none'; _ll.style.opacity = '0.01'; _ll.src = s.logo2d; APP.trinity.logo.visible = true; }
+                if (_ll) { _ll.style.display = 'block'; _ll.style.position = 'fixed'; _ll.style.bottom = '0'; _ll.style.left = '0'; _ll.style.width = '10px'; _ll.style.height = '10px'; _ll.style.opacity = '0.01'; _ll.style.zIndex = '-1'; _ll.style.objectFit = 'cover'; _ll.src = s.logo2d; APP.trinity.logo.visible = true; }
             } else {
                 // Corrupt logo data — purge it from the saved session
                 log('MEMORY: CORRUPT_LOGO_PURGED');
@@ -3490,18 +3495,20 @@ document.addEventListener('DOMContentLoaded', () => {
  
     // Hide DOM overlays — Trinity actors are drawn directly on canvas
     var _sb = $('station-bug'); if (_sb) _sb.style.opacity = '0';
-    // user-logo-layer must stay in DOM at natural size with near-zero opacity
-    // so browser keeps decoding GIF frames. drawImage() picks up current frame.
+    // GIF ANIMATION FIX: user-logo-layer must be ON-SCREEN and composited
+    // by the browser for frame advancement. Position behind canvas (z-index:-1)
+    // at bottom-left, 10px visible footprint. drawImage() reads current frame.
     var _ul = $('user-logo-layer');
     if (_ul) {
         _ul.style.position = 'fixed';
-        _ul.style.top = '-9999px';
-        _ul.style.left = '-9999px';
+        _ul.style.bottom = '0';
+        _ul.style.left = '0';
+        _ul.style.width = '10px';
+        _ul.style.height = '10px';
         _ul.style.opacity = '0.01';
-        _ul.style.maxWidth = 'none';
-        _ul.style.maxHeight = 'none';
         _ul.style.pointerEvents = 'none';
         _ul.style.zIndex = '-1';
+        _ul.style.objectFit = 'cover';
     }
     
     requestAnimationFrame(renderLoop);
@@ -3730,18 +3737,19 @@ document.addEventListener('DOMContentLoaded', () => {
         if (e.target.files.length) {
             const url = URL.createObjectURL(e.target.files[0]);
             const img = $('user-logo-layer');
-            // display:block before src — ensures GIF animation starts
+            // display:block before src — triggers GIF animation on load
             img.style.display = 'block';
             img.src = url;
-            // Off-screen at natural size for GIF frame advancement
+            // ON-SCREEN behind canvas — browser composites = GIF frames advance
             img.style.position = 'fixed';
-            img.style.top = '-9999px';
-            img.style.left = '-9999px';
-            img.style.maxWidth = 'none';
-            img.style.maxHeight = 'none';
+            img.style.bottom = '0';
+            img.style.left = '0';
+            img.style.width = '10px';
+            img.style.height = '10px';
             img.style.opacity = '0.01';
             img.style.pointerEvents = 'none';
             img.style.zIndex = '-1';
+            img.style.objectFit = 'cover';
             APP.trinity.logo.visible = true;
             log('IDENTITY_LAYER_LOADED');
         }
