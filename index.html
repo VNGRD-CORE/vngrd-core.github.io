@@ -1185,6 +1185,7 @@ body.shooting-mode #btn-shooting {
         <div class="section">
             <div class="sec-head"><span class="sec-title">NFT_VAULT</span><div class="sec-dot off" id="vault-dot"></div></div>
             <div class="sec-body">
+                <input type="text" class="inp" id="tezos-addr" placeholder="tz1... TEZOS ADDRESS (OPTIONAL)" style="font-size:7px;margin-bottom:4px;padding:3px 4px;">
                 <button class="btn" id="btn-scan-nfts" style="font-size:8px;">SCAN_WALLET_ASSETS</button>
                 <div id="nft-vault-list" style="max-height:60px;overflow-y:auto;font-size:8px;color:var(--text-dim);margin-top:4px;">
                     CONNECT_WALLET_FIRST
@@ -1730,8 +1731,9 @@ function drawNFTVault(ctx, w, h) {
         ctx.drawImage(asset.image, tx, ty, thumbSize, thumbSize);
 
         // Accent border
-        ctx.strokeStyle = (APP.render.source === asset.image) ? '#ff3333' : 'rgba(0, 243, 255, 0.6)';
-        ctx.lineWidth = (APP.render.source === asset.image) ? 2 : 1;
+        var isActive = (APP.media.currentElement === asset.image);
+        ctx.strokeStyle = isActive ? '#ff3333' : 'rgba(0, 243, 255, 0.6)';
+        ctx.lineWidth = isActive ? 2 : 1;
         ctx.strokeRect(tx, ty, thumbSize, thumbSize);
 
         // Label
@@ -1784,29 +1786,53 @@ function initSummonerLogic() {
     });
 }
 
-// Shared summoner — invoked by both canvas click and sidebar click
+// Shared summoner — injects NFT into media queue (eject/cycle compatible)
 function summonNFTByIndex(index) {
     var asset = APP.user.assets[index];
     if (!asset || !asset.image) return;
 
-    // Set render source to the NFT image
-    APP.render.source = asset.image;
+    // Clear any lingering render.source override so media queue takes priority
+    APP.render.source = null;
 
-    // Snapshot current FX state
+    // Check if this NFT is already in the queue — if so, just switch to it
+    for (var q = 0; q < APP.media.queue.length; q++) {
+        if (APP.media.queue[q].element === asset.image) {
+            if (APP.media.currentElement?.tagName === 'VIDEO') APP.media.currentElement.pause();
+            APP.media.currentIndex = q;
+            APP.media.currentElement = asset.image;
+            log('SUMMONER: ' + (asset.name || 'NFT_' + index) + ' FOCUSED');
+            _summonGlitch();
+            return;
+        }
+    }
+
+    // Inject into media queue as a new item
+    var item = { type: 'image', url: asset.imageUrl || '', element: asset.image, name: 'NFT_' + (asset.name || index) };
+    // Append to gif-host for browser decode
+    asset.image.style.width = '1px'; asset.image.style.height = '1px';
+    var host = $('gif-host');
+    if (host && !asset.image.parentNode) host.appendChild(asset.image);
+
+    APP.media.queue.push(item);
+    if (APP.media.currentElement?.tagName === 'VIDEO') APP.media.currentElement.pause();
+    APP.media.currentIndex = APP.media.queue.length - 1;
+    APP.media.currentElement = asset.image;
+    updateQueueDisplay();
+    if ($('media-dot')) $('media-dot').classList.remove('off');
+
+    log('SUMMONER: ' + (asset.name || 'NFT_' + index) + ' → MEDIA_DECK');
+    _summonGlitch();
+}
+
+function _summonGlitch() {
     var prevGlitch = APP.vj.glitchSnap;
     var prevRGB = APP.vj.rgbIntensity;
     var prevRGBEnabled = APP.vj.rgbEnabled;
-
-    // Spike glitch effects — System Summoning
     APP.vj.glitchSnap = 5;
     APP.vj.rgbIntensity = 30;
     APP.vj.rgbEnabled = true;
     triggerChromaticAberration();
     triggerImpact();
-
-    log('SUMMONER: ' + (asset.name || 'NFT_' + index) + ' INVOKED');
-
-    // Cool-down after 500ms — restore FX
     setTimeout(function() {
         APP.vj.glitchSnap = prevGlitch;
         APP.vj.rgbIntensity = prevRGB;
@@ -2422,6 +2448,7 @@ function loadMediaFiles(input) {
 
 function rotateMedia() {
     if (APP.media.queue.length === 0) return;
+    APP.render.source = null; // Clear override so queue takes priority
     APP.vj.glitchSnap = 3;
     if (APP.media.currentElement?.tagName === 'VIDEO') APP.media.currentElement.pause();
     APP.media.currentIndex = (APP.media.currentIndex + 1) % APP.media.queue.length;
@@ -2447,10 +2474,11 @@ function previousMedia() {
 
 function ejectCurrent() {
     if (APP.media.queue.length === 0) return;
+    APP.render.source = null; // Clear any override
     const current = APP.media.queue[APP.media.currentIndex];
     if (current.element?.tagName === 'VIDEO') { current.element.pause(); current.element.src = ''; current.element.remove(); }
     if (current.element?.tagName === 'IMG' && current.element.parentNode) { current.element.remove(); }
-    URL.revokeObjectURL(current.url);
+    if (current.url) URL.revokeObjectURL(current.url);
     APP.media.queue.splice(APP.media.currentIndex, 1);
     if (APP.media.queue.length === 0) { APP.media.currentIndex = -1; APP.media.currentElement = null; $('media-dot').classList.add('off'); APP.render.ctx.fillStyle = '#000'; APP.render.ctx.fillRect(0, 0, APP.render.width, APP.render.height); }
     else { if (APP.media.currentIndex >= APP.media.queue.length) APP.media.currentIndex = 0; const next = APP.media.queue[APP.media.currentIndex]; APP.media.currentElement = next.element; if (next.type === 'video') { next.element.currentTime = 0; next.element.play().catch(() => {}); } }
@@ -2459,6 +2487,7 @@ function ejectCurrent() {
 
 function clearDeck() {
     if(APP.state.isCycle) toggleCycle();
+    APP.render.source = null; // Clear any override
     APP.media.queue.forEach(item => {
         if (item.element?.tagName === 'VIDEO') { item.element.pause(); item.element.src = ''; item.element.remove(); }
         if (item.element?.tagName === 'IMG' && item.element.parentNode) { item.element.remove(); }
@@ -5045,61 +5074,107 @@ document.addEventListener('DOMContentLoaded', () => {
     setInterval(fetchSatelliteWeather, 600000); // 10 min refresh
 
     // ========================================
-    // NFT_VAULT: SCAN WALLET ASSETS
+    // NFT_VAULT: SCAN WALLET ASSETS (ETH + TEZOS)
     // ========================================
+
+    // Helper: resolve IPFS URLs to gateway
+    function resolveNFTUrl(url) {
+        if (!url) return '';
+        if (url.startsWith('ipfs://')) return 'https://ipfs.io/ipfs/' + url.slice(7);
+        if (url.startsWith('https://ipfs.io/')) return url;
+        return url;
+    }
+
+    // Helper: build vault HTML + populate APP.user.assets from a flat array
+    function renderVaultList(allNfts) {
+        APP.user.assets = [];
+        APP.wallet.nfts = allNfts;
+        var html = '';
+        var assetIdx = 0;
+        allNfts.forEach(function(nft) {
+            var imageUrl = resolveNFTUrl(nft.imageUrl);
+            if (imageUrl) {
+                var img = new Image();
+                img.crossOrigin = 'anonymous';
+                img.src = imageUrl;
+                APP.user.assets.push({ name: nft.name, imageUrl: imageUrl, image: img });
+                html += '<div class="nft-vault-item" data-nft-index="' + assetIdx + '" style="margin:2px 0;padding:3px 4px;color:var(--accent);cursor:pointer;border:1px solid transparent;transition:border-color 0.15s;" onmouseenter="this.style.borderColor=\'var(--accent)\'" onmouseleave="this.style.borderColor=\'transparent\'">' + nft.name.substring(0, 20) + ' <span style="color:var(--text-dim);font-size:7px;">[' + nft.chain + ']</span></div>';
+                assetIdx++;
+            } else {
+                html += '<div style="margin:2px 0;color:var(--text-dim);">' + nft.name.substring(0, 20) + ' [' + nft.chain + ']</div>';
+            }
+        });
+        return html;
+    }
+
+    // Scan ETH via Alchemy
+    async function scanETHNfts(address) {
+        var alchemyKey = (window.VNGRD_CONFIG && window.VNGRD_CONFIG.ALCHEMY_KEY)
+            || (document.querySelector('meta[name="alchemy-key"]') ? document.querySelector('meta[name="alchemy-key"]').content : null)
+            || 'demo';
+        var results = [];
+        var resp = await fetch('https://eth-mainnet.g.alchemy.com/nft/v2/' + alchemyKey + '/getNFTs?owner=' + address + '&pageSize=20');
+        var data = await resp.json();
+        if (data.ownedNfts) {
+            data.ownedNfts.forEach(function(nft) {
+                var name = nft.title || (nft.contract && nft.contract.name) || 'UNKNOWN';
+                var imageUrl = (nft.media && nft.media[0] && nft.media[0].gateway)
+                    || (nft.metadata && nft.metadata.image)
+                    || '';
+                results.push({ name: name, imageUrl: imageUrl, chain: 'ETH' });
+            });
+        }
+        return results;
+    }
+
+    // Scan Tezos via TzKT (free, no key needed, CORS-enabled)
+    async function scanTezosNfts(tezAddr) {
+        var results = [];
+        var resp = await fetch('https://api.tzkt.io/v1/tokens/balances?account=' + tezAddr + '&token.standard=fa2&balance.gt=0&limit=20&select=token');
+        if (!resp.ok) throw new Error('TZKT_' + resp.status);
+        var tokens = await resp.json();
+        tokens.forEach(function(tok) {
+            var meta = tok.metadata || {};
+            var name = meta.name || tok.contract?.alias || ('TEZ#' + (tok.tokenId || '?'));
+            // Tezos NFTs store images in metadata.displayUri, thumbnailUri, or artifactUri
+            var imageUrl = meta.displayUri || meta.thumbnailUri || meta.artifactUri || '';
+            results.push({ name: name, imageUrl: imageUrl, chain: 'TEZ' });
+        });
+        return results;
+    }
+
     $('btn-scan-nfts').onclick = async () => {
-        if (!APP.wallet.connected || !APP.wallet.address) {
-            $('nft-vault-list').innerHTML = 'CONNECT_WALLET_FIRST';
+        var tezAddr = $('tezos-addr') ? $('tezos-addr').value.trim() : '';
+        var hasEth = APP.wallet.connected && APP.wallet.address;
+        var hasTez = tezAddr && tezAddr.startsWith('tz');
+
+        if (!hasEth && !hasTez) {
+            $('nft-vault-list').innerHTML = 'CONNECT_WALLET_OR_ENTER_TEZOS_ADDR';
             return;
         }
-        
+
         $('nft-vault-list').innerHTML = 'SCANNING...';
         log('NFT_VAULT: SCANNING...');
-        
-        try {
-            // Using Alchemy API (free tier)
-            // Reads key from window.VNGRD_CONFIG (injected at build/deploy time) or falls back to meta tag
-            const alchemyKey = (window.VNGRD_CONFIG && window.VNGRD_CONFIG.ALCHEMY_KEY)
-                || document.querySelector('meta[name="alchemy-key"]')?.content
-                || 'demo';
-            const resp = await fetch(`https://eth-mainnet.g.alchemy.com/nft/v2/${alchemyKey}/getNFTs?owner=${APP.wallet.address}&pageSize=10`);
-            const data = await resp.json();
-            
-            if (data.ownedNfts && data.ownedNfts.length > 0) {
-                APP.wallet.nfts = data.ownedNfts;
-                $('nft-count').textContent = 'ASSETS: ' + data.totalCount;
-                $('vault-dot').classList.remove('off');
 
-                // Populate APP.user.assets with preloaded images for canvas gallery
-                APP.user.assets = [];
-                let html = '';
-                let assetIdx = 0;
-                data.ownedNfts.forEach(nft => {
-                    const name = nft.title || nft.contract.name || 'UNKNOWN';
-                    const imageUrl = (nft.media && nft.media[0] && nft.media[0].gateway)
-                        || (nft.metadata && nft.metadata.image)
-                        || '';
+        var allNfts = [];
+        var errors = [];
 
-                    if (imageUrl) {
-                        const img = new Image();
-                        img.crossOrigin = 'anonymous';
-                        img.src = imageUrl;
-                        APP.user.assets.push({ name: name, imageUrl: imageUrl, image: img });
-                        html += '<div class="nft-vault-item" data-nft-index="' + assetIdx + '" style="margin:2px 0;padding:3px 4px;color:var(--accent);cursor:pointer;border:1px solid transparent;transition:border-color 0.15s;" onmouseenter="this.style.borderColor=\'var(--accent)\'" onmouseleave="this.style.borderColor=\'transparent\'">' + name.substring(0, 20) + '</div>';
-                        assetIdx++;
-                    } else {
-                        html += '<div style="margin:2px 0;color:var(--text-dim);">' + name.substring(0, 20) + '</div>';
-                    }
-                });
-                $('nft-vault-list').innerHTML = html;
-                log('NFT_VAULT: ' + data.totalCount + ' ASSETS LOADED TO CANVAS');
-            } else {
-                $('nft-vault-list').innerHTML = 'NO_NFTS_FOUND';
-                $('nft-count').textContent = 'ASSETS: 0';
-            }
-        } catch (e) {
-            $('nft-vault-list').innerHTML = 'SCAN_FAILED';
-            log('NFT_VAULT_ERROR: ' + e.message);
+        // Scan in parallel
+        var promises = [];
+        if (hasEth) promises.push(scanETHNfts(APP.wallet.address).then(function(r) { allNfts = allNfts.concat(r); log('NFT_VAULT: ETH_FOUND ' + r.length); }).catch(function(e) { errors.push('ETH:' + e.message); log('NFT_VAULT: ETH_FAIL ' + e.message); }));
+        if (hasTez) promises.push(scanTezosNfts(tezAddr).then(function(r) { allNfts = allNfts.concat(r); log('NFT_VAULT: TEZ_FOUND ' + r.length); }).catch(function(e) { errors.push('TEZ:' + e.message); log('NFT_VAULT: TEZ_FAIL ' + e.message); }));
+
+        await Promise.all(promises);
+
+        if (allNfts.length > 0) {
+            var html = renderVaultList(allNfts);
+            $('nft-vault-list').innerHTML = html;
+            $('nft-count').textContent = 'ASSETS: ' + allNfts.length;
+            $('vault-dot').classList.remove('off');
+            log('NFT_VAULT: ' + allNfts.length + ' TOTAL ASSETS LOADED');
+        } else {
+            $('nft-vault-list').innerHTML = errors.length > 0 ? 'SCAN_FAILED: ' + errors.join(', ') : 'NO_NFTS_FOUND';
+            $('nft-count').textContent = 'ASSETS: 0';
         }
     };
 
@@ -5148,7 +5223,30 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     };
 
-    // v19 AI GENERATOR — Lexica blob proxy (CORS proxy for github.io) + Pollinations fallback
+    // v19 AI GENERATOR — Pollinations (primary, CORS-native) + Lexica (fallback)
+    // Injects generated image into media queue (eject/cycle compatible)
+    function injectAIImage(blobUrl, label) {
+        var img = new Image();
+        img.crossOrigin = 'anonymous';
+        img.src = blobUrl;
+        return new Promise(function(ok, fail) {
+            img.onload = function() {
+                APP.render.source = null; // Clear override so queue takes priority
+                APP.neural.lastImage = blobUrl;
+                APP.media.queue.push({ type: 'image', url: blobUrl, element: img, name: label });
+                APP.media.currentIndex = APP.media.queue.length - 1;
+                APP.media.currentElement = img;
+                updateQueueDisplay();
+                if ($('media-dot')) $('media-dot').classList.remove('off');
+                // Glitch-flash feedback
+                var stage = $('stage');
+                if (stage) { stage.style.transition = 'none'; stage.style.filter = 'brightness(3) saturate(2)'; setTimeout(function() { stage.style.transition = 'filter 0.5s'; stage.style.filter = ''; }, 100); }
+                ok();
+            };
+            img.onerror = function() { fail(new Error('IMG_DECODE_FAIL')); };
+        });
+    }
+
     const v19_AI = {
         generate: async (prompt) => {
             const status = $('ai-status');
@@ -5156,77 +5254,51 @@ document.addEventListener('DOMContentLoaded', () => {
             if (!prompt) { if (status) status.textContent = 'ENTER_PROMPT'; return; }
             if (APP.neural.generating) return;
             APP.neural.generating = true;
-            if (status) { status.textContent = 'SEARCHING...'; status.style.color = 'var(--v)'; }
+            if (status) { status.textContent = 'RENDERING...'; status.style.color = 'var(--v)'; }
             if (btn) btn.classList.add('on');
             if ($('neural-dot')) $('neural-dot').classList.remove('off');
             log('NEURAL: GENERATING >> ' + prompt);
 
             try {
-                // Primary: Lexica via CORS proxy (API blocks direct browser CORS)
-                const proxyUrl = 'https://corsproxy.io/?' + encodeURIComponent('https://lexica.art/api/v1/search?q=' + encodeURIComponent(prompt));
-                if (status) status.textContent = 'LEXICA: SEARCHING...';
-                const res = await fetch(proxyUrl);
-                if (!res.ok) throw new Error('PROXY_' + res.status);
-                const data = await res.json();
-                if (!data.images || data.images.length === 0) throw new Error('NO_RESULTS');
-
-                const pick = data.images[Math.floor(Math.random() * Math.min(10, data.images.length))];
-                const imgUrl = pick.src || pick.srcSmall;
-                if (!imgUrl) throw new Error('NO_SRC');
-
-                if (status) status.textContent = 'DOWNLOADING...';
-                const imgRes = await fetch(imgUrl);
-                if (!imgRes.ok) throw new Error('IMG_' + imgRes.status);
-                const blob = await imgRes.blob();
-                const blobUrl = URL.createObjectURL(blob);
-
-                const img = new Image();
-                img.crossOrigin = 'anonymous';
-                img.src = blobUrl;
-                await new Promise((ok, fail) => { img.onload = ok; img.onerror = fail; });
-
-                APP.neural.lastImage = blobUrl;
-                APP.media.queue.push({ type: 'image', url: blobUrl, element: img, name: 'AI_' + prompt.substring(0, 20).replace(/\s+/g, '_') });
-                APP.media.currentIndex = APP.media.queue.length - 1;
-                APP.media.currentElement = img;
-                if ($('media-dot')) $('media-dot').classList.remove('off');
-                if ($('q-info')) $('q-info').textContent = APP.media.queue.length;
-
-                // Smooth transition
-                v19_Transitions.swap(blobUrl);
-
-                // Glitch-flash
-                const stage = $('stage');
-                if (stage) { stage.style.transition = 'none'; stage.style.filter = 'brightness(3) saturate(2)'; setTimeout(() => { stage.style.transition = 'filter 0.5s'; stage.style.filter = ''; }, 100); }
-
+                // Primary: Pollinations (CORS-native, generates from prompt, no key needed)
+                if (status) status.textContent = 'POLLINATIONS: RENDERING...';
+                const seed = Math.floor(Math.random() * 9999);
+                const pollUrl = 'https://image.pollinations.ai/prompt/' + encodeURIComponent(prompt) + '?seed=' + seed + '&width=1280&height=720&nologo=true';
+                const pRes = await fetch(pollUrl);
+                if (!pRes.ok) throw new Error('POLL_' + pRes.status);
+                const pBlob = await pRes.blob();
+                if (pBlob.size < 1000) throw new Error('POLL_EMPTY');
+                const pBlobUrl = URL.createObjectURL(pBlob);
+                await injectAIImage(pBlobUrl, 'AI_' + prompt.substring(0, 20).replace(/\s+/g, '_'));
                 if (status) { status.textContent = 'INJECTED → MEDIA DECK'; status.style.color = 'var(--g)'; }
-                log('NEURAL: LEXICA_INJECTED');
-            } catch (lexErr) {
-                // Fallback: Pollinations (CORS-native, generates from prompt)
-                log('NEURAL: LEXICA_FAIL (' + lexErr.message + ') → POLLINATIONS');
+                log('NEURAL: POLLINATIONS_INJECTED');
+            } catch (pollErr) {
+                // Fallback: Lexica search via CORS proxy
+                log('NEURAL: POLL_FAIL (' + pollErr.message + ') → LEXICA');
                 try {
-                    if (status) status.textContent = 'POLLINATIONS: RENDERING...';
-                    const seed = Math.floor(Math.random() * 9999);
-                    const pollUrl = 'https://image.pollinations.ai/prompt/' + encodeURIComponent(prompt) + '?seed=' + seed + '&width=1280&height=720&nologo=true';
-                    const pRes = await fetch(pollUrl);
-                    if (!pRes.ok) throw new Error('POLL_' + pRes.status);
-                    const pBlob = await pRes.blob();
-                    const pBlobUrl = URL.createObjectURL(pBlob);
+                    if (status) status.textContent = 'LEXICA: SEARCHING...';
+                    const proxyUrl = 'https://corsproxy.io/?' + encodeURIComponent('https://lexica.art/api/v1/search?q=' + encodeURIComponent(prompt));
+                    const res = await fetch(proxyUrl);
+                    if (!res.ok) throw new Error('PROXY_' + res.status);
+                    const data = await res.json();
+                    if (!data.images || data.images.length === 0) throw new Error('NO_RESULTS');
 
-                    const pImg = new Image();
-                    pImg.crossOrigin = 'anonymous';
-                    pImg.src = pBlobUrl;
-                    await new Promise((ok, fail) => { pImg.onload = ok; pImg.onerror = fail; });
+                    const pick = data.images[Math.floor(Math.random() * Math.min(10, data.images.length))];
+                    const imgUrl = pick.src || pick.srcSmall;
+                    if (!imgUrl) throw new Error('NO_SRC');
 
-                    APP.media.queue.push({ type: 'image', url: pBlobUrl, element: pImg, name: 'AI_POLL_' + Date.now() });
-                    APP.media.currentIndex = APP.media.queue.length - 1;
-                    APP.media.currentElement = pImg;
-                    v19_Transitions.swap(pBlobUrl);
-                    if (status) { status.textContent = 'POLLINATIONS → DECK'; status.style.color = 'var(--g)'; }
-                    log('NEURAL: POLLINATIONS_INJECTED');
-                } catch (pollErr) {
-                    if (status) { status.textContent = 'BOTH_FAILED: ' + pollErr.message; status.style.color = 'var(--r)'; }
-                    log('NEURAL_ERROR: ' + pollErr.message);
+                    // Proxy the image download too (Lexica blocks direct browser CORS)
+                    if (status) status.textContent = 'DOWNLOADING...';
+                    const imgRes = await fetch('https://corsproxy.io/?' + encodeURIComponent(imgUrl));
+                    if (!imgRes.ok) throw new Error('IMG_' + imgRes.status);
+                    const blob = await imgRes.blob();
+                    const blobUrl = URL.createObjectURL(blob);
+                    await injectAIImage(blobUrl, 'AI_LEX_' + prompt.substring(0, 15).replace(/\s+/g, '_'));
+                    if (status) { status.textContent = 'LEXICA → MEDIA DECK'; status.style.color = 'var(--g)'; }
+                    log('NEURAL: LEXICA_INJECTED');
+                } catch (lexErr) {
+                    if (status) { status.textContent = 'FAILED: ' + lexErr.message; status.style.color = 'var(--r)'; }
+                    log('NEURAL_ERROR: ' + lexErr.message);
                 }
             } finally {
                 setTimeout(() => { APP.neural.generating = false; if (btn) btn.classList.remove('on'); }, 1000);
