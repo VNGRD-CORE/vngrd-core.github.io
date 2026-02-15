@@ -1757,10 +1757,14 @@ function drawNFTVault(ctx, w, h) {
 // SUMMONER LOGIC — NFT click triggers source swap + System Summoning glitch
 // ═══════════════════════════════════════════════════════════════════════════
 function initSummonerLogic() {
+    // Canvas has pointer-events:none so clicks pass through to UI.
+    // Listen on #stage (the canvas parent) which DOES receive clicks,
+    // then translate clientX/Y to canvas pixel coordinates.
+    var stage = $('stage');
     var canvas = APP.render.canvas;
-    if (!canvas) return;
+    if (!stage || !canvas) return;
 
-    canvas.addEventListener('click', function(e) {
+    stage.addEventListener('click', function(e) {
         if (!APP.user.assets || APP.user.assets.length === 0) return;
         if (!APP.nftVault.thumbnails || APP.nftVault.thumbnails.length === 0) return;
 
@@ -1773,38 +1777,41 @@ function initSummonerLogic() {
         for (var i = 0; i < APP.nftVault.thumbnails.length; i++) {
             var t = APP.nftVault.thumbnails[i];
             if (cx >= t.x && cx <= t.x + t.w && cy >= t.y && cy <= t.y + t.h) {
-                // ── SYSTEM SUMMONING ──
-                var asset = APP.user.assets[t.index];
-                if (!asset || !asset.image) return;
-
-                // Set render source to the NFT image
-                APP.render.source = asset.image;
-
-                // Snapshot current FX state
-                var prevGlitch = APP.vj.glitchSnap;
-                var prevRGB = APP.vj.rgbIntensity;
-                var prevRGBEnabled = APP.vj.rgbEnabled;
-
-                // Spike glitch effects — System Summoning
-                APP.vj.glitchSnap = 5;
-                APP.vj.rgbIntensity = 30;
-                APP.vj.rgbEnabled = true;
-                triggerChromaticAberration();
-                triggerImpact();
-
-                log('SUMMONER: ' + (asset.name || 'NFT_' + t.index) + ' INVOKED');
-
-                // Cool-down after 500ms — restore FX
-                setTimeout(function() {
-                    APP.vj.glitchSnap = prevGlitch;
-                    APP.vj.rgbIntensity = prevRGB;
-                    APP.vj.rgbEnabled = prevRGBEnabled;
-                }, 500);
-
+                summonNFTByIndex(t.index);
                 return; // Only summon one per click
             }
         }
     });
+}
+
+// Shared summoner — invoked by both canvas click and sidebar click
+function summonNFTByIndex(index) {
+    var asset = APP.user.assets[index];
+    if (!asset || !asset.image) return;
+
+    // Set render source to the NFT image
+    APP.render.source = asset.image;
+
+    // Snapshot current FX state
+    var prevGlitch = APP.vj.glitchSnap;
+    var prevRGB = APP.vj.rgbIntensity;
+    var prevRGBEnabled = APP.vj.rgbEnabled;
+
+    // Spike glitch effects — System Summoning
+    APP.vj.glitchSnap = 5;
+    APP.vj.rgbIntensity = 30;
+    APP.vj.rgbEnabled = true;
+    triggerChromaticAberration();
+    triggerImpact();
+
+    log('SUMMONER: ' + (asset.name || 'NFT_' + index) + ' INVOKED');
+
+    // Cool-down after 500ms — restore FX
+    setTimeout(function() {
+        APP.vj.glitchSnap = prevGlitch;
+        APP.vj.rgbIntensity = prevRGB;
+        APP.vj.rgbEnabled = prevRGBEnabled;
+    }, 500);
 }
 
 function renderLoop(timestamp) {
@@ -5066,18 +5073,22 @@ document.addEventListener('DOMContentLoaded', () => {
                 // Populate APP.user.assets with preloaded images for canvas gallery
                 APP.user.assets = [];
                 let html = '';
+                let assetIdx = 0;
                 data.ownedNfts.forEach(nft => {
                     const name = nft.title || nft.contract.name || 'UNKNOWN';
                     const imageUrl = (nft.media && nft.media[0] && nft.media[0].gateway)
                         || (nft.metadata && nft.metadata.image)
                         || '';
-                    html += `<div style="margin:2px 0;color:var(--accent);">${name.substring(0, 20)}</div>`;
 
                     if (imageUrl) {
                         const img = new Image();
                         img.crossOrigin = 'anonymous';
                         img.src = imageUrl;
                         APP.user.assets.push({ name: name, imageUrl: imageUrl, image: img });
+                        html += '<div class="nft-vault-item" data-nft-index="' + assetIdx + '" style="margin:2px 0;padding:3px 4px;color:var(--accent);cursor:pointer;border:1px solid transparent;transition:border-color 0.15s;" onmouseenter="this.style.borderColor=\'var(--accent)\'" onmouseleave="this.style.borderColor=\'transparent\'">' + name.substring(0, 20) + '</div>';
+                        assetIdx++;
+                    } else {
+                        html += '<div style="margin:2px 0;color:var(--text-dim);">' + name.substring(0, 20) + '</div>';
                     }
                 });
                 $('nft-vault-list').innerHTML = html;
@@ -5091,6 +5102,16 @@ document.addEventListener('DOMContentLoaded', () => {
             log('NFT_VAULT_ERROR: ' + e.message);
         }
     };
+
+    // NFT_VAULT — Event delegation: clicking a sidebar NFT item summons it to canvas
+    $('nft-vault-list').addEventListener('click', function(e) {
+        var item = e.target.closest('.nft-vault-item');
+        if (!item) return;
+        var idx = parseInt(item.getAttribute('data-nft-index'), 10);
+        if (!isNaN(idx) && typeof summonNFTByIndex === 'function') {
+            summonNFTByIndex(idx);
+        }
+    });
 
     // ========================================
     // v19 FEATURE PACK: TRANSITIONS + AI
