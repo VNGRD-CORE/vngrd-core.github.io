@@ -2375,23 +2375,52 @@ if ($('btn-2d-x')) {
 function loadMediaFiles(input) {
     const isFirstLoad = APP.media.currentIndex === -1;
     Array.from(input.files).forEach((file, idx) => {
-        const url = URL.createObjectURL(file);
         const type = file.type.startsWith('video') ? 'video' : 'image';
-        const item = { type, url, element: null, name: file.name };
-        if (type === 'video') { const vid = document.createElement('video'); vid.src = url; vid.muted = true; vid.loop = !APP.state.isCycle; vid.playsInline = true; vid.preload = 'auto'; item.element = vid; $('media-container').appendChild(vid); }
-        else { const img = new Image(); img.src = url; img.style.width = '1px'; img.style.height = '1px'; item.element = img; $('gif-host').appendChild(img); }
-        APP.media.queue.push(item);
-        if (isFirstLoad && idx === 0) rotateMedia();
+        const item = { type, url: null, element: null, name: file.name };
+        if (type === 'video') {
+            const url = URL.createObjectURL(file);
+            item.url = url;
+            const vid = document.createElement('video'); vid.src = url; vid.muted = true; vid.loop = !APP.state.isCycle; vid.playsInline = true; vid.preload = 'auto'; item.element = vid; $('media-container').appendChild(vid);
+            APP.media.queue.push(item);
+            if (isFirstLoad && idx === 0) rotateMedia();
+        } else {
+            // Read image via FileReader — only assign src once data is fully loaded and valid
+            const reader = new FileReader();
+            reader.onload = function(ev) {
+                const dataUrl = ev.target.result;
+                // Reject corrupt/empty data URIs (missing MIME or empty base64)
+                if (!dataUrl || dataUrl === 'data:;base64,=' || !dataUrl.match(/^data:image\//)) {
+                    log('MEDIA_REJECT: CORRUPT_DATA'); return;
+                }
+                const img = new Image();
+                img.onload = function() {
+                    item.url = dataUrl;
+                    item.element = img;
+                    // Append to gif-host so browser decodes + advances GIF frames
+                    img.style.width = '1px'; img.style.height = '1px';
+                    var host = $('gif-host');
+                    if (host) host.appendChild(img);
+                    if (isFirstLoad && APP.media.currentIndex === -1) rotateMedia();
+                };
+                img.onerror = function() { log('MEDIA_REJECT: DECODE_FAIL'); };
+                img.src = dataUrl;
+            };
+            reader.onerror = function() { log('MEDIA_REJECT: READ_FAIL'); };
+            reader.readAsDataURL(file);
+            APP.media.queue.push(item);
+        }
     });
-    updateQueueDisplay(); $('media-dot').classList.remove('off'); log(`MEDIA: +${input.files.length}`); 
+    updateQueueDisplay(); $('media-dot').classList.remove('off'); log(`MEDIA: +${input.files.length}`);
 }
 
 function rotateMedia() {
     if (APP.media.queue.length === 0) return;
-    APP.vj.glitchSnap = 3; 
+    APP.vj.glitchSnap = 3;
     if (APP.media.currentElement?.tagName === 'VIDEO') APP.media.currentElement.pause();
     APP.media.currentIndex = (APP.media.currentIndex + 1) % APP.media.queue.length;
     const item = APP.media.queue[APP.media.currentIndex];
+    // Guard: skip items still loading (async FileReader not done yet)
+    if (!item.element) { APP.media.currentElement = null; return; }
     APP.media.currentElement = item.element;
     if (item.type === 'video') { item.element.loop = !APP.state.isCycle; item.element.currentTime = 0; item.element.play().catch(() => {}); }
     checkCycleLogic();
@@ -2403,6 +2432,7 @@ function previousMedia() {
     if (APP.media.currentElement?.tagName === 'VIDEO') APP.media.currentElement.pause();
     APP.media.currentIndex = (APP.media.currentIndex - 1 + APP.media.queue.length) % APP.media.queue.length;
     const item = APP.media.queue[APP.media.currentIndex];
+    if (!item.element) { APP.media.currentElement = null; return; }
     APP.media.currentElement = item.element;
     if (item.type === 'video') { item.element.loop = !APP.state.isCycle; item.element.currentTime = 0; item.element.play().catch(() => {}); }
     checkCycleLogic();
@@ -2422,7 +2452,11 @@ function ejectCurrent() {
 
 function clearDeck() {
     if(APP.state.isCycle) toggleCycle();
-    APP.media.queue.forEach(item => { if (item.element?.tagName === 'VIDEO') { item.element.pause(); item.element.src = ''; item.element.remove(); } URL.revokeObjectURL(item.url); });
+    APP.media.queue.forEach(item => {
+        if (item.element?.tagName === 'VIDEO') { item.element.pause(); item.element.src = ''; item.element.remove(); }
+        if (item.element?.tagName === 'IMG' && item.element.parentNode) { item.element.remove(); }
+        if (item.url) URL.revokeObjectURL(item.url);
+    });
     APP.media.queue = []; APP.media.currentIndex = -1; APP.media.currentElement = null; $('media-dot').classList.add('off');
     updateQueueDisplay();
     log('DECK_CLEARED');
@@ -2870,7 +2904,7 @@ $('file-vgd').onchange = (e) => {
                 APP.trinity.bug.scale = APP.layers.bugScale || 1.5;
             }
             if (s.hologramScale) APP.hologram.scale = s.hologramScale;
-            // Restore 2D Logo from Base64
+            // Restore 2D Logo from Base64 — validate before assigning to prevent ERR_INVALID_URL
             if (s.logo2d) {
                 var logoLayer = $('user-logo-layer');
                 if (logoLayer) {
@@ -2903,6 +2937,14 @@ $('file-vgd').onchange = (e) => {
     e.target.value = '';
 };
 
+function isValidDataURI(str) {
+    // Reject null, empty, or corrupt data URIs (missing MIME, empty base64, bare prefix)
+    if (!str || typeof str !== 'string') return false;
+    if (str === 'data:;base64,=' || str === 'data:;base64,' || str === 'data:') return false;
+    // Must be data:image/<type>;base64,<actual-data>
+    if (!str.match(/^data:image\/[a-zA-Z+]+;base64,[A-Za-z0-9+/]+=*$/)) return false;
+    return true;
+}
 function loadFromMemory() {
     const data = localStorage.getItem('VNGRD_SESSION');
     if(!data) return;
@@ -2912,8 +2954,18 @@ function loadFromMemory() {
         if(s.bug) { APP.bug.text = s.bug; if ($('bug-text')) $('bug-text').value = s.bug; var _bugEl = $('station-bug'); if (_bugEl) _bugEl.textContent = s.bug; }
         if(s.vj) { APP.vj = { ...APP.vj, ...s.vj }; }
         if(s.layers) { APP.layers = { ...APP.layers, ...s.layers }; APP.trinity.logo.scale = APP.layers.logoScale || 1.0; APP.trinity.bug.scale = APP.layers.bugScale || 1.5; }
-        // Restore 2D Logo from Base64
-        if (s.logo2d) { var _ll = $('user-logo-layer'); if (_ll) { _ll.style.display = 'block'; _ll.src = s.logo2d; APP.trinity.logo.visible = true; } }
+        // Restore 2D Logo from Base64 — strict validation to prevent net::ERR_INVALID_URL
+        if (s.logo2d) {
+            if (isValidDataURI(s.logo2d)) {
+                var _ll = $('user-logo-layer');
+                if (_ll) { _ll.style.display = 'block'; _ll.src = s.logo2d; APP.trinity.logo.visible = true; }
+            } else {
+                // Corrupt logo data — purge it from the saved session
+                log('MEMORY: CORRUPT_LOGO_PURGED');
+                s.logo2d = null;
+                localStorage.setItem('VNGRD_SESSION', JSON.stringify(s));
+            }
+        }
         // Restore Lower Third
         if (s.lowerThird) {
             if (s.lowerThird.title && $('lt-title-text')) $('lt-title-text').textContent = s.lowerThird.title;
