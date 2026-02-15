@@ -2333,22 +2333,12 @@ if ($('file-2d-logo')) {
             const url = URL.createObjectURL(file);
             const logoLayer = $('user-logo-layer');
             if (logoLayer) {
-                // Ensure element is visible BEFORE setting src (GIF animation requires display:block)
-                logoLayer.style.display = 'block';
-                logoLayer.style.position = 'fixed';
-                logoLayer.style.bottom = '0';
-                logoLayer.style.right = '0';
-                logoLayer.style.width = '1px';
-                logoLayer.style.height = '1px';
-                logoLayer.style.zIndex = '-1';
-                logoLayer.style.opacity = '0.01';
-                logoLayer.style.pointerEvents = 'none';
-                logoLayer.style.maxWidth = 'none';
-                logoLayer.style.maxHeight = 'none';
                 logoLayer.src = url;
+                logoLayer.style.display = 'block';
                 logoLayer.style.background = 'transparent';
                 logoLayer.style.border = 'none';
                 logoLayer.style.boxShadow = 'none';
+                logoLayer.style.pointerEvents = 'auto';
             }
             APP.trinity.logo.visible = true;
             log('2D_LOGO: ' + file.name.toUpperCase());
@@ -2916,16 +2906,12 @@ $('file-vgd').onchange = (e) => {
             if (s.hologramScale) APP.hologram.scale = s.hologramScale;
             // Restore 2D Logo from Base64 — validate before assigning to prevent ERR_INVALID_URL
             if (s.logo2d) {
-                if (isValidDataURI(s.logo2d)) {
-                    var logoLayer = $('user-logo-layer');
-                    if (logoLayer) {
-                        logoLayer.style.display = 'block';
-                        logoLayer.src = s.logo2d;
-                        APP.trinity.logo.visible = true;
-                        log('2D_LOGO: RESTORED_FROM_VGD');
-                    }
-                } else {
-                    log('VGD_IMPORT: CORRUPT_LOGO_SKIPPED');
+                var logoLayer = $('user-logo-layer');
+                if (logoLayer) {
+                    logoLayer.src = s.logo2d;
+                    logoLayer.style.display = 'block';
+                    APP.trinity.logo.visible = true;
+                    log('2D_LOGO: RESTORED_FROM_VGD');
                 }
             }
             // Restore Lower Third text + state
@@ -3228,26 +3214,42 @@ async function initWeb3() {
     try {
         if (typeof window.ethereum !== 'undefined') {
             APP.web3.provider = window.ethereum;
-            // Check already-connected accounts without triggering popup
-            const accounts = await window.ethereum.request({ method: 'eth_accounts' });
+
+            // 1. SURGICAL ADDITION: Account Watcher
+            // This makes the app 'reactive' so you don't have to reload to switch wallets
+            window.ethereum.on('accountsChanged', async (accounts) => {
+                if (accounts.length > 0) {
+                    APP.web3.address = accounts[0];
+                    APP.web3.isConnected = true;
+                    log('IDENTITY: SWAPPED_TO [' + accounts[0].slice(0, 8) + ']');
+                    
+                    // Re-scan NFTs for the new address
+                    if (typeof scanNFTs === 'function') await scanNFTs();
+                } else {
+                    APP.web3.isConnected = false;
+                    APP.web3.mode = 'guest';
+                    log('WEB3: DISCONNECTED');
+                }
+            });
+
+            // 2. FORCE REQUEST: Triggers the popup if not connected
+            const accounts = await window.ethereum.request({ method: 'eth_requestAccounts' });
+            
             if (accounts.length > 0) {
                 APP.web3.address = accounts[0];
                 APP.web3.isConnected = true;
                 APP.web3.mode = 'sovereign';
-                APP.layerSaver.allReady = true;
-                enableRecordButtons(true);
-                log('WEB3: SOVEREIGN [' + APP.web3.address.slice(0, 8) + '...]');
-            } else {
-                APP.web3.mode = 'guest';
-                log('WEB3: GUEST_MODE (CONNECT VIA WALLET BADGE)');
+                
+                // Trigger asset scan immediately
+                if (typeof scanNFTs === 'function') scanNFTs();
+                
+                log('WEB3: SOVEREIGN_SYNC_OK [' + APP.web3.address.slice(0, 8) + ']');
             }
         } else {
-            APP.web3.mode = 'guest';
-            log('WEB3: GUEST_MODE');
+            log('WEB3_ERR: NO_INJECTED_PROVIDER');
         }
     } catch (e) {
-        APP.web3.mode = 'guest';
-        log('WEB3: GUEST_FALLBACK');
+        log('WEB3_ERR: CONNECTION_REJECTED');
     }
 }
 
@@ -3257,15 +3259,21 @@ async function signVideoDNA(videoBlob) {
         const ab = await videoBlob.arrayBuffer();
         const hashBuf = await window.crypto.subtle.digest('SHA-256', ab);
         result.hash = Array.from(new Uint8Array(hashBuf)).map(b => b.toString(16).padStart(2, '0')).join('');
-        if (APP.web3.mode === 'sovereign' && APP.web3.provider) {
+        
+        // FIX: Ensure provider exists before calling request
+        if (APP.web3.mode === 'sovereign' && APP.web3.isConnected && window.ethereum) {
             const msg = 'VNGRD_DNA_SEAL:' + result.hash + ':' + result.timestamp;
-            result.signature = await APP.web3.provider.request({ method: 'personal_sign', params: [msg, APP.web3.address] });
+            // Use window.ethereum directly if APP.web3.provider is flaky
+            result.signature = await window.ethereum.request({ method: 'personal_sign', params: [msg, APP.web3.address] });
             log('DNA: SEALED + ETH_SIG');
         } else {
             localStorage.setItem('vngrd_last_hash', result.hash);
             log('DNA: SEALED_SHA256 (GUEST)');
         }
-    } catch (e) { log('DNA_SEAL_ERR'); }
+    } catch (e) { 
+        console.error(e);
+        log('DNA_SEAL_ERR: ' + e.message); 
+    }
     return result;
 }
 
@@ -3386,23 +3394,7 @@ document.addEventListener('DOMContentLoaded', () => {
  
     // Hide DOM overlays — Trinity actors are drawn directly on canvas
     var _sb = $('station-bug'); if (_sb) _sb.style.opacity = '0';
-    // Keep user-logo-layer browser-visible for GIF animation:
-    // position behind canvas, barely opaque → browser advances GIF frames
-    // drawImage() captures current animated frame → recordings get animation
-    var _ul = $('user-logo-layer');
-    if (_ul) {
-        _ul.style.display = 'block';
-        _ul.style.position = 'fixed';
-        _ul.style.bottom = '0';
-        _ul.style.right = '0';
-        _ul.style.width = '1px';
-        _ul.style.height = '1px';
-        _ul.style.zIndex = '-1';
-        _ul.style.opacity = '0.01';
-        _ul.style.pointerEvents = 'none';
-        _ul.style.maxWidth = 'none';
-        _ul.style.maxHeight = 'none';
-    }
+    var _ul = $('user-logo-layer'); if (_ul) _ul.style.opacity = '0';
     
     requestAnimationFrame(renderLoop);
     initSummonerLogic();
@@ -3667,25 +3659,15 @@ document.addEventListener('DOMContentLoaded', () => {
     });
 
     // Ensure uploaded logos are interactable
-    $('file-layer-logo').onchange = e => {
-        if (e.target.files.length) {
-            const url = URL.createObjectURL(e.target.files[0]);
+    $('file-layer-logo').onchange = e => { 
+        if (e.target.files.length) { 
+            const url = URL.createObjectURL(e.target.files[0]); 
             const img = $('user-logo-layer');
-            // display:block BEFORE src for GIF animation
-            img.style.display = 'block';
-            img.style.position = 'fixed';
-            img.style.bottom = '0';
-            img.style.right = '0';
-            img.style.width = '1px';
-            img.style.height = '1px';
-            img.style.zIndex = '-1';
-            img.style.opacity = '0.01';
-            img.style.pointerEvents = 'none';
-            img.style.maxWidth = 'none';
-            img.style.maxHeight = 'none';
-            img.src = url;
+            img.src = url; 
+            img.style.display = 'block'; 
+            img.style.pointerEvents = 'auto'; 
             log('IDENTITY_LAYER_LOADED');
-        }
+        } 
     };
 
     // ========================================
