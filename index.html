@@ -3210,40 +3210,99 @@ function monitorDucking() {
 // ═══════════════════════════════════════════════════════════════════════════
 // Phase 3: WEB3 SOVEREIGN DNA
 // ═══════════════════════════════════════════════════════════════════════════
+// ═══ SHARED WALLET HELPERS ═══
+var _walletChainNames = {
+    '0x1': 'ETH', '0x89': 'MATIC', '0xa86a': 'AVAX', '0x38': 'BSC',
+    '0xa4b1': 'ARB', '0xa': 'OP', '0x2105': 'BASE', '0xaa36a7': 'SEP'
+};
+
+function walletNetworkName(chainId) {
+    return _walletChainNames[chainId] || 'NET:' + parseInt(chainId, 16);
+}
+
+function connectWalletUI(address, chainId) {
+    var network = walletNetworkName(chainId);
+    var short = address.slice(0, 6) + '...' + address.slice(-4);
+    // Sync both state objects
+    APP.wallet = { connected: true, address: address, chainId: chainId, nfts: APP.wallet.nfts || [] };
+    APP.web3.address = address;
+    APP.web3.isConnected = true;
+    APP.web3.mode = 'sovereign';
+    APP.layerSaver.allReady = true;
+    enableRecordButtons(true);
+    // Update badge
+    $('wallet-badge').style.borderColor = 'var(--g)';
+    $('wallet-badge').style.color = 'var(--g)';
+    $('wallet-badge').innerHTML = '<span class="dot" style="background:var(--g);box-shadow:0 0 6px var(--g)"></span>' + network + ':' + short;
+    return { network: network, short: short };
+}
+
+function disconnectWalletUI() {
+    APP.wallet = { connected: false, address: null, chainId: null, nfts: [] };
+    APP.web3.address = null;
+    APP.web3.isConnected = false;
+    APP.web3.mode = 'guest';
+    APP.user.assets = [];
+    APP.nftVault.thumbnails = [];
+    $('wallet-badge').style.borderColor = 'var(--o)';
+    $('wallet-badge').style.color = 'var(--o)';
+    $('wallet-badge').innerHTML = '<span class="dot off"></span>WALLET';
+    $('vault-dot').classList.add('off');
+    $('nft-vault-list').innerHTML = 'CONNECT_WALLET_FIRST';
+    $('nft-count').textContent = 'ASSETS: 0';
+    checkLayerReadiness();
+    log('WALLET: DISCONNECTED');
+}
+
+function autoScanNFTs() {
+    var btn = $('btn-scan-nfts');
+    if (btn) setTimeout(function() { btn.click(); }, 300);
+}
+
 async function initWeb3() {
     try {
         if (typeof window.ethereum !== 'undefined') {
             APP.web3.provider = window.ethereum;
 
-            // 1. SURGICAL ADDITION: Account Watcher
-            // This makes the app 'reactive' so you don't have to reload to switch wallets
-            window.ethereum.on('accountsChanged', async (accounts) => {
-                if (accounts.length > 0) {
-                    APP.web3.address = accounts[0];
-                    APP.web3.isConnected = true;
-                    log('IDENTITY: SWAPPED_TO [' + accounts[0].slice(0, 8) + ']');
-                    
-                    // Re-scan NFTs for the new address
-                    if (typeof scanNFTs === 'function') await scanNFTs();
+            // Register global listeners ONCE at init — survives page lifetime
+            window.ethereum.on('accountsChanged', function(accounts) {
+                if (!accounts || accounts.length === 0) {
+                    disconnectWalletUI();
                 } else {
-                    APP.web3.isConnected = false;
-                    APP.web3.mode = 'guest';
-                    log('WEB3: DISCONNECTED');
+                    // Account switched — reconnect with new address
+                    var chainId = APP.wallet.chainId || '0x1';
+                    window.ethereum.request({ method: 'eth_chainId' }).then(function(cid) {
+                        var info = connectWalletUI(accounts[0], cid);
+                        log('WALLET: SWITCHED TO ' + info.short);
+                        autoScanNFTs();
+                    }).catch(function() {
+                        connectWalletUI(accounts[0], chainId);
+                        autoScanNFTs();
+                    });
                 }
             });
 
-            // 2. FORCE REQUEST: Triggers the popup if not connected
-            const accounts = await window.ethereum.request({ method: 'eth_requestAccounts' });
-            
+            window.ethereum.on('chainChanged', function(newChainId) {
+                if (APP.wallet.connected && APP.wallet.address) {
+                    APP.wallet.chainId = newChainId;
+                    var network = walletNetworkName(newChainId);
+                    var short = APP.wallet.address.slice(0, 6) + '...' + APP.wallet.address.slice(-4);
+                    $('wallet-badge').innerHTML = '<span class="dot" style="background:var(--g);box-shadow:0 0 6px var(--g)"></span>' + network + ':' + short;
+                    log('NETWORK: SWITCHED TO ' + network);
+                    autoScanNFTs();
+                }
+            });
+
+            // Passive check — only picks up accounts if MetaMask is already authorized
+            var accounts = await window.ethereum.request({ method: 'eth_accounts' });
             if (accounts.length > 0) {
-                APP.web3.address = accounts[0];
-                APP.web3.isConnected = true;
-                APP.web3.mode = 'sovereign';
-                
-                // Trigger asset scan immediately
-                if (typeof scanNFTs === 'function') scanNFTs();
-                
-                log('WEB3: SOVEREIGN_SYNC_OK [' + APP.web3.address.slice(0, 8) + ']');
+                var chainId = await window.ethereum.request({ method: 'eth_chainId' });
+                var info = connectWalletUI(accounts[0], chainId);
+                log('WEB3: SOVEREIGN [' + info.short + ']');
+                autoScanNFTs();
+            } else {
+                APP.web3.mode = 'guest';
+                log('WEB3: GUEST_MODE (CONNECT VIA WALLET BADGE)');
             }
         } else {
             log('WEB3_ERR: NO_INJECTED_PROVIDER');
@@ -3546,87 +3605,46 @@ document.addEventListener('DOMContentLoaded', () => {
         log(APP.vj.rumbleEnabled ? "SEISMIC: ON" : "SEISMIC: OFF"); 
     };
     
-    // WALLET CONNECTION (Header badge) - Real MetaMask/ETH connection
+    // WALLET CONNECTION (Header badge) — uses shared helpers from initWeb3
+    // Listeners are registered once in initWeb3() — no duplicates here
     $('wallet-badge').onclick = async () => {
         if (APP.wallet && APP.wallet.connected) {
             if (confirm('Disconnect wallet?')) {
-                APP.wallet = { connected: false, address: null, chainId: null };
-                $('wallet-badge').style.borderColor = 'var(--o)';
-                $('wallet-badge').style.color = 'var(--o)';
-                $('wallet-badge').innerHTML = '<span class="dot off"></span>WALLET';
-                log('WALLET: DISCONNECTED');
+                disconnectWalletUI();
             }
             return;
         }
-        
+
         if (typeof window.ethereum === 'undefined') {
             log('NO_METAMASK');
             alert('MetaMask not detected. Please install the MetaMask browser extension from metamask.io');
             window.open('https://metamask.io/download/', '_blank');
             return;
         }
-        
+
         try {
-            // Request account access
-            const accounts = await window.ethereum.request({ method: 'eth_requestAccounts' });
-            const address = accounts[0];
-            
-            // Get chain ID
-            const chainId = await window.ethereum.request({ method: 'eth_chainId' });
-            const chainNames = {
-                '0x1': 'ETH', '0x89': 'MATIC', '0xa86a': 'AVAX', '0x38': 'BSC',
-                '0xa4b1': 'ARB', '0xa': 'OP', '0x2105': 'BASE', '0xaa36a7': 'SEP'
-            };
-            const network = chainNames[chainId] || 'NET:' + parseInt(chainId, 16);
-            
-            APP.wallet = { connected: true, address, chainId };
-            const short = address.slice(0, 6) + '...' + address.slice(-4);
-            
-            $('wallet-badge').style.borderColor = 'var(--g)';
-            $('wallet-badge').style.color = 'var(--g)';
-            $('wallet-badge').innerHTML = `<span class="dot" style="background:var(--g);box-shadow:0 0 6px var(--g)"></span>${network}:${short}`;
-            log('WALLET: ' + network + ' ' + short); APP.layerSaver.allReady = true; enableRecordButtons(true); log('LAYER_SAVER: WALLET_UNLOCKED');
-            
-            // Get balance
+            // eth_requestAccounts — always triggers MetaMask popup for authorization
+            var accounts = await window.ethereum.request({ method: 'eth_requestAccounts' });
+            if (!accounts || accounts.length === 0) { log('WALLET: NO_ACCOUNTS'); return; }
+            var chainId = await window.ethereum.request({ method: 'eth_chainId' });
+            var info = connectWalletUI(accounts[0], chainId);
+            log('WALLET: ' + info.network + ' ' + info.short);
+
+            // Fetch balance (optional, non-blocking)
             try {
-                const balance = await window.ethereum.request({
-                    method: 'eth_getBalance',
-                    params: [address, 'latest']
-                });
-                const ethBalance = (parseInt(balance, 16) / 1e18).toFixed(4);
-                log('BALANCE: ' + ethBalance + ' ' + (network === 'ETH' ? 'ETH' : 'native'));
+                var balance = await window.ethereum.request({ method: 'eth_getBalance', params: [accounts[0], 'latest'] });
+                var ethBalance = (parseInt(balance, 16) / 1e18).toFixed(4);
+                log('BALANCE: ' + ethBalance + ' ' + (info.network === 'ETH' ? 'ETH' : 'native'));
             } catch (e) { /* Balance fetch optional */ }
-            
-            // Listen for account/network changes
-            window.ethereum.on('accountsChanged', (accounts) => {
-                if (accounts.length === 0) {
-                    APP.wallet = { connected: false };
-                    $('wallet-badge').style.borderColor = 'var(--o)';
-                    $('wallet-badge').style.color = 'var(--o)';
-                    $('wallet-badge').innerHTML = '<span class="dot off"></span>WALLET';
-                    checkLayerReadiness();
-                    log('WALLET: DISCONNECTED');
-                } else {
-                    const newShort = accounts[0].slice(0, 6) + '...' + accounts[0].slice(-4);
-                    APP.wallet.address = accounts[0];
-                    $('wallet-badge').innerHTML = `<span class="dot" style="background:var(--g);box-shadow:0 0 6px var(--g)"></span>${network}:${newShort}`;
-                    log('WALLET: SWITCHED TO ' + newShort);
-                }
-            });
-            
-            window.ethereum.on('chainChanged', (newChainId) => {
-                const newNetwork = chainNames[newChainId] || 'NET:' + parseInt(newChainId, 16);
-                APP.wallet.chainId = newChainId;
-                const short = APP.wallet.address.slice(0, 6) + '...' + APP.wallet.address.slice(-4);
-                $('wallet-badge').innerHTML = `<span class="dot" style="background:var(--g);box-shadow:0 0 6px var(--g)"></span>${newNetwork}:${short}`;
-                log('NETWORK: SWITCHED TO ' + newNetwork);
-            });
-            
+
+            // Auto-scan NFTs after fresh connection
+            autoScanNFTs();
+
         } catch (e) {
             if (e.code === 4001) {
-                log('WALLET: USER REJECTED');
+                log('WALLET: USER_REJECTED');
             } else {
-                log('WALLET ERROR: ' + e.message);
+                log('WALLET_ERROR: ' + e.message);
             }
         }
     };
