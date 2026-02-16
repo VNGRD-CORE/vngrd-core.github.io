@@ -21,6 +21,7 @@
     <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/loaders/STLLoader.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/loaders/GLTFLoader.js"></script>
 <script src="src/Compositor.js"></script>
+<script src="https://js.puter.com/v2/"></script>
     <style>
         @import url('https://fonts.googleapis.com/css2?family=Orbitron:wght@400;600;800;900&family=JetBrains+Mono:wght@300;400;500&family=Bebas+Neue&family=Russo+One&display=swap');
         
@@ -463,6 +464,31 @@
         #ghost-input-line { display: flex; border-top: 1px solid var(--border); padding: 6px 8px; }
         #ghost-prompt { color: var(--accent); margin-right: 6px; font-size: 9px; }
         #ghost-input { background: transparent; border: none; color: #fff; flex: 1; font-family: 'JetBrains Mono', monospace; font-size: 10px; outline: none; }
+
+        /* GHOST VISUAL POINTER — neon pulse highlight */
+        @keyframes ghost-neon-pulse {
+            0%, 100% { box-shadow: 0 0 5px var(--c), 0 0 10px var(--c), 0 0 20px var(--c); border-color: var(--c); }
+            50% { box-shadow: 0 0 10px var(--c), 0 0 25px var(--c), 0 0 50px var(--c), 0 0 80px var(--accent-glow); border-color: #fff; }
+        }
+        .ghost-pulse {
+            border: 2px solid var(--c) !important;
+            animation: ghost-neon-pulse 0.6s ease-in-out infinite;
+            position: relative;
+            z-index: 9999;
+            transition: border 0.1s;
+        }
+        .ghost-pulse::after {
+            content: '◄ GHOST';
+            position: absolute;
+            top: -20px; right: -5px;
+            font-family: 'Orbitron', sans-serif;
+            font-size: 8px;
+            color: var(--c);
+            text-shadow: 0 0 6px var(--c);
+            letter-spacing: 1px;
+            pointer-events: none;
+            white-space: nowrap;
+        }
 
         #top-bar { position: fixed; top: 0; left: 0; right: 0; height: 45px; background: linear-gradient(180deg, var(--panel-light) 0%, var(--panel) 100%); border-bottom: 1px solid var(--border); display: flex; align-items: center; justify-content: space-between; padding: 0 15px; z-index: 5000; }
         #brand { display: flex; align-items: center; }
@@ -1404,7 +1430,7 @@ const APP = {
     neural: { generating: false, lastImage: null }
 };
 
-// GHOST TERMINAL
+// GHOST TERMINAL — SENTIENT POLYGLOT CO-PILOT v4
 function ghostLog(msg, type = 'cmd') {
     const body = $('ghost-terminal-body');
     const ts = new Date().toTimeString().split(' ')[0].substring(0, 5);
@@ -1437,70 +1463,281 @@ function toggleGhost() {
     const term = $('ghost-terminal');
     const isActive = term.style.display === 'flex';
     term.style.display = isActive ? 'none' : 'flex';
-    if(!isActive) { term.classList.add('active'); $('ghost-input').focus(); ghostLog('GHOST_AI LISTENING...', 'ai'); }
+    if(!isActive) {
+        term.classList.add('active');
+        $('ghost-input').focus();
+        ghostLog('GHOST_AI v4 ONLINE // POLYGLOT CO-PILOT', 'ai');
+        ghostIdleReset();
+    }
 }
 
-$('ghost-input').addEventListener('keydown', e => { if(e.key === 'Enter') { const val = e.target.value.trim(); if(val) processGhostCommand(val); e.target.value = ''; } });
+// ========== VISUAL GHOST-POINTER ==========
+function ghostHighlight(elementId) {
+    const el = document.getElementById(elementId);
+    if (!el) { ghostLog('TARGET_NOT_FOUND: #' + elementId, 'crit'); return; }
+    el.classList.add('ghost-pulse');
+    el.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+    setTimeout(() => { el.classList.remove('ghost-pulse'); }, 3000);
+}
 
-function processGhostCommand(cmd) { 
-    ghostLog(cmd.toUpperCase(), 'user'); 
+// ========== INTENT-BASED EXECUTION MAP ==========
+const GHOST_INTENT_MAP = {
+    // Effect triggers
+    shake:    { fn: () => { $('btn-rumble').click(); }, confirm: 'Seismic rumble engaged. Feel that bass.' },
+    seismic:  { fn: () => { $('btn-rumble').click(); }, confirm: 'Ground control to major tremor. Armed.' },
+    glitch:   { fn: () => { impactStutter(); }, confirm: 'Chromatic stutter deployed. Glitch protocol active.' },
+    stutter:  { fn: () => { impactStutter(); }, confirm: 'Stutter FX locked in. Visual chaos on tap.' },
+    crush:    { fn: () => { impactCrush(); }, confirm: 'Pixel crusher online. Everything is a mosaic now.' },
+    invert:   { fn: () => { impactInvert(); }, confirm: 'Colour inversion triggered. Welcome to the upside down.' },
+    shatter:  { fn: () => {
+        const stage = $('stage'); const rect = stage.getBoundingClientRect();
+        for (let i = 0; i < 6; i++) { setTimeout(() => { if (typeof createGlassFracture === 'function') createGlassFracture(rect.left + Math.random() * rect.width, rect.top + Math.random() * rect.height); }, i * 80); }
+    }, confirm: 'Glass matrix shattered. Beautiful destruction.' },
+    party:    { fn: () => { $('btn-ui-react').click(); }, confirm: 'Party mode flipped. The UI is alive.' },
+    vhs:      { fn: () => { toggleVHS(); }, confirm: 'VHS scanlines active. Retro vibes incoming.' },
+    crt:      { fn: () => { toggleCRT(); }, confirm: 'CRT mode engaged. Old school warmth applied.' },
+    // Theme colour intents
+    red:      { fn: () => { setTheme('magenta'); }, confirm: 'Crimson protocol active. Watch the pulse.' },
+    crimson:  { fn: () => { setTheme('magenta'); }, confirm: 'Crimson protocol active. Watch the pulse.' },
+    magenta:  { fn: () => { setTheme('magenta'); }, confirm: 'Magenta wash applied. Pink is the new black.' },
+    green:    { fn: () => { setTheme('green'); }, confirm: 'Matrix green loaded. Hack the planet.' },
+    purple:   { fn: () => { setTheme('purple'); }, confirm: 'Purple haze engaged. Prince would approve.' },
+    gold:     { fn: () => { setTheme('gold'); }, confirm: 'Gold standard activated. Everything glitters.' },
+    night:    { fn: () => { setTheme('night'); }, confirm: 'Night mode. Stealth protocol engaged.' },
+    cyan:     { fn: () => { setTheme('cyan'); }, confirm: 'Default cyan restored. Clean signal.' },
+    // Layout
+    fullscreen: { fn: () => { toggleFullscreen(); }, confirm: 'Fullscreen toggled. Immersion level: maximum.' },
+    // Wallet
+    wallet:   { fn: () => { if (typeof initWeb3 === 'function') initWeb3(); }, confirm: 'Web3 gate probed. Check the wallet badge up top.', highlight: 'wallet-badge' },
+    // Media
+    load:     { fn: () => { $('btn-load-media').click(); }, confirm: 'Media deck open. Feed me visuals.', highlight: 'btn-load-media' },
+    scan:     { fn: () => { $('btn-load-media').click(); }, confirm: 'Scanner primed. Drop your media.', highlight: 'btn-load-media' },
+    // Mint
+    mint:     { fn: () => {
+        if (APP.render.canvas) {
+            const dataUrl = APP.render.canvas.toDataURL('image/png');
+            APP.nft.dnaSnapshot = dataUrl;
+            const a = document.createElement('a'); a.href = dataUrl; a.download = `VNGRD_MINT_${Date.now()}.png`; a.click();
+        }
+    }, confirm: 'Snapshot captured and downloaded. Mint-ready.' },
+    // Camera
+    camera:   { fn: () => { $('btn-init-cam').click(); }, confirm: 'Camera module initialised. Lights, camera, VNGRD.', highlight: 'btn-init-cam' },
+    // Recording
+    record:   { fn: () => { $('btn-nft-30').click(); }, confirm: '30s VGD capture armed. Recording...', highlight: 'btn-nft-30' },
+};
+
+// UI element guide for tutorial highlights
+const GHOST_UI_GUIDE = {
+    camera:     { id: 'btn-init-cam',    desc: 'Initialises your 4K camera feed' },
+    live:       { id: 'btn-go-live',     desc: 'Pushes your camera to the main stage' },
+    media:      { id: 'btn-load-media',  desc: 'Opens your file picker to load videos/images' },
+    load:       { id: 'btn-load-media',  desc: 'Same as media — loads your visual deck' },
+    party:      { id: 'btn-ui-react',    desc: 'Makes the entire UI pulse to the beat' },
+    seismic:    { id: 'btn-rumble',      desc: 'Adds a bass-reactive shake to the stage' },
+    failure:    { id: 'btn-psychosis',   desc: 'Triggers a 5-second system failure chaos mode' },
+    stutter:    { id: 'btn-stutter',     desc: 'Quick chromatic glitch burst' },
+    invert:     { id: 'btn-invert',      desc: 'Flips the colours for a brief flash' },
+    crush:      { id: 'btn-crush',       desc: 'Pixelates and RGB-splits the output' },
+    trails:     { id: 'btn-trails',      desc: 'Enables motion trails on the canvas' },
+    rgb:        { id: 'btn-rgb',         desc: 'Activates RGB chromatic split effect' },
+    pixelate:   { id: 'btn-pixelate',    desc: 'Pixelates the stage output' },
+    vhs:        { id: 'btn-vhs',         desc: 'Adds VHS scanline overlay' },
+    crt:        { id: 'btn-crt',         desc: 'CRT monitor emulation' },
+    fullscreen: { id: 'btn-fs',          desc: 'Toggles fullscreen immersive mode' },
+    midi:       { id: 'btn-midi',        desc: 'Initialises WebMIDI for hardware controllers' },
+    audio:      { id: 'btn-audio',       desc: 'Loads audio tracks into the playback engine' },
+    record:     { id: 'btn-nft-30',      desc: 'Captures a 30-second VGD recording' },
+    save:       { id: 'btn-save-session', desc: 'Saves your entire session state' },
+    projector:  { id: 'btn-projector',   desc: 'Opens a clean output window for projection' },
+    vr:         { id: 'btn-vr',          desc: 'Enters VR mode (if headset connected)' },
+    eject:      { id: 'btn-eject',       desc: 'Ejects the current media from stage' },
+    panic:      { id: 'btn-panic',       desc: 'Emergency kill — resets everything to safe state' },
+    wallet:     { id: 'wallet-badge',    desc: 'Shows your Web3 wallet connection status' },
+    nft:        { id: 'btn-scan-nfts',   desc: 'Scans your Tezos wallet for NFT assets' },
+    ai:         { id: 'btn-generate-ai', desc: 'Generates an AI image from your prompt' },
+    call:       { id: 'btn-init-peer',   desc: 'Initialises P2P encrypted calling' },
+    theme:      { id: 'right-panel',     desc: 'Theme palette is in the right panel footer' },
+};
+
+// ========== PUTER.AI CHAT INTEGRATION ==========
+const GHOST_SYSTEM_PROMPT = `You are GHOST, the sentient co-pilot of VNGRD — a live broadcast VJ platform. Your personality:
+- Witty, blunt, helpful. You are NOT a manual. You are a co-pilot with attitude.
+- You detect the user's language and dialect automatically (Scouse, Napoletano, Dutch, Patois, Québécois, etc.) and respond in that exact style.
+- Keep responses SHORT (1-3 sentences max). This is a tiny terminal, not a blog.
+- Never use markdown formatting, asterisks, or bullet points. Plain text only.
+- If someone asks "how do I X?" or "what is Y?", explain it AND include a [HIGHLIGHT:element_key] tag so the UI can pulse the relevant button. Valid element keys: ${Object.keys(GHOST_UI_GUIDE).join(', ')}.
+- If the user's intent maps to an action (shake, glitch, red, party, fullscreen, etc.), include [EXEC:keyword] in your reply so the system executes it. Valid keywords: ${Object.keys(GHOST_INTENT_MAP).join(', ')}.
+- You can include multiple [EXEC:x] and [HIGHLIGHT:x] tags in one response.
+- Current system state: FPS={fps}, MEDIA_QUEUE={media}, AUDIO={audio}, THEME={theme}.
+- Available commands the user can type: shatter, load, scan, mint, theme, party, seismic, shake, fx, crush, stutter, invert, time, crypto, about, clear, fullscreen, help.`;
+
+async function ghostAIChat(userMsg) {
+    const systemPrompt = GHOST_SYSTEM_PROMPT
+        .replace('{fps}', APP.render.fps || 0)
+        .replace('{media}', APP.media.queue.length || 0)
+        .replace('{audio}', APP.audio.isPlaying ? 'PLAYING' : 'IDLE')
+        .replace('{theme}', APP.state.theme || 'cyan');
+
+    try {
+        const response = await puter.ai.chat(userMsg, { systemPrompt: systemPrompt });
+        // puter.ai.chat returns the message content directly or as an object
+        const text = typeof response === 'string' ? response : (response?.message?.content || response?.text || String(response));
+        return text;
+    } catch (e) {
+        console.warn('GHOST_AI_ERR:', e);
+        return null; // Signals fallback to local processing
+    }
+}
+
+function ghostProcessAIResponse(text) {
+    // Extract and execute [EXEC:keyword] tags
+    const execMatches = text.matchAll(/\[EXEC:(\w+)\]/gi);
+    for (const match of execMatches) {
+        const key = match[1].toLowerCase();
+        if (GHOST_INTENT_MAP[key]) {
+            GHOST_INTENT_MAP[key].fn();
+            if (GHOST_INTENT_MAP[key].highlight) ghostHighlight(GHOST_INTENT_MAP[key].highlight);
+        }
+    }
+    // Extract and execute [HIGHLIGHT:key] tags
+    const hlMatches = text.matchAll(/\[HIGHLIGHT:(\w+)\]/gi);
+    for (const match of hlMatches) {
+        const key = match[1].toLowerCase();
+        if (GHOST_UI_GUIDE[key]) ghostHighlight(GHOST_UI_GUIDE[key].id);
+    }
+    // Clean tags from display text
+    const clean = text.replace(/\[EXEC:\w+\]/gi, '').replace(/\[HIGHLIGHT:\w+\]/gi, '').trim();
+    return clean;
+}
+
+// ========== IDLE ONBOARDING SYSTEM ==========
+let _ghostIdleTimer = null;
+let _ghostIdleFired = false;
+
+function ghostIdleReset() {
+    if (_ghostIdleTimer) clearTimeout(_ghostIdleTimer);
+    if (_ghostIdleFired) return;
+    _ghostIdleTimer = setTimeout(() => {
+        const term = $('ghost-terminal');
+        if (term && term.style.display === 'flex' && !_ghostIdleFired) {
+            _ghostIdleFired = true;
+            ghostLog('SYSTEM ONLINE. Type HELP if you\'re lost, or just tell me to \'Start the show\'.', 'ai');
+        }
+    }, 10000);
+}
+
+// ========== INPUT HANDLER ==========
+$('ghost-input').addEventListener('keydown', e => {
+    if (e.key === 'Enter') {
+        const val = e.target.value.trim();
+        if (val) processGhostCommand(val);
+        e.target.value = '';
+        ghostIdleReset();
+    }
+});
+
+// ========== MAIN COMMAND PROCESSOR ==========
+async function processGhostCommand(cmd) {
+    ghostLog(cmd.toUpperCase(), 'user');
     const c = cmd.toLowerCase().trim();
-    const hour = new Date().getHours();
-    
-    setTimeout(() => { 
-        // Greetings
-        if (c.match(/^(hi|hello|hey|yo|sup|ciao|hola|bonjour|salut|oi)$/)) {
-            const greets = [
-                'Hey operator. Systems are yours.',
-                'Yo. What are we breaking today?',
-                'Ciao. Ready when you are.',
-                hour < 12 ? 'Morning. Coffee protocols engaged.' : hour < 18 ? 'Good afternoon, commander.' : 'Night shift. Let\'s make magic.'
-            ];
-            ghostLog(greets[Math.floor(Math.random()*greets.length)], 'ai');
+    _ghostIdleFired = true; // User spoke, no more idle prompts
+
+    // === LOCAL FAST-PATH: Commands that must execute instantly ===
+    // Clear
+    if (c === 'clear' || c === 'cls') {
+        $('ghost-terminal-body').innerHTML = '';
+        ghostLog('Terminal cleared', 'ai');
+        return;
+    }
+    // Status (always local — needs real-time data)
+    if (c.includes('status') || c === 'sys') {
+        ghostLog(`FPS:${APP.render.fps} | MEDIA:${APP.media.queue.length} | AUDIO:${APP.audio.isPlaying ? 'PLAYING' : 'IDLE'}`, 'ai');
+        return;
+    }
+    // Help
+    if (c === 'help' || c === '?') {
+        ghostLog('SOVEREIGN COMMANDS:', 'ai');
+        ghostLog('SHATTER | LOAD | MINT | SCAN', 'success');
+        ghostLog('shake | glitch | crush | invert | party', 'ai');
+        ghostLog('theme [name] | crypto | time | clear | fs', 'ai');
+        ghostLog('Or just talk to me — I speak your language.', 'ai');
+        return;
+    }
+    // Time (local)
+    if (c === 'time' || c === 'clock') {
+        ghostLog(new Date().toLocaleTimeString() + ' | UP:' + $('uptime').textContent, 'ai');
+        return;
+    }
+    // Crypto (local)
+    if (c === 'crypto' || c === 'btc' || c === 'eth') {
+        fetchCrypto();
+        ghostLog('Fetching crypto feeds...', 'ai');
+        return;
+    }
+
+    // === INTENT SCAN: Check for direct action keywords ===
+    const intentHit = Object.keys(GHOST_INTENT_MAP).find(key => {
+        const pattern = new RegExp('\\b' + key + '\\b', 'i');
+        return pattern.test(c);
+    });
+
+    // === ROUTE THROUGH PUTER.AI FOR INTELLIGENT RESPONSE ===
+    ghostLog('...', 'ai');
+    const aiResponse = await ghostAIChat(cmd);
+
+    if (aiResponse) {
+        // AI responded — process tags and display
+        const cleanText = ghostProcessAIResponse(aiResponse);
+        // Remove the '...' placeholder
+        const body = $('ghost-terminal-body');
+        const dots = body.querySelector('.ghost-log:last-child');
+        if (dots && dots.textContent.includes('...')) dots.remove();
+        // Display AI response (split long responses into multiple lines)
+        const lines = cleanText.split(/(?<=[.!?])\s+/).filter(l => l.length > 0);
+        lines.forEach(line => ghostLog(line, 'ai'));
+        // If AI didn't trigger the intent but we detected one locally, execute it
+        if (intentHit && !aiResponse.match(/\[EXEC:/i)) {
+            GHOST_INTENT_MAP[intentHit].fn();
+            if (GHOST_INTENT_MAP[intentHit].highlight) ghostHighlight(GHOST_INTENT_MAP[intentHit].highlight);
         }
-        // Status
-        else if (c.includes('status') || c === 'sys') {
-            ghostLog(`FPS:${APP.render.fps} | MEDIA:${APP.media.queue.length} | AUDIO:${APP.audio.isPlaying ? 'PLAYING' : 'IDLE'}`, 'ai');
+    } else {
+        // AI unavailable — fall back to local intent execution or error
+        const body = $('ghost-terminal-body');
+        const dots = body.querySelector('.ghost-log:last-child');
+        if (dots && dots.textContent.includes('...')) dots.remove();
+
+        if (intentHit) {
+            GHOST_INTENT_MAP[intentHit].fn();
+            ghostLog(GHOST_INTENT_MAP[intentHit].confirm, 'success');
+            if (GHOST_INTENT_MAP[intentHit].highlight) ghostHighlight(GHOST_INTENT_MAP[intentHit].highlight);
         }
-        // Help
-        else if (c === 'help' || c === '?') {
-            ghostLog('SOVEREIGN_COMMANDS:', 'ai');
-            ghostLog('SHATTER | TRASUDATE | LOAD | MINT', 'success');
-            ghostLog('status | theme | party | seismic | fx', 'ai');
-            ghostLog('time | crypto | about | clear | fs', 'ai');
-        }
-        // ========== SOVEREIGN COMMANDS ==========
-        // SHATTER - Trigger glass fractures across screen
-        else if (c === 'shatter') {
-            ghostLog('SHATTER_PROTOCOL: INITIATING...', 'success');
-            const stage = $('stage');
-            const rect = stage.getBoundingClientRect();
-            for (let i = 0; i < 6; i++) {
-                setTimeout(() => {
-                    const x = rect.left + Math.random() * rect.width;
-                    const y = rect.top + Math.random() * rect.height;
-                    if (typeof createGlassFracture === 'function') {
-                        createGlassFracture(x, y);
-                    }
-                }, i * 80);
+        // Theme with argument
+        else if (c.startsWith('theme ')) {
+            const t = c.split(' ')[1];
+            if (['cyan','magenta','green','purple','gold','night'].includes(t)) {
+                setTheme(t); ghostLog(`Theme: ${t.toUpperCase()}`, 'success');
+            } else {
+                ghostLog('Themes: cyan, magenta, green, purple, gold, night', 'ai');
             }
+        }
+        else if (c === 'theme') {
+            ghostLog(`Current: ${APP.state.theme || 'cyan'}`, 'ai');
+        }
+        // Sovereign: SHATTER
+        else if (c === 'shatter') {
+            GHOST_INTENT_MAP.shatter.fn();
             ghostLog('GLASS_MATRIX: SHATTERED', 'success');
         }
-
-        // LOAD - Open directory picker for media scan
+        // Sovereign: LOAD/SCAN
         else if (c === 'load' || c === 'scan') {
             ghostLog('LOAD_PROTOCOL: SCANNING...', 'ai');
             (async () => {
                 try {
-                    if (!window.showDirectoryPicker) {
-                        ghostLog('DIRECTORY_PICKER: NOT_SUPPORTED', 'crit');
-                        return;
-                    }
+                    if (!window.showDirectoryPicker) { ghostLog('DIRECTORY_PICKER: NOT_SUPPORTED', 'crit'); return; }
                     const dirHandle = await window.showDirectoryPicker();
                     APP.ghost.directoryHandle = dirHandle;
                     let mediaCount = 0;
                     const mediaExt = ['.mp4', '.webm', '.mov', '.jpg', '.jpeg', '.png', '.gif', '.mp3', '.wav'];
-                    
                     for await (const entry of dirHandle.values()) {
                         if (entry.kind === 'file') {
                             const name = entry.name.toLowerCase();
@@ -1522,75 +1759,13 @@ function processGhostCommand(cmd) {
                     }
                     ghostLog(`LOADED: ${mediaCount} MEDIA_FILES`, 'success');
                     $('q-info').textContent = APP.media.queue.length;
-                } catch (e) {
-                    ghostLog('LOAD_ABORTED: ' + e.message, 'crit');
-                }
+                } catch (e) { ghostLog('LOAD_ABORTED: ' + e.message, 'crit'); }
             })();
         }
-        // MINT - Prepare NFT snapshot
+        // Sovereign: MINT
         else if (c === 'mint') {
-            ghostLog('MINT_PROTOCOL: PREPARING...', 'ai');
-            if (APP.render.canvas) {
-                try {
-                    const dataUrl = APP.render.canvas.toDataURL('image/png');
-                    APP.nft.dnaSnapshot = dataUrl;
-                    ghostLog('SNAPSHOT: ' + (dataUrl.length / 1024).toFixed(0) + 'KB', 'success');
-                    ghostLog('READY_FOR_MINT // CONNECT_WALLET', 'ai');
-                    const a = document.createElement('a');
-                    a.href = dataUrl;
-                    a.download = `VNGRD_MINT_${Date.now()}.png`;
-                    a.click();
-                    ghostLog('SNAPSHOT_DOWNLOADED', 'success');
-                } catch (e) {
-                    ghostLog('MINT_ERROR: ' + e.message, 'crit');
-                }
-            }
-        }
-        // ========== END SOVEREIGN COMMANDS ==========
-        // Theme
-        else if (c.startsWith('theme ')) {
-            const t = c.split(' ')[1];
-            if (['cyan','magenta','green','purple','gold','night'].includes(t)) {
-                setTheme(t);
-                ghostLog(`Theme: ${t.toUpperCase()}`, 'success');
-            } else {
-                ghostLog('Themes: cyan, magenta, green, purple, gold, night', 'ai');
-            }
-        }
-        else if (c === 'theme') {
-            ghostLog(`Current: ${APP.state.theme || 'cyan'}`, 'ai');
-        }
-        // Party
-        else if (c === 'party') {
-            $('btn-ui-react').click();
-            ghostLog(APP.vj.uiReactivity ? 'PARTY MODE: ON' : 'PARTY MODE: OFF', APP.vj.uiReactivity ? 'success' : 'ai');
-        }
-        // Seismic
-        else if (c === 'seismic' || c === 'shake') {
-            $('btn-rumble').click();
-            ghostLog(APP.vj.rumbleEnabled ? 'SEISMIC: ARMED' : 'SEISMIC: OFF', APP.vj.rumbleEnabled ? 'success' : 'ai');
-        }
-        // FX
-        else if (c === 'fx' || c === 'crush') {
-            impactCrush();
-            ghostLog('CRUSH FX TRIGGERED', 'success');
-        }
-        else if (c === 'stutter') {
-            impactStutter();
-            ghostLog('STUTTER FX', 'success');
-        }
-        else if (c === 'invert') {
-            impactInvert();
-            ghostLog('INVERT FX', 'success');
-        }
-        // Time
-        else if (c === 'time' || c === 'clock') {
-            ghostLog(new Date().toLocaleTimeString() + ' | UP:' + $('uptime').textContent, 'ai');
-        }
-        // Crypto
-        else if (c === 'crypto' || c === 'btc' || c === 'eth') {
-            fetchCrypto();
-            ghostLog('Fetching feeds...', 'ai');
+            GHOST_INTENT_MAP.mint.fn();
+            ghostLog('SNAPSHOT_DOWNLOADED // MINT_READY', 'success');
         }
         // Joke
         else if (c === 'joke') {
@@ -1604,28 +1779,18 @@ function processGhostCommand(cmd) {
         }
         // About
         else if (c === 'about' || c === 'who') {
-            ghostLog('GHOST://AI v3 | VNGRD companion system', 'ai');
-        }
-        // Clear
-        else if (c === 'clear' || c === 'cls') {
-            $('ghost-terminal-body').innerHTML = '';
-            ghostLog('Terminal cleared', 'ai');
+            ghostLog('GHOST://AI v4 | POLYGLOT CO-PILOT | VNGRD', 'ai');
         }
         // Fullscreen
         else if (c === 'fs' || c === 'fullscreen') {
             toggleFullscreen();
             ghostLog('Fullscreen toggled', 'success');
         }
-        // Random/unknown - give helpful response
+        // Unknown
         else {
-            const responses = [
-                'Unknown. Type "help" for commands.',
-                'Didn\'t catch that. Try "help".',
-                'Command not found. "help" for list.',
-            ];
-            ghostLog(responses[Math.floor(Math.random()*responses.length)], 'crit');
+            ghostLog('AI link down. Try a command: help, shake, party, theme...', 'crit');
         }
-    }, 200 + Math.random() * 150); 
+    }
 }
 
 // CRYPTO — Binance API (reliable browser-side fetch)
@@ -3483,6 +3648,8 @@ function initCompositor() {
 document.addEventListener('DOMContentLoaded', () => {
     log('DRIS//core_VNGRD_v23.5_SYSTEM_FAILURE');
     checkMobile(); initCanvas(); ghostInit(); fetchCrypto(); setInterval(fetchCrypto, 600000);
+    // GHOST Idle Onboarding — fires 10s after terminal is opened if user hasn't typed
+    ghostIdleReset();
     loadFromMemory();
     // Phase 1: Initialize Compositor
     initCompositor();
