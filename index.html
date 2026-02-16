@@ -262,15 +262,15 @@
     transform-origin: top right;
     display: none;
     cursor: move;
-    pointer-events: auto !important;
+    pointer-events: auto;
 
     /* SURGICAL CLEANUP: NO GLOW, NO BOX */
-    background: transparent !important;
-    border: none !important;
-    box-shadow: none !important;
+    background: transparent;
+    border: none;
+    box-shadow: none;
 
     /* REPLACED: Professional depth instead of blue neon */
-    filter: drop-shadow(2px 2px 4px rgba(0,0,0,0.8)) !important;
+    filter: drop-shadow(2px 2px 4px rgba(0,0,0,0.8));
 }
         
         /* HOLOGRAM WIDGET - REACTOR CORE */
@@ -2378,9 +2378,12 @@ if ($('file-2d-logo')) {
                 logoLayer.style.pointerEvents = 'none';
                 logoLayer.style.zIndex = '-1';
                 logoLayer.style.objectFit = 'cover';
+                logoLayer.style.filter = 'none';
                 logoLayer.style.background = 'transparent';
                 logoLayer.style.border = 'none';
                 logoLayer.style.boxShadow = 'none';
+                logoLayer.style.maxWidth = 'none';
+                logoLayer.style.maxHeight = 'none';
             }
             APP.trinity.logo.visible = true;
             log('2D_LOGO: ' + file.name.toUpperCase());
@@ -2424,11 +2427,15 @@ function loadMediaFiles(input) {
             const vid = document.createElement('video'); vid.src = url; vid.muted = true; vid.loop = !APP.state.isCycle; vid.playsInline = true; vid.preload = 'auto'; item.element = vid; $('media-container').appendChild(vid);
         } else {
             // createObjectURL = native blob ref for GIF animation.
-            // gif-host is ON-SCREEN (10px, behind canvas, overflow:hidden, opacity:0.01).
-            // Browser composites the image = decoder advances GIF frames.
+            // gif-host is ON-SCREEN (10px, behind canvas, opacity:0.01).
+            // Image MUST be display:block at a small rendered size so the
+            // browser compositor actually decodes + advances GIF frames.
             // drawImage() reads intrinsic naturalWidth x naturalHeight for full quality.
             const img = new Image();
             img.crossOrigin = 'anonymous';
+            img.style.display = 'block';
+            img.style.width = '10px';
+            img.style.height = '10px';
             img.src = url;
             item.element = img;
             var host = $('gif-host');
@@ -3000,7 +3007,7 @@ function loadFromMemory() {
         if (s.logo2d) {
             if (isValidDataURI(s.logo2d)) {
                 var _ll = $('user-logo-layer');
-                if (_ll) { _ll.style.display = 'block'; _ll.style.position = 'fixed'; _ll.style.bottom = '0'; _ll.style.left = '0'; _ll.style.width = '10px'; _ll.style.height = '10px'; _ll.style.opacity = '0.01'; _ll.style.zIndex = '-1'; _ll.style.objectFit = 'cover'; _ll.src = s.logo2d; APP.trinity.logo.visible = true; }
+                if (_ll) { _ll.style.display = 'block'; _ll.style.position = 'fixed'; _ll.style.bottom = '0'; _ll.style.left = '0'; _ll.style.width = '10px'; _ll.style.height = '10px'; _ll.style.opacity = '0.01'; _ll.style.zIndex = '-1'; _ll.style.objectFit = 'cover'; _ll.style.filter = 'none'; _ll.style.maxWidth = 'none'; _ll.style.maxHeight = 'none'; _ll.style.pointerEvents = 'none'; _ll.src = s.logo2d; APP.trinity.logo.visible = true; }
             } else {
                 // Corrupt logo data — purge it from the saved session
                 log('MEMORY: CORRUPT_LOGO_PURGED');
@@ -3509,6 +3516,9 @@ document.addEventListener('DOMContentLoaded', () => {
         _ul.style.pointerEvents = 'none';
         _ul.style.zIndex = '-1';
         _ul.style.objectFit = 'cover';
+        _ul.style.filter = 'none';
+        _ul.style.maxWidth = 'none';
+        _ul.style.maxHeight = 'none';
     }
     
     requestAnimationFrame(renderLoop);
@@ -3750,6 +3760,9 @@ document.addEventListener('DOMContentLoaded', () => {
             img.style.pointerEvents = 'none';
             img.style.zIndex = '-1';
             img.style.objectFit = 'cover';
+            img.style.filter = 'none';
+            img.style.maxWidth = 'none';
+            img.style.maxHeight = 'none';
             APP.trinity.logo.visible = true;
             log('IDENTITY_LAYER_LOADED');
         }
@@ -5267,7 +5280,13 @@ document.addEventListener('DOMContentLoaded', () => {
     function injectAIImage(blobUrl, label) {
         var img = new Image();
         img.crossOrigin = 'anonymous';
+        // Ensure image is in the DOM for browser compositing (GIF frame advancement)
+        img.style.display = 'block';
+        img.style.width = '10px';
+        img.style.height = '10px';
         img.src = blobUrl;
+        var host = $('gif-host');
+        if (host) host.appendChild(img);
         return new Promise(function(ok, fail) {
             img.onload = function() {
                 APP.render.source = null; // Clear override so queue takes priority
@@ -5314,6 +5333,18 @@ document.addEventListener('DOMContentLoaded', () => {
                 throw new Error('ALL_PROXIES_FAILED');
             }
 
+            // Fetch with timeout (30s) via AbortController
+            async function fetchWithTimeout(url, opts, ms) {
+                ms = ms || 30000;
+                var controller = new AbortController();
+                var tid = setTimeout(function() { controller.abort(); }, ms);
+                try {
+                    var r = await fetch(url, Object.assign({}, opts || {}, { signal: controller.signal }));
+                    clearTimeout(tid);
+                    return r;
+                } catch(e) { clearTimeout(tid); throw e; }
+            }
+
             // Strategy 1: Pollinations (CORS-native text-to-image, multiple endpoint formats)
             async function tryPollinations() {
                 if (status) status.textContent = 'POLLINATIONS: RENDERING...';
@@ -5321,11 +5352,12 @@ document.addEventListener('DOMContentLoaded', () => {
                 // Try current API format first, then legacy format
                 var urls = [
                     'https://image.pollinations.ai/prompt/' + encodeURIComponent(prompt) + '?width=1280&height=720&seed=' + seed + '&nologo=true&model=flux',
-                    'https://image.pollinations.ai/prompt/' + encodeURIComponent(prompt) + '?seed=' + seed + '&width=1280&height=720&nologo=true'
+                    'https://image.pollinations.ai/prompt/' + encodeURIComponent(prompt) + '?seed=' + seed + '&width=1280&height=720&nologo=true',
+                    'https://image.pollinations.ai/prompt/' + encodeURIComponent(prompt) + '?width=1280&height=720&seed=' + seed + '&nologo=true'
                 ];
                 for (var u = 0; u < urls.length; u++) {
                     try {
-                        var res = await fetch(urls[u]);
+                        var res = await fetchWithTimeout(urls[u], null, 45000);
                         if (!res.ok) continue;
                         var blob = await res.blob();
                         if (blob.size < 1000 || !blob.type.startsWith('image/')) continue;
@@ -5350,22 +5382,21 @@ document.addEventListener('DOMContentLoaded', () => {
                 return URL.createObjectURL(blob);
             }
 
-            // Strategy 3: Unsplash search (photo search by keyword, CORS-native)
-            async function tryUnsplash() {
-                if (status) status.textContent = 'UNSPLASH: SEARCHING...';
-                // Unsplash Source API — random photo matching query, no key needed
-                var url = 'https://source.unsplash.com/1280x720/?' + encodeURIComponent(prompt) + '&sig=' + Date.now();
-                var res = await fetch(url);
-                if (!res.ok) throw new Error('UNSPLASH_' + res.status);
+            // Strategy 3: Picsum (CORS-native random photo, replaces deprecated Unsplash Source)
+            async function tryPicsum() {
+                if (status) status.textContent = 'PICSUM: SEARCHING...';
+                var url = 'https://picsum.photos/1280/720?random=' + Date.now();
+                var res = await fetchWithTimeout(url, null, 15000);
+                if (!res.ok) throw new Error('PICSUM_' + res.status);
                 var blob = await res.blob();
-                if (blob.size < 1000) throw new Error('UNSPLASH_EMPTY');
+                if (blob.size < 1000) throw new Error('PICSUM_EMPTY');
                 return URL.createObjectURL(blob);
             }
 
             var strategies = [
                 { name: 'POLLINATIONS', fn: tryPollinations },
                 { name: 'LEXICA', fn: tryLexica },
-                { name: 'UNSPLASH', fn: tryUnsplash }
+                { name: 'PICSUM', fn: tryPicsum }
             ];
 
             var success = false;
