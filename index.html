@@ -262,15 +262,15 @@
     transform-origin: top right;
     display: none;
     cursor: move;
-    pointer-events: auto !important;
+    pointer-events: auto;
 
     /* SURGICAL CLEANUP: NO GLOW, NO BOX */
-    background: transparent !important;
-    border: none !important;
-    box-shadow: none !important;
+    background: transparent;
+    border: none;
+    box-shadow: none;
 
     /* REPLACED: Professional depth instead of blue neon */
-    filter: drop-shadow(2px 2px 4px rgba(0,0,0,0.8)) !important;
+    filter: drop-shadow(2px 2px 4px rgba(0,0,0,0.8));
 }
         
         /* HOLOGRAM WIDGET - REACTOR CORE */
@@ -500,13 +500,16 @@
         .sec-dot { width: 5px; height: 5px; background: var(--g); border-radius: 50%; box-shadow: 0 0 4px var(--g); }
         .sec-dot.off { background: var(--text-dim); box-shadow: none; }
         .sec-dot.gold { background: var(--y); box-shadow: 0 0 6px var(--y); }
-        .sec-body { padding: 8px 10px; }
-        .sec-head.collapsible { cursor: pointer; }
-        .sec-arrow { font-size: 8px; color: var(--text-dim); margin-left: 4px; transition: transform 0.2s; }
-        .sec-head.collapsible.open .sec-arrow { color: var(--accent); }
-        #session-lab-body, #p2p-call-body, #midi-host-body, #nft-vault-body, #lexica-nano-body, #lower-third-body, #identity-body { max-height: 0; overflow: hidden; transition: max-height 0.3s ease; padding: 0 12px; }
-        #gif-host img { position: fixed; top: 0; left: 0; width: 10px !important; height: 10px !important; opacity: 0.01 !important; z-index: -1; pointer-events: none; will-change: contents; }
-        
+        .sec-body { padding: 10px 12px; }
+
+        /* FOLD/COLLAPSE LOGIC */
+        .fold-header { display: flex; align-items: center; justify-content: space-between; padding: 8px 12px; background: rgba(0,0,0,0.3); border-bottom: 1px solid var(--border); cursor: pointer; user-select: none; position: relative; overflow: hidden; }
+        .fold-header .sec-title { font-family: 'Orbitron', sans-serif; font-size: 9px; font-weight: 600; letter-spacing: 2px; color: var(--accent); }
+        .fold-header .fold-icon { font-family: 'JetBrains Mono', monospace; font-size: 9px; color: var(--text-dim); margin-right: 6px; min-width: 14px; }
+        .fold-header:hover .fold-icon { color: var(--accent); }
+        .fold-content { overflow: hidden; transition: max-height 0.2s ease; }
+        .fold-content.hidden { max-height: 0 !important; }
+
         /* VNGRD BUTTONS - DIGITAL SNAP */
         .btn { display: block; width: 100%; padding: 8px 10px; margin-bottom: 6px; background: linear-gradient(180deg, #0f0f14 0%, #0a0a0e 100%); border: 1px solid var(--border); color: var(--text); font-family: 'JetBrains Mono', monospace; font-size: 10px; text-align: left; transition: all 0.05s step-end; }
         .btn:hover { background: linear-gradient(180deg, #151520 0%, #0f0f14 100%); color: var(--text-bright); border-color: var(--border-light); }
@@ -885,76 +888,6 @@ body.shooting-mode #btn-shooting {
         transform: scale(1);
         filter: brightness(1) contrast(1);
     }
-}/* --- TACTICAL FX MODULES --- */
-
-/* --- TACTICAL FX v4.0 (FINAL POLISH) --- */
-
-/* GLOBAL FIX: Ensure all FX overlays don't block mouse clicks */
-.fx-scan::after, .fx-tear::after, .fx-bloom::after, .fx-chroma::after, .fx-punch::after {
-    pointer-events: none !important;
-}
-
-/* 1. SCAN (Sharp Mechanical Scanline) */
-.fx-scan {
-    position: relative;
-}
-.fx-scan::after {
-    content: ""; 
-    position: absolute; 
-    top: 0; left: 0; width: 100%; height: 2px;
-    background: var(--c); 
-    opacity: 0.4;
-    box-shadow: 0 0 10px var(--c);
-    animation: scan-move 2s linear infinite;
-    z-index: 100;
-}
-@keyframes scan-move { 
-    0% { top: 0%; } 
-    100% { top: 100%; } 
-}
-
-/* 2. TEAR (Horizontal Data Glitch) */
-.fx-tear {
-    animation: tear-shake 0.2s steps(2) infinite;
-}
-@keyframes tear-shake {
-    0% { transform: translate(3px,0) skew(1deg); filter: contrast(1.5) hue-rotate(45deg); }
-    50% { transform: translate(-3px,0) skew(-1deg); filter: contrast(2) brightness(1.2); }
-    100% { transform: translate(0,0); }
-}
-
-/* 3. BLOOM (Refined Thermal - Glowing but Readable) */
-.fx-bloom {
-    filter: brightness(1.1) contrast(1.3) saturate(1.4) !important;
-    box-shadow: inset 0 0 80px rgba(0, 255, 255, 0.15);
-    border: 1px solid rgba(0, 255, 255, 0.3);
-}
-
-/* 4. CHROMA (Tactical RGB Split) */
-.fx-chroma {
-    filter: contrast(1.1) brightness(1.05) !important;
-    text-shadow: 1.5px 0 var(--r), -1.5px 0 var(--c);
-}
-
-/* 5. PUNCH (The Pulse - Momentary Impact) */
-.fx-punch {
-    animation: punch-pulse 0.4s cubic-bezier(0, 1, 0, 1) infinite;
-}
-@keyframes punch-pulse {
-    0% { transform: scale(1.02); filter: brightness(1.4); }
-    100% { transform: scale(1); filter: brightness(1); }
-}
-
-/* 6. HARD RESET (CRT Collapse Animation) */
-@keyframes crt-collapse {
-    0% { transform: scale(1, 1); filter: brightness(1); }
-    40% { transform: scale(1, 0.005); filter: brightness(4); }
-    50% { transform: scale(0, 0); opacity: 0; }
-    90% { transform: scale(0.01, 1); opacity: 1; filter: brightness(3); }
-    100% { transform: scale(1, 1); filter: brightness(1); }
-}
-.anim-hard-reset {
-    animation: crt-collapse 0.5s cubic-bezier(0.19, 1, 0.22, 1);
 }</style>
 </head>
 <body oncontextmenu="return false;">
@@ -1058,24 +991,7 @@ body.shooting-mode #btn-shooting {
         </div>
     </div>
 
-        <aside class="sidebar" id="left-panel">
-        <div class="section">
-            <div class="sec-head" id="media-header"><span class="sec-title">MEDIA_DECK</span><div class="sec-dot off" id="media-dot"></div></div>
-            <div class="sec-body">
-                <button class="btn" id="btn-load-media">LOAD MEDIA</button>
-                
-                <div class="audio-ctrl-row">
-                    <button class="btn btn-compact" id="btn-prev"><svg width="10" height="10" viewBox="0 0 12 12"><path fill="currentColor" d="M2 2h2v8H2zm2 4l6 4V2z"/></svg></button>
-                    <button class="btn btn-compact" id="btn-cycle-toggle" style="flex:3; font-size:9px;">CYCLE: OFF</button>
-                    <button class="btn btn-compact" id="btn-rotate"><svg width="10" height="10" viewBox="0 0 12 12"><path fill="currentColor" d="M2 10l6-4-6-4v8zm6-8v8h2V2H8z"/></svg></button>
-                </div>
-                <div class="slider-wrap" id="cycle-slider-wrap" style="display:none;">
-                    <div class="slider-top"><span class="slider-lbl">CYCLE TIME</span><span class="slider-val" id="val-cycle">8s</span></div>
-                    <input type="range" min="2" max="30" value="8" id="sl-cycle">
-                </div>
-            </div>
-        </div>
-        
+    <aside class="sidebar" id="left-panel">
         <div class="section">
             <div class="sec-head"><span class="sec-title">CAMERA_4K</span><div class="sec-dot off" id="cam-dot"></div></div>
             <div class="sec-body">
@@ -1101,20 +1017,38 @@ body.shooting-mode #btn-shooting {
         </div>
         
         <div class="section">
+            <div class="sec-head" id="media-header"><span class="sec-title">MEDIA_DECK</span><div class="sec-dot off" id="media-dot"></div></div>
+            <div class="sec-body">
+                <button class="btn" id="btn-load-media">LOAD MEDIA</button>
+                
+                <div class="audio-ctrl-row">
+                    <button class="btn btn-compact" id="btn-prev"><svg width="10" height="10" viewBox="0 0 12 12"><path fill="currentColor" d="M2 2h2v8H2zm2 4l6 4V2z"/></svg></button>
+                    <button class="btn btn-compact" id="btn-cycle-toggle" style="flex:3; font-size:9px;">CYCLE: OFF</button>
+                    <button class="btn btn-compact" id="btn-rotate"><svg width="10" height="10" viewBox="0 0 12 12"><path fill="currentColor" d="M2 10l6-4-6-4v8zm6-8v8h2V2H8z"/></svg></button>
+                </div>
+                <div class="slider-wrap" id="cycle-slider-wrap" style="display:none;">
+                    <div class="slider-top"><span class="slider-lbl">CYCLE TIME</span><span class="slider-val" id="val-cycle">8s</span></div>
+                    <input type="range" min="2" max="30" value="8" id="sl-cycle">
+                </div>
+            </div>
+        </div>
+        
+        <div class="section">
             <div class="sec-head"><span class="sec-title">REACTIVITY</span><div class="sec-dot"></div></div>
             <div class="sec-body">
-                <div class="btn-grid">
+                <div class="btn-grid-3" style="margin-bottom:6px;">
                     <button class="btn" id="btn-ui-react" style="font-size:8px;">PARTY</button>
                     <button class="btn" id="btn-rumble" style="font-size:8px;">SEISMIC</button>
                     <button class="btn" id="btn-psychosis" style="font-size:8px;">FAILURE</button>
-                    <button class="btn" id="btn-shooting" style="color:var(--r);border-color:var(--r);font-size:8px;">BASS_SHOT</button>
                 </div>
+                <button class="btn" id="btn-shooting" style="color:var(--r);border-color:var(--r);font-size:9px;">SHOOTING_BASS</button>
             </div>
         </div>
 
         <div class="section">
             <div class="sec-head"><span class="sec-title">COMMAND</span><div class="sec-dot"></div></div>
             <div class="sec-body">
+                <div class="lbl" style="text-align:center;color:var(--r)">EMERGENCY PROTOCOLS</div>
                 <div class="btn-grid">
                     <button class="btn eject" id="btn-eject">EJECT</button>
                     <button class="btn warn" id="btn-clear-deck">CLEAR</button>
@@ -1124,29 +1058,17 @@ body.shooting-mode #btn-shooting {
         </div>
         
         <div class="section">
-            <div class="sec-head collapsible"><span class="sec-title">IDENTITY</span><span class="sec-arrow">&#x25B8;</span><div class="sec-dot"></div></div>
-            <div class="sec-body" id="identity-body">
-                <input type="text" class="inp" id="bug-text" placeholder="STATION_NAME..." value="VNGRD">
-                <div class="btn-row">
-                    <button class="btn" id="btn-set-station" style="flex:2;">SET BUG</button>
-                    <button class="btn" id="btn-bug-toggle" title="Toggle Bug">[X]</button>
-                </div>
-                <div class="btn-row" style="margin-top:6px;">
-                    <button class="btn" id="btn-upload-2d" style="flex:2;">2D LOGO</button>
-                    <button class="btn" id="btn-2d-x" title="Hide/Clear 2D">[X]</button>
-                </div>
-                <input type="file" id="file-2d-logo" accept=".png,.jpg,.jpeg,.gif,.webp" style="display:none;">
-                <div class="btn-row">
-                    <button class="btn" id="btn-inject-3d" style="flex:2;color:var(--v);border-color:var(--v);">3D MODEL</button>
-                    <button class="btn" id="btn-3d-x" title="HIDE / CLEAR 3D">[X]</button>
-                </div>
-                <input type="file" id="file-3d-model" accept=".stl,.obj,.glb,.gltf,.vgd,.json" style="display:none;">
+            <div class="sec-head"><span class="sec-title">MIDI_HOST</span><div class="sec-dot off" id="midi-dot"></div></div>
+            <div class="sec-body">
+                <button class="btn" id="btn-midi">INIT WEBMIDI</button>
+                <button class="btn" id="btn-midi-learn" style="color:var(--v);border-color:var(--v);">LEARN: OFF</button>
+                <div id="midi-status" style="font-size:8px;color:var(--text-dim);margin-top:4px;">NO MIDI DEVICE</div>
             </div>
         </div>
-
+        
         <div class="section">
-            <div class="sec-head collapsible"><span class="sec-title">LOWER_THIRD</span><span class="sec-arrow">&#x25B8;</span><div class="sec-dot"></div></div>
-            <div class="sec-body" id="lower-third-body">
+            <div class="sec-head"><span class="sec-title">LOWER_THIRD</span><div class="sec-dot"></div></div>
+            <div class="sec-body">
                 <input type="text" class="inp" id="lt-title" placeholder="Title..." value="GUEST NAME">
                 <input type="text" class="inp" id="lt-sub" placeholder="Subtitle..." value="TITLE / ROLE">
                 <div class="btn-grid">
@@ -1159,16 +1081,32 @@ body.shooting-mode #btn-shooting {
         </div>
         
         <div class="section">
-            <div class="sec-head collapsible"><span class="sec-title">MIDI_HOST</span><span class="sec-arrow">&#x25B8;</span><div class="sec-dot off" id="midi-dot"></div></div>
-            <div class="sec-body" id="midi-host-body">
-                <button class="btn" id="btn-midi">INIT WEBMIDI</button>
-                <button class="btn" id="btn-midi-learn" style="color:var(--v);border-color:var(--v);">LEARN: OFF</button>
-                <div id="midi-status" style="font-size:8px;color:var(--text-dim);margin-top:4px;">NO MIDI DEVICE</div>
+            <div class="sec-head"><span class="sec-title">IDENTITY</span><div class="sec-dot"></div></div>
+            <div class="sec-body">
+                <!-- STATION BUG -->
+                <input type="text" class="inp" id="bug-text" placeholder="STATION_NAME..." value="VNGRD">
+                <div class="btn-row">
+                    <button class="btn" id="btn-set-station" style="flex:2;">SET BUG</button>
+                    <button class="btn" id="btn-bug-toggle" title="Toggle Bug">[X]</button>
+                </div>
+                <!-- 2D LOGO -->
+                <div class="btn-row" style="margin-top:6px;">
+                    <button class="btn" id="btn-upload-2d" style="flex:2;">2D LOGO</button>
+                    <button class="btn" id="btn-2d-x" title="Hide/Clear 2D">[X]</button>
+                </div>
+                <input type="file" id="file-2d-logo" accept=".png,.jpg,.jpeg,.gif,.webp" style="display:none;">
+                <!-- 3D HOLOGRAM -->
+                <div class="btn-row">
+                    <button class="btn" id="btn-inject-3d" style="flex:2;color:var(--v);border-color:var(--v);">3D MODEL</button>
+                    <button class="btn" id="btn-3d-x" title="HIDE / CLEAR 3D">[X]</button>
+                </div>
+                <input type="file" id="file-3d-model" accept=".stl,.obj,.glb,.gltf,.vgd,.json" style="display:none;">
+
             </div>
         </div>
     </aside>
 
-        <aside class="sidebar" id="right-panel">
+    <aside class="sidebar" id="right-panel">
         <div class="section">
             <div class="sec-head"><span class="sec-title">AUDIO_ENGINE</span><div class="sec-dot off" id="audio-dot"></div></div>
             <div class="sec-body">
@@ -1176,58 +1114,55 @@ body.shooting-mode #btn-shooting {
                     <div id="vu"></div>
                     <div id="track-info">NO_TRACK</div>
                 </div>
-                <div class="btn-row"><button class="btn" id="btn-audio" style="flex:1;">LOAD_AUDIO</button><button class="btn" id="btn-mute-vid" style="width:32px;font-size:12px;padding:2px;" title="Toggle video audio">&#x1F50A;</button></div>
+                <button class="btn" id="btn-audio">LOAD_AUDIO</button>
                 <div class="audio-ctrl-row">
                     <button class="btn btn-compact" id="btn-prev-track"><svg width="10" height="10" viewBox="0 0 12 12"><path fill="currentColor" d="M2 2h2v8H2zm2 4l6 4V2z"/></svg></button>
                     <button class="btn btn-compact" id="btn-play-pause"><svg width="10" height="10" viewBox="0 0 12 12" id="icon-play-state"><path fill="currentColor" d="M3 2v8l7-4z"/></svg></button>
                     <button class="btn btn-compact" id="btn-next-track"><svg width="10" height="10" viewBox="0 0 12 12"><path fill="currentColor" d="M2 10l6-4-6-4v8zm6-8v8h2V2H8z"/></svg></button>
                 </div>
-                <div class="lbl collapsible-lbl" id="audio-adv-toggle" style="margin-top:6px;cursor:pointer;color:var(--text-dim);font-size:8px;user-select:none;">ADVANCED &#x25B8;</div>
-                <div id="audio-adv-body" style="max-height:0;overflow:hidden;transition:max-height 0.3s ease;">
-                    <div class="lbl" style="margin-top:4px;">INPUT_SIGNAL</div>
-                    <select class="inp" id="audio-input-select" style="width:100%;font-size:9px;padding:5px;background:var(--panel);border:1px solid var(--border);color:var(--text);">
-                        <option value="">SELECT_DEVICE...</option>
-                    </select>
-                    <button class="btn" id="btn-scan-inputs" style="font-size:8px;margin-top:4px;">SCAN_DEVICES</button>
-                    <div id="input-level" style="height:3px;background:var(--border);margin-top:4px;">
-                        <div id="input-level-bar" style="height:100%;width:0%;background:var(--g);transition:width 0.05s;"></div>
-                    </div>
-                    <div class="lbl" style="margin-top:8px;">ENGINEER_MODE</div>
-                    <div class="btn-grid-3">
-                        <button class="btn active-mode" id="btn-stereo">STEREO</button>
-                        <button class="btn" id="btn-spatial">3D_SPATIAL</button>
-                        <button class="btn" id="btn-dolby" style="color:#00f3ff">DOLBY_DSP</button>
-                    </div>
+
+                <div class="lbl" style="margin-top:8px;">INPUT_SIGNAL</div>
+                <select class="inp" id="audio-input-select" style="width:100%;font-size:9px;padding:5px;background:var(--panel);border:1px solid var(--border);color:var(--text);">
+                    <option value="">SELECT_DEVICE...</option>
+                </select>
+                <button class="btn" id="btn-scan-inputs" style="font-size:8px;margin-top:4px;">SCAN_DEVICES</button>
+                <div id="input-level" style="height:3px;background:var(--border);margin-top:4px;">
+                    <div id="input-level-bar" style="height:100%;width:0%;background:var(--g);transition:width 0.05s;"></div>
+                </div>
+
+                <div class="lbl" style="margin-top:8px;">ENGINEER_MODE</div>
+                <div class="btn-grid-3">
+                    <button class="btn active-mode" id="btn-stereo">STEREO</button>
+                    <button class="btn" id="btn-spatial">3D_SPATIAL</button>
+                    <button class="btn" id="btn-dolby" style="color:#00f3ff">DOLBY_DSP</button>
                 </div>
             </div>
         </div>
         
-      <div class="section">
-    <div class="sec-head">
-        <span class="sec-title">FX_MANIPULATOR</span>
-        <div class="sec-dot on"></div>
-    </div>
-    
-    <div class="sec-body">
-        <div class="btn-grid-3">
-            <button class="btn" onclick="toggleFX('scan')">SCAN</button>
-            <button class="btn" onclick="toggleFX('tear')">TEAR</button>
-            <button class="btn" onclick="toggleFX('bloom')">BLOOM</button>
+        <div class="section">
+            <div class="sec-head"><span class="sec-title">PRO_FX</span><div class="sec-dot on"></div></div>
+            <div class="sec-body">
+                <div class="btn-grid-3">
+                    <button class="btn" id="btn-stutter">STUTTER</button>
+                    <button class="btn" id="btn-invert">INVERT</button>
+                    <button class="btn" id="btn-crush">CRUSH</button>
+                </div>
+                <div class="btn-grid-3" style="margin-top:4px;">
+                    <button class="btn" id="btn-trails">TRAILS</button>
+                    <button class="btn" id="btn-rgb">RGB</button>
+                    <button class="btn" id="btn-pixelate">PIXEL</button>
+                </div>
+                <div class="btn-grid-3" style="margin-top:4px;">
+                    <button class="btn" id="btn-vhs">VHS</button>
+                    <button class="btn" id="btn-crt">CRT</button>
+                    <button class="btn" id="btn-reset" style="color:var(--r)">RESET</button>
+                </div>
+                <div class="btn-row" style="margin-top:4px;">
+                    <button class="btn" id="btn-fs">[H] FULL</button>
+                </div>
+            </div>
         </div>
 
-        <div class="btn-grid-3" style="margin-top:4px;">
-            <button class="btn" onclick="toggleFX('chroma')">CHROMA</button>
-            <button class="btn" onclick="toggleFX('punch')">PUNCH</button>
-            <button class="btn" id="btn-vhs" onclick="toggleVHS()">VHS_OVR</button>
-        </div>
-
-        <div class="btn-grid-3" style="margin-top:4px;">
-            <button class="btn" onclick="toggleCRT()">CRT_LINE</button>
-            <button class="btn" onclick="toggleFullscreen()">[H] FULL</button>
-            <button class="btn" onclick="triggerHardReset()" style="color:var(--r)">RESET</button>
-        </div>
-    </div>
-</div>
         <div class="section">
             <div class="sec-head"><span class="sec-title">THEME</span><div class="sec-dot"></div></div>
             <div class="sec-body">
@@ -1242,56 +1177,66 @@ body.shooting-mode #btn-shooting {
             </div>
         </div>
         
-        <div class="section">
-            <div class="sec-head collapsible"><span class="sec-title">SESSION_LAB</span><span class="sec-arrow">&#x25B8;</span><div class="sec-dot"></div></div>
-            <div class="sec-body" id="session-lab-body">
-                <button class="btn rec" id="btn-nft-30">CAPTURE_VGD_CLIP</button>
-                <button class="btn" id="btn-save-session">SAVE_SESSION</button>
-                <button class="btn" id="btn-import-dna">IMPORT_VGD</button>
-                <div class="btn-row">
-                    <button class="btn" id="btn-projector">PROJECTOR</button>
-                    <button class="btn" id="btn-vr" style="color:var(--v)">ENTER_VR</button>
+        <div class="section" id="session-lab-module">
+            <div class="fold-header" data-fold="session-lab-module">
+                <div style="display:flex;align-items:center;gap:0;"><span class="fold-icon">[−]</span><span class="sec-title">SESSION_LAB</span></div>
+                <div class="sec-dot"></div>
+            </div>
+            <div class="fold-content">
+                <div class="sec-body">
+                    <button class="btn rec" id="btn-nft-30">CAPTURE_VGD_CLIP</button>
+                    <button class="btn" id="btn-save-session">SAVE_SESSION</button>
+                    <button class="btn" id="btn-import-dna">IMPORT_VGD</button>
+                    <div class="btn-row">
+                        <button class="btn" id="btn-projector">PROJECTOR</button>
+                        <button class="btn" id="btn-vr" style="color:var(--v)">ENTER_VR</button>
+                    </div>
                 </div>
             </div>
         </div>
         
         <div class="section">
-            <div class="sec-head collapsible"><span class="sec-title">LEXICA_NANO</span><span class="sec-arrow">&#x25B8;</span><div class="sec-dot off" id="neural-dot"></div></div>
-            <div class="sec-body" id="lexica-nano-body">
-                <input type="text" class="inp" id="ai-prompt" placeholder="DESCRIBE_IMAGE..." style="font-size:9px;">
-                <button class="btn" id="btn-generate-ai" style="color:var(--v);border-color:var(--v);">LEXICA GENERATE</button>
-                <div id="ai-status" style="font-size:8px;color:var(--text-dim);margin-top:4px;">LEXICA_API: READY</div>
-            </div>
-        </div>
-
-        <div class="section">
-            <div class="sec-head collapsible"><span class="sec-title">P2P_E2E_CALL</span><span class="sec-arrow">&#x25B8;</span><div class="sec-dot off" id="guest-dot"></div></div>
-            <div class="sec-body" id="p2p-call-body">
-                <div class="lbl" style="font-size:8px;margin-bottom:4px;">YOUR_CALL_ID:</div>
-                <input type="text" class="inp" id="peer-id-display" readonly placeholder="CLICK_INIT_TO_GET_ID..." style="font-size:9px;text-align:center;color:var(--g);">
-                <button class="btn" id="btn-copy-id" style="font-size:8px;margin-bottom:6px;">COPY_ID</button>
-                
-                <div class="lbl" style="font-size:8px;margin-bottom:4px;">GUEST_ID_TO_CALL:</div>
-                <input type="text" class="inp" id="remote-peer-id" placeholder="PASTE_GUEST_ID..." style="font-size:9px;">
-                
-                <div class="btn-row" style="margin-top:6px;">
-                    <button class="btn" id="btn-init-peer" style="color:var(--g)">INIT</button>
-                    <button class="btn" id="btn-call-guest" style="color:var(--c)">CALL</button>
-                </div>
-                <button class="btn" id="btn-hangup" style="color:var(--r);border-color:var(--r);">END_CALL</button>
-                <div id="call-status" style="font-size:8px;color:var(--text-dim);margin-top:4px;text-align:center;">NOT_CONNECTED</div>
-            </div>
-        </div>
-
-        <div class="section">
-            <div class="sec-head collapsible"><span class="sec-title">NFT_VAULT</span><span class="sec-arrow">&#x25B8;</span><div class="sec-dot off" id="vault-dot"></div></div>
-            <div class="sec-body" id="nft-vault-body">
+            <div class="sec-head"><span class="sec-title">NFT_VAULT</span><div class="sec-dot off" id="vault-dot"></div></div>
+            <div class="sec-body">
                 <input type="text" class="inp" id="tezos-addr" placeholder="tz1... TEZOS ADDRESS (OPTIONAL)" style="font-size:7px;margin-bottom:4px;padding:3px 4px;">
                 <button class="btn" id="btn-scan-nfts" style="font-size:8px;">SCAN_WALLET_ASSETS</button>
                 <div id="nft-vault-list" style="max-height:60px;overflow-y:auto;font-size:8px;color:var(--text-dim);margin-top:4px;">
                     CONNECT_WALLET_FIRST
                 </div>
                 <div id="nft-count" style="font-size:8px;color:var(--accent);margin-top:4px;">ASSETS: 0</div>
+            </div>
+        </div>
+        
+        <div class="section">
+            <div class="sec-head"><span class="sec-title">LEXICA_NANO</span><div class="sec-dot off" id="neural-dot"></div></div>
+            <div class="sec-body">
+                <input type="text" class="inp" id="ai-prompt" placeholder="DESCRIBE_IMAGE..." style="font-size:9px;">
+                <button class="btn" id="btn-generate-ai" style="color:var(--v);border-color:var(--v);">LEXICA GENERATE</button>
+                <div id="ai-status" style="font-size:8px;color:var(--text-dim);margin-top:4px;">LEXICA_API: READY</div>
+            </div>
+        </div>
+        
+        <div class="section" id="p2p-call-module">
+            <div class="fold-header" data-fold="p2p-call-module">
+                <div style="display:flex;align-items:center;gap:0;"><span class="fold-icon">[+]</span><span class="sec-title">P2P_E2E_CALL</span></div>
+                <div class="sec-dot off" id="guest-dot"></div>
+            </div>
+            <div class="fold-content hidden">
+                <div class="sec-body">
+                    <div class="lbl" style="font-size:8px;margin-bottom:4px;">YOUR_CALL_ID:</div>
+                    <input type="text" class="inp" id="peer-id-display" readonly placeholder="CLICK_INIT_TO_GET_ID..." style="font-size:9px;text-align:center;color:var(--g);">
+                    <button class="btn" id="btn-copy-id" style="font-size:8px;margin-bottom:6px;">COPY_ID</button>
+
+                    <div class="lbl" style="font-size:8px;margin-bottom:4px;">GUEST_ID_TO_CALL:</div>
+                    <input type="text" class="inp" id="remote-peer-id" placeholder="PASTE_GUEST_ID..." style="font-size:9px;">
+
+                    <div class="btn-row" style="margin-top:6px;">
+                        <button class="btn" id="btn-init-peer" style="color:var(--g)">INIT</button>
+                        <button class="btn" id="btn-call-guest" style="color:var(--c)">CALL</button>
+                    </div>
+                    <button class="btn" id="btn-hangup" style="color:var(--r);border-color:var(--r);">END_CALL</button>
+                    <div id="call-status" style="font-size:8px;color:var(--text-dim);margin-top:4px;text-align:center;">NOT_CONNECTED</div>
+                </div>
             </div>
         </div>
     </aside>
@@ -1330,7 +1275,7 @@ body.shooting-mode #btn-shooting {
     <input type="file" id="file-vgd" accept=".vgd,.json">
     <audio id="audio-el"></audio>
     <div id="media-container" style="display:none;"></div>
-    <div id="gif-host" style="position:fixed;top:0;left:0;width:10px;height:10px;z-index:-1;opacity:0.01;pointer-events:none;overflow:hidden;"></div>
+    <div id="gif-host" style="position:fixed;bottom:0;left:0;width:1px;height:1px;opacity:1;pointer-events:none;overflow:hidden;"></div>
 
 <script>
 const $ = id => document.getElementById(id);
@@ -1399,7 +1344,7 @@ const APP = {
     },
     media: { queue: [], currentIndex: -1, currentElement: null },
     fx: { stutter: false, crush: false, invert: false, echo: false, rgbSplit: 0, freezeFrame: null },
-    audio: { ctx: null, analyzer: null, source: null, element: null, playlist: [], currentTrack: -1, currentTrackName: '', bassLevel: 0, vuData: new Uint8Array(32), isPlaying: false, isConnected: false, videoSource: null, videoMuted: false, spatialMode: 'stereo', panner: null, compressor: null, masterGain: null, lowShelf: null, highShelf: null, spatialInterval: null },
+    audio: { ctx: null, analyzer: null, source: null, element: null, playlist: [], currentTrack: -1, currentTrackName: '', bassLevel: 0, vuData: new Uint8Array(32), isPlaying: false, isConnected: false, spatialMode: 'stereo', panner: null, compressor: null, masterGain: null, lowShelf: null, highShelf: null, spatialInterval: null },
     projector: { window: null, stream: null, isOpen: false },
     nft: { recorder: null, chunks: [], isRecording: false, startTime: 0, duration: 30000, dnaSnapshot: null, audioDest: null },
     broadcast: { recorder: null, chunks: [], isRecording: false },
@@ -1881,9 +1826,17 @@ function summonNFTByIndex(index) {
 
     // Inject into media queue as a new item
     var item = { type: 'image', url: asset.imageUrl || '', element: asset.image, name: 'NFT_' + (asset.name || index) };
-    // Append to gif-host at natural size (off-screen) for GIF animation
+    // Append to gif-host at 512x512 — forces compositor to render GIF frames
     var host = $('gif-host');
-    if (host && !asset.image.parentNode) host.appendChild(asset.image);
+    if (host && !asset.image.parentNode) {
+        asset.image.style.display = 'block';
+        asset.image.style.position = 'absolute';
+        asset.image.style.width = '512px';
+        asset.image.style.height = '512px';
+        asset.image.style.top = '0';
+        asset.image.style.left = '0';
+        host.appendChild(asset.image);
+    }
 
     APP.media.queue.push(item);
     if (APP.media.currentElement?.tagName === 'VIDEO') APP.media.currentElement.pause();
@@ -1923,7 +1876,7 @@ function renderLoop(timestamp) {
     // --- SEISMIC ENGINE (Random shake on bass - OFF by default) ---
     let finalShakeX = 0, finalShakeY = 0;
     
-    if (APP.vj.rumbleEnabled && (APP.audio.isPlaying || APP.audio.videoSource) && APP.audio.bassLevel > 150) {
+    if (APP.vj.rumbleEnabled && APP.audio.isPlaying && APP.audio.bassLevel > 150) {
         // Classic random shake on bass hits (like v22.1)
         const intensity = (APP.audio.bassLevel - 150) / 100 * 8;
         finalShakeX = (Math.random() - 0.5) * intensity;
@@ -2441,19 +2394,22 @@ if ($('file-2d-logo')) {
                 // display:block BEFORE src — triggers GIF animation on load
                 logoLayer.style.display = 'block';
                 logoLayer.src = url;
-                // ON-SCREEN behind canvas at 10px — browser composites = GIF frames advance
+                // 512x512 behind canvas — forces compositor to render GIF frames at full speed
                 logoLayer.style.position = 'fixed';
                 logoLayer.style.bottom = '0';
                 logoLayer.style.left = '0';
-                logoLayer.style.width = '10px';
-                logoLayer.style.height = '10px';
+                logoLayer.style.width = '512px';
+                logoLayer.style.height = '512px';
                 logoLayer.style.opacity = '0.01';
                 logoLayer.style.pointerEvents = 'none';
                 logoLayer.style.zIndex = '-1';
                 logoLayer.style.objectFit = 'cover';
+                logoLayer.style.filter = 'none';
                 logoLayer.style.background = 'transparent';
                 logoLayer.style.border = 'none';
                 logoLayer.style.boxShadow = 'none';
+                logoLayer.style.maxWidth = 'none';
+                logoLayer.style.maxHeight = 'none';
             }
             APP.trinity.logo.visible = true;
             log('2D_LOGO: ' + file.name.toUpperCase());
@@ -2497,11 +2453,17 @@ function loadMediaFiles(input) {
             const vid = document.createElement('video'); vid.src = url; vid.muted = true; vid.loop = !APP.state.isCycle; vid.playsInline = true; vid.preload = 'auto'; item.element = vid; $('media-container').appendChild(vid);
         } else {
             // createObjectURL = native blob ref for GIF animation.
-            // gif-host is ON-SCREEN (10px, behind canvas, overflow:hidden, opacity:0.01).
-            // Browser composites the image = decoder advances GIF frames.
+            // gif-host is ON-SCREEN (512px, behind canvas, opacity:0.01).
+            // 512x512 forces the compositor to render every frame at full speed.
             // drawImage() reads intrinsic naturalWidth x naturalHeight for full quality.
             const img = new Image();
             img.crossOrigin = 'anonymous';
+            img.style.display = 'block';
+            img.style.position = 'absolute';
+            img.style.width = '512px';
+            img.style.height = '512px';
+            img.style.top = '0';
+            img.style.left = '0';
             img.src = url;
             item.element = img;
             var host = $('gif-host');
@@ -2513,96 +2475,29 @@ function loadMediaFiles(input) {
     updateQueueDisplay(); $('media-dot').classList.remove('off'); log(`MEDIA: +${input.files.length}`);
 }
 
-
-function ensureAudioChain() {
-    if (APP.audio.analyzer) return;
-    if (!APP.audio.ctx) APP.audio.ctx = new (window.AudioContext || window.webkitAudioContext)();
-    var ctx = APP.audio.ctx;
-    APP.audio.analyzer = ctx.createAnalyser();
-    APP.audio.analyzer.fftSize = 64;
-    APP.audio.panner = ctx.createPanner();
-    APP.audio.panner.panningModel = 'HRTF';
-    APP.audio.panner.distanceModel = 'inverse';
-    APP.audio.masterGain = ctx.createGain();
-    APP.audio.masterGain.gain.value = 0.9;
-    APP.audio.lowShelf = ctx.createBiquadFilter();
-    APP.audio.lowShelf.type = 'lowshelf'; APP.audio.lowShelf.frequency.value = 60; APP.audio.lowShelf.gain.value = 0;
-    APP.audio.highShelf = ctx.createBiquadFilter();
-    APP.audio.highShelf.type = 'highshelf'; APP.audio.highShelf.frequency.value = 12000; APP.audio.highShelf.gain.value = 0;
-    APP.audio.compressor = ctx.createDynamicsCompressor();
-    APP.audio.compressor.threshold.value = -24; APP.audio.compressor.knee.value = 30; APP.audio.compressor.ratio.value = 1;
-    APP.audio.outputLimiter = ctx.createDynamicsCompressor();
-    APP.audio.outputLimiter.threshold.setValueAtTime(-1, ctx.currentTime);
-    APP.audio.outputLimiter.knee.setValueAtTime(0, ctx.currentTime);
-    APP.audio.outputLimiter.ratio.setValueAtTime(20, ctx.currentTime);
-    APP.audio.outputLimiter.attack.setValueAtTime(0.001, ctx.currentTime);
-    APP.audio.outputLimiter.release.setValueAtTime(0.1, ctx.currentTime);
-    APP.audio.duckingGain = ctx.createGain();
-    APP.audio.duckingGain.gain.setValueAtTime(1.0, ctx.currentTime);
-    APP.audio.stereoGain = ctx.createGain();
-    APP.audio.stereoGain.gain.setValueAtTime(1.0, ctx.currentTime);
-    APP.audio.dolbyPanner = ctx.createPanner();
-    APP.audio.dolbyPanner.panningModel = 'HRTF'; APP.audio.dolbyPanner.distanceModel = 'inverse'; APP.audio.dolbyPanner.refDistance = 1;
-    if (APP.audio.dolbyPanner.positionX) { APP.audio.dolbyPanner.positionX.setValueAtTime(0, ctx.currentTime); APP.audio.dolbyPanner.positionY.setValueAtTime(5, ctx.currentTime); APP.audio.dolbyPanner.positionZ.setValueAtTime(-2, ctx.currentTime); }
-    try { APP.audio.surroundSplitter = ctx.createChannelSplitter(6); APP.audio.surroundMerger = ctx.createChannelMerger(6); } catch(e) {}
-    APP.audio.micAnalyzer = ctx.createAnalyser(); APP.audio.micAnalyzer.fftSize = 256;
-    APP.audio.panner.connect(APP.audio.lowShelf).connect(APP.audio.highShelf).connect(APP.audio.compressor).connect(APP.audio.duckingGain).connect(APP.audio.analyzer).connect(APP.audio.masterGain).connect(APP.audio.outputLimiter).connect(ctx.destination);
-    APP.audio.masterGain.connect(APP.audio.stereoGain);
-    APP.audio.dolbyPanner.connect(APP.audio.outputLimiter);
-    APP.audio.vuData = new Uint8Array(APP.audio.analyzer.frequencyBinCount);
-    updateVU();
-    log('DAW_CHAIN_READY');
-}
-
-function connectVideoAudio(vid) {
-    if (!vid || vid.tagName !== 'VIDEO') return;
-    try {
-        if (!APP.audio.ctx) APP.audio.ctx = new (window.AudioContext || window.webkitAudioContext)();
-        if (APP.audio.ctx.state === 'suspended') APP.audio.ctx.resume();
-        ensureAudioChain();
-        disconnectVideoAudio();
-        if (!vid._audioSrc) vid._audioSrc = APP.audio.ctx.createMediaElementSource(vid);
-        vid.muted = APP.audio.videoMuted;
-        vid._audioSrc.connect(APP.audio.panner);
-        vid._audioSrc.connect(APP.audio.dolbyPanner);
-        APP.audio.videoSource = vid;
-        $('btn-mute-vid').textContent = APP.audio.videoMuted ? '\u{1F507}' : '\u{1F50A}';
-        if (APP.audio.videoMuted) $('btn-mute-vid').classList.add('on'); else $('btn-mute-vid').classList.remove('on');
-        log('VIDEO_AUDIO: ' + (APP.audio.videoMuted ? 'MUTED' : 'ON'));
-    } catch (e) { log('VIDEO_AUDIO_ERR: ' + e.message); }
-}
-
-function disconnectVideoAudio() {
-    var vid = APP.audio.videoSource;
-    if (!vid) return;
-    try { if (vid._audioSrc) vid._audioSrc.disconnect(); vid.muted = true; } catch(e) {}
-    APP.audio.videoSource = null;
-}
-
-
 function rotateMedia() {
     if (APP.media.queue.length === 0) return;
     APP.render.source = null; // Clear override so queue takes priority
     APP.vj.glitchSnap = 3;
-    if (APP.media.currentElement?.tagName === 'VIDEO') APP.media.currentElement.pause(); disconnectVideoAudio();
+    if (APP.media.currentElement?.tagName === 'VIDEO') APP.media.currentElement.pause();
     APP.media.currentIndex = (APP.media.currentIndex + 1) % APP.media.queue.length;
     const item = APP.media.queue[APP.media.currentIndex];
     // Guard: skip items still loading (async FileReader not done yet)
     if (!item.element) { APP.media.currentElement = null; return; }
     APP.media.currentElement = item.element;
-    if (item.type === 'video') { item.element.loop = !APP.state.isCycle; item.element.currentTime = 0; item.element.play().catch(() => {});  connectVideoAudio(item.element); }
+    if (item.type === 'video') { item.element.loop = !APP.state.isCycle; item.element.currentTime = 0; item.element.play().catch(() => {}); }
     checkCycleLogic();
 }
 
 function previousMedia() {
     if (APP.media.queue.length === 0) return;
     APP.vj.glitchSnap = 3;
-    if (APP.media.currentElement?.tagName === 'VIDEO') APP.media.currentElement.pause(); disconnectVideoAudio();
+    if (APP.media.currentElement?.tagName === 'VIDEO') APP.media.currentElement.pause();
     APP.media.currentIndex = (APP.media.currentIndex - 1 + APP.media.queue.length) % APP.media.queue.length;
     const item = APP.media.queue[APP.media.currentIndex];
     if (!item.element) { APP.media.currentElement = null; return; }
     APP.media.currentElement = item.element;
-    if (item.type === 'video') { item.element.loop = !APP.state.isCycle; item.element.currentTime = 0; item.element.play().catch(() => {});  connectVideoAudio(item.element); }
+    if (item.type === 'video') { item.element.loop = !APP.state.isCycle; item.element.currentTime = 0; item.element.play().catch(() => {}); }
     checkCycleLogic();
 }
 
@@ -2610,7 +2505,7 @@ function ejectCurrent() {
     if (APP.media.queue.length === 0) return;
     APP.render.source = null; // Clear any override
     const current = APP.media.queue[APP.media.currentIndex];
-    if (current.element?.tagName === 'VIDEO') { disconnectVideoAudio(); current.element.pause(); current.element.src = ''; current.element.remove(); }
+    if (current.element?.tagName === 'VIDEO') { current.element.pause(); current.element.src = ''; current.element.remove(); }
     if (current.element?.tagName === 'IMG' && current.element.parentNode) { current.element.remove(); }
     if (current.url) URL.revokeObjectURL(current.url);
     APP.media.queue.splice(APP.media.currentIndex, 1);
@@ -2804,7 +2699,7 @@ function hideLowerThird() { $('lower-third').classList.remove('visible'); APP.lo
 
 // AUDIO ENGINEER IMPLEMENTATION
 APP.audio.element = $('audio-el');
-function loadAudioFiles(input) { Array.from(input.files).forEach(file => { APP.audio.playlist.push({ url: URL.createObjectURL(file), name: file.name.replace(/\.[^.]+$/, '') }); }); $('audio-dot').classList.remove('off'); if (!APP.audio.isPlaying && APP.audio.playlist.length) { disconnectVideoAudio(); playTrack(0); } log(`AUDIO: +${input.files.length}`); }
+function loadAudioFiles(input) { Array.from(input.files).forEach(file => { APP.audio.playlist.push({ url: URL.createObjectURL(file), name: file.name.replace(/\.[^.]+$/, '') }); }); $('audio-dot').classList.remove('off'); if (!APP.audio.isPlaying && APP.audio.playlist.length) playTrack(0); log(`AUDIO: +${input.files.length}`); }
 
 function playTrack(idx) {
     if (!APP.audio.playlist.length) return;
@@ -2990,7 +2885,7 @@ function setAudioMode(mode) {
 
 function updateVU() {
     requestAnimationFrame(updateVU);
-    if (!APP.audio.analyzer || !APP.audio.isPlaying && !APP.audio.videoSource) return;
+    if (!APP.audio.analyzer || !APP.audio.isPlaying) return;
     APP.audio.analyzer.getByteFrequencyData(APP.audio.vuData);
     const bars = $('vu').children; 
     if(bars.length === 0) { const vu = $('vu'); for (let i = 0; i < 16; i++) { const bar = document.createElement('div'); bar.className = 'vu-bar'; vu.appendChild(bar); } }
@@ -3082,11 +2977,15 @@ $('file-vgd').onchange = (e) => {
                     logoLayer.style.position = 'fixed';
                     logoLayer.style.bottom = '0';
                     logoLayer.style.left = '0';
-                    logoLayer.style.width = '10px';
-                    logoLayer.style.height = '10px';
+                    logoLayer.style.width = '512px';
+                    logoLayer.style.height = '512px';
                     logoLayer.style.opacity = '0.01';
                     logoLayer.style.zIndex = '-1';
                     logoLayer.style.objectFit = 'cover';
+                    logoLayer.style.filter = 'none';
+                    logoLayer.style.maxWidth = 'none';
+                    logoLayer.style.maxHeight = 'none';
+                    logoLayer.style.pointerEvents = 'none';
                     logoLayer.src = s.logo2d;
                     APP.trinity.logo.visible = true;
                     log('2D_LOGO: RESTORED_FROM_VGD');
@@ -3140,7 +3039,7 @@ function loadFromMemory() {
         if (s.logo2d) {
             if (isValidDataURI(s.logo2d)) {
                 var _ll = $('user-logo-layer');
-                if (_ll) { _ll.style.display = 'block'; _ll.style.position = 'fixed'; _ll.style.bottom = '0'; _ll.style.left = '0'; _ll.style.width = '10px'; _ll.style.height = '10px'; _ll.style.opacity = '0.01'; _ll.style.zIndex = '-1'; _ll.style.objectFit = 'cover'; _ll.src = s.logo2d; APP.trinity.logo.visible = true; }
+                if (_ll) { _ll.style.display = 'block'; _ll.style.position = 'fixed'; _ll.style.bottom = '0'; _ll.style.left = '0'; _ll.style.width = '512px'; _ll.style.height = '512px'; _ll.style.opacity = '0.01'; _ll.style.zIndex = '-1'; _ll.style.objectFit = 'cover'; _ll.style.filter = 'none'; _ll.style.maxWidth = 'none'; _ll.style.maxHeight = 'none'; _ll.style.pointerEvents = 'none'; _ll.src = s.logo2d; APP.trinity.logo.visible = true; }
             } else {
                 // Corrupt logo data — purge it from the saved session
                 log('MEMORY: CORRUPT_LOGO_PURGED');
@@ -3637,18 +3536,21 @@ document.addEventListener('DOMContentLoaded', () => {
     var _sb = $('station-bug'); if (_sb) _sb.style.opacity = '0';
     // GIF ANIMATION FIX: user-logo-layer must be ON-SCREEN and composited
     // by the browser for frame advancement. Position behind canvas (z-index:-1)
-    // at bottom-left, 10px visible footprint. drawImage() reads current frame.
+    // at bottom-left, 512px footprint. Forces compositor to render GIF frames.
     var _ul = $('user-logo-layer');
     if (_ul) {
         _ul.style.position = 'fixed';
         _ul.style.bottom = '0';
         _ul.style.left = '0';
-        _ul.style.width = '10px';
-        _ul.style.height = '10px';
+        _ul.style.width = '512px';
+        _ul.style.height = '512px';
         _ul.style.opacity = '0.01';
         _ul.style.pointerEvents = 'none';
         _ul.style.zIndex = '-1';
         _ul.style.objectFit = 'cover';
+        _ul.style.filter = 'none';
+        _ul.style.maxWidth = 'none';
+        _ul.style.maxHeight = 'none';
     }
     
     requestAnimationFrame(renderLoop);
@@ -3723,15 +3625,6 @@ document.addEventListener('DOMContentLoaded', () => {
     $('lt-title').oninput = e => { if (APP.lowerThird.visible) $('lt-title-text').textContent = e.target.value; };
     $('lt-sub').oninput = e => { if (APP.lowerThird.visible) $('lt-subtitle-text').textContent = e.target.value; };
     $('btn-audio').onclick = () => $('file-audio').click(); $('file-audio').onchange = e => loadAudioFiles(e.target);
-
-    $('btn-mute-vid').onclick = () => {
-        APP.audio.videoMuted = !APP.audio.videoMuted;
-        var vid = APP.audio.videoSource;
-        if (vid) { vid.muted = APP.audio.videoMuted; }
-        $('btn-mute-vid').textContent = APP.audio.videoMuted ? '\u{1F507}' : '\u{1F50A}';
-        if (APP.audio.videoMuted) $('btn-mute-vid').classList.add('on'); else $('btn-mute-vid').classList.remove('on');
-        log('VIDEO_MUTE: ' + (APP.audio.videoMuted ? 'ON' : 'OFF'));
-    };
     
     // NEW COMPACT AUDIO
     $('btn-next-track').onclick = nextTrack; 
@@ -3889,16 +3782,19 @@ document.addEventListener('DOMContentLoaded', () => {
             // display:block before src — triggers GIF animation on load
             img.style.display = 'block';
             img.src = url;
-            // ON-SCREEN behind canvas — browser composites = GIF frames advance
+            // 512x512 behind canvas — forces compositor to render GIF frames at full speed
             img.style.position = 'fixed';
             img.style.bottom = '0';
             img.style.left = '0';
-            img.style.width = '10px';
-            img.style.height = '10px';
+            img.style.width = '512px';
+            img.style.height = '512px';
             img.style.opacity = '0.01';
             img.style.pointerEvents = 'none';
             img.style.zIndex = '-1';
             img.style.objectFit = 'cover';
+            img.style.filter = 'none';
+            img.style.maxWidth = 'none';
+            img.style.maxHeight = 'none';
             APP.trinity.logo.visible = true;
             log('IDENTITY_LAYER_LOADED');
         }
@@ -4778,227 +4674,172 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     };
 
-    // --- P2P / E2E CALL (FIXED) ---
-
-// Helper to reset buttons to default state
-const resetP2PButtons = () => {
-    $('btn-call-guest').textContent = 'CALL';
-    $('btn-call-guest').style.borderColor = 'var(--text-main)';
-    $('btn-call-guest').style.color = 'var(--text-main)';
-    
-    $('btn-init-peer').textContent = 'INIT';
-    $('btn-init-peer').style.display = 'inline-block';
-    
-    // Clear the temp incoming call object
-    if (APP.peer) APP.peer.incomingCall = null;
-};
-
-$('btn-init-peer').onclick = () => {
-    if (APP.peer && APP.peer.peer) {
-        log('PEER: Already initialized');
-        return;
-    }
-    
-    try {
-        const peerId = 'VNGRD-' + Math.random().toString(36).substr(2, 8).toUpperCase();
-        APP.peer = {
-            peer: new Peer(peerId),
-            call: null,
-            incomingCall: null, // Staging area for ringing calls
-            localStream: null
-        };
+    // --- P2P / E2E CALL ---
+    $('btn-init-peer').onclick = () => {
+        if (APP.peer && APP.peer.peer) {
+            log('PEER: Already initialized');
+            return;
+        }
         
-        APP.peer.peer.on('open', (id) => {
-            $('peer-id-display').value = id;
-            if ($('guest-dot')) $('guest-dot').classList.remove('off');
-            $('call-status').textContent = 'READY TO CALL';
-            $('call-status').style.color = 'var(--g)';
-            log('PEER: ' + id);
-        });
-        
-        APP.peer.peer.on('error', (err) => {
-            log('PEER ERROR: ' + err.type);
-            $('call-status').textContent = 'ERR: ' + err.type;
-            $('call-status').style.color = 'var(--r)';
-        });
-        
-        // --- INCOMING CALL HANDLER (Non-Blocking) ---
-        APP.peer.peer.on('call', (call) => {
-            log('INCOMING_CALL FROM ' + call.peer);
-            
-            // 1. Store the call object but DO NOT answer yet
-            APP.peer.incomingCall = call;
-            
-            // 2. Update UI to "Ringing" Mode
-            $('call-status').textContent = 'RINGING... (' + call.peer + ')';
-            $('call-status').style.color = 'var(--y)'; // Yellow for caution
-            
-            // 3. Turn the "CALL" button into an "ACCEPT" button
-            const btnCall = $('btn-call-guest');
-            btnCall.textContent = 'ACCEPT CALL';
-            btnCall.style.borderColor = 'var(--g)';
-            btnCall.style.color = 'var(--g)';
-            
-            // 4. Play a ring sound if you have one (optional)
-            // new Audio('assets/ring.mp3').play().catch(e => {});
-        });
-        
-    } catch (e) {
-        log('PEER INIT ERROR: ' + e.message);
-    }
-};
-
-$('btn-copy-id').onclick = () => {
-    const idField = $('peer-id-display');
-    if (idField && idField.value) {
-        navigator.clipboard.writeText(idField.value);
-        const originalText = $('btn-copy-id').textContent;
-        $('btn-copy-id').textContent = '✓ COPIED';
-        setTimeout(() => $('btn-copy-id').textContent = originalText, 2000);
-    }
-};
-
-// --- UNIFIED CALL / ANSWER BUTTON ---
-$('btn-call-guest').onclick = async () => {
-    if (!APP.peer || !APP.peer.peer) {
-        alert('CLICK_INIT_FIRST');
-        return;
-    }
-
-    // SCENARIO A: ANSWERING AN INCOMING CALL
-    if (APP.peer.incomingCall) {
         try {
-            log('ANSWERING CALL...');
-            $('call-status').textContent = 'CONNECTING...';
+            const peerId = 'VNGRD-' + Math.random().toString(36).substr(2, 8).toUpperCase();
+            APP.peer = {
+                peer: new Peer(peerId),
+                call: null,
+                localStream: null
+            };
             
-            // 1. Get Local Media (Now allowed because user clicked button)
+            APP.peer.peer.on('open', (id) => {
+                $('peer-id-display').value = id;
+                $('guest-dot').classList.remove('off');
+                $('call-status').textContent = 'Ready to call';
+                $('call-status').style.color = 'var(--g)';
+                log('PEER: ' + id);
+            });
+            
+            APP.peer.peer.on('error', (err) => {
+                log('PEER ERROR: ' + err.type);
+                $('call-status').textContent = 'Error: ' + err.type;
+                $('call-status').style.color = 'var(--r)';
+            });
+            
+            // Handle incoming calls - FIXED: Use selected INPUT_SIGNAL deviceId
+            APP.peer.peer.on('call', async (call) => {
+                log('INCOMING_CALL FROM ' + call.peer);
+                $('call-status').textContent = 'INCOMING_CALL...';
+                
+                if (confirm('INCOMING_CALL FROM ' + call.peer + '. ACCEPT?')) {
+                    try {
+                        // Use selected audio input device if available
+                        const audioConstraints = APP.inputDevices.selectedId 
+                            ? { deviceId: { exact: APP.inputDevices.selectedId } }
+                            : true;
+                        
+                        const stream = await navigator.mediaDevices.getUserMedia({ 
+                            video: true, 
+                            audio: audioConstraints 
+                        });
+                        APP.peer.localStream = stream;
+                        call.answer(stream);
+                        
+                        call.on('stream', (remoteStream) => {
+                            if (!APP.guest.videoElement) {
+                                APP.guest.videoElement = document.createElement('video');
+                                APP.guest.videoElement.autoplay = true;
+                                APP.guest.videoElement.playsInline = true;
+                                APP.guest.videoElement.muted = false;
+                            }
+                            APP.guest.videoElement.srcObject = remoteStream;
+                            APP.guest.stream = remoteStream;
+                            APP.guest.isActive = true;
+                            
+                            $('call-status').textContent = 'IN_CALL: ' + call.peer;
+                            $('call-status').style.color = 'var(--g)';
+                            log('CALL_CONNECTED');
+                        });
+                        
+                        APP.peer.call = call;
+                    } catch (e) {
+                        log('MEDIA ERROR: ' + e.message);
+                    }
+                } else {
+                    log('CALL REJECTED');
+                }
+            });
+            
+        } catch (e) {
+            log('PEER INIT ERROR: ' + e.message);
+        }
+    };
+    
+    $('btn-copy-id').onclick = () => {
+        const id = $('peer-id-display').value;
+        if (id) {
+            navigator.clipboard.writeText(id);
+            $('btn-copy-id').textContent = '✓ COPIED';
+            setTimeout(() => $('btn-copy-id').textContent = 'COPY_ID', 2000);
+        }
+    };
+    
+    $('btn-call-guest').onclick = async () => {
+        if (!APP.peer || !APP.peer.peer) {
+            alert('CLICK_INIT_FIRST');
+            return;
+        }
+        
+        const remoteId = $('remote-peer-id').value.trim();
+        if (!remoteId) {
+            alert('ENTER_GUEST_ID_TO_CALL');
+            return;
+        }
+        
+        try {
+            $('call-status').textContent = 'CALLING...';
+            $('call-status').style.color = 'var(--y)';
+            
+            // Use selected audio input device if available
             const audioConstraints = APP.inputDevices.selectedId 
-                ? { deviceId: { exact: APP.inputDevices.selectedId } } 
+                ? { deviceId: { exact: APP.inputDevices.selectedId } }
                 : true;
-
+            
             const stream = await navigator.mediaDevices.getUserMedia({ 
                 video: true, 
                 audio: audioConstraints 
             });
-            
             APP.peer.localStream = stream;
             
-            // 2. Answer the staged call
-            const call = APP.peer.incomingCall;
-            call.answer(stream);
+            const call = APP.peer.peer.call(remoteId, stream);
             
-            // 3. Handle the stream when it arrives
-            handleCallStream(call);
+            call.on('stream', (remoteStream) => {
+                if (!APP.guest.videoElement) {
+                    APP.guest.videoElement = document.createElement('video');
+                    APP.guest.videoElement.autoplay = true;
+                    APP.guest.videoElement.playsInline = true;
+                }
+                APP.guest.videoElement.srcObject = remoteStream;
+                APP.guest.stream = remoteStream;
+                APP.guest.isActive = true;
+                
+                $('call-status').textContent = 'CONNECTED: ' + remoteId;
+                $('call-status').style.color = 'var(--g)';
+                log('CALL_CONNECTED: ' + remoteId);
+            });
             
-            // 4. Cleanup UI
-            APP.peer.incomingCall = null; // Clear staging
+            call.on('close', () => {
+                log('CALL_ENDED');
+                $('call-status').textContent = 'CALL_ENDED';
+                APP.guest.isActive = false;
+            });
+            
+            call.on('error', (err) => {
+                log('CALL_ERROR: ' + err);
+                $('call-status').textContent = 'CALL_FAILED';
+                $('call-status').style.color = 'var(--r)';
+            });
+            
+            APP.peer.call = call;
             
         } catch (e) {
-            log('ANSWER ERROR: ' + e.message);
-            resetP2PButtons();
+            log('CALL_ERROR: ' + e.message);
+            $('call-status').textContent = 'FAILED: ' + e.message;
+            $('call-status').style.color = 'var(--r)';
         }
-        return;
-    }
-
-    // SCENARIO B: MAKING A NEW CALL
-    const remoteId = $('remote-peer-id').value.trim();
-    if (!remoteId) {
-        alert('ENTER_GUEST_ID_TO_CALL');
-        return;
-    }
+    };
     
-    try {
-        $('call-status').textContent = 'CALLING...';
-        $('call-status').style.color = 'var(--y)';
-        
-        const audioConstraints = APP.inputDevices.selectedId 
-            ? { deviceId: { exact: APP.inputDevices.selectedId } } 
-            : true;
-        
-        const stream = await navigator.mediaDevices.getUserMedia({ 
-            video: true, 
-            audio: audioConstraints 
-        });
-        APP.peer.localStream = stream;
-        
-        const call = APP.peer.peer.call(remoteId, stream);
-        handleCallStream(call);
-        
-    } catch (e) {
-        log('CALL_ERROR: ' + e.message);
-        $('call-status').textContent = 'FAILED: ' + e.message;
-        $('call-status').style.color = 'var(--r)';
-    }
-};
-
-// Shared Logic for both Incoming and Outgoing calls
-function handleCallStream(call) {
-    call.on('stream', (remoteStream) => {
-        // Ensure Video Element Exists
-        if (!APP.guest.videoElement) {
-            APP.guest.videoElement = document.createElement('video');
-            APP.guest.videoElement.autoplay = true;
-            APP.guest.videoElement.playsInline = true;
-            // Optionally append to DOM if not already handled elsewhere
-            // document.body.appendChild(APP.guest.videoElement); 
+    $('btn-hangup').onclick = () => {
+        if (APP.peer && APP.peer.call) {
+            APP.peer.call.close();
         }
-        
-        APP.guest.videoElement.srcObject = remoteStream;
-        APP.guest.stream = remoteStream;
-        APP.guest.isActive = true;
-        
-        // If you have the DAW Audio Chain logic:
-        // if (typeof connectVideoAudio === 'function') connectVideoAudio(APP.guest.videoElement);
+        if (APP.peer && APP.peer.localStream) {
+            APP.peer.localStream.getTracks().forEach(t => t.stop());
+        }
+        APP.guest.isActive = false;
+        APP.guest.stream = null;
+        $('call-status').textContent = 'DISCONNECTED';
+        $('call-status').style.color = 'var(--text-dim)';
+        log('CALL_ENDED');
+    };
 
-        $('call-status').textContent = 'CONNECTED';
-        $('call-status').style.color = 'var(--g)';
-        
-        // Reset button to "CALL" state (or change to "MUTE" if you prefer)
-        $('btn-call-guest').textContent = 'CALL (ACTIVE)';
-        
-        log('CALL_ESTABLISHED_WITH: ' + call.peer);
-    });
-    
-    call.on('close', () => {
-        endCallCleanup();
-    });
-    
-    call.on('error', (err) => {
-        log('CALL_ERROR: ' + err);
-        endCallCleanup();
-    });
-    
-    APP.peer.call = call;
-}
-
-$('btn-hangup').onclick = () => {
-    if (APP.peer && APP.peer.call) {
-        APP.peer.call.close();
-    }
-    // Also reject if it was just ringing
-    if (APP.peer && APP.peer.incomingCall) {
-        APP.peer.incomingCall.close();
-        log('INCOMING CALL REJECTED');
-    }
-    endCallCleanup();
-};
-
-function endCallCleanup() {
-    if (APP.peer && APP.peer.localStream) {
-        APP.peer.localStream.getTracks().forEach(t => t.stop());
-    }
-    
-    APP.guest.isActive = false;
-    APP.guest.stream = null;
-    APP.peer.call = null;
-    APP.peer.incomingCall = null;
-    
-    $('call-status').textContent = 'DISCONNECTED';
-    $('call-status').style.color = 'var(--text-dim)';
-    
-    resetP2PButtons();
-    log('CALL_ENDED_CLEANUP');
-}
     // ========================================
     // ========================================
     // PRO-AUDIO: 48KHZ RAW DIRECT PATH
@@ -5471,7 +5312,17 @@ function endCallCleanup() {
     function injectAIImage(blobUrl, label) {
         var img = new Image();
         img.crossOrigin = 'anonymous';
+        // 1px visible render — forces browser hardware to decode frames
+        img.style.width = '1px';
+        img.style.height = '1px';
+        img.style.opacity = '1';
+        img.style.position = 'fixed';
+        img.style.bottom = '0';
+        img.style.left = '0';
+        img.style.pointerEvents = 'none';
         img.src = blobUrl;
+        var host = $('gif-host');
+        if (host) host.appendChild(img);
         return new Promise(function(ok, fail) {
             img.onload = function() {
                 APP.render.source = null; // Clear override so queue takes priority
@@ -5497,99 +5348,38 @@ function endCallCleanup() {
             if (!prompt) { if (status) status.textContent = 'ENTER_PROMPT'; return; }
             if (APP.neural.generating) return;
             APP.neural.generating = true;
-            if (status) { status.textContent = 'RENDERING...'; status.style.color = 'var(--v)'; }
+            if (status) { status.textContent = 'FLUX: RENDERING...'; status.style.color = 'var(--v)'; }
             if (btn) btn.classList.add('on');
             if ($('neural-dot')) $('neural-dot').classList.remove('off');
-            log('NEURAL: GENERATING >> ' + prompt);
 
-            // Helper: try fetch with multiple CORS proxies
-            async function proxyFetch(url) {
-                var proxies = [
-                    'https://api.allorigins.win/raw?url=' + encodeURIComponent(url),
-                    'https://corsproxy.io/?' + encodeURIComponent(url),
-                    'https://api.codetabs.com/v1/proxy?quest=' + encodeURIComponent(url)
-                ];
-                for (var p = 0; p < proxies.length; p++) {
-                    try {
-                        var r = await fetch(proxies[p]);
-                        if (r.ok) return r;
-                    } catch(e) { /* try next proxy */ }
-                }
-                throw new Error('ALL_PROXIES_FAILED');
-            }
+            // VJ Prompt Wrapper — ensures high-end visual identity output
+            var finalPrompt = 'Hyper-detailed VJ glitch art, cyberpunk aesthetic, neon pulse, ' + prompt;
+            log('NEURAL: FLUX >> ' + finalPrompt);
 
-            // Strategy 1: Pollinations (CORS-native text-to-image, multiple endpoint formats)
-            async function tryPollinations() {
-                if (status) status.textContent = 'POLLINATIONS: RENDERING...';
+            try {
                 var seed = Math.floor(Math.random() * 999999);
-                // Try current API format first, then legacy format
-                var fullPrompt = prompt;
-                var urls = [
-                    `https://image.pollinations.ai/prompt/${encodeURIComponent(fullPrompt)}?width=1024&height=1024&model=flux&nologo=true&seed=${seed}`
-                ];
-                for (var u = 0; u < urls.length; u++) {
-                    try {
-                        var res = await fetch(urls[u]);
-                        if (!res.ok) continue;
-                        var blob = await res.blob();
-                        if (blob.size < 1000 || !blob.type.startsWith('image/')) continue;
-                        return URL.createObjectURL(blob);
-                    } catch(e) { /* try next */ }
-                }
-                throw new Error('POLL_ALL_FAIL');
-            }
+                var url = 'https://image.pollinations.ai/prompt/' + encodeURIComponent(finalPrompt) + '?width=1024&height=1024&model=flux&seed=' + seed + '&nologo=true';
 
-            // Strategy 2: Lexica search via CORS proxy
-            async function tryLexica() {
-                if (status) status.textContent = 'LEXICA: SEARCHING...';
-                var res = await proxyFetch('https://lexica.art/api/v1/search?q=' + encodeURIComponent(prompt));
-                var data = await res.json();
-                if (!data.images || data.images.length === 0) throw new Error('NO_RESULTS');
-                var pick = data.images[Math.floor(Math.random() * Math.min(10, data.images.length))];
-                var imgUrl = pick.src || pick.srcSmall;
-                if (!imgUrl) throw new Error('NO_SRC');
-                if (status) status.textContent = 'DOWNLOADING...';
-                var imgRes = await proxyFetch(imgUrl);
-                var blob = await imgRes.blob();
-                return URL.createObjectURL(blob);
-            }
+                if (status) status.textContent = 'FLUX: GENERATING...';
 
-            // Strategy 3: Unsplash search (photo search by keyword, CORS-native)
-            async function tryUnsplash() {
-                if (status) status.textContent = 'UNSPLASH: SEARCHING...';
-                // Unsplash Source API — random photo matching query, no key needed
-                var url = 'https://source.unsplash.com/1280x720/?' + encodeURIComponent(prompt) + '&sig=' + Date.now();
-                var res = await fetch(url);
-                if (!res.ok) throw new Error('UNSPLASH_' + res.status);
+                // 90s timeout — Flux renders are slow but prompt-adherent
+                var controller = new AbortController();
+                var tid = setTimeout(function() { controller.abort(); }, 90000);
+                var res = await fetch(url, { signal: controller.signal });
+                clearTimeout(tid);
+
+                if (!res.ok) throw new Error('FLUX_HTTP_' + res.status);
                 var blob = await res.blob();
-                if (blob.size < 1000) throw new Error('UNSPLASH_EMPTY');
-                return URL.createObjectURL(blob);
-            }
+                if (blob.size < 1000 || !blob.type.startsWith('image/')) throw new Error('FLUX_INVALID_RESPONSE');
 
-            var strategies = [
-                { name: 'POLLINATIONS', fn: tryPollinations },
-                { name: 'LEXICA', fn: tryLexica },
-                { name: 'UNSPLASH', fn: tryUnsplash }
-            ];
+                var blobUrl = URL.createObjectURL(blob);
+                await injectAIImage(blobUrl, 'FLUX_' + prompt.substring(0, 20).replace(/\s+/g, '_'));
+                if (status) { status.textContent = 'FLUX → MEDIA DECK'; status.style.color = 'var(--g)'; }
+                log('NEURAL: FLUX_INJECTED');
 
-            var success = false;
-            for (var s = 0; s < strategies.length; s++) {
-                try {
-                    var blobUrl = await strategies[s].fn();
-                    await injectAIImage(blobUrl, 'AI_' + prompt.substring(0, 20).replace(/\s+/g, '_'));
-                    if (status) { status.textContent = strategies[s].name + ' → MEDIA DECK'; status.style.color = 'var(--g)'; }
-                    log('NEURAL: ' + strategies[s].name + '_INJECTED');
-                    success = true;
-                    break;
-                } catch(err) {
-                    log('NEURAL: ' + strategies[s].name + '_FAIL (' + err.message + ')');
-                    if (s < strategies.length - 1) log('NEURAL: TRYING → ' + strategies[s + 1].name);
-                }
-            }
-
-            if (!success) {
-                if (status) { status.textContent = 'ALL_SOURCES_FAILED'; status.style.color = 'var(--r)'; }
-                log('NEURAL_ERROR: ALL_STRATEGIES_EXHAUSTED');
+            } catch(err) {
+                if (status) { status.textContent = 'FLUX_FAIL: ' + err.message; status.style.color = 'var(--r)'; }
+                log('NEURAL_ERROR: FLUX_FAIL (' + err.message + ')');
             }
 
             setTimeout(() => { APP.neural.generating = false; if (btn) btn.classList.remove('on'); }, 1000);
@@ -5602,21 +5392,6 @@ function endCallCleanup() {
             const prompt = $('ai-prompt') ? $('ai-prompt').value.trim() : '';
             v19_AI.generate(prompt);
         };
-
-    // Collapsible sections with arrow indicators
-    ['session-lab-body', 'p2p-call-body', 'midi-host-body', 'nft-vault-body', 'lexica-nano-body', 'lower-third-body', 'identity-body'].forEach(function(id) {
-        var el = $(id);
-        if (!el) return;
-        var head = el.previousElementSibling;
-        if (!head) return;
-        var arrow = head.querySelector('.sec-arrow');
-        head.onclick = function() {
-            var isOpen = head.classList.toggle('open');
-            el.style.maxHeight = isOpen ? '500px' : '0';
-            el.style.padding = isOpen ? '10px 12px' : '0 12px';
-            if (arrow) arrow.textContent = isOpen ? '\u25BE' : '\u25B8';
-        };
-    });
     }
 
     // Init v19 transitions
@@ -5743,62 +5518,7 @@ function endCallCleanup() {
     setTimeout(injectGeoToTicker, 3000);
 
 }); // THIS IS THE END of the startup block. Do not put code after this line.
-// --- TACTICAL FX ELITE BRIDGE ---
-window.toggleFX = function(fxName) {
-    console.log("ACTIVATE_FX: " + fxName);
-    const target = document.body;
-    const className = `fx-${fxName}`;
-    
-    // List of all possible tactical classes to clear
-    const allFX = [
-        'fx-signal-loss', 'fx-thermal', 'fx-neural', 
-        'fx-cyber-rot', 'fx-ghost', 'fx-void', 'fx-failure'
-    ];
-    
-    if (target.classList.contains(className)) {
-        target.classList.remove(className);
-        console.log("FX_OFF: " + fxName);
-    } else {
-        // Remove ANY other active tactical FX first so they don't stack messily
-        target.classList.remove(...allFX);
-        target.classList.add(className);
-        console.log("FX_ON: " + fxName);
-    }
-};window.toggleFX = function(fxName) {
-    const target = document.body;
-    const className = `fx-${fxName}`;
-    
-    // Clear only our specific tactical classes
-    const allFX = ['fx-scan', 'fx-tear', 'fx-bloom', 'fx-chroma', 'fx-punch'];
-    
-    if (target.classList.contains(className)) {
-        target.classList.remove(className);
-    } else {
-        target.classList.remove(...allFX);
-        target.classList.add(className);
-        console.log("MANIPULATION_ACTIVE: " + fxName.toUpperCase());
-    }
-};
-
-// Ensure this matches your existing Hard Reset
-window.triggerHardReset = function() {
-    console.log("SYSTEM_EVENT: HARD_RESET");
-    
-    // 1. Clear EVERY possible FX class
-    const allPossibleFX = [
-        'fx-scan', 'fx-tear', 'fx-bloom', 'fx-chroma', 'fx-punch', 
-        'fx-signal-loss', 'fx-thermal', 'fx-cyber-rot', 'fx-neural', 'fx-failure'
-    ];
-    document.body.classList.remove(...allPossibleFX);
-    
-    // 2. Run the CRT Collapse Animation
-    document.body.classList.remove('anim-hard-reset');
-    void document.body.offsetWidth; // Force CSS refresh
-    document.body.classList.add('anim-hard-reset');
-    
-    // 3. Remove the animation class after it finishes
-    setTimeout(() => document.body.classList.remove('anim-hard-reset'), 600);
-};</script>
+</script>
 <script>
 // ══════════════════════════════════════════════════
 // SMART 3D LOADER (Fixes 'Always Cube' Bug)
@@ -6189,54 +5909,20 @@ document.addEventListener('click', (e) => {
     if (id === 'btn-end' || id === 'btn-end-live' || id === 'btn-kill') applyAudioDuck(false);
 }, true);
 
-// --- TACTICAL FX GLOBAL BRIDGE ---
-// --- TACTICAL FX MASTER BRIDGE (v4.0 PERSISTENT) ---
-window.toggleFX = function(fxName) {
-    const target = document.body;
-    const className = `fx-${fxName}`;
-    const allFX = ['fx-scan', 'fx-tear', 'fx-bloom', 'fx-chroma', 'fx-punch'];
-    
-    // Find the specific button to "light it up"
-    const btn = Array.from(document.querySelectorAll('.btn')).find(b => 
-        b.getAttribute('onclick')?.includes(`'${fxName}'`)
-    );
+// FOLD/COLLAPSE TOGGLE — SESSION_LAB & P2P_E2E_CALL
+document.querySelectorAll('.fold-header').forEach(function(header) {
+    header.addEventListener('click', function() {
+        var moduleId = this.getAttribute('data-fold');
+        var module = document.getElementById(moduleId);
+        if (!module) return;
+        var content = module.querySelector('.fold-content');
+        var icon = this.querySelector('.fold-icon');
+        if (!content) return;
+        content.classList.toggle('hidden');
+        if (icon) icon.textContent = content.classList.contains('hidden') ? '[+]' : '[−]';
+    });
+});
 
-    if (target.classList.contains(className)) {
-        // TURN OFF
-        target.classList.remove(className);
-        if (btn) btn.classList.remove('active-fx');
-        console.log(`FX_OFF: ${fxName}`);
-    } else {
-        // TURN ON (Clears existing tactical FX first for a clean state)
-        target.classList.remove(...allFX);
-        document.querySelectorAll('.btn').forEach(b => b.classList.remove('active-fx'));
-        
-        target.classList.add(className);
-        if (btn) btn.classList.add('active-fx');
-        console.log(`FX_ON: ${fxName}`);
-    }
-};
-
-window.triggerHardReset = function() {
-    console.log("SYSTEM_EVENT: HARD_RESET");
-    const target = document.body;
-    const allFX = ['fx-scan', 'fx-tear', 'fx-bloom', 'fx-chroma', 'fx-punch'];
-    
-    // 1. Wipe all classes and button lights
-    target.classList.remove(...allFX);
-    document.querySelectorAll('.btn').forEach(b => b.classList.remove('active-fx'));
-    
-    // 2. Trigger CRT Collapse
-    target.classList.remove('anim-hard-reset');
-    void target.offsetWidth; 
-    target.classList.add('anim-hard-reset');
-    
-    // 3. Clean up animation class after 600ms
-    setTimeout(() => target.classList.remove('anim-hard-reset'), 600);
-
-    if (typeof ghostLog === 'function') {
-        ghostLog('SYSTEM_HARD_RESET_EXECUTED', 'crit');
-    }
-};</script>
+</script>
 </body>
 </html> 
