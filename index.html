@@ -484,9 +484,7 @@
         #cycle-badge { border-color: var(--y); color: var(--y); background: rgba(255,204,0,0.05); display: none; }
         #cycle-badge.on { display: flex; }
 
-        .sidebar { position: fixed; top: 45px; bottom: 55px; width: 200px; background: var(--panel); border: 1px solid var(--border); overflow: hidden; display: flex; flex-direction: column; z-index: 4000; scrollbar-width: none; transition: border-color 0.4s ease, box-shadow 0.4s ease; }
-        .sidebar .section { flex-shrink: 1; overflow: hidden; }
-        .sidebar .section:last-child { flex-shrink: 0; }
+        .sidebar { position: fixed; top: 45px; bottom: 55px; width: 200px; background: var(--panel); border: 1px solid var(--border); overflow-y: auto; z-index: 4000; scrollbar-width: none; transition: border-color 0.4s ease, box-shadow 0.4s ease; }
         #left-panel { left: 0; border-left: none; border-right: 1px solid rgba(0, 243, 255, 0.1); }
         #right-panel { right: 0; border-right: none; border-left: 1px solid rgba(0, 243, 255, 0.1); }
         .section { border-bottom: 1px solid var(--border); }
