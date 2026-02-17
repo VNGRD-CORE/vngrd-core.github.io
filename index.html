@@ -501,7 +501,10 @@
         .sec-dot.off { background: var(--text-dim); box-shadow: none; }
         .sec-dot.gold { background: var(--y); box-shadow: 0 0 6px var(--y); }
         .sec-body { padding: 10px 12px; }
-        #session-lab-body, #p2p-call-body { max-height: 45px; overflow: hidden; transition: max-height 0.3s ease; }
+        .sec-head.collapsible { cursor: pointer; }
+        .sec-arrow { font-size: 8px; color: var(--text-dim); margin-left: 4px; transition: transform 0.2s; }
+        .sec-head.collapsible.open .sec-arrow { color: var(--accent); }
+        #session-lab-body, #p2p-call-body, #midi-host-body, #nft-vault-body { max-height: 0; overflow: hidden; transition: max-height 0.3s ease; padding: 0 12px; }
         #gif-host img { position: fixed; top: 0; left: 0; width: 10px !important; height: 10px !important; opacity: 0.01 !important; z-index: -1; pointer-events: none; will-change: contents; }
         
         /* VNGRD BUTTONS - DIGITAL SNAP */
@@ -1052,8 +1055,8 @@ body.shooting-mode #btn-shooting {
         </div>
         
         <div class="section">
-            <div class="sec-head"><span class="sec-title">MIDI_HOST</span><div class="sec-dot off" id="midi-dot"></div></div>
-            <div class="sec-body">
+            <div class="sec-head collapsible"><span class="sec-title">MIDI_HOST</span><span class="sec-arrow">&#x25B8;</span><div class="sec-dot off" id="midi-dot"></div></div>
+            <div class="sec-body" id="midi-host-body">
                 <button class="btn" id="btn-midi">INIT WEBMIDI</button>
                 <button class="btn" id="btn-midi-learn" style="color:var(--v);border-color:var(--v);">LEARN: OFF</button>
                 <div id="midi-status" style="font-size:8px;color:var(--text-dim);margin-top:4px;">NO MIDI DEVICE</div>
@@ -1108,8 +1111,7 @@ body.shooting-mode #btn-shooting {
                     <div id="vu"></div>
                     <div id="track-info">NO_TRACK</div>
                 </div>
-                <button class="btn" id="btn-audio">LOAD_AUDIO</button>
-                <button class="btn" id="btn-mute-vid" style="font-size:8px;">MUTE_VID: OFF</button>
+                <div class="btn-row"><button class="btn" id="btn-audio" style="flex:1;">LOAD_AUDIO</button><button class="btn" id="btn-mute-vid" style="width:32px;font-size:12px;padding:2px;" title="Toggle video audio">&#x1F50A;</button></div>
                 <div class="audio-ctrl-row">
                     <button class="btn btn-compact" id="btn-prev-track"><svg width="10" height="10" viewBox="0 0 12 12"><path fill="currentColor" d="M2 2h2v8H2zm2 4l6 4V2z"/></svg></button>
                     <button class="btn btn-compact" id="btn-play-pause"><svg width="10" height="10" viewBox="0 0 12 12" id="icon-play-state"><path fill="currentColor" d="M3 2v8l7-4z"/></svg></button>
@@ -1173,7 +1175,7 @@ body.shooting-mode #btn-shooting {
         </div>
         
         <div class="section">
-            <div class="sec-head"><span class="sec-title">SESSION_LAB</span><div class="sec-dot"></div></div>
+            <div class="sec-head collapsible"><span class="sec-title">SESSION_LAB</span><span class="sec-arrow">&#x25B8;</span><div class="sec-dot"></div></div>
             <div class="sec-body" id="session-lab-body">
                 <button class="btn rec" id="btn-nft-30">CAPTURE_VGD_CLIP</button>
                 <button class="btn" id="btn-save-session">SAVE_SESSION</button>
@@ -1186,8 +1188,8 @@ body.shooting-mode #btn-shooting {
         </div>
         
         <div class="section">
-            <div class="sec-head"><span class="sec-title">NFT_VAULT</span><div class="sec-dot off" id="vault-dot"></div></div>
-            <div class="sec-body">
+            <div class="sec-head collapsible"><span class="sec-title">NFT_VAULT</span><span class="sec-arrow">&#x25B8;</span><div class="sec-dot off" id="vault-dot"></div></div>
+            <div class="sec-body" id="nft-vault-body">
                 <input type="text" class="inp" id="tezos-addr" placeholder="tz1... TEZOS ADDRESS (OPTIONAL)" style="font-size:7px;margin-bottom:4px;padding:3px 4px;">
                 <button class="btn" id="btn-scan-nfts" style="font-size:8px;">SCAN_WALLET_ASSETS</button>
                 <div id="nft-vault-list" style="max-height:60px;overflow-y:auto;font-size:8px;color:var(--text-dim);margin-top:4px;">
@@ -1207,7 +1209,7 @@ body.shooting-mode #btn-shooting {
         </div>
         
         <div class="section">
-            <div class="sec-head"><span class="sec-title">P2P_E2E_CALL</span><div class="sec-dot off" id="guest-dot"></div></div>
+            <div class="sec-head collapsible"><span class="sec-title">P2P_E2E_CALL</span><span class="sec-arrow">&#x25B8;</span><div class="sec-dot off" id="guest-dot"></div></div>
             <div class="sec-body" id="p2p-call-body">
                 <div class="lbl" style="font-size:8px;margin-bottom:4px;">YOUR_CALL_ID:</div>
                 <input type="text" class="inp" id="peer-id-display" readonly placeholder="CLICK_INIT_TO_GET_ID..." style="font-size:9px;text-align:center;color:var(--g);">
@@ -1329,7 +1331,7 @@ const APP = {
     },
     media: { queue: [], currentIndex: -1, currentElement: null },
     fx: { stutter: false, crush: false, invert: false, echo: false, rgbSplit: 0, freezeFrame: null },
-    audio: { ctx: null, analyzer: null, source: null, element: null, playlist: [], currentTrack: -1, currentTrackName: '', bassLevel: 0, vuData: new Uint8Array(32), isPlaying: false, isConnected: false, videoSource: null, spatialMode: 'stereo', panner: null, compressor: null, masterGain: null, lowShelf: null, highShelf: null, spatialInterval: null },
+    audio: { ctx: null, analyzer: null, source: null, element: null, playlist: [], currentTrack: -1, currentTrackName: '', bassLevel: 0, vuData: new Uint8Array(32), isPlaying: false, isConnected: false, videoSource: null, videoMuted: false, spatialMode: 'stereo', panner: null, compressor: null, masterGain: null, lowShelf: null, highShelf: null, spatialInterval: null },
     projector: { window: null, stream: null, isOpen: false },
     nft: { recorder: null, chunks: [], isRecording: false, startTime: 0, duration: 30000, dnaSnapshot: null, audioDest: null },
     broadcast: { recorder: null, chunks: [], isRecording: false },
@@ -2492,11 +2494,13 @@ function connectVideoAudio(vid) {
         ensureAudioChain();
         disconnectVideoAudio();
         if (!vid._audioSrc) vid._audioSrc = APP.audio.ctx.createMediaElementSource(vid);
-        vid.muted = false;
+        vid.muted = APP.audio.videoMuted;
         vid._audioSrc.connect(APP.audio.panner);
         vid._audioSrc.connect(APP.audio.dolbyPanner);
         APP.audio.videoSource = vid;
-        log('VIDEO_AUDIO: ON');
+        $('btn-mute-vid').textContent = APP.audio.videoMuted ? '\u{1F507}' : '\u{1F50A}';
+        if (APP.audio.videoMuted) $('btn-mute-vid').classList.add('on'); else $('btn-mute-vid').classList.remove('on');
+        log('VIDEO_AUDIO: ' + (APP.audio.videoMuted ? 'MUTED' : 'ON'));
     } catch (e) { log('VIDEO_AUDIO_ERR: ' + e.message); }
 }
 
@@ -3653,11 +3657,12 @@ document.addEventListener('DOMContentLoaded', () => {
     $('btn-audio').onclick = () => $('file-audio').click(); $('file-audio').onchange = e => loadAudioFiles(e.target);
 
     $('btn-mute-vid').onclick = () => {
+        APP.audio.videoMuted = !APP.audio.videoMuted;
         var vid = APP.audio.videoSource;
-        if (vid) {
-            if (vid.muted) { vid.muted = false; $('btn-mute-vid').textContent = 'MUTE_VID: OFF'; $('btn-mute-vid').classList.remove('on'); }
-            else { vid.muted = true; $('btn-mute-vid').textContent = 'MUTE_VID: ON'; $('btn-mute-vid').classList.add('on'); }
-        } else { log('NO_VIDEO_AUDIO'); }
+        if (vid) { vid.muted = APP.audio.videoMuted; }
+        $('btn-mute-vid').textContent = APP.audio.videoMuted ? '\u{1F507}' : '\u{1F50A}';
+        if (APP.audio.videoMuted) $('btn-mute-vid').classList.add('on'); else $('btn-mute-vid').classList.remove('on');
+        log('VIDEO_MUTE: ' + (APP.audio.videoMuted ? 'ON' : 'OFF'));
     };
     
     // NEW COMPACT AUDIO
@@ -5475,13 +5480,19 @@ document.addEventListener('DOMContentLoaded', () => {
             v19_AI.generate(prompt);
         };
 
-    // Collapsible: SESSION_LAB + P2P_E2E_CALL
-    ['session-lab-body', 'p2p-call-body'].forEach(function(id) {
+    // Collapsible sections with arrow indicators
+    ['session-lab-body', 'p2p-call-body', 'midi-host-body', 'nft-vault-body'].forEach(function(id) {
         var el = $(id);
         if (!el) return;
         var head = el.previousElementSibling;
-        if (head) head.style.cursor = 'pointer';
-        if (head) head.onclick = function() { el.style.maxHeight = (el.style.maxHeight === '45px' || el.offsetHeight <= 45) ? '1000px' : '45px'; };
+        if (!head) return;
+        var arrow = head.querySelector('.sec-arrow');
+        head.onclick = function() {
+            var isOpen = head.classList.toggle('open');
+            el.style.maxHeight = isOpen ? '500px' : '0';
+            el.style.padding = isOpen ? '10px 12px' : '0 12px';
+            if (arrow) arrow.textContent = isOpen ? '\u25BE' : '\u25B8';
+        };
     });
     }
 
