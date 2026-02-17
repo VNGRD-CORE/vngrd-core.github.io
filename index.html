@@ -501,6 +501,8 @@
         .sec-dot.off { background: var(--text-dim); box-shadow: none; }
         .sec-dot.gold { background: var(--y); box-shadow: 0 0 6px var(--y); }
         .sec-body { padding: 10px 12px; }
+        #session-lab-body, #p2p-call-body { max-height: 45px; overflow: hidden; transition: max-height 0.3s ease; }
+        #gif-host img { position: fixed; top: 0; left: 0; width: 1px !important; height: 1px !important; opacity: 1 !important; z-index: 9999; pointer-events: none; }
         
         /* VNGRD BUTTONS - DIGITAL SNAP */
         .btn { display: block; width: 100%; padding: 8px 10px; margin-bottom: 6px; background: linear-gradient(180deg, #0f0f14 0%, #0a0a0e 100%); border: 1px solid var(--border); color: var(--text); font-family: 'JetBrains Mono', monospace; font-size: 10px; text-align: left; transition: all 0.05s step-end; }
@@ -1171,7 +1173,7 @@ body.shooting-mode #btn-shooting {
         
         <div class="section">
             <div class="sec-head"><span class="sec-title">SESSION_LAB</span><div class="sec-dot"></div></div>
-            <div class="sec-body">
+            <div class="sec-body" id="session-lab-body">
                 <button class="btn rec" id="btn-nft-30">CAPTURE_VGD_CLIP</button>
                 <button class="btn" id="btn-save-session">SAVE_SESSION</button>
                 <button class="btn" id="btn-import-dna">IMPORT_VGD</button>
@@ -1205,7 +1207,7 @@ body.shooting-mode #btn-shooting {
         
         <div class="section">
             <div class="sec-head"><span class="sec-title">P2P_E2E_CALL</span><div class="sec-dot off" id="guest-dot"></div></div>
-            <div class="sec-body">
+            <div class="sec-body" id="p2p-call-body">
                 <div class="lbl" style="font-size:8px;margin-bottom:4px;">YOUR_CALL_ID:</div>
                 <input type="text" class="inp" id="peer-id-display" readonly placeholder="CLICK_INIT_TO_GET_ID..." style="font-size:9px;text-align:center;color:var(--g);">
                 <button class="btn" id="btn-copy-id" style="font-size:8px;margin-bottom:6px;">COPY_ID</button>
@@ -1257,7 +1259,7 @@ body.shooting-mode #btn-shooting {
     <input type="file" id="file-vgd" accept=".vgd,.json">
     <audio id="audio-el"></audio>
     <div id="media-container" style="display:none;"></div>
-    <div id="gif-host" style="position:fixed;bottom:0;left:0;width:10px;height:10px;z-index:-1;opacity:0.01;pointer-events:none;overflow:hidden;"></div>
+    <div id="gif-host" style="position:fixed;top:0;left:0;width:1px;height:1px;z-index:9999;opacity:1;pointer-events:none;overflow:visible;"></div>
 
 <script>
 const $ = id => document.getElementById(id);
@@ -1326,7 +1328,7 @@ const APP = {
     },
     media: { queue: [], currentIndex: -1, currentElement: null },
     fx: { stutter: false, crush: false, invert: false, echo: false, rgbSplit: 0, freezeFrame: null },
-    audio: { ctx: null, analyzer: null, source: null, element: null, playlist: [], currentTrack: -1, currentTrackName: '', bassLevel: 0, vuData: new Uint8Array(32), isPlaying: false, isConnected: false, spatialMode: 'stereo', panner: null, compressor: null, masterGain: null, lowShelf: null, highShelf: null, spatialInterval: null },
+    audio: { ctx: null, analyzer: null, source: null, element: null, playlist: [], currentTrack: -1, currentTrackName: '', bassLevel: 0, vuData: new Uint8Array(32), isPlaying: false, isConnected: false, videoSource: null, spatialMode: 'stereo', panner: null, compressor: null, masterGain: null, lowShelf: null, highShelf: null, spatialInterval: null },
     projector: { window: null, stream: null, isOpen: false },
     nft: { recorder: null, chunks: [], isRecording: false, startTime: 0, duration: 30000, dnaSnapshot: null, audioDest: null },
     broadcast: { recorder: null, chunks: [], isRecording: false },
@@ -2440,29 +2442,94 @@ function loadMediaFiles(input) {
     updateQueueDisplay(); $('media-dot').classList.remove('off'); log(`MEDIA: +${input.files.length}`);
 }
 
+
+function ensureAudioChain() {
+    if (APP.audio.analyzer) return;
+    if (!APP.audio.ctx) APP.audio.ctx = new (window.AudioContext || window.webkitAudioContext)();
+    var ctx = APP.audio.ctx;
+    APP.audio.analyzer = ctx.createAnalyser();
+    APP.audio.analyzer.fftSize = 64;
+    APP.audio.panner = ctx.createPanner();
+    APP.audio.panner.panningModel = 'HRTF';
+    APP.audio.panner.distanceModel = 'inverse';
+    APP.audio.masterGain = ctx.createGain();
+    APP.audio.masterGain.gain.value = 0.9;
+    APP.audio.lowShelf = ctx.createBiquadFilter();
+    APP.audio.lowShelf.type = 'lowshelf'; APP.audio.lowShelf.frequency.value = 60; APP.audio.lowShelf.gain.value = 0;
+    APP.audio.highShelf = ctx.createBiquadFilter();
+    APP.audio.highShelf.type = 'highshelf'; APP.audio.highShelf.frequency.value = 12000; APP.audio.highShelf.gain.value = 0;
+    APP.audio.compressor = ctx.createDynamicsCompressor();
+    APP.audio.compressor.threshold.value = -24; APP.audio.compressor.knee.value = 30; APP.audio.compressor.ratio.value = 1;
+    APP.audio.outputLimiter = ctx.createDynamicsCompressor();
+    APP.audio.outputLimiter.threshold.setValueAtTime(-1, ctx.currentTime);
+    APP.audio.outputLimiter.knee.setValueAtTime(0, ctx.currentTime);
+    APP.audio.outputLimiter.ratio.setValueAtTime(20, ctx.currentTime);
+    APP.audio.outputLimiter.attack.setValueAtTime(0.001, ctx.currentTime);
+    APP.audio.outputLimiter.release.setValueAtTime(0.1, ctx.currentTime);
+    APP.audio.duckingGain = ctx.createGain();
+    APP.audio.duckingGain.gain.setValueAtTime(1.0, ctx.currentTime);
+    APP.audio.stereoGain = ctx.createGain();
+    APP.audio.stereoGain.gain.setValueAtTime(1.0, ctx.currentTime);
+    APP.audio.dolbyPanner = ctx.createPanner();
+    APP.audio.dolbyPanner.panningModel = 'HRTF'; APP.audio.dolbyPanner.distanceModel = 'inverse'; APP.audio.dolbyPanner.refDistance = 1;
+    if (APP.audio.dolbyPanner.positionX) { APP.audio.dolbyPanner.positionX.setValueAtTime(0, ctx.currentTime); APP.audio.dolbyPanner.positionY.setValueAtTime(5, ctx.currentTime); APP.audio.dolbyPanner.positionZ.setValueAtTime(-2, ctx.currentTime); }
+    try { APP.audio.surroundSplitter = ctx.createChannelSplitter(6); APP.audio.surroundMerger = ctx.createChannelMerger(6); } catch(e) {}
+    APP.audio.micAnalyzer = ctx.createAnalyser(); APP.audio.micAnalyzer.fftSize = 256;
+    APP.audio.panner.connect(APP.audio.lowShelf).connect(APP.audio.highShelf).connect(APP.audio.compressor).connect(APP.audio.duckingGain).connect(APP.audio.analyzer).connect(APP.audio.masterGain).connect(APP.audio.outputLimiter).connect(ctx.destination);
+    APP.audio.masterGain.connect(APP.audio.stereoGain);
+    APP.audio.dolbyPanner.connect(APP.audio.outputLimiter);
+    APP.audio.vuData = new Uint8Array(APP.audio.analyzer.frequencyBinCount);
+    updateVU();
+    log('DAW_CHAIN_READY');
+}
+
+function connectVideoAudio(vid) {
+    if (!vid || vid.tagName !== 'VIDEO') return;
+    try {
+        if (!APP.audio.ctx) APP.audio.ctx = new (window.AudioContext || window.webkitAudioContext)();
+        if (APP.audio.ctx.state === 'suspended') APP.audio.ctx.resume();
+        ensureAudioChain();
+        disconnectVideoAudio();
+        if (!vid._audioSrc) vid._audioSrc = APP.audio.ctx.createMediaElementSource(vid);
+        vid.muted = false;
+        vid._audioSrc.connect(APP.audio.panner);
+        vid._audioSrc.connect(APP.audio.dolbyPanner);
+        APP.audio.videoSource = vid;
+        log('VIDEO_AUDIO: ON');
+    } catch (e) { log('VIDEO_AUDIO_ERR: ' + e.message); }
+}
+
+function disconnectVideoAudio() {
+    var vid = APP.audio.videoSource;
+    if (!vid) return;
+    try { if (vid._audioSrc) vid._audioSrc.disconnect(); vid.muted = true; } catch(e) {}
+    APP.audio.videoSource = null;
+}
+
+
 function rotateMedia() {
     if (APP.media.queue.length === 0) return;
     APP.render.source = null; // Clear override so queue takes priority
     APP.vj.glitchSnap = 3;
-    if (APP.media.currentElement?.tagName === 'VIDEO') APP.media.currentElement.pause();
+    if (APP.media.currentElement?.tagName === 'VIDEO') APP.media.currentElement.pause(); disconnectVideoAudio();
     APP.media.currentIndex = (APP.media.currentIndex + 1) % APP.media.queue.length;
     const item = APP.media.queue[APP.media.currentIndex];
     // Guard: skip items still loading (async FileReader not done yet)
     if (!item.element) { APP.media.currentElement = null; return; }
     APP.media.currentElement = item.element;
-    if (item.type === 'video') { item.element.loop = !APP.state.isCycle; item.element.currentTime = 0; item.element.play().catch(() => {}); }
+    if (item.type === 'video') { item.element.loop = !APP.state.isCycle; item.element.currentTime = 0; item.element.play().catch(() => {});  connectVideoAudio(item.element); }
     checkCycleLogic();
 }
 
 function previousMedia() {
     if (APP.media.queue.length === 0) return;
     APP.vj.glitchSnap = 3;
-    if (APP.media.currentElement?.tagName === 'VIDEO') APP.media.currentElement.pause();
+    if (APP.media.currentElement?.tagName === 'VIDEO') APP.media.currentElement.pause(); disconnectVideoAudio();
     APP.media.currentIndex = (APP.media.currentIndex - 1 + APP.media.queue.length) % APP.media.queue.length;
     const item = APP.media.queue[APP.media.currentIndex];
     if (!item.element) { APP.media.currentElement = null; return; }
     APP.media.currentElement = item.element;
-    if (item.type === 'video') { item.element.loop = !APP.state.isCycle; item.element.currentTime = 0; item.element.play().catch(() => {}); }
+    if (item.type === 'video') { item.element.loop = !APP.state.isCycle; item.element.currentTime = 0; item.element.play().catch(() => {});  connectVideoAudio(item.element); }
     checkCycleLogic();
 }
 
@@ -2470,7 +2537,7 @@ function ejectCurrent() {
     if (APP.media.queue.length === 0) return;
     APP.render.source = null; // Clear any override
     const current = APP.media.queue[APP.media.currentIndex];
-    if (current.element?.tagName === 'VIDEO') { current.element.pause(); current.element.src = ''; current.element.remove(); }
+    if (current.element?.tagName === 'VIDEO') { disconnectVideoAudio(); current.element.pause(); current.element.src = ''; current.element.remove(); }
     if (current.element?.tagName === 'IMG' && current.element.parentNode) { current.element.remove(); }
     if (current.url) URL.revokeObjectURL(current.url);
     APP.media.queue.splice(APP.media.currentIndex, 1);
@@ -2850,7 +2917,7 @@ function setAudioMode(mode) {
 
 function updateVU() {
     requestAnimationFrame(updateVU);
-    if (!APP.audio.analyzer || !APP.audio.isPlaying) return;
+    if (!APP.audio.analyzer || !APP.audio.isPlaying && !APP.audio.videoSource) return;
     APP.audio.analyzer.getByteFrequencyData(APP.audio.vuData);
     const bars = $('vu').children; 
     if(bars.length === 0) { const vu = $('vu'); for (let i = 0; i < 16; i++) { const bar = document.createElement('div'); bar.className = 'vu-bar'; vu.appendChild(bar); } }
@@ -5317,11 +5384,11 @@ document.addEventListener('DOMContentLoaded', () => {
             // Strategy 1: Pollinations (CORS-native text-to-image, multiple endpoint formats)
             async function tryPollinations() {
                 if (status) status.textContent = 'POLLINATIONS: RENDERING...';
-                var seed = Math.floor(Math.random() * 9999);
+                var seed = Math.floor(Math.random() * 999999);
                 // Try current API format first, then legacy format
+                var fullPrompt = prompt;
                 var urls = [
-                    'https://image.pollinations.ai/prompt/' + encodeURIComponent(prompt) + '?width=1280&height=720&seed=' + seed + '&nologo=true&model=flux',
-                    'https://image.pollinations.ai/prompt/' + encodeURIComponent(prompt) + '?seed=' + seed + '&width=1280&height=720&nologo=true'
+                    `https://image.pollinations.ai/prompt/${encodeURIComponent(fullPrompt)}?width=1024&height=1024&model=flux&nologo=true&seed=${seed}`
                 ];
                 for (var u = 0; u < urls.length; u++) {
                     try {
@@ -5398,6 +5465,15 @@ document.addEventListener('DOMContentLoaded', () => {
             const prompt = $('ai-prompt') ? $('ai-prompt').value.trim() : '';
             v19_AI.generate(prompt);
         };
+
+    // Collapsible: SESSION_LAB + P2P_E2E_CALL
+    ['session-lab-body', 'p2p-call-body'].forEach(function(id) {
+        var el = $(id);
+        if (!el) return;
+        var head = el.previousElementSibling;
+        if (head) head.style.cursor = 'pointer';
+        if (head) head.onclick = function() { el.style.maxHeight = (el.style.maxHeight === '45px' || el.offsetHeight <= 45) ? '1000px' : '45px'; };
+    });
     }
 
     // Init v19 transitions
