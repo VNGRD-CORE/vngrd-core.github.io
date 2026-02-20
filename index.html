@@ -500,11 +500,11 @@
         .sec-dot { width: 5px; height: 5px; background: var(--g); border-radius: 50%; box-shadow: 0 0 4px var(--g); }
         .sec-dot.off { background: var(--text-dim); box-shadow: none; }
         .sec-dot.gold { background: var(--y); box-shadow: 0 0 6px var(--y); }
-        .sec-body { padding: 8px 10px; }
+        .sec-body { padding: 10px 12px; }
         .sec-head.collapsible { cursor: pointer; }
         .sec-arrow { font-size: 8px; color: var(--text-dim); margin-left: 4px; transition: transform 0.2s; }
         .sec-head.collapsible.open .sec-arrow { color: var(--accent); }
-        #session-lab-body, #p2p-call-body, #midi-host-body, #nft-vault-body, #lexica-nano-body, #lower-third-body, #identity-body { max-height: 0; overflow: hidden; transition: max-height 0.3s ease; padding: 0 12px; }
+        #session-lab-body, #p2p-call-body, #midi-host-body, #nft-vault-body { max-height: 0; overflow: hidden; transition: max-height 0.3s ease; padding: 0 12px; }
         #gif-host img { position: fixed; top: 0; left: 0; width: 10px !important; height: 10px !important; opacity: 0.01 !important; z-index: -1; pointer-events: none; will-change: contents; }
         
         /* VNGRD BUTTONS - DIGITAL SNAP */
@@ -1056,24 +1056,7 @@ body.shooting-mode #btn-shooting {
         </div>
     </div>
 
-        <aside class="sidebar" id="left-panel">
-        <div class="section">
-            <div class="sec-head" id="media-header"><span class="sec-title">MEDIA_DECK</span><div class="sec-dot off" id="media-dot"></div></div>
-            <div class="sec-body">
-                <button class="btn" id="btn-load-media">LOAD MEDIA</button>
-                
-                <div class="audio-ctrl-row">
-                    <button class="btn btn-compact" id="btn-prev"><svg width="10" height="10" viewBox="0 0 12 12"><path fill="currentColor" d="M2 2h2v8H2zm2 4l6 4V2z"/></svg></button>
-                    <button class="btn btn-compact" id="btn-cycle-toggle" style="flex:3; font-size:9px;">CYCLE: OFF</button>
-                    <button class="btn btn-compact" id="btn-rotate"><svg width="10" height="10" viewBox="0 0 12 12"><path fill="currentColor" d="M2 10l6-4-6-4v8zm6-8v8h2V2H8z"/></svg></button>
-                </div>
-                <div class="slider-wrap" id="cycle-slider-wrap" style="display:none;">
-                    <div class="slider-top"><span class="slider-lbl">CYCLE TIME</span><span class="slider-val" id="val-cycle">8s</span></div>
-                    <input type="range" min="2" max="30" value="8" id="sl-cycle">
-                </div>
-            </div>
-        </div>
-        
+    <aside class="sidebar" id="left-panel">
         <div class="section">
             <div class="sec-head"><span class="sec-title">CAMERA_4K</span><div class="sec-dot off" id="cam-dot"></div></div>
             <div class="sec-body">
@@ -1099,20 +1082,38 @@ body.shooting-mode #btn-shooting {
         </div>
         
         <div class="section">
-            <div class="sec-head"><span class="sec-title">SIGNAL_REACTIVE</span><div class="sec-dot"></div></div>
+            <div class="sec-head" id="media-header"><span class="sec-title">MEDIA_DECK</span><div class="sec-dot off" id="media-dot"></div></div>
             <div class="sec-body">
-                <div class="btn-grid">
-                    <button class="btn" id="btn-punch" style="font-size:8px;">PUNCH</button>
-                    <button class="btn" id="btn-rumble" style="font-size:8px;">SEISMIC</button>
-                    <button class="btn" id="btn-ui-react" style="font-size:8px;">PARTY</button>
-                    <button class="btn" id="btn-shooting" style="font-size:8px;">BASS_SHOT</button>
+                <button class="btn" id="btn-load-media">LOAD MEDIA</button>
+                
+                <div class="audio-ctrl-row">
+                    <button class="btn btn-compact" id="btn-prev"><svg width="10" height="10" viewBox="0 0 12 12"><path fill="currentColor" d="M2 2h2v8H2zm2 4l6 4V2z"/></svg></button>
+                    <button class="btn btn-compact" id="btn-cycle-toggle" style="flex:3; font-size:9px;">CYCLE: OFF</button>
+                    <button class="btn btn-compact" id="btn-rotate"><svg width="10" height="10" viewBox="0 0 12 12"><path fill="currentColor" d="M2 10l6-4-6-4v8zm6-8v8h2V2H8z"/></svg></button>
                 </div>
+                <div class="slider-wrap" id="cycle-slider-wrap" style="display:none;">
+                    <div class="slider-top"><span class="slider-lbl">CYCLE TIME</span><span class="slider-val" id="val-cycle">8s</span></div>
+                    <input type="range" min="2" max="30" value="8" id="sl-cycle">
+                </div>
+            </div>
+        </div>
+        
+        <div class="section">
+            <div class="sec-head"><span class="sec-title">REACTIVITY</span><div class="sec-dot"></div></div>
+            <div class="sec-body">
+                <div class="btn-grid-3" style="margin-bottom:6px;">
+                    <button class="btn" id="btn-ui-react" style="font-size:8px;">PARTY</button>
+                    <button class="btn" id="btn-rumble" style="font-size:8px;">SEISMIC</button>
+                    <button class="btn" id="btn-psychosis" style="font-size:8px;">FAILURE</button>
+                </div>
+                <button class="btn" id="btn-shooting" style="color:var(--r);border-color:var(--r);font-size:9px;">SHOOTING_BASS</button>
             </div>
         </div>
 
         <div class="section">
             <div class="sec-head"><span class="sec-title">COMMAND</span><div class="sec-dot"></div></div>
             <div class="sec-body">
+                <div class="lbl" style="text-align:center;color:var(--r)">EMERGENCY PROTOCOLS</div>
                 <div class="btn-grid">
                     <button class="btn eject" id="btn-eject">EJECT</button>
                     <button class="btn warn" id="btn-clear-deck">CLEAR</button>
@@ -1122,29 +1123,17 @@ body.shooting-mode #btn-shooting {
         </div>
         
         <div class="section">
-            <div class="sec-head collapsible"><span class="sec-title">IDENTITY</span><span class="sec-arrow">&#x25B8;</span><div class="sec-dot"></div></div>
-            <div class="sec-body" id="identity-body">
-                <input type="text" class="inp" id="bug-text" placeholder="STATION_NAME..." value="VNGRD">
-                <div class="btn-row">
-                    <button class="btn" id="btn-set-station" style="flex:2;">SET BUG</button>
-                    <button class="btn" id="btn-bug-toggle" title="Toggle Bug">[X]</button>
-                </div>
-                <div class="btn-row" style="margin-top:6px;">
-                    <button class="btn" id="btn-upload-2d" style="flex:2;">2D LOGO</button>
-                    <button class="btn" id="btn-2d-x" title="Hide/Clear 2D">[X]</button>
-                </div>
-                <input type="file" id="file-2d-logo" accept=".png,.jpg,.jpeg,.gif,.webp" style="display:none;">
-                <div class="btn-row">
-                    <button class="btn" id="btn-inject-3d" style="flex:2;color:var(--v);border-color:var(--v);">3D MODEL</button>
-                    <button class="btn" id="btn-3d-x" title="HIDE / CLEAR 3D">[X]</button>
-                </div>
-                <input type="file" id="file-3d-model" accept=".stl,.obj,.glb,.gltf,.vgd,.json" style="display:none;">
+            <div class="sec-head collapsible"><span class="sec-title">MIDI_HOST</span><span class="sec-arrow">&#x25B8;</span><div class="sec-dot off" id="midi-dot"></div></div>
+            <div class="sec-body" id="midi-host-body">
+                <button class="btn" id="btn-midi">INIT WEBMIDI</button>
+                <button class="btn" id="btn-midi-learn" style="color:var(--v);border-color:var(--v);">LEARN: OFF</button>
+                <div id="midi-status" style="font-size:8px;color:var(--text-dim);margin-top:4px;">NO MIDI DEVICE</div>
             </div>
         </div>
-
+        
         <div class="section">
-            <div class="sec-head collapsible"><span class="sec-title">LOWER_THIRD</span><span class="sec-arrow">&#x25B8;</span><div class="sec-dot"></div></div>
-            <div class="sec-body" id="lower-third-body">
+            <div class="sec-head"><span class="sec-title">LOWER_THIRD</span><div class="sec-dot"></div></div>
+            <div class="sec-body">
                 <input type="text" class="inp" id="lt-title" placeholder="Title..." value="GUEST NAME">
                 <input type="text" class="inp" id="lt-sub" placeholder="Subtitle..." value="TITLE / ROLE">
                 <div class="btn-grid">
@@ -1157,16 +1146,32 @@ body.shooting-mode #btn-shooting {
         </div>
         
         <div class="section">
-            <div class="sec-head collapsible"><span class="sec-title">MIDI_HOST</span><span class="sec-arrow">&#x25B8;</span><div class="sec-dot off" id="midi-dot"></div></div>
-            <div class="sec-body" id="midi-host-body">
-                <button class="btn" id="btn-midi">INIT WEBMIDI</button>
-                <button class="btn" id="btn-midi-learn" style="color:var(--v);border-color:var(--v);">LEARN: OFF</button>
-                <div id="midi-status" style="font-size:8px;color:var(--text-dim);margin-top:4px;">NO MIDI DEVICE</div>
+            <div class="sec-head"><span class="sec-title">IDENTITY</span><div class="sec-dot"></div></div>
+            <div class="sec-body">
+                <!-- STATION BUG -->
+                <input type="text" class="inp" id="bug-text" placeholder="STATION_NAME..." value="VNGRD">
+                <div class="btn-row">
+                    <button class="btn" id="btn-set-station" style="flex:2;">SET BUG</button>
+                    <button class="btn" id="btn-bug-toggle" title="Toggle Bug">[X]</button>
+                </div>
+                <!-- 2D LOGO -->
+                <div class="btn-row" style="margin-top:6px;">
+                    <button class="btn" id="btn-upload-2d" style="flex:2;">2D LOGO</button>
+                    <button class="btn" id="btn-2d-x" title="Hide/Clear 2D">[X]</button>
+                </div>
+                <input type="file" id="file-2d-logo" accept=".png,.jpg,.jpeg,.gif,.webp" style="display:none;">
+                <!-- 3D HOLOGRAM -->
+                <div class="btn-row">
+                    <button class="btn" id="btn-inject-3d" style="flex:2;color:var(--v);border-color:var(--v);">3D MODEL</button>
+                    <button class="btn" id="btn-3d-x" title="HIDE / CLEAR 3D">[X]</button>
+                </div>
+                <input type="file" id="file-3d-model" accept=".stl,.obj,.glb,.gltf,.vgd,.json" style="display:none;">
+
             </div>
         </div>
     </aside>
 
-        <aside class="sidebar" id="right-panel">
+    <aside class="sidebar" id="right-panel">
         <div class="section">
             <div class="sec-head"><span class="sec-title">AUDIO_ENGINE</span><div class="sec-dot off" id="audio-dot"></div></div>
             <div class="sec-body">
@@ -1180,22 +1185,21 @@ body.shooting-mode #btn-shooting {
                     <button class="btn btn-compact" id="btn-play-pause"><svg width="10" height="10" viewBox="0 0 12 12" id="icon-play-state"><path fill="currentColor" d="M3 2v8l7-4z"/></svg></button>
                     <button class="btn btn-compact" id="btn-next-track"><svg width="10" height="10" viewBox="0 0 12 12"><path fill="currentColor" d="M2 10l6-4-6-4v8zm6-8v8h2V2H8z"/></svg></button>
                 </div>
-                <div class="lbl collapsible-lbl" id="audio-adv-toggle" style="margin-top:6px;cursor:pointer;color:var(--text-dim);font-size:8px;user-select:none;">ADVANCED &#x25B8;</div>
-                <div id="audio-adv-body" style="max-height:0;overflow:hidden;transition:max-height 0.3s ease;">
-                    <div class="lbl" style="margin-top:4px;">INPUT_SIGNAL</div>
-                    <select class="inp" id="audio-input-select" style="width:100%;font-size:9px;padding:5px;background:var(--panel);border:1px solid var(--border);color:var(--text);">
-                        <option value="">SELECT_DEVICE...</option>
-                    </select>
-                    <button class="btn" id="btn-scan-inputs" style="font-size:8px;margin-top:4px;">SCAN_DEVICES</button>
-                    <div id="input-level" style="height:3px;background:var(--border);margin-top:4px;">
-                        <div id="input-level-bar" style="height:100%;width:0%;background:var(--g);transition:width 0.05s;"></div>
-                    </div>
-                    <div class="lbl" style="margin-top:8px;">ENGINEER_MODE</div>
-                    <div class="btn-grid-3">
-                        <button class="btn active-mode" id="btn-stereo">STEREO</button>
-                        <button class="btn" id="btn-spatial">3D_SPATIAL</button>
-                        <button class="btn" id="btn-dolby" style="color:#00f3ff">DOLBY_DSP</button>
-                    </div>
+
+                <div class="lbl" style="margin-top:8px;">INPUT_SIGNAL</div>
+                <select class="inp" id="audio-input-select" style="width:100%;font-size:9px;padding:5px;background:var(--panel);border:1px solid var(--border);color:var(--text);">
+                    <option value="">SELECT_DEVICE...</option>
+                </select>
+                <button class="btn" id="btn-scan-inputs" style="font-size:8px;margin-top:4px;">SCAN_DEVICES</button>
+                <div id="input-level" style="height:3px;background:var(--border);margin-top:4px;">
+                    <div id="input-level-bar" style="height:100%;width:0%;background:var(--g);transition:width 0.05s;"></div>
+                </div>
+
+                <div class="lbl" style="margin-top:8px;">ENGINEER_MODE</div>
+                <div class="btn-grid-3">
+                    <button class="btn active-mode" id="btn-stereo">STEREO</button>
+                    <button class="btn" id="btn-spatial">3D_SPATIAL</button>
+                    <button class="btn" id="btn-dolby" style="color:#00f3ff">DOLBY_DSP</button>
                 </div>
             </div>
         </div>
@@ -1250,15 +1254,33 @@ body.shooting-mode #btn-shooting {
                     <button class="btn" id="btn-projector">PROJECTOR</button>
                     <button class="btn" id="btn-vr" style="color:var(--v)">ENTER_VR</button>
                 </div>
+            </div>
+        </div>
+        
+        <div class="section">
+            <div class="sec-head collapsible"><span class="sec-title">NFT_VAULT</span><span class="sec-arrow">&#x25B8;</span><div class="sec-dot off" id="vault-dot"></div></div>
+            <div class="sec-body" id="nft-vault-body">
+                <input type="text" class="inp" id="tezos-addr" placeholder="tz1... TEZOS ADDRESS (OPTIONAL)" style="font-size:7px;margin-bottom:4px;padding:3px 4px;">
+                <button class="btn" id="btn-scan-nfts" style="font-size:8px;">SCAN_WALLET_ASSETS</button>
+                <div id="nft-vault-list" style="max-height:60px;overflow-y:auto;font-size:8px;color:var(--text-dim);margin-top:4px;">
+                    CONNECT_WALLET_FIRST
                 </div>
-                <div class="sec-head collapsible" style="padding:5px 10px;background:rgba(0,0,0,0.15);border-top:1px solid var(--border);"><span class="sec-title" style="font-size:7px;">LEXICA_NANO</span><span class="sec-arrow">&#x25B8;</span><div class="sec-dot off" id="neural-dot" style="width:4px;height:4px;"></div></div>
-                <div id="lexica-nano-body" style="max-height:0;overflow:hidden;transition:max-height 0.3s ease;padding:0 10px;">
+                <div id="nft-count" style="font-size:8px;color:var(--accent);margin-top:4px;">ASSETS: 0</div>
+            </div>
+        </div>
+        
+        <div class="section">
+            <div class="sec-head"><span class="sec-title">LEXICA_NANO</span><div class="sec-dot off" id="neural-dot"></div></div>
+            <div class="sec-body">
                 <input type="text" class="inp" id="ai-prompt" placeholder="DESCRIBE_IMAGE..." style="font-size:9px;">
                 <button class="btn" id="btn-generate-ai" style="color:var(--v);border-color:var(--v);">LEXICA GENERATE</button>
                 <div id="ai-status" style="font-size:8px;color:var(--text-dim);margin-top:4px;">LEXICA_API: READY</div>
-                </div>
-                <div class="sec-head collapsible" style="padding:5px 10px;background:rgba(0,0,0,0.15);border-top:1px solid var(--border);"><span class="sec-title" style="font-size:7px;">P2P_E2E_CALL</span><span class="sec-arrow">&#x25B8;</span><div class="sec-dot off" id="guest-dot" style="width:4px;height:4px;"></div></div>
-                <div id="p2p-call-body" style="max-height:0;overflow:hidden;transition:max-height 0.3s ease;padding:0 10px;">
+            </div>
+        </div>
+        
+        <div class="section">
+            <div class="sec-head collapsible"><span class="sec-title">P2P_E2E_CALL</span><span class="sec-arrow">&#x25B8;</span><div class="sec-dot off" id="guest-dot"></div></div>
+            <div class="sec-body" id="p2p-call-body">
                 <div class="lbl" style="font-size:8px;margin-bottom:4px;">YOUR_CALL_ID:</div>
                 <input type="text" class="inp" id="peer-id-display" readonly placeholder="CLICK_INIT_TO_GET_ID..." style="font-size:9px;text-align:center;color:var(--g);">
                 <button class="btn" id="btn-copy-id" style="font-size:8px;margin-bottom:6px;">COPY_ID</button>
@@ -1272,16 +1294,6 @@ body.shooting-mode #btn-shooting {
                 </div>
                 <button class="btn" id="btn-hangup" style="color:var(--r);border-color:var(--r);">END_CALL</button>
                 <div id="call-status" style="font-size:8px;color:var(--text-dim);margin-top:4px;text-align:center;">NOT_CONNECTED</div>
-                </div>
-                <div class="sec-head collapsible" style="padding:5px 10px;background:rgba(0,0,0,0.15);border-top:1px solid var(--border);"><span class="sec-title" style="font-size:7px;">NFT_VAULT</span><span class="sec-arrow">&#x25B8;</span><div class="sec-dot off" id="vault-dot" style="width:4px;height:4px;"></div></div>
-                <div id="nft-vault-body" style="max-height:0;overflow:hidden;transition:max-height 0.3s ease;padding:0 10px;">
-                <input type="text" class="inp" id="tezos-addr" placeholder="tz1... TEZOS ADDRESS (OPTIONAL)" style="font-size:7px;margin-bottom:4px;padding:3px 4px;">
-                <button class="btn" id="btn-scan-nfts" style="font-size:8px;">SCAN_WALLET_ASSETS</button>
-                <div id="nft-vault-list" style="max-height:60px;overflow-y:auto;font-size:8px;color:var(--text-dim);margin-top:4px;">
-                    CONNECT_WALLET_FIRST
-                </div>
-                <div id="nft-count" style="font-size:8px;color:var(--accent);margin-top:4px;">ASSETS: 0</div>
-                </div>
             </div>
         </div>
     </aside>
@@ -5655,7 +5667,7 @@ function endCallCleanup() {
     });
 
     // Collapsible sections with arrow indicators
-    ['session-lab-body', 'p2p-call-body', 'midi-host-body', 'nft-vault-body', 'lexica-nano-body', 'lower-third-body', 'identity-body'].forEach(function(id) {
+    ['session-lab-body', 'p2p-call-body', 'midi-host-body', 'nft-vault-body'].forEach(function(id) {
         var el = $(id);
         if (!el) return;
         var head = el.previousElementSibling;
