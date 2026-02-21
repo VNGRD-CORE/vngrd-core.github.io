@@ -484,7 +484,7 @@
         #cycle-badge { border-color: var(--y); color: var(--y); background: rgba(255,204,0,0.05); display: none; }
         #cycle-badge.on { display: flex; }
 
-        .sidebar { position: fixed; top: 45px; bottom: 55px; width: 200px; background: var(--panel); border: 1px solid var(--border); overflow-y: auto; z-index: 4000; scrollbar-width: none; transition: border-color 0.4s ease, box-shadow 0.4s ease; }
+        .sidebar { position: fixed; top: 45px; bottom: 55px; width: 200px; background: var(--panel); border: 1px solid var(--border); overflow: hidden; z-index: 4000; scrollbar-width: none; transition: border-color 0.4s ease, box-shadow 0.4s ease; display: flex; flex-direction: column; }
         #left-panel { left: 0; border-left: none; border-right: 1px solid rgba(0, 243, 255, 0.1); }
         #right-panel { right: 0; border-right: none; border-left: 1px solid rgba(0, 243, 255, 0.1); }
         .section { border-bottom: 1px solid var(--border); }
@@ -538,6 +538,11 @@
         #btn-rumble { animation: seismic-breathe 2.5s ease-in-out infinite; }
         #btn-rumble.fx-active { color: #ff6600; text-shadow: 0 0 10px #ff6600; border-color: #ff6600; background: rgba(255,102,0,0.1); }
         #btn-punch.fx-active { color: #ff3300; text-shadow: 0 0 10px #ff3300; border-color: #ff3300; background: rgba(255,51,0,0.1); }
+        #btn-pulse.fx-active { color: #00ffcc; text-shadow: 0 0 10px #00ffcc; border-color: #00ffcc; background: rgba(0,255,204,0.1); }
+        #btn-pull.fx-active { color: #ff6600; text-shadow: 0 0 10px #ff6600; border-color: #ff6600; background: rgba(255,102,0,0.1); }
+        #btn-vhs-decay.fx-active { color: #ff0066; text-shadow: 0 0 10px #ff0066; border-color: #ff0066; background: rgba(255,0,102,0.1); }
+        #btn-xy-mosh.fx-active { color: #cc00ff; text-shadow: 0 0 10px #cc00ff; border-color: #cc00ff; background: rgba(204,0,255,0.1); }
+        #btn-signal-shred.fx-active { color: #ffcc00; text-shadow: 0 0 10px #ffcc00; border-color: #ffcc00; background: rgba(255,204,0,0.1); }
         @keyframes seismic-breathe { 0%, 100% { color: var(--text); } 50% { color: #ff6600; text-shadow: 0 0 6px #ff6600; } }
 
         #btn-psychosis { border-color: #ff00ff; color: #ff00ff; text-align: center; font-weight: bold; letter-spacing: 1px; }
@@ -1099,14 +1104,15 @@ body.shooting-mode #btn-shooting {
         </div>
         
         <div class="section">
-            <div class="sec-head"><span class="sec-title">REACTIVITY</span><div class="sec-dot"></div></div>
+            <div class="sec-head"><span class="sec-title">OPTIC_STRESS</span><div class="sec-dot on"></div></div>
             <div class="sec-body">
-                <div class="btn-grid-3" style="margin-bottom:6px;">
-                    <button class="btn" id="btn-ui-react" style="font-size:8px;">PARTY</button>
-                    <button class="btn" id="btn-rumble" style="font-size:8px;">SEISMIC</button>
-                    <button class="btn" id="btn-psychosis" style="font-size:8px;">FAILURE</button>
+                <div class="btn-grid">
+                    <button class="btn" id="btn-night-vision" style="font-size:8px;">NIGHT_VIS</button>
+                    <button class="btn" id="btn-vhs-decay" style="font-size:8px;">VHS_DECAY</button>
+                    <button class="btn" id="btn-xy-mosh" style="font-size:8px;">XY_MOSH</button>
+                    <button class="btn" id="btn-signal-shred" style="font-size:8px;">SIG_SHRED</button>
                 </div>
-                <button class="btn" id="btn-shooting" style="color:var(--r);border-color:var(--r);font-size:9px;">SHOOTING_BASS</button>
+                <button class="btn" id="btn-kill-fx" style="color:var(--r);border-color:var(--r);font-size:9px;margin-top:6px;">KILL FX</button>
             </div>
         </div>
 
@@ -1205,23 +1211,18 @@ body.shooting-mode #btn-shooting {
         </div>
         
         <div class="section">
-            <div class="sec-head"><span class="sec-title">OPTIC_STRESS</span><div class="sec-dot on"></div></div>
+            <div class="sec-head"><span class="sec-title">REACTIVITY</span><div class="sec-dot"></div></div>
             <div class="sec-body">
                 <div class="btn-grid">
-                    <button class="btn" id="btn-night-vision" style="font-size:8px;">NIGHT_VIS</button>
-                    <button class="btn" id="btn-tactical-xy" style="font-size:8px;">TACT_XY</button>
-                    <button class="btn" id="btn-vhs" style="font-size:8px;">VHS_AGG</button>
-                    <button class="btn" id="btn-crt" style="font-size:8px;">SCAN_TEAR</button>
+                    <button class="btn" id="btn-pulse" style="font-size:8px;">PULSE</button>
+                    <button class="btn" id="btn-pull" style="font-size:8px;">PULL</button>
+                    <button class="btn" id="btn-rumble" style="font-size:8px;">SEISMIC</button>
+                    <button class="btn" id="btn-ui-react" style="font-size:8px;">PARTY</button>
                 </div>
-                <div class="btn-grid-3" style="margin-top:4px;">
-                    <button class="btn" id="btn-stutter">STUTTER</button>
-                    <button class="btn" id="btn-invert">INVERT</button>
-                    <button class="btn" id="btn-crush">CRUSH</button>
-                </div>
-                <div class="btn-grid-3" style="margin-top:4px;">
-                    <button class="btn" id="btn-trails">TRAILS</button>
-                    <button class="btn" id="btn-rgb">RGB</button>
-                    <button class="btn" id="btn-pixelate">PIXEL</button>
+                <div class="btn-grid" style="margin-top:4px;">
+                    <button class="btn" id="btn-punch" style="font-size:8px;">PUNCH</button>
+                    <button class="btn" id="btn-psychosis" style="font-size:8px;">FAILURE</button>
+                    <button class="btn" id="btn-shooting" style="font-size:8px;">BASS_SHOT</button>
                 </div>
             </div>
         </div>
@@ -1239,7 +1240,7 @@ body.shooting-mode #btn-shooting {
             </div>
         </div>
         
-        <div class="section">
+        <div class="section" id="system-gear-section" style="display:none;">
             <div class="sec-head"><span class="sec-title">SYSTEM_GEAR</span><div class="sec-dot"></div></div>
             <div class="sec-body" style="padding:0;">
                 <div style="padding:6px 10px 0;">
@@ -1270,7 +1271,7 @@ body.shooting-mode #btn-shooting {
         </div>
         
         <div class="section">
-            <div class="sec-head"><span class="sec-title">LEXICA_NANO</span><div class="sec-dot off" id="neural-dot"></div></div>
+            <div class="sec-head"><span class="sec-title">~AI SAMPLE</span><div class="sec-dot off" id="neural-dot"></div></div>
             <div class="sec-body">
                 <input type="text" class="inp" id="ai-prompt" placeholder="DESCRIBE_IMAGE..." style="font-size:9px;">
                 <button class="btn" id="btn-generate-ai" style="color:var(--v);border-color:var(--v);">LEXICA GENERATE</button>
@@ -1397,7 +1398,7 @@ const APP = {
     state: { isLive: false, isRecording: false, isFullscreen: false, isCycle: false, cycleTimer: null, isMobile: false, theme: 'cyan', startTime: Date.now(), psychosis: false },
     vj: { 
         brightness: 1.0, contrast: 1.0, saturation: 1.0, hue: 0, trailsEnabled: false, trailAlpha: 0.92, rgbEnabled: false, rgbIntensity: 0, rgbBassLink: false, pixelateEnabled: false, pixelSize: 1, rumbleEnabled: false, invert: false, uiReactivity: false, shakeIntensity: 0, shockwave: 0, lastBassLevel: 0, avgVol: 0, maskMode: false, glitchSnap: 0,
-        seismicVelocity: 0, seismicPosition: 0, springConstant: 0.8, damping: 0.9, punchEnabled: false, punchScale: 1.0, nightVision: false, tacticalXY: false, mouseX: 0.5, mouseY: 0.5
+        seismicVelocity: 0, seismicPosition: 0, springConstant: 0.8, damping: 0.9, punchEnabled: false, punchScale: 1.0, nightVision: false, pulseEnabled: false, pullEnabled: false, vhsDecay: false, xyMosh: false, signalShred: false, mouseX: 0.5, mouseY: 0.5
     },
     media: { queue: [], currentIndex: -1, currentElement: null },
     fx: { stutter: false, crush: false, invert: false, echo: false, rgbSplit: 0, freezeFrame: null },
@@ -1475,7 +1476,7 @@ const APP = {
         scale: 1.0, rotationSpeed: 0.01,
         targetScale: 1.0
     },
-    // LEXICA_NANO
+    // ~AI SAMPLE
     neural: { generating: false, lastImage: null }
 };
 
@@ -1646,17 +1647,9 @@ function processGhostCommand(cmd) {
             ghostLog(APP.vj.rumbleEnabled ? 'SEISMIC: ARMED' : 'SEISMIC: OFF', APP.vj.rumbleEnabled ? 'success' : 'ai');
         }
         // FX
-        else if (c === 'fx' || c === 'crush') {
-            impactCrush();
-            ghostLog('CRUSH FX TRIGGERED', 'success');
-        }
-        else if (c === 'stutter') {
-            impactStutter();
-            ghostLog('STUTTER FX', 'success');
-        }
-        else if (c === 'invert') {
-            impactInvert();
-            ghostLog('INVERT FX', 'success');
+        else if (c === 'kill' || c === 'killfx') {
+            resetAllFX();
+            ghostLog('KILL_FX: EXECUTED', 'success');
         }
         // Time
         else if (c === 'time' || c === 'clock') {
@@ -1926,23 +1919,40 @@ function renderLoop(timestamp) {
     // --- SEISMIC ENGINE (Random shake on bass - OFF by default) ---
     let finalShakeX = 0, finalShakeY = 0;
     
-    if (APP.vj.rumbleEnabled && (APP.audio.isPlaying || APP.audio.videoSource) && APP.audio.kick > 195) {
-        const intensity = (APP.audio.kick - 195) / 60 * 10;
+    if (APP.vj.rumbleEnabled && (APP.audio.isPlaying || APP.audio.videoSource) && APP.audio.kick > 160) {
+        const intensity = (APP.audio.kick - 160) / 60 * 10;
         finalShakeX = (Math.random() - 0.5) * intensity;
         finalShakeY = (Math.random() - 0.5) * intensity;
     }
 
-    // Apply transform to BODY
-    const targetTransform = (Math.abs(finalShakeX) > 0.2 || Math.abs(finalShakeY) > 0.2) 
-        ? `translate3d(${finalShakeX.toFixed(1)}px, ${finalShakeY.toFixed(1)}px, 0)` 
-        : '';
-    if (document.body.style.transform !== targetTransform) { 
-        document.body.style.transform = targetTransform; 
+    // Apply transform to BODY (SEISMIC + PULSE + PULL)
+    var _pulseScale = 1;
+    if (APP.vj.pulseEnabled && (APP.audio.isPlaying || APP.audio.videoSource) && APP.audio.kick > 160) {
+        _pulseScale = 1 + (APP.audio.kick - 160) / 95 * 0.08;
+    }
+    if (APP.vj.pullEnabled && (APP.audio.isPlaying || APP.audio.videoSource) && APP.audio.kick > 160) {
+        _pulseScale = 1 - (APP.audio.kick - 160) / 95 * 0.08;
+    }
+    var parts = [];
+    if (Math.abs(finalShakeX) > 0.2 || Math.abs(finalShakeY) > 0.2) {
+        parts.push('translate3d(' + finalShakeX.toFixed(1) + 'px,' + finalShakeY.toFixed(1) + 'px,0)');
+    }
+    if (Math.abs(_pulseScale - 1) > 0.002) {
+        parts.push('scale(' + _pulseScale.toFixed(4) + ')');
+    }
+    var targetTransform = parts.join(' ');
+    if (document.body.style.transform !== targetTransform) {
+        document.body.style.transform = targetTransform;
+        if (Math.abs(_pulseScale - 1) > 0.002) {
+            document.body.style.transition = 'transform 0.08s ease-out';
+        } else {
+            document.body.style.transition = '';
+        }
     }
 
-    // --- PUNCH SCALE ENGINE (kick > 195) ---
-    if (APP.vj.punchEnabled && (APP.audio.isPlaying || APP.audio.videoSource) && APP.audio.kick > 195) {
-        APP.vj.punchScale = 1 + (APP.audio.kick - 195) / 60 * 0.08;
+    // --- PUNCH SCALE ENGINE (kick > 160) ---
+    if (APP.vj.punchEnabled && (APP.audio.isPlaying || APP.audio.videoSource) && APP.audio.kick > 160) {
+        APP.vj.punchScale = 1 + (APP.audio.kick - 160) / 60 * 0.08;
     } else {
         APP.vj.punchScale += (1 - APP.vj.punchScale) * 0.25;
         if (Math.abs(APP.vj.punchScale - 1) < 0.002) APP.vj.punchScale = 1;
@@ -1979,13 +1989,8 @@ function renderLoop(timestamp) {
     if (source) {
         const ready = source.tagName === 'VIDEO' ? source.readyState >= 2 : (source.complete && source.naturalWidth > 0);
         if (ready) {
-            // TACTICAL_XY: cursor maps X→RGB shift, Y→pixelation
             var _pxEnabled = APP.vj.pixelateEnabled, _pxSize = APP.vj.pixelSize;
             var _rgbEnabled = APP.vj.rgbEnabled, _rgbIntensity = APP.vj.rgbIntensity;
-            if (APP.vj.tacticalXY) {
-                _rgbEnabled = true; _rgbIntensity = APP.vj.mouseX * 24;
-                _pxSize = Math.max(1, Math.round(APP.vj.mouseY * 16)); _pxEnabled = _pxSize > 1;
-            }
             // PUNCH scale
             if (APP.vj.punchScale !== 1) { ctx.save(); ctx.translate(w/2,h/2); ctx.scale(APP.vj.punchScale,APP.vj.punchScale); ctx.translate(-w/2,-h/2); }
 
@@ -2024,7 +2029,53 @@ function renderLoop(timestamp) {
         ctx.drawImage(APP.render.canvas, -shift, 0);
         ctx.restore();
     }
-    
+
+    // --- VHS_DECAY (Canvas-based RGB channel offsets + wobble + scanlines) ---
+    if (APP.vj.vhsDecay) {
+        ctx.save();
+        ctx.globalCompositeOperation = 'screen';
+        var wobbleX = (Math.random() - 0.5) * 6;
+        var wobbleY = (Math.random() - 0.5) * 2;
+        ctx.globalAlpha = 0.7;
+        ctx.drawImage(APP.render.canvas, wobbleX + 3, wobbleY, w, h);
+        ctx.drawImage(APP.render.canvas, wobbleX - 3, -wobbleY, w, h);
+        ctx.globalAlpha = 1;
+        ctx.globalCompositeOperation = 'source-over';
+        var scanY = (Date.now() * 0.15) % h;
+        ctx.fillStyle = 'rgba(0,0,0,0.15)';
+        ctx.fillRect(0, scanY, w, 4);
+        ctx.fillRect(0, scanY - h, w, 4);
+        for (var sl = 0; sl < h; sl += 3) {
+            ctx.fillStyle = 'rgba(0,0,0,' + (Math.random() * 0.06) + ')';
+            ctx.fillRect(0, sl, w, 1);
+        }
+        ctx.restore();
+    }
+
+    // --- XY_MOSH (Canvas-bound cursor difference composite) ---
+    if (APP.vj.xyMosh && APP.vj._xyInsideCanvas) {
+        ctx.save();
+        ctx.globalCompositeOperation = 'difference';
+        var mX = APP.vj.mouseX * w;
+        var mY = APP.vj.mouseY * h;
+        ctx.drawImage(APP.render.canvas, mX - 50, mY - 50, 100, 100, mX - 100, mY - 100, 200, 200);
+        ctx.globalCompositeOperation = 'source-over';
+        ctx.restore();
+    }
+
+    // --- SIGNAL_SHRED (3-5 random horizontal slice glitch) ---
+    if (APP.vj.signalShred) {
+        ctx.save();
+        var sliceCount = 3 + Math.floor(Math.random() * 3);
+        for (var si = 0; si < sliceCount; si++) {
+            var sliceY = Math.floor(Math.random() * h);
+            var sliceH = 10 + Math.floor(Math.random() * 60);
+            var offsetX = (Math.random() - 0.5) * 200;
+            ctx.drawImage(APP.render.canvas, 0, sliceY, w, sliceH, offsetX, sliceY, w, sliceH);
+        }
+        ctx.restore();
+    }
+
     // ═══ IDENTITY TRINITY — three independent actors burned into canvas ═══
     ctx.filter = 'none';
     ctx.globalAlpha = 1;
@@ -3037,8 +3088,8 @@ function updateVU() {
     // Legacy bassLevel
     APP.audio.bassLevel = APP.audio.kick;
 
-    // PARTY reactive: only on highs > 175
-    if (APP.vj.uiReactivity && APP.audio.highs > 175) {
+    // PARTY reactive: only on highs > 150
+    if (APP.vj.uiReactivity && APP.audio.highs > 150) {
         document.body.style.boxShadow = 'inset 0 0 ' + (APP.audio.highs / 2) + 'px var(--accent)';
     } else if (APP.vj.uiReactivity) {
         document.body.style.boxShadow = 'none';
@@ -3380,7 +3431,7 @@ $('btn-psychosis').onclick = () => {
 
 // RESET ALL FX — clears IMPACT_RACK flags + restores VJ defaults
 function resetAllFX() {
-    // SILENT KILL — direct booleans, zero toggle calls, zero flash artifacts
+    // KILL FX — silent zero-all, no flashes, no toggle calls
     APP.fx.stutter = false; APP.fx.crush = false; APP.fx.invert = false;
     APP.fx.echo = false; APP.fx.rgbSplit = 0; APP.fx.freezeFrame = null;
     APP.vj.brightness = 1.0; APP.vj.contrast = 1.0; APP.vj.saturation = 1.0; APP.vj.hue = 0;
@@ -3390,18 +3441,21 @@ function resetAllFX() {
     APP.vj.invert = false; APP.vj.maskMode = false;
     APP.vj.rumbleEnabled = false; APP.vj.uiReactivity = false;
     APP.vj.punchEnabled = false; APP.vj.punchScale = 1.0;
-    APP.vj.nightVision = false; APP.vj.tacticalXY = false;
+    APP.vj.nightVision = false;
+    APP.vj.pulseEnabled = false; APP.vj.pullEnabled = false;
+    APP.vj.vhsDecay = false; APP.vj.xyMosh = false; APP.vj.signalShred = false;
+    APP.vj._xyInsideCanvas = false;
     APP.state.psychosis = false;
-    // DOM: clear without triggering handlers
+    // DOM: silent wipe
     document.body.style.transform = '';
+    document.body.style.transition = '';
     document.body.style.filter = '';
     document.body.style.boxShadow = '';
     document.body.classList.remove('vhs-aggressive','scan-tear','night-vision','vhs','crt','system-failure','party-active');
     document.querySelectorAll('.btn.on,.btn.fx-active,.btn.active-mode').forEach(function(el){ el.classList.remove('on','fx-active','active-mode'); });
-    if (APP.render && APP.render.canvas) APP.render.canvas.style.filter = 'none';
+    if (APP.render && APP.render.canvas) { APP.render.canvas.style.filter = 'none'; APP.render.canvas.style.transform = ''; }
     if (APP.partyInterval) { clearInterval(APP.partyInterval); APP.partyInterval = null; }
     setTheme('cyan');
-    log('RESET: SILENT_KILL');
 }
 
 // PRO_FX: btn-reset delegates to resetAllFX (safe — no slider refs)
@@ -3788,25 +3842,50 @@ document.addEventListener('DOMContentLoaded', () => {
     $('btn-prev-track').onclick = prevTrack;
     $('btn-play-pause').onclick = togglePlayPause;
     
-    // PRO_FX wiring (faders removed — buttons only)
-    if ($('btn-stutter')) $('btn-stutter').onclick = impactStutter;
-    if ($('btn-invert')) $('btn-invert').onclick = impactInvert;
-    if ($('btn-crush')) $('btn-crush').onclick = impactCrush;
-    if ($('btn-trails')) $('btn-trails').onclick = () => { APP.vj.trailsEnabled = !APP.vj.trailsEnabled; $('btn-trails').classList.toggle('on'); };
-    if ($('btn-rgb')) $('btn-rgb').onclick = () => { APP.vj.rgbEnabled = !APP.vj.rgbEnabled; APP.vj.rgbIntensity = APP.vj.rgbEnabled ? 12 : 0; $('btn-rgb').classList.toggle('on'); };
-    if ($('btn-pixelate')) $('btn-pixelate').onclick = () => { APP.vj.pixelateEnabled = !APP.vj.pixelateEnabled; APP.vj.pixelSize = APP.vj.pixelateEnabled ? 8 : 1; $('btn-pixelate').classList.toggle('on'); };
-    if ($('btn-vhs')) $('btn-vhs').onclick = function() { document.body.classList.toggle('vhs-aggressive'); this.classList.toggle('fx-active'); log('VHS_AGG'); };
-    if ($('btn-crt')) $('btn-crt').onclick = function() { document.body.classList.toggle('scan-tear'); this.classList.toggle('fx-active'); log('SCAN_TEAR'); };
+    // OPTIC_STRESS wiring
     if ($('btn-night-vision')) $('btn-night-vision').onclick = function() {
         APP.vj.nightVision = !APP.vj.nightVision;
         document.body.classList.toggle('night-vision', APP.vj.nightVision);
         this.classList.toggle('fx-active', APP.vj.nightVision);
         log('NIGHT_VIS: ' + (APP.vj.nightVision ? 'ON' : 'OFF'));
     };
-    if ($('btn-tactical-xy')) $('btn-tactical-xy').onclick = function() {
-        APP.vj.tacticalXY = !APP.vj.tacticalXY;
-        this.classList.toggle('fx-active', APP.vj.tacticalXY);
-        log('TACT_XY: ' + (APP.vj.tacticalXY ? 'ON' : 'OFF'));
+    if ($('btn-vhs-decay')) $('btn-vhs-decay').onclick = function() {
+        APP.vj.vhsDecay = !APP.vj.vhsDecay;
+        this.classList.toggle('fx-active', APP.vj.vhsDecay);
+        log('VHS_DECAY: ' + (APP.vj.vhsDecay ? 'ON' : 'OFF'));
+    };
+    if ($('btn-xy-mosh')) $('btn-xy-mosh').onclick = function() {
+        APP.vj.xyMosh = !APP.vj.xyMosh;
+        APP.vj._xyInsideCanvas = false;
+        this.classList.toggle('fx-active', APP.vj.xyMosh);
+        log('XY_MOSH: ' + (APP.vj.xyMosh ? 'ON' : 'OFF'));
+    };
+    if ($('btn-signal-shred')) $('btn-signal-shred').onclick = function() {
+        APP.vj.signalShred = !APP.vj.signalShred;
+        this.classList.toggle('fx-active', APP.vj.signalShred);
+        log('SIG_SHRED: ' + (APP.vj.signalShred ? 'ON' : 'OFF'));
+    };
+    if ($('btn-kill-fx')) $('btn-kill-fx').onclick = function() { resetAllFX(); };
+    // REACTIVITY wiring — PULSE + PULL
+    if ($('btn-pulse')) $('btn-pulse').onclick = function() {
+        if (APP.vj.pulseEnabled) {
+            APP.vj.pulseEnabled = false; this.classList.remove('fx-active');
+            document.body.style.transform = ''; log('PULSE: DISARMED');
+        } else {
+            document.body.style.transform = 'scale(1.06)';
+            var self = this;
+            setTimeout(function() { document.body.style.transform = ''; APP.vj.pulseEnabled = true; APP.vj.pullEnabled = false; if ($('btn-pull')) $('btn-pull').classList.remove('fx-active'); self.classList.add('fx-active'); log('PULSE: ARMED'); }, 150);
+        }
+    };
+    if ($('btn-pull')) $('btn-pull').onclick = function() {
+        if (APP.vj.pullEnabled) {
+            APP.vj.pullEnabled = false; this.classList.remove('fx-active');
+            document.body.style.transform = ''; log('PULL: DISARMED');
+        } else {
+            document.body.style.transform = 'scale(0.94)';
+            var self = this;
+            setTimeout(function() { document.body.style.transform = ''; APP.vj.pullEnabled = true; APP.vj.pulseEnabled = false; if ($('btn-pulse')) $('btn-pulse').classList.remove('fx-active'); self.classList.add('fx-active'); log('PULL: ARMED'); }, 150);
+        }
     };
     if ($('btn-punch')) $('btn-punch').onclick = function() {
         if (APP.vj.punchEnabled) {
@@ -3843,12 +3922,12 @@ document.addEventListener('DOMContentLoaded', () => {
                 // Continuous reactive party interval
                 APP.partyInterval = setInterval(function() {
                     if (!APP.vj.uiReactivity) { clearInterval(APP.partyInterval); return; }
-                    if (APP.audio.highs > 175) {
+                    if (APP.audio.highs > 150) {
                         if (Math.random() > 0.7) { var themes=['cyan','magenta','green','purple','gold']; setTheme(themes[Math.floor(Math.random()*themes.length)]); }
                         if (Math.random() > 0.5) morphLogo();
                     }
                 }, 300);
-                log('PARTY: ARMED (highs>175)');
+                log('PARTY: ARMED (highs>150)');
             }, 150);
         }
     };
@@ -3863,7 +3942,7 @@ document.addEventListener('DOMContentLoaded', () => {
         } else {
             document.body.style.transform = 'translate3d(4px,-3px,0)';
             var self = this;
-            setTimeout(function() { document.body.style.transform = ''; APP.vj.rumbleEnabled = true; self.classList.add('fx-active'); log('SEISMIC: ARMED (kick>195)'); }, 150);
+            setTimeout(function() { document.body.style.transform = ''; APP.vj.rumbleEnabled = true; self.classList.add('fx-active'); log('SEISMIC: ARMED (kick>160)'); }, 150);
         }
     };
     
@@ -5660,11 +5739,21 @@ function endCallCleanup() {
             v19_AI.generate(prompt);
         };
 
-    // TACTICAL_XY mouse tracking
-    document.addEventListener('mousemove', function(e) {
-        APP.vj.mouseX = e.clientX / window.innerWidth;
-        APP.vj.mouseY = e.clientY / window.innerHeight;
-    });
+    // XY_MOSH: Mouse tracking ONLY inside #main-canvas
+    (function() {
+        var mc = $('main-canvas');
+        if (mc) {
+            mc.addEventListener('mousemove', function(e) {
+                var r = mc.getBoundingClientRect();
+                APP.vj.mouseX = (e.clientX - r.left) / r.width;
+                APP.vj.mouseY = (e.clientY - r.top) / r.height;
+                APP.vj._xyInsideCanvas = true;
+            });
+            mc.addEventListener('mouseleave', function() {
+                APP.vj._xyInsideCanvas = false;
+            });
+        }
+    })();
 
     // Collapsible sections with arrow indicators
     ['session-lab-body', 'p2p-call-body', 'midi-host-body', 'nft-vault-body'].forEach(function(id) {
