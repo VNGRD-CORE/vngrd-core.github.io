@@ -961,8 +961,7 @@ body.shooting-mode #btn-shooting {
 }
 .anim-hard-reset {
     animation: crt-collapse 0.5s cubic-bezier(0.19, 1, 0.22, 1);
-}
-    </style>
+}</style>
 </head>
 <body oncontextmenu="return false;">
     <!-- PORTRAIT ORIENTATION LOCK -->
@@ -5421,85 +5420,30 @@ function endCallCleanup() {
     }
 
     // Scan Tezos via TzKT (free, no key needed, CORS-enabled)
-    $('btn-scan-nfts').onclick = async () => {
-        let tezAddr = $('tezos-addr') ? $('tezos-addr').value.trim() : '';
-        
-        // --- 1. RESOLVE .TEZ DOMAIN ---
-        if (tezAddr.endsWith('.tez')) {
-            log('NFT_VAULT: RESOLVING ' + tezAddr + '...');
-            try {
-                // Query the Tezos Domains API
-                const domainResp = await fetch('https://api.tezos.domains/v1/domains/' + tezAddr);
-                const domainData = await domainResp.json();
-                
-                if (domainData && domainData.address) {
-                    tezAddr = domainData.address;
-                    log('NFT_VAULT: RESOLVED TO ' + tezAddr);
-                } else {
-                    log('NFT_VAULT: DOMAIN_NOT_FOUND');
-                }
-            } catch (e) {
-                log('NFT_VAULT: RESOLVE_ERROR');
-            }
-        }
+    async function scanTezosNfts(tezAddr) {
+        var results = [];
+        var resp = await fetch('https://api.tzkt.io/v1/tokens/balances?account=' + tezAddr + '&token.standard=fa2&balance.gt=0&limit=20&select=token');
+        if (!resp.ok) throw new Error('TZKT_' + resp.status);
+        var tokens = await resp.json();
+        tokens.forEach(function(tok) {
+            var meta = tok.metadata || {};
+            var name = meta.name || tok.contract?.alias || ('TEZ#' + (tok.tokenId || '?'));
+            // Tezos NFTs store images in metadata.displayUri, thumbnailUri, or artifactUri
+            var imageUrl = meta.displayUri || meta.thumbnailUri || meta.artifactUri || '';
+            results.push({ name: name, imageUrl: imageUrl, chain: 'TEZ' });
+        });
+        return results;
+    }
 
+    $('btn-scan-nfts').onclick = async () => {
+        var tezAddr = $('tezos-addr') ? $('tezos-addr').value.trim() : '';
         var hasEth = APP.wallet.connected && APP.wallet.address;
         var hasTez = tezAddr && tezAddr.startsWith('tz');
 
         if (!hasEth && !hasTez) {
-            $('nft-vault-list').innerHTML = 'INVALID_ADDR_OR_NOT_CONNECTED';
+            $('nft-vault-list').innerHTML = 'CONNECT_WALLET_OR_ENTER_TEZOS_ADDR';
             return;
         }
-
-        // --- 2. SYSTEM PURGE (FX CLEANSE) ---
-        // This stops the "FX on load" bug and helps recover FPS before the scan
-        if (typeof panicReset === 'function') {
-            panicReset();
-            log('SYSTEM: FX_PURGE_COMPLETE');
-        }
-
-        $('nft-vault-list').innerHTML = 'SCANNING...';
-        log('NFT_VAULT: SCANNING...');
-
-        var allNfts = [];
-        var errors = [];
-        var promises = [];
-
-        // Scan in parallel
-        if (hasEth) {
-            promises.push(scanETHNfts(APP.wallet.address).then(function(r) { 
-                allNfts = allNfts.concat(r); 
-                log('NFT_VAULT: ETH_FOUND ' + r.length); 
-            }).catch(function(e) { 
-                errors.push('ETH:' + e.message); 
-            }));
-        }
-
-        if (hasTez) {
-            promises.push(scanTezosNfts(tezAddr).then(function(r) { 
-                allNfts = allNfts.concat(r); 
-                log('NFT_VAULT: TEZ_FOUND ' + r.length); 
-            }).catch(function(e) { 
-                errors.push('TEZ:' + e.message); 
-            }));
-        }
-
-        await Promise.all(promises);
-
-        // --- 3. RENDER & UPDATE ---
-        if (allNfts.length > 0) {
-            // Ensure global VAULT_NFTS is updated for the click listener
-            window.VAULT_NFTS = allNfts; 
-            var html = renderVaultList(allNfts);
-            $('nft-vault-list').innerHTML = html;
-            $('nft-count').textContent = 'ASSETS: ' + allNfts.length;
-            $('vault-dot').classList.remove('off');
-            log('NFT_VAULT: ' + allNfts.length + ' ASSETS_LOADED');
-        } else {
-            $('nft-vault-list').innerHTML = errors.length > 0 ? 'SCAN_ERROR' : 'NO_NFTS_FOUND';
-            $('nft-count').textContent = 'ASSETS: 0';
-        }
-    };
 
         $('nft-vault-list').innerHTML = 'SCANNING...';
         log('NFT_VAULT: SCANNING...');
