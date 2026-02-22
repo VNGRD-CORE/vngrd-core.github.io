@@ -79,7 +79,7 @@
             scrollbar-width: none; 
             -ms-overflow-style: none; 
             overflow: hidden; 
-            height: 100vh; width: 100vw; 
+            height: 100dvh; width: 100vw;
             background: var(--bg); color: var(--text); 
             font-family: 'JetBrains Mono', monospace; 
             font-size: 12px; 
@@ -836,10 +836,42 @@ body.shooting-mode #btn-shooting {
         background: linear-gradient(90deg, transparent, var(--accent), transparent);
     }
 
+    /* --- GESTURE GATE OVERLAY --- */
+    #gesture-gate {
+        position: fixed; inset: 0; z-index: 99998;
+        background: var(--bg);
+        display: flex; flex-direction: column; align-items: center; justify-content: center;
+        gap: 20px; cursor: pointer;
+    }
+    #gesture-gate .gate-brand {
+        font-family: 'Orbitron', sans-serif; font-weight: 900;
+        font-size: clamp(24px, 6vw, 42px);
+        color: var(--accent);
+        text-shadow: 0 0 20px var(--accent-glow);
+        letter-spacing: 0.15em;
+    }
+    #gesture-gate .gate-line {
+        width: 30vw; height: 1px;
+        background: linear-gradient(90deg, transparent, var(--accent), transparent);
+    }
+    #gesture-gate .gate-btn {
+        font-family: 'JetBrains Mono', monospace;
+        font-size: 14px; letter-spacing: 2px; text-transform: uppercase;
+        color: var(--bg); background: var(--accent);
+        border: none; padding: 14px 36px; cursor: pointer;
+        transition: opacity 0.2s;
+    }
+    #gesture-gate .gate-btn:hover { opacity: 0.85; }
+    #gesture-gate .gate-sub {
+        font-family: 'JetBrains Mono', monospace;
+        font-size: 10px; color: var(--text-dim); letter-spacing: 1px;
+    }
+    #gesture-gate.hidden { display: none; }
+
     /* Show overlay ONLY in portrait */
     @media (orientation: portrait) {
         #portrait-lock { display: flex !important; }
-        body > *:not(#portrait-lock) { display: none !important; }
+        body > *:not(#portrait-lock):not(#gesture-gate) { display: none !important; }
     }
 
     /* LANDSCAPE MOBILE — 1:1 desktop parity (full UI mirrored) */
@@ -859,6 +891,33 @@ body.shooting-mode #btn-shooting {
         .lt-container { min-width: 200px; max-width: 300px; padding: 8px 16px 8px 10px; }
         .lt-title { font-size: 14px; }
         .lt-subtitle { font-size: 9px; }
+    }
+
+    /* CANVAS & IMAGE SCALING — fit any device */
+    #vj-canvas, #overlay-layer, #stage img, #stage video {
+        max-width: 100%; object-fit: contain;
+    }
+
+    /* SMALL-SCREEN COLLAPSE — sidebars stack into scrollable column */
+    @media (max-width: 768px) {
+        .sidebar {
+            position: relative !important; top: auto !important; bottom: auto !important;
+            width: 100% !important; min-width: 0 !important;
+            max-height: 40vh; overflow-y: auto;
+            -webkit-overflow-scrolling: touch;
+        }
+        #stage {
+            position: relative !important; inset: auto !important;
+            width: 100%; height: 50dvh; min-height: 200px;
+        }
+        #top-bar, #bottom-bar {
+            position: relative !important;
+            width: 100%;
+        }
+        body {
+            overflow-y: auto !important;
+            display: flex !important; flex-direction: column !important;
+        }
     }
 
 /* --- KINETIC SHUTTER TRANSITION --- */
@@ -958,6 +1017,14 @@ body.shooting-mode #btn-shooting {
 }</style>
 </head>
 <body oncontextmenu="return false;">
+    <!-- GESTURE GATE: Mobile AudioContext requires user tap -->
+    <div id="gesture-gate">
+        <div class="gate-brand">VNGRD</div>
+        <div class="gate-line"></div>
+        <button class="gate-btn">ENTER WORKSTATION</button>
+        <div class="gate-sub">TAP TO INITIALIZE AUDIO ENGINE</div>
+    </div>
+
     <!-- PORTRAIT ORIENTATION LOCK -->
     <div id="portrait-lock">
         <div class="lock-brand">VNGRD</div>
@@ -1064,7 +1131,7 @@ body.shooting-mode #btn-shooting {
             <div class="sec-body">
                 <button class="btn" id="btn-init-cam">SENSORS ONLINE [4K]</button>
                 <div id="cam-preview-float">
-                    <video id="preview-vid-float" autoplay muted playsinline></video>
+                    <video id="preview-vid-float" autoplay muted playsinline webkit-playsinline></video>
                     <div class="preview-label">PREVIEW</div>
                     <div class="rec-indicator" id="rec-dot-float"></div>
                 </div>
@@ -1587,7 +1654,7 @@ function processGhostCommand(cmd) {
                                 const url = URL.createObjectURL(file);
                                 if (name.match(/\.(mp4|webm|mov)$/i)) {
                                     const vid = document.createElement('video');
-                                    vid.src = url; vid.loop = true; vid.muted = true;
+                                    vid.src = url; vid.loop = true; vid.muted = true; vid.playsInline = true; vid.setAttribute('webkit-playsinline', '');
                                     APP.media.queue.push({ type: 'video', element: vid, name: entry.name });
                                 } else if (name.match(/\.(jpg|jpeg|png|gif)$/i)) {
                                     const img = new Image();
@@ -2499,7 +2566,7 @@ function loadMediaFiles(input) {
         const type = file.type.startsWith('video') ? 'video' : 'image';
         const item = { type, url, element: null, name: file.name };
         if (type === 'video') {
-            const vid = document.createElement('video'); vid.src = url; vid.muted = true; vid.loop = !APP.state.isCycle; vid.playsInline = true; vid.preload = 'auto'; item.element = vid; $('media-container').appendChild(vid);
+            const vid = document.createElement('video'); vid.src = url; vid.muted = true; vid.loop = !APP.state.isCycle; vid.playsInline = true; vid.setAttribute('webkit-playsinline', ''); vid.preload = 'auto'; item.element = vid; $('media-container').appendChild(vid);
         } else {
             // createObjectURL = native blob ref for GIF animation.
             // gif-host is ON-SCREEN (10px, behind canvas, overflow:hidden, opacity:0.01).
@@ -2694,7 +2761,7 @@ async function initCamera() {
         APP.camera.stream = await navigator.mediaDevices.getUserMedia({ video: { width: { ideal: 3840 }, height: { ideal: 2160 }, frameRate: { ideal: 60, min: 30 } }, audio: false });
         APP.camera.videoEl = document.createElement('video');
         APP.camera.videoEl.srcObject = APP.camera.stream;
-        APP.camera.videoEl.muted = true; APP.camera.videoEl.playsInline = true; APP.camera.videoEl.play().catch(() => {});
+        APP.camera.videoEl.muted = true; APP.camera.videoEl.playsInline = true; APP.camera.videoEl.setAttribute('webkit-playsinline', ''); APP.camera.videoEl.play().catch(() => {});
         APP.camera.mode = 'preview';
         $('btn-init-cam').style.display = 'none';
         $('cam-ctrls').style.display = 'block';
@@ -2728,7 +2795,7 @@ $('btn-inject').onclick = () => {
         APP.loop.activeUrl = URL.createObjectURL(blob);
         const vid = document.createElement('video');
         vid.src = APP.loop.activeUrl;
-        vid.muted = true; vid.loop = true; vid.play();
+        vid.muted = true; vid.loop = true; vid.playsInline = true; vid.setAttribute('webkit-playsinline', ''); vid.play();
         const item = { type: 'video', url: APP.loop.activeUrl, element: vid, name: 'LOOP_SAMPLE' };
         APP.media.queue.push(item);
         APP.media.currentIndex = APP.media.queue.length - 1;
@@ -3626,6 +3693,21 @@ function initCompositor() {
 }
 
 document.addEventListener('DOMContentLoaded', () => {
+    // --- GESTURE GATE: Unlock AudioContext on first user tap ---
+    const gate = $('gesture-gate');
+    if (gate) {
+        gate.addEventListener('click', () => {
+            // Resume or create the main AudioContext inside the user gesture
+            if (APP.audio.ctx) {
+                APP.audio.ctx.resume().catch(() => {});
+            } else {
+                APP.audio.ctx = new (window.AudioContext || window.webkitAudioContext)();
+            }
+            gate.classList.add('hidden');
+            log('[SYSTEM] AUDIO_ENGINE_UNLOCKED');
+        }, { once: true });
+    }
+
     log('DRIS//core_VNGRD_v23.5_SYSTEM_FAILURE');
     checkMobile(); initCanvas(); ghostInit(); fetchCrypto(); setInterval(fetchCrypto, 600000);
     loadFromMemory();
@@ -4854,26 +4936,25 @@ $('btn-init-peer').onclick = () => {
 
         // --- INCOMING DATA CONNECTION (Guest Side) ---
         APP.peer.peer.on('connection', (conn) => {
-            log('DATA_CHANNEL: INCOMING FROM ' + conn.peer);
+            log('[SYSTEM] DATA_CONN_INCOMING FROM ' + conn.peer);
             conn.on('open', () => {
                 APP.peer.dataConn = conn;
-                log('DATA_CHANNEL: OPEN');
+                log('[SYSTEM] DATA_CHANNEL_OPEN');
             });
             conn.on('data', (data) => {
                 try {
                     const msg = typeof data === 'string' ? JSON.parse(data) : data;
-                    // Debug: confirm packet arrival before any DOM work
                     console.log('RECEIVED P2P DATA:', msg);
-                    log('DATA_CHANNEL: RECV ' + (msg.target || 'UNKNOWN'));
+                    log('[SYSTEM] DATA_RECV: ' + (msg.target || 'UNKNOWN'));
                     if (msg.type === 'UI_SYNC') handleUISync(msg);
                 } catch (e) {
                     console.error('DATA_CHANNEL PARSE ERROR:', e, data);
-                    log('DATA_CHANNEL: PARSE_ERR');
+                    log('[ERROR] DATA_CHANNEL: PARSE_ERR');
                 }
             });
             conn.on('close', () => {
-                log('DATA_CHANNEL: CLOSED');
-                if (APP.peer.dataConn === conn) APP.peer.dataConn = null;
+                log('[SYSTEM] DATA_CHANNEL_CLOSED');
+                APP.peer.dataConn = null;
             });
         });
 
@@ -4959,22 +5040,24 @@ $('btn-call-guest').onclick = async () => {
         handleCallStream(call);
 
         // --- Establish parallel Data Channel for UI sync ---
-        const dataConn = APP.peer.peer.connect(remoteId);
-        dataConn.on('open', () => {
-            APP.peer.dataConn = dataConn;
-            log('DATA_CHANNEL: OPEN TO ' + remoteId);
+        APP.peer.dataConn = APP.peer.peer.connect(remoteId);
+        APP.peer.dataConn.on('open', () => {
+            log('[SYSTEM] DATA_CHANNEL_OPEN TO ' + remoteId);
         });
-        dataConn.on('data', (data) => {
+        APP.peer.dataConn.on('data', (data) => {
             try {
                 const msg = typeof data === 'string' ? JSON.parse(data) : data;
+                console.log('RECEIVED P2P DATA:', msg);
+                log('DATA_CHANNEL: RECV ' + (msg.target || 'UNKNOWN'));
                 if (msg.type === 'UI_SYNC') handleUISync(msg);
             } catch (e) {
+                console.error('DATA_CHANNEL PARSE ERROR:', e, data);
                 log('DATA_CHANNEL: PARSE_ERR');
             }
         });
-        dataConn.on('close', () => {
+        APP.peer.dataConn.on('close', () => {
             log('DATA_CHANNEL: CLOSED');
-            if (APP.peer.dataConn === dataConn) APP.peer.dataConn = null;
+            APP.peer.dataConn = null;
         });
 
     } catch (e) {
@@ -4992,6 +5075,8 @@ function handleCallStream(call) {
             APP.guest.videoElement = document.createElement('video');
             APP.guest.videoElement.autoplay = true;
             APP.guest.videoElement.playsInline = true;
+            APP.guest.videoElement.setAttribute('webkit-playsinline', '');
+            APP.guest.videoElement.muted = true;
             // Optionally append to DOM if not already handled elsewhere
             // document.body.appendChild(APP.guest.videoElement); 
         }
@@ -5038,16 +5123,17 @@ $('btn-hangup').onclick = () => {
 
 // --- P2P DATA SYNC: Send & Receive UI State ---
 function sendUISync(target, payload) {
-    if (APP.peer && APP.peer.dataConn && APP.peer.dataConn.open) {
-        APP.peer.dataConn.send(JSON.stringify({
-            type: 'UI_SYNC',
-            target: target,
-            payload: payload
-        }));
-        log('DATA_SYNC_SENT: ' + target);
-    } else {
+    if (!APP.peer || !APP.peer.dataConn || !APP.peer.dataConn.open) {
+        console.warn('CHANNEL NOT READY');
         log('[ERROR] DATA_CHANNEL_NOT_OPEN');
+        return;
     }
+    APP.peer.dataConn.send(JSON.stringify({
+        type: 'UI_SYNC',
+        target: target,
+        payload: payload
+    }));
+    log('DATA_SYNC_SENT: ' + target);
 }
 
 function handleUISync(msg) {
