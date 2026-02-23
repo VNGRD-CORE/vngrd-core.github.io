@@ -1008,35 +1008,34 @@ body.fx-scan #stage::after {
     pointer-events: none !important;
 }
 
-/* VOID: High-contrast, desaturated liquid warp */
-body.fx-void #stage {
-    filter: saturate(0) brightness(0.5) contrast(3) !important;
-    animation: void-collapse 0.6s cubic-bezier(0.45, 0, 0.55, 1) infinite alternate !important;
+/* VOID: Full Collapse — GPU-accelerated, hits the entire console */
+body.fx-void {
+    will-change: filter, transform;
+    transform: translateZ(0);
+    filter: saturate(0) brightness(0.4) contrast(2) !important;
+    animation: console-warp 0.8s ease-in-out infinite alternate !important;
+    background: #000 !important;
 }
-@keyframes void-collapse {
-    0%   { transform: scale(1.1) skewX(-15deg); clip-path: inset(0 0 0 0); }
-    100% { transform: scale(0.9) skewX(15deg);  clip-path: inset(5% 2% 5% 2%); }
+@keyframes console-warp {
+    0%   { transform: translateZ(0) scale(1)    rotate(0deg); }
+    100% { transform: translateZ(0) scale(0.98) rotate(0.5deg); }
 }
 
-/* LUCY: 360-degree color cycle with kaleidoscopic refraction */
-body.fx-lucy #stage {
-    filter: saturate(10) contrast(1.5) brightness(1.2) !important;
-    animation: lucy-hue 2s linear infinite !important;
+/* LUCY: Full Hallucination — GPU-accelerated, hits the entire console */
+body.fx-lucy {
+    will-change: filter;
+    transform: translateZ(0);
+    animation: lucy-full-hue 3s linear infinite !important;
 }
-body.fx-lucy #stage::after {
-    content: ""; position: absolute; top: 0; left: 0; width: 100%; height: 100%;
-    backdrop-filter: hue-rotate(90deg) saturate(2) blur(2px);
-    background: repeating-conic-gradient(from 0deg, rgba(255,0,255,0.1) 0deg 30deg, transparent 30deg 60deg);
-    animation: lucy-spin 4s linear infinite;
-    pointer-events: none; z-index: 3015;
+body.fx-lucy::after {
+    content: ""; position: fixed; top: 0; left: 0; width: 100vw; height: 100vh;
+    backdrop-filter: hue-rotate(90deg) saturate(2);
+    background: radial-gradient(circle, rgba(255,0,255,0.05), transparent);
+    pointer-events: none; z-index: 9999;
 }
-@keyframes lucy-hue {
-    0%   { filter: hue-rotate(0deg)   saturate(8); }
-    100% { filter: hue-rotate(360deg) saturate(8); }
-}
-@keyframes lucy-spin {
-    0%   { transform: scale(2) rotate(0deg); }
-    100% { transform: scale(2) rotate(360deg); }
+@keyframes lucy-full-hue {
+    0%   { filter: hue-rotate(0deg)   saturate(4) brightness(1.1); }
+    100% { filter: hue-rotate(360deg) saturate(4) brightness(1.1); }
 }
 
 @keyframes punch-pulse {
@@ -1897,7 +1896,7 @@ function updateTickerCycle() {
 }
 
 // UTILS
-function log(msg) { const box = document.getElementById('sys-log'); if (!box) return; const ts = new Date().toTimeString().split(' ')[0]; const el = document.createElement('div'); el.className = 'log-line'; el.innerHTML = `<span class="ts">${ts}</span>${msg}`; box.insertBefore(el, box.firstChild); if (box.children.length > 30) box.lastChild.remove(); }
+function log(msg) { const box = document.getElementById('sys-log'); if (!box) return; const isFxHeavy = document.body.classList.contains('fx-void') || document.body.classList.contains('fx-lucy'); const cap = isFxHeavy ? 15 : 30; if (isFxHeavy && box.children.length >= cap) return; const ts = new Date().toTimeString().split(' ')[0]; const el = document.createElement('div'); el.className = 'log-line'; el.innerHTML = `<span class="ts">${ts}</span>${msg}`; box.insertBefore(el, box.firstChild); if (box.children.length > cap) box.lastChild.remove(); }
 function checkMobile() { APP.state.isMobile = /Android|iPhone|iPad|iPod|webOS|BlackBerry/i.test(navigator.userAgent); if (APP.state.isMobile) { APP.render.width = 1920; APP.render.height = 1080; log('MOBILE_MODE'); } }
 
 // RENDER
@@ -6464,6 +6463,12 @@ window.toggleFX = function(fxName) {
         target.classList.add(className);
         if (btn) btn.classList.add('active-fx');
         console.log(`FX_ON: ${fxName}`);
+
+        // Trim sys-log immediately for GPU-heavy one-shot effects
+        if (autoOff[fxName]) {
+            const box = document.getElementById('sys-log');
+            if (box) while (box.children.length > 15) box.lastChild.remove();
+        }
 
         // Auto-off for one-shot effects
         if (autoOff[fxName]) {
