@@ -507,7 +507,8 @@
         .sec-head.collapsible.open .sec-arrow { color: var(--accent); }
         /* Collapsible bodies: collapsed by default; JS restores padding on open */
         #session-lab-body, #p2p-call-body, #midi-host-body, #nft-vault-body, #lexica-nano-body { max-height: 0; overflow: hidden; transition: max-height 0.3s ease; padding: 0 12px; }
-        #gif-host img { position: fixed; top: 0; left: 0; width: 10px !important; height: 10px !important; opacity: 0.01 !important; z-index: -1; pointer-events: none; will-change: contents; }
+        /* gif-host: images must be in-viewport + non-zero opacity so the browser advances GIF frames */
+        #gif-host img { display: block; width: 2px !important; height: 2px !important; opacity: 0.01; pointer-events: none; }
         
         /* VNGRD BUTTONS - DIGITAL SNAP */
         .btn { display: block; width: 100%; padding: 8px 10px; margin-bottom: 6px; background: linear-gradient(180deg, #0f0f14 0%, #0a0a0e 100%); border: 1px solid var(--border); color: var(--text); font-family: 'JetBrains Mono', monospace; font-size: 10px; text-align: left; transition: all 0.05s step-end; }
@@ -1008,18 +1009,16 @@ body.fx-scan #stage::after {
     pointer-events: none !important;
 }
 
-/* VOID: Full Collapse — GPU-accelerated, hits the entire console */
+/* VOID: Full Collapse — harsh grayscale crunch + visible warp */
 body.fx-void {
     will-change: transform, filter;
-    transform: translateZ(0);
-    filter: saturate(0) brightness(0.35) contrast(3) !important;
-    animation: console-warp 0.7s ease-in-out infinite alternate !important;
-    background: #000 !important;
+    filter: saturate(0) contrast(3.5) brightness(1.4) invert(0.08) !important;
+    animation: console-warp 0.6s ease-in-out infinite alternate !important;
 }
 @keyframes console-warp {
-    /* scale 1.02→0.96 (6% range) + rotate ±1.5deg — no skew, pure GPU ops */
-    0%   { transform: translateZ(0) scale(1.02) rotate(-1.5deg); }
-    100% { transform: translateZ(0) scale(0.96) rotate(1.5deg); }
+    /* 6% scale swing + ±1.5deg rotation — compositor-only, no paint */
+    0%   { transform: translateZ(0) scale(1.03) rotate(-1.5deg); }
+    100% { transform: translateZ(0) scale(0.97) rotate( 1.5deg); }
 }
 
 /* LUCY: Full Hallucination — GPU-accelerated, hits the entire console */
@@ -1482,7 +1481,7 @@ body.fx-lucy::after {
     <input type="file" id="file-vgd" accept=".vgd,.json">
     <audio id="audio-el"></audio>
     <div id="media-container" style="display:none;"></div>
-    <div id="gif-host" style="position:fixed;top:0;left:0;width:10px;height:10px;z-index:-1;opacity:0.01;pointer-events:none;overflow:hidden;"></div>
+    <div id="gif-host" style="position:fixed;top:0;left:0;pointer-events:none;overflow:visible;"></div>
 
 <script>
 const $ = id => document.getElementById(id);
@@ -5532,6 +5531,9 @@ function endCallCleanup() {
                 var img = new Image();
                 img.crossOrigin = 'anonymous';
                 img.src = imageUrl;
+                // Park in gif-host immediately — browser composites it → GIF frames advance
+                var _gh = document.getElementById('gif-host');
+                if (_gh) _gh.appendChild(img);
                 APP.user.assets.push({ name: nft.name, imageUrl: imageUrl, image: img });
                 html += '<div class="nft-vault-item" data-nft-index="' + assetIdx + '" style="margin:2px 0;padding:3px 4px;color:var(--accent);cursor:pointer;border:1px solid transparent;transition:border-color 0.15s;" onmouseenter="this.style.borderColor=\'var(--accent)\'" onmouseleave="this.style.borderColor=\'transparent\'">' + nft.name.substring(0, 20) + ' <span style="color:var(--text-dim);font-size:7px;">[' + nft.chain + ']</span></div>';
                 assetIdx++;
