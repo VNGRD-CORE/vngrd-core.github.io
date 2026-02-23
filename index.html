@@ -507,10 +507,13 @@
         .sec-head.collapsible.open .sec-arrow { color: var(--accent); }
         /* Collapsible bodies: collapsed by default; JS restores padding on open */
         #session-lab-body, #p2p-call-body, #midi-host-body, #nft-vault-body, #lexica-nano-body { max-height: 0; overflow: hidden; transition: max-height 0.3s ease; padding: 0 12px; }
-        /* gif-host: position:fixed pulls it OUT of the canvas stacking context.
-           Canvas (z:1000) no longer occludes it — Chrome won't pause GIF decoders
-           for occluded elements. opacity:0.01 + will-change forces the compositor
-           to keep the layer alive so drawImage() always gets the current frame. */
+        /* gif-host lives as a direct child of <body> (NOT inside #stage).
+           #stage has transform:translate3d(0,0,0) which makes it the containing block for
+           any position:fixed descendants — trapping them inside overflow:hidden and
+           behind the canvas. At body level, position:fixed is truly viewport-relative,
+           never clipped, never occluded. opacity:0.01 + will-change:contents keeps
+           the compositor layer alive so the browser advances GIF frames every tick.
+           drawImage(img) then captures the current animated frame. */
         #gif-host { position: fixed; top: 0; left: 0; width: 2px; height: 2px; overflow: hidden; opacity: 0.01; pointer-events: none; z-index: 0; will-change: contents; }
         #gif-host img { position: absolute; display: block; width: 2px !important; height: 2px !important; pointer-events: none; }
         
@@ -1194,11 +1197,6 @@ body.fx-lucy::after {
     </header>
 
     <main id="stage">
-        <!-- gif-host: z-index:1 inside stage — covered by canvas(z:1000) visually,
-             but real composited elements to the browser → GIF frames advance reliably -->
-        <div id="gif-host">
-            <img id="user-logo-layer" src="" alt="Logo" style="display:none;">
-        </div>
         <canvas id="vj-canvas"></canvas>
 
         <div id="glass-fracture-layer"></div>
@@ -2678,8 +2676,8 @@ function loadMediaFiles(input) {
             const vid = document.createElement('video'); vid.src = url; vid.muted = true; vid.loop = !APP.state.isCycle; vid.playsInline = true; vid.preload = 'auto'; item.element = vid; $('media-container').appendChild(vid);
         } else {
             // createObjectURL = native blob ref for GIF animation.
-            // gif-host is ON-SCREEN (10px, behind canvas, overflow:hidden, opacity:0.01).
-            // Browser composites the image = decoder advances GIF frames.
+            // gif-host is a direct child of <body> (position:fixed, opacity:0.01, 2x2px).
+            // Browser compositor keeps it alive → GIF frames advance each tick.
             // drawImage() reads intrinsic naturalWidth x naturalHeight for full quality.
             const img = new Image();
             img.crossOrigin = 'anonymous';
@@ -3779,7 +3777,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
     // Hide DOM overlays — Trinity actors are drawn directly on canvas
     var _sb = $('station-bug'); if (_sb) _sb.style.opacity = '0';
-    // user-logo-layer lives in #gif-host (inside #stage, z-index:1, below canvas)
+    // user-logo-layer lives in #gif-host (direct child of body, position:fixed, opacity:0.01)
     // No extra styling needed — gif-host CSS handles compositing.
 
     requestAnimationFrame(renderLoop);
@@ -6540,5 +6538,13 @@ setTimeout(() => {
             }
         };
     }
-}, 2000);</body>
+}, 2000);
+    <!-- gif-host is a DIRECT child of body — NOT inside #stage.
+         #stage has transform:translate3d(0,0,0) which makes it the containing block for
+         position:fixed children, trapping them inside overflow:hidden. By living at body level,
+         position:fixed is relative to the viewport and nothing occludes it. -->
+    <div id="gif-host">
+        <img id="user-logo-layer" src="" alt="Logo" style="display:none;">
+    </div>
+</body>
 </html> 
