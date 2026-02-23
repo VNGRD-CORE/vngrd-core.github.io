@@ -1025,6 +1025,7 @@ body.fx-void {
 body.fx-lucy {
     will-change: filter;
     transform: translateZ(0);
+    background: #000 !important;
     animation: lucy-full-hue 3s linear infinite !important;
 }
 body.fx-lucy::after {
@@ -1896,7 +1897,7 @@ function updateTickerCycle() {
 }
 
 // UTILS
-function log(msg) { const box = document.getElementById('sys-log'); if (!box) return; const isFxHeavy = document.body.classList.contains('fx-void') || document.body.classList.contains('fx-lucy'); const cap = isFxHeavy ? 15 : 30; if (isFxHeavy && box.children.length >= cap) return; const ts = new Date().toTimeString().split(' ')[0]; const el = document.createElement('div'); el.className = 'log-line'; el.innerHTML = `<span class="ts">${ts}</span>${msg}`; box.insertBefore(el, box.firstChild); if (box.children.length > cap) box.lastChild.remove(); }
+function log(msg) { const box = document.getElementById('sys-log'); if (!box) return; const ts = new Date().toTimeString().split(' ')[0]; const el = document.createElement('div'); el.className = 'log-line'; el.innerHTML = `<span class="ts">${ts}</span>${msg}`; box.insertBefore(el, box.firstChild); if (box.children.length > 15) box.lastChild.remove(); }
 function checkMobile() { APP.state.isMobile = /Android|iPhone|iPad|iPod|webOS|BlackBerry/i.test(navigator.userAgent); if (APP.state.isMobile) { APP.render.width = 1920; APP.render.height = 1080; log('MOBILE_MODE'); } }
 
 // RENDER
@@ -3626,22 +3627,10 @@ async function initWeb3() {
                 }
             });
 
-            // Passive check — only picks up accounts if MetaMask is already authorized
-            var accounts = await window.ethereum.request({ method: 'eth_accounts' });
-            if (accounts.length > 0) {
-                var chainId = await window.ethereum.request({ method: 'eth_chainId' });
-                var info = connectWalletUI(accounts[0], chainId);
-                log('WEB3: SOVEREIGN [' + info.short + ']');
-                autoScanNFTs();
-            } else {
-                APP.web3.mode = 'guest';
-                log('WEB3: GUEST_MODE (CONNECT VIA WALLET BADGE)');
-            }
-        } else {
-            log('WEB3_ERR: NO_INJECTED_PROVIDER');
+            // No passive auto-connect — wallet initializes only on badge click
         }
     } catch (e) {
-        log('WEB3_ERR: CONNECTION_REJECTED');
+        log('WEB3_ERR: LISTENER_SETUP_FAILED');
     }
 }
 
@@ -3777,8 +3766,6 @@ document.addEventListener('DOMContentLoaded', () => {
     loadFromMemory();
     // Phase 1: Initialize Compositor
     initCompositor();
-    // Phase 3: Initialize Web3 (Hybrid Gate)
-    initWeb3();
     // Phase 4: Portal UI
     portalCamPreview();
     // Phase 5: Layer Saver
@@ -3988,6 +3975,9 @@ document.addEventListener('DOMContentLoaded', () => {
             var chainId = await window.ethereum.request({ method: 'eth_chainId' });
             var info = connectWalletUI(accounts[0], chainId);
             log('WALLET: ' + info.network + ' ' + info.short);
+
+            // Register account/chain listeners now that user has explicitly connected
+            initWeb3();
 
             // Fetch balance (optional, non-blocking)
             try {
