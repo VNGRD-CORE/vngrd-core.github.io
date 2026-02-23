@@ -2085,14 +2085,14 @@ function renderLoop(timestamp) {
     ctx.imageSmoothingEnabled = false;
     
     // --- SEISMIC ENGINE (Random shake on bass - OFF by default) ---
-    // Only runs when audio reactor is active — skip DOM mutation on idle frames
+    // _fxActive gates expensive ops (RGB shift) — seismic runs independently
     const _fxActive = window.audioReactorActive ||
         document.body.classList.contains('fx-void') ||
         document.body.classList.contains('fx-lucy');
 
     let finalShakeX = 0, finalShakeY = 0;
 
-    if (_fxActive && APP.vj.rumbleEnabled && (APP.audio.isPlaying || APP.audio.videoSource) && APP.audio.bassLevel > 150) {
+    if (APP.vj.rumbleEnabled && (APP.audio.isPlaying || APP.audio.videoSource) && APP.audio.bassLevel > 150) {
         // Classic random shake on bass hits (like v22.1)
         const intensity = (APP.audio.bassLevel - 150) / 100 * 8;
         finalShakeX = (Math.random() - 0.5) * intensity;
