@@ -507,8 +507,11 @@
         .sec-head.collapsible.open .sec-arrow { color: var(--accent); }
         /* Collapsible bodies: collapsed by default; JS restores padding on open */
         #session-lab-body, #p2p-call-body, #midi-host-body, #nft-vault-body, #lexica-nano-body { max-height: 0; overflow: hidden; transition: max-height 0.3s ease; padding: 0 12px; }
-        /* gif-host: images must be in-viewport + non-zero opacity so the browser advances GIF frames */
-        #gif-host img { display: block; width: 2px !important; height: 2px !important; opacity: 0.01; pointer-events: none; }
+        /* gif-host: absolute inside #stage at z-index:1 — below canvas(z:1000).
+           Images are real painted elements (no opacity trick) → browser animates GIF frames.
+           Canvas covers them so they're invisible to the user. */
+        #gif-host { position: absolute; top: 0; left: 0; z-index: 1; width: 48px; overflow: hidden; pointer-events: none; }
+        #gif-host img { display: block; width: 48px !important; height: 48px !important; object-fit: cover; pointer-events: none; }
         
         /* VNGRD BUTTONS - DIGITAL SNAP */
         .btn { display: block; width: 100%; padding: 8px 10px; margin-bottom: 6px; background: linear-gradient(180deg, #0f0f14 0%, #0a0a0e 100%); border: 1px solid var(--border); color: var(--text); font-family: 'JetBrains Mono', monospace; font-size: 10px; text-align: left; transition: all 0.05s step-end; }
@@ -1183,13 +1186,18 @@ body.fx-lucy::after {
     </header>
 
     <main id="stage">
+        <!-- gif-host: z-index:1 inside stage — covered by canvas(z:1000) visually,
+             but real composited elements to the browser → GIF frames advance reliably -->
+        <div id="gif-host">
+            <img id="user-logo-layer" src="" alt="Logo" style="display:none;">
+        </div>
         <canvas id="vj-canvas"></canvas>
 
         <div id="glass-fracture-layer"></div>
         <div id="overlay-layer">
             <!-- V33 MANUAL LAYER SEPARATION -->
             <div id="station-bug">VNGRD</div>
-            <img id="user-logo-layer" src="" alt="Logo">
+            <!-- user-logo-layer moved to gif-host for reliable GIF compositing -->
             <!-- HOLOGRAM WIDGET - REACTOR CORE -->
             <div id="widget-layer">
                 <canvas id="hologram-canvas"></canvas>
@@ -1481,7 +1489,6 @@ body.fx-lucy::after {
     <input type="file" id="file-vgd" accept=".vgd,.json">
     <audio id="audio-el"></audio>
     <div id="media-container" style="display:none;"></div>
-    <div id="gif-host" style="position:fixed;top:0;left:0;pointer-events:none;overflow:visible;"></div>
 
 <script>
 const $ = id => document.getElementById(id);
@@ -2601,22 +2608,8 @@ if ($('file-2d-logo')) {
             const url = URL.createObjectURL(file);
             const logoLayer = $('user-logo-layer');
             if (logoLayer) {
-                // display:block BEFORE src — triggers GIF animation on load
-                logoLayer.style.display = 'block';
                 logoLayer.src = url;
-                // ON-SCREEN behind canvas at 10px — browser composites = GIF frames advance
-                logoLayer.style.position = 'fixed';
-                logoLayer.style.bottom = '0';
-                logoLayer.style.left = '0';
-                logoLayer.style.width = '10px';
-                logoLayer.style.height = '10px';
-                logoLayer.style.opacity = '0.01';
-                logoLayer.style.pointerEvents = 'none';
-                logoLayer.style.zIndex = '-1';
-                logoLayer.style.objectFit = 'cover';
-                logoLayer.style.background = 'transparent';
-                logoLayer.style.border = 'none';
-                logoLayer.style.boxShadow = 'none';
+                logoLayer.style.display = 'block'; // gif-host CSS handles size + compositing
             }
             APP.trinity.logo.visible = true;
             log('2D_LOGO: ' + file.name.toUpperCase());
@@ -3241,16 +3234,8 @@ $('file-vgd').onchange = (e) => {
             if (s.logo2d) {
                 var logoLayer = $('user-logo-layer');
                 if (logoLayer) {
-                    logoLayer.style.display = 'block';
-                    logoLayer.style.position = 'fixed';
-                    logoLayer.style.bottom = '0';
-                    logoLayer.style.left = '0';
-                    logoLayer.style.width = '10px';
-                    logoLayer.style.height = '10px';
-                    logoLayer.style.opacity = '0.01';
-                    logoLayer.style.zIndex = '-1';
-                    logoLayer.style.objectFit = 'cover';
                     logoLayer.src = s.logo2d;
+                    logoLayer.style.display = 'block';
                     APP.trinity.logo.visible = true;
                     log('2D_LOGO: RESTORED_FROM_VGD');
                 }
@@ -3303,7 +3288,7 @@ function loadFromMemory() {
         if (s.logo2d) {
             if (isValidDataURI(s.logo2d)) {
                 var _ll = $('user-logo-layer');
-                if (_ll) { _ll.style.display = 'block'; _ll.style.position = 'fixed'; _ll.style.bottom = '0'; _ll.style.left = '0'; _ll.style.width = '10px'; _ll.style.height = '10px'; _ll.style.opacity = '0.01'; _ll.style.zIndex = '-1'; _ll.style.objectFit = 'cover'; _ll.src = s.logo2d; APP.trinity.logo.visible = true; }
+                if (_ll) { _ll.src = s.logo2d; _ll.style.display = 'block'; APP.trinity.logo.visible = true; }
             } else {
                 // Corrupt logo data — purge it from the saved session
                 log('MEMORY: CORRUPT_LOGO_PURGED');
@@ -3769,21 +3754,8 @@ document.addEventListener('DOMContentLoaded', () => {
 
     // Hide DOM overlays — Trinity actors are drawn directly on canvas
     var _sb = $('station-bug'); if (_sb) _sb.style.opacity = '0';
-    // GIF ANIMATION FIX: user-logo-layer must be ON-SCREEN and composited
-    // by the browser for frame advancement. Position behind canvas (z-index:-1)
-    // at bottom-left, 10px visible footprint. drawImage() reads current frame.
-    var _ul = $('user-logo-layer');
-    if (_ul) {
-        _ul.style.position = 'fixed';
-        _ul.style.bottom = '0';
-        _ul.style.left = '0';
-        _ul.style.width = '10px';
-        _ul.style.height = '10px';
-        _ul.style.opacity = '0.01';
-        _ul.style.pointerEvents = 'none';
-        _ul.style.zIndex = '-1';
-        _ul.style.objectFit = 'cover';
-    }
+    // user-logo-layer lives in #gif-host (inside #stage, z-index:1, below canvas)
+    // No extra styling needed — gif-host CSS handles compositing.
 
     requestAnimationFrame(renderLoop);
     updateClock(); setInterval(updateClock, 1000); morphLogo(); setTimeout(morphLogo, 4000);
@@ -3999,19 +3971,8 @@ document.addEventListener('DOMContentLoaded', () => {
         if (e.target.files.length) {
             const url = URL.createObjectURL(e.target.files[0]);
             const img = $('user-logo-layer');
-            // display:block before src — triggers GIF animation on load
-            img.style.display = 'block';
             img.src = url;
-            // ON-SCREEN behind canvas — browser composites = GIF frames advance
-            img.style.position = 'fixed';
-            img.style.bottom = '0';
-            img.style.left = '0';
-            img.style.width = '10px';
-            img.style.height = '10px';
-            img.style.opacity = '0.01';
-            img.style.pointerEvents = 'none';
-            img.style.zIndex = '-1';
-            img.style.objectFit = 'cover';
+            img.style.display = 'block'; // gif-host CSS handles size + compositing
             APP.trinity.logo.visible = true;
             log('IDENTITY_LAYER_LOADED');
         }
