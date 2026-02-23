@@ -507,11 +507,12 @@
         .sec-head.collapsible.open .sec-arrow { color: var(--accent); }
         /* Collapsible bodies: collapsed by default; JS restores padding on open */
         #session-lab-body, #p2p-call-body, #midi-host-body, #nft-vault-body, #lexica-nano-body { max-height: 0; overflow: hidden; transition: max-height 0.3s ease; padding: 0 12px; }
-        /* gif-host: absolute inside #stage at z-index:1 — below canvas(z:1000).
-           Images are real painted elements (no opacity trick) → browser animates GIF frames.
-           Canvas covers them so they're invisible to the user. */
-        #gif-host { position: absolute; top: 0; left: 0; z-index: 1; width: 48px; overflow: hidden; pointer-events: none; }
-        #gif-host img { display: block; width: 48px !important; height: 48px !important; object-fit: cover; pointer-events: none; }
+        /* gif-host: position:fixed pulls it OUT of the canvas stacking context.
+           Canvas (z:1000) no longer occludes it — Chrome won't pause GIF decoders
+           for occluded elements. opacity:0.01 + will-change forces the compositor
+           to keep the layer alive so drawImage() always gets the current frame. */
+        #gif-host { position: fixed; top: 0; left: 0; width: 2px; height: 2px; overflow: hidden; opacity: 0.01; pointer-events: none; z-index: 0; will-change: contents; }
+        #gif-host img { position: absolute; display: block; width: 2px !important; height: 2px !important; pointer-events: none; }
         
         /* VNGRD BUTTONS - DIGITAL SNAP */
         .btn { display: block; width: 100%; padding: 8px 10px; margin-bottom: 6px; background: linear-gradient(180deg, #0f0f14 0%, #0a0a0e 100%); border: 1px solid var(--border); color: var(--text); font-family: 'JetBrains Mono', monospace; font-size: 10px; text-align: left; transition: all 0.05s step-end; }
@@ -1753,6 +1754,9 @@ function processGhostCommand(cmd) {
                                 } else if (name.match(/\.(jpg|jpeg|png|gif)$/i)) {
                                     const img = new Image();
                                     img.src = url;
+                                    // Must be in DOM so browser's GIF decoder advances frames
+                                    var _gh = document.getElementById('gif-host');
+                                    if (_gh) _gh.appendChild(img);
                                     APP.media.queue.push({ type: 'image', element: img, name: entry.name });
                                 }
                             }
