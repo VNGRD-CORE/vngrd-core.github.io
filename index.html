@@ -1008,18 +1008,16 @@ body.fx-scan #stage::after {
     pointer-events: none !important;
 }
 
-/* VOID: Full Collapse — GPU-accelerated, hits the entire console */
+/* VOID: Full Collapse — harsh grayscale crunch + visible warp */
 body.fx-void {
     will-change: transform, filter;
-    transform: translateZ(0);
-    filter: saturate(0) brightness(0.35) contrast(3) !important;
-    animation: console-warp 0.7s ease-in-out infinite alternate !important;
-    background: #000 !important;
+    filter: saturate(0) contrast(3.5) brightness(1.4) invert(0.08) !important;
+    animation: console-warp 0.6s ease-in-out infinite alternate !important;
 }
 @keyframes console-warp {
-    /* scale 1.02→0.96 (6% range) + rotate ±1.5deg — no skew, pure GPU ops */
-    0%   { transform: translateZ(0) scale(1.02) rotate(-1.5deg); }
-    100% { transform: translateZ(0) scale(0.96) rotate(1.5deg); }
+    /* 6% scale swing + ±1.5deg rotation — compositor-only, no paint */
+    0%   { transform: translateZ(0) scale(1.03) rotate(-1.5deg); }
+    100% { transform: translateZ(0) scale(0.97) rotate( 1.5deg); }
 }
 
 /* LUCY: Full Hallucination — GPU-accelerated, hits the entire console */
