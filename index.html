@@ -506,7 +506,7 @@
         .sec-arrow { font-size: 8px; color: var(--text-dim); margin-left: 5px; margin-right: auto; transition: color 0.2s; }
         .sec-head.collapsible.open .sec-arrow { color: var(--accent); }
         /* Collapsible bodies: collapsed by default; JS restores padding on open */
-        #session-lab-body, #p2p-call-body, #midi-host-body, #nft-vault-body { max-height: 0; overflow: hidden; transition: max-height 0.3s ease; padding: 0 12px; }
+        #session-lab-body, #p2p-call-body, #midi-host-body, #nft-vault-body, #lexica-nano-body { max-height: 0; overflow: hidden; transition: max-height 0.3s ease; padding: 0 12px; }
         #gif-host img { position: fixed; top: 0; left: 0; width: 10px !important; height: 10px !important; opacity: 0.01 !important; z-index: -1; pointer-events: none; will-change: contents; }
         
         /* VNGRD BUTTONS - DIGITAL SNAP */
@@ -1008,6 +1008,37 @@ body.fx-scan #stage::after {
     pointer-events: none !important;
 }
 
+/* VOID: High-contrast, desaturated liquid warp */
+body.fx-void #stage {
+    filter: saturate(0) brightness(0.5) contrast(3) !important;
+    animation: void-collapse 0.6s cubic-bezier(0.45, 0, 0.55, 1) infinite alternate !important;
+}
+@keyframes void-collapse {
+    0%   { transform: scale(1.1) skewX(-15deg); clip-path: inset(0 0 0 0); }
+    100% { transform: scale(0.9) skewX(15deg);  clip-path: inset(5% 2% 5% 2%); }
+}
+
+/* LUCY: 360-degree color cycle with kaleidoscopic refraction */
+body.fx-lucy #stage {
+    filter: saturate(10) contrast(1.5) brightness(1.2) !important;
+    animation: lucy-hue 2s linear infinite !important;
+}
+body.fx-lucy #stage::after {
+    content: ""; position: absolute; top: 0; left: 0; width: 100%; height: 100%;
+    backdrop-filter: hue-rotate(90deg) saturate(2) blur(2px);
+    background: repeating-conic-gradient(from 0deg, rgba(255,0,255,0.1) 0deg 30deg, transparent 30deg 60deg);
+    animation: lucy-spin 4s linear infinite;
+    pointer-events: none; z-index: 3015;
+}
+@keyframes lucy-hue {
+    0%   { filter: hue-rotate(0deg)   saturate(8); }
+    100% { filter: hue-rotate(360deg) saturate(8); }
+}
+@keyframes lucy-spin {
+    0%   { transform: scale(2) rotate(0deg); }
+    100% { transform: scale(2) rotate(360deg); }
+}
+
 @keyframes punch-pulse {
     0% { transform: scale(1.02); filter: brightness(1.4); }
     100% { transform: scale(1); filter: brightness(1); }
@@ -1232,12 +1263,16 @@ body.fx-scan #stage::after {
         <div class="section">
             <div class="sec-head"><span class="sec-title">REACTIVITY</span><div class="sec-dot"></div></div>
             <div class="sec-body">
-                <div class="btn-grid-3" style="margin-bottom:6px;">
+                <div class="btn-grid-3" style="margin-bottom:4px;">
                     <button class="btn" id="btn-ui-react" style="font-size:8px;">PARTY</button>
                     <button class="btn" id="btn-rumble" style="font-size:8px;">SEISMIC</button>
                     <button class="btn" id="btn-psychosis" style="font-size:8px;">FAILURE</button>
                 </div>
-                <button class="btn" id="btn-shooting" style="color:var(--r);border-color:var(--r);font-size:9px;">SHOOTING_BASS</button>
+                <div class="btn-grid-3">
+                    <button class="btn" id="btn-shooting" style="color:var(--r);border-color:var(--r);font-size:9px;">SHOOT</button>
+                    <button class="btn" onclick="toggleFX('void')" style="font-size:9px;">VOID</button>
+                    <button class="btn" onclick="toggleFX('lucy')" style="color:#ff00ff;border-color:#ff00ff;text-shadow:0 0 5px #ff00ff;font-size:9px;">LUCY</button>
+                </div>
             </div>
         </div>
 
@@ -1262,6 +1297,27 @@ body.fx-scan #stage::after {
             </div>
         </div>
         
+        <div class="section">
+            <div class="sec-head"><span class="sec-title">IDENTITY</span><div class="sec-dot"></div></div>
+            <div class="sec-body">
+                <input type="text" class="inp" id="bug-text" placeholder="STATION_NAME..." value="VNGRD">
+                <div class="btn-row">
+                    <button class="btn" id="btn-set-station" style="flex:2;">SET BUG</button>
+                    <button class="btn" id="btn-bug-toggle" title="Toggle Bug">[X]</button>
+                </div>
+                <div class="btn-row" style="margin-top:6px;">
+                    <button class="btn" id="btn-upload-2d" style="flex:2;">2D LOGO</button>
+                    <button class="btn" id="btn-2d-x" title="Hide/Clear 2D">[X]</button>
+                </div>
+                <input type="file" id="file-2d-logo" accept=".png,.jpg,.jpeg,.gif,.webp" style="display:none;">
+                <div class="btn-row">
+                    <button class="btn" id="btn-inject-3d" style="flex:2;color:var(--v);border-color:var(--v);">3D MODEL</button>
+                    <button class="btn" id="btn-3d-x" title="HIDE / CLEAR 3D">[X]</button>
+                </div>
+                <input type="file" id="file-3d-model" accept=".stl,.obj,.glb,.gltf,.vgd,.json" style="display:none;">
+            </div>
+        </div>
+
         <div class="section">
             <div class="sec-head"><span class="sec-title">LOWER_THIRD</span><div class="sec-dot"></div></div>
             <div class="sec-body">
@@ -1327,27 +1383,6 @@ body.fx-scan #stage::after {
         </div>
 
         <div class="section">
-            <div class="sec-head"><span class="sec-title">IDENTITY</span><div class="sec-dot"></div></div>
-            <div class="sec-body">
-                <input type="text" class="inp" id="bug-text" placeholder="STATION_NAME..." value="VNGRD">
-                <div class="btn-row">
-                    <button class="btn" id="btn-set-station" style="flex:2;">SET BUG</button>
-                    <button class="btn" id="btn-bug-toggle" title="Toggle Bug">[X]</button>
-                </div>
-                <div class="btn-row" style="margin-top:6px;">
-                    <button class="btn" id="btn-upload-2d" style="flex:2;">2D LOGO</button>
-                    <button class="btn" id="btn-2d-x" title="Hide/Clear 2D">[X]</button>
-                </div>
-                <input type="file" id="file-2d-logo" accept=".png,.jpg,.jpeg,.gif,.webp" style="display:none;">
-                <div class="btn-row">
-                    <button class="btn" id="btn-inject-3d" style="flex:2;color:var(--v);border-color:var(--v);">3D MODEL</button>
-                    <button class="btn" id="btn-3d-x" title="HIDE / CLEAR 3D">[X]</button>
-                </div>
-                <input type="file" id="file-3d-model" accept=".stl,.obj,.glb,.gltf,.vgd,.json" style="display:none;">
-            </div>
-        </div>
-
-        <div class="section">
             <div class="sec-head collapsible"><span class="sec-title">SESSION_LAB</span><span class="sec-arrow">&#x25B8;</span><div class="sec-dot"></div></div>
             <div class="sec-body" id="session-lab-body">
                 <button class="btn rec" id="btn-nft-30">CAPTURE_VGD_CLIP</button>
@@ -1371,8 +1406,8 @@ body.fx-scan #stage::after {
         </div>
 
         <div class="section">
-            <div class="sec-head"><span class="sec-title">LEXICA_NANO</span><div class="sec-dot off" id="neural-dot"></div></div>
-            <div class="sec-body">
+            <div class="sec-head collapsible"><span class="sec-title">LEXICA_NANO</span><span class="sec-arrow">&#x25B8;</span><div class="sec-dot off" id="neural-dot"></div></div>
+            <div class="sec-body" id="lexica-nano-body">
                 <input type="text" class="inp" id="ai-prompt" placeholder="DESCRIBE_IMAGE..." style="font-size:9px;">
                 <button class="btn" id="btn-generate-ai" style="color:var(--v);border-color:var(--v);">LEXICA GENERATE</button>
                 <div id="ai-status" style="font-size:8px;color:var(--text-dim);margin-top:4px;">LEXICA_API: READY</div>
@@ -5816,7 +5851,7 @@ function endCallCleanup() {
         };
 
     // Collapsible sections with arrow indicators
-    ['session-lab-body', 'p2p-call-body', 'midi-host-body', 'nft-vault-body'].forEach(function(id) {
+    ['session-lab-body', 'p2p-call-body', 'midi-host-body', 'nft-vault-body', 'lexica-nano-body'].forEach(function(id) {
         var el = $(id);
         if (!el) return;
         var head = el.previousElementSibling;
@@ -6402,14 +6437,17 @@ document.addEventListener('click', (e) => {
 }, true);
 
 // --- TACTICAL FX GLOBAL BRIDGE ---
-// --- TACTICAL FX MASTER BRIDGE (v4.0 PERSISTENT) ---
+// --- TACTICAL FX MASTER BRIDGE (v4.1 VOID/LUCY) ---
 window.toggleFX = function(fxName) {
     const target = document.body;
     const className = `fx-${fxName}`;
-    const allFX = ['fx-scan', 'fx-tear',  'fx-punch'];
-    
+    const allFX = ['fx-scan', 'fx-tear', 'fx-punch', 'fx-void', 'fx-lucy'];
+
+    // One-shot durations (ms); 0 = persistent toggle
+    const autoOff = { void: 2500, lucy: 5000 };
+
     // Find the specific button to "light it up"
-    const btn = Array.from(document.querySelectorAll('.btn')).find(b => 
+    const btn = Array.from(document.querySelectorAll('.btn')).find(b =>
         b.getAttribute('onclick')?.includes(`'${fxName}'`)
     );
 
@@ -6422,17 +6460,26 @@ window.toggleFX = function(fxName) {
         // TURN ON (Clears existing tactical FX first for a clean state)
         target.classList.remove(...allFX);
         document.querySelectorAll('.btn').forEach(b => b.classList.remove('active-fx'));
-        
+
         target.classList.add(className);
         if (btn) btn.classList.add('active-fx');
         console.log(`FX_ON: ${fxName}`);
+
+        // Auto-off for one-shot effects
+        if (autoOff[fxName]) {
+            setTimeout(() => {
+                target.classList.remove(className);
+                if (btn) btn.classList.remove('active-fx');
+                console.log(`FX_AUTO_OFF: ${fxName}`);
+            }, autoOff[fxName]);
+        }
     }
 };
 
 window.triggerHardReset = function() {
     console.log("SYSTEM_EVENT: HARD_RESET");
     const target = document.body;
-    const allFX = ['fx-scan', 'fx-tear',  'fx-punch'];
+    const allFX = ['fx-scan', 'fx-tear', 'fx-punch', 'fx-void', 'fx-lucy'];
     
     // 1. Wipe all classes and button lights
     target.classList.remove(...allFX);
