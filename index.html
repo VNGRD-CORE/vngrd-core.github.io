@@ -1905,6 +1905,9 @@ function checkMobile() { APP.state.isMobile = /Android|iPhone|iPad|iPod|webOS|Bl
 function initCanvas() {
     APP.render.canvas = $('vj-canvas');
     APP.render.ctx = APP.render.canvas.getContext('2d', { alpha: false }); // Removed desynchronized to prevent grey flickering
+    // ── RESOLUTION CAP: 1080p max — 4K canvas chokes the render loop ──
+    APP.render.width  = Math.min(APP.render.width,  1920);
+    APP.render.height = Math.min(APP.render.height, 1080);
     resizeCanvas();
     window.addEventListener('resize', () => { resizeCanvas(); checkMobile(); });
     // Off-screen canvas for proper pixelation
@@ -2076,9 +2079,14 @@ function renderLoop(timestamp) {
     ctx.imageSmoothingEnabled = false;
     
     // --- SEISMIC ENGINE (Random shake on bass - OFF by default) ---
+    // Only runs when audio reactor is active — skip DOM mutation on idle frames
+    const _fxActive = window.audioReactorActive ||
+        document.body.classList.contains('fx-void') ||
+        document.body.classList.contains('fx-lucy');
+
     let finalShakeX = 0, finalShakeY = 0;
-    
-    if (APP.vj.rumbleEnabled && (APP.audio.isPlaying || APP.audio.videoSource) && APP.audio.bassLevel > 150) {
+
+    if (_fxActive && APP.vj.rumbleEnabled && (APP.audio.isPlaying || APP.audio.videoSource) && APP.audio.bassLevel > 150) {
         // Classic random shake on bass hits (like v22.1)
         const intensity = (APP.audio.bassLevel - 150) / 100 * 8;
         finalShakeX = (Math.random() - 0.5) * intensity;
@@ -2086,11 +2094,11 @@ function renderLoop(timestamp) {
     }
 
     // Apply transform to BODY
-    const targetTransform = (Math.abs(finalShakeX) > 0.2 || Math.abs(finalShakeY) > 0.2) 
-        ? `translate3d(${finalShakeX.toFixed(1)}px, ${finalShakeY.toFixed(1)}px, 0)` 
+    const targetTransform = (Math.abs(finalShakeX) > 0.2 || Math.abs(finalShakeY) > 0.2)
+        ? `translate3d(${finalShakeX.toFixed(1)}px, ${finalShakeY.toFixed(1)}px, 0)`
         : '';
-    if (document.body.style.transform !== targetTransform) { 
-        document.body.style.transform = targetTransform; 
+    if (document.body.style.transform !== targetTransform) {
+        document.body.style.transform = targetTransform;
     }
 
     // --- AUTONOMOUS PARTY MODE ---
@@ -2142,8 +2150,8 @@ function renderLoop(timestamp) {
         }
     }
 
-    // --- RGB SHIFT ---
-    if (APP.vj.rgbEnabled && APP.vj.rgbIntensity > 0) {
+    // --- RGB SHIFT (only when reactor/FX active — expensive canvas read-back) ---
+    if (_fxActive && APP.vj.rgbEnabled && APP.vj.rgbIntensity > 0) {
         const shift = APP.vj.rgbIntensity;
         ctx.save();
         ctx.globalCompositeOperation = 'screen';
@@ -3757,7 +3765,8 @@ document.addEventListener('DOMContentLoaded', () => {
 
     // ── PHASE 0: CRITICAL — UI frame must render immediately ──
     checkMobile(); initCanvas(); ghostInit(); loadFromMemory();
-    fetchCrypto(); setInterval(fetchCrypto, 600000);
+    // ── CRYPTO: one-shot chain — next poll only after current fetch resolves ──
+    (function scheduleCrypto() { fetchCrypto().finally(() => setTimeout(scheduleCrypto, 600000)); })();
 
     // Hide DOM overlays — Trinity actors are drawn directly on canvas
     var _sb = $('station-bug'); if (_sb) _sb.style.opacity = '0';
@@ -5814,6 +5823,21 @@ function endCallCleanup() {
 
     // --- DRAG INITIALIZATION (mid-script) ---
     makeLogSafeDraggable($('sys-log'));
+
+    // ── SYS-LOG AUTO-HIDE: vanish after 30s of no interaction ──
+    (function() {
+        const sl = $('sys-log');
+        if (!sl) return;
+        let _slTimer = null;
+        function resetSlTimer() {
+            clearTimeout(_slTimer);
+            sl.style.display = 'block';
+            _slTimer = setTimeout(() => { sl.style.display = 'none'; }, 30000);
+        }
+        sl.addEventListener('mouseover', resetSlTimer);
+        sl.addEventListener('focus',     resetSlTimer);
+        resetSlTimer();
+    })();
 
 
     
