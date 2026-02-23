@@ -997,18 +997,24 @@ body.fx-scan #stage::after {
 }
 
 
-/* 5. PUNCH (The Pulse - Momentary Impact) */
+/* 5. PUNCH — state flag; animation fires on kick drum via .punch-hit */
 .fx-punch {
-    animation: punch-pulse 0.4s cubic-bezier(0, 1, 0, 1) infinite;
+    /* armed state — no infinite loop; kick detection drives .punch-hit */
+}
+
+/* One-shot fired by render loop on each kick drum hit */
+.punch-hit {
+    animation: punch-pulse 0.32s cubic-bezier(0, 1, 0, 1) forwards;
 }
 
 @keyframes punch-pulse {
-    0% { transform: scale(1.02); filter: brightness(1.4); }
-    100% { transform: scale(1); filter: brightness(1); }
+    0%   { transform: scale(1.025); filter: brightness(1.5); }
+    60%  { transform: scale(1.01);  filter: brightness(1.1); }
+    100% { transform: scale(1);     filter: brightness(1); }
 }
 
-/* GLOBAL FIX: Ensure all FX overlays don't block mouse clicks */
-.fx-punch::after {
+/* Ensure no FX overlay blocks clicks */
+.fx-punch::after, .punch-hit::after {
     pointer-events: none !important;
 }
 
@@ -1108,16 +1114,17 @@ body.fx-lucy::after {
     }
 }
 
-/* 6. HARD RESET (CRT Collapse Animation) */
+/* 6. HARD RESET (Smooth flash — no scale/split) */
 @keyframes crt-collapse {
-    0% { transform: scale(1, 1); filter: brightness(1); }
-    40% { transform: scale(1, 0.005); filter: brightness(4); }
-    50% { transform: scale(0, 0); opacity: 0; }
-    90% { transform: scale(0.01, 1); opacity: 1; filter: brightness(3); }
-    100% { transform: scale(1, 1); filter: brightness(1); }
+    0%   { filter: brightness(1); opacity: 1; }
+    20%  { filter: brightness(6); opacity: 1; }
+    38%  { filter: brightness(0); opacity: 0; }
+    62%  { filter: brightness(0); opacity: 0; }
+    80%  { filter: brightness(2); opacity: 1; }
+    100% { filter: brightness(1); opacity: 1; }
 }
 .anim-hard-reset {
-    animation: crt-collapse 0.5s cubic-bezier(0.19, 1, 0.22, 1);
+    animation: crt-collapse 0.55s ease-in-out;
 }</style>
 </head>
 <body oncontextmenu="return false;">
@@ -2105,6 +2112,20 @@ function renderLoop(timestamp) {
         : '';
     if (document.body.style.transform !== targetTransform) {
         document.body.style.transform = targetTransform;
+    }
+
+    // --- PUNCH FX — locked to kick drum ---
+    // Fires a one-shot CSS hit animation on each bass transient when armed
+    if (document.body.classList.contains('fx-punch') &&
+        (APP.audio.isPlaying || APP.audio.videoSource) &&
+        APP.audio.bassLevel > 185 &&
+        !window._punchCooldown) {
+        document.body.classList.add('punch-hit');
+        window._punchCooldown = true;
+        setTimeout(() => {
+            document.body.classList.remove('punch-hit');
+            window._punchCooldown = false;
+        }, 260);
     }
 
     // --- AUTONOMOUS PARTY MODE ---
@@ -6410,25 +6431,35 @@ window.toggleFX = function(fxName) {
 };
 
 window.triggerHardReset = function() {
-    console.log("SYSTEM_EVENT: HARD_RESET");
     const target = document.body;
-    const allFX = ['fx-scan', 'fx-tear', 'fx-punch', 'fx-void', 'fx-lucy'];
-    
-    // 1. Wipe all classes and button lights
-    target.classList.remove(...allFX);
-    document.querySelectorAll('.btn').forEach(b => b.classList.remove('active-fx'));
-    
-    // 2. Trigger CRT Collapse
+
+    // 1. Kill every FX class — CSS tactical + animated
+    target.classList.remove(
+        'fx-scan', 'fx-tear', 'fx-punch', 'fx-void', 'fx-lucy',
+        'fx-signal-loss', 'fx-thermal', 'fx-cyber-rot', 'fx-neural', 'fx-failure',
+        'vhs', 'crt', 'system-failure', 'seismic-active', 'punch-hit'
+    );
+
+    // 2. Wipe all button lit states (both naming conventions)
+    document.querySelectorAll('.btn').forEach(b => b.classList.remove('active-fx', 'on'));
+
+    // 3. Reset APP flags — IMPACT_RACK + VJ defaults + autonomous modes
+    if (typeof resetAllFX === 'function') resetAllFX();
+    APP.vj.rumbleEnabled = false;
+    APP.vj.uiReactivity = false;
+    window._punchCooldown = false;
+
+    // 4. Clear inline styles written by the engine (seismic + party mode)
+    target.style.transform = '';
+    target.style.boxShadow = '';
+
+    // 5. Smooth flash — bright spike → black → restore (no scale/split)
     target.classList.remove('anim-hard-reset');
-    void target.offsetWidth; 
+    void target.offsetWidth;
     target.classList.add('anim-hard-reset');
-    
-    // 3. Clean up animation class after 600ms
     setTimeout(() => target.classList.remove('anim-hard-reset'), 600);
 
-    if (typeof ghostLog === 'function') {
-        ghostLog('SYSTEM_HARD_RESET_EXECUTED', 'crit');
-    }
+    if (typeof ghostLog === 'function') ghostLog('SYSTEM_HARD_RESET_EXECUTED', 'crit');
 };</script>
 // --- BASS REACTIVE VJ ENGINE ---
 window.initAudioReactor = function() {
