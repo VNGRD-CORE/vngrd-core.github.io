@@ -1912,7 +1912,6 @@ function initCanvas() {
     APP.render.pixelCanvas.width = 384; APP.render.pixelCanvas.height = 216; // Start small
     APP.render.pixelCtx = APP.render.pixelCanvas.getContext('2d', { alpha: false });
     APP.render.pixelCtx.imageSmoothingEnabled = false;
-    log('CANVAS_INIT_4K');
 }
 function resizeCanvas() { APP.render.canvas.width = APP.render.width; APP.render.canvas.height = APP.render.height; $('res').textContent = `${APP.render.width}x${APP.render.height}`; }
 
@@ -2064,8 +2063,12 @@ function _summonGlitch() {
     }, 500);
 }
 
+let _lastFrameTime = 0;
 function renderLoop(timestamp) {
     APP.render.rafId = requestAnimationFrame(renderLoop);
+    // ── 30 FPS CAP: skip render if <33ms since last frame ──
+    if (timestamp - _lastFrameTime < 33) return;
+    _lastFrameTime = timestamp;
     APP.render.frameCount++;
     if (timestamp - APP.render.lastFpsUpdate >= 1000) { APP.render.fps = APP.render.frameCount; APP.render.frameCount = 0; APP.render.lastFpsUpdate = timestamp; $('fps-val').textContent = APP.render.fps; }
     
@@ -3664,7 +3667,6 @@ function portalCamPreview() {
     // Preview is now inline in the CAMERA_4K sidebar section — no repositioning needed
     const cam = $('cam-preview-float');
     if (!cam) return;
-    log('PORTAL: CAM_INLINE');
 }
 
 function triggerVisualEffect(note, velocity) {
@@ -3700,7 +3702,6 @@ async function checkLayerReadiness() {
         APP.layerSaver.audioReady = audio;
         APP.layerSaver.allReady = tex && font;
         if (APP.layerSaver.allReady) {
-            log('LAYER_SAVER: ALL_READY');
             enableRecordButtons(true);
         } else {
             const missing = [];
@@ -3746,20 +3747,18 @@ function initCompositor() {
         if (type === 'STATUS') log('COMPOSITOR: ' + payload);
     });
     APP.compositor.startRecording(1000);
-    log('COMPOSITOR: 15Mbps_VP9_PIPELINE_ACTIVE');
 }
 
 document.addEventListener('DOMContentLoaded', () => {
-    log('DRIS//core_VNGRD_v23.5_SYSTEM_FAILURE');
-    checkMobile(); initCanvas(); ghostInit(); fetchCrypto(); setInterval(fetchCrypto, 600000);
-    loadFromMemory();
-    // Phase 1: Initialize Compositor
-    initCompositor();
-    // Phase 4: Portal UI
-    portalCamPreview();
-    // Phase 5: Layer Saver
-    checkLayerReadiness();
- 
+    // ── FX CLEANUP: purge stale effect classes from prior session ──
+    document.body.classList.remove('fx-void', 'fx-lucy', 'fx-scan', 'fx-tear', 'fx-punch');
+
+    log('DRIS//core_VNGRD_v23.5');
+
+    // ── PHASE 0: CRITICAL — UI frame must render immediately ──
+    checkMobile(); initCanvas(); ghostInit(); loadFromMemory();
+    fetchCrypto(); setInterval(fetchCrypto, 600000);
+
     // Hide DOM overlays — Trinity actors are drawn directly on canvas
     var _sb = $('station-bug'); if (_sb) _sb.style.opacity = '0';
     // GIF ANIMATION FIX: user-logo-layer must be ON-SCREEN and composited
@@ -3777,13 +3776,24 @@ document.addEventListener('DOMContentLoaded', () => {
         _ul.style.zIndex = '-1';
         _ul.style.objectFit = 'cover';
     }
-    
+
     requestAnimationFrame(renderLoop);
-    initSummonerLogic();
     updateClock(); setInterval(updateClock, 1000); morphLogo(); setTimeout(morphLogo, 4000);
 
-    // AUTO-MIDI: Probe for MIDI on load, link to seismic trigger
-    autoInitMIDI();
+    // ── PHASE 1 (1s): COMPOSITOR + LAYERS — let UI settle first ──
+    setTimeout(() => {
+        log('BOOT: COMPOSITOR');
+        initCompositor();
+        portalCamPreview();
+        checkLayerReadiness();
+        initSummonerLogic();
+    }, 1000);
+
+    // ── PHASE 2 (2s): EXTERNAL I/O — MIDI probe ──
+    setTimeout(() => {
+        log('BOOT: PERIPHERALS');
+        autoInitMIDI();
+    }, 2000);
     
     // Wire UI
     $('btn-init-cam').onclick = initCamera; $('btn-go-live').onclick = goLive; $('btn-end').onclick = endLive; $('btn-kill').onclick = killCamera;
@@ -4269,17 +4279,11 @@ document.addEventListener('DOMContentLoaded', () => {
 
     // --- AUTO-MIDI INIT: Probe on load, link to seismic ---
     async function autoInitMIDI() {
-        if (!navigator.requestMIDIAccess) {
-            log('MIDI_PROBE: NOT_SUPPORTED');
-            return;
-        }
+        if (!navigator.requestMIDIAccess) return;
         try {
             const midiAccess = await navigator.requestMIDIAccess({ sysex: false });
             const inputs = Array.from(midiAccess.inputs.values());
-            if (inputs.length === 0) {
-                log('MIDI_PROBE: NO_DEVICES');
-                return;
-            }
+            if (inputs.length === 0) return;
             APP.midi.access = midiAccess;
             APP.midi.inputs = [];
             APP.midi.outputs = [];
@@ -5634,7 +5638,6 @@ function endCallCleanup() {
                 .vngrd-layer.active { opacity: 1; z-index: 2; }
             `;
             document.head.appendChild(style);
-            log('V19_TRANSITIONS: ONLINE');
         },
         swap: (imgUrl) => {
             const stage = $('stage');
@@ -5923,9 +5926,6 @@ function endCallCleanup() {
 
     // Trinity drag is now canvas-space (initTrinityDrag) — no DOM drag needed
 
-    // KEEP THIS: Initialize geo ticker injection
-    setTimeout(injectGeoToTicker, 3000);
-    
     // Initialize geo ticker injection
     setTimeout(injectGeoToTicker, 3000);
 
