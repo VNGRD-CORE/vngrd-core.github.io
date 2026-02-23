@@ -618,11 +618,69 @@
         .blur-reveal { position: fixed; inset: 0; backdrop-filter: blur(50px); -webkit-backdrop-filter: blur(50px); z-index: 99999; pointer-events: none; animation: material-reveal 0.5s ease forwards; }
         @keyframes material-reveal { 0% { backdrop-filter: blur(50px); opacity: 1; } 100% { backdrop-filter: blur(0px); opacity: 0; } }
 
-        input[type="file"] { display: none; }
-        body.vhs #stage::before { background: repeating-linear-gradient(0deg, transparent, transparent 2px, rgba(0,0,0,0.15) 2px, rgba(0,0,0,0.15) 4px); animation: vhs-track 0.1s steps(3) infinite; opacity: 0.6; }
-        @keyframes vhs-track { 0% { background-position: 0 0; } 100% { background-position: 0 4px; } }
-        body.crt #stage::after { background: radial-gradient(ellipse at center, transparent 30%, rgba(0,0,0,0.6) 100%); }
-        
+       input[type="file"] { display: none; }
+
+/* --- ENHANCED VHS & CRT FX --- */
+
+/* 1. VHS: Color Degradation & RGB Bleed */
+body.vhs #stage {
+    filter: contrast(1.3) saturate(0.8) sepia(0.2) drop-shadow(3px 0px 0 rgba(255,0,0,0.5)) drop-shadow(-3px 0px 0 rgba(0,255,255,0.5)) !important;
+}
+
+/* 2. VHS: Aggressive Tape Scanlines */
+body.vhs #stage::before { 
+    background: repeating-linear-gradient(0deg, transparent, transparent 2px, rgba(0,0,0,0.3) 2px, rgba(0,0,0,0.3) 5px) !important; 
+    animation: vhs-track 0.08s steps(3) infinite !important; 
+    opacity: 0.8 !important; 
+}
+
+/* 3. VHS: Rolling Tracking Bar */
+body.vhs #stage::after {
+    content: "";
+    position: absolute;
+    left: 0; 
+    top: -20%;
+    width: 100%; 
+    height: 10%;
+    background: rgba(255, 255, 255, 0.05);
+    backdrop-filter: blur(4px) invert(0.1);
+    -webkit-backdrop-filter: blur(4px) invert(0.1);
+    animation: vhs-roll 6s linear infinite !important;
+    z-index: 3002;
+    pointer-events: none;
+}
+
+@keyframes vhs-track { 
+    0% { background-position: 0 0; } 
+    100% { background-position: 0 5px; } 
+}
+
+@keyframes vhs-roll {
+    0% { top: -20%; opacity: 0; }
+    5% { opacity: 1; }
+    25% { top: 120%; opacity: 0; }
+    100% { top: 120%; opacity: 0; }
+}
+
+/* 4. CRT: Glass Tube & Phosphor Mesh */
+body.crt #stage {
+    border-radius: 20px !important; /* Rounds the corners of the feed like an old monitor */
+    overflow: hidden;
+}
+
+body.crt #stage::after { 
+    content: "";
+    position: absolute;
+    top: 0; left: 0; width: 100%; height: 100%;
+    /* Creates the tight phosphor grid + heavy glass vignette */
+    background: 
+        linear-gradient(rgba(18, 16, 16, 0) 50%, rgba(0, 0, 0, 0.25) 50%), 
+        linear-gradient(90deg, rgba(255, 0, 0, 0.06), rgba(0, 255, 0, 0.02), rgba(0, 0, 255, 0.06)),
+        radial-gradient(circle at center, transparent 40%, rgba(0,0,0,0.95) 100%);
+    background-size: 100% 3px, 3px 100%, 100% 100%;
+    pointer-events: none;
+    z-index: 3003;
+}
         /* CONSOLE_HARDWARE BUTTON EFFECTS - HIGH-END GLOW AND PULSE */
         .btn {
             transition: all 0.15s ease;
@@ -890,27 +948,36 @@ body.shooting-mode #btn-shooting {
 /* --- TACTICAL FX v4.0 (FINAL POLISH) --- */
 
 /* GLOBAL FIX: Ensure all FX overlays don't block mouse clicks */
-.fx-scan::after, .fx-tear::after, .fx-bloom::after, .fx-chroma::after, .fx-punch::after {
+.fx-scan::after, .fx-tear::after,  .fx-punch::after {
     pointer-events: none !important;
 }
 
-/* 1. SCAN (Sharp Mechanical Scanline) */
-.fx-scan {
-    position: relative;
+/* 1. X-RAY (Replaces Old Scan) - Inverted Tactical Thermal */
+body.fx-scan #stage {
+    /* Inverts all colors, crushes contrast, and forces a glowing cyan tint */
+    filter: invert(1) contrast(1.5) grayscale(0.2) sepia(1) hue-rotate(135deg) saturate(2) !important;
+    box-shadow: inset 0 0 80px rgba(0, 255, 255, 0.15) !important;
 }
-.fx-scan::after {
-    content: ""; 
-    position: absolute; 
-    top: 0; left: 0; width: 100%; height: 2px;
-    background: var(--c); 
-    opacity: 0.4;
-    box-shadow: 0 0 10px var(--c);
-    animation: scan-move 2s linear infinite;
-    z-index: 100;
+
+/* The Sweeping X-Ray Laser Bar */
+body.fx-scan #stage::after {
+    content: "";
+    position: absolute;
+    left: 0; 
+    width: 100%; 
+    height: 4px;
+    background: rgba(0, 255, 255, 0.8);
+    box-shadow: 0 0 15px rgba(0, 255, 255, 1), 0 0 30px rgba(0, 255, 255, 0.5);
+    animation: xray-sweep 3s ease-in-out infinite alternate !important;
+    z-index: 3005;
+    pointer-events: none;
 }
-@keyframes scan-move { 
-    0% { top: 0%; } 
-    100% { top: 100%; } 
+
+@keyframes xray-sweep {
+    0% { top: 0%; opacity: 0; }
+    10% { opacity: 1; }
+    90% { opacity: 1; }
+    100% { top: calc(100% - 4px); opacity: 0; }
 }
 
 /* 2. TEAR (Horizontal Data Glitch) */
@@ -923,26 +990,86 @@ body.shooting-mode #btn-shooting {
     100% { transform: translate(0,0); }
 }
 
-/* 3. BLOOM (Refined Thermal - Glowing but Readable) */
-.fx-bloom {
-    filter: brightness(1.1) contrast(1.3) saturate(1.4) !important;
-    box-shadow: inset 0 0 80px rgba(0, 255, 255, 0.15);
-    border: 1px solid rgba(0, 255, 255, 0.3);
-}
-
-/* 4. CHROMA (Tactical RGB Split) */
-.fx-chroma {
-    filter: contrast(1.1) brightness(1.05) !important;
-    text-shadow: 1.5px 0 var(--r), -1.5px 0 var(--c);
-}
 
 /* 5. PUNCH (The Pulse - Momentary Impact) */
 .fx-punch {
     animation: punch-pulse 0.4s cubic-bezier(0, 1, 0, 1) infinite;
 }
+
 @keyframes punch-pulse {
     0% { transform: scale(1.02); filter: brightness(1.4); }
     100% { transform: scale(1); filter: brightness(1); }
+}
+
+/* GLOBAL FIX: Ensure all FX overlays don't block mouse clicks */
+.fx-punch::after {
+    pointer-events: none !important;
+}
+
+@keyframes punch-pulse {
+    0% { transform: scale(1.02); filter: brightness(1.4); }
+    100% { transform: scale(1); filter: brightness(1); }
+}
+@keyframes kinetic-punch {
+    0% { 
+        transform: scale(1) translate(0, 0); 
+        filter: brightness(1) contrast(1); 
+    }
+    15% { 
+        /* The Impact: Snaps forward, shifts off-axis, skews slightly, and flashes */
+        transform: scale(1.06) translate(-4px, 3px) skewX(-2deg); 
+        filter: brightness(1.6) contrast(1.4) drop-shadow(4px 0px 0px rgba(255,0,0,0.5)); 
+    }
+    30% { 
+        /* The Recoil: Whips in the opposite direction */
+        transform: scale(1.02) translate(4px, -2px) skewX(2deg); 
+        filter: brightness(1.2) contrast(1.2) drop-shadow(-4px 0px 0px rgba(0,255,255,0.5)); 
+    }
+    50% { 
+        /* The Rebound: Compresses slightly smaller than normal */
+        transform: scale(0.98) translate(-2px, 1px) skewX(0deg); 
+        filter: brightness(0.9) contrast(1.1); 
+    }
+    75% { 
+        /* Micro-shake before settling */
+        transform: scale(1.01) translate(1px, -1px); 
+        filter: brightness(1) contrast(1); 
+    }
+    100% { 
+        transform: scale(1) translate(0, 0); 
+        filter: brightness(1) contrast(1); 
+    }
+}
+
+@keyframes kinetic-punch {
+    0% { 
+        transform: scale(1) translate(0, 0); 
+        filter: brightness(1) contrast(1); 
+    }
+    15% { 
+        /* The Impact: Snaps forward, shifts off-axis, skews slightly, and flashes */
+        transform: scale(1.06) translate(-4px, 3px) skewX(-2deg); 
+        filter: brightness(1.6) contrast(1.4) drop-shadow(4px 0px 0px rgba(255,0,0,0.5)); 
+    }
+    30% { 
+        /* The Recoil: Whips in the opposite direction */
+        transform: scale(1.02) translate(4px, -2px) skewX(2deg); 
+        filter: brightness(1.2) contrast(1.2) drop-shadow(-4px 0px 0px rgba(0,255,255,0.5)); 
+    }
+    50% { 
+        /* The Rebound: Compresses slightly smaller than normal */
+        transform: scale(0.98) translate(-2px, 1px) skewX(0deg); 
+        filter: brightness(0.9) contrast(1.1); 
+    }
+    75% { 
+        /* Micro-shake before settling */
+        transform: scale(1.01) translate(1px, -1px); 
+        filter: brightness(1) contrast(1); 
+    }
+    100% { 
+        transform: scale(1) translate(0, 0); 
+        filter: brightness(1) contrast(1); 
+    }
 }
 
 /* 6. HARD RESET (CRT Collapse Animation) */
@@ -1213,37 +1340,16 @@ body.shooting-mode #btn-shooting {
     </div>
     
     <div class="sec-body">
-        <div class="btn-grid-3">
-            <button class="btn" onclick="toggleFX('scan')">SCAN</button>
+       <div class="btn-grid-3">
+            <button class="btn" onclick="toggleFX('scan')">X-RAY</button>
             <button class="btn" onclick="toggleFX('tear')">TEAR</button>
-            <button class="btn" onclick="toggleFX('bloom')">BLOOM</button>
-        </div>
-
-        <div class="btn-grid-3" style="margin-top:4px;">
-            <button class="btn" onclick="toggleFX('chroma')">CHROMA</button>
             <button class="btn" onclick="toggleFX('punch')">PUNCH</button>
-            <button class="btn" id="btn-vhs" onclick="toggleVHS()">VHS_OVR</button>
         </div>
 
         <div class="btn-grid-3" style="margin-top:4px;">
+            <button class="btn" id="btn-vhs" onclick="toggleVHS()">VHS_OVR</button>
             <button class="btn" onclick="toggleCRT()">CRT_LINE</button>
-            <button class="btn" onclick="toggleFullscreen()">[H] FULL</button>
             <button class="btn" onclick="triggerHardReset()" style="color:var(--r)">RESET</button>
-        </div>
-    </div>
-</div>
-        <div class="section">
-            <div class="sec-head"><span class="sec-title">THEME</span><div class="sec-dot"></div></div>
-            <div class="sec-body">
-                <div class="palette-grid">
-                    <div class="pal on" data-t="cyan"></div>
-                    <div class="pal" data-t="magenta"></div>
-                    <div class="pal" data-t="green"></div>
-                    <div class="pal" data-t="purple"></div>
-                    <div class="pal" data-t="gold"></div>
-                    <div class="pal" data-t="night"></div>
-                </div>
-            </div>
         </div>
         
         <div class="section">
@@ -1296,6 +1402,19 @@ body.shooting-mode #btn-shooting {
                 </div>
                 <button class="btn" id="btn-hangup" style="color:var(--r);border-color:var(--r);">END_CALL</button>
                 <div id="call-status" style="font-size:8px;color:var(--text-dim);margin-top:4px;text-align:center;">NOT_CONNECTED</div>
+            </div>
+        </div>
+        <div class="section">
+            <div class="sec-head"><span class="sec-title">THEME</span><div class="sec-dot"></div></div>
+            <div class="sec-body">
+                <div class="palette-grid">
+                    <div class="pal on" data-t="cyan"></div>
+                    <div class="pal" data-t="magenta"></div>
+                    <div class="pal" data-t="green"></div>
+                    <div class="pal" data-t="purple"></div>
+                    <div class="pal" data-t="gold"></div>
+                    <div class="pal" data-t="night"></div>
+                </div>
             </div>
         </div>
     </aside>
@@ -5845,37 +5964,37 @@ function endCallCleanup() {
 }); // THIS IS THE END of the startup block. Do not put code after this line.
 // --- TACTICAL FX ELITE BRIDGE ---
 window.toggleFX = function(fxName) {
-    console.log("ACTIVATE_FX: " + fxName);
+    console.log("SYSTEM_COMMAND: " + fxName.toUpperCase());
     const target = document.body;
     const className = `fx-${fxName}`;
     
-    // List of all possible tactical classes to clear
-    const allFX = [
-        'fx-signal-loss', 'fx-thermal', 'fx-neural', 
-        'fx-cyber-rot', 'fx-ghost', 'fx-void', 'fx-failure'
-    ];
+    // Clear only our specific active tactical classes
+    const allFX = ['fx-scan', 'fx-tear', 'fx-punch'];
     
+    // Find the button so we can make it glow
+    const btn = Array.from(document.querySelectorAll('.btn')).find(b => 
+        b.getAttribute('onclick') && b.getAttribute('onclick').includes(`'${fxName}'`)
+    );
+
     if (target.classList.contains(className)) {
+        // TURN OFF
         target.classList.remove(className);
-        console.log("FX_OFF: " + fxName);
+        if (btn) btn.classList.remove('active-mode', 'active-fx'); 
+        console.log("FX_OFF: " + fxName.toUpperCase());
     } else {
-        // Remove ANY other active tactical FX first so they don't stack messily
+        // TURN ON (Clear others first so they don't overlap)
         target.classList.remove(...allFX);
+        
+        // Turn off all other toggleFX button lights
+        document.querySelectorAll('.btn').forEach(b => {
+            if (b.getAttribute('onclick') && b.getAttribute('onclick').includes('toggleFX')) {
+                b.classList.remove('active-mode', 'active-fx');
+            }
+        });
+        
+        // Activate the new effect and light up its button
         target.classList.add(className);
-        console.log("FX_ON: " + fxName);
-    }
-};window.toggleFX = function(fxName) {
-    const target = document.body;
-    const className = `fx-${fxName}`;
-    
-    // Clear only our specific tactical classes
-    const allFX = ['fx-scan', 'fx-tear', 'fx-bloom', 'fx-chroma', 'fx-punch'];
-    
-    if (target.classList.contains(className)) {
-        target.classList.remove(className);
-    } else {
-        target.classList.remove(...allFX);
-        target.classList.add(className);
+        if (btn) btn.classList.add('active-fx'); 
         console.log("MANIPULATION_ACTIVE: " + fxName.toUpperCase());
     }
 };
@@ -5886,7 +6005,7 @@ window.triggerHardReset = function() {
     
     // 1. Clear EVERY possible FX class
     const allPossibleFX = [
-        'fx-scan', 'fx-tear', 'fx-bloom', 'fx-chroma', 'fx-punch', 
+        'fx-scan', 'fx-tear','fx-punch', 
         'fx-signal-loss', 'fx-thermal', 'fx-cyber-rot', 'fx-neural', 'fx-failure'
     ];
     document.body.classList.remove(...allPossibleFX);
@@ -6294,7 +6413,7 @@ document.addEventListener('click', (e) => {
 window.toggleFX = function(fxName) {
     const target = document.body;
     const className = `fx-${fxName}`;
-    const allFX = ['fx-scan', 'fx-tear', 'fx-bloom', 'fx-chroma', 'fx-punch'];
+    const allFX = ['fx-scan', 'fx-tear',  'fx-punch'];
     
     // Find the specific button to "light it up"
     const btn = Array.from(document.querySelectorAll('.btn')).find(b => 
@@ -6320,7 +6439,7 @@ window.toggleFX = function(fxName) {
 window.triggerHardReset = function() {
     console.log("SYSTEM_EVENT: HARD_RESET");
     const target = document.body;
-    const allFX = ['fx-scan', 'fx-tear', 'fx-bloom', 'fx-chroma', 'fx-punch'];
+    const allFX = ['fx-scan', 'fx-tear',  'fx-punch'];
     
     // 1. Wipe all classes and button lights
     target.classList.remove(...allFX);
@@ -6338,5 +6457,80 @@ window.triggerHardReset = function() {
         ghostLog('SYSTEM_HARD_RESET_EXECUTED', 'crit');
     }
 };</script>
-</body>
+// --- BASS REACTIVE VJ ENGINE ---
+window.initAudioReactor = function() {
+    if (window.audioReactorActive) {
+        console.log("[SYS] REACTOR: ALREADY RUNNING");
+        return;
+    }
+
+    // Ensure we have an active audio analyzer
+    if (!window.APP || !window.APP.audio || !window.APP.audio.analyzer) {
+        console.warn("[SYS] REACTOR: WAITING FOR AUDIO ENGINE...");
+        setTimeout(window.initAudioReactor, 2000);
+        return;
+    }
+
+    console.log("[SYS] REACTOR: BASS SYNC ONLINE");
+    window.audioReactorActive = true;
+
+    const analyzer = window.APP.audio.analyzer;
+    const bufferLength = analyzer.frequencyBinCount;
+    const dataArray = new Uint8Array(bufferLength);
+    
+    // Reactor settings
+    let lastPunchTime = 0;
+    const cooldown = 300; // Minimum MS between punches (prevents machine-gunning)
+    const bassThreshold = 210; // 0-255 volume threshold for a "hit"
+
+    function renderLoop() {
+        if (!window.audioReactorActive) return;
+        requestAnimationFrame(renderLoop);
+
+        analyzer.getByteFrequencyData(dataArray);
+
+        // Calculate average volume of the lowest frequencies (Bass / Kick drum)
+        // Usually the first 5-10 bins represent the sub-bass
+        let bassSum = 0;
+        const bassBins = 8;
+        for (let i = 0; i < bassBins; i++) {
+            bassSum += dataArray[i];
+        }
+        const bassAvg = bassSum / bassBins;
+
+        const now = Date.now();
+        
+        // If the bass hits hard AND cooldown has passed, trigger the punch!
+        if (bassAvg > bassThreshold && (now - lastPunchTime > cooldown)) {
+            // Force the punch animation by applying it directly
+            const stage = document.getElementById('stage');
+            if (stage) {
+                // Remove and re-add the animation to restart it instantly
+                stage.style.animation = 'none';
+                void stage.offsetWidth; // Trigger reflow
+                stage.style.animation = 'kinetic-punch 0.25s cubic-bezier(0.25, 1, 0.5, 1)';
+            }
+            lastPunchTime = now;
+        }
+    }
+
+    renderLoop();
+};
+
+// Wire it to your "PARTY" or "SEISMIC" button to turn it on
+setTimeout(() => {
+    const rumbleBtn = document.getElementById('btn-rumble');
+    if (rumbleBtn) {
+        const oldClick = rumbleBtn.onclick;
+        rumbleBtn.onclick = function(e) {
+            if (oldClick) oldClick(e);
+            if (this.classList.contains('on')) {
+                window.initAudioReactor();
+            } else {
+                window.audioReactorActive = false;
+                console.log("[SYS] REACTOR: OFFLINE");
+            }
+        };
+    }
+}, 2000);</body>
 </html> 
