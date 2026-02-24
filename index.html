@@ -17,18 +17,40 @@
     <style>
         @import url('https://fonts.googleapis.com/css2?family=Orbitron:wght@400;600;800;900&family=JetBrains+Mono:wght@300;400;500&family=Bebas+Neue&family=Russo+One&display=swap');
         
-        :root { 
+        :root {
             --accent: #00f3ff; --accent-dim: rgba(0, 243, 255, 0.2); --accent-glow: rgba(0, 243, 255, 0.5);
             --p: #ff0055; --c: #00f3ff; --g: #00ff88; --y: #ffcc00; --r: #ff3333; --o: #ff9d00; --v: #b000ff;
             --bg: #050508; --panel: #08080c; --panel-light: #0c0c12; --border: #151520; --border-light: #202030;
             --text: #a0a0a8; --text-dim: #505058; --text-bright: #e8e8ec;
+            --theme-color: #00f3ff;
+            --theme-bg-tint: rgba(0, 243, 255, 0.05);
+            --theme-glow: 0 0 20px rgba(0, 243, 255, 0.15);
+            --theme-border: rgba(0, 243, 255, 0.3);
         }
-        
-        body.theme-magenta { --accent: #ff0055; --accent-dim: rgba(255,0,85,0.2); --accent-glow: rgba(255,0,85,0.5); }
-        body.theme-green { --accent: #00ff88; --accent-dim: rgba(0,255,136,0.2); --accent-glow: rgba(0,255,136,0.5); }
-        body.theme-purple { --accent: #b000ff; --accent-dim: rgba(176,0,255,0.2); --accent-glow: rgba(176,0,255,0.5); }
-        body.theme-gold { --accent: #ffd700; --accent-dim: rgba(255,215,0,0.2); --accent-glow: rgba(255,215,0,0.5); }
-        body.theme-night { --accent: #334455; --accent-dim: rgba(51,68,85,0.2); --bg: #020204; --panel: #040408; }
+
+        body.theme-magenta { --accent: #ff0055; --accent-dim: rgba(255,0,85,0.2); --accent-glow: rgba(255,0,85,0.5); --theme-color: #ff0055; --theme-bg-tint: rgba(255,0,85,0.05); --theme-glow: 0 0 20px rgba(255,0,85,0.15); --theme-border: rgba(255,0,85,0.3); }
+        body.theme-green { --accent: #00ff88; --accent-dim: rgba(0,255,136,0.2); --accent-glow: rgba(0,255,136,0.5); --theme-color: #00ff88; --theme-bg-tint: rgba(0,255,136,0.05); --theme-glow: 0 0 20px rgba(0,255,136,0.15); --theme-border: rgba(0,255,136,0.3); }
+        body.theme-purple { --accent: #b000ff; --accent-dim: rgba(176,0,255,0.2); --accent-glow: rgba(176,0,255,0.5); --theme-color: #b000ff; --theme-bg-tint: rgba(176,0,255,0.05); --theme-glow: 0 0 20px rgba(176,0,255,0.15); --theme-border: rgba(176,0,255,0.3); }
+        body.theme-gold { --accent: #ffd700; --accent-dim: rgba(255,215,0,0.2); --accent-glow: rgba(255,215,0,0.5); --theme-color: #ffd700; --theme-bg-tint: rgba(255,215,0,0.05); --theme-glow: 0 0 20px rgba(255,215,0,0.15); --theme-border: rgba(255,215,0,0.3); }
+        body.theme-night { --accent: #334455; --accent-dim: rgba(51,68,85,0.2); --bg: #020204; --panel: #040408; --theme-color: #334455; --theme-bg-tint: rgba(51,68,85,0.05); --theme-glow: 0 0 20px rgba(51,68,85,0.15); --theme-border: rgba(51,68,85,0.3); }
+
+        /* HARDWARE MONITOR OVERLAY — vignette + scanlines, always on, kills the "webpage" vibe */
+        body::before {
+            content: '';
+            position: fixed;
+            inset: 0;
+            pointer-events: none;
+            z-index: 8000;
+            background:
+                radial-gradient(ellipse at 50% 50%, transparent 55%, rgba(0,0,0,0.70) 100%),
+                repeating-linear-gradient(
+                    0deg,
+                    transparent 0px,
+                    transparent 2px,
+                    rgba(0,0,0,0.035) 2px,
+                    rgba(0,0,0,0.035) 3px
+                );
+        }
 
         /* --- WEB DNA KILL SWITCH --- */
         * { 
@@ -450,9 +472,9 @@
         #cycle-badge { border-color: var(--y); color: var(--y); background: rgba(255,204,0,0.05); display: none; }
         #cycle-badge.on { display: flex; }
 
-        .sidebar { position: fixed; top: 45px; bottom: 55px; width: 200px; background: rgba(8,8,12,0.75); backdrop-filter: blur(20px) brightness(0.8); -webkit-backdrop-filter: blur(20px) brightness(0.8); border: 1px solid var(--border); overflow-y: auto; z-index: 4000; scrollbar-width: none; transition: border-color 0.4s ease, box-shadow 0.4s ease; }
-        #left-panel { left: 0; border-left: none; border-right: 1px solid rgba(0, 243, 255, 0.1); }
-        #right-panel { right: 0; border-right: none; border-left: 1px solid rgba(0, 243, 255, 0.1); }
+        .sidebar { position: fixed; top: 45px; bottom: 55px; width: 200px; background: var(--theme-bg-tint); backdrop-filter: blur(20px) saturate(120%); -webkit-backdrop-filter: blur(20px) saturate(120%); border: 1px solid var(--theme-border); box-shadow: var(--theme-glow), inset 0 0 15px rgba(0,0,0,0.5); overflow-y: auto; z-index: 4000; scrollbar-width: none; transition: background 0.4s ease, border-color 0.4s ease, box-shadow 0.4s ease; }
+        #left-panel { left: 0; border-left: none; border-right: 1px solid var(--theme-border); }
+        #right-panel { right: 0; border-right: none; border-left: 1px solid var(--theme-border); }
         .section { border-bottom: 1px solid var(--border); }
         /* SCANNING ANIMATION FOR CYCLE MODE */
         .sec-head { display: flex; align-items: center; justify-content: space-between; padding: 8px 12px; background: rgba(0,0,0,0.3); border-bottom: 1px solid var(--border); position: relative; overflow: hidden; }
@@ -484,15 +506,15 @@
         #gif-host img { position: absolute; display: block; width: 2px !important; height: 2px !important; pointer-events: none; }
         
         /* VNGRD BUTTONS - DIGITAL SNAP */
-        .btn { display: block; width: 100%; padding: 8px 10px; margin-bottom: 6px; background: linear-gradient(180deg, #0f0f14 0%, #0a0a0e 100%); border: 1px solid var(--border); color: var(--text); font-family: 'JetBrains Mono', monospace; font-size: 10px; text-align: left; transition: all 0.05s step-end; }
-        .btn:hover { background: linear-gradient(180deg, #151520 0%, #0f0f14 100%); color: var(--text-bright); border-color: var(--border-light); }
+        .btn { display: block; width: 100%; padding: 8px 10px; margin-bottom: 6px; background: linear-gradient(180deg, #0f0f14 0%, #0a0a0e 100%); border: 1px solid var(--border); color: var(--text); font-family: 'JetBrains Mono', monospace; font-size: 10px; text-align: left; transition: all 0.15s ease; }
+        .btn:hover { background: linear-gradient(180deg, #151520 0%, #0f0f14 100%); color: var(--text-bright); border-color: var(--accent); box-shadow: var(--theme-glow), inset 0 0 8px var(--accent-dim); text-shadow: 0 0 8px var(--accent); }
         .btn:active { box-shadow: inset 0 2px 10px rgba(0,0,0,0.8); transform: translateY(2px); }
-        .btn.on { border-color: var(--accent); color: var(--accent); box-shadow: 0 0 10px var(--accent-dim); }
-        .btn.active-mode { 
-            background: var(--accent-dim) !important; 
-            border-color: var(--accent) !important; 
-            color: var(--accent) !important; 
-            box-shadow: inset 0 0 15px rgba(0,243,255,0.3), 0 0 5px var(--accent);
+        .btn.on { border-color: var(--accent); color: var(--accent); box-shadow: var(--theme-glow); }
+        .btn.active-mode {
+            background: var(--accent-dim) !important;
+            border-color: var(--accent) !important;
+            color: var(--accent) !important;
+            box-shadow: var(--theme-glow), inset 0 0 15px var(--accent-dim);
             text-shadow: 0 0 8px var(--accent);
             font-weight: bold;
         }
@@ -661,14 +683,10 @@ body.crt #stage::after {
 }
         /* CONSOLE_HARDWARE BUTTON EFFECTS - HIGH-END GLOW AND PULSE */
         .btn {
-            transition: all 0.15s ease;
             text-transform: uppercase;
             position: relative;
         }
         .btn:hover {
-            box-shadow: 0 0 20px var(--accent), 0 0 40px var(--accent-dim), inset 0 0 10px var(--accent-dim);
-            border-color: var(--accent);
-            text-shadow: 0 0 10px var(--accent);
             animation: btn-pulse 0.4s ease-in-out infinite;
         }
         @keyframes btn-pulse {
@@ -679,7 +697,7 @@ body.crt #stage::after {
             animation: btn-active-glow 0.8s ease-in-out infinite;
         }
         @keyframes btn-active-glow {
-            0%, 100% { box-shadow: 0 0 15px var(--accent); }
+            0%, 100% { box-shadow: var(--theme-glow); }
             50% { box-shadow: 0 0 30px var(--accent), 0 0 50px var(--accent-dim); }
         }
         
