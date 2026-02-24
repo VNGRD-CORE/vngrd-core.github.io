@@ -1241,6 +1241,11 @@ body.fx-lucy::after {
                     <div class="slider-top"><span class="slider-lbl">CYCLE TIME</span><span class="slider-val" id="val-cycle">8s</span></div>
                     <input type="range" min="2" max="30" value="8" id="sl-cycle">
                 </div>
+                <div class="btn-grid-3" style="margin-top:4px;">
+                    <button class="btn btn-compact eject" id="btn-eject" style="font-size:8px;">EJECT</button>
+                    <button class="btn btn-compact warn" id="btn-clear-deck" style="font-size:8px;">CLEAR</button>
+                    <button class="btn btn-compact panic" id="btn-panic" style="font-size:8px;" title="PANIC KILL [ESC]">[ESC]</button>
+                </div>
             </div>
         </div>
         
@@ -1260,18 +1265,6 @@ body.fx-lucy::after {
             </div>
         </div>
 
-        <div class="section">
-            <div class="sec-head"><span class="sec-title">COMMAND</span><div class="sec-dot"></div></div>
-            <div class="sec-body">
-                <div class="lbl" style="text-align:center;color:var(--r)">EMERGENCY PROTOCOLS</div>
-                <div class="btn-grid">
-                    <button class="btn eject" id="btn-eject">EJECT</button>
-                    <button class="btn warn" id="btn-clear-deck">CLEAR</button>
-                </div>
-                <button class="btn panic" id="btn-panic">[ESC] PANIC KILL</button>
-            </div>
-        </div>
-        
         <div class="section">
             <div class="sec-head collapsible"><span class="sec-title">MIDI_HOST</span><span class="sec-arrow">&#x25B8;</span><div class="sec-dot off" id="midi-dot"></div></div>
             <div class="sec-body" id="midi-host-body">
@@ -2099,8 +2092,10 @@ function renderLoop(timestamp) {
     ctx.fillRect(0, 0, w, h);
     
     // FILTER STACK - values are decimals (1.0 = 100%), convert to proper CSS
+    // Skip setting filter at identity to avoid forcing software compositing path (prevents black-frame glitch)
     const filterStr = `brightness(${APP.vj.brightness}) contrast(${APP.vj.contrast}) saturate(${APP.vj.saturation}) hue-rotate(${APP.vj.hue}deg)${APP.vj.invert ? ' invert(1)' : ''}`;
-    ctx.filter = filterStr;
+    const isIdentityFilter = APP.vj.brightness === 1.0 && APP.vj.contrast === 1.0 && APP.vj.saturation === 1.0 && APP.vj.hue === 0 && !APP.vj.invert;
+    ctx.filter = isIdentityFilter ? 'none' : filterStr;
     
     let source = null;
     if (APP.render.source) source = APP.render.source;
