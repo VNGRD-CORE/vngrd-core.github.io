@@ -4,8 +4,13 @@
     <meta charset="UTF-8">
     <meta http-equiv="Content-Security-Policy" content="default-src * 'unsafe-inline' 'unsafe-eval' data: blob:; img-src * data: blob: 'unsafe-inline'; connect-src * 'unsafe-inline';">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    
-   <title>DRIS//CORE VNGRD</title>
+    <meta name="theme-color" content="#000000">
+    <meta name="mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+    <link rel="manifest" href="manifest.json">
+    <title>DRIS//CORE VNGRD</title>
+<script>if('serviceWorker' in navigator){navigator.serviceWorker.register('sw.js').catch(()=>{});}</script>
 <script src="https://unpkg.com/peerjs@1.5.2/dist/peerjs.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/ethers/5.7.2/ethers.umd.min.js"></script>
 <script src="src/Compositor.js"></script>
@@ -534,6 +539,24 @@
         .btn-grid-3 .btn { text-align: center; font-size: 9px; padding: 6px 4px; }
         .btn-grid-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 4px; }
         .btn-grid-2 .btn { text-align: center; font-size: 9px; padding: 6px 4px; }
+
+        /* ── REACTOR LINE SEQUENCER ── */
+        .seq-ctrl-row { display: flex; align-items: center; gap: 3px; margin-bottom: 5px; }
+        .seq-lbl { font-size: 7px; color: var(--text-dim); flex-shrink: 0; letter-spacing: 0.5px; }
+        .seq-bpm-inp { width: 32px; background: #000; border: 1px solid var(--border); color: var(--text-bright); font-family: 'JetBrains Mono', monospace; font-size: 8px; padding: 2px 3px; text-align: center; outline: none; -moz-appearance: textfield; }
+        .seq-bpm-inp::-webkit-inner-spin-button, .seq-bpm-inp::-webkit-outer-spin-button { -webkit-appearance: none; }
+        .seq-btn { flex: 1; font-size: 7px; padding: 4px 2px; text-align: center; margin: 0; }
+        .seq-row { display: flex; align-items: center; gap: 3px; margin-bottom: 3px; }
+        .seq-trigger { width: 46px; flex-shrink: 0; font-size: 7px; padding: 5px 2px; text-align: center; margin: 0; cursor: pointer; }
+        .seq-steps { display: flex; flex: 1; gap: 2px; }
+        .seq-step { flex: 1; height: 13px; background: rgba(0,243,255,0.04); border: 1px solid rgba(0,243,255,0.12); cursor: pointer; border-radius: 1px; transition: background 0.04s, border-color 0.04s; }
+        .seq-step:hover { background: rgba(0,243,255,0.14); border-color: rgba(0,243,255,0.35); }
+        .seq-step.active { background: rgba(0,243,255,0.28); border-color: var(--accent); box-shadow: 0 0 3px rgba(0,243,255,0.3); }
+        .seq-step.playing { background: var(--accent) !important; border-color: var(--accent) !important; box-shadow: 0 0 7px var(--accent) !important; }
+        #seq-steps-seismic .seq-step.active  { background: rgba(255,102,0,0.25); border-color: #ff6600; box-shadow: 0 0 3px rgba(255,102,0,0.3); }
+        #seq-steps-seismic .seq-step.playing { background: #ff6600 !important; border-color: #ff6600 !important; box-shadow: 0 0 7px #ff6600 !important; }
+        #seq-steps-punch .seq-step.active    { background: rgba(255,255,255,0.14); border-color: rgba(255,255,255,0.45); }
+        #seq-steps-punch .seq-step.playing   { background: #fff !important; border-color: #fff !important; box-shadow: 0 0 7px rgba(255,255,255,0.8) !important; }
 
         .audio-ctrl-row { display: flex; gap: 4px; margin-bottom: 6px; }
         .btn-compact { flex: 1; text-align: center; padding: 8px 0; }
@@ -1395,12 +1418,57 @@ body.fx-nvg #stage::after {
         <div class="section">
             <div class="sec-head"><span class="sec-title">FX_MANIPULATOR</span><div class="sec-dot on"></div></div>
             <div class="sec-body">
-                <div class="btn-grid-3">
-                    <button class="btn" id="btn-ui-react" style="font-size:8px;">PARTY</button>
-                    <button class="btn" id="btn-rumble" style="font-size:8px;">SEISMIC</button>
-                    <button class="btn" onclick="toggleFX('punch')">PUNCH</button>
+                <!-- Sequencer controls -->
+                <div class="seq-ctrl-row">
+                    <span class="seq-lbl">BPM</span>
+                    <input type="number" id="seq-bpm" value="120" min="40" max="240" class="seq-bpm-inp">
+                    <button class="btn seq-btn" id="btn-seq-loop">LOOP:OFF</button>
+                    <button class="btn seq-btn" id="btn-seq-start" style="color:var(--g);">&#9654; SEQ</button>
                 </div>
-                <div class="btn-grid-3" style="margin-top:4px;">
+                <!-- PARTY row -->
+                <div class="seq-row">
+                    <button class="btn seq-trigger" id="btn-ui-react">PARTY</button>
+                    <div class="seq-steps" id="seq-steps-party">
+                        <div class="seq-step" data-track="party" data-step="0"></div>
+                        <div class="seq-step" data-track="party" data-step="1"></div>
+                        <div class="seq-step" data-track="party" data-step="2"></div>
+                        <div class="seq-step" data-track="party" data-step="3"></div>
+                        <div class="seq-step" data-track="party" data-step="4"></div>
+                        <div class="seq-step" data-track="party" data-step="5"></div>
+                        <div class="seq-step" data-track="party" data-step="6"></div>
+                        <div class="seq-step" data-track="party" data-step="7"></div>
+                    </div>
+                </div>
+                <!-- SEISMIC row -->
+                <div class="seq-row">
+                    <button class="btn seq-trigger" id="btn-rumble">SEISMIC</button>
+                    <div class="seq-steps" id="seq-steps-seismic">
+                        <div class="seq-step" data-track="seismic" data-step="0"></div>
+                        <div class="seq-step" data-track="seismic" data-step="1"></div>
+                        <div class="seq-step" data-track="seismic" data-step="2"></div>
+                        <div class="seq-step" data-track="seismic" data-step="3"></div>
+                        <div class="seq-step" data-track="seismic" data-step="4"></div>
+                        <div class="seq-step" data-track="seismic" data-step="5"></div>
+                        <div class="seq-step" data-track="seismic" data-step="6"></div>
+                        <div class="seq-step" data-track="seismic" data-step="7"></div>
+                    </div>
+                </div>
+                <!-- PUNCH row -->
+                <div class="seq-row">
+                    <button class="btn seq-trigger" id="btn-seq-punch">PUNCH</button>
+                    <div class="seq-steps" id="seq-steps-punch">
+                        <div class="seq-step" data-track="punch" data-step="0"></div>
+                        <div class="seq-step" data-track="punch" data-step="1"></div>
+                        <div class="seq-step" data-track="punch" data-step="2"></div>
+                        <div class="seq-step" data-track="punch" data-step="3"></div>
+                        <div class="seq-step" data-track="punch" data-step="4"></div>
+                        <div class="seq-step" data-track="punch" data-step="5"></div>
+                        <div class="seq-step" data-track="punch" data-step="6"></div>
+                        <div class="seq-step" data-track="punch" data-step="7"></div>
+                    </div>
+                </div>
+                <!-- Utility -->
+                <div class="btn-grid-3" style="margin-top:5px;">
                     <button class="btn" id="btn-vhs" onclick="toggleVHS()">VHS_OVR</button>
                     <button class="btn" onclick="toggleFX('nvg')" style="color:#00ff41;border-color:#00ff41;text-shadow:0 0 5px #00ff41;font-size:9px;">NVG</button>
                     <button class="btn" onclick="triggerHardReset()" style="color:var(--r)">RESET</button>
@@ -2680,7 +2748,6 @@ function ensureAudioChain() {
     APP.audio.masterGain.connect(APP.audio.stereoGain);
     APP.audio.recorderDest = ctx.createMediaStreamDestination();
     APP.audio.masterGain.connect(APP.audio.recorderDest);
-    APP.audio.dolbyPanner.connect(APP.audio.outputLimiter);
     APP.audio.vuData = new Uint8Array(APP.audio.analyzer.frequencyBinCount);
     updateVU();
     log('DAW_CHAIN_READY');
@@ -2696,7 +2763,6 @@ function connectVideoAudio(vid) {
         if (!vid._audioSrc) vid._audioSrc = APP.audio.ctx.createMediaElementSource(vid);
         vid.muted = APP.audio.videoMuted;
         vid._audioSrc.connect(APP.audio.panner);
-        vid._audioSrc.connect(APP.audio.dolbyPanner);
         APP.audio.videoSource = vid;
         $('btn-mute-vid').textContent = APP.audio.videoMuted ? '\u{1F507}' : '\u{1F50A}';
         if (APP.audio.videoMuted) $('btn-mute-vid').classList.add('on'); else $('btn-mute-vid').classList.remove('on');
@@ -3068,13 +3134,15 @@ function setupAudioChain() {
     // Stereo monitoring tap
     APP.audio.masterGain.connect(APP.audio.stereoGain);
 
-    // Dolby HRTF parallel path
-    APP.audio.source.connect(APP.audio.dolbyPanner);
-    APP.audio.dolbyPanner.connect(APP.audio.outputLimiter);
+    // Recorder tap — single exit point, eliminates parallel-path flanger
+    if (!APP.audio.recorderDest) {
+        APP.audio.recorderDest = ctx.createMediaStreamDestination();
+    }
+    APP.audio.masterGain.connect(APP.audio.recorderDest);
 
-    APP.audio.vuData = new Uint8Array(APP.audio.analyzer.frequencyBinCount); 
+    APP.audio.vuData = new Uint8Array(APP.audio.analyzer.frequencyBinCount);
     APP.audio.isConnected = true;
-    log('DAW_ENGINE: TRIPLE_PATH + LIMITER + DUCKING');
+    log('DAW_ENGINE: SINGLE_TAP + LIMITER + DUCKING');
     updateVU();
 }
 
@@ -3824,64 +3892,8 @@ document.addEventListener('DOMContentLoaded', () => {
     document.querySelectorAll('.pal').forEach(p => p.onclick = () => setTheme(p.dataset.t));
     $('btn-projector').onclick = openProjector;
     
-    // PARTY MODE TRIGGER - Rapid morphs + light effects
-    $('btn-ui-react').onclick = () => {
-        APP.vj.uiReactivity = !APP.vj.uiReactivity;
-        $('btn-ui-react').classList.toggle('on');
-        document.body.classList.toggle('party-active', APP.vj.uiReactivity);
-
-        if (APP.vj.uiReactivity) {
-            log('PARTY_MODE: ACTIVATED');
-
-            // Immediate light flash
-            document.body.style.filter = 'brightness(2) contrast(1.2)';
-            document.querySelectorAll('.sidebar').forEach(s => s.style.boxShadow = '0 0 30px var(--accent)');
-            setTimeout(() => {
-                document.body.style.filter = '';
-                document.querySelectorAll('.sidebar').forEach(s => s.style.boxShadow = '');
-            }, 100);
-
-            // Rapid logo morph cycle
-            let count = 0;
-            const rapidMorph = setInterval(() => {
-                morphLogo();
-                count++;
-                if (count >= 15) clearInterval(rapidMorph);
-            }, 60);
-
-            // Continuous light play interval
-            APP.partyInterval = setInterval(() => {
-                if (!APP.vj.uiReactivity) {
-                    clearInterval(APP.partyInterval);
-                    return;
-                }
-                // Random theme flashes
-                if (Math.random() > 0.7) {
-                    const themes = ['cyan', 'magenta', 'green', 'purple', 'gold'];
-                    setTheme(themes[Math.floor(Math.random() * themes.length)]);
-                }
-                // Random morph
-                if (Math.random() > 0.5) morphLogo();
-                // Light pulse
-                if (Math.random() > 0.6) {
-                    document.body.style.filter = 'brightness(1.3)';
-                    setTimeout(() => { document.body.style.filter = ''; }, 50);
-                }
-            }, 300);
-        } else {
-            log('PARTY_MODE: DEACTIVATED');
-            if (APP.partyInterval) clearInterval(APP.partyInterval);
-            document.body.style.filter = '';
-        }
-    };
-
-    // SEISMIC TOGGLE
-    $('btn-rumble').onclick = () => {
-        APP.vj.rumbleEnabled = !APP.vj.rumbleEnabled;
-        $('btn-rumble').classList.toggle('on');
-        if (!APP.vj.rumbleEnabled) document.body.style.transform = '';
-        log(APP.vj.rumbleEnabled ? "SEISMIC: ON" : "SEISMIC: OFF");
-    };
+    // PARTY / SEISMIC / PUNCH — wired by initSeq() as one-shot finger drums
+    // (initSeq called at bottom of DOMContentLoaded)
 
     // WALLET — badge delegates entirely to requestManualConnect()
     $('wallet-badge').onclick = async () => {
@@ -5851,6 +5863,9 @@ function endCallCleanup() {
     // Initialize geo ticker injection
     setTimeout(injectGeoToTicker, 3000);
 
+    // Init Reactor Line Sequencer
+    initSeq();
+
 }); // THIS IS THE END of the startup block. Do not put code after this line.
 // --- TACTICAL FX ELITE BRIDGE ---
 </script>
@@ -5972,6 +5987,172 @@ document.addEventListener('click', (e) => {
     if (id === 'btn-go-live') applyAudioDuck(true);
     if (id === 'btn-end' || id === 'btn-end-live' || id === 'btn-kill') applyAudioDuck(false);
 }, true);
+
+// ═══════════════════════════════════════════════════════════════
+// REACTOR LINE SEQUENCER  (8-step BPM clock + finger drumming)
+// ═══════════════════════════════════════════════════════════════
+const SEQ = {
+    bpm: 120, steps: 8, currentStep: 0,
+    isRunning: false, loopMode: false,
+    pattern: { party:[0,0,0,0,0,0,0,0], seismic:[0,0,0,0,0,0,0,0], punch:[0,0,0,0,0,0,0,0] },
+    nextStepTime: 0, lookahead: 25, scheduleAhead: 0.1, timerID: null
+};
+
+function seqGetCtx() {
+    ensureAudioChain();
+    const ctx = APP.audio.ctx;
+    if (ctx && ctx.state === 'suspended') ctx.resume();
+    return ctx;
+}
+
+function seqFireSound(track, time) {
+    const ctx = seqGetCtx();
+    if (!ctx || !APP.audio.masterGain) return;
+    const g = ctx.createGain();
+    g.connect(APP.audio.masterGain);
+    if (track === 'punch') {
+        // 60 Hz Sine Sub-Kick
+        const osc = ctx.createOscillator();
+        osc.type = 'sine';
+        osc.frequency.setValueAtTime(60, time);
+        osc.frequency.exponentialRampToValueAtTime(28, time + 0.28);
+        g.gain.setValueAtTime(0.85, time);
+        g.gain.exponentialRampToValueAtTime(0.001, time + 0.30);
+        osc.connect(g); osc.start(time); osc.stop(time + 0.32);
+    } else if (track === 'seismic') {
+        // White-noise burst band-passed at 400 Hz — Industrial Mid
+        const bufSize = Math.ceil(ctx.sampleRate * 0.22);
+        const buf = ctx.createBuffer(1, bufSize, ctx.sampleRate);
+        const d = buf.getChannelData(0);
+        for (let i = 0; i < bufSize; i++) d[i] = Math.random() * 2 - 1;
+        const noise = ctx.createBufferSource();
+        noise.buffer = buf;
+        const bpf = ctx.createBiquadFilter();
+        bpf.type = 'bandpass'; bpf.frequency.value = 400; bpf.Q.value = 1.2;
+        g.gain.setValueAtTime(0.65, time);
+        g.gain.exponentialRampToValueAtTime(0.001, time + 0.22);
+        noise.connect(bpf); bpf.connect(g); noise.start(time); noise.stop(time + 0.23);
+    } else if (track === 'party') {
+        // 3000 Hz Sine — Metallic Click
+        const osc = ctx.createOscillator();
+        osc.type = 'sine'; osc.frequency.value = 3000;
+        g.gain.setValueAtTime(0.35, time);
+        g.gain.exponentialRampToValueAtTime(0.001, time + 0.07);
+        osc.connect(g); osc.start(time); osc.stop(time + 0.08);
+    }
+}
+
+function seqFireVisual(track) {
+    if (track === 'punch') {
+        impactCrush();
+    } else if (track === 'seismic') {
+        const x = (Math.random() - 0.5) * 18, y = (Math.random() - 0.5) * 12;
+        const el = document.getElementById('stage');
+        if (el) { el.style.transform = `translate3d(${x}px,${y}px,0)`; setTimeout(() => { el.style.transform = ''; }, 85); }
+    } else if (track === 'party') {
+        if (typeof morphLogo === 'function') morphLogo();
+        document.body.style.filter = 'brightness(1.6)';
+        setTimeout(() => { document.body.style.filter = ''; }, 65);
+    }
+}
+
+function seqOneShot(track) {
+    const ctx = seqGetCtx();
+    seqFireSound(track, ctx ? ctx.currentTime : 0);
+    seqFireVisual(track);
+    // Brief button flash
+    const ids = { party:'btn-ui-react', seismic:'btn-rumble', punch:'btn-seq-punch' };
+    const btn = $(ids[track]);
+    if (btn) { btn.classList.add('on'); setTimeout(() => btn.classList.remove('on'), 140); }
+}
+
+function seqSchedule() {
+    if (!SEQ.isRunning) return;
+    const ctx = APP.audio.ctx;
+    if (!ctx) { SEQ.timerID = setTimeout(seqSchedule, SEQ.lookahead); return; }
+    const secondsPerStep = (60.0 / SEQ.bpm) / 2; // 16th notes
+    while (SEQ.nextStepTime < ctx.currentTime + SEQ.scheduleAhead) {
+        const step = SEQ.currentStep;
+        const fireTime = SEQ.nextStepTime;
+        const vDelay = Math.max(0, (fireTime - ctx.currentTime) * 1000);
+        ['party', 'seismic', 'punch'].forEach(track => {
+            if (SEQ.pattern[track][step]) {
+                seqFireSound(track, fireTime);
+                setTimeout(() => seqFireVisual(track), vDelay);
+            }
+        });
+        // Step cursor
+        const s = step;
+        setTimeout(() => {
+            document.querySelectorAll('.seq-step.playing').forEach(el => el.classList.remove('playing'));
+            ['party','seismic','punch'].forEach(t => {
+                const el = document.querySelector(`#seq-steps-${t} [data-step="${s}"]`);
+                if (el) el.classList.add('playing');
+            });
+        }, vDelay);
+        SEQ.currentStep = (SEQ.currentStep + 1) % SEQ.steps;
+        SEQ.nextStepTime += secondsPerStep;
+        if (!SEQ.loopMode && SEQ.currentStep === 0) {
+            setTimeout(seqStop, Math.max(0, (SEQ.nextStepTime - ctx.currentTime) * 1000));
+            return;
+        }
+    }
+    SEQ.timerID = setTimeout(seqSchedule, SEQ.lookahead);
+}
+
+function seqStart() {
+    seqGetCtx();
+    SEQ.currentStep = 0;
+    SEQ.nextStepTime = APP.audio.ctx.currentTime + 0.05;
+    SEQ.isRunning = true;
+    seqSchedule();
+    const btn = $('btn-seq-start');
+    if (btn) { btn.textContent = '■ SEQ'; btn.style.color = 'var(--r)'; btn.classList.add('on'); }
+    log('SEQ: RUNNING');
+}
+
+function seqStop() {
+    SEQ.isRunning = false;
+    if (SEQ.timerID) { clearTimeout(SEQ.timerID); SEQ.timerID = null; }
+    setTimeout(() => document.querySelectorAll('.seq-step.playing').forEach(el => el.classList.remove('playing')), 50);
+    const btn = $('btn-seq-start');
+    if (btn) { btn.textContent = '\u25B6 SEQ'; btn.style.color = 'var(--g)'; btn.classList.remove('on'); }
+    log('SEQ: STOP');
+}
+
+function initSeq() {
+    // Step toggles
+    document.querySelectorAll('.seq-step').forEach(el => {
+        el.addEventListener('click', () => {
+            const track = el.dataset.track, step = parseInt(el.dataset.step);
+            SEQ.pattern[track][step] ^= 1;
+            el.classList.toggle('active', !!SEQ.pattern[track][step]);
+        });
+    });
+    // BPM
+    const bpmEl = $('seq-bpm');
+    if (bpmEl) bpmEl.addEventListener('change', () => {
+        const v = parseInt(bpmEl.value);
+        if (v >= 40 && v <= 240) { SEQ.bpm = v; log('SEQ_BPM: ' + v); }
+    });
+    // Loop toggle
+    const loopBtn = $('btn-seq-loop');
+    if (loopBtn) loopBtn.addEventListener('click', () => {
+        SEQ.loopMode = !SEQ.loopMode;
+        loopBtn.textContent = SEQ.loopMode ? 'LOOP:ON' : 'LOOP:OFF';
+        loopBtn.classList.toggle('on', SEQ.loopMode);
+    });
+    // Start/Stop
+    const startBtn = $('btn-seq-start');
+    if (startBtn) startBtn.addEventListener('click', () => { if (SEQ.isRunning) seqStop(); else seqStart(); });
+    // Finger-drum one-shots (btn-ui-react / btn-rumble keep their ids; onclick cleared)
+    const uiReact = $('btn-ui-react');
+    if (uiReact) { uiReact.onclick = null; uiReact.addEventListener('click', () => seqOneShot('party')); }
+    const rumble = $('btn-rumble');
+    if (rumble) { rumble.onclick = null; rumble.addEventListener('click', () => seqOneShot('seismic')); }
+    const punchBtn = $('btn-seq-punch');
+    if (punchBtn) punchBtn.addEventListener('click', () => seqOneShot('punch'));
+}
 
 // --- TACTICAL FX GLOBAL BRIDGE ---
 // --- TACTICAL FX MASTER BRIDGE (v4.1 VOID/LUCY) ---
