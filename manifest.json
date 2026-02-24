@@ -1,10 +1,11 @@
 {
   "name": "DRIS//CORE VNGRD",
   "short_name": "VNGRD",
-  "start_url": "./",
+  "start_url": "./index.html",
+  "scope": "./",
   "display": "standalone",
   "background_color": "#050508",
-  "theme_color": "#00f3ff",
+  "theme_color": "#000000",
   "description": "Hybrid Web3 Workstation & VJ Engine",
   "icons": [
     {
