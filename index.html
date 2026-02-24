@@ -2936,10 +2936,12 @@ $('btn-rec').onclick = () => {
         $('rec-status').style.display = 'none'; 
     } else {
         const stream = APP.render.canvas.captureStream(60);
-        if(APP.audio.source && APP.audio.ctx) {
+        if(APP.audio.ctx) {
             const dest = APP.audio.ctx.createMediaStreamDestination();
-            APP.audio.source.connect(dest);
-            if(APP.audio.masterGain) APP.audio.masterGain.connect(dest);
+            // SINGLE TAP: route only the final limiter output (contains full mix)
+            // NOT source + masterGain (that double-taps the signal → flanging)
+            if(APP.audio.outputLimiter) APP.audio.outputLimiter.connect(dest);
+            else if(APP.audio.masterGain) APP.audio.masterGain.connect(dest);
             if(APP.audio.micGainNode) APP.audio.micGainNode.connect(dest);
             if(dest.stream.getAudioTracks().length > 0) stream.addTrack(dest.stream.getAudioTracks()[0]);
         }
@@ -3334,10 +3336,11 @@ function startNFTRecording() {
     if (APP.nft.isRecording) { stopNFTRecording(); return; }
     try {
         const canvasStream = APP.render.canvas.captureStream(60);
-        if (APP.audio.source && APP.audio.ctx) {
+        if (APP.audio.ctx) {
             const nftDest = APP.audio.ctx.createMediaStreamDestination();
-            APP.audio.source.connect(nftDest);
-            if (APP.audio.masterGain) APP.audio.masterGain.connect(nftDest);
+            // SINGLE TAP: only the final limiter (full processed mix)
+            if (APP.audio.outputLimiter) APP.audio.outputLimiter.connect(nftDest);
+            else if (APP.audio.masterGain) APP.audio.masterGain.connect(nftDest);
             if (APP.audio.micGainNode) APP.audio.micGainNode.connect(nftDest);
             if (nftDest.stream.getAudioTracks().length > 0) canvasStream.addTrack(nftDest.stream.getAudioTracks()[0]);
         }
@@ -3757,7 +3760,7 @@ function initCompositor() {
     const holoCanvas = $('hologram-canvas');
     if (holoCanvas) APP.compositor.setLayer('scene3D', holoCanvas);
 
-    APP.compositor.initRecorder(APP.audio.ctx, APP.audio.masterGain);
+    APP.compositor.initRecorder(APP.audio.ctx, APP.audio.outputLimiter || APP.audio.masterGain, APP.audio.micGainNode);
     APP.compositor.onWorkerMessage((type, payload) => {
         if (type === 'STATUS') log('COMPOSITOR: ' + payload);
     });
@@ -3817,7 +3820,7 @@ document.addEventListener('DOMContentLoaded', () => {
         }
         try {
             if (!APP.audio.ctx) APP.audio.ctx = new (window.AudioContext || window.webkitAudioContext)();
-            APP.camera.micStream = await navigator.mediaDevices.getUserMedia({ audio: { echoCancellation: true, noiseSuppression: true, sampleRate: 48000 } });
+            APP.camera.micStream = await navigator.mediaDevices.getUserMedia({ audio: { echoCancellation: false, noiseSuppression: false, autoGainControl: false, sampleRate: 48000 } });
             // Create mic source and route to audio context for monitoring + recording
             const micSource = APP.audio.ctx.createMediaStreamSource(APP.camera.micStream);
             APP.audio.micGainNode = APP.audio.ctx.createGain();
@@ -4989,13 +4992,13 @@ $('btn-call-guest').onclick = async () => {
             $('call-status').textContent = 'CONNECTING...';
             
             // 1. Get Local Media (Now allowed because user clicked button)
-            const audioConstraints = APP.inputDevices.selectedId 
-                ? { deviceId: { exact: APP.inputDevices.selectedId } } 
-                : true;
+            const audioConstraints = APP.inputDevices.selectedId
+                ? { deviceId: { exact: APP.inputDevices.selectedId }, echoCancellation: false, noiseSuppression: false, autoGainControl: false }
+                : { echoCancellation: false, noiseSuppression: false, autoGainControl: false };
 
-            const stream = await navigator.mediaDevices.getUserMedia({ 
-                video: true, 
-                audio: audioConstraints 
+            const stream = await navigator.mediaDevices.getUserMedia({
+                video: true,
+                audio: audioConstraints
             });
             
             APP.peer.localStream = stream;
@@ -5028,13 +5031,13 @@ $('btn-call-guest').onclick = async () => {
         $('call-status').textContent = 'CALLING...';
         $('call-status').style.color = 'var(--y)';
         
-        const audioConstraints = APP.inputDevices.selectedId 
-            ? { deviceId: { exact: APP.inputDevices.selectedId } } 
-            : true;
-        
-        const stream = await navigator.mediaDevices.getUserMedia({ 
-            video: true, 
-            audio: audioConstraints 
+        const audioConstraints = APP.inputDevices.selectedId
+            ? { deviceId: { exact: APP.inputDevices.selectedId }, echoCancellation: false, noiseSuppression: false, autoGainControl: false }
+            : { echoCancellation: false, noiseSuppression: false, autoGainControl: false };
+
+        const stream = await navigator.mediaDevices.getUserMedia({
+            video: true,
+            audio: audioConstraints
         });
         APP.peer.localStream = stream;
         
