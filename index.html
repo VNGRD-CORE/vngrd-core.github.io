@@ -1024,6 +1024,56 @@ body.fx-lucy::after {
     0% { transform: scale(1.02); filter: brightness(1.4); }
     100% { transform: scale(1); filter: brightness(1); }
 }
+
+/* NVG: Cinematic Military Night Vision */
+/* 1. Stage: phosphor-green desaturated image */
+body.fx-nvg #stage {
+    filter: grayscale(1) brightness(1.6) contrast(2.2) sepia(1) hue-rotate(78deg) saturate(5) url(#nvg-grain) !important;
+    will-change: filter;
+    animation: nvg-stage-flicker 7s steps(1) infinite;
+}
+/* 2. Full-screen overlay: hard circular tube vignette + fine scanlines */
+body.fx-nvg::after {
+    content: "";
+    position: fixed;
+    top: 0; left: 0; width: 100vw; height: 100vh;
+    background:
+        radial-gradient(ellipse 60% 70% at 50% 50%,
+            transparent 38%,
+            rgba(0,8,0,0.50) 62%,
+            rgba(0,4,0,0.92) 80%,
+            #000 100%),
+        repeating-linear-gradient(
+            0deg,
+            transparent 0px,
+            transparent 2px,
+            rgba(0,28,0,0.11) 2px,
+            rgba(0,28,0,0.11) 3px
+        );
+    pointer-events: none;
+    z-index: 9998;
+}
+/* 3. Scope reticle — thin crosshair ring */
+body.fx-nvg #stage::after {
+    content: "";
+    position: absolute;
+    top: 50%; left: 50%;
+    transform: translate(-50%, -50%);
+    width: 60px; height: 60px;
+    border: 1px solid rgba(0, 255, 65, 0.45);
+    border-radius: 50%;
+    box-shadow:
+        0 0 0 1px rgba(0,255,65,0.10),
+        inset 0 0 8px rgba(0,255,65,0.08);
+    pointer-events: none;
+    z-index: 9997;
+}
+@keyframes nvg-stage-flicker {
+    0%, 88%, 92%, 100% { opacity: 1; }
+    89% { opacity: 0.82; }
+    91% { opacity: 0.95; }
+}
+
 @keyframes kinetic-punch {
     0% { 
         transform: scale(1) translate(0, 0); 
@@ -1132,6 +1182,16 @@ body.fx-lucy::after {
                 <feDisplacementMap in="SourceGraphic" in2="noise" scale="6" xChannelSelector="R" yChannelSelector="G"/>
             </filter>
 
+            <filter id="nvg-grain" x="0%" y="0%" width="100%" height="100%" color-interpolation-filters="sRGB">
+                <feTurbulence type="fractalNoise" baseFrequency="0.72 0.68" numOctaves="4" stitchTiles="stitch" result="noise">
+                    <animate attributeName="seed" from="0" to="99" dur="0.09s" repeatCount="indefinite"/>
+                </feTurbulence>
+                <feColorMatrix type="saturate" values="0" in="noise" result="grey-noise"/>
+                <feBlend in="SourceGraphic" in2="grey-noise" mode="overlay" result="blended"/>
+                <feComponentTransfer in="blended">
+                    <feFuncA type="linear" slope="1"/>
+                </feComponentTransfer>
+            </filter>
 
         </defs>
     </svg>
@@ -1340,8 +1400,9 @@ body.fx-lucy::after {
                     <button class="btn" id="btn-rumble" style="font-size:8px;">SEISMIC</button>
                     <button class="btn" onclick="toggleFX('punch')">PUNCH</button>
                 </div>
-                <div class="btn-grid-2" style="margin-top:4px;">
+                <div class="btn-grid-3" style="margin-top:4px;">
                     <button class="btn" id="btn-vhs" onclick="toggleVHS()">VHS_OVR</button>
+                    <button class="btn" onclick="toggleFX('nvg')" style="color:#00ff41;border-color:#00ff41;text-shadow:0 0 5px #00ff41;font-size:9px;">NVG</button>
                     <button class="btn" onclick="triggerHardReset()" style="color:var(--r)">RESET</button>
                 </div>
             </div>
@@ -5917,7 +5978,7 @@ document.addEventListener('click', (e) => {
 window.toggleFX = function(fxName) {
     const target = document.body;
     const className = `fx-${fxName}`;
-    const allFX = ['fx-scan', 'fx-tear', 'fx-punch', 'fx-void', 'fx-lucy'];
+    const allFX = ['fx-scan', 'fx-tear', 'fx-punch', 'fx-void', 'fx-lucy', 'fx-nvg'];
 
     // One-shot durations (ms); 0 = persistent toggle
     const autoOff = { void: 2500, lucy: 5000 };
@@ -5957,7 +6018,7 @@ window.triggerHardReset = function() {
 
     // 1. Kill every FX class — CSS tactical + animated
     target.classList.remove(
-        'fx-scan', 'fx-tear', 'fx-punch', 'fx-void', 'fx-lucy',
+        'fx-scan', 'fx-tear', 'fx-punch', 'fx-void', 'fx-lucy', 'fx-nvg',
         'fx-signal-loss', 'fx-thermal', 'fx-cyber-rot', 'fx-neural', 'fx-failure',
         'vhs', 'crt', 'system-failure', 'seismic-active', 'punch-hit'
     );
