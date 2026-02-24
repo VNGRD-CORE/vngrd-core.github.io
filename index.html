@@ -4911,11 +4911,11 @@ $('btn-call-guest').onclick = async () => {
         try {
             log('ANSWERING CALL...');
             $('call-status').textContent = 'CONNECTING...';
-            
+
             // 1. Get Local Media (Now allowed because user clicked button)
             const audioConstraints = APP.inputDevices.selectedId
-                ? { deviceId: { exact: APP.inputDevices.selectedId }, echoCancellation: false, noiseSuppression: false, autoGainControl: false }
-                : { echoCancellation: false, noiseSuppression: false, autoGainControl: false };
+                ? { deviceId: { exact: APP.inputDevices.selectedId }, echoCancellation: true, noiseSuppression: true, autoGainControl: true }
+                : { echoCancellation: true, noiseSuppression: true, autoGainControl: true };
 
             const stream = await navigator.mediaDevices.getUserMedia({
                 video: true,
@@ -4953,15 +4953,15 @@ $('btn-call-guest').onclick = async () => {
         $('call-status').style.color = 'var(--y)';
         
         const audioConstraints = APP.inputDevices.selectedId
-            ? { deviceId: { exact: APP.inputDevices.selectedId }, echoCancellation: false, noiseSuppression: false, autoGainControl: false }
-            : { echoCancellation: false, noiseSuppression: false, autoGainControl: false };
+            ? { deviceId: { exact: APP.inputDevices.selectedId }, echoCancellation: true, noiseSuppression: true, autoGainControl: true }
+            : { echoCancellation: true, noiseSuppression: true, autoGainControl: true };
 
         const stream = await navigator.mediaDevices.getUserMedia({
             video: true,
             audio: audioConstraints
         });
         APP.peer.localStream = stream;
-        
+
         const call = APP.peer.peer.call(remoteId, stream);
         handleCallStream(call);
 
@@ -4994,28 +4994,24 @@ $('btn-call-guest').onclick = async () => {
 // Shared Logic for both Incoming and Outgoing calls
 function handleCallStream(call) {
     call.on('stream', (remoteStream) => {
-        // Ensure Video Element Exists
+        // Ensure video element exists
         if (!APP.guest.videoElement) {
             APP.guest.videoElement = document.createElement('video');
             APP.guest.videoElement.autoplay = true;
             APP.guest.videoElement.playsInline = true;
-            // Optionally append to DOM if not already handled elsewhere
-            // document.body.appendChild(APP.guest.videoElement); 
         }
-        
+
+        // Remote stream plays directly through the HTML5 video element.
+        // DO NOT route into APP.audio.ctx or masterGain — that creates
+        // an internal feedback loop and echo on the remote end.
         APP.guest.videoElement.srcObject = remoteStream;
         APP.guest.stream = remoteStream;
         APP.guest.isActive = true;
-        
-        // If you have the DAW Audio Chain logic:
-        // if (typeof connectVideoAudio === 'function') connectVideoAudio(APP.guest.videoElement);
 
         $('call-status').textContent = 'CONNECTED';
         $('call-status').style.color = 'var(--g)';
-        
-        // Reset button to "CALL" state (or change to "MUTE" if you prefer)
         $('btn-call-guest').textContent = 'CALL (ACTIVE)';
-        
+
         log('CALL_ESTABLISHED_WITH: ' + call.peer);
     });
     
