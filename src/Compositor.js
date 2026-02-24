@@ -154,16 +154,17 @@ class Compositor {
     // ─────────────────────────────────────────────────────────────
     // RECORDING PIPELINE (15Mbps VP9+Opus)
     // ─────────────────────────────────────────────────────────────
-    initRecorder(audioContext, masterGainNode) {
+    initRecorder(audioContext, finalNode, micGainNode) {
         // Clock-locked captureStream at 60fps
         this.stream = this.canvas.captureStream(this.fps);
         this.audioCtx = audioContext;
 
-        // Bind audio if AudioContext is available
-        if (audioContext && masterGainNode) {
+        // Bind audio: SINGLE destination for all sources (no double-tap)
+        if (audioContext && finalNode) {
             try {
                 this.audioDest = audioContext.createMediaStreamDestination();
-                masterGainNode.connect(this.audioDest);
+                finalNode.connect(this.audioDest);
+                if (micGainNode) micGainNode.connect(this.audioDest);
                 const audioTrack = this.audioDest.stream.getAudioTracks()[0];
                 if (audioTrack) {
                     this.stream.addTrack(audioTrack);
