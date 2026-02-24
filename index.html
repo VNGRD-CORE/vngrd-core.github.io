@@ -6,7 +6,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
 
     <!-- PWA: Manifest + Standalone App-Mode -->
-    <link rel="manifest" href="./manifest.json">
+    <link rel="manifest" href="manifest.json">
     <meta name="apple-mobile-web-app-capable" content="yes">
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
     <meta name="mobile-web-app-capable" content="yes">
@@ -6085,8 +6085,9 @@ setTimeout(() => {
 
     <!-- SERVICE WORKER REGISTRATION -->
     <script>
+        console.log('[PWA] Manifest linked and SW registering...');
         if ('serviceWorker' in navigator) {
-            navigator.serviceWorker.register('./sw.js')
+            navigator.serviceWorker.register('sw.js')
                 .then(reg => console.log('[SW] Registered:', reg.scope))
                 .catch(err => console.warn('[SW] Registration failed:', err));
         }
