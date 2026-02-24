@@ -4,11 +4,15 @@
   "start_url": "./index.html",
   "scope": "./",
   "display": "standalone",
-  "orientation": "landscape",
   "background_color": "#050508",
   "theme_color": "#000000",
   "description": "Hybrid Web3 Workstation & VJ Engine",
   "icons": [
+    {
+      "src": "favicon.ico",
+      "sizes": "64x64",
+      "type": "image/x-icon"
+    },
     {
       "src": "icon-192.png",
       "sizes": "192x192",
