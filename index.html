@@ -4,13 +4,7 @@
     <meta charset="UTF-8">
     <meta http-equiv="Content-Security-Policy" content="default-src * 'unsafe-inline' 'unsafe-eval' data: blob:; img-src * data: blob: 'unsafe-inline'; connect-src * 'unsafe-inline';">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-
-    <!-- PWA: Manifest + Standalone App-Mode -->
-    <link rel="manifest" href="manifest.json">
-    <meta name="apple-mobile-web-app-capable" content="yes">
-    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
-    <meta name="mobile-web-app-capable" content="yes">
-
+    
    <title>DRIS//CORE VNGRD</title>
 <script src="https://unpkg.com/peerjs@1.5.2/dist/peerjs.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/ethers/5.7.2/ethers.umd.min.js"></script>
@@ -1252,6 +1246,14 @@ body.fx-lucy::after {
                     <button class="btn btn-compact warn" id="btn-clear-deck" style="font-size:8px;">CLEAR</button>
                     <button class="btn btn-compact panic" id="btn-panic" style="font-size:8px;" title="PANIC KILL [ESC]">[ESC]</button>
                 </div>
+            </div>
+        </div>
+         <div class="section">
+            <div class="sec-head collapsible"><span class="sec-title">AI_INJECTION</span><span class="sec-arrow">&#x25B8;</span><div class="sec-dot off" id="neural-dot"></div></div>
+            <div class="sec-body" id="lexica-nano-body">
+                <input type="text" class="inp" id="ai-prompt" placeholder="DESCRIBE_IMAGE..." style="font-size:9px;">
+                <button class="btn" id="btn-generate-ai" style="color:var(--v);border-color:var(--v);">LEXICA GENERATE</button>
+                <div id="ai-status" style="font-size:8px;color:var(--text-dim);margin-top:4px;">LEXICA_API: READY</div>
             </div>
         </div>
         <div class="section">
@@ -6082,15 +6084,5 @@ setTimeout(() => {
     <div id="gif-host">
         <img id="user-logo-layer" src="" alt="Logo" style="display:none;">
     </div>
-
-    <!-- SERVICE WORKER REGISTRATION -->
-    <script>
-        console.log('[PWA] Manifest linked and SW registering...');
-        if ('serviceWorker' in navigator) {
-            navigator.serviceWorker.register('sw.js')
-                .then(reg => console.log('[SW] Registered:', reg.scope))
-                .catch(err => console.warn('[SW] Registration failed:', err));
-        }
-    </script>
 </body>
 </html> 
