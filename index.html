@@ -4,7 +4,13 @@
     <meta charset="UTF-8">
     <meta http-equiv="Content-Security-Policy" content="default-src * 'unsafe-inline' 'unsafe-eval' data: blob:; img-src * data: blob: 'unsafe-inline'; connect-src * 'unsafe-inline';">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    
+
+    <!-- PWA: Manifest + Standalone App-Mode -->
+    <link rel="manifest" href="./manifest.json">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+    <meta name="mobile-web-app-capable" content="yes">
+
    <title>DRIS//CORE VNGRD</title>
 <script src="https://unpkg.com/peerjs@1.5.2/dist/peerjs.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/ethers/5.7.2/ethers.umd.min.js"></script>
@@ -6095,5 +6101,14 @@ setTimeout(() => {
     <div id="gif-host">
         <img id="user-logo-layer" src="" alt="Logo" style="display:none;">
     </div>
+
+    <!-- SERVICE WORKER REGISTRATION -->
+    <script>
+        if ('serviceWorker' in navigator) {
+            navigator.serviceWorker.register('./sw.js')
+                .then(reg => console.log('[SW] Registered:', reg.scope))
+                .catch(err => console.warn('[SW] Registration failed:', err));
+        }
+    </script>
 </body>
 </html> 
