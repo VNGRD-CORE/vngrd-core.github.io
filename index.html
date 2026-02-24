@@ -1869,7 +1869,7 @@ function updateTickerCycle() {
 }
 
 // UTILS
-function log(msg) { const sysLog = document.getElementById('sys-log'); if (!sysLog) return; const ts = new Date().toTimeString().split(' ')[0]; const el = document.createElement('div'); el.className = 'log-line'; el.innerHTML = `<span class="ts">${ts}</span>${msg}`; sysLog.appendChild(el); if (sysLog.children.length > 20) sysLog.removeChild(sysLog.firstChild); sysLog.scrollTop = sysLog.scrollHeight; }
+function log(msg) { const sysLog = document.getElementById('sys-log'); if (!sysLog) return; const ts = new Date().toTimeString().split(' ')[0]; const el = document.createElement('div'); el.className = 'log-line'; el.innerHTML = `<span class="ts">${ts}</span>${msg}`; sysLog.appendChild(el); if (sysLog.children.length > 20) sysLog.removeChild(sysLog.firstChild); sysLog.scrollTop = sysLog.scrollHeight; if (window._sysLogResetTimer) { sysLog.style.display = 'block'; clearTimeout(window._sysLogTimer); window._sysLogTimer = setTimeout(() => { sysLog.style.display = 'none'; }, 30000); } }
 function checkMobile() { APP.state.isMobile = /Android|iPhone|iPad|iPod|webOS|BlackBerry/i.test(navigator.userAgent); if (APP.state.isMobile) { APP.render.width = 1920; APP.render.height = 1080; log('MOBILE_MODE'); } }
 
 // RENDER
@@ -5692,16 +5692,18 @@ function endCallCleanup() {
     // --- DRAG INITIALIZATION (mid-script) ---
     makeLogSafeDraggable($('sys-log'));
 
-    // ── SYS-LOG AUTO-HIDE: vanish after 30s of no interaction ──
+    // ── SYS-LOG AUTO-HIDE: vanish after 30s of no new messages or mouse interaction ──
     (function() {
         const sl = $('sys-log');
         if (!sl) return;
-        let _slTimer = null;
+        window._sysLogTimer = null;
+        window._sysLogResetTimer = true; // flag: log() uses this to reset the timer
         function resetSlTimer() {
-            clearTimeout(_slTimer);
+            clearTimeout(window._sysLogTimer);
             sl.style.display = 'block';
-            _slTimer = setTimeout(() => { sl.style.display = 'none'; }, 30000);
+            window._sysLogTimer = setTimeout(() => { sl.style.display = 'none'; }, 30000);
         }
+        window._sysLogShow = resetSlTimer; // expose for log() to call
         sl.addEventListener('mouseover', resetSlTimer);
         sl.addEventListener('focus',     resetSlTimer);
         resetSlTimer();
@@ -5814,61 +5816,7 @@ function endCallCleanup() {
 
 }); // THIS IS THE END of the startup block. Do not put code after this line.
 // --- TACTICAL FX ELITE BRIDGE ---
-window.toggleFX = function(fxName) {
-    console.log("SYSTEM_COMMAND: " + fxName.toUpperCase());
-    const target = document.body;
-    const className = `fx-${fxName}`;
-    
-    // Clear only our specific active tactical classes
-    const allFX = ['fx-scan', 'fx-tear', 'fx-punch'];
-    
-    // Find the button so we can make it glow
-    const btn = Array.from(document.querySelectorAll('.btn')).find(b => 
-        b.getAttribute('onclick') && b.getAttribute('onclick').includes(`'${fxName}'`)
-    );
-
-    if (target.classList.contains(className)) {
-        // TURN OFF
-        target.classList.remove(className);
-        if (btn) btn.classList.remove('active-mode', 'active-fx'); 
-        console.log("FX_OFF: " + fxName.toUpperCase());
-    } else {
-        // TURN ON (Clear others first so they don't overlap)
-        target.classList.remove(...allFX);
-        
-        // Turn off all other toggleFX button lights
-        document.querySelectorAll('.btn').forEach(b => {
-            if (b.getAttribute('onclick') && b.getAttribute('onclick').includes('toggleFX')) {
-                b.classList.remove('active-mode', 'active-fx');
-            }
-        });
-        
-        // Activate the new effect and light up its button
-        target.classList.add(className);
-        if (btn) btn.classList.add('active-fx'); 
-        console.log("MANIPULATION_ACTIVE: " + fxName.toUpperCase());
-    }
-};
-
-// Ensure this matches your existing Hard Reset
-window.triggerHardReset = function() {
-    console.log("SYSTEM_EVENT: HARD_RESET");
-    
-    // 1. Clear EVERY possible FX class
-    const allPossibleFX = [
-        'fx-scan', 'fx-tear','fx-punch', 
-        'fx-signal-loss', 'fx-thermal', 'fx-cyber-rot', 'fx-neural', 'fx-failure'
-    ];
-    document.body.classList.remove(...allPossibleFX);
-    
-    // 2. Run the CRT Collapse Animation
-    document.body.classList.remove('anim-hard-reset');
-    void document.body.offsetWidth; // Force CSS refresh
-    document.body.classList.add('anim-hard-reset');
-    
-    // 3. Remove the animation class after it finishes
-    setTimeout(() => document.body.classList.remove('anim-hard-reset'), 600);
-};</script>
+</script>
 <script type="module">
 // --- AUDIO ROTATION SYSTEM ---
 const V_PLAYLIST = {
@@ -6007,7 +5955,7 @@ window.toggleFX = function(fxName) {
         // TURN OFF
         target.classList.remove(className);
         if (btn) btn.classList.remove('active-fx');
-        console.log(`FX_OFF: ${fxName}`);
+        log(`FX_OFF: ${fxName.toUpperCase()}`);
     } else {
         // TURN ON (Clears existing tactical FX first for a clean state)
         target.classList.remove(...allFX);
@@ -6015,20 +5963,14 @@ window.toggleFX = function(fxName) {
 
         target.classList.add(className);
         if (btn) btn.classList.add('active-fx');
-        console.log(`FX_ON: ${fxName}`);
-
-        // Trim sys-log immediately for GPU-heavy one-shot effects
-        if (autoOff[fxName]) {
-            const box = document.getElementById('sys-log');
-            if (box) while (box.children.length > 15) box.lastChild.remove();
-        }
+        log(`FX_ON: ${fxName.toUpperCase()}`);
 
         // Auto-off for one-shot effects
         if (autoOff[fxName]) {
             setTimeout(() => {
                 target.classList.remove(className);
                 if (btn) btn.classList.remove('active-fx');
-                console.log(`FX_AUTO_OFF: ${fxName}`);
+                log(`FX_AUTO_OFF: ${fxName.toUpperCase()}`);
             }, autoOff[fxName]);
         }
     }
