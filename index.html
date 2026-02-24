@@ -4383,111 +4383,73 @@ document.addEventListener('DOMContentLoaded', () => {
         return APP.shooting.audioCtx;
     }
     
-    // GLASS BREAK: full-spectrum crack punch + pane resonances + crack propagation + thud
+    // GLASS BREAK: HPF crack snap + high shimmer tines + sine thud + BPF noise tail
     function playGlassShatter() {
         const ctx = getAudioCtx();
         const now = ctx.currentTime;
         const out = ctx.destination;
-
-        // Layer 1 — main crack punch: full-spectrum noise shaped like a hard transient,
-        //           split into low-mid crunch (BPF ~1.2kHz) + high snap (HPF 4kHz)
-        const crackBuf = ctx.createBuffer(1, Math.ceil(ctx.sampleRate * 0.016), ctx.sampleRate);
+        // L1: 8ms shaped noise HPF @4200Hz
+        const crackBuf = ctx.createBuffer(1, Math.ceil(ctx.sampleRate * 0.008), ctx.sampleRate);
         const cd = crackBuf.getChannelData(0);
-        for (let i = 0; i < cd.length; i++) cd[i] = (Math.random()*2-1) * Math.pow(1 - i/cd.length, 1.8);
+        for (let i = 0; i < cd.length; i++) cd[i] = (Math.random()*2-1) * Math.pow(1 - i/cd.length, 2.5);
         const crack = ctx.createBufferSource(); crack.buffer = crackBuf;
-        const splitter = ctx.createGain(); splitter.gain.value = 1;
-        crack.connect(splitter);
-        const midBpf = ctx.createBiquadFilter(); midBpf.type='bandpass'; midBpf.frequency.value=1200; midBpf.Q.value=0.5;
-        const midG = ctx.createGain(); midG.gain.setValueAtTime(1.9, now); midG.gain.exponentialRampToValueAtTime(0.001, now+0.019);
-        splitter.connect(midBpf); midBpf.connect(midG); midG.connect(out);
-        const hiHpf = ctx.createBiquadFilter(); hiHpf.type='highpass'; hiHpf.frequency.value=4000;
-        const hiG = ctx.createGain(); hiG.gain.setValueAtTime(1.1, now); hiG.gain.exponentialRampToValueAtTime(0.001, now+0.013);
-        splitter.connect(hiHpf); hiHpf.connect(hiG); hiG.connect(out);
-        crack.start(now); crack.stop(now+0.02);
-
-        // Layer 2 — pane resonances: real glass rings between 600–1800Hz, not tinny highs
-        [660, 1080, 1750].forEach((f, i) => {
-            const freq = f * (0.93 + Math.random()*0.14);
-            const t0 = now + i*0.003;
-            const dur = 0.22 - i*0.04;
+        const crackHpf = ctx.createBiquadFilter(); crackHpf.type='highpass'; crackHpf.frequency.value=4200;
+        const crackGain = ctx.createGain();
+        crackGain.gain.setValueAtTime(1.3, now); crackGain.gain.exponentialRampToValueAtTime(0.001, now+0.01);
+        crack.connect(crackHpf); crackHpf.connect(crackGain); crackGain.connect(out);
+        crack.start(now); crack.stop(now+0.012);
+        // L2: 5 inharmonic sine tines staggered
+        [2900, 3700, 4600, 5400, 7100].forEach((f, i) => {
+            const freq = f * (0.92 + Math.random()*0.16);
+            const t0 = now + i*0.007; const dur = 0.13 + Math.random()*0.11;
             const osc = ctx.createOscillator(); osc.type='sine'; osc.frequency.value=freq;
             const g = ctx.createGain();
-            g.gain.setValueAtTime(0.24 - i*0.05, t0);
+            g.gain.setValueAtTime(0, t0); g.gain.linearRampToValueAtTime(0.14, t0+0.003);
             g.gain.exponentialRampToValueAtTime(0.001, t0+dur);
-            osc.connect(g); g.connect(out);
-            osc.start(t0); osc.stop(t0+dur+0.01);
+            osc.connect(g); g.connect(out); osc.start(t0); osc.stop(t0+dur+0.01);
         });
-
-        // Layer 3 — crack propagation: sparse impulses over 400ms (the sound of
-        //           the break travelling through the pane — the most "realistic" layer)
-        const propBuf = ctx.createBuffer(1, Math.ceil(ctx.sampleRate*0.42), ctx.sampleRate);
-        const pd = propBuf.getChannelData(0);
-        for (let i = 0; i < pd.length; i++) pd[i] = Math.random() < 0.012 ? (Math.random()*2-1) : 0;
-        const prop = ctx.createBufferSource(); prop.buffer = propBuf;
-        const propBpf = ctx.createBiquadFilter(); propBpf.type='bandpass'; propBpf.frequency.value=2400; propBpf.Q.value=1.4;
-        const propG = ctx.createGain();
-        propG.gain.setValueAtTime(0.65, now+0.01); propG.gain.exponentialRampToValueAtTime(0.001, now+0.46);
-        prop.connect(propBpf); propBpf.connect(propG); propG.connect(out);
-        prop.start(now+0.008); prop.stop(now+0.47);
-
-        // Layer 4 — low frame thud (the panel mounting takes the shock)
+        // L3: 160→50Hz sine thud
         const thud = ctx.createOscillator(); thud.type='sine';
-        thud.frequency.setValueAtTime(145, now); thud.frequency.exponentialRampToValueAtTime(42, now+0.11);
+        thud.frequency.setValueAtTime(160, now); thud.frequency.exponentialRampToValueAtTime(50, now+0.12);
         const thudG = ctx.createGain();
-        thudG.gain.setValueAtTime(0.45, now); thudG.gain.exponentialRampToValueAtTime(0.001, now+0.15);
-        thud.connect(thudG); thudG.connect(out); thud.start(now); thud.stop(now+0.17);
+        thudG.gain.setValueAtTime(0.38, now); thudG.gain.exponentialRampToValueAtTime(0.001, now+0.16);
+        thud.connect(thudG); thudG.connect(out); thud.start(now); thud.stop(now+0.18);
+        // L4: BPF noise tail @3200Hz
+        const tailBuf = ctx.createBuffer(1, Math.ceil(ctx.sampleRate*0.28), ctx.sampleRate);
+        const td = tailBuf.getChannelData(0); for (let i=0;i<td.length;i++) td[i]=Math.random()*2-1;
+        const tail = ctx.createBufferSource(); tail.buffer=tailBuf;
+        const tailBpf = ctx.createBiquadFilter(); tailBpf.type='bandpass'; tailBpf.frequency.value=3200; tailBpf.Q.value=0.7;
+        const tailG = ctx.createGain();
+        tailG.gain.setValueAtTime(0.07, now+0.012); tailG.gain.exponentialRampToValueAtTime(0.001, now+0.32);
+        tail.connect(tailBpf); tailBpf.connect(tailG); tailG.connect(out);
+        tail.start(now+0.008); tail.stop(now+0.33);
     }
     
-    // METAL CONSOLE HIT: heavy sub punch + mid-bass body boom + snap transient + low ring
+    // METAL CONSOLE HIT: heavy noise thump, no tones
     function playMetalTink() {
         const ctx = getAudioCtx();
         const now = ctx.currentTime;
         const out = ctx.destination;
-        const pm = 0.88 + Math.random()*0.24;
 
-        // Layer 1 — sub-bass punch (the physical weight of the chassis, 65→22Hz)
-        const sub = ctx.createOscillator(); sub.type='sine';
-        sub.frequency.setValueAtTime(65, now); sub.frequency.exponentialRampToValueAtTime(22, now+0.2);
-        const subG = ctx.createGain();
-        subG.gain.setValueAtTime(0.9, now); subG.gain.exponentialRampToValueAtTime(0.001, now+0.24);
-        sub.connect(subG); subG.connect(out); sub.start(now); sub.stop(now+0.26);
-
-        // Layer 2 — mid-bass body boom: BPF noise around 220Hz, 180ms decay
-        //           sounds like the hollow resonance of a metal box being struck
-        const bodyBuf = ctx.createBuffer(1, Math.ceil(ctx.sampleRate*0.18), ctx.sampleRate);
-        const bd = bodyBuf.getChannelData(0); for (let i=0;i<bd.length;i++) bd[i]=Math.random()*2-1;
-        const body = ctx.createBufferSource(); body.buffer=bodyBuf;
-        const bodyBpf = ctx.createBiquadFilter(); bodyBpf.type='bandpass'; bodyBpf.frequency.value=210; bodyBpf.Q.value=1.6;
-        const bodyG = ctx.createGain();
-        bodyG.gain.setValueAtTime(0.7, now); bodyG.gain.exponentialRampToValueAtTime(0.001, now+0.2);
-        body.connect(bodyBpf); bodyBpf.connect(bodyG); bodyG.connect(out);
-        body.start(now); body.stop(now+0.21);
-
-        // Layer 3 — sharp contact transient (HPF, gives the hit its "definition")
-        const transBuf = ctx.createBuffer(1, Math.ceil(ctx.sampleRate*0.007), ctx.sampleRate);
+        // L1: impact transient — short full-spectrum noise burst, very fast decay
+        const transBuf = ctx.createBuffer(1, Math.ceil(ctx.sampleRate*0.025), ctx.sampleRate);
         const tr = transBuf.getChannelData(0);
-        for (let i=0;i<tr.length;i++) tr[i]=(Math.random()*2-1)*(1-i/tr.length);
+        for (let i=0;i<tr.length;i++) tr[i]=(Math.random()*2-1)*Math.pow(1-i/tr.length, 1.5);
         const trans = ctx.createBufferSource(); trans.buffer=transBuf;
-        const tHpf = ctx.createBiquadFilter(); tHpf.type='highpass'; tHpf.frequency.value=1600;
         const tG = ctx.createGain();
-        tG.gain.setValueAtTime(0.75, now); tG.gain.exponentialRampToValueAtTime(0.001, now+0.008);
-        trans.connect(tHpf); tHpf.connect(tG); tG.connect(out);
-        trans.start(now); trans.stop(now+0.01);
+        tG.gain.setValueAtTime(1.2, now); tG.gain.exponentialRampToValueAtTime(0.001, now+0.028);
+        trans.connect(tG); tG.connect(out);
+        trans.start(now); trans.stop(now+0.03);
 
-        // Layer 4 — low metallic ring (440Hz range — much lower than before)
-        const rf = 440 * pm;
-        const ring = ctx.createOscillator(); ring.type='sine';
-        ring.frequency.setValueAtTime(rf, now); ring.frequency.exponentialRampToValueAtTime(rf*0.91, now+0.1);
-        const rG = ctx.createGain();
-        rG.gain.setValueAtTime(0.28, now); rG.gain.exponentialRampToValueAtTime(0.001, now+0.28);
-        ring.connect(rG); rG.connect(out); ring.start(now); ring.stop(now+0.3);
-
-        // Layer 5 — inharmonic overtone at 2.7× (metallic clang texture)
-        const ring2 = ctx.createOscillator(); ring2.type='sine';
-        ring2.frequency.value = rf * 2.7;
-        const r2G = ctx.createGain();
-        r2G.gain.setValueAtTime(0.1, now); r2G.gain.exponentialRampToValueAtTime(0.001, now+0.1);
-        ring2.connect(r2G); r2G.connect(out); ring2.start(now); ring2.stop(now+0.12);
+        // L2: heavy body thud — LPF noise ~120Hz, dull and low, 200ms decay
+        const thudBuf = ctx.createBuffer(1, Math.ceil(ctx.sampleRate*0.22), ctx.sampleRate);
+        const tb = thudBuf.getChannelData(0); for (let i=0;i<tb.length;i++) tb[i]=Math.random()*2-1;
+        const thudSrc = ctx.createBufferSource(); thudSrc.buffer=thudBuf;
+        const lpf = ctx.createBiquadFilter(); lpf.type='lowpass'; lpf.frequency.value=120; lpf.Q.value=0.5;
+        const thudG = ctx.createGain();
+        thudG.gain.setValueAtTime(1.4, now); thudG.gain.exponentialRampToValueAtTime(0.001, now+0.21);
+        thudSrc.connect(lpf); lpf.connect(thudG); thudG.connect(out);
+        thudSrc.start(now); thudSrc.stop(now+0.23);
     }
     
     // TERMINAL SMASH: electrical crack + chassis thud + screen fracture + CRT discharge hum
