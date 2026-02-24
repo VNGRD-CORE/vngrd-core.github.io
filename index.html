@@ -17,7 +17,7 @@
     <style>
         @import url('https://fonts.googleapis.com/css2?family=Orbitron:wght@400;600;800;900&family=JetBrains+Mono:wght@300;400;500&family=Bebas+Neue&family=Russo+One&display=swap');
         
-        :root {
+        :root { 
             --accent: #00f3ff; --accent-dim: rgba(0, 243, 255, 0.2); --accent-glow: rgba(0, 243, 255, 0.5);
             --p: #ff0055; --c: #00f3ff; --g: #00ff88; --y: #ffcc00; --r: #ff3333; --o: #ff9d00; --v: #b000ff;
             --bg: #050508; --panel: #08080c; --panel-light: #0c0c12; --border: #151520; --border-light: #202030;
@@ -705,10 +705,14 @@ body.crt #stage::after {
 }
         /* CONSOLE_HARDWARE BUTTON EFFECTS - HIGH-END GLOW AND PULSE */
         .btn {
+            transition: all 0.15s ease;
             text-transform: uppercase;
             position: relative;
         }
         .btn:hover {
+            box-shadow: 0 0 20px var(--accent), 0 0 40px var(--accent-dim), inset 0 0 10px var(--accent-dim);
+            border-color: var(--accent);
+            text-shadow: 0 0 10px var(--accent);
             animation: btn-pulse 0.4s ease-in-out infinite;
         }
         @keyframes btn-pulse {
@@ -719,7 +723,7 @@ body.crt #stage::after {
             animation: btn-active-glow 0.8s ease-in-out infinite;
         }
         @keyframes btn-active-glow {
-            0%, 100% { box-shadow: var(--theme-glow); }
+            0%, 100% { box-shadow: 0 0 15px var(--accent); }
             50% { box-shadow: 0 0 30px var(--accent), 0 0 50px var(--accent-dim); }
         }
         
