@@ -16,10 +16,6 @@
     }
 }
 </script>
-    <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/build/three.min.js"></script>
-    <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/loaders/OBJLoader.js"></script>
-    <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/loaders/STLLoader.js"></script>
-    <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/loaders/GLTFLoader.js"></script>
 <script src="src/Compositor.js"></script>
     <style>
         @import url('https://fonts.googleapis.com/css2?family=Orbitron:wght@400;600;800;900&family=JetBrains+Mono:wght@300;400;500&family=Bebas+Neue&family=Russo+One&display=swap');
@@ -273,28 +269,6 @@
     filter: drop-shadow(2px 2px 4px rgba(0,0,0,0.8)) !important;
 }
         
-        /* HOLOGRAM WIDGET - REACTOR CORE */
-       #widget-layer {
-    position: absolute;
-    width: 512px;
-    height: 512px;
-    background: transparent !important;
-    border: none !important;
-    z-index: 1;
-    pointer-events: none !important;
-    display: block;
-    opacity: 0;
-}
-
-#hologram-canvas {
-    width: 100% !important;
-    height: 100% !important;
-    background: transparent !important;
-    border: none !important;
-    box-shadow: none !important;
-    pointer-events: none !important;
-    display: block;
-}
 
 /* STRUCTURAL INTEGRITY BAR (FLAT) */
 #integrity-bar {
@@ -1204,10 +1178,6 @@ body.fx-lucy::after {
             <!-- V33 MANUAL LAYER SEPARATION -->
             <div id="station-bug">VNGRD</div>
             <!-- user-logo-layer moved to gif-host for reliable GIF compositing -->
-            <!-- HOLOGRAM WIDGET - REACTOR CORE -->
-            <div id="widget-layer">
-                <canvas id="hologram-canvas"></canvas>
-            </div>
             <div id="lower-third">
                 <div class="lt-container lt-guest">
                     <div class="lt-title" id="lt-title-text">GUEST_NAME</div>
@@ -1324,11 +1294,6 @@ body.fx-lucy::after {
                     <button class="btn" id="btn-2d-x" title="Hide/Clear 2D">[X]</button>
                 </div>
                 <input type="file" id="file-2d-logo" accept=".png,.jpg,.jpeg,.gif,.webp" style="display:none;">
-                <div class="btn-row">
-                    <button class="btn" id="btn-inject-3d" style="flex:2;color:var(--v);border-color:var(--v);">3D MODEL</button>
-                    <button class="btn" id="btn-3d-x" title="HIDE / CLEAR 3D">[X]</button>
-                </div>
-                <input type="file" id="file-3d-model" accept=".stl,.obj,.glb,.gltf,.vgd,.json" style="display:none;">
             </div>
         </div>
 
@@ -1581,7 +1546,6 @@ const APP = {
     trinity: {
         bug:  { x: 0.015, y: 0.015, scale: 1.5, visible: true },
         logo: { x: 0.85,  y: 0.015, scale: 1.0, visible: false },
-        holo: { x: 0.42,  y: 0.75,  scale: 1.0, visible: false }
     },
     lowerThird: { visible: false, preset: 'guest' },
     ui: { logoMorph: 0, morphs: ['m1','m2','m3','m4','m5','m6'] },
@@ -1629,14 +1593,6 @@ const APP = {
     },
 
 
-    // HOLOGRAM_ENGINE - THREE.JS REACTOR CORE
-    hologram: {
-        scene: null, camera: null, renderer: null,
-        mesh: null,
-        logoGroup: null,
-        scale: 1.0, rotationSpeed: 0.01,
-        targetScale: 1.0
-    },
     // LEXICA_NANO
     neural: { generating: false, lastImage: null }
 };
@@ -2235,48 +2191,6 @@ function renderLoop(timestamp) {
         }
     }
     
-    // ACTOR 3: 3D MODEL (renderLoop drives rotation + render on hologram-canvas)
-    if (T.holo.visible) {
-        var holoCanvas = $('hologram-canvas');
-        if (holoCanvas && holoCanvas.width > 0) {
-            // Drive 3D animation from renderLoop — single rAF for everything
-            if (APP.hologram.mesh && APP.hologram.renderer && APP.hologram.scene && APP.hologram.camera) {
-                APP.hologram.mesh.rotation.y += APP.hologram.rotationSpeed;
-                // Rotate 3D Logo independently (slower, Y-axis)
-                if (APP.hologram.logoGroup && APP.hologram.logoGroup.children.length > 0) {
-                    APP.hologram.logoGroup.rotation.y += 0.008;
-                }
-
-                // SEISMIC SCALE — lerp toward targetScale (bass*0.6 + MIDI*0.4)
-                var bassScale = 1.0;
-                if (APP.audio && APP.audio.bassLevel > 0) {
-                    bassScale = 1.0 + (APP.audio.bassLevel / 255) * 0.5;
-                }
-                var midiScale = APP.hologram.targetScale || 1.0;
-                var seismicTarget = (bassScale * 0.6) + (midiScale * 0.4);
-                var currentS = APP.hologram.mesh.scale.x;
-                var lerpedS = currentS + (seismicTarget - currentS) * 0.1;
-                APP.hologram.mesh.scale.set(lerpedS, lerpedS, lerpedS);
-
-                // Decay MIDI targetScale back to 1.0
-                if (APP.hologram.targetScale > 1.0) {
-                    APP.hologram.targetScale += (1.0 - APP.hologram.targetScale) * 0.05;
-                    if (APP.hologram.targetScale < 1.01) APP.hologram.targetScale = 1.0;
-                }
-
-                APP.hologram.renderer.render(APP.hologram.scene, APP.hologram.camera);
-            }
-            ctx.save();
-            ctx.globalCompositeOperation = 'screen'; // black bg = invisible, lit model = hologram glow
-            var hScale = T.holo.scale;
-            var hw = holoCanvas.width * hScale * (w / 1920);
-            var hh = holoCanvas.height * hScale * (h / 1080);
-            var hx = T.holo.x * w, hy = T.holo.y * h;
-            try { ctx.drawImage(holoCanvas, hx, hy, hw, hh); } catch(e) {}
-            ctx.globalCompositeOperation = 'source-over';
-            ctx.restore();
-        }
-    }
 
 
     // ══════════════════════════════════════════════════
@@ -2445,14 +2359,6 @@ function makeDraggable(el) {
 
     function hitTest(pos) {
         var T = APP.trinity, w = APP.render.width, h = APP.render.height;
-        if (T.holo.visible) {
-            var hc = $('hologram-canvas');
-            if (hc && hc.width > 0) {
-                var hw = (hc.width * T.holo.scale * (w / 1920)) / w;
-                var hh = (hc.height * T.holo.scale * (h / 1080)) / h;
-                if (pos.x >= T.holo.x && pos.x <= T.holo.x + hw && pos.y >= T.holo.y && pos.y <= T.holo.y + hh) return 'holo';
-            }
-        }
         if (T.logo.visible) {
             var li = $('user-logo-layer');
             if (li && li.naturalWidth > 0) {
@@ -2477,7 +2383,6 @@ function makeDraggable(el) {
 
     function applyScale(actor, delta) {
         APP.trinity[actor].scale = Math.max(0.1, Math.min(10, APP.trinity[actor].scale + delta));
-        if (actor === 'holo') APP.hologram.scale = APP.trinity.holo.scale;
     }
 
     // ─── MOUSE: drag ───
@@ -3212,7 +3117,6 @@ $('btn-save-session').onclick = () => {
         theme: APP.state.theme,
         bug: APP.bug.text,
         layers: APP.layers,
-        hologramScale: APP.hologram.scale,
         logo2d: logo64,
         lowerThird: { title: ltTitle, subtitle: ltSub, preset: APP.lowerThird.preset, visible: APP.lowerThird.visible },
         timestamp: Date.now()
@@ -3236,15 +3140,6 @@ $('file-vgd').onchange = (e) => {
     reader.onload = (ev) => {
         try {
             const s = JSON.parse(ev.target.result);
-            // Dispose existing 3D scene before importing new state
-            if (APP.hologram && APP.hologram.scene) {
-                if (APP.hologram.mesh) {
-                    APP.hologram.scene.remove(APP.hologram.mesh);
-                    APP.hologram.mesh.traverse(function(c) { if (c.isMesh) { if (c.geometry) c.geometry.dispose(); if (c.material) c.material.dispose(); } });
-                }
-                if (APP.hologram.renderer) APP.hologram.renderer.dispose();
-                APP.hologram.mesh = null; APP.hologram.renderer = null; APP.hologram.scene = null; APP.hologram.camera = null;
-            }
             // Restore state
             if (s.theme) setTheme(s.theme);
             if (s.bug) { APP.bug.text = s.bug; $('bug-text').value = s.bug; $('station-bug').textContent = s.bug; }
@@ -3254,7 +3149,6 @@ $('file-vgd').onchange = (e) => {
                 APP.trinity.logo.scale = APP.layers.logoScale || 1.0;
                 APP.trinity.bug.scale = APP.layers.bugScale || 1.5;
             }
-            if (s.hologramScale) APP.hologram.scale = s.hologramScale;
             // Restore 2D Logo from Base64 — validate before assigning to prevent ERR_INVALID_URL
             if (s.logo2d) {
                 var logoLayer = $('user-logo-layer');
@@ -3756,10 +3650,6 @@ function initCompositor() {
         const vid = $('preview-vid') || APP.camera.videoEl;
         if (vid) APP.compositor.setLayer('camera', vid);
     }
-    // Feed hologram canvas as 3D scene
-    const holoCanvas = $('hologram-canvas');
-    if (holoCanvas) APP.compositor.setLayer('scene3D', holoCanvas);
-
     APP.compositor.initRecorder(APP.audio.ctx, APP.audio.outputLimiter || APP.audio.masterGain, APP.audio.micGainNode);
     APP.compositor.onWorkerMessage((type, payload) => {
         if (type === 'STATUS') log('COMPOSITOR: ' + payload);
@@ -4164,10 +4054,6 @@ document.addEventListener('DOMContentLoaded', () => {
                             document.body.style.transform = `translate(${(Math.random()-0.5)*shake}px, ${(Math.random()-0.5)*shake}px)`;
                             setTimeout(() => document.body.style.transform = '', 50);
 
-                            // Punch 3D hologram scale on drum hits
-                            if (APP.hologram) {
-                                APP.hologram.targetScale = 1.0 + (velocity / 127.0);
-                            }
                         }
                         
                         // Higher notes - trigger effects
@@ -4178,11 +4064,6 @@ document.addEventListener('DOMContentLoaded', () => {
                             else if (note >= 72) { rotateMedia(); triggerImpact(); }
                         }
                         
-                        // ALL Note-On: punch hologram scale
-                        if (APP.hologram && note >= 48) {
-                            APP.hologram.targetScale = 1.0 + (velocity / 127.0) * 0.5;
-                        }
-
                         // Theme changes on specific notes
                         if (note === 36) setTheme('cyan');
                         if (note === 37) setTheme('magenta');
@@ -4312,20 +4193,19 @@ document.addEventListener('DOMContentLoaded', () => {
                         return;
                     }
 
-                    // Note On → SEISMIC + hologram punch
+                    // Note On → SEISMIC
                     if (cmd === 9 && velocity > 0) {
                         if (APP.midi.passthrough) playSynthNote(note, velocity);
                         const binding = APP.midi.bindings['note' + note];
                         if (binding) triggerMidiBinding(binding, velocity);
                         const intensity = velocity / 127;
 
-                        // Low notes → seismic shake + hologram punch
+                        // Low notes → seismic shake
                         if (note < 48) {
                             const shake = intensity * 30;
                             document.body.classList.add('seismic-active');
                             document.body.style.transform = `translate(${(Math.random()-0.5)*shake}px, ${(Math.random()-0.5)*shake}px)`;
                             setTimeout(() => { document.body.style.transform = ''; document.body.classList.remove('seismic-active'); }, 100);
-                            if (APP.hologram) APP.hologram.targetScale = 1.0 + intensity;
                         }
 
                         // High-vel triggers
@@ -4335,7 +4215,6 @@ document.addEventListener('DOMContentLoaded', () => {
                             else if (note >= 68 && note < 72) impactCrush();
                             else if (note >= 72) { rotateMedia(); triggerImpact(); }
                         }
-                        if (APP.hologram && note >= 48) APP.hologram.targetScale = 1.0 + intensity * 0.5;
                         if (note >= 36 && note <= 40) setTheme(['cyan','magenta','green','purple','gold'][note - 36]);
                     }
 
@@ -5834,15 +5713,6 @@ function endCallCleanup() {
     
     
 
-    // initHologram() REMOVED — single 3D engine lives in module script
-    // Widget-layer is hidden by default; only the module btn-inject-3d activates it
-    
-    // Widget-layer wheel/drag handlers REMOVED — Touch-Bridge handles all scaling
-    
-    // Initialize hologram after a short delay
-    // initHologram() call REMOVED — function no longer exists
-
-    
     
 
     
@@ -5999,244 +5869,6 @@ window.triggerHardReset = function() {
     // 3. Remove the animation class after it finishes
     setTimeout(() => document.body.classList.remove('anim-hard-reset'), 600);
 };</script>
-<script>
-// ══════════════════════════════════════════════════
-// SMART 3D LOADER (Fixes 'Always Cube' Bug)
-// ══════════════════════════════════════════════════
-(function() {
-    var btn = document.getElementById('btn-inject-3d');
-    if (!btn) return;
-
-    btn.onclick = function() {
-        // A. Critical Checks
-        if (typeof THREE === 'undefined') { alert('Error: Three.js not loaded.'); return; }
-        var holoCanvas = document.getElementById('hologram-canvas');
-        if (!holoCanvas) { alert('Error: hologram-canvas missing.'); return; }
-
-        // B. Setup Scene & Lights
-        var scene = new THREE.Scene();
-        var camera = new THREE.PerspectiveCamera(50, 1, 0.1, 1000);
-        camera.position.z = 5;
-        scene.add(new THREE.AmbientLight(0xffffff, 1.5));
-        var dirLight = new THREE.DirectionalLight(0xffffff, 2);
-        dirLight.position.set(5, 10, 7);
-        scene.add(dirLight);
-
-        // C. Setup Renderer — opaque black bg + screen blend = bulletproof hologram
-        holoCanvas.width = 512; holoCanvas.height = 512;
-        var renderer = new THREE.WebGLRenderer({ canvas: holoCanvas, antialias: true, preserveDrawingBuffer: true });
-        renderer.setSize(512, 512, false); renderer.setClearColor(0x000000, 1);
-
-        // D. GLOBAL INIT: Assign scene/camera/renderer to APP immediately
-        window.APP = window.APP || {};
-        window.APP.hologram = window.APP.hologram || {};
-        window.APP.hologram.scene = scene;
-        window.APP.hologram.camera = camera;
-        window.APP.hologram.renderer = renderer;
-
-        // E. FILE HUNTER: Target the CORRECT 3D file input by ID
-        var fileInput = document.getElementById('file-3d-model');
-        var file = (fileInput && fileInput.files.length > 0) ? fileInput.files[0] : null;
-
-        function loadModelFile(f) {
-            var ext = f.name.split('.').pop().toLowerCase();
-            var reader = new FileReader();
-
-            if (ext === 'obj') {
-                // OBJ files are text-based (e.g. MagicaVoxel exports)
-                reader.onload = function(e) {
-                    if (typeof THREE.OBJLoader === 'undefined') { alert("OBJLoader missing!"); addFallbackCube(); return; }
-                    var loader = new THREE.OBJLoader();
-                    try {
-                        var obj = loader.parse(e.target.result);
-                        autoScaleAndInject(obj);
-                    } catch(err) { console.error('OBJ parse error:', err); addFallbackCube(); }
-                };
-                reader.readAsText(f);
-            } else if (ext === 'stl') {
-                // STL files are binary geometry
-                reader.onload = function(e) {
-                    if (typeof THREE.STLLoader === 'undefined') { alert("STLLoader missing!"); addFallbackCube(); return; }
-                    var loader = new THREE.STLLoader();
-                    try {
-                        var geometry = loader.parse(e.target.result);
-                        var mesh = new THREE.Mesh(geometry, new THREE.MeshStandardMaterial({ color: 0xcccccc, metalness: 0.3, roughness: 0.6 }));
-                        autoScaleAndInject(mesh);
-                    } catch(err) { console.error('STL parse error:', err); addFallbackCube(); }
-                };
-                reader.readAsArrayBuffer(f);
-            } else {
-                // GLB/GLTF/VGD/JSON → GLTFLoader
-                reader.onload = function(e) {
-                    if (typeof THREE.GLTFLoader === 'undefined') { alert("GLTFLoader missing!"); addFallbackCube(); return; }
-                    var loader = new THREE.GLTFLoader();
-                    loader.parse(e.target.result, '', function(gltf) {
-                        autoScaleAndInject(gltf.scene);
-                    }, function(err) { console.error('GLTF parse error:', err); addFallbackCube(); });
-                };
-                reader.readAsArrayBuffer(f);
-            }
-
-            function autoScaleAndInject(mesh) {
-                var box = new THREE.Box3().setFromObject(mesh);
-                var size = box.getSize(new THREE.Vector3()).length();
-                var center = box.getCenter(new THREE.Vector3());
-                mesh.position.sub(center); // center the model
-                var scale = 3 / size;
-                mesh.scale.set(scale, scale, scale);
-                mesh.layers.set(0);
-                mesh.traverse(function(child) { if (child.isMesh) child.layers.set(0); });
-                finalizeInjection(scene, camera, renderer, mesh);
-            }
-        }
-
-        if (file) {
-            loadModelFile(file);
-        } else if (fileInput) {
-            // Show fallback cube immediately so the 3D viewport is always visible
-            addFallbackCube();
-            // Then open file dialog — on selection, replace the cube with the loaded model
-            fileInput.onchange = function() {
-                if (fileInput.files.length > 0) {
-                    // Remove fallback cube before loading new model
-                    if (window.APP.hologram.mesh) {
-                        scene.remove(window.APP.hologram.mesh);
-                        window.APP.hologram.mesh = null;
-                    }
-                    loadModelFile(fileInput.files[0]);
-                }
-            };
-            fileInput.click();
-            return;
-        } else {
-            addFallbackCube();
-        }
-
-        function addFallbackCube() {
-            var cube = new THREE.Mesh(new THREE.BoxGeometry(2,2,2), new THREE.MeshNormalMaterial({wireframe:true}));
-            finalizeInjection(scene, camera, renderer, cube);
-        }
-
-        function finalizeInjection(scene, camera, renderer, mesh) {
-            scene.add(mesh);
-            // Global State Update
-            window.APP = window.APP || {};
-            window.APP.hologram = window.APP.hologram || {};
-            window.APP.trinity = window.APP.trinity || { holo: {} };
-
-            window.APP.hologram.scene = scene;
-            window.APP.hologram.camera = camera;
-            window.APP.hologram.renderer = renderer;
-            window.APP.hologram.mesh = mesh;
-            window.APP.hologram.baseScale = mesh.scale.x;
-            window.APP.hologram.rotationSpeed = 0.02;
-            window.APP.hologram.targetScale = 1.0;
-
-            // Create 3D Logo Group (bottom-left, non-overlapping)
-            if (!window.APP.hologram.logoGroup) {
-                var logoGroup = new THREE.Group();
-                logoGroup.position.set(-2.5, -2.2, 0);
-                logoGroup.scale.set(0.4, 0.4, 0.4);
-                scene.add(logoGroup);
-                window.APP.hologram.logoGroup = logoGroup;
-            }
-
-            // Restore widget-layer visibility (btn-3d-x sets display:none)
-            var wl = document.getElementById('widget-layer');
-            if (wl) wl.style.display = 'block';
-
-            window.APP.trinity.holo.x = 0.35;
-            window.APP.trinity.holo.y = 0.25;
-            window.APP.trinity.holo.scale = 1.0;
-            window.APP.trinity.holo.visible = true;
-            // Render Trigger + Layer Fix
-            mesh.layers.set(0);
-            mesh.traverse(function(child) { if (child.isMesh) child.layers.set(0); });
-            renderer.render(scene, camera);
-            // rAF wake — force the scene alive
-            requestAnimationFrame(function() { renderer.render(scene, camera); });
-            if (window.log) log('3D_INJECTED');
-        }
-    };
-})();
-</script>
-<script>
-// ══════════════════════════════════════════════════
-// 3D LOGO INJECTOR — loads into APP.hologram.logoGroup
-// ══════════════════════════════════════════════════
-(function() {
-    // Reuse the file-2d-logo input for 3D logo when holding Shift
-    // Or provide a dedicated function callable from console
-    window.inject3DLogo = function(file) {
-        if (!window.APP || !window.APP.hologram || !window.APP.hologram.scene) {
-            console.warn('3D Logo: Inject a 3D model first to create the scene.');
-            return;
-        }
-        var scene = window.APP.hologram.scene;
-        // Ensure logoGroup exists
-        if (!window.APP.hologram.logoGroup) {
-            var g = new THREE.Group();
-            g.position.set(-2.5, -2.2, 0);
-            g.scale.set(0.4, 0.4, 0.4);
-            scene.add(g);
-            window.APP.hologram.logoGroup = g;
-        }
-        var logoGroup = window.APP.hologram.logoGroup;
-        // Clear existing logo children
-        while (logoGroup.children.length > 0) {
-            var child = logoGroup.children[0];
-            logoGroup.remove(child);
-            if (child.geometry) child.geometry.dispose();
-            if (child.material) child.material.dispose();
-        }
-        if (!file) {
-            // Default: small rotating VNGRD text cube
-            var cubeGeo = new THREE.BoxGeometry(1.5, 1.5, 1.5);
-            var cubeMat = new THREE.MeshStandardMaterial({ color: 0x00f3ff, wireframe: true, emissive: 0x003344 });
-            var cube = new THREE.Mesh(cubeGeo, cubeMat);
-            logoGroup.add(cube);
-            if (window.log) log('3D_LOGO: DEFAULT_CUBE');
-            return;
-        }
-        var ext = file.name.split('.').pop().toLowerCase();
-        var reader = new FileReader();
-        if (ext === 'obj') {
-            reader.onload = function(e) {
-                if (typeof THREE.OBJLoader === 'undefined') return;
-                var obj = new THREE.OBJLoader().parse(e.target.result);
-                autoScaleLogo(obj, logoGroup);
-            };
-            reader.readAsText(file);
-        } else if (ext === 'stl') {
-            reader.onload = function(e) {
-                if (typeof THREE.STLLoader === 'undefined') return;
-                var geo = new THREE.STLLoader().parse(e.target.result);
-                var mesh = new THREE.Mesh(geo, new THREE.MeshStandardMaterial({ color: 0x00f3ff, metalness: 0.5, roughness: 0.4 }));
-                autoScaleLogo(mesh, logoGroup);
-            };
-            reader.readAsArrayBuffer(file);
-        } else {
-            reader.onload = function(e) {
-                if (typeof THREE.GLTFLoader === 'undefined') return;
-                new THREE.GLTFLoader().parse(e.target.result, '', function(gltf) {
-                    autoScaleLogo(gltf.scene, logoGroup);
-                }, function(err) { console.error('3D Logo load error:', err); });
-            };
-            reader.readAsArrayBuffer(file);
-        }
-    };
-    function autoScaleLogo(mesh, group) {
-        var box = new THREE.Box3().setFromObject(mesh);
-        var size = box.getSize(new THREE.Vector3()).length();
-        var center = box.getCenter(new THREE.Vector3());
-        mesh.position.sub(center);
-        var s = 2.5 / size;
-        mesh.scale.set(s, s, s);
-        group.add(mesh);
-        if (window.log) log('3D_LOGO: INJECTED');
-    }
-})();
-</script>
 <script type="module">
 // --- AUDIO ROTATION SYSTEM ---
 const V_PLAYLIST = {
@@ -6297,42 +5929,9 @@ function runVanguardTrack() {
 }
 
 
-// --- INTEGRATED AUDIO DUCKING & UI CONTROLS ---
+// --- AUDIO DUCKING & UI CONTROLS ---
 
-// 1. SIMPLEST HIDE BUTTON
-if ($('btn-3d-x')) {
-    $('btn-3d-x').onclick = () => {
-        // Dispose mesh geometry+material
-        if (APP.hologram && APP.hologram.mesh && APP.hologram.scene) {
-            APP.hologram.scene.remove(APP.hologram.mesh);
-            APP.hologram.mesh.traverse(function(c) {
-                if (c.isMesh) {
-                    if (c.geometry) c.geometry.dispose();
-                    if (c.material) c.material.dispose();
-                }
-            });
-            APP.hologram.mesh = null;
-        }
-        // Dispose renderer (releases WebGL context)
-        if (APP.hologram && APP.hologram.renderer) {
-            APP.hologram.renderer.dispose();
-            APP.hologram.renderer = null;
-        }
-        // Clear scene/camera so next load creates fresh
-        if (APP.hologram) {
-            APP.hologram.scene = null;
-            APP.hologram.camera = null;
-        }
-        // Hide widget-layer (keep canvas element intact for re-use)
-        var layer = $('widget-layer');
-        if (layer) layer.style.display = 'none';
-        // Update Trinity state
-        APP.trinity.holo.visible = false;
-        log('SYSTEM: 3D_DISPOSED');
-    };
-}
-
-// 2. MASTER DUCKING FUNCTION
+// MASTER DUCKING FUNCTION
 const applyAudioDuck = (isActive) => {
     // Priority: Ducking Gain Node -> Master Gain Node
     const gainNode = (APP.audio && APP.audio.duckingGain) ? APP.audio.duckingGain : (APP.audio && APP.audio.masterGain ? APP.audio.masterGain : null);
