@@ -484,19 +484,19 @@
         .sec-dot.off { background: var(--text-dim); box-shadow: none; }
         .sec-dot.gold { background: var(--y); box-shadow: 0 0 6px var(--y); }
         .sec-body { padding: 10px 12px; }
+        .sec-body > :last-child { margin-bottom: 0; }
         .sec-head.collapsible { cursor: pointer; }
         /* Arrow hugs title; dot is pushed to far right */
         .sec-arrow { font-size: 8px; color: var(--text-dim); margin-left: 5px; margin-right: auto; transition: color 0.2s; }
         .sec-head.collapsible.open .sec-arrow { color: var(--accent); }
         /* Collapsible bodies: collapsed by default; JS restores padding on open */
         #session-lab-body, #p2p-call-body, #midi-host-body, #nft-vault-body, #lexica-nano-body { max-height: 0; overflow: hidden; transition: max-height 0.3s ease; padding: 0 12px; }
-        /* GIF-HOST: 100% invisible container that keeps GIF decoding alive.
-           - position:fixed + left:-9999px parks it off-viewport entirely
-           - overflow:visible lets <img> render at natural size (Chrome needs this for GIF frame advance)
-           - opacity:0 + pointer-events:none = no interaction, no paint
-           - NO clip-path: Chrome halts GIF animation on clipped elements
-           - z-index:-1 = below everything, can never leak into layout */
-        #gif-host { position: fixed; top: 0; left: -9999px; width: 1px; height: 1px; overflow: visible; opacity: 0; pointer-events: none; z-index: -1; }
+        /* GIF-HOST: near-invisible container that keeps GIF decoding alive.
+           - opacity:0.01 (NOT 0) — Chrome stops GIF frame advance at opacity:0
+           - overflow:visible lets <img> render at natural size for drawImage
+           - will-change:transform on img = dedicated GPU compositor layer
+           - NO clip-path: Chrome halts GIF animation on clipped elements */
+        #gif-host { position: fixed; top: 0; left: 0; width: 1px; height: 1px; overflow: visible; opacity: 0.01; pointer-events: none; z-index: 0; }
         #gif-host img { position: absolute; display: block; width: auto !important; height: auto !important; max-width: none; pointer-events: none; will-change: transform; transform: translateZ(0); }
         
         /* VNGRD BUTTONS - DIGITAL SNAP */
@@ -613,7 +613,7 @@
         #ticker-text { display: inline-block; padding-left: 100%; animation: scroll-ticker 60s linear infinite; font-size: 10px; display: flex; gap: 30px; }
         @keyframes scroll-ticker { 0% { transform: translateX(0); } 100% { transform: translateX(-100%); } }
         .tick-up { color: var(--g); } .tick-down { color: var(--r); }
-        #info-bar { display: flex; align-items: center; justify-content: space-between; padding: 6px 15px; font-size: 9px; }
+        #info-bar { display: flex; align-items: center; justify-content: space-between; padding: 4px 15px; font-size: 9px; flex-shrink: 0; min-height: 22px; border-top: 1px solid rgba(255,255,255,0.04); }
         .info-group { display: flex; gap: 20px; }
         .info-item { color: var(--text-dim); }
         .info-item span { color: var(--text); }
@@ -2059,8 +2059,8 @@ function _summonGlitch() {
 let _lastFrameTime = 0;
 function renderLoop(timestamp) {
     APP.render.rafId = requestAnimationFrame(renderLoop);
-    // ── 30 FPS CAP: skip render if <33ms since last frame ──
-    if (timestamp - _lastFrameTime < 33) return;
+    // ── 60 FPS TARGET: skip only if <16ms since last frame ──
+    if (timestamp - _lastFrameTime < 16) return;
     _lastFrameTime = timestamp;
     APP.render.frameCount++;
     if (timestamp - APP.render.lastFpsUpdate >= 1000) { APP.render.fps = APP.render.frameCount; APP.render.frameCount = 0; APP.render.lastFpsUpdate = timestamp; $('fps-val').textContent = APP.render.fps; }
@@ -5591,90 +5591,69 @@ function endCallCleanup() {
 
     // Configuration — set your API key and preferred endpoint
     const AI_CONFIG = {
-        // Endpoint presets (switch by changing 'provider'):
-        //   'openai'       → OpenAI DALL-E 3 (requires API key)
-        //   'stable'       → Stable Diffusion webui API (local or hosted)
-        //   'pollinations' → Pollinations.ai (free, no key, CORS-native)
         provider: 'pollinations',
-
-        // OpenAI DALL-E settings
         openai: {
             url: 'https://api.openai.com/v1/images/generations',
-            apiKey: '',  // Set via AI_CONFIG.openai.apiKey = 'sk-...'
+            apiKey: '',
             model: 'dall-e-3',
             size: '1024x1024',
             quality: 'standard'
         },
-
-        // Stable Diffusion REST API (Automatic1111 / ComfyUI bridge)
         stable: {
             url: 'http://127.0.0.1:7860/sdapi/v1/txt2img',
-            width: 1024,
-            height: 1024,
-            steps: 28,
-            cfg_scale: 7
+            width: 1024, height: 1024, steps: 28, cfg_scale: 7
         },
-
-        // Pollinations.ai (free, no API key, CORS-native)
         pollinations: {
             url: 'https://image.pollinations.ai/prompt/',
-            width: 1024,
-            height: 1024,
-            model: 'flux',
-            nologo: true
+            width: 1024, height: 1024, model: 'flux', nologo: true
         }
     };
-
-    // Expose config globally so users can set API keys from console
     window.AI_CONFIG = AI_CONFIG;
 
-    // Inject a generated image blob into the media queue
-    function injectAIImage(blobUrl, label) {
-        var img = new Image();
-        img.crossOrigin = 'anonymous';
-        img.src = blobUrl;
+    // Inject image into media queue — accepts blob URL string OR loaded Image element
+    function injectAIImage(src, label) {
         return new Promise(function(ok, fail) {
-            img.onload = function() {
+            function doInject(img) {
                 APP.render.source = null;
-                APP.neural.lastImage = blobUrl;
-                APP.media.queue.push({ type: 'image', url: blobUrl, element: img, name: label });
+                APP.neural.lastImage = img.src;
+                APP.media.queue.push({ type: 'image', url: img.src, element: img, name: label });
                 APP.media.currentIndex = APP.media.queue.length - 1;
                 APP.media.currentElement = img;
-                updateQueueDisplay();
+                if (typeof updateQueueDisplay === 'function') updateQueueDisplay();
                 if ($('media-dot')) $('media-dot').classList.remove('off');
-                // Flash feedback
                 var stage = $('stage');
                 if (stage) {
                     stage.style.transition = 'none';
                     stage.style.filter = 'brightness(3) saturate(2)';
-                    setTimeout(function() {
-                        stage.style.transition = 'filter 0.5s';
-                        stage.style.filter = '';
-                    }, 100);
+                    setTimeout(function() { stage.style.transition = 'filter 0.5s'; stage.style.filter = ''; }, 100);
                 }
                 ok();
-            };
-            img.onerror = function() { fail(new Error('IMG_DECODE_FAIL')); };
+            }
+            if (src instanceof HTMLImageElement && src.complete && src.naturalWidth > 0) {
+                doInject(src);
+            } else {
+                var img = new Image();
+                img.crossOrigin = 'anonymous';
+                img.onload = function() { doInject(img); };
+                img.onerror = function() { fail(new Error('IMG_DECODE_FAIL')); };
+                img.src = (typeof src === 'string') ? src : '';
+            }
         });
     }
 
     // Provider: OpenAI DALL-E
     async function generateOpenAI(prompt) {
         var cfg = AI_CONFIG.openai;
-        if (!cfg.apiKey) throw new Error('NO_API_KEY — set AI_CONFIG.openai.apiKey');
+        if (!cfg.apiKey) throw new Error('NO_API_KEY — set AI_CONFIG.openai.apiKey in console');
         var res = await fetch(cfg.url, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + cfg.apiKey },
             body: JSON.stringify({ model: cfg.model, prompt: prompt, n: 1, size: cfg.size, quality: cfg.quality, response_format: 'url' })
         });
-        if (!res.ok) {
-            var errBody = await res.text();
-            throw new Error('OPENAI_' + res.status + ': ' + errBody.substring(0, 100));
-        }
+        if (!res.ok) { var e = await res.text(); throw new Error('OPENAI_' + res.status + ': ' + e.substring(0, 80)); }
         var data = await res.json();
         var imgUrl = data.data && data.data[0] && (data.data[0].url || data.data[0].b64_json);
         if (!imgUrl) throw new Error('OPENAI_NO_IMAGE');
-        // If b64, convert to blob
         if (imgUrl.startsWith('data:') || data.data[0].b64_json) {
             var b64 = data.data[0].b64_json || imgUrl;
             var byteStr = atob(b64);
@@ -5683,7 +5662,6 @@ function endCallCleanup() {
             for (var i = 0; i < byteStr.length; i++) ia[i] = byteStr.charCodeAt(i);
             return URL.createObjectURL(new Blob([ab], { type: 'image/png' }));
         }
-        // Otherwise fetch the URL to get a local blob
         var imgRes = await fetch(imgUrl);
         var blob = await imgRes.blob();
         return URL.createObjectURL(blob);
@@ -5708,26 +5686,68 @@ function endCallCleanup() {
         return URL.createObjectURL(new Blob([ab], { type: 'image/png' }));
     }
 
-    // Provider: Pollinations.ai (free, CORS-native)
+    // Provider: Pollinations.ai — 3-strategy approach for maximum reliability
     async function generatePollinations(prompt) {
         var cfg = AI_CONFIG.pollinations;
         var seed = Math.floor(Math.random() * 999999);
         var url = cfg.url + encodeURIComponent(prompt) + '?width=' + cfg.width + '&height=' + cfg.height + '&model=' + cfg.model + '&nologo=' + cfg.nologo + '&seed=' + seed;
-        var res = await fetch(url);
-        if (!res.ok) throw new Error('POLL_' + res.status);
-        var blob = await res.blob();
-        if (blob.size < 1000 || !blob.type.startsWith('image/')) throw new Error('POLL_INVALID_RESPONSE');
-        return URL.createObjectURL(blob);
+        var statusEl = $('ai-status');
+
+        // Strategy 1: fetch() — fastest when CORS headers present
+        try {
+            if (statusEl) statusEl.textContent = 'POLLINATIONS: FETCHING...';
+            var controller = new AbortController();
+            var timer = setTimeout(function() { controller.abort(); }, 45000);
+            var res = await fetch(url, { signal: controller.signal });
+            clearTimeout(timer);
+            if (res.ok) {
+                var blob = await res.blob();
+                if (blob.size > 1000 && blob.type.startsWith('image/')) {
+                    return URL.createObjectURL(blob);
+                }
+            }
+        } catch(e) { /* fetch failed — try img tag */ }
+
+        // Strategy 2: <img> with crossOrigin (allows canvas drawImage + clean reads)
+        if (statusEl) statusEl.textContent = 'POLLINATIONS: IMG_LOAD...';
+        var img2result = await _loadImg(url, true).catch(function() { return null; });
+        if (img2result) return img2result;
+
+        // Strategy 3: <img> WITHOUT crossOrigin — always loads if server is up
+        // canvas drawImage still works, just toDataURL/toBlob would be tainted (we don't need those)
+        if (statusEl) statusEl.textContent = 'POLLINATIONS: DIRECT_LOAD...';
+        return _loadImg(url, false);
     }
 
-    // Dispatch table
+    // Helper: load image via <img> tag with timeout
+    function _loadImg(url, useCors) {
+        return new Promise(function(resolve, reject) {
+            var img = new Image();
+            if (useCors) img.crossOrigin = 'anonymous';
+            var timeout = setTimeout(function() {
+                img.onload = img.onerror = null;
+                reject(new Error('TIMEOUT_45s'));
+            }, 45000);
+            img.onload = function() {
+                clearTimeout(timeout);
+                if (img.naturalWidth > 0) resolve(img);
+                else reject(new Error('ZERO_SIZE'));
+            };
+            img.onerror = function() {
+                clearTimeout(timeout);
+                reject(new Error('LOAD_FAIL'));
+            };
+            img.src = url;
+        });
+    }
+
     var AI_PROVIDERS = {
         openai: { name: 'DALL-E', fn: generateOpenAI },
         stable: { name: 'STABLE_DIFFUSION', fn: generateStableDiffusion },
         pollinations: { name: 'POLLINATIONS', fn: generatePollinations }
     };
 
-    // Main generate function — orchestrates UI state + API call
+    // Main generate function
     async function aiGenerate(prompt) {
         var status = $('ai-status');
         var btn = $('btn-generate-ai');
@@ -5749,9 +5769,9 @@ function endCallCleanup() {
 
         try {
             if (status) status.textContent = provider.name + ': RENDERING...';
-            var blobUrl = await provider.fn(prompt);
+            var result = await provider.fn(prompt);
             var label = 'AI_' + prompt.substring(0, 20).replace(/\s+/g, '_');
-            await injectAIImage(blobUrl, label);
+            await injectAIImage(result, label);
             if (status) { status.textContent = provider.name + ' → MEDIA DECK'; status.style.color = 'var(--g)'; }
             log('NEURAL: ' + provider.name + '_INJECTED');
         } catch (err) {
@@ -5762,7 +5782,6 @@ function endCallCleanup() {
         setTimeout(function() { APP.neural.generating = false; if (btn) btn.classList.remove('on'); }, 1000);
     }
 
-    // Expose for console/GHOST usage
     window.aiGenerate = aiGenerate;
     window.AI_CONFIG = AI_CONFIG;
 
