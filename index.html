@@ -440,7 +440,7 @@
         #ghost-prompt { color: var(--accent); margin-right: 6px; font-size: 9px; }
         #ghost-input { background: transparent; border: none; color: #fff; flex: 1; font-family: 'JetBrains Mono', monospace; font-size: 10px; outline: none; }
 
-        #top-bar { position: fixed; top: 0; left: 0; right: 0; height: 45px; background: linear-gradient(180deg, var(--panel-light) 0%, var(--panel) 100%); border-bottom: 1px solid var(--border); display: flex; align-items: center; justify-content: space-between; padding: 0 15px; z-index: 5000; }
+        #top-bar { position: fixed; top: 0; left: 0; right: 0; height: 45px; background: var(--panel); border-bottom: 2px solid rgba(255,255,255,0.08); box-shadow: 0 2px 8px rgba(0,0,0,0.7); display: flex; align-items: center; justify-content: space-between; padding: 0 15px; z-index: 5000; border-radius: 0; }
         #brand { display: flex; align-items: center; }
         #status-bar { display: flex; align-items: center; gap: 15px; }
         .stat { display: flex; align-items: center; gap: 5px; font-size: 10px; }
@@ -460,23 +460,24 @@
         #cycle-badge { border-color: var(--y); color: var(--y); background: rgba(255,204,0,0.05); display: none; }
         #cycle-badge.on { display: flex; }
 
-        .sidebar { position: fixed; top: 45px; bottom: 55px; width: 200px; background: var(--theme-bg-tint); backdrop-filter: blur(20px) saturate(120%); -webkit-backdrop-filter: blur(20px) saturate(120%); border: 1px solid var(--theme-border); box-shadow: var(--theme-glow), inset 0 0 15px rgba(0,0,0,0.5); overflow-y: auto; z-index: 4000; scrollbar-width: none; transition: background 0.4s ease, border-color 0.4s ease, box-shadow 0.4s ease; }
-        #left-panel { left: 0; border-left: none; border-right: 1px solid var(--theme-border); }
-        #right-panel { right: 0; border-right: none; border-left: 1px solid var(--theme-border); }
+        /* Sidebar: neutral borders — no theme color bleed, party mode animates border-color via console-breathe */
+        .sidebar { position: fixed; top: 45px; bottom: 55px; width: 200px; background: rgba(6,6,10,0.94); backdrop-filter: blur(20px) saturate(110%); -webkit-backdrop-filter: blur(20px) saturate(110%); border: 1px solid rgba(255,255,255,0.06); box-shadow: inset 0 0 20px rgba(0,0,0,0.65); overflow-y: auto; z-index: 4000; scrollbar-width: none; transition: border-color 0.4s ease, box-shadow 0.4s ease; }
+        #left-panel { left: 0; border-left: none; border-right: 1px solid rgba(255,255,255,0.07); }
+        #right-panel { right: 0; border-right: none; border-left: 1px solid rgba(255,255,255,0.07); }
+        /* Hard divider between module blocks — dark gap above + white hairline below */
         .section {
-            border-bottom: 1px solid var(--border);
-            /* raised plate — shadow below, light above */
-            box-shadow: 0 1px 0 rgba(255,255,255,0.025), inset 0 -1px 0 rgba(0,0,0,0.4);
+            border-top: 3px solid rgba(0,0,0,0.85);
+            border-bottom: 1px solid rgba(255,255,255,0.04);
         }
+        .section:first-child { border-top: none; }
         /* SCANNING ANIMATION FOR CYCLE MODE */
         .sec-head {
             display: flex; align-items: center; justify-content: space-between;
-            padding: 8px 12px;
-            /* directional lighting: light source top-left */
-            background: linear-gradient(180deg, rgba(30,30,42,0.85) 0%, rgba(10,10,16,0.90) 100%);
-            border-top: 1px solid rgba(255,255,255,0.07);
-            border-bottom: 1px solid rgba(0,0,0,0.55);
-            box-shadow: inset 0 1px 0 rgba(255,255,255,0.04);
+            padding: 7px 12px;
+            /* flat engraved label — no gradient so it reads as a discrete panel zone */
+            background: rgba(255,255,255,0.03);
+            border-bottom: 1px solid rgba(255,255,255,0.06);
+            border-radius: 0;
             position: relative; overflow: hidden;
         }
         .sec-head.scanning::after {
@@ -503,13 +504,16 @@
            never clipped, never occluded. opacity:0.01 + will-change:contents keeps
            the compositor layer alive so the browser advances GIF frames every tick.
            drawImage(img) then captures the current animated frame. */
-        #gif-host { position: fixed; top: 0; left: 0; width: 2px; height: 2px; overflow: hidden; opacity: 0.01; pointer-events: none; z-index: 0; will-change: transform; }
-        #gif-host img { position: absolute; display: block; width: 2px !important; height: 2px !important; pointer-events: none; }
+        /* will-change:contents (not transform) is what tells the compositor to keep
+           advancing GIF frames — transform only hints at movement, not content change */
+        #gif-host { position: fixed; top: 0; left: 0; width: 2px; height: 2px; overflow: hidden; opacity: 0.01; pointer-events: none; z-index: 0; will-change: contents; }
+        #gif-host img { position: absolute; display: block; width: 2px !important; height: 2px !important; pointer-events: none; will-change: contents; transform: translateZ(0); }
         
         /* VNGRD BUTTONS - DIGITAL SNAP */
         .btn {
             display: block; width: 100%; padding: 8px 10px; margin-bottom: 6px;
             background: linear-gradient(180deg, #121218 0%, #090910 100%);
+            border-radius: 0;
             /* bevel: lit top edge + shadow bottom = raised keycap */
             border-top: 1px solid rgba(255,255,255,0.09);
             border-left: 1px solid var(--border);
@@ -611,7 +615,7 @@
         .pal[data-t="gold"] { background: #ffd700; }
         .pal[data-t="night"] { background: linear-gradient(135deg, #0a1a15, #1a1a2a); border-color: #334455; }
 
-        #bottom-bar { position: fixed; bottom: 0; left: 0; right: 0; height: 55px; background: linear-gradient(0deg, var(--panel-light) 0%, var(--panel) 100%); border-top: 1px solid var(--border); z-index: 5000; display: flex; flex-direction: column; }
+        #bottom-bar { position: fixed; bottom: 0; left: 0; right: 0; height: 55px; background: var(--panel); border-top: 2px solid rgba(255,255,255,0.08); box-shadow: 0 -2px 8px rgba(0,0,0,0.7); z-index: 5000; display: flex; flex-direction: column; border-radius: 0; }
         #ticker-wrap { flex: 1; display: flex; align-items: center; background: rgba(0,0,0,0.3); border-bottom: 1px solid var(--border); overflow: hidden; }
         #ticker-label { padding: 0 12px; font-size: 8px; letter-spacing: 2px; color: var(--accent); background: var(--accent-dim); height: 100%; display: flex; align-items: center; border-right: 1px solid var(--border); }
         #ticker-scroll { flex: 1; overflow: hidden; white-space: nowrap; }
