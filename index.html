@@ -2877,6 +2877,12 @@ $('btn-rec').onclick = () => {
         APP.broadcast.recorder.stop(); APP.broadcast.isRecording = false; btn.innerText = 'SAVING...'; btn.classList.remove('active'); 
         $('rec-status').style.display = 'none'; 
     } else {
+        // Ensure audio chain is up so recorderDest exists for audio capture
+        ensureAudioChain();
+        // Connect mic into recorderDest if active (so recording gets voice)
+        if (APP.audio.micGainNode && APP.audio.recorderDest) {
+            try { APP.audio.micGainNode.connect(APP.audio.recorderDest); } catch(e) {}
+        }
         const stream = APP.render.canvas.captureStream(60);
         if(APP.audio.ctx && APP.audio.recorderDest) {
             if(APP.audio.recorderDest.stream.getAudioTracks().length > 0) stream.addTrack(APP.audio.recorderDest.stream.getAudioTracks()[0]);
@@ -3720,7 +3726,7 @@ document.addEventListener('DOMContentLoaded', () => {
     // Wire UI
     $('btn-init-cam').onclick = initCamera; $('btn-go-live').onclick = goLive; $('btn-end').onclick = endLive; $('btn-kill').onclick = killCamera;
     
-    // MIC TOGGLE — routes mic into broadcast recording + triggers ducking
+    // MIC TOGGLE — routes mic into recording chain + ducking (NOT to speakers = no feedback)
     $('btn-mic').onclick = async () => {
         const btn = $('btn-mic');
         if (APP.camera.micStream) {
@@ -3735,20 +3741,19 @@ document.addEventListener('DOMContentLoaded', () => {
             return;
         }
         try {
-            if (!APP.audio.ctx) APP.audio.ctx = new (window.AudioContext || window.webkitAudioContext)();
+            ensureAudioChain();
             APP.camera.micStream = await navigator.mediaDevices.getUserMedia({ audio: { echoCancellation: false, noiseSuppression: false, autoGainControl: false, sampleRate: 48000 } });
-            // Create mic source and route to audio context for monitoring + recording
             const micSource = APP.audio.ctx.createMediaStreamSource(APP.camera.micStream);
             APP.audio.micGainNode = APP.audio.ctx.createGain();
             APP.audio.micGainNode.gain.value = 1.0;
             micSource.connect(APP.audio.micGainNode);
-            APP.audio.micGainNode.connect(APP.audio.ctx.destination);
-            // Arm ducking
+            // Route mic → recorderDest (recording) — NOT ctx.destination (prevents feedback)
+            if (APP.audio.recorderDest) APP.audio.micGainNode.connect(APP.audio.recorderDest);
+            // Arm ducking (connects micSource → micAnalyzer for side-chain detection)
             initMicDucking(APP.camera.micStream);
             btn.classList.add('on');
             btn.textContent = 'MIC [ON]';
-            log('MIC: ARMED_48kHz');
-            // Re-check layer readiness with audio context now available
+            log('MIC: ARMED_48kHz (REC_ONLY)');
             checkLayerReadiness();
         } catch(e) { log('MIC_ERR: ' + e.message); }
     };
@@ -5242,8 +5247,9 @@ function endCallCleanup() {
             
             $('input-level-bar').style.width = level + '%';
             
-            // SEISMIC SHAKE on loud bass or mic input
-            if (bassLevel > 70 || level > 80) {
+            // SEISMIC SHAKE — only when rumble or punch FX is armed
+            if ((bassLevel > 70 || level > 80) &&
+                (APP.vj.rumbleEnabled || document.body.classList.contains('fx-punch'))) {
                 if (!seismicTimeout) {
                     document.body.classList.add('seismic-active');
                     seismicTimeout = setTimeout(() => {
