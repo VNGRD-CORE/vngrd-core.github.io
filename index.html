@@ -497,17 +497,13 @@
         .sec-head.collapsible.open .sec-arrow { color: var(--accent); }
         /* Collapsible bodies: collapsed by default; JS restores padding on open */
         #session-lab-body, #p2p-call-body, #midi-host-body, #nft-vault-body, #lexica-nano-body { max-height: 0; overflow: hidden; transition: max-height 0.3s ease; padding: 0 12px; }
-        /* gif-host lives as a direct child of <body> (NOT inside #stage).
-           #stage has transform:translate3d(0,0,0) which makes it the containing block for
-           any position:fixed descendants — trapping them inside overflow:hidden and
-           behind the canvas. At body level, position:fixed is truly viewport-relative,
-           never clipped, never occluded. opacity:0.01 + will-change:contents keeps
-           the compositor layer alive so the browser advances GIF frames every tick.
-           drawImage(img) then captures the current animated frame. */
-        /* will-change:contents (not transform) is what tells the compositor to keep
-           advancing GIF frames — transform only hints at movement, not content change */
-        #gif-host { position: fixed; top: 0; left: 0; width: 2px; height: 2px; overflow: hidden; opacity: 0.01; pointer-events: none; z-index: 0; will-change: contents; }
-        #gif-host img { position: absolute; display: block; width: 2px !important; height: 2px !important; pointer-events: none; will-change: contents; transform: translateZ(0); }
+        /* gif-host: opacity:0.01 keeps it invisible; overflow:visible lets the img
+           render at its natural size so Chrome advances GIF frames and drawImage
+           reads full-resolution pixels (not a 2x2 downsampled blob).
+           will-change:transform + translateZ(0) on the img gives it its own
+           GPU compositor layer — the strongest guarantee of continuous animation. */
+        #gif-host { position: fixed; top: 0; left: 0; width: 1px; height: 1px; overflow: visible; opacity: 0.01; pointer-events: none; z-index: 0; }
+        #gif-host img { position: absolute; display: block; width: auto !important; height: auto !important; max-width: none; pointer-events: none; will-change: transform; transform: translateZ(0); }
         
         /* VNGRD BUTTONS - DIGITAL SNAP */
         .btn {
