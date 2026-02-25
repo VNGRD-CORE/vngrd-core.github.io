@@ -4834,9 +4834,27 @@ $('btn-init-peer').onclick = () => {
     try {
         const peerId = 'VNGRD-' + Math.random().toString(36).substr(2, 8).toUpperCase();
         APP.peer = {
-            peer: new Peer(peerId),
+            peer: new Peer(peerId, {
+                secure: true,
+                port: 443,
+                config: {
+                    iceServers: [
+                        { urls: 'stun:stun.l.google.com:19302' },
+                        { urls: 'stun:stun1.l.google.com:19302' },
+                        { urls: 'stun:stun2.l.google.com:19302' },
+                        { urls: 'stun:stun.cloudflare.com:3478' },
+                        // Metered TURN relay (free tier — needed for symmetric NAT / iOS cellular)
+                        { urls: 'turn:a.relay.metered.ca:80', username: 'e8dd65b92c0b8d40f3386771', credential: 'YxOlRjMTsPnEfMqy' },
+                        { urls: 'turn:a.relay.metered.ca:80?transport=tcp', username: 'e8dd65b92c0b8d40f3386771', credential: 'YxOlRjMTsPnEfMqy' },
+                        { urls: 'turns:a.relay.metered.ca:443', username: 'e8dd65b92c0b8d40f3386771', credential: 'YxOlRjMTsPnEfMqy' }
+                    ],
+                    iceTransportPolicy: 'all',
+                    iceCandidatePoolSize: 2
+                },
+                debug: 1
+            }),
             call: null,
-            incomingCall: null, // Staging area for ringing calls
+            incomingCall: null,
             localStream: null,
             dataConn: null
         };
@@ -5011,19 +5029,24 @@ $('btn-call-guest').onclick = async () => {
 // Shared Logic for both Incoming and Outgoing calls
 function handleCallStream(call) {
     call.on('stream', (remoteStream) => {
-        // Ensure video element exists
+        // Ensure video element exists — must be in DOM for iOS Safari to play
         if (!APP.guest.videoElement) {
             APP.guest.videoElement = document.createElement('video');
-            APP.guest.videoElement.autoplay = true;
-            APP.guest.videoElement.playsInline = true;
+            APP.guest.videoElement.id = 'p2p-remote-video';
+            APP.guest.videoElement.setAttribute('autoplay', '');
+            APP.guest.videoElement.setAttribute('playsinline', '');
+            APP.guest.videoElement.style.cssText = 'position:fixed;top:0;left:0;width:1px;height:1px;opacity:0.01;pointer-events:none;z-index:-1;';
+            document.body.appendChild(APP.guest.videoElement);
         }
 
-        // Remote stream plays directly through the HTML5 video element.
-        // DO NOT route into APP.audio.ctx or masterGain — that creates
-        // an internal feedback loop and echo on the remote end.
+        // Remote stream plays via HTML5 video element.
+        // DO NOT route into APP.audio.ctx or masterGain — creates echo.
         APP.guest.videoElement.srcObject = remoteStream;
         APP.guest.stream = remoteStream;
         APP.guest.isActive = true;
+
+        // iOS Safari requires explicit play() after srcObject assignment
+        APP.guest.videoElement.play().catch(function(e) { log('GUEST_PLAY_ERR: ' + e.message); });
 
         $('call-status').textContent = 'CONNECTED';
         $('call-status').style.color = 'var(--g)';
@@ -5108,10 +5131,19 @@ function endCallCleanup() {
         APP.peer.dataConn = null;
     }
 
+    // Remove hidden video element from DOM (cleanup for iOS)
+    if (APP.guest.videoElement) {
+        APP.guest.videoElement.srcObject = null;
+        if (APP.guest.videoElement.parentNode) APP.guest.videoElement.parentNode.removeChild(APP.guest.videoElement);
+        APP.guest.videoElement = null;
+    }
+
     APP.guest.isActive = false;
     APP.guest.stream = null;
-    APP.peer.call = null;
-    APP.peer.incomingCall = null;
+    if (APP.peer) {
+        APP.peer.call = null;
+        APP.peer.incomingCall = null;
+    }
 
     $('call-status').textContent = 'DISCONNECTED';
     $('call-status').style.color = 'var(--text-dim)';
