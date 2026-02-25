@@ -236,16 +236,14 @@
         
         /* V29 MANUAL LAYER ELEMENTS */
        /* --- V29 INDUSTRIAL OVERRIDE (NO GLOW) --- */
- #station-bug { 
-            position: absolute; top: 30px; left: 30px; z-index: 2600; 
-            font-family: 'Orbitron', sans-serif; font-size: 28px; font-weight: 800; 
-            
-            /* CLEANUP: White text with a subtle dark lift, NO BLUE GLOW */
-            color: rgba(255,255,255,0.9); 
-            text-shadow: 2px 2px 4px rgba(0,0,0,0.5); 
-            
-            background: transparent !important; 
-            border: none !important; 
+ #station-bug {
+            position: absolute; top: 30px; left: 30px; z-index: 2600;
+            font-family: 'Orbitron', sans-serif; font-size: 28px; font-weight: 800;
+            color: #ffffff;
+            text-shadow: 2px 2px 4px rgba(0,0,0,0.5);
+            mix-blend-mode: difference;
+            background: transparent !important;
+            border: none !important;
             backdrop-filter: none !important;
             cursor: move;
             pointer-events: auto !important;
@@ -350,12 +348,7 @@
         }
         #cam-preview-float .rec-indicator.on { display: block; }
         
-        /* AUTO-INVERT FOR TV LEGIBILITY */
-        #station-bug {
-            mix-blend-mode: difference;
-            color: #ffffff !important;
-            background: transparent !important;
-        }
+        /* AUTO-INVERT FOR TV LEGIBILITY — merged into primary #station-bug above */
         #ticker-text {
             mix-blend-mode: difference;
         }
@@ -497,12 +490,13 @@
         .sec-head.collapsible.open .sec-arrow { color: var(--accent); }
         /* Collapsible bodies: collapsed by default; JS restores padding on open */
         #session-lab-body, #p2p-call-body, #midi-host-body, #nft-vault-body, #lexica-nano-body { max-height: 0; overflow: hidden; transition: max-height 0.3s ease; padding: 0 12px; }
-        /* gif-host: opacity:0.01 keeps it invisible; overflow:visible lets the img
-           render at its natural size so Chrome advances GIF frames and drawImage
-           reads full-resolution pixels (not a 2x2 downsampled blob).
-           will-change:transform + translateZ(0) on the img gives it its own
-           GPU compositor layer — the strongest guarantee of continuous animation. */
-        #gif-host { position: fixed; top: 0; left: 0; width: 1px; height: 1px; overflow: visible; opacity: 0.01; pointer-events: none; z-index: 0; }
+        /* GIF-HOST: 100% invisible container that keeps GIF decoding alive.
+           - position:fixed + left:-9999px parks it off-viewport entirely
+           - overflow:visible lets <img> render at natural size (Chrome needs this for GIF frame advance)
+           - opacity:0 + pointer-events:none = no interaction, no paint
+           - NO clip-path: Chrome halts GIF animation on clipped elements
+           - z-index:-1 = below everything, can never leak into layout */
+        #gif-host { position: fixed; top: 0; left: -9999px; width: 1px; height: 1px; overflow: visible; opacity: 0; pointer-events: none; z-index: -1; }
         #gif-host img { position: absolute; display: block; width: auto !important; height: auto !important; max-width: none; pointer-events: none; will-change: transform; transform: translateZ(0); }
         
         /* VNGRD BUTTONS - DIGITAL SNAP */
@@ -510,13 +504,14 @@
             display: block; width: 100%; padding: 8px 10px; margin-bottom: 6px;
             background: linear-gradient(180deg, #121218 0%, #090910 100%);
             border-radius: 0;
-            /* bevel: lit top edge + shadow bottom = raised keycap */
             border-top: 1px solid rgba(255,255,255,0.09);
             border-left: 1px solid var(--border);
             border-right: 1px solid rgba(0,0,0,0.35);
             border-bottom: 1px solid rgba(0,0,0,0.55);
             box-shadow: inset 0 1px 0 rgba(255,255,255,0.04), 0 2px 3px rgba(0,0,0,0.45);
-            color: var(--text); font-family: 'JetBrains Mono', monospace; font-size: 10px; text-align: left; transition: all 0.15s ease;
+            color: var(--text); font-family: 'JetBrains Mono', monospace; font-size: 10px; text-align: left;
+            text-transform: uppercase; position: relative;
+            transition: all 0.15s ease;
         }
         .btn:hover {
             background: linear-gradient(180deg, #1a1a26 0%, #111118 100%);
@@ -703,29 +698,7 @@ body.crt #stage::after {
     pointer-events: none;
     z-index: 3003;
 }
-        /* CONSOLE_HARDWARE BUTTON EFFECTS - HIGH-END GLOW AND PULSE */
-        .btn {
-            transition: all 0.15s ease;
-            text-transform: uppercase;
-            position: relative;
-        }
-        .btn:hover {
-            box-shadow: 0 0 20px var(--accent), 0 0 40px var(--accent-dim), inset 0 0 10px var(--accent-dim);
-            border-color: var(--accent);
-            text-shadow: 0 0 10px var(--accent);
-            animation: btn-pulse 0.4s ease-in-out infinite;
-        }
-        @keyframes btn-pulse {
-            0%, 100% { transform: scale(1); }
-            50% { transform: scale(1.03); }
-        }
-        .btn.on, .btn.active-mode {
-            animation: btn-active-glow 0.8s ease-in-out infinite;
-        }
-        @keyframes btn-active-glow {
-            0%, 100% { box-shadow: 0 0 15px var(--accent); }
-            50% { box-shadow: 0 0 30px var(--accent), 0 0 50px var(--accent-dim); }
-        }
+        /* CONSOLE_HARDWARE — merged into primary .btn rules above */
         
         /* METAL DENT EFFECT - PERMANENT INSET */
         .dented {
@@ -836,17 +809,7 @@ body.shooting-mode #btn-shooting {
             display: none;
         }
         body.shooting-mode #shooting-overlay { display: block; pointer-events: auto; }
-        
-        
 
-        
-
-        
-        
-            25% { transform: translateX(1px); }
-            75% { transform: translateX(-1px); }
-        }
-        
         @keyframes voice-flash {
             0% { filter: brightness(2.5); }
             100% { filter: brightness(1); }
@@ -1064,11 +1027,6 @@ body.fx-lucy::after {
     100% { filter: hue-rotate(360deg) saturate(4) brightness(1.1); }
 }
 
-@keyframes punch-pulse {
-    0% { transform: scale(1.02); filter: brightness(1.4); }
-    100% { transform: scale(1); filter: brightness(1); }
-}
-
 /* NVG: Cinematic Military Night Vision */
 /* 1. Stage: phosphor-green desaturated image */
 body.fx-nvg #stage {
@@ -1119,64 +1077,29 @@ body.fx-nvg #stage::after {
 }
 
 @keyframes kinetic-punch {
-    0% { 
-        transform: scale(1) translate(0, 0); 
-        filter: brightness(1) contrast(1); 
+    0% {
+        transform: scale(1) translate(0, 0);
+        filter: brightness(1) contrast(1);
     }
-    15% { 
-        /* The Impact: Snaps forward, shifts off-axis, skews slightly, and flashes */
-        transform: scale(1.06) translate(-4px, 3px) skewX(-2deg); 
-        filter: brightness(1.6) contrast(1.4) drop-shadow(4px 0px 0px rgba(255,0,0,0.5)); 
+    15% {
+        transform: scale(1.06) translate(-4px, 3px) skewX(-2deg);
+        filter: brightness(1.6) contrast(1.4) drop-shadow(4px 0px 0px rgba(255,0,0,0.5));
     }
-    30% { 
-        /* The Recoil: Whips in the opposite direction */
-        transform: scale(1.02) translate(4px, -2px) skewX(2deg); 
-        filter: brightness(1.2) contrast(1.2) drop-shadow(-4px 0px 0px rgba(0,255,255,0.5)); 
+    30% {
+        transform: scale(1.02) translate(4px, -2px) skewX(2deg);
+        filter: brightness(1.2) contrast(1.2) drop-shadow(-4px 0px 0px rgba(0,255,255,0.5));
     }
-    50% { 
-        /* The Rebound: Compresses slightly smaller than normal */
-        transform: scale(0.98) translate(-2px, 1px) skewX(0deg); 
-        filter: brightness(0.9) contrast(1.1); 
+    50% {
+        transform: scale(0.98) translate(-2px, 1px) skewX(0deg);
+        filter: brightness(0.9) contrast(1.1);
     }
-    75% { 
-        /* Micro-shake before settling */
-        transform: scale(1.01) translate(1px, -1px); 
-        filter: brightness(1) contrast(1); 
+    75% {
+        transform: scale(1.01) translate(1px, -1px);
+        filter: brightness(1) contrast(1);
     }
-    100% { 
-        transform: scale(1) translate(0, 0); 
-        filter: brightness(1) contrast(1); 
-    }
-}
-
-@keyframes kinetic-punch {
-    0% { 
-        transform: scale(1) translate(0, 0); 
-        filter: brightness(1) contrast(1); 
-    }
-    15% { 
-        /* The Impact: Snaps forward, shifts off-axis, skews slightly, and flashes */
-        transform: scale(1.06) translate(-4px, 3px) skewX(-2deg); 
-        filter: brightness(1.6) contrast(1.4) drop-shadow(4px 0px 0px rgba(255,0,0,0.5)); 
-    }
-    30% { 
-        /* The Recoil: Whips in the opposite direction */
-        transform: scale(1.02) translate(4px, -2px) skewX(2deg); 
-        filter: brightness(1.2) contrast(1.2) drop-shadow(-4px 0px 0px rgba(0,255,255,0.5)); 
-    }
-    50% { 
-        /* The Rebound: Compresses slightly smaller than normal */
-        transform: scale(0.98) translate(-2px, 1px) skewX(0deg); 
-        filter: brightness(0.9) contrast(1.1); 
-    }
-    75% { 
-        /* Micro-shake before settling */
-        transform: scale(1.01) translate(1px, -1px); 
-        filter: brightness(1) contrast(1); 
-    }
-    100% { 
-        transform: scale(1) translate(0, 0); 
-        filter: brightness(1) contrast(1); 
+    100% {
+        transform: scale(1) translate(0, 0);
+        filter: brightness(1) contrast(1);
     }
 }
 
@@ -1349,9 +1272,15 @@ body.fx-nvg #stage::after {
          <div class="section">
             <div class="sec-head collapsible"><span class="sec-title">AI_INJECTION</span><span class="sec-arrow">&#x25B8;</span><div class="sec-dot off" id="neural-dot"></div></div>
             <div class="sec-body" id="lexica-nano-body">
+                <div class="lbl" style="margin-bottom:4px;">PROVIDER</div>
+                <select class="inp" id="ai-provider-select" style="font-size:9px;padding:5px;background:var(--panel);border:1px solid var(--border);color:var(--text);margin-bottom:6px;">
+                    <option value="pollinations">POLLINATIONS (FREE)</option>
+                    <option value="openai">OPENAI DALL-E (KEY)</option>
+                    <option value="stable">STABLE DIFFUSION (LOCAL)</option>
+                </select>
                 <input type="text" class="inp" id="ai-prompt" placeholder="DESCRIBE_IMAGE..." style="font-size:9px;">
-                <button class="btn" id="btn-generate-ai" style="color:var(--v);border-color:var(--v);">LEXICA GENERATE</button>
-                <div id="ai-status" style="font-size:8px;color:var(--text-dim);margin-top:4px;">LEXICA_API: READY</div>
+                <button class="btn" id="btn-generate-ai" style="color:var(--v);border-color:var(--v);">GENERATE</button>
+                <div id="ai-status" style="font-size:8px;color:var(--text-dim);margin-top:4px;">AI_ENGINE: READY</div>
             </div>
         </div>
         <div class="section">
@@ -2201,19 +2130,35 @@ function renderLoop(timestamp) {
     if (source) {
         const ready = source.tagName === 'VIDEO' ? source.readyState >= 2 : (source.complete && source.naturalWidth > 0);
         if (ready) {
-            
+            // --- VIEWPORT-FIT: object-fit:contain logic for canvas ---
+            // Computes centered, aspect-ratio-preserving draw rect (no stretching)
+            var srcW = source.videoWidth || source.naturalWidth || w;
+            var srcH = source.videoHeight || source.naturalHeight || h;
+            var srcAR = srcW / srcH;
+            var canvasAR = w / h;
+            var drawW, drawH, drawX, drawY;
+            if (srcAR > canvasAR) {
+                // Source is wider — fit to width, letterbox top/bottom
+                drawW = w; drawH = w / srcAR;
+                drawX = 0; drawY = (h - drawH) / 2;
+            } else {
+                // Source is taller — fit to height, pillarbox left/right
+                drawH = h; drawW = h * srcAR;
+                drawX = (w - drawW) / 2; drawY = 0;
+            }
+
             if (APP.vj.pixelateEnabled && APP.vj.pixelSize > 1) {
                 // OFF-SCREEN BUFFER RENDER
                 const size = APP.vj.pixelSize;
-                const sw = Math.ceil(w / size);
-                const sh = Math.ceil(h / size);
-                
+                const sw = Math.ceil(drawW / size);
+                const sh = Math.ceil(drawH / size);
+
                 if(APP.render.pixelCanvas.width !== sw) { APP.render.pixelCanvas.width = sw; APP.render.pixelCanvas.height = sh; }
-                
+
                 APP.render.pixelCtx.drawImage(source, 0, 0, sw, sh);
-                ctx.drawImage(APP.render.pixelCanvas, 0, 0, sw, sh, 0, 0, w, h);
+                ctx.drawImage(APP.render.pixelCanvas, 0, 0, sw, sh, drawX, drawY, drawW, drawH);
             } else {
-                ctx.drawImage(source, 0, 0, w, h);
+                ctx.drawImage(source, drawX, drawY, drawW, drawH);
             }
 
             if (APP.vj.maskMode) {
@@ -5638,142 +5583,214 @@ function endCallCleanup() {
         }
     };
 
-    // v19 AI GENERATOR — Pollinations (primary, CORS-native) + Lexica (fallback)
-    // Injects generated image into media queue (eject/cycle compatible)
+    // ═══════════════════════════════════════════════════════════════════
+    // AI IMAGE GENERATOR v2 — Clean pipeline with standard REST API
+    // Architecture: prompt → API fetch → blob → inject into media queue
+    // Supports: OpenAI DALL-E, Stable Diffusion REST, Pollinations (free)
+    // ═══════════════════════════════════════════════════════════════════
+
+    // Configuration — set your API key and preferred endpoint
+    const AI_CONFIG = {
+        // Endpoint presets (switch by changing 'provider'):
+        //   'openai'       → OpenAI DALL-E 3 (requires API key)
+        //   'stable'       → Stable Diffusion webui API (local or hosted)
+        //   'pollinations' → Pollinations.ai (free, no key, CORS-native)
+        provider: 'pollinations',
+
+        // OpenAI DALL-E settings
+        openai: {
+            url: 'https://api.openai.com/v1/images/generations',
+            apiKey: '',  // Set via AI_CONFIG.openai.apiKey = 'sk-...'
+            model: 'dall-e-3',
+            size: '1024x1024',
+            quality: 'standard'
+        },
+
+        // Stable Diffusion REST API (Automatic1111 / ComfyUI bridge)
+        stable: {
+            url: 'http://127.0.0.1:7860/sdapi/v1/txt2img',
+            width: 1024,
+            height: 1024,
+            steps: 28,
+            cfg_scale: 7
+        },
+
+        // Pollinations.ai (free, no API key, CORS-native)
+        pollinations: {
+            url: 'https://image.pollinations.ai/prompt/',
+            width: 1024,
+            height: 1024,
+            model: 'flux',
+            nologo: true
+        }
+    };
+
+    // Expose config globally so users can set API keys from console
+    window.AI_CONFIG = AI_CONFIG;
+
+    // Inject a generated image blob into the media queue
     function injectAIImage(blobUrl, label) {
         var img = new Image();
         img.crossOrigin = 'anonymous';
         img.src = blobUrl;
         return new Promise(function(ok, fail) {
             img.onload = function() {
-                APP.render.source = null; // Clear override so queue takes priority
+                APP.render.source = null;
                 APP.neural.lastImage = blobUrl;
                 APP.media.queue.push({ type: 'image', url: blobUrl, element: img, name: label });
                 APP.media.currentIndex = APP.media.queue.length - 1;
                 APP.media.currentElement = img;
                 updateQueueDisplay();
                 if ($('media-dot')) $('media-dot').classList.remove('off');
-                // Glitch-flash feedback
+                // Flash feedback
                 var stage = $('stage');
-                if (stage) { stage.style.transition = 'none'; stage.style.filter = 'brightness(3) saturate(2)'; setTimeout(function() { stage.style.transition = 'filter 0.5s'; stage.style.filter = ''; }, 100); }
+                if (stage) {
+                    stage.style.transition = 'none';
+                    stage.style.filter = 'brightness(3) saturate(2)';
+                    setTimeout(function() {
+                        stage.style.transition = 'filter 0.5s';
+                        stage.style.filter = '';
+                    }, 100);
+                }
                 ok();
             };
             img.onerror = function() { fail(new Error('IMG_DECODE_FAIL')); };
         });
     }
 
-    const v19_AI = {
-        generate: async (prompt) => {
-            const status = $('ai-status');
-            const btn = $('btn-generate-ai');
-            if (!prompt) { if (status) status.textContent = 'ENTER_PROMPT'; return; }
-            if (APP.neural.generating) return;
-            APP.neural.generating = true;
-            if (status) { status.textContent = 'RENDERING...'; status.style.color = 'var(--v)'; }
-            if (btn) btn.classList.add('on');
-            if ($('neural-dot')) $('neural-dot').classList.remove('off');
-            log('NEURAL: GENERATING >> ' + prompt);
-
-            // Helper: try fetch with multiple CORS proxies
-            async function proxyFetch(url) {
-                var proxies = [
-                    'https://api.allorigins.win/raw?url=' + encodeURIComponent(url),
-                    'https://corsproxy.io/?' + encodeURIComponent(url),
-                    'https://api.codetabs.com/v1/proxy?quest=' + encodeURIComponent(url)
-                ];
-                for (var p = 0; p < proxies.length; p++) {
-                    try {
-                        var r = await fetch(proxies[p]);
-                        if (r.ok) return r;
-                    } catch(e) { /* try next proxy */ }
-                }
-                throw new Error('ALL_PROXIES_FAILED');
-            }
-
-            // Strategy 1: Pollinations (CORS-native text-to-image, multiple endpoint formats)
-            async function tryPollinations() {
-                if (status) status.textContent = 'POLLINATIONS: RENDERING...';
-                var seed = Math.floor(Math.random() * 999999);
-                // Try current API format first, then legacy format
-                var fullPrompt = prompt;
-                var urls = [
-                    `https://image.pollinations.ai/prompt/${encodeURIComponent(fullPrompt)}?width=1024&height=1024&model=flux&nologo=true&seed=${seed}`
-                ];
-                for (var u = 0; u < urls.length; u++) {
-                    try {
-                        var res = await fetch(urls[u]);
-                        if (!res.ok) continue;
-                        var blob = await res.blob();
-                        if (blob.size < 1000 || !blob.type.startsWith('image/')) continue;
-                        return URL.createObjectURL(blob);
-                    } catch(e) { /* try next */ }
-                }
-                throw new Error('POLL_ALL_FAIL');
-            }
-
-            // Strategy 2: Lexica search via CORS proxy
-            async function tryLexica() {
-                if (status) status.textContent = 'LEXICA: SEARCHING...';
-                var res = await proxyFetch('https://lexica.art/api/v1/search?q=' + encodeURIComponent(prompt));
-                var data = await res.json();
-                if (!data.images || data.images.length === 0) throw new Error('NO_RESULTS');
-                var pick = data.images[Math.floor(Math.random() * Math.min(10, data.images.length))];
-                var imgUrl = pick.src || pick.srcSmall;
-                if (!imgUrl) throw new Error('NO_SRC');
-                if (status) status.textContent = 'DOWNLOADING...';
-                var imgRes = await proxyFetch(imgUrl);
-                var blob = await imgRes.blob();
-                return URL.createObjectURL(blob);
-            }
-
-            // Strategy 3: Unsplash search (photo search by keyword, CORS-native)
-            async function tryUnsplash() {
-                if (status) status.textContent = 'UNSPLASH: SEARCHING...';
-                // Unsplash Source API — random photo matching query, no key needed
-                var url = 'https://source.unsplash.com/1280x720/?' + encodeURIComponent(prompt) + '&sig=' + Date.now();
-                var res = await fetch(url);
-                if (!res.ok) throw new Error('UNSPLASH_' + res.status);
-                var blob = await res.blob();
-                if (blob.size < 1000) throw new Error('UNSPLASH_EMPTY');
-                return URL.createObjectURL(blob);
-            }
-
-            var strategies = [
-                { name: 'POLLINATIONS', fn: tryPollinations },
-                { name: 'LEXICA', fn: tryLexica },
-                { name: 'UNSPLASH', fn: tryUnsplash }
-            ];
-
-            var success = false;
-            for (var s = 0; s < strategies.length; s++) {
-                try {
-                    var blobUrl = await strategies[s].fn();
-                    await injectAIImage(blobUrl, 'AI_' + prompt.substring(0, 20).replace(/\s+/g, '_'));
-                    if (status) { status.textContent = strategies[s].name + ' → MEDIA DECK'; status.style.color = 'var(--g)'; }
-                    log('NEURAL: ' + strategies[s].name + '_INJECTED');
-                    success = true;
-                    break;
-                } catch(err) {
-                    log('NEURAL: ' + strategies[s].name + '_FAIL (' + err.message + ')');
-                    if (s < strategies.length - 1) log('NEURAL: TRYING → ' + strategies[s + 1].name);
-                }
-            }
-
-            if (!success) {
-                if (status) { status.textContent = 'ALL_SOURCES_FAILED'; status.style.color = 'var(--r)'; }
-                log('NEURAL_ERROR: ALL_STRATEGIES_EXHAUSTED');
-            }
-
-            setTimeout(() => { APP.neural.generating = false; if (btn) btn.classList.remove('on'); }, 1000);
+    // Provider: OpenAI DALL-E
+    async function generateOpenAI(prompt) {
+        var cfg = AI_CONFIG.openai;
+        if (!cfg.apiKey) throw new Error('NO_API_KEY — set AI_CONFIG.openai.apiKey');
+        var res = await fetch(cfg.url, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + cfg.apiKey },
+            body: JSON.stringify({ model: cfg.model, prompt: prompt, n: 1, size: cfg.size, quality: cfg.quality, response_format: 'url' })
+        });
+        if (!res.ok) {
+            var errBody = await res.text();
+            throw new Error('OPENAI_' + res.status + ': ' + errBody.substring(0, 100));
         }
+        var data = await res.json();
+        var imgUrl = data.data && data.data[0] && (data.data[0].url || data.data[0].b64_json);
+        if (!imgUrl) throw new Error('OPENAI_NO_IMAGE');
+        // If b64, convert to blob
+        if (imgUrl.startsWith('data:') || data.data[0].b64_json) {
+            var b64 = data.data[0].b64_json || imgUrl;
+            var byteStr = atob(b64);
+            var ab = new ArrayBuffer(byteStr.length);
+            var ia = new Uint8Array(ab);
+            for (var i = 0; i < byteStr.length; i++) ia[i] = byteStr.charCodeAt(i);
+            return URL.createObjectURL(new Blob([ab], { type: 'image/png' }));
+        }
+        // Otherwise fetch the URL to get a local blob
+        var imgRes = await fetch(imgUrl);
+        var blob = await imgRes.blob();
+        return URL.createObjectURL(blob);
+    }
+
+    // Provider: Stable Diffusion REST API
+    async function generateStableDiffusion(prompt) {
+        var cfg = AI_CONFIG.stable;
+        var res = await fetch(cfg.url, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ prompt: prompt, width: cfg.width, height: cfg.height, steps: cfg.steps, cfg_scale: cfg.cfg_scale })
+        });
+        if (!res.ok) throw new Error('SD_' + res.status);
+        var data = await res.json();
+        if (!data.images || !data.images[0]) throw new Error('SD_NO_IMAGE');
+        var b64 = data.images[0];
+        var byteStr = atob(b64);
+        var ab = new ArrayBuffer(byteStr.length);
+        var ia = new Uint8Array(ab);
+        for (var i = 0; i < byteStr.length; i++) ia[i] = byteStr.charCodeAt(i);
+        return URL.createObjectURL(new Blob([ab], { type: 'image/png' }));
+    }
+
+    // Provider: Pollinations.ai (free, CORS-native)
+    async function generatePollinations(prompt) {
+        var cfg = AI_CONFIG.pollinations;
+        var seed = Math.floor(Math.random() * 999999);
+        var url = cfg.url + encodeURIComponent(prompt) + '?width=' + cfg.width + '&height=' + cfg.height + '&model=' + cfg.model + '&nologo=' + cfg.nologo + '&seed=' + seed;
+        var res = await fetch(url);
+        if (!res.ok) throw new Error('POLL_' + res.status);
+        var blob = await res.blob();
+        if (blob.size < 1000 || !blob.type.startsWith('image/')) throw new Error('POLL_INVALID_RESPONSE');
+        return URL.createObjectURL(blob);
+    }
+
+    // Dispatch table
+    var AI_PROVIDERS = {
+        openai: { name: 'DALL-E', fn: generateOpenAI },
+        stable: { name: 'STABLE_DIFFUSION', fn: generateStableDiffusion },
+        pollinations: { name: 'POLLINATIONS', fn: generatePollinations }
     };
 
-    // Wire AI generate button
+    // Main generate function — orchestrates UI state + API call
+    async function aiGenerate(prompt) {
+        var status = $('ai-status');
+        var btn = $('btn-generate-ai');
+        if (!prompt) { if (status) status.textContent = 'ENTER_PROMPT'; return; }
+        if (APP.neural.generating) return;
+
+        APP.neural.generating = true;
+        if (status) { status.textContent = 'RENDERING...'; status.style.color = 'var(--v)'; }
+        if (btn) btn.classList.add('on');
+        if ($('neural-dot')) $('neural-dot').classList.remove('off');
+        log('NEURAL: GENERATING [' + AI_CONFIG.provider.toUpperCase() + '] >> ' + prompt);
+
+        var provider = AI_PROVIDERS[AI_CONFIG.provider];
+        if (!provider) {
+            if (status) { status.textContent = 'UNKNOWN_PROVIDER: ' + AI_CONFIG.provider; status.style.color = 'var(--r)'; }
+            APP.neural.generating = false;
+            return;
+        }
+
+        try {
+            if (status) status.textContent = provider.name + ': RENDERING...';
+            var blobUrl = await provider.fn(prompt);
+            var label = 'AI_' + prompt.substring(0, 20).replace(/\s+/g, '_');
+            await injectAIImage(blobUrl, label);
+            if (status) { status.textContent = provider.name + ' → MEDIA DECK'; status.style.color = 'var(--g)'; }
+            log('NEURAL: ' + provider.name + '_INJECTED');
+        } catch (err) {
+            log('NEURAL: ' + provider.name + '_FAIL (' + err.message + ')');
+            if (status) { status.textContent = provider.name + '_FAIL: ' + err.message; status.style.color = 'var(--r)'; }
+        }
+
+        setTimeout(function() { APP.neural.generating = false; if (btn) btn.classList.remove('on'); }, 1000);
+    }
+
+    // Expose for console/GHOST usage
+    window.aiGenerate = aiGenerate;
+    window.AI_CONFIG = AI_CONFIG;
+
+    // Wire AI generate button + Enter key on prompt input
     if ($('btn-generate-ai')) {
-        $('btn-generate-ai').onclick = () => {
-            const prompt = $('ai-prompt') ? $('ai-prompt').value.trim() : '';
-            v19_AI.generate(prompt);
+        $('btn-generate-ai').onclick = function() {
+            var prompt = $('ai-prompt') ? $('ai-prompt').value.trim() : '';
+            aiGenerate(prompt);
         };
+    }
+    if ($('ai-prompt')) {
+        $('ai-prompt').addEventListener('keydown', function(e) {
+            if (e.key === 'Enter') {
+                e.preventDefault();
+                var prompt = e.target.value.trim();
+                if (prompt) aiGenerate(prompt);
+            }
+        });
+    }
+    // Provider selector wiring
+    if ($('ai-provider-select')) {
+        $('ai-provider-select').onchange = function() {
+            AI_CONFIG.provider = this.value;
+            var status = $('ai-status');
+            if (status) { status.textContent = 'AI_ENGINE: ' + this.value.toUpperCase(); status.style.color = 'var(--text-dim)'; }
+            log('NEURAL: PROVIDER → ' + this.value.toUpperCase());
+        };
+    }
 
     // Collapsible sections with arrow indicators
     ['session-lab-body', 'p2p-call-body', 'midi-host-body', 'nft-vault-body', 'lexica-nano-body'].forEach(function(id) {
@@ -5789,7 +5806,6 @@ function endCallCleanup() {
             if (arrow) arrow.textContent = isOpen ? '\u25BE' : '\u25B8';
         };
     });
-    }
 
     // Init v19 transitions
     v19_Transitions.init();
@@ -6119,6 +6135,7 @@ window.triggerHardReset = function() {
 
     if (typeof ghostLog === 'function') ghostLog('SYSTEM_HARD_RESET_EXECUTED', 'crit');
 };</script>
+<script>
 // --- BASS REACTIVE VJ ENGINE ---
 window.initAudioReactor = function() {
     if (window.audioReactorActive) {
@@ -6181,12 +6198,14 @@ window.initAudioReactor = function() {
 
 // Auto-init the bass reactor engine when audio is ready
 setTimeout(() => { if (!window.audioReactorActive) window.initAudioReactor(); }, 3000);
-    <!-- gif-host is a DIRECT child of body — NOT inside #stage.
-         #stage has transform:translate3d(0,0,0) which makes it the containing block for
-         position:fixed children, trapping them inside overflow:hidden. By living at body level,
-         position:fixed is relative to the viewport and nothing occludes it. -->
+</script>
+
+    <!-- gif-host: DIRECT child of <body>, NOT inside #stage.
+         #stage has transform:translate3d(0,0,0) which creates a containing block for
+         position:fixed children, trapping them inside overflow:hidden.
+         At body level, position:fixed is relative to the viewport. -->
     <div id="gif-host">
         <img id="user-logo-layer" src="" alt="Logo" style="display:none;">
     </div>
 </body>
-</html> 
+</html>
