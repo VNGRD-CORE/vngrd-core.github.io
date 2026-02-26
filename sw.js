@@ -1,4 +1,4 @@
-const CACHE_NAME = 'vngrd-v1-cache';
+const CACHE_NAME = 'vngrd-v2-cache';
 const ASSETS = [
     'index.html',
     'manifest.json',
@@ -14,7 +14,16 @@ self.addEventListener('install', (e) => {
     );
 });
 
-// 2. Fetch Event — Network First with Cache Fallback
+// 2. Activate Event — Purge old caches to force fresh code
+self.addEventListener('activate', (e) => {
+    e.waitUntil(
+        caches.keys().then((names) =>
+            Promise.all(names.filter((n) => n !== CACHE_NAME).map((n) => caches.delete(n)))
+        ).then(() => self.clients.claim())
+    );
+});
+
+// 3. Fetch Event — Network First with Cache Fallback
 // This ensures that live updates to your indexbackup.html are reflected immediately
 self.addEventListener('fetch', (e) => {
     // Skip non-HTTP(S) schemes — blob: and data: URLs must be handled by the browser

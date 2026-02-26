@@ -2648,18 +2648,24 @@ function loadMediaFiles(input) {
             const vid = document.createElement('video'); vid.src = url; vid.muted = true; vid.loop = !APP.state.isCycle; vid.playsInline = true; vid.preload = 'auto'; item.element = vid; $('media-container').appendChild(vid);
         } else {
             // createObjectURL = native blob ref for GIF animation.
-            // gif-host is a direct child of <body> (position:fixed, opacity:0.01, 2x2px).
+            // gif-host is a direct child of <body> (position:fixed, opacity:0.01).
             // Browser compositor keeps it alive → GIF frames advance each tick.
-            // drawImage() reads intrinsic naturalWidth x naturalHeight for full quality.
             const img = new Image();
-            img.crossOrigin = 'anonymous';
             img.src = url;
             item.element = img;
             var host = $('gif-host');
             if (host) host.appendChild(img);
+            // Wait for decode before first display — drawImage silently fails on unloaded images
+            if (isFirstLoad && idx === 0) {
+                img.onload = function() {
+                    log('MEDIA: READY [' + file.name + '] ' + img.naturalWidth + 'x' + img.naturalHeight);
+                    rotateMedia();
+                };
+            }
         }
         APP.media.queue.push(item);
-        if (isFirstLoad && idx === 0) rotateMedia();
+        // Only auto-rotate for videos (images wait for onload above)
+        if (isFirstLoad && idx === 0 && type === 'video') rotateMedia();
     });
     updateQueueDisplay(); $('media-dot').classList.remove('off'); log(`MEDIA: +${input.files.length}`);
 }
@@ -5675,7 +5681,8 @@ function endCallCleanup() {
         },
         pollinations: {
             url: 'https://image.pollinations.ai/prompt/',
-            width: 1024, height: 1024, model: 'flux', nologo: true
+            altUrl: 'https://gen.pollinations.ai/image/',
+            width: 1024, height: 1024, model: 'flux'
         }
     };
     window.AI_CONFIG = AI_CONFIG;
@@ -5684,6 +5691,9 @@ function endCallCleanup() {
     function injectAIImage(src, label) {
         return new Promise(function(ok, fail) {
             function doInject(img) {
+                // Park in gif-host to keep browser decoder alive (needed for canvas drawImage)
+                var host = document.getElementById('gif-host');
+                if (host && !img.parentNode) host.appendChild(img);
                 APP.render.source = null;
                 APP.neural.lastImage = img.src;
                 APP.media.queue.push({ type: 'image', url: img.src, element: img, name: label });
@@ -5756,37 +5766,52 @@ function endCallCleanup() {
         return URL.createObjectURL(new Blob([ab], { type: 'image/png' }));
     }
 
-    // Provider: Pollinations.ai — 3-strategy approach for maximum reliability
+    // Provider: Pollinations.ai — dual-endpoint with 3-strategy fallback
     async function generatePollinations(prompt) {
         var cfg = AI_CONFIG.pollinations;
         var seed = Math.floor(Math.random() * 999999);
-        var url = cfg.url + encodeURIComponent(prompt) + '?width=' + cfg.width + '&height=' + cfg.height + '&model=' + cfg.model + '&nologo=' + cfg.nologo + '&seed=' + seed;
+        var params = '?width=' + cfg.width + '&height=' + cfg.height + '&seed=' + seed;
+        if (cfg.model) params += '&model=' + cfg.model;
+        // Try new endpoint first, then legacy
+        var urls = [
+            (cfg.altUrl || 'https://gen.pollinations.ai/image/') + encodeURIComponent(prompt) + params,
+            cfg.url + encodeURIComponent(prompt) + params
+        ];
         var statusEl = $('ai-status');
+        var lastErr = null;
 
-        // Strategy 1: fetch() — fastest when CORS headers present
-        try {
-            if (statusEl) statusEl.textContent = 'POLLINATIONS: FETCHING...';
-            var controller = new AbortController();
-            var timer = setTimeout(function() { controller.abort(); }, 45000);
-            var res = await fetch(url, { signal: controller.signal });
-            clearTimeout(timer);
-            if (res.ok) {
-                var blob = await res.blob();
-                if (blob.size > 1000 && blob.type.startsWith('image/')) {
-                    return URL.createObjectURL(blob);
+        for (var ui = 0; ui < urls.length; ui++) {
+            var url = urls[ui];
+            var label = ui === 0 ? 'GEN_API' : 'IMG_API';
+
+            // Strategy 1: fetch() — fastest when CORS headers present
+            try {
+                if (statusEl) statusEl.textContent = 'POLLINATIONS [' + label + ']: FETCHING...';
+                var controller = new AbortController();
+                var timer = setTimeout(function() { controller.abort(); }, 60000);
+                var res = await fetch(url, { signal: controller.signal });
+                clearTimeout(timer);
+                if (res.ok) {
+                    var blob = await res.blob();
+                    if (blob.size > 1000 && blob.type.startsWith('image/')) {
+                        return URL.createObjectURL(blob);
+                    }
                 }
-            }
-        } catch(e) { /* fetch failed — try img tag */ }
+            } catch(e) { lastErr = e; }
 
-        // Strategy 2: <img> with crossOrigin (allows canvas drawImage + clean reads)
-        if (statusEl) statusEl.textContent = 'POLLINATIONS: IMG_LOAD...';
-        var img2result = await _loadImg(url, true).catch(function() { return null; });
-        if (img2result) return img2result;
+            // Strategy 2: <img> with crossOrigin
+            if (statusEl) statusEl.textContent = 'POLLINATIONS [' + label + ']: IMG_LOAD...';
+            var img2result = await _loadImg(url, true).catch(function(e) { lastErr = e; return null; });
+            if (img2result) return img2result;
 
-        // Strategy 3: <img> WITHOUT crossOrigin — always loads if server is up
-        // canvas drawImage still works, just toDataURL/toBlob would be tainted (we don't need those)
-        if (statusEl) statusEl.textContent = 'POLLINATIONS: DIRECT_LOAD...';
-        return _loadImg(url, false);
+            // Strategy 3: <img> without crossOrigin (always loads if server is up)
+            if (statusEl) statusEl.textContent = 'POLLINATIONS [' + label + ']: DIRECT...';
+            try {
+                return await _loadImg(url, false);
+            } catch(e) { lastErr = e; }
+        }
+
+        throw lastErr || new Error('ALL_ENDPOINTS_FAILED');
     }
 
     // Helper: load image via <img> tag with timeout
@@ -5796,8 +5821,8 @@ function endCallCleanup() {
             if (useCors) img.crossOrigin = 'anonymous';
             var timeout = setTimeout(function() {
                 img.onload = img.onerror = null;
-                reject(new Error('TIMEOUT_45s'));
-            }, 45000);
+                reject(new Error('TIMEOUT_60s'));
+            }, 60000);
             img.onload = function() {
                 clearTimeout(timeout);
                 if (img.naturalWidth > 0) resolve(img);
@@ -6290,7 +6315,7 @@ setTimeout(() => { if (!window.audioReactorActive) window.initAudioReactor(); },
 </script>
 
 <!-- 3D LOGO: offscreen WebGL canvas for Three.js rendering -->
-<canvas id="three-canvas" width="512" height="512" style="position:fixed;left:-9999px;top:0;pointer-events:none;"></canvas>
+<canvas id="three-canvas" width="512" height="512" style="position:fixed;left:0;top:0;width:1px;height:1px;opacity:0.01;pointer-events:none;z-index:-1;overflow:hidden;"></canvas>
 <script type="module">
 // === 3D LOGO PIPELINE ===
 // All loaders use .parse() (direct file read) — no fetch(), no service worker interference.
@@ -6300,11 +6325,17 @@ const sysLog = (...a) => (window.log || console.log)(...a);
 
 async function ensure3D() {
     if (_3D.ready) return;
+    // Try primary CDN, fallback to secondary
     try {
         THREE = await import('three');
-    } catch (e) {
-        sysLog('3D_INIT: CDN_FETCH_FAILED — check network');
-        throw e;
+    } catch (e1) {
+        sysLog('3D_INIT: CDN1_FAIL — trying fallback...');
+        try {
+            THREE = await import('https://unpkg.com/three@0.162.0/build/three.module.js');
+        } catch (e2) {
+            sysLog('3D_INIT: ALL_CDN_FAILED — check network');
+            throw e2;
+        }
     }
 
     const canvas = document.getElementById('three-canvas');
@@ -6320,7 +6351,7 @@ async function ensure3D() {
         antialias: true,
         preserveDrawingBuffer: true
     });
-    _3D.renderer.setSize(512, 512);
+    _3D.renderer.setSize(512, 512, false); // false = don't override CSS style
     _3D.renderer.setClearColor(0x000000, 0);
 
     // HUD-themed lighting
