@@ -17,6 +17,8 @@ self.addEventListener('install', (e) => {
 // 2. Fetch Event — Network First with Cache Fallback
 // This ensures that live updates to your indexbackup.html are reflected immediately
 self.addEventListener('fetch', (e) => {
+    // Skip non-HTTP(S) schemes — blob: and data: URLs must be handled by the browser
+    if (!e.request.url.startsWith('http')) return;
     e.respondWith(
         fetch(e.request).catch(() => caches.match(e.request))
     );
