@@ -14,6 +14,7 @@
 <script src="https://unpkg.com/peerjs@1.5.2/dist/peerjs.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/ethers/5.7.2/ethers.umd.min.js"></script>
 <script src="src/Compositor.js"></script>
+<script type="importmap">{"imports":{"three":"https://unpkg.com/three@0.162.0/build/three.module.js","three/addons/":"https://unpkg.com/three@0.162.0/examples/jsm/"}}</script>
     <style>
         @import url('https://fonts.googleapis.com/css2?family=Orbitron:wght@400;600;800;900&family=JetBrains+Mono:wght@300;400;500&family=Bebas+Neue&family=Russo+One&display=swap');
         
@@ -1314,6 +1315,11 @@ body.fx-nvg #stage::after {
                     <button class="btn" id="btn-2d-x" title="Hide/Clear 2D">[X]</button>
                 </div>
                 <input type="file" id="file-2d-logo" accept=".png,.jpg,.jpeg,.gif,.webp" style="display:none;">
+                <div class="btn-row" style="margin-top:6px;">
+                    <button class="btn" id="btn-upload-3d" style="flex:2;color:var(--c);">3D LOGO</button>
+                    <button class="btn" id="btn-3d-x" title="Hide/Clear 3D">[X]</button>
+                </div>
+                <input type="file" id="file-3d-logo" accept=".obj,.fbx,.stl,.amf,.igs,.iges" style="display:none;">
             </div>
         </div>
 
@@ -1565,6 +1571,7 @@ const APP = {
     trinity: {
         bug:  { x: 0.015, y: 0.015, scale: 1.5, visible: true },
         logo: { x: 0.85,  y: 0.015, scale: 1.0, visible: false },
+        logo3d: { x: 0.40, y: 0.015, scale: 2.0, visible: false },
     },
     lowerThird: { visible: false, preset: 'guest' },
     ui: { logoMorph: 0, morphs: ['m1','m2','m3','m4','m5','m6'] },
@@ -2225,7 +2232,27 @@ function renderLoop(timestamp) {
             ctx.restore();
         }
     }
-    
+
+    // ACTOR 3: 3D LOGO (offscreen WebGL canvas → drawImage composite)
+    if (T.logo3d && T.logo3d.visible && window._three && window._three.ready) {
+        var _t = window._three;
+        if (_t.model) {
+            _t.model.rotation.y += 0.008;
+            _t.model.rotation.x = Math.sin(timestamp * 0.0005) * 0.1;
+        }
+        _t.renderer.render(_t.scene, _t.camera);
+        var tc = document.getElementById('three-canvas');
+        if (tc) {
+            ctx.save();
+            var s3d = T.logo3d.scale;
+            var tw = 200 * s3d * (w / 1920);
+            var th = 200 * s3d * (h / 1080);
+            var tx = T.logo3d.x * w, ty = T.logo3d.y * h;
+            ctx.drawImage(tc, tx, ty, tw, th);
+            ctx.restore();
+        }
+    }
+
 
 
     // ══════════════════════════════════════════════════
@@ -2394,6 +2421,11 @@ function makeDraggable(el) {
 
     function hitTest(pos) {
         var T = APP.trinity, w = APP.render.width, h = APP.render.height;
+        if (T.logo3d && T.logo3d.visible) {
+            var tw3 = (200 * T.logo3d.scale * (1 / 1920));
+            var th3 = (200 * T.logo3d.scale * (1 / 1080));
+            if (pos.x >= T.logo3d.x && pos.x <= T.logo3d.x + tw3 && pos.y >= T.logo3d.y && pos.y <= T.logo3d.y + th3) return 'logo3d';
+        }
         if (T.logo.visible) {
             var li = $('user-logo-layer');
             if (li && li.naturalWidth > 0) {
@@ -2603,7 +2635,7 @@ if ($('btn-2d-x')) {
     };
 }
 
-// 3D handled exclusively by module script — no inline handlers
+// 3D LOGO handled by module script at end of file (Three.js importmap + lazy loaders)
 
 // MEDIA & CYCLE LOGIC
 function loadMediaFiles(input) {
@@ -6255,6 +6287,264 @@ window.initAudioReactor = function() {
 
 // Auto-init the bass reactor engine when audio is ready
 setTimeout(() => { if (!window.audioReactorActive) window.initAudioReactor(); }, 3000);
+</script>
+
+<!-- 3D LOGO: offscreen WebGL canvas for Three.js rendering -->
+<canvas id="three-canvas" width="512" height="512" style="position:fixed;left:-9999px;top:0;pointer-events:none;"></canvas>
+<script type="module">
+// === 3D LOGO PIPELINE — Lazy-loaded Three.js with multi-format support ===
+let THREE = null;
+const _3D = { scene: null, camera: null, renderer: null, model: null, ready: false };
+
+async function ensure3D() {
+    if (_3D.ready) return;
+    THREE = await import('three');
+
+    const canvas = document.getElementById('three-canvas');
+    if (!canvas) return;
+
+    _3D.scene = new THREE.Scene();
+    _3D.camera = new THREE.PerspectiveCamera(40, 1, 0.1, 1000);
+    _3D.camera.position.set(0, 0, 3);
+
+    _3D.renderer = new THREE.WebGLRenderer({
+        canvas,
+        alpha: true,
+        antialias: true,
+        preserveDrawingBuffer: true
+    });
+    _3D.renderer.setSize(512, 512);
+    _3D.renderer.setClearColor(0x000000, 0);
+
+    // HUD-themed lighting
+    _3D.scene.add(new THREE.AmbientLight(0x334455, 0.8));
+    const key = new THREE.DirectionalLight(0x00ffcc, 1.0);
+    key.position.set(3, 4, 5); _3D.scene.add(key);
+    const fill = new THREE.DirectionalLight(0x0088ff, 0.4);
+    fill.position.set(-3, -1, 2); _3D.scene.add(fill);
+    const rim = new THREE.DirectionalLight(0xff3300, 0.3);
+    rim.position.set(0, -3, -3); _3D.scene.add(rim);
+
+    _3D.ready = true;
+    window._three = _3D;
+}
+
+function clearModel() {
+    if (!_3D.model || !THREE) return;
+    _3D.scene.remove(_3D.model);
+    _3D.model.traverse(obj => {
+        if (obj.geometry) obj.geometry.dispose();
+        if (obj.material) {
+            (Array.isArray(obj.material) ? obj.material : [obj.material]).forEach(m => m.dispose());
+        }
+    });
+    _3D.model = null;
+}
+
+function centerAndScale(obj) {
+    const box = new THREE.Box3().setFromObject(obj);
+    const size = box.getSize(new THREE.Vector3());
+    const maxDim = Math.max(size.x, size.y, size.z);
+    if (maxDim === 0) return;
+    obj.scale.setScalar(2.0 / maxDim);
+    const box2 = new THREE.Box3().setFromObject(obj);
+    obj.position.sub(box2.getCenter(new THREE.Vector3()));
+}
+
+function applyHUDMaterial(obj) {
+    const mat = new THREE.MeshPhongMaterial({
+        color: 0x00ddaa, emissive: 0x003322, specular: 0x00ffcc,
+        shininess: 80, transparent: true, opacity: 0.85, side: THREE.DoubleSide
+    });
+    obj.traverse(child => {
+        if (child.isMesh && !child.material.map) child.material = mat;
+    });
+}
+
+// --- FORMAT LOADERS (lazy-imported on first use) ---
+
+async function loadOBJ(url) {
+    const { OBJLoader } = await import('three/addons/loaders/OBJLoader.js');
+    return new Promise((resolve, reject) => new OBJLoader().load(url, resolve, undefined, reject));
+}
+
+async function loadFBX(url) {
+    const { FBXLoader } = await import('three/addons/loaders/FBXLoader.js');
+    return new Promise((resolve, reject) => new FBXLoader().load(url, resolve, undefined, reject));
+}
+
+async function loadSTL(url) {
+    const { STLLoader } = await import('three/addons/loaders/STLLoader.js');
+    return new Promise((resolve, reject) => {
+        new STLLoader().load(url, geom => resolve(new THREE.Mesh(geom)), undefined, reject);
+    });
+}
+
+async function loadAMF(file) {
+    const text = await file.text();
+    const xml = new DOMParser().parseFromString(text, 'application/xml');
+    const group = new THREE.Group();
+
+    xml.querySelectorAll('object').forEach(obj => {
+        const meshEl = obj.querySelector('mesh');
+        if (!meshEl) return;
+        const verts = [];
+        meshEl.querySelectorAll('vertices > vertex > coordinates').forEach(c => {
+            verts.push(
+                parseFloat(c.querySelector('x')?.textContent || 0),
+                parseFloat(c.querySelector('y')?.textContent || 0),
+                parseFloat(c.querySelector('z')?.textContent || 0)
+            );
+        });
+        meshEl.querySelectorAll('volume').forEach(vol => {
+            const idx = [];
+            vol.querySelectorAll('triangle').forEach(tri => {
+                idx.push(
+                    parseInt(tri.querySelector('v1')?.textContent || 0),
+                    parseInt(tri.querySelector('v2')?.textContent || 0),
+                    parseInt(tri.querySelector('v3')?.textContent || 0)
+                );
+            });
+            const g = new THREE.BufferGeometry();
+            g.setAttribute('position', new THREE.Float32BufferAttribute(verts, 3));
+            g.setIndex(idx);
+            g.computeVertexNormals();
+            group.add(new THREE.Mesh(g));
+        });
+    });
+
+    if (group.children.length === 0) throw new Error('NO_GEOMETRY_IN_AMF');
+    return group;
+}
+
+async function loadIGES(file) {
+    const text = await file.text();
+    const lines = text.split('\n');
+    const group = new THREE.Group();
+    const dirEntries = [];
+    const paramData = {};
+
+    for (const line of lines) {
+        if (line.length < 73) continue;
+        const section = line[72];
+        const seqNum = parseInt(line.substring(73).trim());
+
+        if (section === 'D' && seqNum % 2 === 1) {
+            dirEntries.push({
+                type: parseInt(line.substring(0, 8).trim()),
+                seq: seqNum
+            });
+        }
+        if (section === 'P') {
+            const dePtr = parseInt(line.substring(64, 72).trim());
+            if (!paramData[dePtr]) paramData[dePtr] = '';
+            paramData[dePtr] += line.substring(0, 64);
+        }
+    }
+
+    const pts = [];
+    for (const de of dirEntries) {
+        const raw = paramData[de.seq];
+        if (!raw) continue;
+        const vals = raw.replace(/;.*$/, '').trim().split(',').map(s => s.trim());
+
+        if (de.type === 110 && vals.length >= 7) {
+            const coords = vals.slice(1, 7).map(Number);
+            if (coords.every(n => !isNaN(n))) {
+                const g = new THREE.BufferGeometry();
+                g.setAttribute('position', new THREE.Float32BufferAttribute(coords, 3));
+                group.add(new THREE.Line(g, new THREE.LineBasicMaterial({ color: 0x00ffcc })));
+            }
+        }
+        if (de.type === 116 && vals.length >= 4) {
+            const [, x, y, z] = vals.map(Number);
+            if (!isNaN(x)) pts.push(x, y, z);
+        }
+        if (de.type === 100 && vals.length >= 8) {
+            const [, zt, cx, cy, sx, sy, ex, ey] = vals.map(Number);
+            if (!isNaN(cx)) {
+                const r = Math.hypot(sx - cx, sy - cy);
+                const sa = Math.atan2(sy - cy, sx - cx);
+                const ea = Math.atan2(ey - cy, ex - cx);
+                const curve = new THREE.EllipseCurve(cx, cy, r, r, sa, ea, false);
+                const cPts = curve.getPoints(32).map(p => new THREE.Vector3(p.x, p.y, zt || 0));
+                const g = new THREE.BufferGeometry().setFromPoints(cPts);
+                group.add(new THREE.Line(g, new THREE.LineBasicMaterial({ color: 0x00ffcc })));
+            }
+        }
+    }
+
+    if (pts.length > 0) {
+        const pGeom = new THREE.BufferGeometry();
+        pGeom.setAttribute('position', new THREE.Float32BufferAttribute(pts, 3));
+        group.add(new THREE.Points(pGeom, new THREE.PointsMaterial({ color: 0x00ffcc, size: 0.05 })));
+    }
+
+    if (group.children.length === 0) throw new Error('NO_PARSEABLE_ENTITIES_IN_IGES');
+    return group;
+}
+
+// --- FILE UPLOAD HANDLER ---
+const btn3d = document.getElementById('btn-upload-3d');
+const fileInput3d = document.getElementById('file-3d-logo');
+const btn3dX = document.getElementById('btn-3d-x');
+
+if (btn3d) btn3d.addEventListener('click', () => fileInput3d?.click());
+
+if (fileInput3d) {
+    fileInput3d.addEventListener('change', async (e) => {
+        if (!e.target.files.length) return;
+
+        const file = e.target.files[0];
+        const ext = file.name.split('.').pop().toLowerCase();
+        const sysLog = window.log || console.log;
+
+        sysLog('3D_LOAD: ' + file.name.toUpperCase());
+        await ensure3D();
+        clearModel();
+
+        const url = URL.createObjectURL(file);
+
+        try {
+            let model;
+            switch (ext) {
+                case 'obj': model = await loadOBJ(url); break;
+                case 'fbx': model = await loadFBX(url); break;
+                case 'stl': model = await loadSTL(url); break;
+                case 'amf': model = await loadAMF(file); break;
+                case 'igs': case 'iges': model = await loadIGES(file); break;
+                default: throw new Error('UNSUPPORTED_FORMAT: ' + ext.toUpperCase());
+            }
+
+            centerAndScale(model);
+            if (ext !== 'igs' && ext !== 'iges') applyHUDMaterial(model);
+
+            _3D.model = model;
+            _3D.scene.add(model);
+            window.APP.trinity.logo3d.visible = true;
+            sysLog('3D_LOGO: OK (' + ext.toUpperCase() + ')');
+        } catch (err) {
+            sysLog('3D_ERR: ' + (err.message || err));
+        }
+
+        URL.revokeObjectURL(url);
+        fileInput3d.value = '';
+    });
+}
+
+if (btn3dX) {
+    btn3dX.addEventListener('click', () => {
+        const sysLog = window.log || console.log;
+        if (window.APP.trinity.logo3d.visible) {
+            window.APP.trinity.logo3d.visible = false;
+            sysLog('3D_LOGO: HIDDEN');
+        } else if (_3D.model) {
+            clearModel();
+            window.APP.trinity.logo3d.visible = false;
+            sysLog('3D_LOGO: CLEARED');
+        }
+    });
+}
 </script>
 
     <!-- gif-host: DIRECT child of <body>, NOT inside #stage.
