@@ -14,7 +14,7 @@
 <script src="https://unpkg.com/peerjs@1.5.2/dist/peerjs.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/ethers/5.7.2/ethers.umd.min.js"></script>
 <script src="src/Compositor.js"></script>
-<script type="importmap">{"imports":{"three":"https://cdn.jsdelivr.net/npm/three@0.162.0/build/three.module.js","three/addons/":"https://cdn.jsdelivr.net/npm/three@0.162.0/examples/jsm/"}}</script>
+<script type="importmap">{"imports":{"three":"./src/three/three.module.min.js","three/addons/":"./src/three/"}}</script>
     <style>
         @import url('https://fonts.googleapis.com/css2?family=Orbitron:wght@400;600;800;900&family=JetBrains+Mono:wght@300;400;500&family=Bebas+Neue&family=Russo+One&display=swap');
         
@@ -6325,18 +6325,8 @@ const sysLog = (...a) => (window.log || console.log)(...a);
 
 async function ensure3D() {
     if (_3D.ready) return;
-    // Try primary CDN, fallback to secondary
-    try {
-        THREE = await import('three');
-    } catch (e1) {
-        sysLog('3D_INIT: CDN1_FAIL — trying fallback...');
-        try {
-            THREE = await import('https://unpkg.com/three@0.162.0/build/three.module.js');
-        } catch (e2) {
-            sysLog('3D_INIT: ALL_CDN_FAILED — check network');
-            throw e2;
-        }
-    }
+    // Self-hosted Three.js — no CDN dependency
+    THREE = await import('three');
 
     const canvas = document.getElementById('three-canvas');
     if (!canvas) { sysLog('3D_INIT: CANVAS_NOT_FOUND'); return; }
