@@ -14,7 +14,7 @@
 <script src="https://unpkg.com/peerjs@1.5.2/dist/peerjs.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/ethers/5.7.2/ethers.umd.min.js"></script>
 <script src="src/Compositor.js"></script>
-<script type="importmap">{"imports":{"three":"https://unpkg.com/three@0.162.0/build/three.module.js","three/addons/":"https://unpkg.com/three@0.162.0/examples/jsm/"}}</script>
+<script type="importmap">{"imports":{"three":"https://cdn.jsdelivr.net/npm/three@0.162.0/build/three.module.js","three/addons/":"https://cdn.jsdelivr.net/npm/three@0.162.0/examples/jsm/"}}</script>
     <style>
         @import url('https://fonts.googleapis.com/css2?family=Orbitron:wght@400;600;800;900&family=JetBrains+Mono:wght@300;400;500&family=Bebas+Neue&family=Russo+One&display=swap');
         
@@ -2648,18 +2648,24 @@ function loadMediaFiles(input) {
             const vid = document.createElement('video'); vid.src = url; vid.muted = true; vid.loop = !APP.state.isCycle; vid.playsInline = true; vid.preload = 'auto'; item.element = vid; $('media-container').appendChild(vid);
         } else {
             // createObjectURL = native blob ref for GIF animation.
-            // gif-host is a direct child of <body> (position:fixed, opacity:0.01, 2x2px).
+            // gif-host is a direct child of <body> (position:fixed, opacity:0.01).
             // Browser compositor keeps it alive → GIF frames advance each tick.
-            // drawImage() reads intrinsic naturalWidth x naturalHeight for full quality.
             const img = new Image();
-            img.crossOrigin = 'anonymous';
             img.src = url;
             item.element = img;
             var host = $('gif-host');
             if (host) host.appendChild(img);
+            // Wait for decode before first display — drawImage silently fails on unloaded images
+            if (isFirstLoad && idx === 0) {
+                img.onload = function() {
+                    log('MEDIA: READY [' + file.name + '] ' + img.naturalWidth + 'x' + img.naturalHeight);
+                    rotateMedia();
+                };
+            }
         }
         APP.media.queue.push(item);
-        if (isFirstLoad && idx === 0) rotateMedia();
+        // Only auto-rotate for videos (images wait for onload above)
+        if (isFirstLoad && idx === 0 && type === 'video') rotateMedia();
     });
     updateQueueDisplay(); $('media-dot').classList.remove('off'); log(`MEDIA: +${input.files.length}`);
 }
@@ -5675,7 +5681,8 @@ function endCallCleanup() {
         },
         pollinations: {
             url: 'https://image.pollinations.ai/prompt/',
-            width: 1024, height: 1024, model: 'flux', nologo: true
+            altUrl: 'https://gen.pollinations.ai/image/',
+            width: 1024, height: 1024, model: 'flux'
         }
     };
     window.AI_CONFIG = AI_CONFIG;
@@ -5684,6 +5691,9 @@ function endCallCleanup() {
     function injectAIImage(src, label) {
         return new Promise(function(ok, fail) {
             function doInject(img) {
+                // Park in gif-host to keep browser decoder alive (needed for canvas drawImage)
+                var host = document.getElementById('gif-host');
+                if (host && !img.parentNode) host.appendChild(img);
                 APP.render.source = null;
                 APP.neural.lastImage = img.src;
                 APP.media.queue.push({ type: 'image', url: img.src, element: img, name: label });
@@ -5756,37 +5766,52 @@ function endCallCleanup() {
         return URL.createObjectURL(new Blob([ab], { type: 'image/png' }));
     }
 
-    // Provider: Pollinations.ai — 3-strategy approach for maximum reliability
+    // Provider: Pollinations.ai — dual-endpoint with 3-strategy fallback
     async function generatePollinations(prompt) {
         var cfg = AI_CONFIG.pollinations;
         var seed = Math.floor(Math.random() * 999999);
-        var url = cfg.url + encodeURIComponent(prompt) + '?width=' + cfg.width + '&height=' + cfg.height + '&model=' + cfg.model + '&nologo=' + cfg.nologo + '&seed=' + seed;
+        var params = '?width=' + cfg.width + '&height=' + cfg.height + '&seed=' + seed;
+        if (cfg.model) params += '&model=' + cfg.model;
+        // Try new endpoint first, then legacy
+        var urls = [
+            (cfg.altUrl || 'https://gen.pollinations.ai/image/') + encodeURIComponent(prompt) + params,
+            cfg.url + encodeURIComponent(prompt) + params
+        ];
         var statusEl = $('ai-status');
+        var lastErr = null;
 
-        // Strategy 1: fetch() — fastest when CORS headers present
-        try {
-            if (statusEl) statusEl.textContent = 'POLLINATIONS: FETCHING...';
-            var controller = new AbortController();
-            var timer = setTimeout(function() { controller.abort(); }, 45000);
-            var res = await fetch(url, { signal: controller.signal });
-            clearTimeout(timer);
-            if (res.ok) {
-                var blob = await res.blob();
-                if (blob.size > 1000 && blob.type.startsWith('image/')) {
-                    return URL.createObjectURL(blob);
+        for (var ui = 0; ui < urls.length; ui++) {
+            var url = urls[ui];
+            var label = ui === 0 ? 'GEN_API' : 'IMG_API';
+
+            // Strategy 1: fetch() — fastest when CORS headers present
+            try {
+                if (statusEl) statusEl.textContent = 'POLLINATIONS [' + label + ']: FETCHING...';
+                var controller = new AbortController();
+                var timer = setTimeout(function() { controller.abort(); }, 60000);
+                var res = await fetch(url, { signal: controller.signal });
+                clearTimeout(timer);
+                if (res.ok) {
+                    var blob = await res.blob();
+                    if (blob.size > 1000 && blob.type.startsWith('image/')) {
+                        return URL.createObjectURL(blob);
+                    }
                 }
-            }
-        } catch(e) { /* fetch failed — try img tag */ }
+            } catch(e) { lastErr = e; }
 
-        // Strategy 2: <img> with crossOrigin (allows canvas drawImage + clean reads)
-        if (statusEl) statusEl.textContent = 'POLLINATIONS: IMG_LOAD...';
-        var img2result = await _loadImg(url, true).catch(function() { return null; });
-        if (img2result) return img2result;
+            // Strategy 2: <img> with crossOrigin
+            if (statusEl) statusEl.textContent = 'POLLINATIONS [' + label + ']: IMG_LOAD...';
+            var img2result = await _loadImg(url, true).catch(function(e) { lastErr = e; return null; });
+            if (img2result) return img2result;
 
-        // Strategy 3: <img> WITHOUT crossOrigin — always loads if server is up
-        // canvas drawImage still works, just toDataURL/toBlob would be tainted (we don't need those)
-        if (statusEl) statusEl.textContent = 'POLLINATIONS: DIRECT_LOAD...';
-        return _loadImg(url, false);
+            // Strategy 3: <img> without crossOrigin (always loads if server is up)
+            if (statusEl) statusEl.textContent = 'POLLINATIONS [' + label + ']: DIRECT...';
+            try {
+                return await _loadImg(url, false);
+            } catch(e) { lastErr = e; }
+        }
+
+        throw lastErr || new Error('ALL_ENDPOINTS_FAILED');
     }
 
     // Helper: load image via <img> tag with timeout
@@ -5796,8 +5821,8 @@ function endCallCleanup() {
             if (useCors) img.crossOrigin = 'anonymous';
             var timeout = setTimeout(function() {
                 img.onload = img.onerror = null;
-                reject(new Error('TIMEOUT_45s'));
-            }, 45000);
+                reject(new Error('TIMEOUT_60s'));
+            }, 60000);
             img.onload = function() {
                 clearTimeout(timeout);
                 if (img.naturalWidth > 0) resolve(img);
@@ -6290,18 +6315,31 @@ setTimeout(() => { if (!window.audioReactorActive) window.initAudioReactor(); },
 </script>
 
 <!-- 3D LOGO: offscreen WebGL canvas for Three.js rendering -->
-<canvas id="three-canvas" width="512" height="512" style="position:fixed;left:-9999px;top:0;pointer-events:none;"></canvas>
+<canvas id="three-canvas" width="512" height="512" style="position:fixed;left:0;top:0;width:1px;height:1px;opacity:0.01;pointer-events:none;z-index:-1;overflow:hidden;"></canvas>
 <script type="module">
-// === 3D LOGO PIPELINE — Lazy-loaded Three.js with multi-format support ===
+// === 3D LOGO PIPELINE ===
+// All loaders use .parse() (direct file read) — no fetch(), no service worker interference.
 let THREE = null;
 const _3D = { scene: null, camera: null, renderer: null, model: null, ready: false };
+const sysLog = (...a) => (window.log || console.log)(...a);
 
 async function ensure3D() {
     if (_3D.ready) return;
-    THREE = await import('three');
+    // Try primary CDN, fallback to secondary
+    try {
+        THREE = await import('three');
+    } catch (e1) {
+        sysLog('3D_INIT: CDN1_FAIL — trying fallback...');
+        try {
+            THREE = await import('https://unpkg.com/three@0.162.0/build/three.module.js');
+        } catch (e2) {
+            sysLog('3D_INIT: ALL_CDN_FAILED — check network');
+            throw e2;
+        }
+    }
 
     const canvas = document.getElementById('three-canvas');
-    if (!canvas) return;
+    if (!canvas) { sysLog('3D_INIT: CANVAS_NOT_FOUND'); return; }
 
     _3D.scene = new THREE.Scene();
     _3D.camera = new THREE.PerspectiveCamera(40, 1, 0.1, 1000);
@@ -6313,20 +6351,21 @@ async function ensure3D() {
         antialias: true,
         preserveDrawingBuffer: true
     });
-    _3D.renderer.setSize(512, 512);
+    _3D.renderer.setSize(512, 512, false); // false = don't override CSS style
     _3D.renderer.setClearColor(0x000000, 0);
 
     // HUD-themed lighting
-    _3D.scene.add(new THREE.AmbientLight(0x334455, 0.8));
-    const key = new THREE.DirectionalLight(0x00ffcc, 1.0);
+    _3D.scene.add(new THREE.AmbientLight(0x445566, 1.0));
+    const key = new THREE.DirectionalLight(0x00ffcc, 1.2);
     key.position.set(3, 4, 5); _3D.scene.add(key);
-    const fill = new THREE.DirectionalLight(0x0088ff, 0.4);
+    const fill = new THREE.DirectionalLight(0x0088ff, 0.5);
     fill.position.set(-3, -1, 2); _3D.scene.add(fill);
     const rim = new THREE.DirectionalLight(0xff3300, 0.3);
     rim.position.set(0, -3, -3); _3D.scene.add(rim);
 
     _3D.ready = true;
     window._three = _3D;
+    sysLog('3D_INIT: WEBGL_OK');
 }
 
 function clearModel() {
@@ -6351,33 +6390,46 @@ function centerAndScale(obj) {
     obj.position.sub(box2.getCenter(new THREE.Vector3()));
 }
 
+function ensureNormals(obj) {
+    obj.traverse(child => {
+        if (child.isMesh && child.geometry && !child.geometry.attributes.normal) {
+            child.geometry.computeVertexNormals();
+        }
+    });
+}
+
 function applyHUDMaterial(obj) {
     const mat = new THREE.MeshPhongMaterial({
         color: 0x00ddaa, emissive: 0x003322, specular: 0x00ffcc,
         shininess: 80, transparent: true, opacity: 0.85, side: THREE.DoubleSide
     });
     obj.traverse(child => {
-        if (child.isMesh && !child.material.map) child.material = mat;
+        if (child.isMesh) {
+            if (!child.geometry.attributes.normal) child.geometry.computeVertexNormals();
+            if (!child.material.map) child.material = mat;
+        }
     });
 }
 
-// --- FORMAT LOADERS (lazy-imported on first use) ---
+// --- FORMAT LOADERS — all use .parse() (no network fetch) ---
 
-async function loadOBJ(url) {
+async function loadOBJ(file) {
     const { OBJLoader } = await import('three/addons/loaders/OBJLoader.js');
-    return new Promise((resolve, reject) => new OBJLoader().load(url, resolve, undefined, reject));
+    const text = await file.text();
+    return new OBJLoader().parse(text);
 }
 
-async function loadFBX(url) {
+async function loadFBX(file) {
     const { FBXLoader } = await import('three/addons/loaders/FBXLoader.js');
-    return new Promise((resolve, reject) => new FBXLoader().load(url, resolve, undefined, reject));
+    const buf = await file.arrayBuffer();
+    return new FBXLoader().parse(buf, '');
 }
 
-async function loadSTL(url) {
+async function loadSTL(file) {
     const { STLLoader } = await import('three/addons/loaders/STLLoader.js');
-    return new Promise((resolve, reject) => {
-        new STLLoader().load(url, geom => resolve(new THREE.Mesh(geom)), undefined, reject);
-    });
+    const buf = await file.arrayBuffer();
+    const geom = new STLLoader().parse(buf);
+    return new THREE.Mesh(geom);
 }
 
 async function loadAMF(file) {
@@ -6497,44 +6549,48 @@ if (fileInput3d) {
 
         const file = e.target.files[0];
         const ext = file.name.split('.').pop().toLowerCase();
-        const sysLog = window.log || console.log;
 
-        sysLog('3D_LOAD: ' + file.name.toUpperCase());
-        await ensure3D();
+        sysLog('3D_LOAD: ' + file.name.toUpperCase() + ' (' + (file.size / 1024).toFixed(0) + 'KB)');
+
+        try {
+            await ensure3D();
+        } catch (_) { return; }
+
         clearModel();
-
-        const url = URL.createObjectURL(file);
 
         try {
             let model;
             switch (ext) {
-                case 'obj': model = await loadOBJ(url); break;
-                case 'fbx': model = await loadFBX(url); break;
-                case 'stl': model = await loadSTL(url); break;
+                case 'obj': model = await loadOBJ(file); break;
+                case 'fbx': model = await loadFBX(file); break;
+                case 'stl': model = await loadSTL(file); break;
                 case 'amf': model = await loadAMF(file); break;
                 case 'igs': case 'iges': model = await loadIGES(file); break;
                 default: throw new Error('UNSUPPORTED_FORMAT: ' + ext.toUpperCase());
             }
 
+            ensureNormals(model);
             centerAndScale(model);
             if (ext !== 'igs' && ext !== 'iges') applyHUDMaterial(model);
 
             _3D.model = model;
             _3D.scene.add(model);
             window.APP.trinity.logo3d.visible = true;
+
+            // Force one immediate render to confirm it works
+            _3D.renderer.render(_3D.scene, _3D.camera);
             sysLog('3D_LOGO: OK (' + ext.toUpperCase() + ')');
         } catch (err) {
             sysLog('3D_ERR: ' + (err.message || err));
+            console.error('3D LOAD ERROR:', err);
         }
 
-        URL.revokeObjectURL(url);
         fileInput3d.value = '';
     });
 }
 
 if (btn3dX) {
     btn3dX.addEventListener('click', () => {
-        const sysLog = window.log || console.log;
         if (window.APP.trinity.logo3d.visible) {
             window.APP.trinity.logo3d.visible = false;
             sysLog('3D_LOGO: HIDDEN');
