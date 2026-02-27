@@ -14,7 +14,7 @@
 <script src="https://unpkg.com/peerjs@1.5.2/dist/peerjs.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/ethers/5.7.2/ethers.umd.min.js"></script>
 <script src="src/Compositor.js"></script>
-<script type="importmap">{"imports":{"three":"./src/three/three.module.min.js","three/addons/":"./src/three/"}}</script>
+<!-- importmap removed: Three.js loaded JIT via ignite3DEngine() -->
     <style>
         @import url('https://fonts.googleapis.com/css2?family=Orbitron:wght@400;600;800;900&family=JetBrains+Mono:wght@300;400;500&family=Bebas+Neue&family=Russo+One&display=swap');
         
@@ -1620,8 +1620,103 @@ const APP = {
 
 
     // LEXICA_NANO
-    neural: { generating: false, lastImage: null }
+    neural: { generating: false, lastImage: null },
+
+    // JIT STATE TRACKER — prevents double-boot of subsystems
+    status: {
+        is3DActive: false,
+        is3DLoaded: false,
+        isMidiActive: false,
+        isAudioActive: false,
+        isAIActive: false,
+        booted: false
+    }
 };
+
+// ═══════════════════════════════════════════════════════════════════
+// JIT BOOT SEQUENCE — UI and sysLog first, heavy engines deferred
+// ═══════════════════════════════════════════════════════════════════
+function bootSequence() {
+    if (APP.status.booted) return;
+    APP.status.booted = true;
+
+    const bootMessages = [
+        'SYS: CORE ONLINE',
+        'SYS: CANVAS COMPOSITOR [STANDBY]',
+        'SYS: 3D ENGINE [STANDBY]',
+        'SYS: MIDI INTERFACE [STANDBY]',
+        'SYS: AI GENERATOR [STANDBY]',
+        'SYS: P2P NETWORK [STANDBY]'
+    ];
+
+    bootMessages.forEach(function(msg, i) {
+        setTimeout(function() { log(msg); }, i * 180);
+    });
+}
+
+// ── ignite3DEngine: JIT Three.js loader via CDN ──
+// Called on first 3D upload or toggle — injects script tag once, then initialises WebGL
+function ignite3DEngine() {
+    return new Promise(function(resolve, reject) {
+        if (APP.status.is3DLoaded) { resolve(); return; }
+        APP.status.is3DLoaded = true;
+        log('3D_ENGINE: LOADING CDN...');
+
+        // Inject Three.js ES module shim via importmap dynamically
+        var script = document.createElement('script');
+        script.type = 'importmap';
+        script.textContent = JSON.stringify({
+            imports: {
+                'three': 'https://unpkg.com/three@0.160.0/build/three.module.js',
+                'three/addons/': 'https://unpkg.com/three@0.160.0/examples/jsm/'
+            }
+        });
+        document.head.appendChild(script);
+
+        // Give the importmap a tick to register, then resolve
+        setTimeout(function() {
+            log('3D_ENGINE: ACTIVATED [CDN OK]');
+            APP.status.is3DActive = true;
+            resolve();
+        }, 100);
+    });
+}
+
+// ── igniteMIDI: lazy MIDI activation (user-gesture gated) ──
+async function igniteMIDI() {
+    if (APP.status.isMidiActive) return APP.midi.access;
+    if (!navigator.requestMIDIAccess) {
+        log('MIDI: NOT_SUPPORTED');
+        alert('WebMIDI not supported in this browser. Try Chrome or Edge.');
+        return null;
+    }
+    try {
+        log('MIDI: REQUESTING HARDWARE ACCESS...');
+        const midiAccess = await navigator.requestMIDIAccess({ sysex: false });
+        APP.midi.access = midiAccess;
+        APP.status.isMidiActive = true;
+        log('MIDI: HARDWARE CONNECTED');
+        return midiAccess;
+    } catch (err) {
+        log('MIDI: ACCESS_DENIED (' + err.message + ')');
+        alert('MIDI access was denied. Check browser permissions.');
+        return null;
+    }
+}
+
+// ── igniteAudio: lazy AudioContext creation (user-gesture gated) ──
+function igniteAudio() {
+    if (APP.status.isAudioActive && APP.audio.ctx) return APP.audio.ctx;
+    try {
+        APP.audio.ctx = new (window.AudioContext || window.webkitAudioContext)({ sampleRate: 48000 });
+        APP.status.isAudioActive = true;
+        log('AUDIO: CONTEXT ACTIVE [' + APP.audio.ctx.sampleRate + 'Hz]');
+        return APP.audio.ctx;
+    } catch (err) {
+        log('AUDIO: CONTEXT_FAIL (' + err.message + ')');
+        return null;
+    }
+}
 
 // GHOST TERMINAL
 function ghostLog(msg, type = 'cmd') {
@@ -3731,7 +3826,8 @@ document.addEventListener('DOMContentLoaded', () => {
     // ── FX CLEANUP: purge stale effect classes from prior session ──
     document.body.classList.remove('fx-void', 'fx-lucy', 'fx-scan', 'fx-tear', 'fx-punch');
 
-    log('DRIS//core_VNGRD_v23.5');
+    // ── JIT BOOT: UI + sysLog first, heavy engines deferred ──
+    bootSequence();
 
     // ── PHASE 0: CRITICAL — UI frame must render immediately ──
     checkMobile(); initCanvas(); ghostInit(); loadFromMemory();
@@ -3748,19 +3844,16 @@ document.addEventListener('DOMContentLoaded', () => {
 
     // ── PHASE 1 (1s): COMPOSITOR + LAYERS — let UI settle first ──
     setTimeout(() => {
-        log('BOOT: COMPOSITOR');
+        log('SYS: CANVAS COMPOSITOR [ACTIVE]');
         initCompositor();
         portalCamPreview();
         checkLayerReadiness();
         initSummonerLogic();
     }, 1000);
 
-    // ── PHASE 2 (2s): EXTERNAL I/O — MIDI probe ──
-    setTimeout(() => {
-        log('BOOT: PERIPHERALS');
-        autoInitMIDI();
-    }, 2000);
-    
+    // ── PHASE 2: MIDI/AUDIO deferred to user gesture (JIT) ──
+    // autoInitMIDI() removed — igniteMIDI() runs on btn-midi click
+
     // Wire UI
     $('btn-init-cam').onclick = initCamera; $('btn-go-live').onclick = goLive; $('btn-end').onclick = endLive; $('btn-kill').onclick = killCamera;
     
@@ -3827,7 +3920,7 @@ document.addEventListener('DOMContentLoaded', () => {
     $('btn-lt-off').onclick = () => { hideLowerThird(); sendUISync('LOWER_THIRD', { action: 'hide' }); };
     $('lt-title').oninput = e => { if (APP.lowerThird.visible) { $('lt-title-text').textContent = e.target.value; sendUISync('LOWER_THIRD', { action: 'show', preset: APP.lowerThird.preset, title: $('lt-title-text').textContent, subtitle: $('lt-subtitle-text').textContent }); } };
     $('lt-sub').oninput = e => { if (APP.lowerThird.visible) { $('lt-subtitle-text').textContent = e.target.value; sendUISync('LOWER_THIRD', { action: 'show', preset: APP.lowerThird.preset, title: $('lt-title-text').textContent, subtitle: $('lt-subtitle-text').textContent }); } };
-    $('btn-audio').onclick = () => $('file-audio').click(); $('file-audio').onchange = e => loadAudioFiles(e.target);
+    $('btn-audio').onclick = () => { igniteAudio(); $('file-audio').click(); }; $('file-audio').onchange = e => loadAudioFiles(e.target);
 
     $('btn-mute-vid').onclick = () => {
         APP.audio.videoMuted = !APP.audio.videoMuted;
@@ -4039,17 +4132,13 @@ document.addEventListener('DOMContentLoaded', () => {
         osc.stop(APP.midi.synthCtx.currentTime + 0.5);
     }
     
-    // --- MIDI CONTROLLER ---
+    // --- MIDI CONTROLLER (JIT — user gesture gated) ---
     $('btn-midi').onclick = async () => {
-        if (!navigator.requestMIDIAccess) {
-            log('WEBMIDI_NOT_SUPPORTED');
-            alert('WebMIDI not supported in this browser. Try Chrome or Edge.');
-            return;
-        }
-        
+        // Use igniteMIDI() for lazy, user-gesture-safe activation
+        const midiAccess = await igniteMIDI();
+        if (!midiAccess) return;
+
         try {
-            const midiAccess = await navigator.requestMIDIAccess({ sysex: false });
-            APP.midi.access = midiAccess;
             APP.midi.inputs = [];
             APP.midi.outputs = [];
             
@@ -5868,6 +5957,7 @@ function endCallCleanup() {
             var label = 'AI_' + prompt.substring(0, 20).replace(/\s+/g, '_');
             await injectAIImage(result, label);
             if (status) { status.textContent = provider.name + ' → MEDIA DECK'; status.style.color = 'var(--g)'; }
+            log('AI_GEN: CORS BYPASS OK -> RENDERING');
             log('NEURAL: ' + provider.name + '_INJECTED');
         } catch (err) {
             log('NEURAL: ' + provider.name + '_FAIL (' + err.message + ')');
@@ -6310,23 +6400,28 @@ window.initAudioReactor = function() {
     renderLoop();
 };
 
-// Auto-init the bass reactor engine when audio is ready
-setTimeout(() => { if (!window.audioReactorActive) window.initAudioReactor(); }, 3000);
+// Bass reactor deferred — only init when audio context is active (JIT)
+// Removed auto-init timer to prevent unnecessary AudioContext creation on load
 </script>
 
 <!-- 3D LOGO: offscreen WebGL canvas for Three.js rendering -->
 <canvas id="three-canvas" width="512" height="512" style="position:fixed;left:0;top:0;width:1px;height:1px;opacity:0.01;pointer-events:none;z-index:-1;overflow:hidden;"></canvas>
 <script type="module">
-// === 3D LOGO PIPELINE ===
+// === 3D LOGO PIPELINE (JIT CDN) ===
+// Three.js loaded on-demand from CDN — no importmap, no upfront cost.
 // All loaders use .parse() (direct file read) — no fetch(), no service worker interference.
+const CDN_BASE = 'https://unpkg.com/three@0.160.0';
 let THREE = null;
 const _3D = { scene: null, camera: null, renderer: null, model: null, ready: false };
 const sysLog = (...a) => (window.log || console.log)(...a);
 
 async function ensure3D() {
     if (_3D.ready) return;
-    // Self-hosted Three.js — no CDN dependency
-    THREE = await import('three');
+    // JIT CDN load — Three.js only fetched when first needed
+    if (!THREE) {
+        sysLog('3D_ENGINE: LOADING CDN...');
+        THREE = await import(CDN_BASE + '/build/three.module.js');
+    }
 
     const canvas = document.getElementById('three-canvas');
     if (!canvas) { sysLog('3D_INIT: CANVAS_NOT_FOUND'); return; }
@@ -6355,7 +6450,8 @@ async function ensure3D() {
 
     _3D.ready = true;
     window._three = _3D;
-    sysLog('3D_INIT: WEBGL_OK');
+    if (window.APP) window.APP.status.is3DActive = true;
+    sysLog('3D_ENGINE: ACTIVATED [CDN OK]');
 }
 
 function clearModel() {
@@ -6404,19 +6500,19 @@ function applyHUDMaterial(obj) {
 // --- FORMAT LOADERS — all use .parse() (no network fetch) ---
 
 async function loadOBJ(file) {
-    const { OBJLoader } = await import('three/addons/loaders/OBJLoader.js');
+    const { OBJLoader } = await import(CDN_BASE + '/examples/jsm/loaders/OBJLoader.js');
     const text = await file.text();
     return new OBJLoader().parse(text);
 }
 
 async function loadFBX(file) {
-    const { FBXLoader } = await import('three/addons/loaders/FBXLoader.js');
+    const { FBXLoader } = await import(CDN_BASE + '/examples/jsm/loaders/FBXLoader.js');
     const buf = await file.arrayBuffer();
     return new FBXLoader().parse(buf, '');
 }
 
 async function loadSTL(file) {
-    const { STLLoader } = await import('three/addons/loaders/STLLoader.js');
+    const { STLLoader } = await import(CDN_BASE + '/examples/jsm/loaders/STLLoader.js');
     const buf = await file.arrayBuffer();
     const geom = new STLLoader().parse(buf);
     return new THREE.Mesh(geom);
@@ -6582,12 +6678,13 @@ if (fileInput3d) {
 if (btn3dX) {
     btn3dX.addEventListener('click', () => {
         if (window.APP.trinity.logo3d.visible) {
+            // Toggle OFF — just hide, don't destroy (prevents double-boot on re-show)
             window.APP.trinity.logo3d.visible = false;
             sysLog('3D_LOGO: HIDDEN');
         } else if (_3D.model) {
-            clearModel();
-            window.APP.trinity.logo3d.visible = false;
-            sysLog('3D_LOGO: CLEARED');
+            // Model exists but hidden — toggle visibility back on (no reload)
+            window.APP.trinity.logo3d.visible = true;
+            sysLog('3D_LOGO: VISIBLE');
         }
     });
 }
