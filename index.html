@@ -15,7 +15,6 @@
 <script src="https://unpkg.com/peerjs@1.5.2/dist/peerjs.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/ethers/5.7.2/ethers.umd.min.js"></script>
 <script src="src/Compositor.js"></script>
-<!-- Three.js importmap — CDN URLs, no upfront network cost (resolved JIT on first import()) -->
 <script type="importmap">{"imports":{"three":"https://unpkg.com/three@0.160.0/build/three.module.js","three/addons/":"https://unpkg.com/three@0.160.0/examples/jsm/"}}</script>
     <style>
         @import url('https://fonts.googleapis.com/css2?family=Orbitron:wght@400;600;800;900&family=JetBrains+Mono:wght@300;400;500&family=Bebas+Neue&family=Russo+One&display=swap');
@@ -254,27 +253,21 @@
         #station-bug.hidden { opacity: 0; pointer-events: none; }
         #station-bug img { max-height: 60px; filter: drop-shadow(0 0 10px var(--accent)); }
         
-      #user-logo-layer { 
-    /* POSITION & SCALE */
-    position: absolute; 
-    top: 30px; 
-    right: 30px; 
-    z-index: 2550; 
-    max-width: 150px; 
-    max-height: 100px; 
-    object-fit: contain; 
-    transform-origin: top right;
-    display: none;
-    cursor: move;
-    pointer-events: auto !important;
+      #user-logo-layer {
+    /* POSITION & SCALE — offscreen parking; canvas drawImage reads pixel data directly.
+       Visibility is controlled by APP.trinity.logo.visible in the render loop,
+       NOT by display:none (which kills Chrome's GIF frame decoder). */
+    position: absolute;
+    top: 0;
+    left: 0;
+    z-index: -1;
+    pointer-events: none;
 
-    /* SURGICAL CLEANUP: NO GLOW, NO BOX */
+    /* SURGICAL CLEANUP: NO GLOW, NO BOX, NO FILTERS
+       filter: drop-shadow freezes GIF animation in Chromium compositor layers */
     background: transparent !important;
     border: none !important;
     box-shadow: none !important;
-
-    /* REPLACED: Professional depth instead of blue neon */
-    filter: drop-shadow(2px 2px 4px rgba(0,0,0,0.8)) !important;
 }
         
 
@@ -495,12 +488,16 @@
         /* Collapsible bodies: collapsed by default; JS restores padding on open */
         #session-lab-body, #p2p-call-body, #midi-host-body, #nft-vault-body, #lexica-nano-body { max-height: 0; overflow: hidden; transition: max-height 0.3s ease; padding: 0 12px; }
         /* GIF-HOST: near-invisible container that keeps GIF decoding alive.
-           - opacity:0.01 (NOT 0) — Chrome stops GIF frame advance at opacity:0
-           - overflow:visible lets <img> render at natural size for drawImage
-           - NO will-change/translateZ on img — GPU promotion freezes GIF frame advance
-           - NO clip-path: Chrome halts GIF animation on clipped elements */
+           RULES FOR ANIMATED GIF SURVIVAL IN CHROMIUM:
+           1. opacity > 0 (NOT 0) — Chrome stops GIF frame advance at opacity:0
+           2. display: block (NOT none) — display:none kills the GIF decoder entirely
+           3. NO filter: drop-shadow/blur — forces rasterization, freezes frame
+           4. NO crossOrigin on blob: URLs — tainted canvas + frame freeze
+           5. NO clip-path — Chrome halts GIF animation on clipped elements
+           6. overflow:visible — lets img render at natural size for drawImage
+           7. will-change:auto on img — avoid GPU layer promotion that can freeze frames */
         #gif-host { position: fixed; top: 0; left: 0; width: 1px; height: 1px; overflow: visible; opacity: 0.01; pointer-events: none; z-index: 0; }
-        #gif-host img { position: absolute; display: block; width: auto !important; height: auto !important; max-width: none; pointer-events: none; }
+        #gif-host img { position: absolute; display: block !important; width: auto !important; height: auto !important; max-width: none; pointer-events: none; }
         
         /* VNGRD BUTTONS - DIGITAL SNAP */
         .btn {
@@ -1625,24 +1622,16 @@ const APP = {
     neural: { generating: false, lastImage: null },
 
     // JIT STATE TRACKER — prevents double-boot of subsystems
-    status: {
-        is3DActive: false,
-        is3DLoaded: false,
-        isMidiActive: false,
-        isAudioActive: false,
-        isAIActive: false,
-        booted: false
-    }
+    status: { is3DActive: false, isMidiActive: false, isAudioActive: false, booted: false }
 };
 
 // ═══════════════════════════════════════════════════════════════════
-// JIT BOOT SEQUENCE — UI and sysLog first, heavy engines deferred
+// JIT BOOT SEQUENCE — cascading sysLog on load
 // ═══════════════════════════════════════════════════════════════════
 function bootSequence() {
     if (APP.status.booted) return;
     APP.status.booted = true;
-
-    const bootMessages = [
+    var msgs = [
         'SYS: CORE ONLINE',
         'SYS: CANVAS COMPOSITOR [STANDBY]',
         'SYS: 3D ENGINE [STANDBY]',
@@ -1650,10 +1639,7 @@ function bootSequence() {
         'SYS: AI GENERATOR [STANDBY]',
         'SYS: P2P NETWORK [STANDBY]'
     ];
-
-    bootMessages.forEach(function(msg, i) {
-        setTimeout(function() { log(msg); }, i * 180);
-    });
+    msgs.forEach(function(m, i) { setTimeout(function() { log(m); }, i * 180); });
 }
 
 // ── igniteMIDI: lazy MIDI activation (user-gesture gated) ──
@@ -1661,19 +1647,16 @@ async function igniteMIDI() {
     if (APP.status.isMidiActive) return APP.midi.access;
     if (!navigator.requestMIDIAccess) {
         log('MIDI: NOT_SUPPORTED');
-        alert('WebMIDI not supported in this browser. Try Chrome or Edge.');
         return null;
     }
     try {
-        log('MIDI: REQUESTING HARDWARE ACCESS...');
-        const midiAccess = await navigator.requestMIDIAccess({ sysex: false });
-        APP.midi.access = midiAccess;
+        var access = await navigator.requestMIDIAccess({ sysex: false });
+        APP.midi.access = access;
         APP.status.isMidiActive = true;
         log('MIDI: HARDWARE CONNECTED');
-        return midiAccess;
+        return access;
     } catch (err) {
         log('MIDI: ACCESS_DENIED (' + err.message + ')');
-        alert('MIDI access was denied. Check browser permissions.');
         return null;
     }
 }
@@ -1687,7 +1670,7 @@ function igniteAudio() {
         log('AUDIO: CONTEXT ACTIVE [' + APP.audio.ctx.sampleRate + 'Hz]');
         return APP.audio.ctx;
     } catch (err) {
-        log('AUDIO: CONTEXT_FAIL (' + err.message + ')');
+        log('AUDIO: CONTEXT_FAIL');
         return null;
     }
 }
@@ -1803,14 +1786,6 @@ function processGhostCommand(cmd) {
                                 } else if (name.match(/\.(jpg|jpeg|png|gif)$/i)) {
                                     const img = new Image();
                                     img.src = url;
-                                    // EXIF-correct dimensions for mobile photos
-                                    img.onload = function() {
-                                        createImageBitmap(img).then(function(bmp) {
-                                            img._effectiveWidth = bmp.width;
-                                            img._effectiveHeight = bmp.height;
-                                            bmp.close();
-                                        }).catch(function() {});
-                                    };
                                     // Must be in DOM so browser's GIF decoder advances frames
                                     var _gh = document.getElementById('gif-host');
                                     if (_gh) _gh.appendChild(img);
@@ -2216,7 +2191,7 @@ function renderLoop(timestamp) {
         if (ready) {
             // --- VIEWPORT-FIT: object-fit:contain logic for canvas ---
             // Computes centered, aspect-ratio-preserving draw rect (no stretching)
-            // Uses _effectiveWidth/_effectiveHeight (EXIF-correct) when available
+            // _effectiveWidth/_effectiveHeight = EXIF-corrected (mobile photo orientation)
             var srcW = source.videoWidth || source._effectiveWidth || source.naturalWidth || w;
             var srcH = source.videoHeight || source._effectiveHeight || source.naturalHeight || h;
             var srcAR = srcW / srcH;
@@ -2681,8 +2656,13 @@ if ($('file-2d-logo')) {
             const url = URL.createObjectURL(file);
             const logoLayer = $('user-logo-layer');
             if (logoLayer) {
+                // SCRUB all Chrome GIF-freeze attributes before assigning blob URL
+                logoLayer.removeAttribute('crossOrigin');
+                logoLayer.removeAttribute('crossorigin');
+                logoLayer.style.display = 'block';
+                logoLayer.style.filter = 'none';
+                logoLayer.style.willChange = 'auto';
                 logoLayer.src = url;
-                logoLayer.style.display = 'block'; // gif-host CSS handles size + compositing
             }
             APP.trinity.logo.visible = true;
             log('2D_LOGO: ' + file.name.toUpperCase());
@@ -2697,17 +2677,16 @@ if ($('btn-2d-x')) {
     $('btn-2d-x').onclick = () => {
         const logoLayer = $('user-logo-layer');
         if (!logoLayer) return;
-        
+
         if (APP.trinity.logo.visible) {
-            // Visible -> Hidden
+            // Visible -> Hidden (canvas stops drawing, but element stays alive for GIF decoder)
             APP.trinity.logo.visible = false;
-            logoLayer.style.display = 'none';
             log('2D_LOGO: HIDDEN');
         } else if (logoLayer.src && logoLayer.src !== window.location.href) {
-            // Hidden -> Clear
+            // Hidden -> Clear (revoke blob URL to free memory)
             APP.trinity.logo.visible = false;
-            logoLayer.src = '';
-            logoLayer.style.display = 'none';
+            if (logoLayer.src.startsWith('blob:')) URL.revokeObjectURL(logoLayer.src);
+            logoLayer.removeAttribute('src');
             log('2D_LOGO: CLEARED');
         }
     };
@@ -2728,22 +2707,24 @@ function loadMediaFiles(input) {
             // createObjectURL = native blob ref for GIF animation.
             // gif-host is a direct child of <body> (position:fixed, opacity:0.01).
             // Browser compositor keeps it alive → GIF frames advance each tick.
-            const img = new Image();
+            const img = document.createElement('img');
+            // SCRUB Chrome GIF-freeze attributes BEFORE setting src
+            img.removeAttribute('crossOrigin');
+            img.style.display = 'block';
+            img.style.filter = 'none';
             img.src = url;
             item.element = img;
             var host = $('gif-host');
             if (host) host.appendChild(img);
-            // Detect EXIF-correct dimensions via createImageBitmap
-            // (mobile photos report pre-rotation naturalWidth/Height — causes stretched draws)
+            // Detect EXIF-correct dimensions (mobile photo orientation)
             img.onload = function() {
-                createImageBitmap(img).then(function(bmp) {
-                    img._effectiveWidth = bmp.width;
-                    img._effectiveHeight = bmp.height;
-                    bmp.close();
-                }).catch(function() {
-                    img._effectiveWidth = img.naturalWidth;
-                    img._effectiveHeight = img.naturalHeight;
-                });
+                if (typeof createImageBitmap === 'function') {
+                    createImageBitmap(img).then(function(bmp) {
+                        img._effectiveWidth = bmp.width;
+                        img._effectiveHeight = bmp.height;
+                        bmp.close();
+                    }).catch(function() {});
+                }
                 if (isFirstLoad && idx === 0) {
                     log('MEDIA: READY [' + file.name + '] ' + img.naturalWidth + 'x' + img.naturalHeight);
                     rotateMedia();
@@ -3818,7 +3799,6 @@ document.addEventListener('DOMContentLoaded', () => {
     // ── FX CLEANUP: purge stale effect classes from prior session ──
     document.body.classList.remove('fx-void', 'fx-lucy', 'fx-scan', 'fx-tear', 'fx-punch');
 
-    // ── JIT BOOT: UI + sysLog first, heavy engines deferred ──
     bootSequence();
 
     // ── PHASE 0: CRITICAL — UI frame must render immediately ──
@@ -3836,7 +3816,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
     // ── PHASE 1 (1s): COMPOSITOR + LAYERS — let UI settle first ──
     setTimeout(() => {
-        log('SYS: CANVAS COMPOSITOR [ACTIVE]');
+        log('BOOT: COMPOSITOR');
         initCompositor();
         portalCamPreview();
         checkLayerReadiness();
@@ -3844,8 +3824,7 @@ document.addEventListener('DOMContentLoaded', () => {
     }, 1000);
 
     // ── PHASE 2: MIDI/AUDIO deferred to user gesture (JIT) ──
-    // autoInitMIDI() removed — igniteMIDI() runs on btn-midi click
-
+    
     // Wire UI
     $('btn-init-cam').onclick = initCamera; $('btn-go-live').onclick = goLive; $('btn-end').onclick = endLive; $('btn-kill').onclick = killCamera;
     
@@ -4126,7 +4105,6 @@ document.addEventListener('DOMContentLoaded', () => {
     
     // --- MIDI CONTROLLER (JIT — user gesture gated) ---
     $('btn-midi').onclick = async () => {
-        // Use igniteMIDI() for lazy, user-gesture-safe activation
         const midiAccess = await igniteMIDI();
         if (!midiAccess) return;
 
@@ -5939,7 +5917,6 @@ function endCallCleanup() {
             var label = 'AI_' + prompt.substring(0, 20).replace(/\s+/g, '_');
             await injectAIImage(result, label);
             if (status) { status.textContent = provider.name + ' → MEDIA DECK'; status.style.color = 'var(--g)'; }
-            log('AI_GEN: CORS BYPASS OK -> RENDERING');
             log('NEURAL: ' + provider.name + '_INJECTED');
         } catch (err) {
             log('NEURAL: ' + provider.name + '_FAIL (' + err.message + ')');
@@ -6382,15 +6359,14 @@ window.initAudioReactor = function() {
     renderLoop();
 };
 
-// Bass reactor deferred — only init when audio context is active (JIT)
-// Removed auto-init timer to prevent unnecessary AudioContext creation on load
+// Auto-init the bass reactor engine when audio is ready
+setTimeout(() => { if (!window.audioReactorActive) window.initAudioReactor(); }, 3000);
 </script>
 
 <!-- 3D LOGO: offscreen WebGL canvas for Three.js rendering -->
 <canvas id="three-canvas" width="512" height="512" style="position:fixed;left:0;top:0;width:1px;height:1px;opacity:0.01;pointer-events:none;z-index:-1;overflow:hidden;"></canvas>
 <script type="module">
-// === 3D LOGO PIPELINE (JIT CDN) ===
-// Three.js resolved via importmap → CDN. No network cost until first import().
+// === 3D LOGO PIPELINE ===
 // All loaders use .parse() (direct file read) — no fetch(), no service worker interference.
 let THREE = null;
 const _3D = { scene: null, camera: null, renderer: null, model: null, ready: false };
@@ -6398,11 +6374,8 @@ const sysLog = (...a) => (window.log || console.log)(...a);
 
 async function ensure3D() {
     if (_3D.ready) return;
-    // JIT: Three.js CDN only fetched on first 3D use
-    if (!THREE) {
-        sysLog('3D_ENGINE: LOADING CDN...');
-        THREE = await import('three');
-    }
+    // Self-hosted Three.js — no CDN dependency
+    THREE = await import('three');
 
     const canvas = document.getElementById('three-canvas');
     if (!canvas) { sysLog('3D_INIT: CANVAS_NOT_FOUND'); return; }
@@ -6431,8 +6404,7 @@ async function ensure3D() {
 
     _3D.ready = true;
     window._three = _3D;
-    if (window.APP) window.APP.status.is3DActive = true;
-    sysLog('3D_ENGINE: ACTIVATED [CDN OK]');
+    sysLog('3D_INIT: WEBGL_OK');
 }
 
 function clearModel() {
@@ -6659,13 +6631,12 @@ if (fileInput3d) {
 if (btn3dX) {
     btn3dX.addEventListener('click', () => {
         if (window.APP.trinity.logo3d.visible) {
-            // Toggle OFF — just hide, don't destroy (prevents double-boot on re-show)
             window.APP.trinity.logo3d.visible = false;
             sysLog('3D_LOGO: HIDDEN');
         } else if (_3D.model) {
-            // Model exists but hidden — toggle visibility back on (no reload)
-            window.APP.trinity.logo3d.visible = true;
-            sysLog('3D_LOGO: VISIBLE');
+            clearModel();
+            window.APP.trinity.logo3d.visible = false;
+            sysLog('3D_LOGO: CLEARED');
         }
     });
 }
@@ -6676,7 +6647,7 @@ if (btn3dX) {
          position:fixed children, trapping them inside overflow:hidden.
          At body level, position:fixed is relative to the viewport. -->
     <div id="gif-host">
-        <img id="user-logo-layer" src="" alt="Logo" style="display:none;">
+        <img id="user-logo-layer" alt="Logo">
     </div>
 </body>
 </html>
