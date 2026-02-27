@@ -23,22 +23,21 @@ self.addEventListener('activate', (e) => {
 });
 
 // 3. Fetch Event — Network First with Cache Fallback (same-origin only)
-// External API calls (Pollinations, Binance, Alchemy, etc.) pass through untouched.
+// External APIs (Pollinations, Binance, Alchemy, etc.) pass through untouched.
 self.addEventListener('fetch', (e) => {
-    // Skip non-HTTP(S) schemes — blob: and data: URLs must be handled by the browser
     if (!e.request.url.startsWith('http')) return;
 
     // Only cache same-origin requests — never intercept external APIs
-    const url = new URL(e.request.url);
+    var url = new URL(e.request.url);
     if (url.origin !== self.location.origin) return;
 
     e.respondWith(
         fetch(e.request)
-            .then((response) => response)
-            .catch(() =>
-                caches.match(e.request).then((cached) =>
-                    cached || new Response('Offline', { status: 503, statusText: 'Service Unavailable' })
-                )
-            )
+            .then(function(r) { return r; })
+            .catch(function() {
+                return caches.match(e.request).then(function(cached) {
+                    return cached || new Response('Offline', { status: 503, statusText: 'Service Unavailable' });
+                });
+            })
     );
 });
