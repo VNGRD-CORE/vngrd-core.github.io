@@ -14,7 +14,8 @@
 <script src="https://unpkg.com/peerjs@1.5.2/dist/peerjs.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/ethers/5.7.2/ethers.umd.min.js"></script>
 <script src="src/Compositor.js"></script>
-<!-- importmap removed: Three.js loaded JIT via ignite3DEngine() -->
+<!-- Three.js importmap — CDN URLs, no upfront network cost (resolved JIT on first import()) -->
+<script type="importmap">{"imports":{"three":"https://unpkg.com/three@0.160.0/build/three.module.js","three/addons/":"https://unpkg.com/three@0.160.0/examples/jsm/"}}</script>
     <style>
         @import url('https://fonts.googleapis.com/css2?family=Orbitron:wght@400;600;800;900&family=JetBrains+Mono:wght@300;400;500&family=Bebas+Neue&family=Russo+One&display=swap');
         
@@ -495,10 +496,10 @@
         /* GIF-HOST: near-invisible container that keeps GIF decoding alive.
            - opacity:0.01 (NOT 0) — Chrome stops GIF frame advance at opacity:0
            - overflow:visible lets <img> render at natural size for drawImage
-           - will-change:transform on img = dedicated GPU compositor layer
+           - NO will-change/translateZ on img — GPU promotion freezes GIF frame advance
            - NO clip-path: Chrome halts GIF animation on clipped elements */
         #gif-host { position: fixed; top: 0; left: 0; width: 1px; height: 1px; overflow: visible; opacity: 0.01; pointer-events: none; z-index: 0; }
-        #gif-host img { position: absolute; display: block; width: auto !important; height: auto !important; max-width: none; pointer-events: none; will-change: transform; transform: translateZ(0); }
+        #gif-host img { position: absolute; display: block; width: auto !important; height: auto !important; max-width: none; pointer-events: none; }
         
         /* VNGRD BUTTONS - DIGITAL SNAP */
         .btn {
@@ -1654,34 +1655,6 @@ function bootSequence() {
     });
 }
 
-// ── ignite3DEngine: JIT Three.js loader via CDN ──
-// Called on first 3D upload or toggle — injects script tag once, then initialises WebGL
-function ignite3DEngine() {
-    return new Promise(function(resolve, reject) {
-        if (APP.status.is3DLoaded) { resolve(); return; }
-        APP.status.is3DLoaded = true;
-        log('3D_ENGINE: LOADING CDN...');
-
-        // Inject Three.js ES module shim via importmap dynamically
-        var script = document.createElement('script');
-        script.type = 'importmap';
-        script.textContent = JSON.stringify({
-            imports: {
-                'three': 'https://unpkg.com/three@0.160.0/build/three.module.js',
-                'three/addons/': 'https://unpkg.com/three@0.160.0/examples/jsm/'
-            }
-        });
-        document.head.appendChild(script);
-
-        // Give the importmap a tick to register, then resolve
-        setTimeout(function() {
-            log('3D_ENGINE: ACTIVATED [CDN OK]');
-            APP.status.is3DActive = true;
-            resolve();
-        }, 100);
-    });
-}
-
 // ── igniteMIDI: lazy MIDI activation (user-gesture gated) ──
 async function igniteMIDI() {
     if (APP.status.isMidiActive) return APP.midi.access;
@@ -1829,6 +1802,14 @@ function processGhostCommand(cmd) {
                                 } else if (name.match(/\.(jpg|jpeg|png|gif)$/i)) {
                                     const img = new Image();
                                     img.src = url;
+                                    // EXIF-correct dimensions for mobile photos
+                                    img.onload = function() {
+                                        createImageBitmap(img).then(function(bmp) {
+                                            img._effectiveWidth = bmp.width;
+                                            img._effectiveHeight = bmp.height;
+                                            bmp.close();
+                                        }).catch(function() {});
+                                    };
                                     // Must be in DOM so browser's GIF decoder advances frames
                                     var _gh = document.getElementById('gif-host');
                                     if (_gh) _gh.appendChild(img);
@@ -2234,8 +2215,9 @@ function renderLoop(timestamp) {
         if (ready) {
             // --- VIEWPORT-FIT: object-fit:contain logic for canvas ---
             // Computes centered, aspect-ratio-preserving draw rect (no stretching)
-            var srcW = source.videoWidth || source.naturalWidth || w;
-            var srcH = source.videoHeight || source.naturalHeight || h;
+            // Uses _effectiveWidth/_effectiveHeight (EXIF-correct) when available
+            var srcW = source.videoWidth || source._effectiveWidth || source.naturalWidth || w;
+            var srcH = source.videoHeight || source._effectiveHeight || source.naturalHeight || h;
             var srcAR = srcW / srcH;
             var canvasAR = w / h;
             var drawW, drawH, drawX, drawY;
@@ -2750,13 +2732,22 @@ function loadMediaFiles(input) {
             item.element = img;
             var host = $('gif-host');
             if (host) host.appendChild(img);
-            // Wait for decode before first display — drawImage silently fails on unloaded images
-            if (isFirstLoad && idx === 0) {
-                img.onload = function() {
+            // Detect EXIF-correct dimensions via createImageBitmap
+            // (mobile photos report pre-rotation naturalWidth/Height — causes stretched draws)
+            img.onload = function() {
+                createImageBitmap(img).then(function(bmp) {
+                    img._effectiveWidth = bmp.width;
+                    img._effectiveHeight = bmp.height;
+                    bmp.close();
+                }).catch(function() {
+                    img._effectiveWidth = img.naturalWidth;
+                    img._effectiveHeight = img.naturalHeight;
+                });
+                if (isFirstLoad && idx === 0) {
                     log('MEDIA: READY [' + file.name + '] ' + img.naturalWidth + 'x' + img.naturalHeight);
                     rotateMedia();
-                };
-            }
+                }
+            };
         }
         APP.media.queue.push(item);
         // Only auto-rotate for videos (images wait for onload above)
@@ -6408,19 +6399,18 @@ window.initAudioReactor = function() {
 <canvas id="three-canvas" width="512" height="512" style="position:fixed;left:0;top:0;width:1px;height:1px;opacity:0.01;pointer-events:none;z-index:-1;overflow:hidden;"></canvas>
 <script type="module">
 // === 3D LOGO PIPELINE (JIT CDN) ===
-// Three.js loaded on-demand from CDN — no importmap, no upfront cost.
+// Three.js resolved via importmap → CDN. No network cost until first import().
 // All loaders use .parse() (direct file read) — no fetch(), no service worker interference.
-const CDN_BASE = 'https://unpkg.com/three@0.160.0';
 let THREE = null;
 const _3D = { scene: null, camera: null, renderer: null, model: null, ready: false };
 const sysLog = (...a) => (window.log || console.log)(...a);
 
 async function ensure3D() {
     if (_3D.ready) return;
-    // JIT CDN load — Three.js only fetched when first needed
+    // JIT: Three.js CDN only fetched on first 3D use
     if (!THREE) {
         sysLog('3D_ENGINE: LOADING CDN...');
-        THREE = await import(CDN_BASE + '/build/three.module.js');
+        THREE = await import('three');
     }
 
     const canvas = document.getElementById('three-canvas');
@@ -6500,19 +6490,19 @@ function applyHUDMaterial(obj) {
 // --- FORMAT LOADERS — all use .parse() (no network fetch) ---
 
 async function loadOBJ(file) {
-    const { OBJLoader } = await import(CDN_BASE + '/examples/jsm/loaders/OBJLoader.js');
+    const { OBJLoader } = await import('three/addons/loaders/OBJLoader.js');
     const text = await file.text();
     return new OBJLoader().parse(text);
 }
 
 async function loadFBX(file) {
-    const { FBXLoader } = await import(CDN_BASE + '/examples/jsm/loaders/FBXLoader.js');
+    const { FBXLoader } = await import('three/addons/loaders/FBXLoader.js');
     const buf = await file.arrayBuffer();
     return new FBXLoader().parse(buf, '');
 }
 
 async function loadSTL(file) {
-    const { STLLoader } = await import(CDN_BASE + '/examples/jsm/loaders/STLLoader.js');
+    const { STLLoader } = await import('three/addons/loaders/STLLoader.js');
     const buf = await file.arrayBuffer();
     const geom = new STLLoader().parse(buf);
     return new THREE.Mesh(geom);
