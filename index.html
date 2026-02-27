@@ -5,6 +5,7 @@
     <meta http-equiv="Content-Security-Policy" content="default-src * 'unsafe-inline' 'unsafe-eval' data: blob:; img-src * data: blob: 'unsafe-inline'; connect-src * 'unsafe-inline';">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <meta name="theme-color" content="#000000">
+    <meta name="mobile-web-app-capable" content="yes">
     <meta name="apple-mobile-web-app-capable" content="yes">
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
     <link rel="manifest" href="manifest.json">
@@ -5760,9 +5761,8 @@ function endCallCleanup() {
             width: 1024, height: 1024, steps: 28, cfg_scale: 7
         },
         pollinations: {
-            url: 'https://image.pollinations.ai/prompt/',
-            altUrl: 'https://gen.pollinations.ai/image/',
-            width: 1024, height: 1024, model: 'flux'
+            url: 'https://gen.pollinations.ai/image/',
+            width: 1024, height: 1024, model: ''
         }
     };
     window.AI_CONFIG = AI_CONFIG;
@@ -5846,52 +5846,43 @@ function endCallCleanup() {
         return URL.createObjectURL(new Blob([ab], { type: 'image/png' }));
     }
 
-    // Provider: Pollinations.ai — dual-endpoint with 3-strategy fallback
+    // Provider: Pollinations.ai — gen.pollinations.ai unified endpoint (Feb 2026)
     async function generatePollinations(prompt) {
         var cfg = AI_CONFIG.pollinations;
         var seed = Math.floor(Math.random() * 999999);
         var params = '?width=' + cfg.width + '&height=' + cfg.height + '&seed=' + seed;
         if (cfg.model) params += '&model=' + cfg.model;
-        // Try new endpoint first, then legacy
-        var urls = [
-            (cfg.altUrl || 'https://gen.pollinations.ai/image/') + encodeURIComponent(prompt) + params,
-            cfg.url + encodeURIComponent(prompt) + params
-        ];
+        var url = cfg.url + encodeURIComponent(prompt) + params;
         var statusEl = $('ai-status');
         var lastErr = null;
 
-        for (var ui = 0; ui < urls.length; ui++) {
-            var url = urls[ui];
-            var label = ui === 0 ? 'GEN_API' : 'IMG_API';
-
-            // Strategy 1: fetch() — fastest when CORS headers present
-            try {
-                if (statusEl) statusEl.textContent = 'POLLINATIONS [' + label + ']: FETCHING...';
-                var controller = new AbortController();
-                var timer = setTimeout(function() { controller.abort(); }, 60000);
-                var res = await fetch(url, { signal: controller.signal });
-                clearTimeout(timer);
-                if (res.ok) {
-                    var blob = await res.blob();
-                    if (blob.size > 1000 && blob.type.startsWith('image/')) {
-                        return URL.createObjectURL(blob);
-                    }
+        // Strategy 1: fetch() — fastest when CORS headers present
+        try {
+            if (statusEl) statusEl.textContent = 'POLLINATIONS: FETCHING...';
+            var controller = new AbortController();
+            var timer = setTimeout(function() { controller.abort(); }, 90000);
+            var res = await fetch(url, { signal: controller.signal });
+            clearTimeout(timer);
+            if (res.ok) {
+                var blob = await res.blob();
+                if (blob.size > 1000 && blob.type.startsWith('image/')) {
+                    return URL.createObjectURL(blob);
                 }
-            } catch(e) { lastErr = e; }
+            }
+        } catch(e) { lastErr = e; }
 
-            // Strategy 2: <img> with crossOrigin
-            if (statusEl) statusEl.textContent = 'POLLINATIONS [' + label + ']: IMG_LOAD...';
-            var img2result = await _loadImg(url, true).catch(function(e) { lastErr = e; return null; });
-            if (img2result) return img2result;
+        // Strategy 2: <img> with crossOrigin (canvas-safe)
+        if (statusEl) statusEl.textContent = 'POLLINATIONS: IMG_LOAD...';
+        var img2result = await _loadImg(url, true).catch(function(e) { lastErr = e; return null; });
+        if (img2result) return img2result;
 
-            // Strategy 3: <img> without crossOrigin (always loads if server is up)
-            if (statusEl) statusEl.textContent = 'POLLINATIONS [' + label + ']: DIRECT...';
-            try {
-                return await _loadImg(url, false);
-            } catch(e) { lastErr = e; }
-        }
+        // Strategy 3: <img> without crossOrigin (always loads if server is up)
+        if (statusEl) statusEl.textContent = 'POLLINATIONS: DIRECT...';
+        try {
+            return await _loadImg(url, false);
+        } catch(e) { lastErr = e; }
 
-        throw lastErr || new Error('ALL_ENDPOINTS_FAILED');
+        throw lastErr || new Error('POLLINATIONS_FAILED');
     }
 
     // Helper: load image via <img> tag with timeout
