@@ -5095,24 +5095,11 @@ $('btn-call-guest').onclick = async () => {
             // 3. Handle the stream when it arrives
             handleCallStream(call);
 
-            // 4. Establish reverse Data Channel so answerer can also send UI sync
-            const dataConn = APP.peer.peer.connect(call.peer);
-            dataConn.on('open', () => {
-                APP.peer.dataConn = dataConn;
-                log('DATA_CHANNEL: OPEN TO ' + call.peer);
-            });
-            dataConn.on('data', (data) => {
-                try {
-                    const msg = typeof data === 'string' ? JSON.parse(data) : data;
-                    if (msg.type === 'UI_SYNC') handleUISync(msg);
-                } catch (e) {
-                    log('DATA_CHANNEL: PARSE_ERR');
-                }
-            });
-            dataConn.on('close', () => {
-                log('DATA_CHANNEL: CLOSED');
-                if (APP.peer.dataConn === dataConn) APP.peer.dataConn = null;
-            });
+            // 4. Data channel: the caller already did peer.connect() which
+            // triggers our peer.on('connection') handler — that sets
+            // APP.peer.dataConn for bidirectional send/receive. No reverse
+            // connect needed (creating one causes a race that overwrites
+            // the working connection).
 
             // 5. Cleanup UI
             APP.peer.incomingCall = null; // Clear staging
