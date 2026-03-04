@@ -1115,6 +1115,7 @@ body.fx-nvg #stage::after {
 .anim-hard-reset {
     animation: crt-collapse 0.55s ease-in-out;
 }</style>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
 </head>
 <body oncontextmenu="return false;">
     <!-- PORTRAIT ORIENTATION LOCK -->
@@ -1423,6 +1424,8 @@ body.fx-nvg #stage::after {
                 <div class="lbl" style="font-size:8px;margin-bottom:4px;">YOUR_CALL_ID:</div>
                 <input type="text" class="inp" id="peer-id-display" readonly placeholder="CLICK_INIT_TO_GET_ID..." style="font-size:9px;text-align:center;color:var(--g);">
                 <button class="btn" id="btn-copy-id" style="font-size:8px;margin-bottom:6px;">COPY_ID</button>
+                <div id="qr-container" style="margin-top: 10px; padding: 10px; background: white; display: none; border-radius: 8px; width: fit-content;"></div>
+                <button id="btn-copy-link" style="margin-top: 10px; padding: 8px 16px; background: var(--main-color, #333); color: white; border: none; border-radius: 4px; cursor: pointer; display: none; font-family: inherit; font-size: 8px;">COPY_INVITE_LINK</button>
                 <div class="lbl" style="font-size:8px;margin-bottom:4px;">GUEST_ID_TO_CALL:</div>
                 <input type="text" class="inp" id="remote-peer-id" placeholder="PASTE_GUEST_ID..." style="font-size:9px;">
                 <div class="btn-row" style="margin-top:6px;">
@@ -4994,6 +4997,45 @@ $('btn-init-peer').onclick = () => {
             $('call-status').textContent = 'READY TO CALL';
             $('call-status').style.color = 'var(--g)';
             log('PEER: ' + id);
+
+            // --- MAGIC LINK: QR Code + Copy Button ---
+            var inviteLink = window.location.origin + window.location.pathname + '?guest=' + id;
+
+            // Render QR Code
+            var qrContainer = $('qr-container');
+            if (qrContainer && typeof QRCode !== 'undefined') {
+                qrContainer.innerHTML = '';
+                new QRCode(qrContainer, { text: inviteLink, width: 128, height: 128 });
+                qrContainer.style.display = 'inline-block';
+            }
+
+            // Wire Copy Invite Link button
+            var btnCopy = $('btn-copy-link');
+            if (btnCopy) {
+                btnCopy.style.display = 'inline-block';
+                btnCopy.onclick = () => {
+                    navigator.clipboard.writeText(inviteLink).then(() => {
+                        var orig = btnCopy.textContent;
+                        btnCopy.textContent = 'COPIED!';
+                        setTimeout(() => { btnCopy.textContent = orig; }, 2000);
+                    }).catch(() => { log('CLIPBOARD: COPY FAILED'); });
+                };
+            }
+
+            // --- AUTO-JOIN: Check URL for ?guest= parameter ---
+            var params = new URLSearchParams(window.location.search);
+            var guestTarget = params.get('guest');
+            if (guestTarget) {
+                var remoteInput = $('remote-peer-id');
+                if (remoteInput) remoteInput.value = guestTarget;
+                log('AUTO_JOIN: Connecting to ' + guestTarget + ' in 1.5s...');
+                $('call-status').textContent = 'AUTO-CONNECTING...';
+                $('call-status').style.color = 'var(--y)';
+                setTimeout(() => {
+                    var btnCall = $('btn-call-guest');
+                    if (btnCall) btnCall.click();
+                }, 1500);
+            }
         });
         
         APP.peer.peer.on('error', (err) => {
@@ -5019,8 +5061,9 @@ $('btn-init-peer').onclick = () => {
             btnCall.style.borderColor = 'var(--g)';
             btnCall.style.color = 'var(--g)';
             
-            // 4. Play a ring sound if you have one (optional)
-            // new Audio('assets/ring.mp3').play().catch(e => {});
+            // 4. Play ringtone
+            var rt = $('ringtone');
+            if (rt) { rt.currentTime = 0; rt.play().catch(e => {}); }
         });
 
         // --- INCOMING DATA CONNECTION (Guest Side) ---
@@ -5073,6 +5116,9 @@ $('btn-call-guest').onclick = async () => {
     // SCENARIO A: ANSWERING AN INCOMING CALL
     if (APP.peer.incomingCall) {
         try {
+            // Stop ringtone
+            var rt = $('ringtone');
+            if (rt) { rt.pause(); rt.currentTime = 0; }
             log('ANSWERING CALL...');
             $('call-status').textContent = 'CONNECTING...';
 
@@ -5205,6 +5251,9 @@ function handleCallStream(call) {
 }
 
 $('btn-hangup').onclick = () => {
+    // Stop ringtone
+    var rt = $('ringtone');
+    if (rt) { rt.pause(); rt.currentTime = 0; }
     if (APP.peer && APP.peer.call) {
         APP.peer.call.close();
     }
@@ -6722,5 +6771,6 @@ if (btn3dX) {
     <div id="gif-host">
         <img id="user-logo-layer" alt="Logo">
     </div>
+    <audio id="ringtone" loop src="https://assets.mixkit.co/active_storage/sfx/2870/2870-preview.mp3"></audio>
 </body>
 </html>
