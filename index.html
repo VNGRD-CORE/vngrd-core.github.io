@@ -1181,7 +1181,27 @@ body.fx-nvg #stage::after {
         </div>
         <div id="status-bar">
             <div id="wallet-badge" class="badge" style="cursor:pointer;border-color:var(--o);color:var(--o);"><span class="dot off" id="wallet-dot"></span>WALLET</div>
-            <div id="btn-open-p2p-modal" class="badge" style="cursor:pointer;border-color:var(--c);color:var(--c);margin-left:10px;"><span class="dot off" id="p2p-dot"></span>P2P</div>
+            <div id="p2p-anchor" style="position:relative;display:inline-block;margin-left:10px;">
+                <div id="btn-open-p2p-modal" class="badge" style="cursor:pointer;border-color:var(--c);color:var(--c);"><span class="dot off" id="p2p-dot"></span>&#9742; P2P CALL</div>
+                <div id="p2p-modal" style="display:none;position:absolute;top:calc(100% + 6px);left:50%;transform:translateX(-50%);background:rgba(12,12,12,0.97);border:1px solid var(--c,#0ff);padding:14px 16px;z-index:1000;border-radius:6px;box-shadow:0 8px 24px rgba(0,0,0,0.85);min-width:240px;width:260px;">
+                    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px;">
+                        <span style="font-size:10px;letter-spacing:2px;color:var(--c,#0ff);font-family:inherit;text-transform:uppercase;">&#9742; P2P_E2E_CALL</span>
+                        <button id="btn-close-p2p-modal" style="background:none;border:1px solid var(--text-dim,#555);color:var(--text-dim,#999);cursor:pointer;font-size:14px;line-height:1;padding:2px 7px;border-radius:4px;font-family:inherit;">&times;</button>
+                    </div>
+                    <div class="lbl" style="font-size:8px;margin-bottom:4px;">YOUR_CALL_ID:</div>
+                    <input type="text" class="inp" id="peer-id-display" readonly placeholder="CLICK_INIT_TO_GET_ID..." style="font-size:9px;text-align:center;color:var(--g);">
+                    <button class="btn" id="btn-copy-id" style="font-size:8px;margin-bottom:6px;">COPY_ID</button>
+                    <div class="lbl" style="font-size:8px;margin-bottom:4px;">GUEST_ID_TO_CALL:</div>
+                    <input type="text" class="inp" id="remote-peer-id" placeholder="PASTE_GUEST_ID..." style="font-size:9px;">
+                    <div class="btn-row" style="margin-top:6px;">
+                        <button class="btn" id="btn-init-peer" style="color:var(--g)">INIT</button>
+                        <button class="btn" id="btn-call-guest" style="color:var(--c)">CALL</button>
+                    </div>
+                    <button class="btn" id="btn-hangup" style="color:var(--r);border-color:var(--r);">END_CALL</button>
+                    <div id="call-status" style="font-size:8px;color:var(--text-dim);margin-top:4px;text-align:center;">NOT_CONNECTED</div>
+                    <div class="sec-dot off" id="guest-dot" style="margin-top:8px;"></div>
+                </div>
+            </div>
             <div id="rec-status">REC</div>
             
             <div class="badge" id="fps-badge">FPS: <span id="fps-val">60</span></div>
@@ -1418,27 +1438,7 @@ body.fx-nvg #stage::after {
         </div>
 
 
-        <!-- P2P controls moved to #p2p-modal -->
-
-        <!-- P2P MODAL (hidden by default, triggered by header P2P badge) -->
-        <div id="p2p-modal" style="position:fixed;top:50%;left:50%;transform:translate(-50%,-50%);background:rgba(15,15,15,0.95);border:1px solid var(--main-color,#333);padding:20px;z-index:1000;display:none;border-radius:8px;box-shadow:0 10px 30px rgba(0,0,0,0.8);min-width:280px;max-width:360px;width:90vw;">
-            <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px;">
-                <span style="font-size:10px;letter-spacing:2px;color:var(--main-color,#0ff);font-family:inherit;text-transform:uppercase;">P2P_E2E_CALL</span>
-                <button id="btn-close-p2p-modal" style="background:none;border:1px solid var(--text-dim,#555);color:var(--text-dim,#999);cursor:pointer;font-size:14px;line-height:1;padding:2px 7px;border-radius:4px;font-family:inherit;">&times;</button>
-            </div>
-            <div class="lbl" style="font-size:8px;margin-bottom:4px;">YOUR_CALL_ID:</div>
-            <input type="text" class="inp" id="peer-id-display" readonly placeholder="CLICK_INIT_TO_GET_ID..." style="font-size:9px;text-align:center;color:var(--g);">
-            <button class="btn" id="btn-copy-id" style="font-size:8px;margin-bottom:6px;">COPY_ID</button>
-            <div class="lbl" style="font-size:8px;margin-bottom:4px;">GUEST_ID_TO_CALL:</div>
-            <input type="text" class="inp" id="remote-peer-id" placeholder="PASTE_GUEST_ID..." style="font-size:9px;">
-            <div class="btn-row" style="margin-top:6px;">
-                <button class="btn" id="btn-init-peer" style="color:var(--g)">INIT</button>
-                <button class="btn" id="btn-call-guest" style="color:var(--c)">CALL</button>
-            </div>
-            <button class="btn" id="btn-hangup" style="color:var(--r);border-color:var(--r);">END_CALL</button>
-            <div id="call-status" style="font-size:8px;color:var(--text-dim);margin-top:4px;text-align:center;">NOT_CONNECTED</div>
-            <div class="sec-dot off" id="guest-dot" style="margin-top:8px;"></div>
-        </div>
+        <!-- P2P controls moved to dropdown in header #p2p-anchor -->
 
         <div class="section">
             <div class="sec-head"><span class="sec-title">THEME</span><div class="sec-dot"></div></div>
@@ -4955,9 +4955,17 @@ const resetP2PButtons = () => {
     if (APP.peer) APP.peer.incomingCall = null;
 };
 
-// ═══ P2P MODAL TOGGLE ═══
-$('btn-open-p2p-modal').onclick = () => { $('p2p-modal').style.display = 'block'; };
+// ═══ P2P DROPDOWN TOGGLE ═══
+$('btn-open-p2p-modal').onclick = (e) => {
+    e.stopPropagation();
+    var dd = $('p2p-modal');
+    dd.style.display = dd.style.display === 'none' ? 'block' : 'none';
+};
 $('btn-close-p2p-modal').onclick = () => { $('p2p-modal').style.display = 'none'; };
+document.addEventListener('click', (e) => {
+    var dd = $('p2p-modal');
+    if (dd.style.display !== 'none' && !$('p2p-anchor').contains(e.target)) dd.style.display = 'none';
+});
 
 $('btn-init-peer').onclick = () => {
     if (APP.peer && APP.peer.peer) {
