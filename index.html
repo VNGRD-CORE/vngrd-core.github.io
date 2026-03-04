@@ -4935,6 +4935,49 @@ const resetP2PButtons = () => {
     if (APP.peer) APP.peer.incomingCall = null;
 };
 
+// ═══ P2P RING TONE (Web Audio API) ═══
+var _p2pRing = { ctx: null, osc: null, gain: null, interval: null };
+function startP2PRing() {
+    stopP2PRing();
+    try {
+        var ctx = new (window.AudioContext || window.webkitAudioContext)();
+        var gain = ctx.createGain();
+        gain.gain.value = 0;
+        gain.connect(ctx.destination);
+        _p2pRing.ctx = ctx;
+        _p2pRing.gain = gain;
+        // Ring pattern: 440Hz tone pulsing on/off every 0.6s
+        var on = false;
+        function pulse() {
+            if (on) {
+                // silence
+                if (_p2pRing.osc) { _p2pRing.osc.stop(); _p2pRing.osc = null; }
+                gain.gain.value = 0;
+                on = false;
+            } else {
+                // tone
+                var osc = ctx.createOscillator();
+                osc.type = 'sine';
+                osc.frequency.value = 440;
+                osc.connect(gain);
+                osc.start();
+                _p2pRing.osc = osc;
+                gain.gain.setValueAtTime(0, ctx.currentTime);
+                gain.gain.linearRampToValueAtTime(0.15, ctx.currentTime + 0.05);
+                on = true;
+            }
+        }
+        pulse(); // start with tone on
+        _p2pRing.interval = setInterval(pulse, 600);
+    } catch (e) { /* silent fail */ }
+}
+function stopP2PRing() {
+    if (_p2pRing.interval) { clearInterval(_p2pRing.interval); _p2pRing.interval = null; }
+    if (_p2pRing.osc) { try { _p2pRing.osc.stop(); } catch(e){} _p2pRing.osc = null; }
+    if (_p2pRing.ctx) { try { _p2pRing.ctx.close(); } catch(e){} _p2pRing.ctx = null; }
+    _p2pRing.gain = null;
+}
+
 // ═══ P2P FLOATING PANEL: TOGGLE / MINIMIZE / DRAG (mouse + touch) ═══
 $('btn-open-p2p-modal').onclick = () => {
     var p = $('p2p-modal');
@@ -5055,7 +5098,14 @@ $('btn-init-peer').onclick = () => {
             // 2. Update UI to "Ringing" Mode
             $('call-status').textContent = 'RINGING... (' + call.peer + ')';
             $('call-status').style.color = 'var(--y)'; // Yellow for caution
-            
+
+            // 2b. Auto-open the P2P panel so user sees incoming call
+            $('p2p-modal').style.display = 'block';
+            $('p2p-body').style.display = '';
+
+            // 2c. Play ring tone
+            startP2PRing();
+
             // 3. Turn the "CALL" button into an "ACCEPT" button
             const btnCall = $('btn-call-guest');
             btnCall.textContent = 'ACCEPT CALL';
@@ -5164,6 +5214,7 @@ $('btn-call-guest').onclick = async () => {
     try {
         $('call-status').textContent = 'CALLING...';
         $('call-status').style.color = 'var(--y)';
+        startP2PRing();
 
         const audioConstraints = APP.inputDevices.selectedId
             ? { deviceId: { exact: APP.inputDevices.selectedId }, echoCancellation: true, noiseSuppression: true, autoGainControl: true }
@@ -5199,6 +5250,7 @@ $('btn-call-guest').onclick = async () => {
 
     } catch (e) {
         log('CALL_ERROR: ' + e.message);
+        stopP2PRing();
         $('call-status').textContent = 'FAILED: ' + e.message;
         $('call-status').style.color = 'var(--r)';
     }
@@ -5228,6 +5280,7 @@ function handleCallStream(call) {
         // iOS Safari requires explicit play() after srcObject assignment
         APP.guest.videoElement.play().catch(function(e) { log('GUEST_PLAY_ERR: ' + e.message); });
 
+        stopP2PRing();
         $('call-status').textContent = 'CONNECTED';
         $('call-status').style.color = 'var(--g)';
         $('btn-call-guest').textContent = 'CALL (ACTIVE)';
@@ -5336,6 +5389,7 @@ function handleUISync(msg) {
 }
 
 function endCallCleanup() {
+    stopP2PRing();
     if (APP.peer && APP.peer.localStream) {
         APP.peer.localStream.getTracks().forEach(t => t.stop());
     }
@@ -6767,7 +6821,7 @@ if (btn3dX) {
     </div>
 
     <!-- P2P FLOATING PANEL (draggable + minimizable) -->
-    <div id="p2p-modal" style="display:none;position:fixed;top:48px;left:16px;z-index:1000;width:260px;font-family:inherit;">
+    <div id="p2p-modal" style="display:none;position:fixed;top:52px;right:210px;z-index:5000;width:240px;font-family:inherit;">
         <!-- TITLE BAR (drag handle + controls) -->
         <div id="p2p-titlebar" style="display:flex;align-items:center;justify-content:space-between;background:rgba(20,20,20,0.98);border:1px solid var(--c,#0ff);border-bottom:none;border-radius:5px 5px 0 0;padding:5px 10px;cursor:grab;user-select:none;">
             <span style="font-size:9px;letter-spacing:1.5px;color:var(--c,#0ff);text-transform:uppercase;">&#9742; P2P CALL</span>
