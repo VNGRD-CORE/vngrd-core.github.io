@@ -1397,13 +1397,16 @@ body.fx-nvg #stage::after {
         <div class="section">
             <div class="sec-head collapsible"><span class="sec-title">SESSION_LAB</span><span class="sec-arrow">&#x25B8;</span><div class="sec-dot"></div></div>
             <div class="sec-body" id="session-lab-body">
+                <div class="lbl" style="font-size:7px;opacity:0.5;margin-bottom:2px;">CAPTURE / EXPORT</div>
                 <button class="btn rec" id="btn-nft-30">CAPTURE_VGD_CLIP</button>
-                <button class="btn" id="btn-save-session">SAVE_SESSION</button>
-                <button class="btn" id="btn-import-dna">IMPORT_VGD</button>
                 <div class="btn-row">
-                    <button class="btn" id="btn-projector">PROJECTOR</button>
-                    <button class="btn" id="btn-vr" style="color:var(--v)">ENTER_VR</button>
+                    <button class="btn" id="btn-save-session" style="flex:1;">SAVE_SESSION</button>
+                    <button class="btn" id="btn-import-dna" style="flex:1;">IMPORT_VGD</button>
                 </div>
+                <div style="border-top:1px solid rgba(255,255,255,0.06);margin:6px 0 4px;"></div>
+                <div class="lbl" style="font-size:7px;opacity:0.5;margin-bottom:2px;">OUTPUT</div>
+                <button class="btn" id="btn-projector" style="text-align:left;">PROJECTOR</button>
+                <button class="btn" id="btn-vr" style="color:var(--v);text-align:left;">ENTER_VR</button>
             </div>
         </div>
 
@@ -3447,14 +3450,41 @@ function finalizeNFT() {
     log('VGD_EXPORTED'); 
 }
 
-function openProjector() { 
-    if (APP.projector.isOpen) return; 
-    APP.projector.stream = APP.render.canvas.captureStream(60); 
-    APP.projector.window = window.open('', 'DRIS_Projector', 'width=1280,height=720,menubar=no,toolbar=no'); 
-    APP.projector.window.document.write('<!DOCTYPE html><html><body style="margin:0;background:#000;overflow:hidden"><video id="pf" autoplay muted playsinline style="width:100vw;height:100vh;object-fit:contain"></video><script>document.getElementById("pf").srcObject = window.opener.APP.projector.stream;<\/script></body></html>'); 
-    APP.projector.isOpen = true; 
-    $('btn-projector').classList.add('on'); 
-    log('PROJECTOR_OPEN'); 
+function openProjector() {
+    if (APP.projector.isOpen) {
+        // Toggle off
+        if (APP.projector.window && !APP.projector.window.closed) APP.projector.window.close();
+        APP.projector.isOpen = false;
+        APP.projector.stream = null;
+        $('btn-projector').classList.remove('on');
+        $('btn-projector').textContent = 'PROJECTOR';
+        log('PROJECTOR_CLOSED');
+        return;
+    }
+    if (!APP.render.canvas) { log('PROJECTOR: NO_CANVAS'); return; }
+    APP.projector.stream = APP.render.canvas.captureStream(60);
+    APP.projector.window = window.open('', 'DRIS_Projector', 'width=1280,height=720,menubar=no,toolbar=no');
+    if (!APP.projector.window) {
+        log('PROJECTOR: POPUP_BLOCKED — Allow popups for this site');
+        alert('Popup blocked. Please allow popups for this site and try again.');
+        return;
+    }
+    APP.projector.window.document.write('<!DOCTYPE html><html><head><title>DRIS // PROJECTOR</title></head><body style="margin:0;background:#000;overflow:hidden"><video id="pf" autoplay muted playsinline style="width:100vw;height:100vh;object-fit:contain"></video><script>document.getElementById("pf").srcObject = window.opener.APP.projector.stream;<\/script></body></html>');
+    APP.projector.isOpen = true;
+    $('btn-projector').classList.add('on');
+    $('btn-projector').textContent = 'PROJECTOR (ON)';
+    log('PROJECTOR_OPEN');
+    // Detect if user closes the projector window
+    var checkClosed = setInterval(function() {
+        if (!APP.projector.window || APP.projector.window.closed) {
+            clearInterval(checkClosed);
+            APP.projector.isOpen = false;
+            APP.projector.stream = null;
+            $('btn-projector').classList.remove('on');
+            $('btn-projector').textContent = 'PROJECTOR';
+            log('PROJECTOR_CLOSED');
+        }
+    }, 1000);
 }
 // --- KINETIC SNAP ENGINE ---
 function triggerIndustrialSnap(nextImageUrl) {
@@ -4387,16 +4417,21 @@ document.addEventListener('DOMContentLoaded', () => {
 
     // --- WebXR VR MODE ---
     $('btn-vr').onclick = async () => {
+        // Toggle off if already in VR
+        if (APP.vr && APP.vr.active && APP.vr.session) {
+            APP.vr.session.end();
+            return;
+        }
+
         if (!navigator.xr) {
             log('WEBXR_NOT_SUPPORTED');
             alert('WebXR not supported. Try a VR-capable browser like Oculus Browser, Firefox Reality, or Chrome with a VR headset.');
             return;
         }
-        
+
         try {
             const supported = await navigator.xr.isSessionSupported('immersive-vr');
             if (!supported) {
-                // Try inline mode for phones/cardboard
                 const inlineSupported = await navigator.xr.isSessionSupported('inline');
                 if (inlineSupported) {
                     log('VR: Inline mode available');
@@ -4407,67 +4442,76 @@ document.addEventListener('DOMContentLoaded', () => {
                 }
                 return;
             }
-            
+
             log('VR: Starting immersive session');
             $('btn-vr').classList.add('on');
-            $('btn-vr').textContent = 'EXIT VR';
-            
+            $('btn-vr').textContent = 'EXIT_VR';
+
             const session = await navigator.xr.requestSession('immersive-vr', {
                 requiredFeatures: ['local-floor'],
                 optionalFeatures: ['bounded-floor', 'hand-tracking']
             });
-            
-            APP.vr = { session, active: true };
-            
-            // Create WebGL context for VR
-            const canvas = document.createElement('canvas');
-            const gl = canvas.getContext('webgl2', { xrCompatible: true });
-            
+
+            APP.vr = { session: session, active: true };
+
+            // Create WebGL2 context for VR
+            const vrCanvas = document.createElement('canvas');
+            const gl = vrCanvas.getContext('webgl2', { xrCompatible: true });
+            if (!gl) { log('VR: WebGL2 not available'); session.end(); return; }
+
             await gl.makeXRCompatible();
-            
             const baseLayer = new XRWebGLLayer(session, gl);
-            session.updateRenderState({ baseLayer });
-            
+            session.updateRenderState({ baseLayer: baseLayer });
             const refSpace = await session.requestReferenceSpace('local-floor');
-            
-            // VR render loop
+
+            // Build fullscreen-quad shader to blit VJ canvas into VR
+            var vsrc = 'attribute vec2 a;varying vec2 v;void main(){v=a*0.5+0.5;v.y=1.0-v.y;gl_Position=vec4(a,0,1);}';
+            var fsrc = 'precision mediump float;varying vec2 v;uniform sampler2D t;void main(){gl_FragColor=texture2D(t,v);}';
+            function makeShader(type, src) { var s = gl.createShader(type); gl.shaderSource(s, src); gl.compileShader(s); return s; }
+            var prog = gl.createProgram();
+            gl.attachShader(prog, makeShader(gl.VERTEX_SHADER, vsrc));
+            gl.attachShader(prog, makeShader(gl.FRAGMENT_SHADER, fsrc));
+            gl.linkProgram(prog);
+            gl.useProgram(prog);
+            var buf = gl.createBuffer();
+            gl.bindBuffer(gl.ARRAY_BUFFER, buf);
+            gl.bufferData(gl.ARRAY_BUFFER, new Float32Array([-1,-1, 1,-1, -1,1, -1,1, 1,-1, 1,1]), gl.STATIC_DRAW);
+            var aLoc = gl.getAttribLocation(prog, 'a');
+            gl.enableVertexAttribArray(aLoc);
+            gl.vertexAttribPointer(aLoc, 2, gl.FLOAT, false, 0, 0);
+            var tex = gl.createTexture();
+
+            // VR render loop — blit APP.render.canvas into each eye
             session.requestAnimationFrame(function vrLoop(time, frame) {
                 if (!APP.vr.active) return;
-                
                 session.requestAnimationFrame(vrLoop);
-                
-                const pose = frame.getViewerPose(refSpace);
-                if (pose) {
-                    gl.bindFramebuffer(gl.FRAMEBUFFER, baseLayer.framebuffer);
-                    
-                    for (const view of pose.views) {
-                        const viewport = baseLayer.getViewport(view);
-                        gl.viewport(viewport.x, viewport.y, viewport.width, viewport.height);
-                        
-                        // Draw the VJ canvas content to VR
-                        gl.clearColor(0, 0, 0, 1);
-                        gl.clear(gl.COLOR_BUFFER_BIT);
-                        
-                        // Copy canvas to WebGL texture
-                        const texture = gl.createTexture();
-                        gl.bindTexture(gl.TEXTURE_2D, texture);
-                        gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, gl.RGBA, gl.UNSIGNED_BYTE, APP.render.canvas);
-                        gl.drawArrays(gl.TRIANGLES, 0, 6);
-                    }
+                var pose = frame.getViewerPose(refSpace);
+                if (!pose) return;
+                gl.bindFramebuffer(gl.FRAMEBUFFER, baseLayer.framebuffer);
+                for (var i = 0; i < pose.views.length; i++) {
+                    var view = pose.views[i];
+                    var vp = baseLayer.getViewport(view);
+                    gl.viewport(vp.x, vp.y, vp.width, vp.height);
+                    gl.bindTexture(gl.TEXTURE_2D, tex);
+                    gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, gl.RGBA, gl.UNSIGNED_BYTE, APP.render.canvas);
+                    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.LINEAR);
+                    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE);
+                    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE);
+                    gl.drawArrays(gl.TRIANGLES, 0, 6);
                 }
             });
-            
+
             session.addEventListener('end', () => {
                 APP.vr.active = false;
                 $('btn-vr').classList.remove('on');
-                $('btn-vr').textContent = 'ENTER VR';
+                $('btn-vr').textContent = 'ENTER_VR';
                 log('VR: Session ended');
             });
-            
+
         } catch (e) {
             log('VR_ERROR: ' + e.message);
             $('btn-vr').classList.remove('on');
-            $('btn-vr').textContent = 'ENTER VR';
+            $('btn-vr').textContent = 'ENTER_VR';
         }
     };
 
@@ -4935,8 +4979,8 @@ const resetP2PButtons = () => {
     if (APP.peer) APP.peer.incomingCall = null;
 };
 
-// ═══ P2P RING TONE (Web Audio API) ═══
-var _p2pRing = { ctx: null, osc: null, gain: null, interval: null };
+// ═══ P2P RING TONE (Web Audio API) — Uplifting ascending arpeggio ═══
+var _p2pRing = { ctx: null, oscs: [], gain: null, timeout: null, active: false };
 function startP2PRing() {
     stopP2PRing();
     try {
@@ -4946,34 +4990,41 @@ function startP2PRing() {
         gain.connect(ctx.destination);
         _p2pRing.ctx = ctx;
         _p2pRing.gain = gain;
-        // Ring pattern: 440Hz tone pulsing on/off every 0.6s
-        var on = false;
-        function pulse() {
-            if (on) {
-                // silence
-                if (_p2pRing.osc) { _p2pRing.osc.stop(); _p2pRing.osc = null; }
-                gain.gain.value = 0;
-                on = false;
-            } else {
-                // tone
+        _p2pRing.active = true;
+        // Ascending arpeggio: C5 E5 G5 C6 — bright major chord
+        var notes = [523.25, 659.25, 783.99, 1046.50];
+        var noteLen = 0.15, gap = 0.05, vol = 0.12;
+        function playArpeggio() {
+            if (!_p2pRing.active) return;
+            var t = ctx.currentTime;
+            for (var i = 0; i < notes.length; i++) {
                 var osc = ctx.createOscillator();
+                var noteGain = ctx.createGain();
                 osc.type = 'sine';
-                osc.frequency.value = 440;
-                osc.connect(gain);
-                osc.start();
-                _p2pRing.osc = osc;
-                gain.gain.setValueAtTime(0, ctx.currentTime);
-                gain.gain.linearRampToValueAtTime(0.15, ctx.currentTime + 0.05);
-                on = true;
+                osc.frequency.value = notes[i];
+                osc.connect(noteGain);
+                noteGain.connect(gain);
+                var start = t + i * (noteLen + gap);
+                noteGain.gain.setValueAtTime(0, start);
+                noteGain.gain.linearRampToValueAtTime(vol, start + 0.02);
+                noteGain.gain.setValueAtTime(vol, start + noteLen - 0.03);
+                noteGain.gain.linearRampToValueAtTime(0, start + noteLen);
+                osc.start(start);
+                osc.stop(start + noteLen + 0.01);
+                _p2pRing.oscs.push(osc);
             }
+            gain.gain.setValueAtTime(1, t);
+            // Repeat after pause (arpeggio ~0.8s + 1.2s silence = 2s cycle)
+            _p2pRing.timeout = setTimeout(playArpeggio, 2000);
         }
-        pulse(); // start with tone on
-        _p2pRing.interval = setInterval(pulse, 600);
+        playArpeggio();
     } catch (e) { /* silent fail */ }
 }
 function stopP2PRing() {
-    if (_p2pRing.interval) { clearInterval(_p2pRing.interval); _p2pRing.interval = null; }
-    if (_p2pRing.osc) { try { _p2pRing.osc.stop(); } catch(e){} _p2pRing.osc = null; }
+    _p2pRing.active = false;
+    if (_p2pRing.timeout) { clearTimeout(_p2pRing.timeout); _p2pRing.timeout = null; }
+    _p2pRing.oscs.forEach(function(o) { try { o.stop(); } catch(e){} });
+    _p2pRing.oscs = [];
     if (_p2pRing.ctx) { try { _p2pRing.ctx.close(); } catch(e){} _p2pRing.ctx = null; }
     _p2pRing.gain = null;
 }
@@ -4991,7 +5042,15 @@ $('btn-open-p2p-modal').onclick = () => {
         p.style.display = 'none';
     }
 };
-$('btn-close-p2p-modal').onclick = () => { $('p2p-modal').style.display = 'none'; };
+$('btn-close-p2p-modal').onclick = () => {
+    // If there's an active call, end it fully for both sides
+    if (APP.peer && (APP.peer.call || APP.peer.incomingCall)) {
+        if (APP.peer.call) APP.peer.call.close();
+        if (APP.peer.incomingCall) { APP.peer.incomingCall.close(); }
+        endCallCleanup();
+    }
+    $('p2p-modal').style.display = 'none';
+};
 $('btn-min-p2p').onclick = () => {
     var body = $('p2p-body');
     var isMin = body.style.display === 'none';
@@ -5033,6 +5092,26 @@ $('btn-min-p2p').onclick = () => {
         e.preventDefault();
     }, { passive: false });
     document.addEventListener('touchend', endDrag);
+})();
+
+// Resize logic (mouse + touch)
+(function() {
+    var handle = $('p2p-resize'), panel = $('p2p-modal'), resizing = false, startW, startH, startX, startY;
+    function startResize(cx, cy, e) {
+        resizing = true; startW = panel.offsetWidth; startH = panel.offsetHeight; startX = cx; startY = cy;
+        e.preventDefault(); e.stopPropagation();
+    }
+    function moveResize(cx, cy) {
+        if (!resizing) return;
+        panel.style.width = Math.max(200, startW + (cx - startX)) + 'px';
+    }
+    function endResize() { resizing = false; }
+    handle.addEventListener('mousedown', function(e) { startResize(e.clientX, e.clientY, e); });
+    document.addEventListener('mousemove', function(e) { if (resizing) { moveResize(e.clientX, e.clientY); e.preventDefault(); } });
+    document.addEventListener('mouseup', endResize);
+    handle.addEventListener('touchstart', function(e) { var t = e.touches[0]; startResize(t.clientX, t.clientY, e); }, { passive: false });
+    document.addEventListener('touchmove', function(e) { if (resizing) { var t = e.touches[0]; moveResize(t.clientX, t.clientY); e.preventDefault(); } }, { passive: false });
+    document.addEventListener('touchend', endResize);
 })();
 
 $('btn-init-peer').onclick = () => {
@@ -6832,7 +6911,7 @@ if (btn3dX) {
             </span>
         </div>
         <!-- BODY (collapsible) -->
-        <div id="p2p-body" style="background:rgba(10,10,10,0.97);border:1px solid var(--c,#0ff);border-top:1px solid rgba(255,255,255,0.05);border-radius:0 0 5px 5px;padding:12px 12px 10px;">
+        <div id="p2p-body" style="position:relative;background:rgba(10,10,10,0.97);border:1px solid var(--c,#0ff);border-top:1px solid rgba(255,255,255,0.05);border-radius:0 0 5px 5px;padding:12px 12px 10px;">
             <div class="lbl" style="font-size:8px;margin-bottom:3px;opacity:0.6;">YOUR_ID</div>
             <input type="text" class="inp" id="peer-id-display" readonly placeholder="CLICK INIT..." style="font-size:9px;text-align:center;color:var(--g);padding:4px 6px;">
             <button class="btn" id="btn-copy-id" style="font-size:8px;padding:3px 8px;margin-bottom:6px;">COPY</button>
@@ -6845,6 +6924,10 @@ if (btn3dX) {
             </div>
             <div id="call-status" style="font-size:8px;color:var(--text-dim);margin-top:6px;text-align:center;">NOT_CONNECTED</div>
             <div class="sec-dot off" id="guest-dot" style="margin-top:4px;"></div>
+            <!-- Resize handle -->
+            <div id="p2p-resize" style="position:absolute;bottom:0;right:0;width:14px;height:14px;cursor:nwse-resize;opacity:0.4;" title="Resize">
+                <svg width="14" height="14" viewBox="0 0 14 14"><path d="M12 2L2 12M12 6L6 12M12 10L10 12" stroke="var(--c,#0ff)" stroke-width="1" fill="none"/></svg>
+            </div>
         </div>
     </div>
 
