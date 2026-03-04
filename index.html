@@ -2913,9 +2913,17 @@ function updateQueueDisplay() {
 // CAMERA
 async function initCamera() {
     try {
-        APP.camera.stream = await navigator.mediaDevices.getUserMedia({ video: { width: { ideal: 3840 }, height: { ideal: 2160 }, frameRate: { ideal: 60, min: 30 } }, audio: false });
+        // iOS Safari rejects 4K/60fps — use adaptive constraints with fallback
+        var constraints = { video: { width: { ideal: 1920 }, height: { ideal: 1080 }, frameRate: { ideal: 30 }, facingMode: 'user' }, audio: false };
+        try {
+            APP.camera.stream = await navigator.mediaDevices.getUserMedia(constraints);
+        } catch (_) {
+            // Fallback for strict mobile browsers
+            APP.camera.stream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: 'user' }, audio: false });
+        }
         APP.camera.videoEl = document.createElement('video');
         APP.camera.videoEl.srcObject = APP.camera.stream;
+        APP.camera.videoEl.setAttribute('playsinline', '');
         APP.camera.videoEl.muted = true; APP.camera.videoEl.playsInline = true; APP.camera.videoEl.play().catch(() => {});
         APP.camera.mode = 'preview';
         $('btn-init-cam').style.display = 'none';
@@ -2941,16 +2949,25 @@ $('btn-inject').onclick = () => {
     const btn = $('btn-inject');
     if (APP.loop.recorder && APP.loop.recorder.state === 'recording') { APP.loop.recorder.stop(); return; }
     APP.loop.chunks = [];
-    APP.loop.recorder = new MediaRecorder(APP.camera.stream, { mimeType: 'video/webm' }); 
+    // iOS Safari doesn't support video/webm — detect supported mimeType
+    var loopMime = 'video/webm';
+    if (typeof MediaRecorder !== 'undefined') {
+        if (MediaRecorder.isTypeSupported('video/webm;codecs=vp9')) loopMime = 'video/webm;codecs=vp9';
+        else if (MediaRecorder.isTypeSupported('video/webm')) loopMime = 'video/webm';
+        else if (MediaRecorder.isTypeSupported('video/mp4')) loopMime = 'video/mp4';
+    }
+    APP.loop.recorder = new MediaRecorder(APP.camera.stream, { mimeType: loopMime });
     APP.loop.recorder.ondataavailable = e => APP.loop.chunks.push(e.data);
     APP.loop.recorder.onstop = () => {
         clearInterval(APP.loop.timer);
-        const blob = new Blob(APP.loop.chunks, { type: 'video/webm' });
+        const blob = new Blob(APP.loop.chunks, { type: loopMime });
         if(APP.loop.activeUrl) URL.revokeObjectURL(APP.loop.activeUrl);
         APP.loop.activeUrl = URL.createObjectURL(blob);
         const vid = document.createElement('video');
         vid.src = APP.loop.activeUrl;
-        vid.muted = true; vid.loop = true; vid.play();
+        vid.setAttribute('playsinline', '');
+        vid.muted = true; vid.loop = true; vid.playsInline = true;
+        vid.play().catch(function() {});
         const item = { type: 'video', url: APP.loop.activeUrl, element: vid, name: 'LOOP_SAMPLE' };
         APP.media.queue.push(item);
         APP.media.currentIndex = APP.media.queue.length - 1;
@@ -4932,18 +4949,23 @@ $('btn-init-peer').onclick = () => {
         const peerId = 'VNGRD-' + Math.random().toString(36).substr(2, 8).toUpperCase();
         APP.peer = {
             peer: new Peer(peerId, {
+                host: '0.peerjs.com',
                 secure: true,
                 port: 443,
+                path: '/',
                 config: {
                     iceServers: [
                         { urls: 'stun:stun.l.google.com:19302' },
                         { urls: 'stun:stun1.l.google.com:19302' },
-                        { urls: 'stun:stun2.l.google.com:19302' },
                         { urls: 'stun:stun.cloudflare.com:3478' },
-                        // Metered TURN relay (free tier — needed for symmetric NAT / iOS cellular)
+                        // Metered TURN relay — needed for symmetric NAT / iOS cellular
                         { urls: 'turn:a.relay.metered.ca:80', username: 'e8dd65b92c0b8d40f3386771', credential: 'YxOlRjMTsPnEfMqy' },
                         { urls: 'turn:a.relay.metered.ca:80?transport=tcp', username: 'e8dd65b92c0b8d40f3386771', credential: 'YxOlRjMTsPnEfMqy' },
-                        { urls: 'turns:a.relay.metered.ca:443', username: 'e8dd65b92c0b8d40f3386771', credential: 'YxOlRjMTsPnEfMqy' }
+                        { urls: 'turns:a.relay.metered.ca:443', username: 'e8dd65b92c0b8d40f3386771', credential: 'YxOlRjMTsPnEfMqy' },
+                        // OpenRelay TURN backup (free, no signup)
+                        { urls: 'turn:openrelay.metered.ca:80', username: 'openrelayproject', credential: 'openrelayproject' },
+                        { urls: 'turn:openrelay.metered.ca:443', username: 'openrelayproject', credential: 'openrelayproject' },
+                        { urls: 'turn:openrelay.metered.ca:443?transport=tcp', username: 'openrelayproject', credential: 'openrelayproject' }
                     ],
                     iceTransportPolicy: 'all',
                     iceCandidatePoolSize: 2
@@ -5044,13 +5066,13 @@ $('btn-call-guest').onclick = async () => {
             log('ANSWERING CALL...');
             $('call-status').textContent = 'CONNECTING...';
 
-            // 1. Get Local Media (Now allowed because user clicked button)
+            // 1. Get Local Media — facingMode required for iOS Safari
             const audioConstraints = APP.inputDevices.selectedId
                 ? { deviceId: { exact: APP.inputDevices.selectedId }, echoCancellation: true, noiseSuppression: true, autoGainControl: true }
                 : { echoCancellation: true, noiseSuppression: true, autoGainControl: true };
 
             const stream = await navigator.mediaDevices.getUserMedia({
-                video: true,
+                video: { facingMode: 'user', width: { ideal: 1280 }, height: { ideal: 720 } },
                 audio: audioConstraints
             });
             
@@ -5079,17 +5101,17 @@ $('btn-call-guest').onclick = async () => {
         alert('ENTER_GUEST_ID_TO_CALL');
         return;
     }
-    
+
     try {
         $('call-status').textContent = 'CALLING...';
         $('call-status').style.color = 'var(--y)';
-        
+
         const audioConstraints = APP.inputDevices.selectedId
             ? { deviceId: { exact: APP.inputDevices.selectedId }, echoCancellation: true, noiseSuppression: true, autoGainControl: true }
             : { echoCancellation: true, noiseSuppression: true, autoGainControl: true };
 
         const stream = await navigator.mediaDevices.getUserMedia({
-            video: true,
+            video: { facingMode: 'user', width: { ideal: 1280 }, height: { ideal: 720 } },
             audio: audioConstraints
         });
         APP.peer.localStream = stream;
@@ -5132,7 +5154,9 @@ function handleCallStream(call) {
             APP.guest.videoElement.id = 'p2p-remote-video';
             APP.guest.videoElement.setAttribute('autoplay', '');
             APP.guest.videoElement.setAttribute('playsinline', '');
-            APP.guest.videoElement.style.cssText = 'position:fixed;top:0;left:0;width:1px;height:1px;opacity:0.01;pointer-events:none;z-index:-1;';
+            APP.guest.videoElement.muted = false;
+            // Must have non-zero rendered size for iOS Safari to decode
+            APP.guest.videoElement.style.cssText = 'position:fixed;top:0;left:0;width:2px;height:2px;opacity:0.01;pointer-events:none;z-index:-1;';
             document.body.appendChild(APP.guest.videoElement);
         }
 
