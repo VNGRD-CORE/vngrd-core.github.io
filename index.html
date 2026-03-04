@@ -5253,9 +5253,16 @@ function handleUISync(msg) {
                 logoLayer.style.display = 'block';
                 logoLayer.style.filter = 'none';
                 logoLayer.style.willChange = 'auto';
+                // Wait for image decode before making visible to compositor
+                logoLayer.onload = () => {
+                    APP.trinity.logo.visible = true;
+                    log('DATA_SYNC_RECV: 2D_LOGO/LOADED');
+                };
                 logoLayer.src = msg.payload.dataURI;
+            } else {
+                // No image data, just toggle visibility on
+                APP.trinity.logo.visible = true;
             }
-            APP.trinity.logo.visible = true;
             log('DATA_SYNC_RECV: 2D_LOGO/SHOW');
         } else if (msg.payload.action === 'hide') {
             APP.trinity.logo.visible = false;
@@ -5268,12 +5275,18 @@ function handleUISync(msg) {
     } else if (msg.target === 'STATION_LOGO') {
         const bug = $('station-bug');
         if (!bug) { log('[ERROR] SYNC: #station-bug NOT FOUND'); return; }
+        // Update both DOM and APP state that the compositor reads
+        APP.bug.text = msg.payload.text;
         bug.textContent = msg.payload.text;
         bug.style.display = 'block';
         bug.style.background = 'transparent';
         if (msg.payload.visible !== undefined) {
             APP.trinity.bug.visible = msg.payload.visible;
             bug.classList.toggle('hidden', !msg.payload.visible);
+        } else {
+            // "Set text" action — make visible
+            APP.trinity.bug.visible = true;
+            bug.classList.remove('hidden');
         }
         log('DATA_SYNC_RECV: STATION_LOGO "' + msg.payload.text + '"');
     }
