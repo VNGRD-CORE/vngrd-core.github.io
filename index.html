@@ -2640,6 +2640,7 @@ if ($('btn-bug-toggle')) {
         APP.trinity.bug.visible = !APP.trinity.bug.visible;
         var bug = $('station-bug');
         if (bug) bug.classList.toggle('hidden', !APP.trinity.bug.visible);
+        sendUISync('STATION_LOGO', { text: APP.bug.text || 'VNGRD', visible: APP.trinity.bug.visible });
         log(APP.trinity.bug.visible ? 'BUG: VISIBLE' : 'BUG: HIDDEN');
     };
 }
@@ -2666,6 +2667,13 @@ if ($('file-2d-logo')) {
             }
             APP.trinity.logo.visible = true;
             log('2D_LOGO: ' + file.name.toUpperCase());
+
+            // Send logo to peer via data channel as base64
+            const reader = new FileReader();
+            reader.onload = () => {
+                sendUISync('2D_LOGO', { action: 'show', dataURI: reader.result });
+            };
+            reader.readAsDataURL(file);
         }
     };
 }
@@ -2681,12 +2689,14 @@ if ($('btn-2d-x')) {
         if (APP.trinity.logo.visible) {
             // Visible -> Hidden (canvas stops drawing, but element stays alive for GIF decoder)
             APP.trinity.logo.visible = false;
+            sendUISync('2D_LOGO', { action: 'hide' });
             log('2D_LOGO: HIDDEN');
         } else if (logoLayer.src && logoLayer.src !== window.location.href) {
             // Hidden -> Clear (revoke blob URL to free memory)
             APP.trinity.logo.visible = false;
             if (logoLayer.src.startsWith('blob:')) URL.revokeObjectURL(logoLayer.src);
             logoLayer.removeAttribute('src');
+            sendUISync('2D_LOGO', { action: 'clear' });
             log('2D_LOGO: CLEARED');
         }
     };
@@ -5084,8 +5094,27 @@ $('btn-call-guest').onclick = async () => {
             
             // 3. Handle the stream when it arrives
             handleCallStream(call);
-            
-            // 4. Cleanup UI
+
+            // 4. Establish reverse Data Channel so answerer can also send UI sync
+            const dataConn = APP.peer.peer.connect(call.peer);
+            dataConn.on('open', () => {
+                APP.peer.dataConn = dataConn;
+                log('DATA_CHANNEL: OPEN TO ' + call.peer);
+            });
+            dataConn.on('data', (data) => {
+                try {
+                    const msg = typeof data === 'string' ? JSON.parse(data) : data;
+                    if (msg.type === 'UI_SYNC') handleUISync(msg);
+                } catch (e) {
+                    log('DATA_CHANNEL: PARSE_ERR');
+                }
+            });
+            dataConn.on('close', () => {
+                log('DATA_CHANNEL: CLOSED');
+                if (APP.peer.dataConn === dataConn) APP.peer.dataConn = null;
+            });
+
+            // 5. Cleanup UI
             APP.peer.incomingCall = null; // Clear staging
             
         } catch (e) {
@@ -5233,12 +5262,39 @@ function handleUISync(msg) {
             lt.classList.remove('visible');
             log('DATA_SYNC_RECV: LT/HIDE');
         }
+    } else if (msg.target === '2D_LOGO') {
+        const logoLayer = $('user-logo-layer');
+        if (!logoLayer) { log('[ERROR] SYNC: #user-logo-layer NOT FOUND'); return; }
+        if (msg.payload.action === 'show') {
+            // Receive image as base64 data URI from peer
+            if (msg.payload.dataURI) {
+                logoLayer.removeAttribute('crossOrigin');
+                logoLayer.removeAttribute('crossorigin');
+                logoLayer.style.display = 'block';
+                logoLayer.style.filter = 'none';
+                logoLayer.style.willChange = 'auto';
+                logoLayer.src = msg.payload.dataURI;
+            }
+            APP.trinity.logo.visible = true;
+            log('DATA_SYNC_RECV: 2D_LOGO/SHOW');
+        } else if (msg.payload.action === 'hide') {
+            APP.trinity.logo.visible = false;
+            log('DATA_SYNC_RECV: 2D_LOGO/HIDE');
+        } else if (msg.payload.action === 'clear') {
+            APP.trinity.logo.visible = false;
+            logoLayer.removeAttribute('src');
+            log('DATA_SYNC_RECV: 2D_LOGO/CLEAR');
+        }
     } else if (msg.target === 'STATION_LOGO') {
         const bug = $('station-bug');
         if (!bug) { log('[ERROR] SYNC: #station-bug NOT FOUND'); return; }
         bug.textContent = msg.payload.text;
         bug.style.display = 'block';
         bug.style.background = 'transparent';
+        if (msg.payload.visible !== undefined) {
+            APP.trinity.bug.visible = msg.payload.visible;
+            bug.classList.toggle('hidden', !msg.payload.visible);
+        }
         log('DATA_SYNC_RECV: STATION_LOGO "' + msg.payload.text + '"');
     }
 }
