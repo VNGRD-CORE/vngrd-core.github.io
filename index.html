@@ -5232,21 +5232,14 @@ function sendUISync(target, payload) {
 
 function handleUISync(msg) {
     if (msg.target === 'LOWER_THIRD') {
-        const lt = $('lower-third');
-        if (!lt) { log('[ERROR] SYNC: #lower-third NOT FOUND'); return; }
-        const container = lt.querySelector('.lt-container');
-        if (!container) { log('[ERROR] SYNC: .lt-container NOT FOUND'); return; }
         if (msg.payload.action === 'show') {
-            container.classList.remove('lt-guest', 'lt-track', 'lt-breaking');
-            container.classList.add('lt-' + msg.payload.preset);
-            const titleEl = $('lt-title-text');
-            const subEl   = $('lt-subtitle-text');
-            if (titleEl) titleEl.textContent = msg.payload.title;
-            if (subEl)   subEl.textContent   = msg.payload.subtitle;
-            lt.classList.add('visible');
+            // Set input fields so showLowerThird reads the peer's text
+            $('lt-title').value = msg.payload.title || '';
+            $('lt-sub').value = msg.payload.subtitle || '';
+            showLowerThird(msg.payload.preset);
             log('DATA_SYNC_RECV: LT/' + msg.payload.preset + ' "' + msg.payload.title + '"');
         } else if (msg.payload.action === 'hide') {
-            lt.classList.remove('visible');
+            hideLowerThird();
             log('DATA_SYNC_RECV: LT/HIDE');
         }
     } else if (msg.target === '2D_LOGO') {
