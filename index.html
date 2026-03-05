@@ -1273,15 +1273,12 @@ body.fx-nvg #stage::after {
          <div class="section">
             <div class="sec-head collapsible"><span class="sec-title">AI_INJECTION</span><span class="sec-arrow">&#x25B8;</span><div class="sec-dot off" id="neural-dot"></div></div>
             <div class="sec-body" id="lexica-nano-body">
-                <div class="lbl" style="margin-bottom:4px;">PROVIDER</div>
-                <select class="inp" id="ai-provider-select" style="font-size:9px;padding:5px;background:var(--panel);border:1px solid var(--border);color:var(--text);margin-bottom:6px;">
-                    <option value="pollinations">POLLINATIONS (FREE)</option>
-                    <option value="openai">OPENAI DALL-E (KEY)</option>
-                    <option value="stable">STABLE DIFFUSION (LOCAL)</option>
-                </select>
-                <input type="text" class="inp" id="ai-prompt" placeholder="DESCRIBE_IMAGE..." style="font-size:9px;">
+                <input type="text" class="inp" id="ai-prompt" placeholder="Describe your image..." style="font-size:9px;">
                 <button class="btn" id="btn-generate-ai" style="color:var(--v);border-color:var(--v);">GENERATE</button>
-                <div id="ai-status" style="font-size:8px;color:var(--text-dim);margin-top:4px;">AI_ENGINE: READY</div>
+                <div id="ai-status" style="font-size:8px;color:var(--text-dim);margin-top:4px;">READY</div>
+                <div id="ai-preview" style="display:none;margin-top:6px;text-align:center;">
+                    <img id="ai-preview-img" style="max-width:100%;border:1px solid var(--border);border-radius:4px;">
+                </div>
             </div>
         </div>
         <div class="section">
@@ -1608,7 +1605,6 @@ const APP = {
 
 
     // LEXICA_NANO
-    neural: { generating: false, lastImage: null },
 
     // JIT STATE TRACKER — prevents double-boot of subsystems
     status: { is3DActive: false, isMidiActive: false, isAudioActive: false, booted: false }
@@ -5968,249 +5964,158 @@ function endCallCleanup() {
     };
 
     // ═══════════════════════════════════════════════════════════════════
-    // AI IMAGE GENERATOR v2 — Clean pipeline with standard REST API
-    // Architecture: prompt → API fetch → blob → inject into media queue
-    // Supports: OpenAI DALL-E, Stable Diffusion REST, Pollinations (free)
+    // AI IMAGE GENERATOR v3 — Built from scratch, minimal, bulletproof
+    // Single provider: Pollinations.ai (free, no key, CORS-friendly)
+    // Flow: prompt → <img>.src = URL → onload → inject into media queue
     // ═══════════════════════════════════════════════════════════════════
+    var _aiGenerating = false;
 
-    // Configuration — set your API key and preferred endpoint
-    const AI_CONFIG = {
-        provider: 'pollinations',
-        openai: {
-            url: 'https://api.openai.com/v1/images/generations',
-            apiKey: '',
-            model: 'dall-e-3',
-            size: '1024x1024',
-            quality: 'standard'
-        },
-        stable: {
-            url: 'http://127.0.0.1:7860/sdapi/v1/txt2img',
-            width: 1024, height: 1024, steps: 28, cfg_scale: 7
-        },
-        pollinations: {
-            url: 'https://image.pollinations.ai/prompt/',
-            width: 1024, height: 1024, model: 'flux'
-        }
-    };
-    window.AI_CONFIG = AI_CONFIG;
+    function aiGenerate(prompt) {
+        if (!prompt) { _aiStatus('TYPE A PROMPT FIRST', 'var(--y)'); return; }
+        if (_aiGenerating) { _aiStatus('ALREADY GENERATING...', 'var(--y)'); return; }
 
-    // Inject image into media queue — accepts blob URL string OR loaded Image element
-    function injectAIImage(src, label) {
-        return new Promise(function(ok, fail) {
-            function doInject(img) {
-                // Park in gif-host to keep browser decoder alive (needed for canvas drawImage)
+        _aiGenerating = true;
+        var btn = $('btn-generate-ai');
+        if (btn) { btn.classList.add('on'); btn.textContent = 'GENERATING...'; }
+        if ($('neural-dot')) $('neural-dot').classList.remove('off');
+        _aiStatus('GENERATING... (10-30s)', 'var(--v)');
+        log('AI: GENERATING >> ' + prompt);
+
+        // Build Pollinations URL — simple GET that returns a JPEG/PNG
+        var seed = Math.floor(Math.random() * 999999);
+        var url = 'https://image.pollinations.ai/prompt/' + encodeURIComponent(prompt)
+            + '?width=1024&height=1024&seed=' + seed + '&nologo=true&model=flux';
+
+        // Use a plain <img> tag — the browser handles redirects, CORS, etc.
+        var img = new Image();
+        img.crossOrigin = 'anonymous';
+
+        // Timeout: 90 seconds max
+        var timeout = setTimeout(function() {
+            img.onload = img.onerror = null;
+            _aiDone(btn);
+            _aiStatus('TIMEOUT — TRY AGAIN', 'var(--r)');
+            log('AI: TIMEOUT');
+        }, 90000);
+
+        img.onload = function() {
+            clearTimeout(timeout);
+            if (img.naturalWidth < 10) {
+                _aiDone(btn);
+                _aiStatus('BAD IMAGE — TRY AGAIN', 'var(--r)');
+                return;
+            }
+
+            // Show preview in the sidebar
+            var preview = $('ai-preview');
+            var previewImg = $('ai-preview-img');
+            if (preview && previewImg) {
+                previewImg.src = img.src;
+                preview.style.display = 'block';
+            }
+
+            // Inject into media queue for the VJ canvas
+            var label = 'AI_' + prompt.substring(0, 20).replace(/\s+/g, '_');
+            var host = document.getElementById('gif-host');
+            if (host) host.appendChild(img);
+
+            APP.render.source = null;
+            APP.media.queue.push({ type: 'image', url: img.src, element: img, name: label });
+            APP.media.currentIndex = APP.media.queue.length - 1;
+            APP.media.currentElement = img;
+            if (typeof updateQueueDisplay === 'function') updateQueueDisplay();
+            if ($('media-dot')) $('media-dot').classList.remove('off');
+
+            _aiDone(btn);
+            _aiStatus('INJECTED INTO MEDIA DECK', 'var(--g)');
+            log('AI: SUCCESS >> ' + label);
+
+            // Flash effect
+            var stage = $('stage');
+            if (stage) {
+                stage.style.transition = 'none';
+                stage.style.filter = 'brightness(3) saturate(2)';
+                setTimeout(function() { stage.style.transition = 'filter 0.5s'; stage.style.filter = ''; }, 100);
+            }
+        };
+
+        img.onerror = function() {
+            clearTimeout(timeout);
+            log('AI: IMG LOAD FAILED — trying fallback URL');
+            // Fallback: try gen.pollinations.ai/image/ endpoint
+            var fallbackUrl = 'https://gen.pollinations.ai/image/' + encodeURIComponent(prompt)
+                + '?width=1024&height=1024&seed=' + seed + '&nologo=true&model=flux';
+            var img2 = new Image();
+            img2.crossOrigin = 'anonymous';
+            var timeout2 = setTimeout(function() {
+                img2.onload = img2.onerror = null;
+                _aiDone(btn);
+                _aiStatus('BOTH ENDPOINTS FAILED', 'var(--r)');
+                log('AI: FALLBACK TIMEOUT');
+            }, 90000);
+            img2.onload = function() {
+                clearTimeout(timeout2);
+                // Trigger the same success path
+                img.onload = null;
+                img.src = img2.src;
+                // Manually run inject
+                var label = 'AI_' + prompt.substring(0, 20).replace(/\s+/g, '_');
                 var host = document.getElementById('gif-host');
-                if (host && !img.parentNode) host.appendChild(img);
+                if (host) host.appendChild(img2);
                 APP.render.source = null;
-                APP.neural.lastImage = img.src;
-                APP.media.queue.push({ type: 'image', url: img.src, element: img, name: label });
+                APP.media.queue.push({ type: 'image', url: img2.src, element: img2, name: label });
                 APP.media.currentIndex = APP.media.queue.length - 1;
-                APP.media.currentElement = img;
+                APP.media.currentElement = img2;
                 if (typeof updateQueueDisplay === 'function') updateQueueDisplay();
                 if ($('media-dot')) $('media-dot').classList.remove('off');
-                var stage = $('stage');
-                if (stage) {
-                    stage.style.transition = 'none';
-                    stage.style.filter = 'brightness(3) saturate(2)';
-                    setTimeout(function() { stage.style.transition = 'filter 0.5s'; stage.style.filter = ''; }, 100);
-                }
-                ok();
-            }
-            if (src instanceof HTMLImageElement && src.complete && src.naturalWidth > 0) {
-                doInject(src);
-            } else {
-                var img = new Image();
-                img.crossOrigin = 'anonymous';
-                img.onload = function() { doInject(img); };
-                img.onerror = function() { fail(new Error('IMG_DECODE_FAIL')); };
-                img.src = (typeof src === 'string') ? src : '';
-            }
-        });
-    }
-
-    // Provider: OpenAI DALL-E
-    async function generateOpenAI(prompt) {
-        var cfg = AI_CONFIG.openai;
-        if (!cfg.apiKey) throw new Error('NO_API_KEY — set AI_CONFIG.openai.apiKey in console');
-        var res = await fetch(cfg.url, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + cfg.apiKey },
-            body: JSON.stringify({ model: cfg.model, prompt: prompt, n: 1, size: cfg.size, quality: cfg.quality, response_format: 'url' })
-        });
-        if (!res.ok) { var e = await res.text(); throw new Error('OPENAI_' + res.status + ': ' + e.substring(0, 80)); }
-        var data = await res.json();
-        var imgUrl = data.data && data.data[0] && (data.data[0].url || data.data[0].b64_json);
-        if (!imgUrl) throw new Error('OPENAI_NO_IMAGE');
-        if (imgUrl.startsWith('data:') || data.data[0].b64_json) {
-            var b64 = data.data[0].b64_json || imgUrl;
-            var byteStr = atob(b64);
-            var ab = new ArrayBuffer(byteStr.length);
-            var ia = new Uint8Array(ab);
-            for (var i = 0; i < byteStr.length; i++) ia[i] = byteStr.charCodeAt(i);
-            return URL.createObjectURL(new Blob([ab], { type: 'image/png' }));
-        }
-        var imgRes = await fetch(imgUrl);
-        var blob = await imgRes.blob();
-        return URL.createObjectURL(blob);
-    }
-
-    // Provider: Stable Diffusion REST API
-    async function generateStableDiffusion(prompt) {
-        var cfg = AI_CONFIG.stable;
-        var res = await fetch(cfg.url, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ prompt: prompt, width: cfg.width, height: cfg.height, steps: cfg.steps, cfg_scale: cfg.cfg_scale })
-        });
-        if (!res.ok) throw new Error('SD_' + res.status);
-        var data = await res.json();
-        if (!data.images || !data.images[0]) throw new Error('SD_NO_IMAGE');
-        var b64 = data.images[0];
-        var byteStr = atob(b64);
-        var ab = new ArrayBuffer(byteStr.length);
-        var ia = new Uint8Array(ab);
-        for (var i = 0; i < byteStr.length; i++) ia[i] = byteStr.charCodeAt(i);
-        return URL.createObjectURL(new Blob([ab], { type: 'image/png' }));
-    }
-
-    // Provider: Pollinations.ai — image.pollinations.ai endpoint
-    async function generatePollinations(prompt) {
-        var cfg = AI_CONFIG.pollinations;
-        var seed = Math.floor(Math.random() * 999999);
-        var params = '?width=' + cfg.width + '&height=' + cfg.height + '&seed=' + seed + '&nologo=true&enhance=true';
-        if (cfg.model) params += '&model=' + cfg.model;
-        var url = cfg.url + encodeURIComponent(prompt) + params;
-        var statusEl = $('ai-status');
-        var lastErr = null;
-
-        // Strategy 1: fetch() as blob — fastest when CORS headers present
-        try {
-            if (statusEl) statusEl.textContent = 'POLLINATIONS: FETCHING...';
-            var controller = new AbortController();
-            var timer = setTimeout(function() { controller.abort(); }, 90000);
-            var res = await fetch(url, { signal: controller.signal });
-            clearTimeout(timer);
-            if (res.ok) {
-                var blob = await res.blob();
-                if (blob.size > 1000 && blob.type.startsWith('image/')) {
-                    return URL.createObjectURL(blob);
-                }
-            }
-        } catch(e) { lastErr = e; }
-
-        // Strategy 2: <img> tag load (handles redirects browsers follow naturally)
-        if (statusEl) statusEl.textContent = 'POLLINATIONS: IMG_LOAD...';
-        try {
-            var imgEl = await _loadImg(url, true);
-            // Convert loaded Image element to blob URL for consistent pipeline
-            var c = document.createElement('canvas');
-            c.width = imgEl.naturalWidth; c.height = imgEl.naturalHeight;
-            c.getContext('2d').drawImage(imgEl, 0, 0);
-            var dataUrl = c.toDataURL('image/png');
-            return dataUrl;
-        } catch(e) { lastErr = e; }
-
-        // Strategy 3: <img> without crossOrigin — will load but not canvas-safe
-        // Pass the Image element directly to injectAIImage
-        if (statusEl) statusEl.textContent = 'POLLINATIONS: DIRECT...';
-        try {
-            var imgDirect = await _loadImg(url, false);
-            return imgDirect; // HTMLImageElement — injectAIImage handles this
-        } catch(e) { lastErr = e; }
-
-        throw lastErr || new Error('POLLINATIONS_FAILED');
-    }
-
-    // Helper: load image via <img> tag with timeout
-    function _loadImg(url, useCors) {
-        return new Promise(function(resolve, reject) {
-            var img = new Image();
-            if (useCors) img.crossOrigin = 'anonymous';
-            var timeout = setTimeout(function() {
-                img.onload = img.onerror = null;
-                reject(new Error('TIMEOUT_60s'));
-            }, 60000);
-            img.onload = function() {
-                clearTimeout(timeout);
-                if (img.naturalWidth > 0) resolve(img);
-                else reject(new Error('ZERO_SIZE'));
+                var preview = $('ai-preview');
+                var previewImg = $('ai-preview-img');
+                if (preview && previewImg) { previewImg.src = img2.src; preview.style.display = 'block'; }
+                _aiDone(btn);
+                _aiStatus('INJECTED (FALLBACK)', 'var(--g)');
+                log('AI: FALLBACK SUCCESS >> ' + label);
             };
-            img.onerror = function() {
-                clearTimeout(timeout);
-                reject(new Error('LOAD_FAIL'));
+            img2.onerror = function() {
+                clearTimeout(timeout2);
+                _aiDone(btn);
+                _aiStatus('GENERATION FAILED — TRY AGAIN', 'var(--r)');
+                log('AI: BOTH ENDPOINTS FAILED');
             };
-            img.src = url;
-        });
+            _aiStatus('TRYING FALLBACK...', 'var(--y)');
+            img2.src = fallbackUrl;
+        };
+
+        // GO — set src to kick off the request
+        img.src = url;
     }
 
-    var AI_PROVIDERS = {
-        openai: { name: 'DALL-E', fn: generateOpenAI },
-        stable: { name: 'STABLE_DIFFUSION', fn: generateStableDiffusion },
-        pollinations: { name: 'POLLINATIONS', fn: generatePollinations }
-    };
+    function _aiStatus(msg, color) {
+        var el = $('ai-status');
+        if (el) { el.textContent = msg; el.style.color = color || 'var(--text-dim)'; }
+    }
 
-    // Main generate function
-    async function aiGenerate(prompt) {
-        var status = $('ai-status');
-        var btn = $('btn-generate-ai');
-        if (!prompt) { if (status) status.textContent = 'ENTER_PROMPT'; return; }
-        if (APP.neural.generating) return;
-
-        APP.neural.generating = true;
-        if (status) { status.textContent = 'RENDERING...'; status.style.color = 'var(--v)'; }
-        if (btn) btn.classList.add('on');
-        if ($('neural-dot')) $('neural-dot').classList.remove('off');
-        log('NEURAL: GENERATING [' + AI_CONFIG.provider.toUpperCase() + '] >> ' + prompt);
-
-        var provider = AI_PROVIDERS[AI_CONFIG.provider];
-        if (!provider) {
-            if (status) { status.textContent = 'UNKNOWN_PROVIDER: ' + AI_CONFIG.provider; status.style.color = 'var(--r)'; }
-            APP.neural.generating = false;
-            return;
-        }
-
-        try {
-            if (status) status.textContent = provider.name + ': RENDERING...';
-            var result = await provider.fn(prompt);
-            var label = 'AI_' + prompt.substring(0, 20).replace(/\s+/g, '_');
-            await injectAIImage(result, label);
-            if (status) { status.textContent = provider.name + ' → MEDIA DECK'; status.style.color = 'var(--g)'; }
-            log('NEURAL: ' + provider.name + '_INJECTED');
-        } catch (err) {
-            log('NEURAL: ' + provider.name + '_FAIL (' + err.message + ')');
-            if (status) { status.textContent = provider.name + '_FAIL: ' + err.message; status.style.color = 'var(--r)'; }
-        }
-
-        setTimeout(function() { APP.neural.generating = false; if (btn) btn.classList.remove('on'); }, 1000);
+    function _aiDone(btn) {
+        _aiGenerating = false;
+        if (btn) { btn.classList.remove('on'); btn.textContent = 'GENERATE'; }
     }
 
     window.aiGenerate = aiGenerate;
-    window.AI_CONFIG = AI_CONFIG;
 
-    // Wire AI generate button + Enter key on prompt input
+    // Wire button + Enter key
     if ($('btn-generate-ai')) {
         $('btn-generate-ai').onclick = function() {
-            var prompt = $('ai-prompt') ? $('ai-prompt').value.trim() : '';
-            aiGenerate(prompt);
+            var p = $('ai-prompt') ? $('ai-prompt').value.trim() : '';
+            aiGenerate(p);
         };
     }
     if ($('ai-prompt')) {
         $('ai-prompt').addEventListener('keydown', function(e) {
             if (e.key === 'Enter') {
                 e.preventDefault();
-                var prompt = e.target.value.trim();
-                if (prompt) aiGenerate(prompt);
+                var p = e.target.value.trim();
+                if (p) aiGenerate(p);
             }
         });
-    }
-    // Provider selector wiring
-    if ($('ai-provider-select')) {
-        $('ai-provider-select').onchange = function() {
-            AI_CONFIG.provider = this.value;
-            var status = $('ai-status');
-            if (status) { status.textContent = 'AI_ENGINE: ' + this.value.toUpperCase(); status.style.color = 'var(--text-dim)'; }
-            log('NEURAL: PROVIDER → ' + this.value.toUpperCase());
-        };
     }
 
     // Collapsible sections with arrow indicators
