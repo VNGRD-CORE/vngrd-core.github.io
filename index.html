@@ -1276,12 +1276,10 @@ body.fx-nvg #stage::after {
             <div class="sec-body" id="lexica-nano-body">
                 <div class="lbl" style="font-size:7px;opacity:0.5;margin-bottom:2px;">MODEL</div>
                 <select class="inp" id="ai-model-select" style="font-size:8px;padding:4px;background:var(--panel);border:1px solid var(--border);color:var(--text);margin-bottom:4px;">
-                    <option value="dall-e-3">DALL-E 3</option>
+                    <option value="dall-e-3" selected>DALL-E 3</option>
                     <option value="stabilityai/stable-diffusion-xl-base-1.0">SDXL</option>
                     <option value="stabilityai/stable-diffusion-3-medium">SD3</option>
                     <option value="gpt-image-1">GPT IMAGE</option>
-                    <option value="flux" selected>FLUX (DEFAULT)</option>
-                    <option value="pollinations">POLLINATIONS (FALLBACK)</option>
                 </select>
                 <input type="text" class="inp" id="ai-prompt" placeholder="Describe your image..." style="font-size:9px;">
                 <button class="btn" id="btn-generate-ai" style="color:var(--v);border-color:var(--v);">GENERATE</button>
@@ -5974,9 +5972,8 @@ function endCallCleanup() {
     };
 
     // ═══════════════════════════════════════════════════════════════════
-    // AI IMAGE GENERATOR v4 — Puter.js (primary) + Pollinations (fallback)
-    // Puter.js: free, no API key, returns <img> element directly
-    // Pollinations: free GET URL, fallback if Puter unavailable
+    // AI IMAGE GENERATOR v4 — Puter.js only (DALL-E 3, SDXL, SD3, GPT)
+    // Free, no API key, returns <img> element directly
     // ═══════════════════════════════════════════════════════════════════
     var _aiGenerating = false;
 
@@ -5992,21 +5989,17 @@ function endCallCleanup() {
 
     function _aiInject(img, prompt) {
         var label = 'AI_' + prompt.substring(0, 20).replace(/\s+/g, '_');
-        // Show preview
         var preview = $('ai-preview');
         var previewImg = $('ai-preview-img');
         if (preview && previewImg) { previewImg.src = img.src; preview.style.display = 'block'; }
-        // Park in gif-host for canvas drawImage
         var host = document.getElementById('gif-host');
         if (host && !img.parentNode) host.appendChild(img);
-        // Inject into media queue
         APP.render.source = null;
         APP.media.queue.push({ type: 'image', url: img.src, element: img, name: label });
         APP.media.currentIndex = APP.media.queue.length - 1;
         APP.media.currentElement = img;
         if (typeof updateQueueDisplay === 'function') updateQueueDisplay();
         if ($('media-dot')) $('media-dot').classList.remove('off');
-        // Flash
         var stage = $('stage');
         if (stage) {
             stage.style.transition = 'none';
@@ -6014,40 +6007,8 @@ function endCallCleanup() {
             setTimeout(function() { stage.style.transition = 'filter 0.5s'; stage.style.filter = ''; }, 100);
         }
         log('AI: INJECTED >> ' + label);
-        return label;
     }
 
-    // Pollinations fallback — plain <img>.src
-    function _aiPollinations(prompt, btn) {
-        _aiStatus('POLLINATIONS FALLBACK...', 'var(--y)');
-        log('AI: Trying Pollinations fallback');
-        var seed = Math.floor(Math.random() * 999999);
-        var url = 'https://image.pollinations.ai/prompt/' + encodeURIComponent(prompt)
-            + '?width=1024&height=1024&seed=' + seed + '&nologo=true&model=flux';
-        var img = new Image();
-        img.crossOrigin = 'anonymous';
-        var timeout = setTimeout(function() {
-            img.onload = img.onerror = null;
-            _aiDone(btn);
-            _aiStatus('TIMEOUT — TRY AGAIN', 'var(--r)');
-        }, 90000);
-        img.onload = function() {
-            clearTimeout(timeout);
-            if (img.naturalWidth < 10) { _aiDone(btn); _aiStatus('BAD IMAGE', 'var(--r)'); return; }
-            _aiInject(img, prompt);
-            _aiDone(btn);
-            _aiStatus('DONE (POLLINATIONS)', 'var(--g)');
-        };
-        img.onerror = function() {
-            clearTimeout(timeout);
-            _aiDone(btn);
-            _aiStatus('ALL PROVIDERS FAILED', 'var(--r)');
-            log('AI: Pollinations also failed');
-        };
-        img.src = url;
-    }
-
-    // Main generate — tries Puter.js first, falls back to Pollinations
     async function aiGenerate(prompt) {
         if (!prompt) { _aiStatus('TYPE A PROMPT', 'var(--y)'); return; }
         if (_aiGenerating) return;
@@ -6056,39 +6017,33 @@ function endCallCleanup() {
         var btn = $('btn-generate-ai');
         if (btn) { btn.classList.add('on'); btn.textContent = 'GENERATING...'; }
         if ($('neural-dot')) $('neural-dot').classList.remove('off');
-        log('AI: GENERATING >> ' + prompt);
 
-        var model = $('ai-model-select') ? $('ai-model-select').value : 'flux';
+        var model = $('ai-model-select') ? $('ai-model-select').value : 'dall-e-3';
+        var modelName = model.split('/').pop().toUpperCase();
+        _aiStatus(modelName + ': GENERATING...', 'var(--v)');
+        log('AI: [' + modelName + '] >> ' + prompt);
 
-        // If user selected pollinations, go direct
-        if (model === 'pollinations') {
-            _aiStatus('POLLINATIONS: GENERATING...', 'var(--v)');
-            _aiPollinations(prompt, btn);
+        if (typeof puter === 'undefined' || !puter.ai || !puter.ai.txt2img) {
+            _aiDone(btn);
+            _aiStatus('PUTER.JS NOT LOADED — REFRESH PAGE', 'var(--r)');
             return;
         }
 
-        // Try Puter.js
-        if (typeof puter !== 'undefined' && puter.ai && puter.ai.txt2img) {
-            try {
-                _aiStatus('PUTER [' + model.toUpperCase() + '] GENERATING...', 'var(--v)');
-                var imgEl = await puter.ai.txt2img(prompt, { model: model });
-                if (imgEl && imgEl.tagName === 'IMG' && imgEl.src) {
-                    _aiInject(imgEl, prompt);
-                    _aiDone(btn);
-                    _aiStatus('DONE [' + model.split('/').pop().toUpperCase() + ']', 'var(--g)');
-                    return;
-                }
-                // If puter returned something unexpected, fall through
-                log('AI: Puter returned unexpected result, trying fallback');
-            } catch (e) {
-                log('AI: Puter failed (' + e.message + '), trying Pollinations');
+        try {
+            var imgEl = await puter.ai.txt2img(prompt, { model: model });
+            if (imgEl && imgEl.tagName === 'IMG' && imgEl.src) {
+                _aiInject(imgEl, prompt);
+                _aiDone(btn);
+                _aiStatus('DONE [' + modelName + ']', 'var(--g)');
+            } else {
+                _aiDone(btn);
+                _aiStatus('NO IMAGE RETURNED', 'var(--r)');
             }
-        } else {
-            log('AI: Puter.js not loaded, trying Pollinations');
+        } catch (e) {
+            _aiDone(btn);
+            _aiStatus('FAIL: ' + e.message, 'var(--r)');
+            log('AI: ' + modelName + ' FAIL: ' + e.message);
         }
-
-        // Fallback to Pollinations
-        _aiPollinations(prompt, btn);
     }
 
     window.aiGenerate = aiGenerate;
