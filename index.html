@@ -14,6 +14,7 @@
 <script>if('serviceWorker' in navigator){navigator.serviceWorker.register('sw.js').catch(function(){});}</script>
 <script src="https://unpkg.com/peerjs@1.5.2/dist/peerjs.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/ethers/5.7.2/ethers.umd.min.js"></script>
+<script src="https://js.puter.com/v2/"></script>
 <script src="src/Compositor.js"></script>
 <script type="importmap">{"imports":{"three":"https://unpkg.com/three@0.160.0/build/three.module.js","three/addons/":"https://unpkg.com/three@0.160.0/examples/jsm/"}}</script>
     <style>
@@ -1273,6 +1274,15 @@ body.fx-nvg #stage::after {
          <div class="section">
             <div class="sec-head collapsible"><span class="sec-title">AI_INJECTION</span><span class="sec-arrow">&#x25B8;</span><div class="sec-dot off" id="neural-dot"></div></div>
             <div class="sec-body" id="lexica-nano-body">
+                <div class="lbl" style="font-size:7px;opacity:0.5;margin-bottom:2px;">MODEL</div>
+                <select class="inp" id="ai-model-select" style="font-size:8px;padding:4px;background:var(--panel);border:1px solid var(--border);color:var(--text);margin-bottom:4px;">
+                    <option value="dall-e-3">DALL-E 3</option>
+                    <option value="stabilityai/stable-diffusion-xl-base-1.0">SDXL</option>
+                    <option value="stabilityai/stable-diffusion-3-medium">SD3</option>
+                    <option value="gpt-image-1">GPT IMAGE</option>
+                    <option value="flux" selected>FLUX (DEFAULT)</option>
+                    <option value="pollinations">POLLINATIONS (FALLBACK)</option>
+                </select>
                 <input type="text" class="inp" id="ai-prompt" placeholder="Describe your image..." style="font-size:9px;">
                 <button class="btn" id="btn-generate-ai" style="color:var(--v);border-color:var(--v);">GENERATE</button>
                 <div id="ai-status" style="font-size:8px;color:var(--text-dim);margin-top:4px;">READY</div>
@@ -5964,130 +5974,11 @@ function endCallCleanup() {
     };
 
     // ═══════════════════════════════════════════════════════════════════
-    // AI IMAGE GENERATOR v3 — Built from scratch, minimal, bulletproof
-    // Single provider: Pollinations.ai (free, no key, CORS-friendly)
-    // Flow: prompt → <img>.src = URL → onload → inject into media queue
+    // AI IMAGE GENERATOR v4 — Puter.js (primary) + Pollinations (fallback)
+    // Puter.js: free, no API key, returns <img> element directly
+    // Pollinations: free GET URL, fallback if Puter unavailable
     // ═══════════════════════════════════════════════════════════════════
     var _aiGenerating = false;
-
-    function aiGenerate(prompt) {
-        if (!prompt) { _aiStatus('TYPE A PROMPT FIRST', 'var(--y)'); return; }
-        if (_aiGenerating) { _aiStatus('ALREADY GENERATING...', 'var(--y)'); return; }
-
-        _aiGenerating = true;
-        var btn = $('btn-generate-ai');
-        if (btn) { btn.classList.add('on'); btn.textContent = 'GENERATING...'; }
-        if ($('neural-dot')) $('neural-dot').classList.remove('off');
-        _aiStatus('GENERATING... (10-30s)', 'var(--v)');
-        log('AI: GENERATING >> ' + prompt);
-
-        // Build Pollinations URL — simple GET that returns a JPEG/PNG
-        var seed = Math.floor(Math.random() * 999999);
-        var url = 'https://image.pollinations.ai/prompt/' + encodeURIComponent(prompt)
-            + '?width=1024&height=1024&seed=' + seed + '&nologo=true&model=flux';
-
-        // Use a plain <img> tag — the browser handles redirects, CORS, etc.
-        var img = new Image();
-        img.crossOrigin = 'anonymous';
-
-        // Timeout: 90 seconds max
-        var timeout = setTimeout(function() {
-            img.onload = img.onerror = null;
-            _aiDone(btn);
-            _aiStatus('TIMEOUT — TRY AGAIN', 'var(--r)');
-            log('AI: TIMEOUT');
-        }, 90000);
-
-        img.onload = function() {
-            clearTimeout(timeout);
-            if (img.naturalWidth < 10) {
-                _aiDone(btn);
-                _aiStatus('BAD IMAGE — TRY AGAIN', 'var(--r)');
-                return;
-            }
-
-            // Show preview in the sidebar
-            var preview = $('ai-preview');
-            var previewImg = $('ai-preview-img');
-            if (preview && previewImg) {
-                previewImg.src = img.src;
-                preview.style.display = 'block';
-            }
-
-            // Inject into media queue for the VJ canvas
-            var label = 'AI_' + prompt.substring(0, 20).replace(/\s+/g, '_');
-            var host = document.getElementById('gif-host');
-            if (host) host.appendChild(img);
-
-            APP.render.source = null;
-            APP.media.queue.push({ type: 'image', url: img.src, element: img, name: label });
-            APP.media.currentIndex = APP.media.queue.length - 1;
-            APP.media.currentElement = img;
-            if (typeof updateQueueDisplay === 'function') updateQueueDisplay();
-            if ($('media-dot')) $('media-dot').classList.remove('off');
-
-            _aiDone(btn);
-            _aiStatus('INJECTED INTO MEDIA DECK', 'var(--g)');
-            log('AI: SUCCESS >> ' + label);
-
-            // Flash effect
-            var stage = $('stage');
-            if (stage) {
-                stage.style.transition = 'none';
-                stage.style.filter = 'brightness(3) saturate(2)';
-                setTimeout(function() { stage.style.transition = 'filter 0.5s'; stage.style.filter = ''; }, 100);
-            }
-        };
-
-        img.onerror = function() {
-            clearTimeout(timeout);
-            log('AI: IMG LOAD FAILED — trying fallback URL');
-            // Fallback: try gen.pollinations.ai/image/ endpoint
-            var fallbackUrl = 'https://gen.pollinations.ai/image/' + encodeURIComponent(prompt)
-                + '?width=1024&height=1024&seed=' + seed + '&nologo=true&model=flux';
-            var img2 = new Image();
-            img2.crossOrigin = 'anonymous';
-            var timeout2 = setTimeout(function() {
-                img2.onload = img2.onerror = null;
-                _aiDone(btn);
-                _aiStatus('BOTH ENDPOINTS FAILED', 'var(--r)');
-                log('AI: FALLBACK TIMEOUT');
-            }, 90000);
-            img2.onload = function() {
-                clearTimeout(timeout2);
-                // Trigger the same success path
-                img.onload = null;
-                img.src = img2.src;
-                // Manually run inject
-                var label = 'AI_' + prompt.substring(0, 20).replace(/\s+/g, '_');
-                var host = document.getElementById('gif-host');
-                if (host) host.appendChild(img2);
-                APP.render.source = null;
-                APP.media.queue.push({ type: 'image', url: img2.src, element: img2, name: label });
-                APP.media.currentIndex = APP.media.queue.length - 1;
-                APP.media.currentElement = img2;
-                if (typeof updateQueueDisplay === 'function') updateQueueDisplay();
-                if ($('media-dot')) $('media-dot').classList.remove('off');
-                var preview = $('ai-preview');
-                var previewImg = $('ai-preview-img');
-                if (preview && previewImg) { previewImg.src = img2.src; preview.style.display = 'block'; }
-                _aiDone(btn);
-                _aiStatus('INJECTED (FALLBACK)', 'var(--g)');
-                log('AI: FALLBACK SUCCESS >> ' + label);
-            };
-            img2.onerror = function() {
-                clearTimeout(timeout2);
-                _aiDone(btn);
-                _aiStatus('GENERATION FAILED — TRY AGAIN', 'var(--r)');
-                log('AI: BOTH ENDPOINTS FAILED');
-            };
-            _aiStatus('TRYING FALLBACK...', 'var(--y)');
-            img2.src = fallbackUrl;
-        };
-
-        // GO — set src to kick off the request
-        img.src = url;
-    }
 
     function _aiStatus(msg, color) {
         var el = $('ai-status');
@@ -6097,6 +5988,107 @@ function endCallCleanup() {
     function _aiDone(btn) {
         _aiGenerating = false;
         if (btn) { btn.classList.remove('on'); btn.textContent = 'GENERATE'; }
+    }
+
+    function _aiInject(img, prompt) {
+        var label = 'AI_' + prompt.substring(0, 20).replace(/\s+/g, '_');
+        // Show preview
+        var preview = $('ai-preview');
+        var previewImg = $('ai-preview-img');
+        if (preview && previewImg) { previewImg.src = img.src; preview.style.display = 'block'; }
+        // Park in gif-host for canvas drawImage
+        var host = document.getElementById('gif-host');
+        if (host && !img.parentNode) host.appendChild(img);
+        // Inject into media queue
+        APP.render.source = null;
+        APP.media.queue.push({ type: 'image', url: img.src, element: img, name: label });
+        APP.media.currentIndex = APP.media.queue.length - 1;
+        APP.media.currentElement = img;
+        if (typeof updateQueueDisplay === 'function') updateQueueDisplay();
+        if ($('media-dot')) $('media-dot').classList.remove('off');
+        // Flash
+        var stage = $('stage');
+        if (stage) {
+            stage.style.transition = 'none';
+            stage.style.filter = 'brightness(3) saturate(2)';
+            setTimeout(function() { stage.style.transition = 'filter 0.5s'; stage.style.filter = ''; }, 100);
+        }
+        log('AI: INJECTED >> ' + label);
+        return label;
+    }
+
+    // Pollinations fallback — plain <img>.src
+    function _aiPollinations(prompt, btn) {
+        _aiStatus('POLLINATIONS FALLBACK...', 'var(--y)');
+        log('AI: Trying Pollinations fallback');
+        var seed = Math.floor(Math.random() * 999999);
+        var url = 'https://image.pollinations.ai/prompt/' + encodeURIComponent(prompt)
+            + '?width=1024&height=1024&seed=' + seed + '&nologo=true&model=flux';
+        var img = new Image();
+        img.crossOrigin = 'anonymous';
+        var timeout = setTimeout(function() {
+            img.onload = img.onerror = null;
+            _aiDone(btn);
+            _aiStatus('TIMEOUT — TRY AGAIN', 'var(--r)');
+        }, 90000);
+        img.onload = function() {
+            clearTimeout(timeout);
+            if (img.naturalWidth < 10) { _aiDone(btn); _aiStatus('BAD IMAGE', 'var(--r)'); return; }
+            _aiInject(img, prompt);
+            _aiDone(btn);
+            _aiStatus('DONE (POLLINATIONS)', 'var(--g)');
+        };
+        img.onerror = function() {
+            clearTimeout(timeout);
+            _aiDone(btn);
+            _aiStatus('ALL PROVIDERS FAILED', 'var(--r)');
+            log('AI: Pollinations also failed');
+        };
+        img.src = url;
+    }
+
+    // Main generate — tries Puter.js first, falls back to Pollinations
+    async function aiGenerate(prompt) {
+        if (!prompt) { _aiStatus('TYPE A PROMPT', 'var(--y)'); return; }
+        if (_aiGenerating) return;
+
+        _aiGenerating = true;
+        var btn = $('btn-generate-ai');
+        if (btn) { btn.classList.add('on'); btn.textContent = 'GENERATING...'; }
+        if ($('neural-dot')) $('neural-dot').classList.remove('off');
+        log('AI: GENERATING >> ' + prompt);
+
+        var model = $('ai-model-select') ? $('ai-model-select').value : 'flux';
+
+        // If user selected pollinations, go direct
+        if (model === 'pollinations') {
+            _aiStatus('POLLINATIONS: GENERATING...', 'var(--v)');
+            _aiPollinations(prompt, btn);
+            return;
+        }
+
+        // Try Puter.js
+        if (typeof puter !== 'undefined' && puter.ai && puter.ai.txt2img) {
+            try {
+                _aiStatus('PUTER [' + model.toUpperCase() + '] GENERATING...', 'var(--v)');
+                var imgEl = await puter.ai.txt2img(prompt, { model: model });
+                if (imgEl && imgEl.tagName === 'IMG' && imgEl.src) {
+                    _aiInject(imgEl, prompt);
+                    _aiDone(btn);
+                    _aiStatus('DONE [' + model.split('/').pop().toUpperCase() + ']', 'var(--g)');
+                    return;
+                }
+                // If puter returned something unexpected, fall through
+                log('AI: Puter returned unexpected result, trying fallback');
+            } catch (e) {
+                log('AI: Puter failed (' + e.message + '), trying Pollinations');
+            }
+        } else {
+            log('AI: Puter.js not loaded, trying Pollinations');
+        }
+
+        // Fallback to Pollinations
+        _aiPollinations(prompt, btn);
     }
 
     window.aiGenerate = aiGenerate;
