@@ -3970,9 +3970,20 @@ function loadFromMemory() {
 function startNFTRecording() {
     if (APP.nft.isRecording) { stopNFTRecording(); return; }
     try {
+        ensureAudioChain();
+        if (APP.audio.ctx && APP.audio.ctx.state === 'suspended') APP.audio.ctx.resume();
         const canvasStream = APP.render.canvas.captureStream(60);
         if (APP.audio.ctx && APP.audio.recorderDest) {
-            if (APP.audio.recorderDest.stream.getAudioTracks().length > 0) canvasStream.addTrack(APP.audio.recorderDest.stream.getAudioTracks()[0]);
+            var audioTracks = APP.audio.recorderDest.stream.getAudioTracks();
+            if (audioTracks.length > 0) {
+                canvasStream.addTrack(audioTracks[0]);
+            } else {
+                var freshDest = APP.audio.ctx.createMediaStreamDestination();
+                APP.audio.masterGain.connect(freshDest);
+                if (APP.audio.micGainNode) APP.audio.micGainNode.connect(freshDest);
+                APP.audio.recorderDest = freshDest;
+                if (freshDest.stream.getAudioTracks().length > 0) canvasStream.addTrack(freshDest.stream.getAudioTracks()[0]);
+            }
         }
         let nftRecorderOpts = { mimeType: 'video/webm;codecs=vp9,opus', videoBitsPerSecond: 5000000, audioBitsPerSecond: 128000 };
         try { APP.nft.recorder = new MediaRecorder(canvasStream, nftRecorderOpts); }
