@@ -2289,23 +2289,24 @@ function renderLoop(timestamp) {
     }
 
     // ACTOR 3: 3D LOGO (offscreen WebGL canvas → drawImage composite)
-    if (T.logo3d && T.logo3d.visible && window._three && window._three.ready) {
+    if (T.logo3d && T.logo3d.visible && window._three && window._three.ready && window._three.model) {
         var _t = window._three;
-        if (_t.model) {
+        try {
             _t.model.rotation.y += 0.008;
             _t.model.rotation.x = Math.sin(timestamp * 0.0005) * 0.1;
-        }
-        _t.renderer.render(_t.scene, _t.camera);
-        var tc = document.getElementById('three-canvas');
-        if (tc) {
-            ctx.save();
-            var s3d = T.logo3d.scale;
-            var tw = 200 * s3d * (w / 1920);
-            var th = 200 * s3d * (h / 1080);
-            var tx = T.logo3d.x * w, ty = T.logo3d.y * h;
-            ctx.drawImage(tc, tx, ty, tw, th);
-            ctx.restore();
-        }
+            _t.camera.lookAt(0, 0, 0);
+            _t.renderer.render(_t.scene, _t.camera);
+            var tc = document.getElementById('three-canvas');
+            if (tc && tc.width > 0 && tc.height > 0) {
+                ctx.save();
+                var s3d = T.logo3d.scale;
+                var tw = 200 * s3d * (w / 1920);
+                var th = 200 * s3d * (h / 1080);
+                var tx = T.logo3d.x * w, ty = T.logo3d.y * h;
+                ctx.drawImage(tc, 0, 0, tc.width, tc.height, tx, ty, tw, th);
+                ctx.restore();
+            }
+        } catch(e3d) {}
     }
 
 
@@ -6528,42 +6529,46 @@ setTimeout(() => { if (!window.audioReactorActive) window.initAudioReactor(); },
 </script>
 
 <!-- 3D LOGO: offscreen WebGL canvas for Three.js rendering -->
-<canvas id="three-canvas" width="512" height="512" style="position:fixed;left:0;top:0;width:1px;height:1px;opacity:0.01;pointer-events:none;z-index:-1;overflow:hidden;"></canvas>
+<canvas id="three-canvas" width="512" height="512" style="position:fixed;left:-9999px;top:-9999px;width:512px;height:512px;pointer-events:none;z-index:-1;"></canvas>
 <script type="module">
-// === 3D LOGO PIPELINE ===
-// All loaders use .parse() (direct file read) — no fetch(), no service worker interference.
+// === 3D LOGO PIPELINE (rebuilt) ===
 let THREE = null;
 const _3D = { scene: null, camera: null, renderer: null, model: null, ready: false };
 const sysLog = (...a) => (window.log || console.log)(...a);
 
 async function ensure3D() {
     if (_3D.ready) return;
-    // Self-hosted Three.js — no CDN dependency
     THREE = await import('three');
+    if (!THREE || !THREE.Scene) throw new Error('THREE_IMPORT_FAILED');
 
     const canvas = document.getElementById('three-canvas');
-    if (!canvas) { sysLog('3D_INIT: CANVAS_NOT_FOUND'); return; }
+    if (!canvas) throw new Error('CANVAS_NOT_FOUND');
 
     _3D.scene = new THREE.Scene();
-    _3D.camera = new THREE.PerspectiveCamera(40, 1, 0.1, 1000);
-    _3D.camera.position.set(0, 0, 3);
+
+    _3D.camera = new THREE.PerspectiveCamera(45, 1, 0.01, 500);
+    _3D.camera.position.set(0, 0, 4);
+    _3D.camera.lookAt(0, 0, 0);
+    _3D.camera.updateProjectionMatrix();
 
     _3D.renderer = new THREE.WebGLRenderer({
-        canvas,
+        canvas: canvas,
         alpha: true,
         antialias: true,
         preserveDrawingBuffer: true
     });
-    _3D.renderer.setSize(512, 512, false); // false = don't override CSS style
+    _3D.renderer.setPixelRatio(1);
+    _3D.renderer.setSize(512, 512, false);
     _3D.renderer.setClearColor(0x000000, 0);
+    _3D.renderer.outputColorSpace = THREE.SRGBColorSpace || 'srgb';
 
-    // HUD-themed lighting
-    _3D.scene.add(new THREE.AmbientLight(0x445566, 1.0));
-    const key = new THREE.DirectionalLight(0x00ffcc, 1.2);
+    // Lighting — bright enough to see geometry clearly
+    _3D.scene.add(new THREE.AmbientLight(0xffffff, 0.6));
+    const key = new THREE.DirectionalLight(0x00ffcc, 1.5);
     key.position.set(3, 4, 5); _3D.scene.add(key);
-    const fill = new THREE.DirectionalLight(0x0088ff, 0.5);
+    const fill = new THREE.DirectionalLight(0x0088ff, 0.8);
     fill.position.set(-3, -1, 2); _3D.scene.add(fill);
-    const rim = new THREE.DirectionalLight(0xff3300, 0.3);
+    const rim = new THREE.DirectionalLight(0xff3300, 0.4);
     rim.position.set(0, -3, -3); _3D.scene.add(rim);
 
     _3D.ready = true;
@@ -6574,42 +6579,60 @@ async function ensure3D() {
 function clearModel() {
     if (!_3D.model || !THREE) return;
     _3D.scene.remove(_3D.model);
-    _3D.model.traverse(obj => {
+    _3D.model.traverse(function(obj) {
         if (obj.geometry) obj.geometry.dispose();
         if (obj.material) {
-            (Array.isArray(obj.material) ? obj.material : [obj.material]).forEach(m => m.dispose());
+            var mats = Array.isArray(obj.material) ? obj.material : [obj.material];
+            mats.forEach(function(m) { m.dispose(); });
         }
     });
     _3D.model = null;
 }
 
 function centerAndScale(obj) {
+    // Reset transforms first
+    obj.position.set(0, 0, 0);
+    obj.rotation.set(0, 0, 0);
+    obj.scale.set(1, 1, 1);
+    obj.updateMatrixWorld(true);
+
     const box = new THREE.Box3().setFromObject(obj);
+    if (box.isEmpty()) { sysLog('3D_WARN: EMPTY_BOUNDS'); return; }
+
     const size = box.getSize(new THREE.Vector3());
+    const center = box.getCenter(new THREE.Vector3());
     const maxDim = Math.max(size.x, size.y, size.z);
-    if (maxDim === 0) return;
-    obj.scale.setScalar(2.0 / maxDim);
-    const box2 = new THREE.Box3().setFromObject(obj);
-    obj.position.sub(box2.getCenter(new THREE.Vector3()));
+    if (maxDim === 0 || !isFinite(maxDim)) { sysLog('3D_WARN: ZERO_SIZE'); return; }
+
+    const scaleFactor = 2.5 / maxDim;
+    obj.scale.setScalar(scaleFactor);
+    // Move object so its center is at origin (accounting for scale)
+    obj.position.set(-center.x * scaleFactor, -center.y * scaleFactor, -center.z * scaleFactor);
+    obj.updateMatrixWorld(true);
+
+    sysLog('3D_FIT: scale=' + scaleFactor.toFixed(3) + ' dim=' + maxDim.toFixed(2));
 }
 
-function ensureNormals(obj) {
-    obj.traverse(child => {
-        if (child.isMesh && child.geometry && !child.geometry.attributes.normal) {
-            child.geometry.computeVertexNormals();
-        }
-    });
+function countMeshes(obj) {
+    let count = 0;
+    obj.traverse(function(child) { if (child.isMesh || child.isLine || child.isPoints) count++; });
+    return count;
 }
 
 function applyHUDMaterial(obj) {
-    const mat = new THREE.MeshPhongMaterial({
-        color: 0x00ddaa, emissive: 0x003322, specular: 0x00ffcc,
-        shininess: 80, transparent: true, opacity: 0.85, side: THREE.DoubleSide
+    const mat = new THREE.MeshStandardMaterial({
+        color: 0x00ddaa, emissive: 0x004433, roughness: 0.4, metalness: 0.6,
+        transparent: true, opacity: 0.9, side: THREE.DoubleSide
     });
-    obj.traverse(child => {
+    obj.traverse(function(child) {
         if (child.isMesh) {
-            if (!child.geometry.attributes.normal) child.geometry.computeVertexNormals();
-            if (!child.material.map) child.material = mat;
+            if (child.geometry && !child.geometry.attributes.normal) {
+                child.geometry.computeVertexNormals();
+            }
+            // Always apply HUD material for uploaded models (they have no textures)
+            child.material = mat;
+            child.castShadow = false;
+            child.receiveShadow = false;
         }
     });
 }
@@ -6619,19 +6642,28 @@ function applyHUDMaterial(obj) {
 async function loadOBJ(file) {
     const { OBJLoader } = await import('three/addons/loaders/OBJLoader.js');
     const text = await file.text();
-    return new OBJLoader().parse(text);
+    sysLog('3D_OBJ: parsing ' + text.length + ' chars');
+    const obj = new OBJLoader().parse(text);
+    const meshCount = countMeshes(obj);
+    sysLog('3D_OBJ: ' + meshCount + ' meshes found');
+    if (meshCount === 0) throw new Error('OBJ_NO_MESHES');
+    return obj;
 }
 
 async function loadFBX(file) {
     const { FBXLoader } = await import('three/addons/loaders/FBXLoader.js');
     const buf = await file.arrayBuffer();
-    return new FBXLoader().parse(buf, '');
+    const obj = new FBXLoader().parse(buf, '');
+    if (countMeshes(obj) === 0) throw new Error('FBX_NO_MESHES');
+    return obj;
 }
 
 async function loadSTL(file) {
     const { STLLoader } = await import('three/addons/loaders/STLLoader.js');
     const buf = await file.arrayBuffer();
     const geom = new STLLoader().parse(buf);
+    if (!geom || !geom.attributes.position || geom.attributes.position.count === 0) throw new Error('STL_EMPTY');
+    geom.computeVertexNormals();
     return new THREE.Mesh(geom);
 }
 
@@ -6640,20 +6672,20 @@ async function loadAMF(file) {
     const xml = new DOMParser().parseFromString(text, 'application/xml');
     const group = new THREE.Group();
 
-    xml.querySelectorAll('object').forEach(obj => {
+    xml.querySelectorAll('object').forEach(function(obj) {
         const meshEl = obj.querySelector('mesh');
         if (!meshEl) return;
         const verts = [];
-        meshEl.querySelectorAll('vertices > vertex > coordinates').forEach(c => {
+        meshEl.querySelectorAll('vertices > vertex > coordinates').forEach(function(c) {
             verts.push(
                 parseFloat(c.querySelector('x')?.textContent || 0),
                 parseFloat(c.querySelector('y')?.textContent || 0),
                 parseFloat(c.querySelector('z')?.textContent || 0)
             );
         });
-        meshEl.querySelectorAll('volume').forEach(vol => {
+        meshEl.querySelectorAll('volume').forEach(function(vol) {
             const idx = [];
-            vol.querySelectorAll('triangle').forEach(tri => {
+            vol.querySelectorAll('triangle').forEach(function(tri) {
                 idx.push(
                     parseInt(tri.querySelector('v1')?.textContent || 0),
                     parseInt(tri.querySelector('v2')?.textContent || 0),
@@ -6685,10 +6717,7 @@ async function loadIGES(file) {
         const seqNum = parseInt(line.substring(73).trim());
 
         if (section === 'D' && seqNum % 2 === 1) {
-            dirEntries.push({
-                type: parseInt(line.substring(0, 8).trim()),
-                seq: seqNum
-            });
+            dirEntries.push({ type: parseInt(line.substring(0, 8).trim()), seq: seqNum });
         }
         if (section === 'P') {
             const dePtr = parseInt(line.substring(64, 72).trim());
@@ -6701,11 +6730,11 @@ async function loadIGES(file) {
     for (const de of dirEntries) {
         const raw = paramData[de.seq];
         if (!raw) continue;
-        const vals = raw.replace(/;.*$/, '').trim().split(',').map(s => s.trim());
+        const vals = raw.replace(/;.*$/, '').trim().split(',').map(function(s) { return s.trim(); });
 
         if (de.type === 110 && vals.length >= 7) {
             const coords = vals.slice(1, 7).map(Number);
-            if (coords.every(n => !isNaN(n))) {
+            if (coords.every(function(n) { return !isNaN(n); })) {
                 const g = new THREE.BufferGeometry();
                 g.setAttribute('position', new THREE.Float32BufferAttribute(coords, 3));
                 group.add(new THREE.Line(g, new THREE.LineBasicMaterial({ color: 0x00ffcc })));
@@ -6722,7 +6751,7 @@ async function loadIGES(file) {
                 const sa = Math.atan2(sy - cy, sx - cx);
                 const ea = Math.atan2(ey - cy, ex - cx);
                 const curve = new THREE.EllipseCurve(cx, cy, r, r, sa, ea, false);
-                const cPts = curve.getPoints(32).map(p => new THREE.Vector3(p.x, p.y, zt || 0));
+                const cPts = curve.getPoints(32).map(function(p) { return new THREE.Vector3(p.x, p.y, zt || 0); });
                 const g = new THREE.BufferGeometry().setFromPoints(cPts);
                 group.add(new THREE.Line(g, new THREE.LineBasicMaterial({ color: 0x00ffcc })));
             }
@@ -6744,10 +6773,10 @@ const btn3d = document.getElementById('btn-upload-3d');
 const fileInput3d = document.getElementById('file-3d-logo');
 const btn3dX = document.getElementById('btn-3d-x');
 
-if (btn3d) btn3d.addEventListener('click', () => fileInput3d?.click());
+if (btn3d) btn3d.addEventListener('click', function() { if (fileInput3d) fileInput3d.click(); });
 
 if (fileInput3d) {
-    fileInput3d.addEventListener('change', async (e) => {
+    fileInput3d.addEventListener('change', async function(e) {
         if (!e.target.files.length) return;
 
         const file = e.target.files[0];
@@ -6757,7 +6786,11 @@ if (fileInput3d) {
 
         try {
             await ensure3D();
-        } catch (_) { return; }
+        } catch (initErr) {
+            sysLog('3D_INIT_FAIL: ' + (initErr.message || initErr));
+            console.error('3D INIT:', initErr);
+            return;
+        }
 
         clearModel();
 
@@ -6772,17 +6805,38 @@ if (fileInput3d) {
                 default: throw new Error('UNSUPPORTED_FORMAT: ' + ext.toUpperCase());
             }
 
-            ensureNormals(model);
+            // Validate geometry exists
+            const mc = countMeshes(model);
+            sysLog('3D_PARSED: ' + mc + ' objects');
+
+            // Compute normals for all meshes
+            model.traverse(function(child) {
+                if (child.isMesh && child.geometry) {
+                    if (!child.geometry.attributes.normal) child.geometry.computeVertexNormals();
+                }
+            });
+
             centerAndScale(model);
             if (ext !== 'igs' && ext !== 'iges') applyHUDMaterial(model);
 
             _3D.model = model;
             _3D.scene.add(model);
+
+            // Ensure camera is aimed at the model
+            _3D.camera.position.set(0, 0, 4);
+            _3D.camera.lookAt(0, 0, 0);
+            _3D.camera.updateProjectionMatrix();
+
             window.APP.trinity.logo3d.visible = true;
 
-            // Force one immediate render to confirm it works
+            // Force immediate render + verify pixels
             _3D.renderer.render(_3D.scene, _3D.camera);
-            sysLog('3D_LOGO: OK (' + ext.toUpperCase() + ')');
+            const gl = _3D.renderer.getContext();
+            const pixel = new Uint8Array(4);
+            gl.readPixels(256, 256, 1, 1, gl.RGBA, gl.UNSIGNED_BYTE, pixel);
+            sysLog('3D_LOGO: OK (' + ext.toUpperCase() + ') center_px=[' + pixel[0] + ',' + pixel[1] + ',' + pixel[2] + ',' + pixel[3] + ']');
+
+            if (pixel[3] === 0) sysLog('3D_WARN: CENTER_TRANSPARENT — model may be off-center or too small');
         } catch (err) {
             sysLog('3D_ERR: ' + (err.message || err));
             console.error('3D LOAD ERROR:', err);
@@ -6793,13 +6847,13 @@ if (fileInput3d) {
 }
 
 if (btn3dX) {
-    btn3dX.addEventListener('click', () => {
-        if (window.APP.trinity.logo3d.visible) {
+    btn3dX.addEventListener('click', function() {
+        if (window.APP && window.APP.trinity.logo3d.visible) {
             window.APP.trinity.logo3d.visible = false;
             sysLog('3D_LOGO: HIDDEN');
         } else if (_3D.model) {
             clearModel();
-            window.APP.trinity.logo3d.visible = false;
+            if (window.APP) window.APP.trinity.logo3d.visible = false;
             sysLog('3D_LOGO: CLEARED');
         }
     });
