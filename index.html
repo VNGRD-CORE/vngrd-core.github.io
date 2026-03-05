@@ -3967,49 +3967,86 @@ function loadFromMemory() {
     } catch(e) { log('MEMORY_CORRUPT'); }
 }
 
-function startNFTRecording() {
+async function startNFTRecording() {
     if (APP.nft.isRecording) { stopNFTRecording(); return; }
     try {
+        // 1. Guarantee full audio chain exists
         ensureAudioChain();
-        if (APP.audio.ctx && APP.audio.ctx.state === 'suspended') APP.audio.ctx.resume();
-        const canvasStream = APP.render.canvas.captureStream(60);
-        if (APP.audio.ctx && APP.audio.recorderDest) {
-            var audioTracks = APP.audio.recorderDest.stream.getAudioTracks();
-            if (audioTracks.length > 0) {
-                canvasStream.addTrack(audioTracks[0]);
-            } else {
-                var freshDest = APP.audio.ctx.createMediaStreamDestination();
-                APP.audio.masterGain.connect(freshDest);
-                if (APP.audio.micGainNode) APP.audio.micGainNode.connect(freshDest);
-                APP.audio.recorderDest = freshDest;
-                if (freshDest.stream.getAudioTracks().length > 0) canvasStream.addTrack(freshDest.stream.getAudioTracks()[0]);
-            }
+
+        // 2. Force-wake the AudioContext (browser autoplay policy)
+        if (APP.audio.ctx && APP.audio.ctx.state === 'suspended') {
+            await APP.audio.ctx.resume();
         }
-        let nftRecorderOpts = { mimeType: 'video/webm;codecs=vp9,opus', videoBitsPerSecond: 5000000, audioBitsPerSecond: 128000 };
-        try { APP.nft.recorder = new MediaRecorder(canvasStream, nftRecorderOpts); }
-        catch(e) { APP.nft.recorder = new MediaRecorder(canvasStream, { mimeType: 'video/webm' }); }
+
+        // 3. Grab video from the composited VJ canvas
+        var canvasStream = APP.render.canvas.captureStream(60);
+
+        // 4. Build a combined MediaStream: video tracks first
+        var combinedStream = new MediaStream(canvasStream.getVideoTracks());
+
+        // 5. Bulletproof audio injection — always create a FRESH destination
+        //    so we never hit a stale/dead track from a previous session
+        if (APP.audio.ctx && APP.audio.masterGain) {
+            var freshDest = APP.audio.ctx.createMediaStreamDestination();
+
+            // Tap the master bus (carries all loaded audio + video audio)
+            APP.audio.masterGain.connect(freshDest);
+
+            // Also tap the output limiter so we capture the final mix
+            if (APP.audio.outputLimiter) APP.audio.outputLimiter.connect(freshDest);
+
+            // Include live mic if present
+            if (APP.audio.micGainNode) APP.audio.micGainNode.connect(freshDest);
+
+            // Store for potential external use
+            APP.audio.recorderDest = freshDest;
+
+            // Inject every audio track into the combined stream
+            freshDest.stream.getAudioTracks().forEach(function(t) { combinedStream.addTrack(t); });
+        }
+
+        // 6. Create MediaRecorder on the unified stream — codec cascade
+        var nftRecorderOpts = { mimeType: 'video/webm;codecs=vp9,opus', videoBitsPerSecond: 5000000, audioBitsPerSecond: 128000 };
+        try { APP.nft.recorder = new MediaRecorder(combinedStream, nftRecorderOpts); }
+        catch(e) {
+            try { APP.nft.recorder = new MediaRecorder(combinedStream, { mimeType: 'video/webm;codecs=vp8,opus' }); }
+            catch(e2) { APP.nft.recorder = new MediaRecorder(combinedStream, { mimeType: 'video/webm' }); }
+        }
+
         APP.nft.chunks = [];
-        APP.nft.recorder.ondataavailable = e => APP.nft.chunks.push(e.data);
+        APP.nft.recorder.ondataavailable = function(e) { if (e.data && e.data.size > 0) APP.nft.chunks.push(e.data); };
         APP.nft.recorder.onstop = finalizeNFT;
+
+        // 7. Start recording — NO time limit, runs until user stops
         APP.nft.recorder.start(1000);
-        APP.nft.isRecording = true; APP.nft.startTime = Date.now();
-        $('btn-nft-30').textContent = '■ STOP REC'; $('btn-nft-30').classList.add('on'); $('nft-hud').classList.add('active');
+        APP.nft.isRecording = true;
+        APP.nft.startTime = Date.now();
+
+        // 8. Toggle button to STOP state (red text for visibility)
+        var btn = $('btn-nft-30');
+        btn.textContent = '[ STOP_RECORDING ]';
+        btn.classList.add('on');
+        btn.style.color = '#ff3333';
+        $('nft-hud').classList.add('active');
         updateNFTTimer();
-        setTimeout(() => { if (APP.nft.isRecording) stopNFTRecording(); }, 30000);
-        log('NFT_REC_START');
-    } catch (e) { log('NFT_REC_ERR'); }
+
+        log('NFT_REC_START (' + combinedStream.getAudioTracks().length + ' audio trk)');
+    } catch (e) { log('NFT_REC_ERR: ' + e.message); }
 }
-function stopNFTRecording() { 
-    if (!APP.nft.isRecording) return; 
-    APP.nft.recorder.stop(); 
-    APP.nft.isRecording = false; 
-    
-    // UI - Keep the ID btn-nft-30 so the click still works, but change what the user sees
-    $('btn-nft-30').textContent = 'CAPTURE_VGD_CLIP'; 
-    $('btn-nft-30').classList.remove('on'); 
-    $('nft-hud').classList.remove('active'); 
-    
-    log('VGD_REC_STOP'); 
+
+function stopNFTRecording() {
+    if (!APP.nft.isRecording) return;
+    APP.nft.recorder.stop();
+    APP.nft.isRecording = false;
+
+    // Reset button to default state
+    var btn = $('btn-nft-30');
+    btn.textContent = 'CAPTURE_VGD_CLIP';
+    btn.classList.remove('on');
+    btn.style.color = '';
+    $('nft-hud').classList.remove('active');
+
+    log('VGD_REC_STOP');
 }
 
 function updateNFTTimer() { 
