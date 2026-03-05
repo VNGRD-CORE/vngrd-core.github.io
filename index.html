@@ -2985,14 +2985,29 @@ $('btn-inject').onclick = () => {
 function goLive() {
     if (!APP.camera.stream) return;
     const overlay = $('countdown'); const num = $('countdown-num'); const btn = $('btn-go-live');
-    overlay.style.display = 'flex'; let count = 3; num.textContent = count; btn.textContent = `LIVE IN ${count}...`; 
+    overlay.style.display = 'flex'; let count = 3; num.textContent = count; btn.textContent = `LIVE IN ${count}...`;
     const interval = setInterval(() => {
         count--;
         if (count > 0) { num.textContent = count; btn.textContent = `LIVE IN ${count}...`; }
-        else { 
-            clearInterval(interval); overlay.style.display = 'none'; APP.state.isLive = true; APP.camera.mode = 'live'; var _pf = $('cam-preview-float'); if (_pf) { _pf.classList.remove('active'); _pf.style.display = 'none'; } 
-            $('cam-ctrls').style.display = 'none'; $('live-ctrls').style.display = 'block'; $('tally').style.display = 'block'; $('status-text').textContent = 'LIVE'; $('main-dot').classList.add('live'); 
-            document.querySelector('.preview-label').textContent = 'LIVE'; log('LIVE_PODCAST_MODE'); 
+        else {
+            clearInterval(interval); overlay.style.display = 'none';
+
+            // Force camera as render source — clear any media/AI override
+            APP.render.source = null;
+            APP.state.isLive = true;
+            APP.camera.mode = 'live';
+
+            // Ensure camera videoEl is playing (iOS Safari can pause background videos)
+            if (APP.camera.videoEl && APP.camera.videoEl.paused) {
+                APP.camera.videoEl.play().catch(function() {});
+            }
+
+            // Duck audio NOW (not 3s ago at button click)
+            applyAudioDuck(true);
+
+            var _pf = $('cam-preview-float'); if (_pf) { _pf.classList.remove('active'); _pf.style.display = 'none'; }
+            $('cam-ctrls').style.display = 'none'; $('live-ctrls').style.display = 'block'; $('tally').style.display = 'block'; $('status-text').textContent = 'LIVE'; $('main-dot').classList.add('live');
+            document.querySelector('.preview-label').textContent = 'LIVE'; log('LIVE_PODCAST_MODE');
         }
     }, 1000);
 }
@@ -3026,15 +3041,18 @@ $('btn-rec').onclick = () => {
     }
 };
 
-function endLive() { 
-    APP.state.isLive = false; APP.camera.mode = 'preview'; $('live-ctrls').style.display = 'none'; $('cam-ctrls').style.display = 'block'; $('tally').style.display = 'none'; $('status-text').textContent = 'STANDBY'; $('main-dot').classList.remove('live'); $('btn-go-live').textContent = 'GO LIVE [3-2-1]'; var _pf3 = $('cam-preview-float'); if (_pf3 && APP.camera.stream) { _pf3.style.display = ''; _pf3.classList.add('active'); } 
-    log('END_LIVE'); 
+function endLive() {
+    APP.state.isLive = false; APP.camera.mode = 'preview';
+    applyAudioDuck(false);
+    $('live-ctrls').style.display = 'none'; $('cam-ctrls').style.display = 'block'; $('tally').style.display = 'none'; $('status-text').textContent = 'STANDBY'; $('main-dot').classList.remove('live'); $('btn-go-live').textContent = 'GO LIVE [3-2-1]'; var _pf3 = $('cam-preview-float'); if (_pf3 && APP.camera.stream) { _pf3.style.display = ''; _pf3.classList.add('active'); }
+    log('END_LIVE');
     $('rec-status').style.display = 'none';
 }
 
-function killCamera() { 
-    if (APP.camera.stream) APP.camera.stream.getTracks().forEach(t => t.stop()); 
-    if (APP.camera.videoEl) { APP.camera.videoEl.srcObject = null; APP.camera.videoEl = null; } 
+function killCamera() {
+    applyAudioDuck(false);
+    if (APP.camera.stream) APP.camera.stream.getTracks().forEach(t => t.stop());
+    if (APP.camera.videoEl) { APP.camera.videoEl.srcObject = null; APP.camera.videoEl = null; }
     APP.camera.mode = 'off'; APP.state.isLive = false; $('live-ctrls').style.display = 'none'; $('cam-ctrls').style.display = 'none'; $('btn-init-cam').style.display = 'block'; $('btn-kill').style.display = 'none'; $('cam-dot').classList.add('off'); $('tally').style.display = 'none'; $('status-text').textContent = 'STANDBY'; $('main-dot').classList.remove('live'); var _pf2 = $('cam-preview-float'); if (_pf2) { _pf2.classList.remove('active'); _pf2.style.display = 'none'; } if (APP.camera.previewEl) { APP.camera.previewEl.srcObject = null; APP.camera.previewEl = null; } log('CAM_OFF'); 
     $('rec-status').style.display = 'none';
 }
@@ -6327,15 +6345,8 @@ async function updateTickerLive() {
 updateTickerLive();
 setInterval(updateTickerLive, 600000); // 10 minute poll to save CPU
 
-//  EVENT INTERCEPTOR (Priority Phase)
-document.addEventListener('click', (e) => {
-    const btn = e.target.closest('button');
-    if (!btn) return;
-    
-    const id = btn.id;
-    if (id === 'btn-go-live') applyAudioDuck(true);
-    if (id === 'btn-end' || id === 'btn-end-live' || id === 'btn-kill') applyAudioDuck(false);
-}, true);
+// Ducking is now handled directly inside goLive() / endLive() / killCamera()
+// so it fires at the correct moment (after countdown, not on button click)
 
 // --- TACTICAL FX GLOBAL BRIDGE ---
 // --- TACTICAL FX MASTER BRIDGE (v4.1 VOID/LUCY) ---
