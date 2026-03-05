@@ -16,7 +16,6 @@
 <script src="https://cdnjs.cloudflare.com/ajax/libs/ethers/5.7.2/ethers.umd.min.js"></script>
 <script src="https://js.puter.com/v2/"></script>
 <script src="src/Compositor.js"></script>
-<script src="https://cdn.jsdelivr.net/npm/qrcodejs@1.0.0/qrcode.min.js"></script>
 <script type="importmap">{"imports":{"three":"https://unpkg.com/three@0.160.0/build/three.module.js","three/addons/":"https://unpkg.com/three@0.160.0/examples/jsm/"}}</script>
     <style>
         @import url('https://fonts.googleapis.com/css2?family=Orbitron:wght@400;600;800;900&family=JetBrains+Mono:wght@300;400;500&family=Bebas+Neue&family=Russo+One&display=swap');
@@ -1443,13 +1442,6 @@ body.fx-nvg #stage::after {
             </div>
         </div>
 
-        <div class="section">
-            <div class="sec-head collapsible"><span class="sec-title">QR_LINK</span><span class="sec-arrow">&#x25B8;</span><div class="sec-dot"></div></div>
-            <div class="sec-body" style="text-align:center;">
-                <div id="qr-container" style="display:inline-block;padding:6px;background:#000;border:1px solid var(--border);border-radius:4px;filter:drop-shadow(0 0 4px #00ff41) drop-shadow(0 0 8px rgba(0,255,65,0.4));"></div>
-                <div style="font-size:7px;color:var(--text-dim);margin-top:4px;letter-spacing:1px;">SCAN_TO_CONNECT</div>
-            </div>
-        </div>
 
     </aside>
 
@@ -1677,16 +1669,16 @@ function igniteAudio() {
     }
 }
 
-// GHOST TERMINAL
+// GHOST TERMINAL — Sentient AI Companion v5
 function ghostLog(msg, type = 'cmd') {
     const body = $('ghost-terminal-body');
     const ts = new Date().toTimeString().split(' ')[0].substring(0, 5);
     const line = document.createElement('div');
     line.className = 'ghost-log';
-    line.innerHTML = `<span class="ts">${ts}</span><span class="${type}">${msg}</span>`;
+    line.innerHTML = '<span class="ts">' + ts + '</span><span class="' + type + '">' + msg + '</span>';
     body.appendChild(line);
     body.scrollTop = body.scrollHeight;
-    if (body.children.length > 50) body.firstChild.remove();
+    if (body.children.length > 80) body.firstChild.remove();
 }
 
 function ghostInit() {
@@ -1710,199 +1702,733 @@ function toggleGhost() {
     const term = $('ghost-terminal');
     const isActive = term.style.display === 'flex';
     term.style.display = isActive ? 'none' : 'flex';
-    if(!isActive) { term.classList.add('active'); $('ghost-input').focus(); ghostLog('GHOST_AI LISTENING...', 'ai'); }
+    if(!isActive) { term.classList.add('active'); $('ghost-input').focus(); ghostLog('GHOST_AI online. Ask me anything or type help.', 'ai'); }
 }
 
 $('ghost-input').addEventListener('keydown', e => { if(e.key === 'Enter') { const val = e.target.value.trim(); if(val) processGhostCommand(val); e.target.value = ''; } });
 
-function processGhostCommand(cmd) { 
-    ghostLog(cmd.toUpperCase(), 'user'); 
-    const c = cmd.toLowerCase().trim();
-    const hour = new Date().getHours();
-    
-    setTimeout(() => { 
-        // Greetings
-        if (c.match(/^(hi|hello|hey|yo|sup|ciao|hola|bonjour|salut|oi)$/)) {
-            const greets = [
-                'Hey operator. Systems are yours.',
-                'Yo. What are we breaking today?',
-                'Ciao. Ready when you are.',
-                hour < 12 ? 'Morning. Coffee protocols engaged.' : hour < 18 ? 'Good afternoon, commander.' : 'Night shift. Let\'s make magic.'
-            ];
-            ghostLog(greets[Math.floor(Math.random()*greets.length)], 'ai');
-        }
-        // Status
-        else if (c.includes('status') || c === 'sys') {
-            ghostLog(`FPS:${APP.render.fps} | MEDIA:${APP.media.queue.length} | AUDIO:${APP.audio.isPlaying ? 'PLAYING' : 'IDLE'}`, 'ai');
-        }
-        // Help
-        else if (c === 'help' || c === '?') {
-            ghostLog('SOVEREIGN_COMMANDS:', 'ai');
-            ghostLog('SHATTER | TRASUDATE | LOAD | MINT', 'success');
-            ghostLog('status | theme | party | seismic | fx', 'ai');
-            ghostLog('time | crypto | about | clear | fs', 'ai');
-        }
-        // ========== SOVEREIGN COMMANDS ==========
-        // SHATTER - Trigger glass fractures across screen
-        else if (c === 'shatter') {
-            ghostLog('SHATTER_PROTOCOL: INITIATING...', 'success');
-            const stage = $('stage');
-            const rect = stage.getBoundingClientRect();
-            for (let i = 0; i < 6; i++) {
-                setTimeout(() => {
-                    const x = rect.left + Math.random() * rect.width;
-                    const y = rect.top + Math.random() * rect.height;
-                    if (typeof createGlassFracture === 'function') {
-                        createGlassFracture(x, y);
-                    }
-                }, i * 80);
-            }
-            ghostLog('GLASS_MATRIX: SHATTERED', 'success');
-        }
+// ═══════════════════════════════════════════════════════════════
+// GHOST AI — CONTEXTUAL KNOWLEDGE BASE
+// The AI knows everything about this console and gives real advice.
+// ═══════════════════════════════════════════════════════════════
 
-        // LOAD - Open directory picker for media scan
-        else if (c === 'load' || c === 'scan') {
-            ghostLog('LOAD_PROTOCOL: SCANNING...', 'ai');
-            (async () => {
-                try {
-                    if (!window.showDirectoryPicker) {
-                        ghostLog('DIRECTORY_PICKER: NOT_SUPPORTED', 'crit');
-                        return;
-                    }
-                    const dirHandle = await window.showDirectoryPicker();
-                    APP.ghost.directoryHandle = dirHandle;
-                    let mediaCount = 0;
-                    const mediaExt = ['.mp4', '.webm', '.mov', '.jpg', '.jpeg', '.png', '.gif', '.mp3', '.wav'];
-                    
-                    for await (const entry of dirHandle.values()) {
-                        if (entry.kind === 'file') {
-                            const name = entry.name.toLowerCase();
-                            if (mediaExt.some(ext => name.endsWith(ext))) {
-                                mediaCount++;
-                                const file = await entry.getFile();
-                                const url = URL.createObjectURL(file);
-                                if (name.match(/\.(mp4|webm|mov)$/i)) {
-                                    const vid = document.createElement('video');
-                                    vid.src = url; vid.loop = true; vid.muted = true;
-                                    APP.media.queue.push({ type: 'video', element: vid, name: entry.name });
-                                } else if (name.match(/\.(jpg|jpeg|png|gif)$/i)) {
-                                    const img = new Image();
-                                    img.src = url;
-                                    // Must be in DOM so browser's GIF decoder advances frames
-                                    var _gh = document.getElementById('gif-host');
-                                    if (_gh) _gh.appendChild(img);
-                                    APP.media.queue.push({ type: 'image', element: img, name: entry.name });
+var GHOST = {
+    // Current state awareness
+    getContext: function() {
+        return {
+            hasMedia: APP.media.queue.length > 0,
+            mediaCount: APP.media.queue.length,
+            hasAudio: APP.audio.isPlaying,
+            hasCamera: !!APP.camera.stream,
+            isLive: APP.state.isLive,
+            isRecording: APP.state.isRecording,
+            hasMidi: APP.status.isMidiActive,
+            hasWallet: !!(APP.wallet && APP.wallet.address),
+            hasGuest: !!(APP.guest && APP.guest.isActive),
+            theme: APP.state.theme || 'cyan',
+            fps: APP.render.fps,
+            seismic: APP.vj.rumbleEnabled,
+            party: APP.vj.uiReactivity,
+            uptime: $('uptime') ? $('uptime').textContent : '00:00:00',
+            hour: new Date().getHours(),
+            isCycling: APP.state.isCycle
+        };
+    },
+
+    // Smart tips based on what the user is currently doing (or not doing)
+    tips: [
+        // Getting started — nothing loaded
+        { condition: function(ctx) { return !ctx.hasMedia && !ctx.hasAudio && !ctx.hasCamera; },
+          msgs: [
+            'Your canvas is empty. Load some visuals! Click LOAD_MEDIA in the sidebar or type "load" to scan a folder.',
+            'Tip: Drag & drop images or videos onto the screen to add them to your media deck.',
+            'Try loading some music first — click the audio button in MEDIA_DECK, then arm SEISMIC to feel the bass shake your screen.',
+            'New here? Start by loading media (images/videos) into the deck, then add music. The magic happens when they combine.',
+            'Pro tip: Type "load" to scan a whole folder of visuals at once. Way faster than loading one by one.'
+          ]
+        },
+        // Has media but no audio
+        { condition: function(ctx) { return ctx.hasMedia && !ctx.hasAudio; },
+          msgs: [
+            'Visuals loaded, but no audio yet. Load a track and watch the reactivity come alive!',
+            'Try adding music — then type "seismic" to make the whole screen shake with the bass.',
+            'Your deck has ' + 0 + ' items. Add audio and type "party" for autonomous visual morphing on every beat.',
+            'Tip: With music playing, the VU meter lights up, bass analysis kicks in, and FX become audio-reactive.'
+          ],
+          dynamic: function(ctx) { return 'Your deck has ' + ctx.mediaCount + ' items. Load audio and the console comes alive.'; }
+        },
+        // Has audio playing
+        { condition: function(ctx) { return ctx.hasAudio && !ctx.seismic; },
+          msgs: [
+            'Music detected! Type "seismic" to arm bass-reactive screen shake. Every kick drum shakes the viewport.',
+            'Audio is playing. Try "party" to enable autonomous mode — logos morph, themes shift, FX trigger on beats.',
+            'Tip: The REACTIVITY section has wild FX. Try X-RAY, VOID, or LUCY for real-time visual processing.',
+            'Your audio feeds the FFT analyzer. Arm SEISMIC + load some visuals for a full VJ experience.'
+          ]
+        },
+        // Seismic armed but no party
+        { condition: function(ctx) { return ctx.seismic && !ctx.party && ctx.hasAudio; },
+          msgs: [
+            'Seismic is rumbling. Now type "party" for full autonomous mode — the console becomes self-aware.',
+            'Bass is shaking. Try the REACTIVITY FX: X-RAY scans, VOID crushes to grayscale, LUCY is full hallucination.',
+            'Type "crush" for an instant RGB explosion, "stutter" for a trails burst, or "invert" for color flip.'
+          ]
+        },
+        // Camera is on but not live
+        { condition: function(ctx) { return ctx.hasCamera && !ctx.isLive; },
+          msgs: [
+            'Camera is hot. Hit GO_LIVE for a cinematic 3-2-1 countdown. Audio ducks automatically.',
+            'Your camera feed is ready. Go live, then your stream becomes the canvas source. Record it with REC.',
+            'Tip: Going live overrides the media deck on the canvas. Your camera becomes the broadcast source.'
+          ]
+        },
+        // Is live
+        { condition: function(ctx) { return ctx.isLive && !ctx.isRecording; },
+          msgs: [
+            'You\'re LIVE! Hit REC to capture your broadcast. Everything on the canvas gets recorded.',
+            'Live broadcast active. Try the Lower Third — click GUEST, TRACK, or BREAKING for overlay graphics.',
+            'Tip: While live, you can still trigger FX. Try "crush" or "shatter" for dramatic transitions.'
+          ]
+        },
+        // Recording
+        { condition: function(ctx) { return ctx.isRecording; },
+          msgs: [
+            'Recording in progress. Everything on canvas is being captured. Use FX for dramatic moments.',
+            'REC is hot. Trigger "shatter" for glass fractures or "crush" for an RGB explosion during the recording.'
+          ]
+        },
+        // MIDI connected
+        { condition: function(ctx) { return ctx.hasMidi; },
+          msgs: [
+            'MIDI controller detected. Notes 36-39 trigger FX impacts. Notes 40-47 switch themes. CC1 controls brightness.',
+            'MIDI is live. Use MIDI LEARN to map any knob/fader to any control. Click a button, then move a MIDI control.',
+            'Pro tip: Map your drum pads to FX triggers. Pad 1=Stutter, Pad 2=Invert, Pad 3=Crush, Pad 4=Seismic.'
+          ]
+        },
+        // P2P guest connected
+        { condition: function(ctx) { return ctx.hasGuest; },
+          msgs: [
+            'Guest connected via P2P! Their stream appears in your canvas priority chain. Use Lower Third to label them.',
+            'P2P call active. UI sync sends your lower thirds and logos to the guest in real-time.'
+          ]
+        },
+        // Wallet connected
+        { condition: function(ctx) { return ctx.hasWallet; },
+          msgs: [
+            'Wallet connected. Type "mint" to snapshot your canvas as an NFT-ready PNG. Click SCAN_WALLET to browse your assets.',
+            'Your NFTs appear in the vault at the bottom. Click any NFT thumbnail to summon it onto the canvas.'
+          ]
+        },
+        // General pro tips (always available as fallback)
+        { condition: function() { return true; },
+          msgs: [
+            'Press SPACE to rotate through your media deck. Hold it down for rapid-fire switching.',
+            'Press H for instant fullscreen. Press G to toggle this terminal. ESC is panic reset.',
+            'The Projector button opens your canvas in a separate window — perfect for second screen output.',
+            'Every element on canvas is draggable. Drag your station bug, 2D logo, or 3D logo to reposition them.',
+            'Two-finger pinch on the canvas (or Ctrl+scroll) resizes logos and bugs in real-time.',
+            'Type "theme purple" or "theme gold" to change the entire UI color scheme. 6 themes available.',
+            'The AI_INJECTION section generates images from text. Type a prompt and hit GENERATE to inject AI art onto your canvas.',
+            'Lower Thirds sync to P2P guests. Change text on your side, it appears on theirs instantly.',
+            'VHS mode adds analog scan lines and color bleeding. Toggle it in the sidebar for that retro look.',
+            'Type "shatter" for a glass-fracture explosion across the screen. Pure cinema.',
+            'Connect a MIDI controller and this whole console becomes a performance instrument.',
+            'The IDENTITY section lets you set a station name, upload a 2D logo, or load a 3D model that spins on canvas.',
+            'Session Lab lets you save/load entire sessions. Export as .vgd file to share your complete setup.',
+            'Type "crypto" to fetch live BTC/ETH/SOL prices into the news ticker.',
+            'Audio modes: STEREO is flat, 3D_SPATIAL uses HRTF for immersive positioning, DOLBY adds compression + EQ.',
+            'The SYSTEM_FAILURE button triggers 5 seconds of pure chaos — inverts, flashes, color shifts. Use wisely.',
+            'You can load audio AND video. Video audio feeds the FFT analyzer just like music tracks.',
+            'Type "stutter" for a motion-trails burst, "invert" for instant color flip, "crush" for maximum RGB split.',
+            'The canvas captures at native resolution. Record at 4K for production-quality output.',
+            'Night theme (type "theme night") is perfect for low-light environments. Minimal UI glow.'
+          ]
+        }
+    ],
+
+    // Get a contextual tip
+    getTip: function() {
+        var ctx = this.getContext();
+        // Find the most specific matching tip category
+        for (var i = 0; i < this.tips.length - 1; i++) {
+            if (this.tips[i].condition(ctx)) {
+                if (this.tips[i].dynamic) return this.tips[i].dynamic(ctx);
+                var msgs = this.tips[i].msgs;
+                return msgs[Math.floor(Math.random() * msgs.length)];
+            }
+        }
+        // Fallback to general tips
+        var gen = this.tips[this.tips.length - 1].msgs;
+        return gen[Math.floor(Math.random() * gen.length)];
+    },
+
+    // Natural language understanding — fuzzy match user intent
+    understand: function(input) {
+        var c = input.toLowerCase().trim();
+
+        // Map natural language to intents
+        if (c.match(/^(hi|hello|hey|yo|sup|ciao|hola|bonjour|salut|oi|what'?s up|howdy|greetings?)$/)) return 'greet';
+        if (c.match(/help|what can|how do|commands?|guide|tutorial|show me|teach/)) return 'help';
+        if (c.match(/status|sys|system|stats?|info|diagnostics?/)) return 'status';
+        if (c.match(/^(tip|advice|suggest|idea|what should|bored|nothing|idk|hmm|now what)/)) return 'tip';
+
+        // Media & Audio
+        if (c.match(/load|scan|open|import|folder|browse|add media|add visual/)) return 'load';
+        if (c.match(/music|audio|song|track|sound|playlist|beat/)) return 'audio_help';
+        if (c.match(/play|pause|resume|stop playing/)) return 'play';
+        if (c.match(/next|skip|forward/)) return 'next';
+        if (c.match(/prev|back|rewind/)) return 'prev';
+        if (c.match(/rotate|cycle|shuffle|auto.?play/)) return 'cycle';
+        if (c.match(/eject|remove|delete|clear deck/)) return 'eject';
+        if (c.match(/queue|deck|media list|what.?s loaded|how many/)) return 'queue';
+
+        // Camera & Live
+        if (c.match(/camera|cam|webcam|init cam/)) return 'camera_help';
+        if (c.match(/go live|start live|broadcast|stream|countdown/)) return 'golive_help';
+        if (c.match(/record|rec|capture/)) return 'record_help';
+        if (c.match(/kill|shutdown|stop cam|end cam/)) return 'kill_help';
+
+        // FX & Visuals
+        if (c.match(/^(shatter|break|glass|fracture|smash)$/)) return 'shatter';
+        if (c.match(/^(crush|rgb|split|glitch)$/)) return 'crush';
+        if (c.match(/^(stutter|trails?|echo)$/)) return 'stutter';
+        if (c.match(/^(invert|negative|flip color)$/)) return 'invert';
+        if (c.match(/^(void|grayscale|grey|gray|desaturate)$/)) return 'void';
+        if (c.match(/^(lucy|hallucin|psychedelic|trippy|acid)$/)) return 'lucy';
+        if (c.match(/^(xray|x-ray|scan|skeleton)$/)) return 'xray';
+        if (c.match(/^(tear|rip|displace)$/)) return 'tear';
+        if (c.match(/^(punch|hit|impact)$/)) return 'punch';
+        if (c.match(/^(nvg|night.?vision|thermal)$/)) return 'nvg';
+        if (c.match(/^(vhs|retro|analog|tape)$/)) return 'vhs';
+        if (c.match(/fx|effect|filter|what fx|visual/)) return 'fx_help';
+        if (c.match(/^(party|rave|auto.?mode|autonomous)$/)) return 'party';
+        if (c.match(/^(seismic|shake|rumble|bass|vibrate)$/)) return 'seismic';
+        if (c.match(/failure|psychosis|chaos|destroy|meltdown/)) return 'failure';
+        if (c.match(/reset|panic|emergency|esc|clear fx|stop fx|normal/)) return 'reset';
+
+        // Theme
+        if (c.match(/^theme\s+\w+/)) return 'theme_set';
+        if (c.match(/theme|color|palette|skin|style/)) return 'theme_help';
+
+        // Identity & Logos
+        if (c.match(/logo|identity|watermark|bug|station|brand/)) return 'identity_help';
+        if (c.match(/lower.?third|overlay|caption|subtitle|name tag|l3/)) return 'lt_help';
+
+        // P2P & Network
+        if (c.match(/p2p|peer|call|video.?call|connect|guest/)) return 'p2p_help';
+
+        // MIDI
+        if (c.match(/midi|controller|pad|knob|fader|keyboard|instrument/)) return 'midi_help';
+
+        // Wallet & NFT
+        if (c.match(/mint|nft|snapshot|capture art/)) return 'mint';
+        if (c.match(/wallet|metamask|eth|crypto|bitcoin|btc|sol|connect wallet/)) return 'wallet_help';
+
+        // Projector / VR / Output
+        if (c.match(/projector|second screen|output|external|display/)) return 'projector_help';
+        if (c.match(/vr|virtual reality|headset|immersive/)) return 'vr_help';
+
+        // Session
+        if (c.match(/save|session|export|backup/)) return 'session_help';
+
+        // Utility
+        if (c.match(/time|clock|date/)) return 'time';
+        if (c.match(/crypto|price|bitcoin|btc|eth|sol/)) return 'crypto';
+        if (c.match(/joke|funny|laugh|humor|lol/)) return 'joke';
+        if (c.match(/about|who|what is|version/)) return 'about';
+        if (c.match(/clear|cls|wipe/)) return 'clear';
+        if (c.match(/fullscreen|fs|maximize|expand/)) return 'fullscreen';
+        if (c.match(/ai|generate|image|dall|prompt|inject|txt2img/)) return 'ai_help';
+        if (c.match(/resolution|4k|1080|canvas size/)) return 'resolution';
+        if (c.match(/spatial|stereo|dolby|surround|3d audio/)) return 'audio_mode';
+        if (c.match(/shortcut|hotkey|keyboard|key bind/)) return 'shortcuts';
+
+        return 'unknown';
+    }
+};
+
+function processGhostCommand(cmd) {
+    ghostLog(cmd.toUpperCase(), 'user');
+    var intent = GHOST.understand(cmd);
+    var c = cmd.toLowerCase().trim();
+    var ctx = GHOST.getContext();
+    var hour = ctx.hour;
+
+    setTimeout(function() {
+        switch(intent) {
+            // ── GREETINGS ──
+            case 'greet':
+                var greets = [
+                    'Hey operator. Systems nominal. What are we building?',
+                    hour < 12 ? 'Morning shift. Coffee protocols engaged. What\'s the plan?' : hour < 18 ? 'Afternoon, commander. All systems green.' : 'Night mode active. Let\'s make something wild.',
+                    'Yo. ' + (ctx.hasMedia ? ctx.mediaCount + ' visuals loaded. ' : 'Canvas is empty. ') + (ctx.hasAudio ? 'Audio is pumping.' : 'No audio yet.') + ' What\'s next?'
+                ];
+                ghostLog(greets[Math.floor(Math.random() * greets.length)], 'ai');
+                break;
+
+            // ── STATUS ──
+            case 'status':
+                ghostLog('FPS:' + ctx.fps + ' | MEDIA:' + ctx.mediaCount + ' | AUDIO:' + (ctx.hasAudio ? 'PLAYING' : 'IDLE') + ' | CAM:' + (ctx.hasCamera ? (ctx.isLive ? 'LIVE' : 'STANDBY') : 'OFF'), 'ai');
+                ghostLog('THEME:' + ctx.theme.toUpperCase() + ' | SEISMIC:' + (ctx.seismic ? 'ARMED' : 'OFF') + ' | PARTY:' + (ctx.party ? 'ON' : 'OFF') + ' | REC:' + (ctx.isRecording ? 'HOT' : 'OFF'), 'ai');
+                ghostLog('MIDI:' + (ctx.hasMidi ? 'CONNECTED' : 'OFF') + ' | WALLET:' + (ctx.hasWallet ? 'LINKED' : 'OFF') + ' | P2P:' + (ctx.hasGuest ? 'ACTIVE' : 'OFF') + ' | UP:' + ctx.uptime, 'ai');
+                break;
+
+            // ── HELP ──
+            case 'help':
+                ghostLog('I\'m GHOST, your AI copilot. I know every function in this console.', 'ai');
+                ghostLog('Ask me naturally: "how do I go live?" "what FX are there?" "how does MIDI work?"', 'ai');
+                ghostLog('', 'ai');
+                ghostLog('QUICK COMMANDS:', 'success');
+                ghostLog('load / shatter / mint / party / seismic / crush / stutter / invert', 'ai');
+                ghostLog('theme [name] / clear / fs / time / crypto / joke / status / tip', 'ai');
+                ghostLog('', 'ai');
+                ghostLog('OR ASK ME ABOUT:', 'success');
+                ghostLog('camera, fx, midi, audio, p2p calls, wallet, projector, vr, ai generator, shortcuts...', 'ai');
+                break;
+
+            // ── CONTEXTUAL TIPS ──
+            case 'tip':
+                ghostLog(GHOST.getTip(), 'ai');
+                break;
+
+            // ── MEDIA & AUDIO GUIDANCE ──
+            case 'load':
+                ghostLog('LOAD_PROTOCOL: SCANNING...', 'ai');
+                (async function() {
+                    try {
+                        if (!window.showDirectoryPicker) { ghostLog('DIRECTORY_PICKER: NOT_SUPPORTED — use the LOAD_MEDIA button in sidebar instead.', 'crit'); return; }
+                        var dirHandle = await window.showDirectoryPicker();
+                        APP.ghost.directoryHandle = dirHandle;
+                        var mediaCount = 0;
+                        var mediaExt = ['.mp4', '.webm', '.mov', '.jpg', '.jpeg', '.png', '.gif', '.mp3', '.wav'];
+                        for await (var entry of dirHandle.values()) {
+                            if (entry.kind === 'file') {
+                                var name = entry.name.toLowerCase();
+                                if (mediaExt.some(function(ext) { return name.endsWith(ext); })) {
+                                    mediaCount++;
+                                    var file = await entry.getFile();
+                                    var url = URL.createObjectURL(file);
+                                    if (name.match(/\.(mp4|webm|mov)$/i)) {
+                                        var vid = document.createElement('video');
+                                        vid.src = url; vid.loop = true; vid.muted = true;
+                                        APP.media.queue.push({ type: 'video', element: vid, name: entry.name });
+                                    } else if (name.match(/\.(jpg|jpeg|png|gif)$/i)) {
+                                        var img = new Image();
+                                        img.src = url;
+                                        var _gh = document.getElementById('gif-host');
+                                        if (_gh) _gh.appendChild(img);
+                                        APP.media.queue.push({ type: 'image', element: img, name: entry.name });
+                                    }
                                 }
                             }
                         }
-                    }
-                    ghostLog(`LOADED: ${mediaCount} MEDIA_FILES`, 'success');
-                    $('q-info').textContent = APP.media.queue.length;
-                } catch (e) {
-                    ghostLog('LOAD_ABORTED: ' + e.message, 'crit');
+                        ghostLog('LOADED: ' + mediaCount + ' MEDIA_FILES', 'success');
+                        ghostLog('Press SPACE to rotate through them. Or type "cycle" for auto-rotation.', 'ai');
+                        $('q-info').textContent = APP.media.queue.length;
+                    } catch (e) { ghostLog('LOAD_ABORTED: ' + e.message, 'crit'); }
+                })();
+                break;
+
+            case 'audio_help':
+                ghostLog('AUDIO SYSTEM:', 'success');
+                ghostLog('1. Click the audio icon in MEDIA_DECK to load MP3/WAV files.', 'ai');
+                ghostLog('2. Use PLAY/PAUSE/NEXT/PREV buttons to control playback.', 'ai');
+                ghostLog('3. Audio feeds the FFT analyzer — this drives all beat-reactive FX.', 'ai');
+                ghostLog('4. Audio modes: STEREO (flat), 3D_SPATIAL (HRTF), DOLBY (compressed + EQ).', 'ai');
+                if (!ctx.hasAudio) ghostLog('You have no audio loaded yet. Load some music to unlock reactivity!', 'ai');
+                break;
+
+            case 'play':
+                if (typeof togglePlayPause === 'function') togglePlayPause();
+                ghostLog('Playback toggled.', 'success');
+                break;
+
+            case 'next':
+                if (typeof nextTrack === 'function') nextTrack();
+                ghostLog('Next track.', 'success');
+                break;
+
+            case 'prev':
+                if (typeof prevTrack === 'function') prevTrack();
+                ghostLog('Previous track.', 'success');
+                break;
+
+            case 'cycle':
+                if ($('btn-cycle-toggle')) $('btn-cycle-toggle').click();
+                ghostLog(APP.state.isCycle ? 'CYCLE MODE: ON — media auto-rotates.' : 'CYCLE MODE: OFF', APP.state.isCycle ? 'success' : 'ai');
+                break;
+
+            case 'eject':
+                if (typeof ejectCurrent === 'function') ejectCurrent();
+                ghostLog('Current media ejected from deck.', 'success');
+                break;
+
+            case 'queue':
+                ghostLog('MEDIA_DECK: ' + ctx.mediaCount + ' items loaded.', 'ai');
+                if (ctx.mediaCount > 0) ghostLog('Press SPACE to rotate. EJECT removes current. CLEAR wipes all.', 'ai');
+                else ghostLog('Deck is empty. Type "load" or click LOAD_MEDIA to add visuals.', 'ai');
+                break;
+
+            // ── CAMERA & LIVE ──
+            case 'camera_help':
+                ghostLog('CAMERA SYSTEM:', 'success');
+                ghostLog('1. Click INIT_CAM to start your webcam (requests 4K if available).', 'ai');
+                ghostLog('2. Hit GO_LIVE for the 3-2-1 cinematic countdown.', 'ai');
+                ghostLog('3. Going live makes your camera the canvas source. Audio auto-ducks.', 'ai');
+                ghostLog('4. MIC button toggles your microphone feed into the mix.', 'ai');
+                ghostLog('5. KILL shuts down the camera completely.', 'ai');
+                if (ctx.hasCamera) ghostLog('Camera is currently ' + (ctx.isLive ? 'LIVE!' : 'on standby. Ready when you are.'), 'ai');
+                break;
+
+            case 'golive_help':
+                if (!ctx.hasCamera) { ghostLog('No camera initialized. Click INIT_CAM first, then GO_LIVE.', 'crit'); }
+                else if (ctx.isLive) { ghostLog('You\'re already live! Use END to stop broadcasting, or KILL to shut down camera.', 'ai'); }
+                else { ghostLog('Camera is ready. Click GO_LIVE for the 3-2-1 countdown. Audio ducks automatically.', 'ai'); }
+                break;
+
+            case 'record_help':
+                ghostLog('RECORDING:', 'success');
+                ghostLog('1. REC button in the header starts/stops broadcast recording.', 'ai');
+                ghostLog('2. Everything on canvas is captured — visuals, FX, overlays, camera feed.', 'ai');
+                ghostLog('3. INJECT captures a 10-second camera loop.', 'ai');
+                ghostLog('4. The NFT_VAULT 30s button captures a VGD clip with DNA signature.', 'ai');
+                break;
+
+            case 'kill_help':
+                ghostLog('KILL shuts down camera + stops recording + clears the live feed.', 'ai');
+                ghostLog('END stops just the live broadcast but keeps camera running.', 'ai');
+                break;
+
+            // ── FX SYSTEM ──
+            case 'shatter':
+                ghostLog('SHATTER_PROTOCOL: INITIATING...', 'success');
+                var stage = $('stage'); var rect = stage.getBoundingClientRect();
+                for (var i = 0; i < 6; i++) { (function(j) { setTimeout(function() { var x = rect.left + Math.random() * rect.width; var y = rect.top + Math.random() * rect.height; if (typeof createGlassFracture === 'function') createGlassFracture(x, y); }, j * 80); })(i); }
+                ghostLog('GLASS_MATRIX: SHATTERED', 'success');
+                break;
+
+            case 'crush':
+                if (typeof impactCrush === 'function') impactCrush();
+                ghostLog('CRUSH FX — maximum RGB split + pixelation. 500ms burst.', 'success');
+                break;
+
+            case 'stutter':
+                if (typeof impactStutter === 'function') impactStutter();
+                ghostLog('STUTTER FX — motion trails + chromatic aberration. 500ms burst.', 'success');
+                break;
+
+            case 'invert':
+                if (typeof impactInvert === 'function') impactInvert();
+                ghostLog('INVERT FX — color negative + aberration. 500ms burst.', 'success');
+                break;
+
+            case 'void':
+                if (typeof toggleFX === 'function') toggleFX('void');
+                ghostLog('VOID — grayscale + high contrast crush. Toggle.', 'success');
+                break;
+
+            case 'lucy':
+                if (typeof toggleFX === 'function') toggleFX('lucy');
+                ghostLog('LUCY — full hallucination mode. Color warp + displacement. Toggle.', 'success');
+                break;
+
+            case 'xray':
+                if (typeof toggleFX === 'function') toggleFX('scan');
+                ghostLog('X-RAY — transparency scan effect. Toggle.', 'success');
+                break;
+
+            case 'tear':
+                if (typeof toggleFX === 'function') toggleFX('tear');
+                ghostLog('TEAR — vertical displacement / distortion. Toggle.', 'success');
+                break;
+
+            case 'punch':
+                if (typeof toggleFX === 'function') toggleFX('punch');
+                ghostLog('PUNCH — impact flash on bass hits. Toggle.', 'success');
+                break;
+
+            case 'nvg':
+                if (typeof toggleFX === 'function') toggleFX('nvg');
+                ghostLog('NVG — green night vision + grain. Toggle.', 'success');
+                break;
+
+            case 'vhs':
+                if (typeof toggleVHS === 'function') toggleVHS();
+                ghostLog('VHS — analog scan lines + color bleed. Toggle.', 'success');
+                break;
+
+            case 'fx_help':
+                ghostLog('FX ENGINE — all effects stack:', 'success');
+                ghostLog('TOGGLES (persistent): void, lucy, xray, tear, punch, nvg, vhs', 'ai');
+                ghostLog('IMPACTS (500ms burst): crush, stutter, invert', 'ai');
+                ghostLog('CINEMATIC: shatter (glass fractures), failure (5s chaos)', 'ai');
+                ghostLog('REACTIVE: party (auto-morph on beat), seismic (bass shake)', 'ai');
+                ghostLog('All FX are audio-reactive when music is playing. Type any FX name to trigger it.', 'ai');
+                ghostLog('Type "reset" to clear all active FX.', 'ai');
+                break;
+
+            case 'party':
+                if ($('btn-ui-react')) $('btn-ui-react').click();
+                ghostLog(APP.vj.uiReactivity ? 'PARTY MODE: ON — autonomous morphing on every beat drop.' : 'PARTY MODE: OFF', APP.vj.uiReactivity ? 'success' : 'ai');
+                if (APP.vj.uiReactivity && !ctx.hasAudio) ghostLog('Load some music to see the full effect!', 'ai');
+                break;
+
+            case 'seismic':
+                if ($('btn-rumble')) $('btn-rumble').click();
+                ghostLog(APP.vj.rumbleEnabled ? 'SEISMIC: ARMED — every bass hit shakes the viewport.' : 'SEISMIC: OFF', APP.vj.rumbleEnabled ? 'success' : 'ai');
+                if (APP.vj.rumbleEnabled && !ctx.hasAudio) ghostLog('Load audio first — seismic reacts to bass frequencies.', 'ai');
+                break;
+
+            case 'failure':
+                if ($('btn-psychosis')) $('btn-psychosis').click();
+                ghostLog('SYSTEM_FAILURE TRIGGERED — 5 seconds of pure chaos.', 'crit');
+                break;
+
+            case 'reset':
+                if (typeof resetAllFX === 'function') resetAllFX();
+                else if (typeof panicReset === 'function') panicReset();
+                ghostLog('ALL FX CLEARED. Systems nominal.', 'success');
+                break;
+
+            // ── THEMES ──
+            case 'theme_set':
+                var t = c.split(/\s+/)[1];
+                if (['cyan','magenta','green','purple','gold','night'].includes(t)) {
+                    setTheme(t);
+                    ghostLog('Theme: ' + t.toUpperCase(), 'success');
+                } else { ghostLog('Available: cyan, magenta, green, purple, gold, night', 'ai'); }
+                break;
+
+            case 'theme_help':
+                ghostLog('THEMES: cyan (default), magenta, green, purple, gold, night', 'success');
+                ghostLog('Type "theme magenta" to switch. Or click palette dots in the THEME section.', 'ai');
+                ghostLog('Current: ' + ctx.theme.toUpperCase(), 'ai');
+                ghostLog('Night mode is great for dark rooms. Gold for luxury aesthetics.', 'ai');
+                if (ctx.hasMidi) ghostLog('MIDI notes 40-47 also switch themes live!', 'ai');
+                break;
+
+            // ── IDENTITY & OVERLAY ──
+            case 'identity_help':
+                ghostLog('IDENTITY SYSTEM — 3 independent broadcast actors:', 'success');
+                ghostLog('1. STATION BUG: Text watermark. Type a name, click SET. Draggable on canvas.', 'ai');
+                ghostLog('2. 2D LOGO: Upload PNG/JPG/GIF/WebP. Draggable + pinch-to-resize on canvas.', 'ai');
+                ghostLog('3. 3D LOGO: Upload OBJ/FBX/STL. Renders with HUD material, auto-rotates.', 'ai');
+                ghostLog('All three can be positioned anywhere. Two-finger pinch (or Ctrl+scroll) to resize.', 'ai');
+                break;
+
+            case 'lt_help':
+                ghostLog('LOWER THIRDS — broadcast-grade overlays:', 'success');
+                ghostLog('GUEST: Name + role for interview guests.', 'ai');
+                ghostLog('TRACK: Auto-fills with current playing song.', 'ai');
+                ghostLog('BREAKING: Red alert breaking news banner.', 'ai');
+                ghostLog('Edit title/subtitle fields — changes appear live. OFF hides it.', 'ai');
+                if (ctx.hasGuest) ghostLog('Lower thirds auto-sync to your P2P guest!', 'ai');
+                break;
+
+            // ── P2P ──
+            case 'p2p_help':
+                ghostLog('P2P CALLS — peer-to-peer video + data:', 'success');
+                ghostLog('1. Click the P2P CALL badge in the header bar.', 'ai');
+                ghostLog('2. INIT_PEER generates your unique ID. Share it with your guest.', 'ai');
+                ghostLog('3. Enter their ID and hit CALL. Audio + data channel established.', 'ai');
+                ghostLog('4. Guest stream appears in your canvas. UI state syncs both ways.', 'ai');
+                ghostLog('5. Close the panel X to disconnect fully.', 'ai');
+                break;
+
+            // ── MIDI ──
+            case 'midi_help':
+                ghostLog('MIDI CONTROLLER INTEGRATION:', 'success');
+                ghostLog('1. Click MIDI button in sidebar to initialize (requires user gesture).', 'ai');
+                ghostLog('2. Notes 36-39: Stutter, Invert, Crush, Seismic impacts.', 'ai');
+                ghostLog('3. Notes 40-47: Theme switching (cyan, magenta, gold, purple, green).', 'ai');
+                ghostLog('4. CC1: Brightness (0-127 maps to 0.2-2.0).', 'ai');
+                ghostLog('5. CC7: Master volume.', 'ai');
+                ghostLog('6. MIDI LEARN: Click any button, then move a knob/fader to map it.', 'ai');
+                break;
+
+            // ── WALLET & NFT ──
+            case 'mint':
+                ghostLog('MINT_PROTOCOL: PREPARING...', 'ai');
+                if (APP.render.canvas) {
+                    try {
+                        var dataUrl = APP.render.canvas.toDataURL('image/png');
+                        APP.nft.dnaSnapshot = dataUrl;
+                        ghostLog('SNAPSHOT: ' + (dataUrl.length / 1024).toFixed(0) + 'KB', 'success');
+                        ghostLog('READY_FOR_MINT // CONNECT_WALLET', 'ai');
+                        var a = document.createElement('a'); a.href = dataUrl;
+                        a.download = 'VNGRD_MINT_' + Date.now() + '.png'; a.click();
+                        ghostLog('SNAPSHOT_DOWNLOADED', 'success');
+                    } catch (e) { ghostLog('MINT_ERROR: ' + e.message, 'crit'); }
                 }
-            })();
+                break;
+
+            case 'wallet_help':
+                ghostLog('WALLET & NFT SYSTEM:', 'success');
+                ghostLog('1. Click WALLET badge in header to connect (MetaMask/WalletConnect).', 'ai');
+                ghostLog('2. SCAN_WALLET_ASSETS browses your ETH + Tezos NFTs.', 'ai');
+                ghostLog('3. NFTs appear in the vault at screen bottom. Click to summon onto canvas.', 'ai');
+                ghostLog('4. Type "mint" to snapshot canvas as NFT-ready PNG.', 'ai');
+                ghostLog('5. 30s VGD clip button captures signed video with DNA header.', 'ai');
+                break;
+
+            // ── OUTPUT ──
+            case 'projector_help':
+                ghostLog('PROJECTOR — second screen output:', 'success');
+                ghostLog('Click PROJECTOR in Session Lab to open canvas in a new window.', 'ai');
+                ghostLog('Perfect for external displays, projector mapping, or dual-screen setups.', 'ai');
+                ghostLog('The projector window mirrors your canvas stream in real-time.', 'ai');
+                break;
+
+            case 'vr_help':
+                ghostLog('VR MODE — immersive WebXR:', 'success');
+                ghostLog('Click ENTER_VR in Session Lab. Requires WebXR-capable browser + headset.', 'ai');
+                ghostLog('Your canvas is projected into a VR viewport as a fullscreen quad.', 'ai');
+                break;
+
+            // ── SESSION ──
+            case 'session_help':
+                ghostLog('SESSION MANAGEMENT:', 'success');
+                ghostLog('SAVE: Stores your entire setup to localStorage.', 'ai');
+                ghostLog('EXPORT: Downloads a .vgd JSON file you can share.', 'ai');
+                ghostLog('IMPORT: Load a .vgd file to restore a complete session.', 'ai');
+                ghostLog('Sessions save: theme, positions, lower third, audio mode, FX state.', 'ai');
+                break;
+
+            // ── AI GENERATOR ──
+            case 'ai_help':
+                ghostLog('AI IMAGE GENERATOR:', 'success');
+                ghostLog('In the AI_INJECTION sidebar section:', 'ai');
+                ghostLog('1. Select a model: DALL-E 3, SDXL, SD3, or GPT IMAGE.', 'ai');
+                ghostLog('2. Type a prompt describing your image.', 'ai');
+                ghostLog('3. Hit GENERATE — the AI image injects directly onto your canvas.', 'ai');
+                ghostLog('Powered by Puter.js. No API key needed. Completely free.', 'ai');
+                break;
+
+            // ── UTILITY ──
+            case 'time':
+                ghostLog(new Date().toLocaleTimeString() + ' | UP:' + ctx.uptime, 'ai');
+                break;
+
+            case 'crypto':
+                if (typeof fetchCrypto === 'function') fetchCrypto();
+                ghostLog('Fetching live prices... Check the ticker bar.', 'ai');
+                break;
+
+            case 'joke':
+                var jokes = [
+                    'Why do DJs make great coders? They know how to drop the beat and the bugs.',
+                    'I told my GPU a joke. It rendered me speechless.',
+                    '404: Humor module temporarily unavailable.',
+                    'What\'s a VJ\'s favorite key? The space bar.',
+                    'My render loop walks into a bar. The bar walks into my render loop. Stack overflow.',
+                    'I asked the AI to generate art. It generated an invoice instead.',
+                    'WebGL broke again. Must be a shader day.',
+                    'Why did the WebRTC call fail? Because it couldn\'t find a common ICE breaker.'
+                ];
+                ghostLog(jokes[Math.floor(Math.random() * jokes.length)], 'ai');
+                break;
+
+            case 'about':
+                ghostLog('GHOST://AI v5 — Sentient companion for DRIS//CORE VNGRD', 'ai');
+                ghostLog('I know every command, every FX, every shortcut. Just ask.', 'ai');
+                ghostLog('Built for VJs, streamers, visual artists, and digital explorers.', 'ai');
+                break;
+
+            case 'clear':
+                $('ghost-terminal-body').innerHTML = '';
+                ghostLog('Terminal cleared.', 'ai');
+                break;
+
+            case 'fullscreen':
+                if (typeof toggleFullscreen === 'function') toggleFullscreen();
+                ghostLog('Fullscreen toggled. (Shortcut: press H)', 'success');
+                break;
+
+            case 'resolution':
+                ghostLog('Canvas: ' + APP.render.width + 'x' + APP.render.height, 'ai');
+                ghostLog('The render pipeline outputs at this resolution. Records at native res.', 'ai');
+                break;
+
+            case 'audio_mode':
+                ghostLog('AUDIO MODES:', 'success');
+                ghostLog('STEREO: Standard left/right. Clean and flat.', 'ai');
+                ghostLog('3D SPATIAL: HRTF panning + distance model. Immersive.', 'ai');
+                ghostLog('DOLBY: Dynamic range compression + EQ processing. Punchy.', 'ai');
+                ghostLog('Switch via buttons in the AUDIO section of sidebar.', 'ai');
+                break;
+
+            case 'shortcuts':
+                ghostLog('KEYBOARD SHORTCUTS:', 'success');
+                ghostLog('G — Toggle this terminal', 'ai');
+                ghostLog('H — Toggle fullscreen', 'ai');
+                ghostLog('SPACE — Rotate to next media', 'ai');
+                ghostLog('ESC — Panic reset (clears all FX + media)', 'ai');
+                break;
+
+            // ── UNKNOWN — smart fallback ──
+            case 'unknown':
+                var fallbacks = [
+                    'I don\'t know that command, but I know a lot. Try "help" or ask me about any feature.',
+                    'Not sure what you mean. Ask me about: camera, fx, midi, audio, themes, p2p, wallet...',
+                    'Command not recognized. But try asking naturally — "how do I go live?" or "what effects are there?"'
+                ];
+                ghostLog(fallbacks[Math.floor(Math.random() * fallbacks.length)], 'crit');
+                ghostLog(GHOST.getTip(), 'ai');
+                break;
         }
-        // MINT - Prepare NFT snapshot
-        else if (c === 'mint') {
-            ghostLog('MINT_PROTOCOL: PREPARING...', 'ai');
-            if (APP.render.canvas) {
-                try {
-                    const dataUrl = APP.render.canvas.toDataURL('image/png');
-                    APP.nft.dnaSnapshot = dataUrl;
-                    ghostLog('SNAPSHOT: ' + (dataUrl.length / 1024).toFixed(0) + 'KB', 'success');
-                    ghostLog('READY_FOR_MINT // CONNECT_WALLET', 'ai');
-                    const a = document.createElement('a');
-                    a.href = dataUrl;
-                    a.download = `VNGRD_MINT_${Date.now()}.png`;
-                    a.click();
-                    ghostLog('SNAPSHOT_DOWNLOADED', 'success');
-                } catch (e) {
-                    ghostLog('MINT_ERROR: ' + e.message, 'crit');
-                }
-            }
-        }
-        // ========== END SOVEREIGN COMMANDS ==========
-        // Theme
-        else if (c.startsWith('theme ')) {
-            const t = c.split(' ')[1];
-            if (['cyan','magenta','green','purple','gold','night'].includes(t)) {
-                setTheme(t);
-                ghostLog(`Theme: ${t.toUpperCase()}`, 'success');
-            } else {
-                ghostLog('Themes: cyan, magenta, green, purple, gold, night', 'ai');
-            }
-        }
-        else if (c === 'theme') {
-            ghostLog(`Current: ${APP.state.theme || 'cyan'}`, 'ai');
-        }
-        // Party
-        else if (c === 'party') {
-            $('btn-ui-react').click();
-            ghostLog(APP.vj.uiReactivity ? 'PARTY MODE: ON' : 'PARTY MODE: OFF', APP.vj.uiReactivity ? 'success' : 'ai');
-        }
-        // Seismic
-        else if (c === 'seismic' || c === 'shake') {
-            $('btn-rumble').click();
-            ghostLog(APP.vj.rumbleEnabled ? 'SEISMIC: ARMED' : 'SEISMIC: OFF', APP.vj.rumbleEnabled ? 'success' : 'ai');
-        }
-        // FX
-        else if (c === 'fx' || c === 'crush') {
-            impactCrush();
-            ghostLog('CRUSH FX TRIGGERED', 'success');
-        }
-        else if (c === 'stutter') {
-            impactStutter();
-            ghostLog('STUTTER FX', 'success');
-        }
-        else if (c === 'invert') {
-            impactInvert();
-            ghostLog('INVERT FX', 'success');
-        }
-        // Time
-        else if (c === 'time' || c === 'clock') {
-            ghostLog(new Date().toLocaleTimeString() + ' | UP:' + $('uptime').textContent, 'ai');
-        }
-        // Crypto
-        else if (c === 'crypto' || c === 'btc' || c === 'eth') {
-            fetchCrypto();
-            ghostLog('Fetching feeds...', 'ai');
-        }
-        // Joke
-        else if (c === 'joke') {
-            const jokes = [
-                'Why do DJs make great coders? They know how to drop the beat and the bugs.',
-                'I told my GPU a joke. It rendered me speechless.',
-                '404: Humor module temporarily unavailable.',
-                'What\'s a VJ\'s favorite key? The space bar.',
-            ];
-            ghostLog(jokes[Math.floor(Math.random()*jokes.length)], 'ai');
-        }
-        // About
-        else if (c === 'about' || c === 'who') {
-            ghostLog('GHOST://AI v3 | VNGRD companion system', 'ai');
-        }
-        // Clear
-        else if (c === 'clear' || c === 'cls') {
-            $('ghost-terminal-body').innerHTML = '';
-            ghostLog('Terminal cleared', 'ai');
-        }
-        // Fullscreen
-        else if (c === 'fs' || c === 'fullscreen') {
-            toggleFullscreen();
-            ghostLog('Fullscreen toggled', 'success');
-        }
-        // Random/unknown - give helpful response
-        else {
-            const responses = [
-                'Unknown. Type "help" for commands.',
-                'Didn\'t catch that. Try "help".',
-                'Command not found. "help" for list.',
-            ];
-            ghostLog(responses[Math.floor(Math.random()*responses.length)], 'crit');
-        }
-    }, 200 + Math.random() * 150); 
+    }, 200 + Math.random() * 200);
 }
+
+// ═══ GHOST AUTO-TIPS — pops up if idle, gives contextual advice on startup ═══
+var _ghostIdleTimer = null;
+var _ghostTipIndex = 0;
+var _ghostStartupDone = false;
+
+function ghostStartupSequence() {
+    if (_ghostStartupDone) return;
+    _ghostStartupDone = true;
+    var term = $('ghost-terminal');
+    if (!term) return;
+
+    // Show terminal automatically
+    term.style.display = 'flex';
+    term.classList.add('active');
+
+    var ctx = GHOST.getContext();
+    var hour = ctx.hour;
+    var greeting = hour < 12 ? 'Good morning' : hour < 18 ? 'Good afternoon' : 'Good evening';
+
+    setTimeout(function() { ghostLog(greeting + ', operator. I\'m GHOST, your AI copilot.', 'ai'); }, 400);
+    setTimeout(function() { ghostLog('I know every function in this console. Ask me anything or type "help".', 'ai'); }, 1200);
+    setTimeout(function() { ghostLog(GHOST.getTip(), 'ai'); }, 2400);
+
+    // Start idle tip cycle
+    resetGhostIdleTimer();
+}
+
+function resetGhostIdleTimer() {
+    if (_ghostIdleTimer) clearTimeout(_ghostIdleTimer);
+    _ghostIdleTimer = setTimeout(ghostIdleTip, 45000); // 45 seconds of inactivity
+}
+
+function ghostIdleTip() {
+    var term = $('ghost-terminal');
+    if (!term || term.style.display === 'none') {
+        // If terminal is hidden, still reset timer
+        _ghostIdleTimer = setTimeout(ghostIdleTip, 45000);
+        return;
+    }
+    ghostLog(GHOST.getTip(), 'ai');
+    _ghostIdleTimer = setTimeout(ghostIdleTip, 60000); // Then every 60 seconds
+}
+
+// Reset idle timer on any user interaction
+document.addEventListener('click', resetGhostIdleTimer, { passive: true });
+document.addEventListener('keydown', resetGhostIdleTimer, { passive: true });
+document.addEventListener('touchstart', resetGhostIdleTimer, { passive: true });
+
+// Fire startup sequence 3 seconds after page load
+setTimeout(ghostStartupSequence, 3000);
 
 // CRYPTO — Binance API (reliable browser-side fetch)
 async function fetchCrypto() {
@@ -4017,14 +4543,6 @@ document.addEventListener('DOMContentLoaded', () => {
     if ($('btn-crt')) $('btn-crt').onclick = toggleCRT;
     if ($('btn-fs')) $('btn-fs').onclick = toggleFullscreen;
     document.querySelectorAll('.pal').forEach(p => p.onclick = () => setTheme(p.dataset.t));
-
-    // QR Code generation
-    try {
-        var qrEl = $('qr-container');
-        if (qrEl && typeof QRCode !== 'undefined') {
-            new QRCode(qrEl, { text: 'https://vngrd-core.github.io', width: 160, height: 160, colorDark: '#FFFFFF', colorLight: '#000000', correctLevel: QRCode.CorrectLevel.H });
-        }
-    } catch(e) { log('QR_INIT_FAIL: ' + e.message); }
 
     $('btn-projector').onclick = openProjector;
     
