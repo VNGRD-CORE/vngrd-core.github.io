@@ -1215,13 +1215,16 @@ body.fx-nvg #stage::after {
 
     <div id="ghost-terminal">
         <div id="ghost-terminal-header">
-            <span id="ghost-terminal-title">GHOST://COMMAND_INTERFACE</span>
-            <span id="ghost-terminal-status">ONLINE</span>
+            <span id="ghost-terminal-title">GHOST://AI</span>
+            <span style="display:flex;align-items:center;gap:8px;">
+                <span id="ghost-terminal-status">ONLINE</span>
+                <span style="font-size:8px;opacity:0.5;border:1px solid rgba(255,255,255,0.2);padding:1px 5px;border-radius:3px;letter-spacing:0.5px;">G to close</span>
+            </span>
         </div>
         <div id="ghost-terminal-body"></div>
         <div id="ghost-input-line">
             <span id="ghost-prompt">GHOST></span>
-            <input type="text" id="ghost-input" placeholder="Awaiting command..." autocomplete="off">
+            <input type="text" id="ghost-input" placeholder="Talk to me..." autocomplete="off">
         </div>
     </div>
 
