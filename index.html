@@ -191,6 +191,18 @@
         .lt-container.lt-breaking { border-color: var(--r); animation: lt-pulse 1s infinite; }
         .lt-container.lt-breaking .lt-subtitle { color: var(--r); }
         @keyframes lt-pulse { 0%, 100% { border-color: var(--r); } 50% { border-color: #fff; } }
+        /* NEON: glowing magenta border all four sides */
+        .lt-container.lt-neon { border: 2px solid #ff00cc; border-left-width: 2px; box-shadow: 0 0 18px rgba(255,0,204,0.45), inset 0 0 12px rgba(255,0,204,0.08); background: linear-gradient(90deg, rgba(20,0,20,0.92) 0%, rgba(10,0,15,0.82) 100%); }
+        .lt-container.lt-neon .lt-subtitle { color: #ff00cc; }
+        /* SPLIT: two-column bar — name left, role right */
+        .lt-container.lt-split { flex-direction: row; align-items: center; gap: 0; border-left: none; border-bottom: 3px solid #ffaa00; border-top: 1px solid rgba(255,170,0,0.25); border-right: none; border-left: 3px solid #ffaa00; background: linear-gradient(90deg, rgba(18,10,0,0.95) 0%, rgba(12,8,0,0.8) 100%); padding: 10px 20px 10px 12px; }
+        .lt-container.lt-split .lt-title { flex: 1; font-size: 18px; }
+        .lt-container.lt-split .lt-subtitle { color: #ffaa00; border-left: 2px solid rgba(255,170,0,0.5); padding-left: 14px; margin-top: 0; font-size: 10px; letter-spacing: 3px; flex: 1; }
+        /* SCAN: teal with persistent animated scan line */
+        .lt-container.lt-scan { border-color: #00ffaa; overflow: hidden; position: relative; }
+        .lt-container.lt-scan .lt-subtitle { color: #00ffaa; }
+        .lt-container.lt-scan::after { content: ''; position: absolute; top: 0; left: -100%; width: 60%; height: 100%; background: linear-gradient(90deg, transparent, rgba(0,255,170,0.15), transparent); animation: lt-scan-sweep 3s ease-in-out infinite; pointer-events: none; }
+        @keyframes lt-scan-sweep { 0% { left: -60%; } 100% { left: 120%; } }
 
         /* ========================================
            TRIPLE-STACK IDENTITY - HEADER BRAND
@@ -1385,6 +1397,12 @@ body.fx-nvg #stage::after {
                     <button class="btn" id="btn-lt-track">TRACK</button>
                     <button class="btn" id="btn-lt-breaking">BREAKING</button>
                     <button class="btn" id="btn-lt-off">OFF</button>
+                </div>
+                <div class="lbl" style="font-size:7px;opacity:0.4;margin:4px 0 2px;">STYLE</div>
+                <div class="btn-grid-3">
+                    <button class="btn" id="btn-lt-neon" style="color:#ff00cc;border-color:rgba(255,0,204,0.3);font-size:8px;">NEON</button>
+                    <button class="btn" id="btn-lt-split" style="color:#ffaa00;border-color:rgba(255,170,0,0.3);font-size:8px;">SPLIT</button>
+                    <button class="btn" id="btn-lt-scan" style="color:#00ffaa;border-color:rgba(0,255,170,0.3);font-size:8px;">SCAN</button>
                 </div>
             </div>
         </div>
@@ -2901,19 +2919,23 @@ function renderLoop(timestamp) {
         ctx.globalAlpha = 1;
         ctx.filter = 'none';
 
-        // A. Preset accent + secondary color
+        // A. Preset accent color per style
+        var ltPreset = APP.lowerThird.preset || 'guest';
         var ltAccent = '#00f3ff';
         var ltGlow = 'rgba(0,243,255,';
-        if (APP.lowerThird.preset === 'track') { ltAccent = '#00ff88'; ltGlow = 'rgba(0,255,136,'; }
-        else if (APP.lowerThird.preset === 'breaking') { ltAccent = '#ff3333'; ltGlow = 'rgba(255,51,51,'; }
+        if (ltPreset === 'track')   { ltAccent = '#00ff88'; ltGlow = 'rgba(0,255,136,'; }
+        else if (ltPreset === 'breaking') { ltAccent = '#ff3333'; ltGlow = 'rgba(255,51,51,'; }
+        else if (ltPreset === 'neon')    { ltAccent = '#ff00cc'; ltGlow = 'rgba(255,0,204,'; }
+        else if (ltPreset === 'split')   { ltAccent = '#ffaa00'; ltGlow = 'rgba(255,170,0,'; }
+        else if (ltPreset === 'scan')    { ltAccent = '#00ffaa'; ltGlow = 'rgba(0,255,170,'; }
 
-        // B. Read text — textContent works on display:none elements
+        // B. Read text
         var ltTitle = document.getElementById('lt-title-text');
         var ltSub = document.getElementById('lt-subtitle-text');
         var titleText = (ltTitle && ltTitle.textContent && ltTitle.textContent.trim()) ? ltTitle.textContent.trim() : 'LIVE BROADCAST';
         var subText = (ltSub && ltSub.textContent && ltSub.textContent.trim()) ? ltSub.textContent.trim() : '';
 
-        // C. Responsive sizing — scales to any resolution
+        // C. Responsive sizing
         var ltMargin = Math.round(w * 0.025);
         var ltBottom = Math.round(h * 0.065);
         var ltPad = Math.round(h * 0.015);
@@ -2921,7 +2943,7 @@ function renderLoop(timestamp) {
         var subFS = Math.max(12, Math.round(h * 0.016));
         var accentW = Math.max(4, Math.round(h * 0.004));
 
-        // D. Measure text for dynamic box width
+        // D. Measure text
         ctx.font = '800 ' + titleFS + 'px Orbitron, sans-serif';
         var titleW = ctx.measureText(titleText).width;
         ctx.font = '500 ' + subFS + 'px "JetBrains Mono", monospace';
@@ -2934,75 +2956,296 @@ function renderLoop(timestamp) {
         var boxX = ltMargin;
         var boxY = h - ltBottom - boxH;
 
-        // E. Background — dark glass panel
-        var bgGrad = ctx.createLinearGradient(boxX, 0, boxX + boxW, 0);
-        bgGrad.addColorStop(0, 'rgba(8,8,12,0.95)');
-        bgGrad.addColorStop(0.7, 'rgba(8,8,12,0.85)');
-        bgGrad.addColorStop(1, 'rgba(8,8,12,0)');
-        ctx.fillStyle = bgGrad;
-        ctx.fillRect(boxX, boxY, boxW, boxH);
+        // ─── SHIMMER every ~10 seconds ─────────────────────────────
+        if (!APP.lowerThird._lastShimmer) APP.lowerThird._lastShimmer = timestamp;
+        var shimmerPeriod = 10000;
+        var shimmerDur   = 1200;
+        if (timestamp - APP.lowerThird._lastShimmer > shimmerPeriod) {
+            APP.lowerThird._lastShimmer = timestamp;
+        }
+        var shimmerT = (timestamp - APP.lowerThird._lastShimmer) / shimmerDur; // 0→1 during anim, >1 idle
+        var doShimmer = shimmerT < 1;
 
-        // F. Bottom accent line — full width colored bar
-        ctx.fillStyle = ltAccent;
-        ctx.fillRect(boxX, boxY + boxH, boxW * 0.6, 2);
-        // Faded tail
-        var tailGrad = ctx.createLinearGradient(boxX + boxW * 0.6, 0, boxX + boxW, 0);
-        tailGrad.addColorStop(0, ltAccent);
-        tailGrad.addColorStop(1, 'rgba(0,0,0,0)');
-        ctx.fillStyle = tailGrad;
-        ctx.fillRect(boxX + boxW * 0.6, boxY + boxH, boxW * 0.4, 2);
+        // ─── STYLE: SPLIT ──────────────────────────────────────────
+        if (ltPreset === 'split') {
+            var splitW = Math.max(w * 0.50, contentW * 2 + ltPad * 8);
+            var splitH = ltPad + titleFS + ltPad;
+            var splitX = ltMargin;
+            var splitY = h - ltBottom - splitH;
+            var midX   = splitX + splitW * 0.5;
 
-        // G. Left accent stripe with neon glow
-        ctx.shadowColor = ltAccent;
-        ctx.shadowBlur = 16;
-        ctx.fillStyle = ltAccent;
-        ctx.fillRect(boxX, boxY, accentW, boxH);
-        ctx.shadowBlur = 0;
+            // Dark background
+            var spBg = ctx.createLinearGradient(splitX, 0, splitX + splitW, 0);
+            spBg.addColorStop(0, 'rgba(18,10,0,0.95)');
+            spBg.addColorStop(1, 'rgba(12,8,0,0.80)');
+            ctx.fillStyle = spBg;
+            ctx.fillRect(splitX, splitY, splitW, splitH);
 
-        // H. Top edge hairline
-        ctx.fillStyle = 'rgba(255,255,255,0.06)';
-        ctx.fillRect(boxX + accentW, boxY, boxW - accentW, 1);
-
-        // I. Title — bold white, left-aligned
-        ctx.font = '800 ' + titleFS + 'px Orbitron, sans-serif';
-        ctx.fillStyle = '#ffffff';
-        ctx.textAlign = 'left';
-        ctx.textBaseline = 'top';
-        ctx.shadowColor = 'rgba(0,0,0,0.8)';
-        ctx.shadowBlur = 6;
-        ctx.shadowOffsetX = 1;
-        ctx.shadowOffsetY = 1;
-        ctx.fillText(titleText, boxX + accentW + ltPad, boxY + ltPad);
-        ctx.shadowBlur = 0;
-        ctx.shadowOffsetX = 0;
-        ctx.shadowOffsetY = 0;
-
-        // J. Subtitle — accent colored, uppercase monospace
-        if (subText) {
-            ctx.font = '500 ' + subFS + 'px "JetBrains Mono", monospace';
+            // Bottom accent line
             ctx.fillStyle = ltAccent;
-            ctx.globalAlpha = 0.9;
-            ctx.fillText(subText.toUpperCase(), boxX + accentW + ltPad, boxY + ltPad + titleFS + 6);
-            ctx.globalAlpha = 1;
-        }
-
-        // K. Live indicator dot (breaking preset only)
-        if (APP.lowerThird.preset === 'breaking') {
-            var dotR = Math.max(4, titleFS * 0.18);
-            var dotX = boxX + accentW + ltPad + contentW + ltPad;
-            var dotY = boxY + ltPad + titleFS * 0.5;
-            var pulse = 0.5 + 0.5 * Math.sin(timestamp * 0.005);
-            ctx.beginPath();
-            ctx.arc(dotX, dotY, dotR, 0, Math.PI * 2);
-            ctx.fillStyle = ltGlow + (0.6 + pulse * 0.4) + ')';
-            ctx.fill();
-            ctx.shadowColor = ltAccent;
-            ctx.shadowBlur = 8 + pulse * 8;
-            ctx.fill();
+            ctx.shadowColor = ltAccent; ctx.shadowBlur = 8;
+            ctx.fillRect(splitX, splitY + splitH, splitW, 2);
             ctx.shadowBlur = 0;
-        }
 
-        ctx.restore();
+            // Left stripe
+            ctx.fillStyle = ltAccent;
+            ctx.fillRect(splitX, splitY, accentW, splitH);
+
+            // Vertical divider
+            ctx.globalAlpha = 0.45;
+            ctx.fillStyle = ltAccent;
+            ctx.fillRect(midX - 1, splitY + ltPad * 0.5, 2, splitH - ltPad);
+            ctx.globalAlpha = 1;
+
+            // Title (left half)
+            ctx.font = '800 ' + titleFS + 'px Orbitron, sans-serif';
+            ctx.fillStyle = '#ffffff';
+            ctx.textAlign = 'left';
+            ctx.textBaseline = 'middle';
+            ctx.shadowColor = 'rgba(0,0,0,0.8)'; ctx.shadowBlur = 4;
+            ctx.fillText(titleText, splitX + accentW + ltPad, splitY + splitH * 0.5);
+            ctx.shadowBlur = 0;
+
+            // Subtitle (right half)
+            if (subText) {
+                ctx.font = '500 ' + subFS + 'px "JetBrains Mono", monospace';
+                ctx.fillStyle = ltAccent;
+                ctx.globalAlpha = 0.9;
+                ctx.textAlign = 'left';
+                ctx.fillText(subText.toUpperCase(), midX + ltPad, splitY + splitH * 0.5);
+                ctx.globalAlpha = 1;
+                ctx.textAlign = 'left';
+            }
+
+            // Shimmer scan over whole bar
+            if (doShimmer) {
+                var scanPos = splitX + shimmerT * (splitW + 80) - 80;
+                var shimGrad = ctx.createLinearGradient(scanPos, 0, scanPos + 80, 0);
+                shimGrad.addColorStop(0, 'rgba(255,255,255,0)');
+                shimGrad.addColorStop(0.5, 'rgba(255,255,255,0.22)');
+                shimGrad.addColorStop(1, 'rgba(255,255,255,0)');
+                ctx.fillStyle = shimGrad;
+                ctx.fillRect(splitX, splitY, splitW, splitH);
+            }
+
+            ctx.restore();
+        }
+        // ─── STYLE: NEON ───────────────────────────────────────────
+        else if (ltPreset === 'neon') {
+            var neonPulse = 0.5 + 0.5 * Math.sin(timestamp * 0.003);
+            var neonGlowA = 0.35 + neonPulse * 0.25;
+
+            // Dark background with neon tint
+            ctx.fillStyle = 'rgba(14,0,14,0.92)';
+            ctx.fillRect(boxX, boxY, boxW, boxH);
+
+            // Four-sided neon border
+            ctx.strokeStyle = ltAccent;
+            ctx.lineWidth = 2;
+            ctx.shadowColor = ltAccent;
+            ctx.shadowBlur = 12 + neonPulse * 10;
+            ctx.strokeRect(boxX + 1, boxY + 1, boxW - 2, boxH - 2);
+            ctx.shadowBlur = 0;
+
+            // Inner glow fill
+            ctx.globalAlpha = neonGlowA * 0.12;
+            ctx.fillStyle = ltAccent;
+            ctx.fillRect(boxX + 2, boxY + 2, boxW - 4, boxH - 4);
+            ctx.globalAlpha = 1;
+
+            // Title — magenta glow
+            ctx.font = '800 ' + titleFS + 'px Orbitron, sans-serif';
+            ctx.fillStyle = '#ffffff';
+            ctx.textAlign = 'left';
+            ctx.textBaseline = 'top';
+            ctx.shadowColor = ltAccent;
+            ctx.shadowBlur = 8 + neonPulse * 6;
+            ctx.fillText(titleText, boxX + ltPad, boxY + ltPad);
+            ctx.shadowBlur = 0;
+
+            // Subtitle
+            if (subText) {
+                ctx.font = '500 ' + subFS + 'px "JetBrains Mono", monospace';
+                ctx.fillStyle = ltAccent;
+                ctx.globalAlpha = 0.9;
+                ctx.fillText(subText.toUpperCase(), boxX + ltPad, boxY + ltPad + titleFS + 6);
+                ctx.globalAlpha = 1;
+            }
+
+            // Corner accent squares
+            var cSz = 6;
+            ctx.fillStyle = ltAccent;
+            ctx.shadowColor = ltAccent; ctx.shadowBlur = 6;
+            [[boxX, boxY], [boxX+boxW-cSz, boxY], [boxX, boxY+boxH-cSz], [boxX+boxW-cSz, boxY+boxH-cSz]].forEach(function(c) {
+                ctx.fillRect(c[0], c[1], cSz, cSz);
+            });
+            ctx.shadowBlur = 0;
+
+            // Shimmer: brief bright flash on the border
+            if (doShimmer) {
+                ctx.globalAlpha = (1 - shimmerT) * 0.5;
+                ctx.strokeStyle = '#ffffff';
+                ctx.lineWidth = 2;
+                ctx.strokeRect(boxX + 1, boxY + 1, boxW - 2, boxH - 2);
+                ctx.globalAlpha = 1;
+            }
+
+            ctx.restore();
+        }
+        // ─── STYLE: SCAN ───────────────────────────────────────────
+        else if (ltPreset === 'scan') {
+            // Background
+            var scBg = ctx.createLinearGradient(boxX, 0, boxX + boxW, 0);
+            scBg.addColorStop(0, 'rgba(0,12,8,0.95)');
+            scBg.addColorStop(0.7, 'rgba(0,10,6,0.85)');
+            scBg.addColorStop(1, 'rgba(0,10,6,0)');
+            ctx.fillStyle = scBg;
+            ctx.fillRect(boxX, boxY, boxW, boxH);
+
+            // Left accent stripe
+            ctx.shadowColor = ltAccent; ctx.shadowBlur = 16;
+            ctx.fillStyle = ltAccent;
+            ctx.fillRect(boxX, boxY, accentW, boxH);
+            ctx.shadowBlur = 0;
+
+            // Bottom accent line
+            ctx.fillStyle = ltAccent;
+            ctx.fillRect(boxX, boxY + boxH, boxW * 0.6, 2);
+            var scTail = ctx.createLinearGradient(boxX + boxW * 0.6, 0, boxX + boxW, 0);
+            scTail.addColorStop(0, ltAccent); scTail.addColorStop(1, 'rgba(0,0,0,0)');
+            ctx.fillStyle = scTail;
+            ctx.fillRect(boxX + boxW * 0.6, boxY + boxH, boxW * 0.4, 2);
+
+            // Progress bar (teal segment, cycles over 5 seconds)
+            var scanCycle = (timestamp % 5000) / 5000;
+            ctx.fillStyle = ltAccent;
+            ctx.globalAlpha = 0.18;
+            ctx.fillRect(boxX + accentW, boxY + boxH - 3, boxW * scanCycle, 3);
+            ctx.globalAlpha = 1;
+
+            // Persistent sweep line (every 3s)
+            var sweepT = (timestamp % 3000) / 3000;
+            var sweepX = boxX + sweepT * boxW;
+            var sweepG = ctx.createLinearGradient(sweepX - 20, 0, sweepX + 20, 0);
+            sweepG.addColorStop(0, 'rgba(0,255,170,0)');
+            sweepG.addColorStop(0.5, 'rgba(0,255,170,0.18)');
+            sweepG.addColorStop(1, 'rgba(0,255,170,0)');
+            ctx.fillStyle = sweepG;
+            ctx.fillRect(boxX, boxY, boxW, boxH);
+
+            // Title
+            ctx.font = '800 ' + titleFS + 'px Orbitron, sans-serif';
+            ctx.fillStyle = '#ffffff';
+            ctx.textAlign = 'left';
+            ctx.textBaseline = 'top';
+            ctx.shadowColor = 'rgba(0,0,0,0.8)'; ctx.shadowBlur = 4;
+            ctx.fillText(titleText, boxX + accentW + ltPad, boxY + ltPad);
+            ctx.shadowBlur = 0;
+
+            // Subtitle
+            if (subText) {
+                ctx.font = '500 ' + subFS + 'px "JetBrains Mono", monospace';
+                ctx.fillStyle = ltAccent;
+                ctx.globalAlpha = 0.9;
+                ctx.fillText(subText.toUpperCase(), boxX + accentW + ltPad, boxY + ltPad + titleFS + 6);
+                ctx.globalAlpha = 1;
+            }
+
+            // Shimmer: extra bright sweep
+            if (doShimmer) {
+                var shmX = boxX + shimmerT * (boxW + 60) - 60;
+                var shmG = ctx.createLinearGradient(shmX, 0, shmX + 60, 0);
+                shmG.addColorStop(0, 'rgba(255,255,255,0)');
+                shmG.addColorStop(0.5, 'rgba(255,255,255,0.28)');
+                shmG.addColorStop(1, 'rgba(255,255,255,0)');
+                ctx.fillStyle = shmG;
+                ctx.fillRect(boxX, boxY, boxW, boxH);
+            }
+
+            ctx.restore();
+        }
+        // ─── STYLE: CLASSIC (guest / track / breaking) ─────────────
+        else {
+            // E. Background — dark glass panel
+            var bgGrad = ctx.createLinearGradient(boxX, 0, boxX + boxW, 0);
+            bgGrad.addColorStop(0, 'rgba(8,8,12,0.95)');
+            bgGrad.addColorStop(0.7, 'rgba(8,8,12,0.85)');
+            bgGrad.addColorStop(1, 'rgba(8,8,12,0)');
+            ctx.fillStyle = bgGrad;
+            ctx.fillRect(boxX, boxY, boxW, boxH);
+
+            // F. Bottom accent line
+            ctx.fillStyle = ltAccent;
+            ctx.fillRect(boxX, boxY + boxH, boxW * 0.6, 2);
+            var tailGrad = ctx.createLinearGradient(boxX + boxW * 0.6, 0, boxX + boxW, 0);
+            tailGrad.addColorStop(0, ltAccent);
+            tailGrad.addColorStop(1, 'rgba(0,0,0,0)');
+            ctx.fillStyle = tailGrad;
+            ctx.fillRect(boxX + boxW * 0.6, boxY + boxH, boxW * 0.4, 2);
+
+            // G. Left accent stripe
+            ctx.shadowColor = ltAccent;
+            ctx.shadowBlur = 16;
+            ctx.fillStyle = ltAccent;
+            ctx.fillRect(boxX, boxY, accentW, boxH);
+            ctx.shadowBlur = 0;
+
+            // H. Top hairline
+            ctx.fillStyle = 'rgba(255,255,255,0.06)';
+            ctx.fillRect(boxX + accentW, boxY, boxW - accentW, 1);
+
+            // I. Title
+            ctx.font = '800 ' + titleFS + 'px Orbitron, sans-serif';
+            ctx.fillStyle = '#ffffff';
+            ctx.textAlign = 'left';
+            ctx.textBaseline = 'top';
+            ctx.shadowColor = 'rgba(0,0,0,0.8)';
+            ctx.shadowBlur = 6;
+            ctx.shadowOffsetX = 1;
+            ctx.shadowOffsetY = 1;
+            ctx.fillText(titleText, boxX + accentW + ltPad, boxY + ltPad);
+            ctx.shadowBlur = 0;
+            ctx.shadowOffsetX = 0;
+            ctx.shadowOffsetY = 0;
+
+            // J. Subtitle
+            if (subText) {
+                ctx.font = '500 ' + subFS + 'px "JetBrains Mono", monospace';
+                ctx.fillStyle = ltAccent;
+                ctx.globalAlpha = 0.9;
+                ctx.fillText(subText.toUpperCase(), boxX + accentW + ltPad, boxY + ltPad + titleFS + 6);
+                ctx.globalAlpha = 1;
+            }
+
+            // K. Live dot (breaking only)
+            if (ltPreset === 'breaking') {
+                var dotR = Math.max(4, titleFS * 0.18);
+                var dotX = boxX + accentW + ltPad + contentW + ltPad;
+                var dotY = boxY + ltPad + titleFS * 0.5;
+                var pulse = 0.5 + 0.5 * Math.sin(timestamp * 0.005);
+                ctx.beginPath();
+                ctx.arc(dotX, dotY, dotR, 0, Math.PI * 2);
+                ctx.fillStyle = ltGlow + (0.6 + pulse * 0.4) + ')';
+                ctx.fill();
+                ctx.shadowColor = ltAccent;
+                ctx.shadowBlur = 8 + pulse * 8;
+                ctx.fill();
+                ctx.shadowBlur = 0;
+            }
+
+            // Shimmer: scan line sweeps across the box
+            if (doShimmer) {
+                var shimX = boxX + shimmerT * (boxW + 60) - 60;
+                var shimG = ctx.createLinearGradient(shimX, 0, shimX + 60, 0);
+                shimG.addColorStop(0, 'rgba(255,255,255,0)');
+                shimG.addColorStop(0.5, 'rgba(255,255,255,0.20)');
+                shimG.addColorStop(1, 'rgba(255,255,255,0)');
+                ctx.fillStyle = shimG;
+                ctx.fillRect(boxX, boxY, boxW, boxH);
+            }
+
+            ctx.restore();
+        }
     }
 
     // ═══ NFT_VAULT — Horizontal Gallery at bottom ═══
@@ -3674,15 +3917,20 @@ function killCamera() {
 
 function showLowerThird(preset) {
     const lt = $('lower-third'); const container = lt.querySelector('.lt-container');
-    container.classList.remove('lt-guest', 'lt-track', 'lt-breaking'); container.classList.add(`lt-${preset}`);
+    container.classList.remove('lt-guest', 'lt-track', 'lt-breaking', 'lt-neon', 'lt-split', 'lt-scan');
+    container.classList.add(`lt-${preset}`);
     APP.lowerThird.preset = preset; APP.lowerThird.visible = true;
+    APP.lowerThird._lastShimmer = null; // reset shimmer timer on style change
     if (preset === 'track' && APP.audio.currentTrackName) { $('lt-title-text').textContent = APP.audio.currentTrackName; $('lt-subtitle-text').textContent = 'NOW PLAYING'; }
     else if (preset === 'breaking') { $('lt-title-text').textContent = $('lt-title').value || 'BREAKING NEWS'; $('lt-subtitle-text').textContent = $('lt-sub').value || 'LIVE UPDATE'; }
+    else if (preset === 'neon') { $('lt-title-text').textContent = $('lt-title').value || 'GUEST NAME'; $('lt-subtitle-text').textContent = $('lt-sub').value || 'LIVE'; }
+    else if (preset === 'split') { $('lt-title-text').textContent = $('lt-title').value || 'GUEST NAME'; $('lt-subtitle-text').textContent = $('lt-sub').value || 'TITLE / ROLE'; }
+    else if (preset === 'scan') { $('lt-title-text').textContent = $('lt-title').value || 'GUEST NAME'; $('lt-subtitle-text').textContent = $('lt-sub').value || 'LIVE FEED'; }
     else { $('lt-title-text').textContent = $('lt-title').value || 'GUEST NAME'; $('lt-subtitle-text').textContent = $('lt-sub').value || 'TITLE / ROLE'; }
     lt.classList.add('visible');
-    ['guest', 'track', 'breaking', 'off'].forEach(p => { $(`btn-lt-${p}`).classList.toggle('on', p === preset); });
+    ['guest', 'track', 'breaking', 'neon', 'split', 'scan', 'off'].forEach(p => { const el = $(`btn-lt-${p}`); if (el) el.classList.toggle('on', p === preset); });
 }
-function hideLowerThird() { $('lower-third').classList.remove('visible'); APP.lowerThird.visible = false; ['guest', 'track', 'breaking', 'off'].forEach(p => { $(`btn-lt-${p}`).classList.remove('on'); }); $('btn-lt-off').classList.add('on'); }
+function hideLowerThird() { $('lower-third').classList.remove('visible'); APP.lowerThird.visible = false; ['guest', 'track', 'breaking', 'neon', 'split', 'scan', 'off'].forEach(p => { const el = $(`btn-lt-${p}`); if (el) el.classList.remove('on'); }); $('btn-lt-off').classList.add('on'); }
 
 // AUDIO ENGINEER IMPLEMENTATION
 APP.audio.element = $('audio-el');
@@ -4635,6 +4883,9 @@ document.addEventListener('DOMContentLoaded', () => {
     $('btn-lt-guest').onclick = () => { showLowerThird('guest'); sendUISync('LOWER_THIRD', { action: 'show', preset: 'guest', title: $('lt-title-text').textContent, subtitle: $('lt-subtitle-text').textContent }); };
     $('btn-lt-track').onclick = () => { showLowerThird('track'); sendUISync('LOWER_THIRD', { action: 'show', preset: 'track', title: $('lt-title-text').textContent, subtitle: $('lt-subtitle-text').textContent }); };
     $('btn-lt-breaking').onclick = () => { showLowerThird('breaking'); sendUISync('LOWER_THIRD', { action: 'show', preset: 'breaking', title: $('lt-title-text').textContent, subtitle: $('lt-subtitle-text').textContent }); };
+    $('btn-lt-neon').onclick = () => { showLowerThird('neon'); sendUISync('LOWER_THIRD', { action: 'show', preset: 'neon', title: $('lt-title-text').textContent, subtitle: $('lt-subtitle-text').textContent }); };
+    $('btn-lt-split').onclick = () => { showLowerThird('split'); sendUISync('LOWER_THIRD', { action: 'show', preset: 'split', title: $('lt-title-text').textContent, subtitle: $('lt-subtitle-text').textContent }); };
+    $('btn-lt-scan').onclick = () => { showLowerThird('scan'); sendUISync('LOWER_THIRD', { action: 'show', preset: 'scan', title: $('lt-title-text').textContent, subtitle: $('lt-subtitle-text').textContent }); };
     $('btn-lt-off').onclick = () => { hideLowerThird(); sendUISync('LOWER_THIRD', { action: 'hide' }); };
     $('lt-title').oninput = e => { if (APP.lowerThird.visible) { $('lt-title-text').textContent = e.target.value; sendUISync('LOWER_THIRD', { action: 'show', preset: APP.lowerThird.preset, title: $('lt-title-text').textContent, subtitle: $('lt-subtitle-text').textContent }); } };
     $('lt-sub').oninput = e => { if (APP.lowerThird.visible) { $('lt-subtitle-text').textContent = e.target.value; sendUISync('LOWER_THIRD', { action: 'show', preset: APP.lowerThird.preset, title: $('lt-title-text').textContent, subtitle: $('lt-subtitle-text').textContent }); } };
@@ -5967,9 +6218,23 @@ $('btn-call-guest').onclick = async () => {
 
             APP.peer.localStream = stream;
 
-            // 2. Answer the staged call
+            // 2. Build composite stream: canvas video + mic audio
+            // This makes the guest see your full canvas (graphics, lower thirds, effects)
+            var compositeAnswer = new MediaStream();
+            if (APP.render && APP.render.canvas) {
+                var canvasVidTrack = APP.render.canvas.captureStream(30).getVideoTracks()[0];
+                if (canvasVidTrack) compositeAnswer.addTrack(canvasVidTrack);
+            } else {
+                // Fallback: raw camera if canvas not ready
+                var rawVid = stream.getVideoTracks()[0];
+                if (rawVid) compositeAnswer.addTrack(rawVid);
+            }
+            var micTrackA = stream.getAudioTracks()[0];
+            if (micTrackA) compositeAnswer.addTrack(micTrackA);
+
+            // 3. Answer the staged call with the canvas stream
             const call = APP.peer.incomingCall;
-            call.answer(stream);
+            call.answer(compositeAnswer);
             
             // 3. Handle the stream when it arrives
             handleCallStream(call);
@@ -6012,7 +6277,20 @@ $('btn-call-guest').onclick = async () => {
         });
         APP.peer.localStream = stream;
 
-        const call = APP.peer.peer.call(remoteId, stream);
+        // Build composite stream: canvas video + mic audio
+        // Guest will see your full canvas output (graphics, lower thirds, VJ effects)
+        var compositeCall = new MediaStream();
+        if (APP.render && APP.render.canvas) {
+            var canvasVidTrackC = APP.render.canvas.captureStream(30).getVideoTracks()[0];
+            if (canvasVidTrackC) compositeCall.addTrack(canvasVidTrackC);
+        } else {
+            var rawVidC = stream.getVideoTracks()[0];
+            if (rawVidC) compositeCall.addTrack(rawVidC);
+        }
+        var micTrackC = stream.getAudioTracks()[0];
+        if (micTrackC) compositeCall.addTrack(micTrackC);
+
+        const call = APP.peer.peer.call(remoteId, compositeCall);
         handleCallStream(call);
 
         // --- Establish parallel Data Channel for UI sync ---
