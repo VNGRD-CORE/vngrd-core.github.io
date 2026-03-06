@@ -1252,6 +1252,8 @@ body.fx-nvg #stage::after {
 
     <main id="stage">
         <canvas id="vj-canvas"></canvas>
+        <!-- GIF overlay: DOM-rendered animated GIFs (not captured by captureStream) -->
+        <div id="gif-overlay" style="position:absolute; top:0; left:0; width:100%; height:100%; pointer-events:none; z-index: 1100;"></div>
 
         <div id="glass-fracture-layer"></div>
         <div id="overlay-layer">
@@ -2905,7 +2907,10 @@ function renderLoop(timestamp) {
             _t.model.rotation.x = Math.sin(timestamp * 0.0005) * 0.1;
             _t.camera.lookAt(0, 0, 0);
             _t.renderer.render(_t.scene, _t.camera);
-            var tc = document.getElementById('three-canvas');
+            // Composite the full WebGL canvas onto vj-canvas so captureStream() sees it
+            ctx.drawImage(_t.renderer.domElement, 0, 0, w, h);
+            // Also draw the scaled/positioned logo overlay on top
+            var tc = _t.renderer.domElement;
             if (tc && tc.width > 0 && tc.height > 0) {
                 ctx.save();
                 var s3d = T.logo3d.scale;
@@ -3546,11 +3551,11 @@ function loadMediaFiles(input) {
     const isFirstLoad = APP.media.currentIndex === -1;
     Array.from(input.files).forEach((file, idx) => {
         const url = URL.createObjectURL(file);
-        const type = file.type.startsWith('video') ? 'video' : 'image';
+        const type = file.type.startsWith('video') ? 'video' : (file.type === 'image/gif' ? 'gif' : 'image');
         const item = { type, url, element: null, name: file.name };
         if (type === 'video') {
             const vid = document.createElement('video'); vid.src = url; vid.muted = true; vid.loop = !APP.state.isCycle; vid.playsInline = true; vid.preload = 'auto'; item.element = vid; $('media-container').appendChild(vid);
-        } else {
+        } else if (type === 'image') {
             // createObjectURL = native blob ref for GIF animation.
             // gif-host is a direct child of <body> (position:fixed, opacity:0.01).
             // Browser compositor keeps it alive → GIF frames advance each tick.
@@ -3578,9 +3583,10 @@ function loadMediaFiles(input) {
                 }
             };
         }
+        // gif: element created lazily in rotateMedia/previousMedia; no DOM setup needed here
         APP.media.queue.push(item);
-        // Only auto-rotate for videos (images wait for onload above)
-        if (isFirstLoad && idx === 0 && type === 'video') rotateMedia();
+        // Videos and GIFs trigger rotate immediately; images wait for onload callback
+        if (isFirstLoad && idx === 0 && (type === 'video' || type === 'gif')) rotateMedia();
     });
     updateQueueDisplay(); $('media-dot').classList.remove('off'); log(`MEDIA: +${input.files.length}`);
 }
@@ -3661,6 +3667,22 @@ function rotateMedia() {
     if (APP.media.currentElement?.tagName === 'VIDEO') APP.media.currentElement.pause(); disconnectVideoAudio();
     APP.media.currentIndex = (APP.media.currentIndex + 1) % APP.media.queue.length;
     const item = APP.media.queue[APP.media.currentIndex];
+    const gifOverlay = document.getElementById('gif-overlay');
+    // GIF: bypass canvas entirely — render as DOM overlay so animation plays
+    if (item.type === 'gif') {
+        if (gifOverlay) gifOverlay.innerHTML = '';
+        const img = document.createElement('img');
+        img.src = item.url;
+        img.style.cssText = 'width:100%;height:100%;object-fit:cover;';
+        if (gifOverlay) gifOverlay.appendChild(img);
+        item.element = img;
+        APP.media.currentElement = null; // GIFs do not render to vj-canvas
+        console.warn('[VNGRD] GIF asset "' + item.name + '" is rendered as a DOM element and will NOT be captured by vj-canvas.captureStream(). Convert animated assets to .webm for full recording compatibility.');
+        checkCycleLogic();
+        return;
+    }
+    // Non-GIF: clear any previous GIF overlay
+    if (gifOverlay) gifOverlay.innerHTML = '';
     // Guard: skip items still loading (async FileReader not done yet)
     if (!item.element) { APP.media.currentElement = null; return; }
     APP.media.currentElement = item.element;
@@ -3674,6 +3696,20 @@ function previousMedia() {
     if (APP.media.currentElement?.tagName === 'VIDEO') APP.media.currentElement.pause(); disconnectVideoAudio();
     APP.media.currentIndex = (APP.media.currentIndex - 1 + APP.media.queue.length) % APP.media.queue.length;
     const item = APP.media.queue[APP.media.currentIndex];
+    const gifOverlay = document.getElementById('gif-overlay');
+    if (item.type === 'gif') {
+        if (gifOverlay) gifOverlay.innerHTML = '';
+        const img = document.createElement('img');
+        img.src = item.url;
+        img.style.cssText = 'width:100%;height:100%;object-fit:cover;';
+        if (gifOverlay) gifOverlay.appendChild(img);
+        item.element = img;
+        APP.media.currentElement = null;
+        console.warn('[VNGRD] GIF asset "' + item.name + '" is rendered as a DOM element and will NOT be captured by vj-canvas.captureStream(). Convert animated assets to .webm for full recording compatibility.');
+        checkCycleLogic();
+        return;
+    }
+    if (gifOverlay) gifOverlay.innerHTML = '';
     if (!item.element) { APP.media.currentElement = null; return; }
     APP.media.currentElement = item.element;
     if (item.type === 'video') { item.element.loop = !APP.state.isCycle; item.element.currentTime = 0; item.element.play().catch(() => {});  connectVideoAudio(item.element); }
@@ -7555,12 +7591,9 @@ async function ensure3D() {
     _3D.camera.lookAt(0, 0, 0);
     _3D.camera.updateProjectionMatrix();
 
-    _3D.renderer = new THREE.WebGLRenderer({
-        canvas: canvas,
-        alpha: true,
-        antialias: true,
-        preserveDrawingBuffer: true
-    });
+    _3D.renderer = new THREE.WebGLRenderer({ alpha: true, preserveDrawingBuffer: true, antialias: true });
+    // Renderer owns its own canvas (renderer.domElement); no DOM binding so
+    // drawImage compositing onto vj-canvas works correctly every frame.
     _3D.renderer.setPixelRatio(1);
     _3D.renderer.setSize(512, 512, false);
     _3D.renderer.setClearColor(0x000000, 0);
