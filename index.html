@@ -561,6 +561,12 @@
 
         #btn-psychosis { border-color: #ff00ff; color: #ff00ff; text-align: center; font-weight: bold; letter-spacing: 1px; }
         #btn-psychosis:hover { background: #ff00ff; color: #000; box-shadow: 0 0 20px #ff00ff; }
+        #btn-projector { color: var(--o); border-color: var(--o); }
+        #btn-projector.on { color: var(--accent); border-color: var(--accent); box-shadow: var(--theme-glow); }
+        #btn-vr { color: var(--v); border-color: var(--v); }
+        #btn-vr.on { color: var(--accent); border-color: var(--accent); box-shadow: var(--theme-glow); }
+        #btn-mic-engine { color: var(--text-dim); }
+        #btn-mic-engine.on { color: var(--g); border-color: var(--g); box-shadow: 0 0 8px rgba(0,255,136,0.3); }
         
         .btn.panic { background: #000; border-color: #ff0000; color: #ff0000; text-shadow: 0 0 5px #ff0000; font-weight: bold; text-align: center; }
         .btn.panic:hover { background: #ff0000; color: #000; box-shadow: 0 0 20px #ff0000; }
@@ -1251,7 +1257,7 @@ body.fx-nvg #stage::after {
             <span id="ghost-terminal-title">GHOST://COMMAND_INTERFACE</span>
             <span style="display:flex;align-items:center;gap:8px;">
                 <span id="ghost-terminal-status">ONLINE</span>
-                <button id="ghost-close-btn" onclick="toggleGhost()" style="display:none;background:none;border:none;color:var(--text-dim);cursor:pointer;font-size:14px;line-height:1;padding:0;font-family:inherit;" title="Close">&times;</button>
+                <button id="ghost-close-btn" onclick="toggleGhost()" style="background:none;border:none;color:var(--text-dim);cursor:pointer;font-size:14px;line-height:1;padding:0;font-family:inherit;" title="Close [G]">&times;</button>
             </span>
         </div>
         <div id="ghost-terminal-body"></div>
@@ -1394,7 +1400,7 @@ body.fx-nvg #stage::after {
                     <div id="vu"></div>
                     <div id="track-info">NO_TRACK</div>
                 </div>
-                <div class="btn-row"><button class="btn" id="btn-audio" style="flex:1;">LOAD_AUDIO</button><button class="btn" id="btn-mute-vid" style="width:32px;font-size:12px;padding:2px;" title="Toggle video audio">&#x1F50A;</button></div>
+                <div class="btn-row"><button class="btn" id="btn-audio" style="flex:1;">LOAD_AUDIO</button><button class="btn" id="btn-mute-vid" style="width:32px;font-size:12px;padding:2px;" title="Toggle video audio">&#x1F50A;</button><button class="btn" id="btn-mic-engine" style="width:32px;font-size:11px;padding:2px;" title="Mic on/off">&#x1F3A4;</button></div>
                 <div class="audio-ctrl-row">
                     <button class="btn btn-compact" id="btn-prev-track"><svg width="10" height="10" viewBox="0 0 12 12"><path fill="currentColor" d="M2 2h2v8H2zm2 4l6 4V2z"/></svg></button>
                     <button class="btn btn-compact" id="btn-play-pause"><svg width="10" height="10" viewBox="0 0 12 12" id="icon-play-state"><path fill="currentColor" d="M3 2v8l7-4z"/></svg></button>
@@ -1438,7 +1444,7 @@ body.fx-nvg #stage::after {
             <div class="sec-head collapsible open"><span class="sec-title">SESSION_LAB</span><span class="sec-arrow">&#x25BE;</span><div class="sec-dot"></div></div>
             <div class="sec-body" id="session-lab-body" style="max-height:500px;padding:10px 12px;">
                 <div class="btn-row">
-                    <button class="btn" id="btn-nft-30" style="flex:1;font-size:8px;color:var(--r);border-color:var(--r);">CAPTURE_VNGRD_CLIP</button>
+                    <button class="btn" id="btn-nft-30" style="flex:1;font-size:8px;color:var(--o);border-color:var(--o);">CAPTURE_VNGRD_CLIP</button>
                 </div>
                 <div class="btn-row">
                     <button class="btn" id="btn-save-session" style="flex:1;font-size:8px;">SAVE_SESSION</button>
@@ -1446,8 +1452,8 @@ body.fx-nvg #stage::after {
                 </div>
                 <div style="border-top:1px solid rgba(255,255,255,0.06);margin:6px 0 4px;"></div>
                 <div class="lbl" style="font-size:7px;opacity:0.5;margin-bottom:2px;">OUTPUT</div>
-                <button class="btn" id="btn-projector" style="text-align:left;">PROJECTOR</button>
-                <button class="btn" id="btn-vr" style="color:var(--v);text-align:left;">ENTER_VR</button>
+                <button class="btn" id="btn-projector">PROJECTOR</button>
+                <button class="btn" id="btn-vr">ENTER_VR</button>
             </div>
         </div>
 
@@ -1736,9 +1742,14 @@ function ghostInit() {
 
 function toggleGhost() {
     const term = $('ghost-terminal');
-    const isActive = term.style.display === 'flex';
-    term.style.display = isActive ? 'none' : 'flex';
-    if(!isActive) { term.classList.add('active'); $('ghost-input').focus(); ghostLog('GHOST_AI online. Ask me anything or type help.', 'ai'); }
+    const isActive = term.classList.contains('active');
+    if (isActive) {
+        term.classList.remove('active');
+    } else {
+        term.classList.add('active');
+        $('ghost-input').focus();
+        ghostLog('GHOST_AI online. Ask me anything or type help.', 'ai');
+    }
 }
 
 $('ghost-input').addEventListener('keydown', e => { if(e.key === 'Enter') { const val = e.target.value.trim(); if(val) processGhostCommand(val); e.target.value = ''; } });
@@ -4562,16 +4573,17 @@ document.addEventListener('DOMContentLoaded', () => {
     $('btn-init-cam').onclick = initCamera; $('btn-go-live').onclick = goLive; $('btn-end').onclick = endLive; $('btn-kill').onclick = killCamera;
     
     // MIC TOGGLE — routes mic into recording chain + ducking (NOT to speakers = no feedback)
-    $('btn-mic').onclick = async () => {
-        const btn = $('btn-mic');
+    async function toggleMic() {
+        const btnCam = $('btn-mic');
+        const btnEng = $('btn-mic-engine');
         if (APP.camera.micStream) {
             // Turn OFF mic
             APP.camera.micStream.getTracks().forEach(t => t.stop());
             APP.camera.micStream = null;
             APP.audio.duckingActive = false;
             if (APP.audio.micGainNode) { APP.audio.micGainNode.disconnect(); APP.audio.micGainNode = null; }
-            btn.classList.remove('on');
-            btn.textContent = 'MIC';
+            btnCam.classList.remove('on'); btnCam.textContent = 'MIC';
+            btnEng.classList.remove('on'); btnEng.title = 'Mic on/off';
             log('MIC: OFF');
             return;
         }
@@ -4586,12 +4598,14 @@ document.addEventListener('DOMContentLoaded', () => {
             if (APP.audio.recorderDest) APP.audio.micGainNode.connect(APP.audio.recorderDest);
             // Arm ducking (connects micSource → micAnalyzer for side-chain detection)
             initMicDucking(APP.camera.micStream);
-            btn.classList.add('on');
-            btn.textContent = 'MIC [ON]';
+            btnCam.classList.add('on'); btnCam.textContent = 'MIC [ON]';
+            btnEng.classList.add('on'); btnEng.title = 'Mic ON — click to mute';
             log('MIC: ARMED_48kHz (REC_ONLY)');
             checkLayerReadiness();
         } catch(e) { log('MIC_ERR: ' + e.message); }
-    };
+    }
+    $('btn-mic').onclick = toggleMic;
+    $('btn-mic-engine').onclick = toggleMic;
     
     // --- COMPACT MEDIA DECK WIRING ---
     $('btn-load-media').onclick = () => $('file-media').click();
