@@ -2687,13 +2687,42 @@ function summonNFTByIndex(index) {
     for (var q = 0; q < APP.media.queue.length; q++) {
         if (APP.media.queue[q].element === asset.image) {
             if (APP.media.currentElement?.tagName === 'VIDEO') APP.media.currentElement.pause();
+            
             APP.media.currentIndex = q;
             APP.media.currentElement = asset.image;
+
+            // --- THE AUDIO & PLAYBACK INJECTION ---
+            if (asset.isVideo && asset.image.tagName === 'VIDEO') {
+                var vid = asset.image;
+                
+                // User interacted, so we can safely unmute and play!
+                vid.muted = false;
+                vid.currentTime = 0;
+                vid.play().catch(e => console.warn('NFT Autoplay blocked:', e));
+
+                // Plug into the Workstation Mixer
+                if (!vid.audioRouted && APP.audio && APP.audio.ctx) {
+                    try {
+                        if (APP.audio.ctx.state === 'suspended') APP.audio.ctx.resume();
+                        var trackSource = APP.audio.ctx.createMediaElementSource(vid);
+                        var destination = APP.audio.masterGain || APP.audio.ctx.destination;
+                        trackSource.connect(destination);
+                        vid.audioRouted = true;
+                        console.log('NFT_AUDIO: ROUTED TO MASTER MIX');
+                    } catch (e) {
+                        console.warn('NFT_AUDIO: ROUTING FAILED', e);
+                    }
+                }
+            }
+            // --------------------------------------
+
             log('SUMMONER: ' + (asset.name || 'NFT_' + index) + ' FOCUSED');
             _summonGlitch();
             return;
         }
     }
+
+    // ... (The rest of your code that adds a NEW NFT to the queue goes here) ...
 
     // Inject into media queue as a new item
     var item = { type: 'image', url: asset.imageUrl || '', element: asset.image, name: 'NFT_' + (asset.name || index) };
