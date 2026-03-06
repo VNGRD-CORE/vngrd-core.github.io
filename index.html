@@ -2675,6 +2675,89 @@ function drawNFTVault(ctx, w, h) {
     }
 
     ctx.restore();
+    return barH;
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
+// MEDIA_QUEUE STRIP — Uploaded files carousel (violet accent, above vault)
+// ═══════════════════════════════════════════════════════════════════════════
+function drawMediaQueue(ctx, w, h, bottomY) {
+    var queue = APP.media.queue;
+    if (!queue || queue.length === 0) return;
+
+    var thumbSize = Math.round(h * 0.065);
+    var padding = Math.round(thumbSize * 0.15);
+    var barH = thumbSize + padding * 2;
+    var barY = bottomY - barH;
+
+    ctx.save();
+    ctx.globalCompositeOperation = 'source-over';
+    ctx.fillStyle = 'rgba(4,4,8,0.80)';
+    ctx.fillRect(0, barY, w, barH);
+
+    // Top accent line — violet to distinguish from NFT vault (cyan)
+    ctx.fillStyle = 'rgba(160,80,255,0.5)';
+    ctx.fillRect(0, barY, w, 1);
+
+    // Init hit areas
+    if (!APP.media.queueStrip) APP.media.queueStrip = {};
+    APP.media.queueStrip.thumbnails = [];
+    APP.media.queueStrip.durationZones = [];
+
+    var totalW = queue.length * (thumbSize + padding) - padding;
+    var startX = Math.max(padding, (w - totalW) / 2);
+
+    for (var i = 0; i < queue.length; i++) {
+        var item = queue[i];
+        var el = item.element;
+        if (!el) continue;
+
+        var isVid = el.tagName === 'VIDEO';
+        if (el.tagName === 'IMG' && (!el.complete || el.naturalWidth === 0)) continue;
+        if (isVid && el.readyState < 2) continue;
+
+        var tx = startX + i * (thumbSize + padding);
+        var ty = barY + padding;
+
+        try { ctx.drawImage(el, tx, ty, thumbSize, thumbSize); } catch(e) { continue; }
+
+        // Border — red for active, violet for inactive
+        var isActive = (APP.media.currentIndex === i);
+        ctx.strokeStyle = isActive ? '#ff3333' : 'rgba(160,80,255,0.7)';
+        ctx.lineWidth = isActive ? 2 : 1;
+        ctx.strokeRect(tx, ty, thumbSize, thumbSize);
+
+        // Name label
+        var labelFS = Math.max(8, Math.round(thumbSize * 0.14));
+        ctx.font = '700 ' + labelFS + 'px Orbitron, sans-serif';
+        ctx.fillStyle = 'rgba(255,255,255,0.65)';
+        ctx.textAlign = 'center';
+        ctx.textBaseline = 'top';
+        ctx.fillText((item.name || 'FILE').substring(0, 10), tx + thumbSize / 2, ty + thumbSize + 2);
+
+        // Store thumbnail hit zone
+        APP.media.queueStrip.thumbnails.push({ x: tx, y: ty, w: thumbSize, h: thumbSize, index: i });
+
+        // Duration badge — images only (videos play full length)
+        if (!isVid) {
+            var dur = item.duration != null ? item.duration : 8;
+            var badgeFS = Math.max(9, Math.round(thumbSize * 0.13));
+            var badgeW = Math.max(22, Math.round(thumbSize * 0.3));
+            var badgeH = Math.round(thumbSize * 0.19);
+            var badgeX = tx + thumbSize - badgeW - 2;
+            var badgeY = ty + 2;
+            ctx.fillStyle = 'rgba(0,0,0,0.78)';
+            ctx.fillRect(badgeX, badgeY, badgeW, badgeH);
+            ctx.fillStyle = 'rgba(160,80,255,0.95)';
+            ctx.font = '600 ' + badgeFS + 'px monospace';
+            ctx.textAlign = 'center';
+            ctx.textBaseline = 'middle';
+            ctx.fillText(dur + 's', badgeX + badgeW / 2, badgeY + badgeH / 2);
+            APP.media.queueStrip.durationZones.push({ x: badgeX, y: badgeY, w: badgeW, h: badgeH, index: i });
+        }
+    }
+
+    ctx.restore();
 }
 
 // ═══════════════════════════════════════════════════════════════════════════
@@ -2691,41 +2774,72 @@ function initSummonerLogic() {
     var _durSteps = [3, 5, 8, 10, 15, 20, 30];
 
     stage.addEventListener('click', function(e) {
-        if (!APP.user.assets || APP.user.assets.length === 0) return;
-        if (!APP.nftVault.thumbnails || APP.nftVault.thumbnails.length === 0) return;
-
         var rect = canvas.getBoundingClientRect();
         var scaleX = APP.render.width / rect.width;
         var scaleY = APP.render.height / rect.height;
         var cx = (e.clientX - rect.left) * scaleX;
         var cy = (e.clientY - rect.top) * scaleY;
 
-        // Duration badge click — cycle seconds for this image, don't summon
-        var dz = APP.nftVault.durationZones || [];
-        for (var d = 0; d < dz.length; d++) {
-            var zone = dz[d];
-            if (cx >= zone.x && cx <= zone.x + zone.w && cy >= zone.y && cy <= zone.y + zone.h) {
-                var asset = APP.user.assets[zone.index];
-                if (asset && !asset.isVideo) {
-                    var cur = _durSteps.indexOf(asset.duration);
-                    asset.duration = _durSteps[(cur + 1) % _durSteps.length];
-                    // Sync to any matching queue item so cycle picks it up immediately
-                    for (var q = 0; q < APP.media.queue.length; q++) {
-                        if (APP.media.queue[q].element === asset.image) {
-                            APP.media.queue[q].duration = asset.duration;
-                        }
+        // ── MEDIA QUEUE STRIP — duration badge (violet, above vault) ──
+        var mqDz = (APP.media.queueStrip && APP.media.queueStrip.durationZones) || [];
+        for (var md = 0; md < mqDz.length; md++) {
+            var mz = mqDz[md];
+            if (cx >= mz.x && cx <= mz.x + mz.w && cy >= mz.y && cy <= mz.y + mz.h) {
+                var qitem = APP.media.queue[mz.index];
+                if (qitem && qitem.type !== 'video') {
+                    var mCur = _durSteps.indexOf(qitem.duration);
+                    qitem.duration = _durSteps[(mCur + 1) % _durSteps.length];
+                }
+                return;
+            }
+        }
+
+        // ── MEDIA QUEUE STRIP — thumbnail click (navigate to item) ──
+        var mqTh = (APP.media.queueStrip && APP.media.queueStrip.thumbnails) || [];
+        for (var mt = 0; mt < mqTh.length; mt++) {
+            var mthumb = mqTh[mt];
+            if (cx >= mthumb.x && cx <= mthumb.x + mthumb.w && cy >= mthumb.y && cy <= mthumb.y + mthumb.h) {
+                var qi = APP.media.queue[mthumb.index];
+                if (qi) {
+                    if (APP.media.currentElement && APP.media.currentElement.tagName === 'VIDEO') APP.media.currentElement.pause();
+                    APP.media.currentIndex = mthumb.index;
+                    APP.media.currentElement = qi.element;
+                    if (qi.element && qi.element.tagName === 'VIDEO') {
+                        qi.element.currentTime = 0;
+                        qi.element.play().catch(function(){});
                     }
                 }
                 return;
             }
         }
 
-        // Main thumbnail click — summon to canvas
-        for (var i = 0; i < APP.nftVault.thumbnails.length; i++) {
-            var t = APP.nftVault.thumbnails[i];
-            if (cx >= t.x && cx <= t.x + t.w && cy >= t.y && cy <= t.y + t.h) {
-                summonNFTByIndex(t.index);
-                return;
+        // ── NFT VAULT STRIP — duration badge (cyan, bottom) ──
+        if (APP.user.assets && APP.user.assets.length > 0) {
+            var dz = APP.nftVault.durationZones || [];
+            for (var d = 0; d < dz.length; d++) {
+                var zone = dz[d];
+                if (cx >= zone.x && cx <= zone.x + zone.w && cy >= zone.y && cy <= zone.y + zone.h) {
+                    var asset = APP.user.assets[zone.index];
+                    if (asset && !asset.isVideo) {
+                        var cur = _durSteps.indexOf(asset.duration);
+                        asset.duration = _durSteps[(cur + 1) % _durSteps.length];
+                        for (var q = 0; q < APP.media.queue.length; q++) {
+                            if (APP.media.queue[q].element === asset.image) {
+                                APP.media.queue[q].duration = asset.duration;
+                            }
+                        }
+                    }
+                    return;
+                }
+            }
+
+            // ── NFT VAULT STRIP — thumbnail click (summon) ──
+            for (var i = 0; i < APP.nftVault.thumbnails.length; i++) {
+                var t = APP.nftVault.thumbnails[i];
+                if (cx >= t.x && cx <= t.x + t.w && cy >= t.y && cy <= t.y + t.h) {
+                    summonNFTByIndex(t.index);
+                    return;
+                }
             }
         }
     });
@@ -3350,7 +3464,9 @@ function renderLoop(timestamp) {
     }
 
     // ═══ NFT_VAULT — Horizontal Gallery at bottom ═══
-    drawNFTVault(ctx, w, h);
+    var _vaultH = drawNFTVault(ctx, w, h) || 0;
+    // ═══ MEDIA_QUEUE — Uploaded files strip, stacked above vault ═══
+    drawMediaQueue(ctx, w, h, h - _vaultH);
 
     // ═══ PERMANENT SIGNATURE — untouchable, not part of Trinity ═══
     ctx.save();
