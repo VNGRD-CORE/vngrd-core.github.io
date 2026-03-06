@@ -2615,6 +2615,7 @@ function drawNFTVault(ctx, w, h) {
 
     // Clear thumbnail hit areas for this frame
     APP.nftVault.thumbnails = [];
+    APP.nftVault.durationZones = [];
 
     // Calculate total gallery width for centering
     var totalW = assets.length * (thumbSize + padding) - padding;
@@ -2650,6 +2651,27 @@ function drawNFTVault(ctx, w, h) {
             x: tx, y: ty, w: thumbSize, h: thumbSize,
             index: i
         });
+
+        // Duration badge — images only (videos play their full length)
+        if (!asset.isVideo) {
+            var dur = asset.duration != null ? asset.duration : 8;
+            var badgeFS = Math.max(9, Math.round(thumbSize * 0.13));
+            var badgeW = Math.max(22, Math.round(thumbSize * 0.3));
+            var badgeH = Math.round(thumbSize * 0.19);
+            var badgeX = tx + thumbSize - badgeW - 2;
+            var badgeY = ty + 2;
+            // Dark pill
+            ctx.fillStyle = 'rgba(0,0,0,0.78)';
+            ctx.fillRect(badgeX, badgeY, badgeW, badgeH);
+            // Cyan text
+            ctx.fillStyle = 'rgba(0,243,255,0.95)';
+            ctx.font = '600 ' + badgeFS + 'px monospace';
+            ctx.textAlign = 'center';
+            ctx.textBaseline = 'middle';
+            ctx.fillText(dur + 's', badgeX + badgeW / 2, badgeY + badgeH / 2);
+            // Store hit zone — click cycles duration
+            APP.nftVault.durationZones.push({ x: badgeX, y: badgeY, w: badgeW, h: badgeH, index: i });
+        }
     }
 
     ctx.restore();
@@ -2666,6 +2688,8 @@ function initSummonerLogic() {
     var canvas = APP.render.canvas;
     if (!stage || !canvas) return;
 
+    var _durSteps = [3, 5, 8, 10, 15, 20, 30];
+
     stage.addEventListener('click', function(e) {
         if (!APP.user.assets || APP.user.assets.length === 0) return;
         if (!APP.nftVault.thumbnails || APP.nftVault.thumbnails.length === 0) return;
@@ -2676,11 +2700,32 @@ function initSummonerLogic() {
         var cx = (e.clientX - rect.left) * scaleX;
         var cy = (e.clientY - rect.top) * scaleY;
 
+        // Duration badge click — cycle seconds for this image, don't summon
+        var dz = APP.nftVault.durationZones || [];
+        for (var d = 0; d < dz.length; d++) {
+            var zone = dz[d];
+            if (cx >= zone.x && cx <= zone.x + zone.w && cy >= zone.y && cy <= zone.y + zone.h) {
+                var asset = APP.user.assets[zone.index];
+                if (asset && !asset.isVideo) {
+                    var cur = _durSteps.indexOf(asset.duration);
+                    asset.duration = _durSteps[(cur + 1) % _durSteps.length];
+                    // Sync to any matching queue item so cycle picks it up immediately
+                    for (var q = 0; q < APP.media.queue.length; q++) {
+                        if (APP.media.queue[q].element === asset.image) {
+                            APP.media.queue[q].duration = asset.duration;
+                        }
+                    }
+                }
+                return;
+            }
+        }
+
+        // Main thumbnail click — summon to canvas
         for (var i = 0; i < APP.nftVault.thumbnails.length; i++) {
             var t = APP.nftVault.thumbnails[i];
             if (cx >= t.x && cx <= t.x + t.w && cy >= t.y && cy <= t.y + t.h) {
                 summonNFTByIndex(t.index);
-                return; // Only summon one per click
+                return;
             }
         }
     });
@@ -2736,7 +2781,7 @@ function summonNFTByIndex(index) {
     // ... (The rest of your code that adds a NEW NFT to the queue goes here) ...
 
     // Inject into media queue as a new item
-    var item = { type: 'image', url: asset.imageUrl || '', element: asset.image, name: 'NFT_' + (asset.name || index) };
+    var item = { type: 'image', url: asset.imageUrl || '', element: asset.image, name: 'NFT_' + (asset.name || index), duration: asset.duration != null ? asset.duration : 8 };
     // Append to gif-host at natural size (off-screen) for GIF animation
     var host = $('gif-host');
     if (host && !asset.image.parentNode) host.appendChild(asset.image);
@@ -3605,7 +3650,7 @@ function loadMediaFiles(input) {
     Array.from(input.files).forEach((file, idx) => {
         const url = URL.createObjectURL(file);
         const type = file.type.startsWith('video') ? 'video' : (file.type === 'image/gif' ? 'gif' : 'image');
-        const item = { type, url, element: null, name: file.name };
+        const item = { type, url, element: null, name: file.name, duration: type === 'video' ? null : 8 };
         if (type === 'video') {
             const vid = document.createElement('video'); vid.src = url; vid.muted = true; vid.loop = !APP.state.isCycle; vid.playsInline = true; vid.preload = 'auto'; item.element = vid; $('media-container').appendChild(vid);
         } else if (type === 'image') {
@@ -3828,7 +3873,11 @@ function checkCycleLogic() {
     const current = APP.media.queue[APP.media.currentIndex];
     if (!current) return;
     if (current.type === 'video') { if (current.element) { current.element.loop = false; current.element.onended = () => { if (APP.state.isCycle) rotateMedia(); }; } }
-    else { const secs = parseInt($('sl-cycle').value) || 8; APP.state.cycleTimer = setTimeout(() => { if (APP.state.isCycle) rotateMedia(); }, secs * 1000); }
+    else {
+        var _qi = APP.media.queue[APP.media.currentIndex];
+        var secs = (_qi && _qi.duration != null) ? _qi.duration : (parseInt($('sl-cycle').value) || 8);
+        APP.state.cycleTimer = setTimeout(function() { if (APP.state.isCycle) rotateMedia(); }, secs * 1000);
+    }
 }
 
 function updateQueueDisplay() {
@@ -7220,11 +7269,12 @@ var isVideo = nft.forceVideo || (imageUrl.toLowerCase().match(/\.(mp4|webm|mov|o
                 }
 
                 // 2. Save the media element to your app state
-                APP.user.assets.push({ 
-                    name: nft.name, 
-                    imageUrl: imageUrl, 
+                APP.user.assets.push({
+                    name: nft.name,
+                    imageUrl: imageUrl,
                     image: mediaEl, // Now this holds EITHER an <img> or a playing <video>!
-                    isVideo: isVideo 
+                    isVideo: isVideo,
+                    duration: isVideo ? null : 8  // seconds on-screen; null = play full length
                 });
 
                 // 3. Build the sidebar UI
