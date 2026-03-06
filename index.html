@@ -1338,7 +1338,8 @@ body.fx-nvg #stage::after {
             <div class="sec-body" id="lexica-nano-body">
                 <div class="lbl" style="font-size:7px;opacity:0.5;margin-bottom:2px;">MODEL</div>
                 <select class="inp" id="ai-model-select" style="font-size:8px;padding:4px;background:var(--panel);border:1px solid var(--border);color:var(--text);margin-bottom:4px;">
-                    <option value="dall-e-3" selected>DALL-E 3</option>
+                    <option value="pollinations" selected>POLLINATIONS [FREE]</option>
+                    <option value="dall-e-3">DALL-E 3</option>
                     <option value="stabilityai/stable-diffusion-xl-base-1.0">SDXL</option>
                     <option value="stabilityai/stable-diffusion-3-medium">SD3</option>
                     <option value="gpt-image-1">GPT IMAGE</option>
@@ -7527,6 +7528,30 @@ var isVideo = nft.forceVideo || (imageUrl.toLowerCase().match(/\.(mp4|webm|mov|o
         log('AI: INJECTED >> ' + label);
     }
 
+    // Pollinations.ai — free, no API key, CORS-enabled
+    async function _aiPollinations(prompt, btn) {
+        _aiStatus('POLLINATIONS: GENERATING...', 'var(--v)');
+        log('AI: [POLLINATIONS] >> ' + prompt);
+        try {
+            var url = 'https://image.pollinations.ai/prompt/' + encodeURIComponent(prompt)
+                + '?width=1024&height=1024&nologo=true&model=flux';
+            var img = new Image();
+            img.crossOrigin = 'anonymous';
+            await new Promise(function(resolve, reject) {
+                img.onload = resolve;
+                img.onerror = function() { reject(new Error('IMG_LOAD_FAILED')); };
+                img.src = url;
+            });
+            _aiInject(img, prompt);
+            _aiDone(btn);
+            _aiStatus('DONE [POLLINATIONS]', 'var(--g)');
+        } catch (e) {
+            _aiDone(btn);
+            _aiStatus('POLLINATIONS FAIL: ' + e.message, 'var(--r)');
+            log('AI: POLLINATIONS FAIL: ' + e.message);
+        }
+    }
+
     async function aiGenerate(prompt) {
         if (!prompt) { _aiStatus('TYPE A PROMPT', 'var(--y)'); return; }
         if (_aiGenerating) return;
@@ -7536,14 +7561,22 @@ var isVideo = nft.forceVideo || (imageUrl.toLowerCase().match(/\.(mp4|webm|mov|o
         if (btn) { btn.classList.add('on'); btn.textContent = 'GENERATING...'; }
         if ($('neural-dot')) $('neural-dot').classList.remove('off');
 
-        var model = $('ai-model-select') ? $('ai-model-select').value : 'dall-e-3';
+        var model = $('ai-model-select') ? $('ai-model-select').value : 'pollinations';
         var modelName = model.split('/').pop().toUpperCase();
         _aiStatus(modelName + ': GENERATING...', 'var(--v)');
         log('AI: [' + modelName + '] >> ' + prompt);
 
+        // Pollinations path — skip Puter entirely
+        if (model === 'pollinations') {
+            await _aiPollinations(prompt, btn);
+            return;
+        }
+
         if (typeof puter === 'undefined' || !puter.ai || !puter.ai.txt2img) {
             _aiDone(btn);
-            _aiStatus('PUTER.JS NOT LOADED — REFRESH PAGE', 'var(--r)');
+            _aiStatus('PUTER.JS NOT LOADED — FALLING BACK TO POLLINATIONS', 'var(--y)');
+            log('AI: PUTER_NOT_LOADED — FALLBACK POLLINATIONS');
+            await _aiPollinations(prompt, btn);
             return;
         }
 
@@ -7558,9 +7591,17 @@ var isVideo = nft.forceVideo || (imageUrl.toLowerCase().match(/\.(mp4|webm|mov|o
                 _aiStatus('NO IMAGE RETURNED', 'var(--r)');
             }
         } catch (e) {
-            _aiDone(btn);
-            _aiStatus('FAIL: ' + e.message, 'var(--r)');
-            log('AI: ' + modelName + ' FAIL: ' + e.message);
+            // Puter Low Balance / funding errors → auto-fallback to free Pollinations
+            var isBalanceErr = /balance|funding|upgrade|payment|insufficient|quota|credit/i.test(e.message || '');
+            if (isBalanceErr) {
+                log('AI: PUTER_BALANCE_LOW — FALLING BACK TO POLLINATIONS');
+                _aiStatus('BALANCE LOW → POLLINATIONS...', 'var(--y)');
+                await _aiPollinations(prompt, btn);
+            } else {
+                _aiDone(btn);
+                _aiStatus('FAIL: ' + (e.message || 'UNKNOWN_ERROR'), 'var(--r)');
+                log('AI: ' + modelName + ' FAIL: ' + (e.message || 'UNKNOWN_ERROR'));
+            }
         }
     }
 
