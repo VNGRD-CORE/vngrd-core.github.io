@@ -451,8 +451,7 @@
         @keyframes dot-pulse { 0%,100% { opacity: 1; } 50% { opacity: 0.4; } }
         #clock { font-family: 'Orbitron', sans-serif; font-size: 16px; color: var(--accent); letter-spacing: 2px; }
         #tally { display: none; padding: 4px 12px; background: var(--r); color: #fff; font-size: 10px; font-weight: bold; letter-spacing: 2px; animation: tally-blink 1s infinite; }
-        #btn-fs.on { color: var(--c) !important; border-color: var(--c) !important; opacity: 1 !important; }
-        @keyframes tally-blink { 0%,100% { opacity: 1; } 50% { opacity: 0.6; } }
+@keyframes tally-blink { 0%,100% { opacity: 1; } 50% { opacity: 0.6; } }
         /* NEW RECORDING INDICATOR IN HEADER */
         #rec-status { display: none; padding: 4px 12px; background: var(--r); color: #fff; font-size: 10px; font-weight: bold; letter-spacing: 2px; animation: rec-header-blink 1s infinite; border-radius: 2px; }
         @keyframes rec-header-blink { 0%,100% { opacity: 1; box-shadow: 0 0 10px var(--r); } 50% { opacity: 0.3; box-shadow: none; } }
@@ -1232,10 +1231,6 @@ body.fx-nvg #stage::after {
             <span class="logo m1" id="main-logo">DRIS<span style="font-size:14px;font-weight:400;color:var(--accent);opacity:0.6;margin-left:2px;letter-spacing:1px">//&nbsp;CORE</span></span>
             <span class="sub-tag">VNGRD</span>
             <span class="version">V34</span>
-        </div>
-        <div id="top-center-controls" style="position:absolute;left:50%;transform:translateX(-50%);display:flex;gap:6px;align-items:center;pointer-events:auto;">
-            <button onclick="toggleSystemSlide()" title="Toggle Panels" style="background:none;border:1px solid rgba(255,255,255,0.1);color:rgba(255,255,255,0.3);cursor:pointer;font-family:'JetBrains Mono',monospace;font-size:7.5px;letter-spacing:1.5px;padding:3px 9px;border-radius:2px;transition:all 0.2s;" onmouseenter="this.style.color='rgba(255,255,255,0.7)';this.style.borderColor='rgba(255,255,255,0.35)';" onmouseleave="this.style.color='rgba(255,255,255,0.3)';this.style.borderColor='rgba(255,255,255,0.1)';">PANELS&nbsp;<span style="opacity:0.45;">[TAB]</span></button>
-            <button id="btn-fs" onclick="toggleFullscreen()" title="Fullscreen" style="background:none;border:1px solid rgba(255,255,255,0.1);color:rgba(255,255,255,0.3);cursor:pointer;font-family:'JetBrains Mono',monospace;font-size:7.5px;letter-spacing:1.5px;padding:3px 9px;border-radius:2px;transition:all 0.2s;" onmouseenter="this.style.color='rgba(255,255,255,0.7)';this.style.borderColor='rgba(255,255,255,0.35)';" onmouseleave="this.style.color='rgba(255,255,255,0.3)';this.style.borderColor='rgba(255,255,255,0.1)';">FULL&nbsp;<span style="opacity:0.45;">[H]</span></button>
         </div>
         <div id="status-bar">
             <div id="wallet-badge" class="badge" style="cursor:pointer;border-color:var(--o);color:var(--o);"><span class="dot off" id="wallet-dot"></span>WALLET</div>
@@ -4532,7 +4527,7 @@ if (typeof log === 'function') log('PROJECTOR_SYSTEM_LINKED');
 function setTheme(theme) { document.body.className = document.body.className.replace(/theme-\w+/g, '').replace('system-failure', ''); if (theme !== 'cyan') document.body.classList.add(`theme-${theme}`); APP.state.theme = theme; document.querySelectorAll('.pal').forEach(p => p.classList.toggle('on', p.dataset.t === theme)); log(`THEME: ${theme}`); }
 function toggleVHS() { document.body.classList.toggle('vhs'); $('btn-vhs').classList.toggle('on'); log('VHS'); }
 function toggleCRT() { document.body.classList.toggle('crt'); $('btn-crt').classList.toggle('on'); log('CRT'); }
-function toggleFullscreen() { APP.state.isFullscreen = !APP.state.isFullscreen; document.body.classList.toggle('fullscreen', APP.state.isFullscreen); $('btn-fs').classList.toggle('on', APP.state.isFullscreen); log('FULLSCREEN'); }
+function toggleFullscreen() { APP.state.isFullscreen = !APP.state.isFullscreen; document.body.classList.toggle('fullscreen', APP.state.isFullscreen); log('FULLSCREEN'); }
 
 function toggleSystemSlide() {
     var isSlid = document.body.classList.toggle('system-slide');
@@ -5003,7 +4998,6 @@ document.addEventListener('DOMContentLoaded', () => {
     if ($('btn-pixelate')) $('btn-pixelate').onclick = () => { APP.vj.pixelateEnabled = !APP.vj.pixelateEnabled; APP.vj.pixelSize = APP.vj.pixelateEnabled ? 8 : 1; $('btn-pixelate').classList.toggle('on'); };
     if ($('btn-vhs')) $('btn-vhs').onclick = toggleVHS;
     if ($('btn-crt')) $('btn-crt').onclick = toggleCRT;
-    if ($('btn-fs')) $('btn-fs').onclick = toggleFullscreen;
     document.querySelectorAll('.pal').forEach(p => p.onclick = () => setTheme(p.dataset.t));
 
     $('btn-projector').onclick = openProjector;
