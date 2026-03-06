@@ -451,9 +451,15 @@
         #cycle-badge.on { display: flex; }
 
         /* Sidebar: neutral borders — no theme color bleed, party mode animates border-color via console-breathe */
-        .sidebar { position: fixed; top: 45px; bottom: 55px; width: 200px; background: rgba(6,6,10,0.94); backdrop-filter: blur(20px) saturate(110%); -webkit-backdrop-filter: blur(20px) saturate(110%); border: 1px solid rgba(255,255,255,0.06); box-shadow: inset 0 0 20px rgba(0,0,0,0.65); overflow-y: auto; z-index: 4000; scrollbar-width: none; transition: border-color 0.4s ease, box-shadow 0.4s ease; }
-        #left-panel { left: 0; border-left: none; border-right: 1px solid rgba(255,255,255,0.07); }
-        #right-panel { right: 0; border-right: none; border-left: 1px solid rgba(255,255,255,0.07); }
+        .sidebar { position: fixed; top: 45px; bottom: 55px; width: 200px; background: rgba(6,6,10,0.94); backdrop-filter: blur(20px) saturate(110%); -webkit-backdrop-filter: blur(20px) saturate(110%); border: 1px solid rgba(255,255,255,0.06); box-shadow: inset 0 0 20px rgba(0,0,0,0.65); overflow-y: auto; z-index: 4000; scrollbar-width: none; transition: transform 0.45s cubic-bezier(0.4, 0, 0.2, 1), opacity 0.35s ease, border-color 0.4s ease, box-shadow 0.4s ease; will-change: transform, opacity; }
+        #left-panel { left: 0; border-left: none; border-right: 1px solid rgba(255,255,255,0.07); transform: translateX(0); }
+        #right-panel { right: 0; border-right: none; border-left: 1px solid rgba(255,255,255,0.07); transform: translateX(0); }
+
+        /* SYSTEM SLIDE — panels out, stage expands */
+        body.system-slide #left-panel { transform: translateX(-100%); opacity: 0; pointer-events: none; }
+        body.system-slide #right-panel { transform: translateX(100%); opacity: 0; pointer-events: none; }
+        body.system-slide #stage { left: 0; right: 0; transition: left 0.45s cubic-bezier(0.4, 0, 0.2, 1), right 0.45s cubic-bezier(0.4, 0, 0.2, 1); }
+        #stage { transition: left 0.45s cubic-bezier(0.4, 0, 0.2, 1), right 0.45s cubic-bezier(0.4, 0, 0.2, 1); }
         /* Hard divider between module blocks — dark gap above + white hairline below */
         .section {
             border-top: 3px solid rgba(0,0,0,0.85);
@@ -1938,6 +1944,7 @@ var GHOST = {
         if (c.match(/about|who|what is|version/)) return 'about';
         if (c.match(/clear|cls|wipe/)) return 'clear';
         if (c.match(/fullscreen|fs|maximize|expand/)) return 'fullscreen';
+        if (c.match(/slide|panels|hide panels|show panels|focus|cinema/)) return 'slide';
         if (c.match(/ai|generate|image|dall|prompt|inject|txt2img/)) return 'ai_help';
         if (c.match(/resolution|4k|1080|canvas size/)) return 'resolution';
         if (c.match(/spatial|stereo|dolby|surround|3d audio/)) return 'audio_mode';
@@ -2344,6 +2351,11 @@ function processGhostCommand(cmd) {
                 ghostLog('Fullscreen toggled. (Shortcut: press H)', 'success');
                 break;
 
+            case 'slide':
+                if (typeof toggleSystemSlide === 'function') toggleSystemSlide();
+                ghostLog('System slide toggled. Panels slide out, canvas takes over. (Shortcut: Tab)', 'success');
+                break;
+
             case 'resolution':
                 ghostLog('Canvas: ' + APP.render.width + 'x' + APP.render.height, 'ai');
                 ghostLog('The render pipeline outputs at this resolution. Records at native res.', 'ai');
@@ -2361,6 +2373,7 @@ function processGhostCommand(cmd) {
                 ghostLog('KEYBOARD SHORTCUTS:', 'success');
                 ghostLog('G — Toggle this terminal', 'ai');
                 ghostLog('H — Toggle fullscreen', 'ai');
+                ghostLog('TAB — System slide (hide/show panels)', 'ai');
                 ghostLog('SPACE — Rotate to next media', 'ai');
                 ghostLog('ESC — Panic reset (clears all FX + media)', 'ai');
                 break;
@@ -4143,6 +4156,19 @@ function toggleVHS() { document.body.classList.toggle('vhs'); $('btn-vhs').class
 function toggleCRT() { document.body.classList.toggle('crt'); $('btn-crt').classList.toggle('on'); log('CRT'); }
 function toggleFullscreen() { APP.state.isFullscreen = !APP.state.isFullscreen; document.body.classList.toggle('fullscreen', APP.state.isFullscreen); $('btn-fs').classList.toggle('on', APP.state.isFullscreen); log('FULLSCREEN'); }
 
+function toggleSystemSlide() {
+    var isSlid = document.body.classList.toggle('system-slide');
+    APP.state.systemSlide = isSlid;
+    if (typeof resizeCanvas === 'function') {
+        setTimeout(function() {
+            APP.render.width = APP.render.canvas.parentElement.clientWidth;
+            APP.render.height = APP.render.canvas.parentElement.clientHeight;
+            resizeCanvas();
+        }, 500);
+    }
+    log(isSlid ? 'SYSTEM_SLIDE: PANELS_OUT' : 'SYSTEM_SLIDE: PANELS_IN');
+}
+
 function morphLogo() { const logo = $('main-logo'); APP.ui.morphs.forEach(m => logo.classList.remove(m)); APP.ui.logoMorph = (APP.ui.logoMorph + 1) % APP.ui.morphs.length; logo.classList.add(APP.ui.morphs[APP.ui.logoMorph]); }
 function updateClock() { $('clock').textContent = new Date().toTimeString().split(' ')[0]; const s = Math.floor((Date.now() - APP.state.startTime) / 1000); $('uptime').textContent = `${String(Math.floor(s/3600)).padStart(2,'0')}:${String(Math.floor((s%3600)/60)).padStart(2,'0')}:${String(s%60).padStart(2,'0')}`; }
 
@@ -4689,7 +4715,8 @@ document.addEventListener('DOMContentLoaded', () => {
         if (e.target.tagName === 'INPUT') return;
         if (e.key === 'g' || e.key === 'G') toggleGhost();
         if (e.key === 'h' || e.key === 'H') toggleFullscreen();
-        if (e.key === 'Escape') { $('btn-panic').click(); } 
+        if (e.key === 'Tab') { e.preventDefault(); toggleSystemSlide(); }
+        if (e.key === 'Escape') { $('btn-panic').click(); }
         if (e.key === ' ') { e.preventDefault(); rotateMedia(); }
     });
 
