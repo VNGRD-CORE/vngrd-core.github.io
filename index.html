@@ -7020,18 +7020,36 @@ function endCallCleanup() {
         return results;
     }
 
-    // Scan Tezos via TzKT (free, no key needed, CORS-enabled)
+  // Scan Tezos via TzKT (free, no key needed, CORS-enabled)
     async function scanTezosNfts(tezAddr) {
         var results = [];
         var resp = await fetch('https://api.tzkt.io/v1/tokens/balances?account=' + tezAddr + '&token.standard=fa2&balance.gt=0&limit=20&select=token');
         if (!resp.ok) throw new Error('TZKT_' + resp.status);
         var tokens = await resp.json();
+        
         tokens.forEach(function(tok) {
             var meta = tok.metadata || {};
             var name = meta.name || tok.contract?.alias || ('TEZ#' + (tok.tokenId || '?'));
-            // Tezos NFTs store images in metadata.displayUri, thumbnailUri, or artifactUri
-            var imageUrl = meta.displayUri || meta.thumbnailUri || meta.artifactUri || '';
-            results.push({ name: name, imageUrl: imageUrl, chain: 'TEZ' });
+
+            // 1. Dig into Tezos metadata formats to see if it is secretly a video
+            var isVid = false;
+            if (meta.formats && meta.formats.length > 0) {
+                if (meta.formats[0].mimeType && meta.formats[0].mimeType.startsWith('video/')) {
+                    isVid = true;
+                }
+            }
+
+            // 2. If it is a video, we MUST grab the artifactUri to get the moving file
+            var imageUrl = '';
+            if (isVid && meta.artifactUri) {
+                imageUrl = meta.artifactUri;
+            } else {
+                // Fallback to static display for non-video NFTs
+                imageUrl = meta.displayUri || meta.artifactUri || meta.thumbnailUri || '';
+            }
+
+            // 3. Pass a "forceVideo" flag to the render loop so it bypasses the URL check
+            results.push({ name: name, imageUrl: imageUrl, chain: 'TEZ', forceVideo: isVid });
         });
         return results;
     }
