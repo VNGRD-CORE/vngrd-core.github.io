@@ -4378,7 +4378,8 @@ function _applySessionSnapshot(s) {
     if ($('sl-h')) $('sl-h').value = APP.vj.hue;
 }
 
-// Puter KV key for a given wallet address
+// Puter KV key — always call with APP.wallet.address which is set to the
+// signer-derived freshAddress by connectWalletUI() before any cloud op runs.
 function _puterKey(address) {
     return 'VNGRD_SESSION_' + address.toLowerCase();
 }
@@ -4863,7 +4864,12 @@ function connectWalletUI(address, chainId) {
     return { network: network, short: short };
 }
 
-function disconnectWalletUI() {
+async function disconnectWalletUI() {
+    // Close the provider transport first — this terminates WalletConnect/WalletLink sessions
+    if (APP.web3.provider && APP.web3.provider.close) {
+        try { await APP.web3.provider.close(); } catch(_) {}
+    }
+
     APP.wallet = { connected: false, address: null, chainId: null, nfts: [] };
     APP.web3.address = null;
     APP.web3.isConnected = false;
@@ -4882,6 +4888,13 @@ function disconnectWalletUI() {
         'wc@2:ethereum_provider:/chainId'
     ];
     _providerKeys.forEach(function(k) { try { localStorage.removeItem(k); } catch(_) {} });
+
+    // Sweep any remaining prefixed fragments (-walletlink, walletconnect*, loglevel*)
+    Object.keys(localStorage).forEach(function(k) {
+        if (k.startsWith('-walletlink') || k.startsWith('walletconnect') || k.startsWith('loglevel')) {
+            try { localStorage.removeItem(k); } catch(_) {}
+        }
+    });
 
     $('wallet-badge').style.borderColor = 'var(--o)';
     $('wallet-badge').style.color = 'var(--o)';
@@ -4913,12 +4926,19 @@ window.requestManualConnect = async function() {
         // eth_requestAccounts always triggers MetaMask popup — no silent access
         const accounts = await window.ethereum.request({ method: 'eth_requestAccounts' });
         if (!accounts || accounts.length === 0) { log('WALLET: NO_ACCOUNTS'); return; }
+        // Derive address from the live signer — never trust accounts[] which can be stale
+        const _provider = new ethers.providers.Web3Provider(window.ethereum);
+        const _signer = _provider.getSigner();
+        const freshAddress = await _signer.getAddress();   // awaited, not cached
+        APP.web3.provider = _provider;
+        APP.web3.signer = _signer;
         const chainId = await window.ethereum.request({ method: 'eth_chainId' });
-        const info = connectWalletUI(accounts[0], chainId);
+        // connectWalletUI sets APP.wallet.address = freshAddress before anything downstream runs
+        const info = connectWalletUI(freshAddress, chainId);
         log('WALLET: ' + info.network + ' ' + info.short);
         // Balance fetch — non-blocking, does not affect connect state
         try {
-            const bal = await window.ethereum.request({ method: 'eth_getBalance', params: [accounts[0], 'latest'] });
+            const bal = await window.ethereum.request({ method: 'eth_getBalance', params: [freshAddress, 'latest'] });
             log('BALANCE: ' + (parseInt(bal, 16) / 1e18).toFixed(4) + ' ETH');
         } catch (_) { /* optional */ }
         autoScanNFTs();
@@ -5243,7 +5263,9 @@ document.addEventListener('DOMContentLoaded', () => {
             return;
         }
         await requestManualConnect();
-        // After successful connection, silently check for a cloud session
+        // requestManualConnect() fully resolves before this line — APP.wallet.address
+        // is the signer-derived freshAddress set by connectWalletUI(freshAddress, ...).
+        // The cloud KV key is derived from this address, never a stale cached value.
         if (APP.wallet && APP.wallet.connected) {
             setTimeout(() => loadSessionFromCloud(true), 500);
         }
