@@ -1476,6 +1476,10 @@ body.fx-nvg #stage::after {
                     <button class="btn" id="btn-save-session" style="flex:1;font-size:8px;">SAVE_SESSION</button>
                     <button class="btn" id="btn-import-dna" style="flex:1;font-size:8px;">IMPORT_SESSION</button>
                 </div>
+                <div class="btn-row" style="margin-top:4px;">
+                    <button class="btn" id="btn-cloud-save" style="flex:1;font-size:8px;color:var(--accent);border-color:var(--accent);" title="Sign + save workspace to Puter cloud (wallet required)">CLOUD_SAVE</button>
+                    <button class="btn" id="btn-cloud-load" style="flex:1;font-size:8px;color:var(--accent);border-color:var(--accent);" title="Load last cloud session for this wallet">CLOUD_LOAD</button>
+                </div>
                 <div style="border-top:1px solid rgba(255,255,255,0.06);margin:6px 0 4px;"></div>
                 <div class="lbl" style="font-size:7px;opacity:0.5;margin-bottom:2px;">OUTPUT</div>
                 <button class="btn" id="btn-projector">PROJECTOR</button>
@@ -1486,7 +1490,9 @@ body.fx-nvg #stage::after {
         <div class="section">
             <div class="sec-head collapsible"><span class="sec-title">NFT_VAULT</span><span class="sec-arrow">&#x25B8;</span><div class="sec-dot off" id="vault-dot"></div></div>
             <div class="sec-body" id="nft-vault-body">
-                <input type="text" class="inp" id="tezos-addr" placeholder="tz1... TEZOS ADDRESS (OPTIONAL)" style="font-size:7px;margin-bottom:4px;padding:3px 4px;">
+                <input type="text" class="inp" id="eth-addr-manual" placeholder="0x... or name.eth (OPTIONAL)" style="font-size:7px;margin-bottom:4px;padding:3px 4px;" title="Override ETH address or enter an ENS name like vitalik.eth">
+                <input type="text" class="inp" id="tezos-addr" placeholder="tz1... or name.tez (OPTIONAL)" style="font-size:7px;margin-bottom:4px;padding:3px 4px;" title="Enter a Tezos address or TezDomains name like alice.tez">
+                <div id="vault-resolved-label" style="font-size:7px;color:var(--accent);margin-bottom:4px;display:none;"></div>
                 <button class="btn" id="btn-scan-nfts" style="font-size:8px;">SCAN_WALLET_ASSETS</button>
                 <div id="nft-vault-list" style="max-height:60px;overflow-y:auto;font-size:8px;color:var(--text-dim);margin-top:4px;">CONNECT_WALLET_FIRST</div>
                 <div id="nft-count" style="font-size:8px;color:var(--accent);margin-top:4px;">ASSETS: 0</div>
@@ -4315,6 +4321,162 @@ $('file-vgd').onchange = (e) => {
     e.target.value = '';
 };
 
+// ═══════════════════════════════════════════════════════════════════════════
+// CLOUD SYNC — Wallet-authenticated session storage via Puter.js KV
+// Requires: connected wallet (window.ethereum) + puter.js loaded
+// ═══════════════════════════════════════════════════════════════════════════
+
+// Internal: build the same session snapshot that SAVE_SESSION uses
+function _buildSessionSnapshot() {
+    var logo64 = null;
+    var logoEl = $('user-logo-layer');
+    if (logoEl && logoEl.src && logoEl.src !== window.location.href && logoEl.naturalWidth > 0) {
+        try {
+            var tmpC = document.createElement('canvas');
+            tmpC.width = logoEl.naturalWidth; tmpC.height = logoEl.naturalHeight;
+            tmpC.getContext('2d').drawImage(logoEl, 0, 0);
+            logo64 = tmpC.toDataURL('image/png');
+        } catch(e) {}
+    }
+    var ltTitleEl = $('lt-title-text'), ltSubEl = $('lt-subtitle-text');
+    return {
+        vj: APP.vj,
+        theme: APP.state.theme,
+        bug: APP.bug.text,
+        layers: APP.layers,
+        logo2d: logo64,
+        lowerThird: {
+            title:   (ltTitleEl && ltTitleEl.textContent) || '',
+            subtitle:(ltSubEl   && ltSubEl.textContent)   || '',
+            preset:  APP.lowerThird.preset,
+            visible: APP.lowerThird.visible
+        },
+        timestamp: Date.now()
+    };
+}
+
+// Internal: apply a session snapshot (shared with VGD import logic)
+function _applySessionSnapshot(s) {
+    if (s.theme)  setTheme(s.theme);
+    if (s.bug)    { APP.bug.text = s.bug; $('bug-text').value = s.bug; $('station-bug').textContent = s.bug; }
+    if (s.vj)     { APP.vj = { ...APP.vj, ...s.vj }; }
+    if (s.layers) {
+        APP.layers = { ...APP.layers, ...s.layers };
+        APP.trinity.logo.scale = APP.layers.logoScale || 1.0;
+        APP.trinity.bug.scale  = APP.layers.bugScale  || 1.5;
+    }
+    if (s.logo2d) {
+        var logoLayer = $('user-logo-layer');
+        if (logoLayer) { logoLayer.src = s.logo2d; logoLayer.style.display = 'block'; APP.trinity.logo.visible = true; }
+    }
+    if (s.lowerThird) {
+        if (s.lowerThird.title    && $('lt-title-text')) $('lt-title-text').textContent = s.lowerThird.title;
+        if (s.lowerThird.subtitle && $('lt-subtitle-text')) $('lt-subtitle-text').textContent = s.lowerThird.subtitle;
+        if (s.lowerThird.title    && $('lt-title'))     $('lt-title').value    = s.lowerThird.title;
+        if (s.lowerThird.subtitle && $('lt-sub'))       $('lt-sub').value      = s.lowerThird.subtitle;
+        if (s.lowerThird.preset)  APP.lowerThird.preset  = s.lowerThird.preset;
+        APP.lowerThird.visible = !!s.lowerThird.visible;
+    }
+    if ($('sl-b')) $('sl-b').value = Math.round(APP.vj.brightness * 100);
+    if ($('sl-c')) $('sl-c').value = Math.round(APP.vj.contrast  * 100);
+    if ($('sl-s')) $('sl-s').value = Math.round(APP.vj.saturation * 100);
+    if ($('sl-h')) $('sl-h').value = APP.vj.hue;
+}
+
+// Puter KV key for a given wallet address
+function _puterKey(address) {
+    return 'VNGRD_SESSION_' + address.toLowerCase();
+}
+
+// ── SAVE session to Puter cloud, wallet-signed ──
+window.saveSessionToCloud = async function() {
+    if (!APP.wallet.connected || !APP.wallet.address) {
+        log('CLOUD_SAVE: WALLET_NOT_CONNECTED'); alert('Connect your wallet first.'); return;
+    }
+    if (typeof puter === 'undefined' || !puter.kv) {
+        log('CLOUD_SAVE: PUTER_NOT_LOADED'); alert('Puter.js not available. Check your connection.'); return;
+    }
+
+    var address = APP.wallet.address;
+    var session = _buildSessionSnapshot();
+    var sessionJson = JSON.stringify(session);
+    var sigMsg = 'VNGRD_CLOUD_SAVE:' + address.toLowerCase() + ':' + session.timestamp;
+
+    log('CLOUD_SAVE: REQUESTING_SIGNATURE');
+    var signature;
+    try {
+        signature = await window.ethereum.request({
+            method: 'personal_sign',
+            params: [sigMsg, address]
+        });
+    } catch (e) {
+        if (e.code === 4001) { log('CLOUD_SAVE: USER_REJECTED_SIGNATURE'); return; }
+        log('CLOUD_SAVE: SIGN_ERR ' + e.message); return;
+    }
+
+    // Attach signature metadata and persist
+    session._cloudMeta = { address: address, signature: signature, signedMsg: sigMsg };
+    try {
+        await puter.kv.set(_puterKey(address), JSON.stringify(session));
+        log('CLOUD_SAVE: OK — SESSION_STORED_FOR_' + address.slice(0, 6));
+        alert('SESSION SAVED TO CLOUD\n\nWallet: ' + address.slice(0, 6) + '...' + address.slice(-4) + '\nTimestamp: ' + new Date(session.timestamp).toLocaleString());
+    } catch (e) {
+        log('CLOUD_SAVE: KV_ERR ' + e.message);
+        alert('Cloud save failed: ' + e.message);
+    }
+};
+
+// ── LOAD session from Puter cloud for the connected wallet ──
+window.loadSessionFromCloud = async function(silent) {
+    if (!APP.wallet.connected || !APP.wallet.address) {
+        log('CLOUD_LOAD: WALLET_NOT_CONNECTED');
+        if (!silent) alert('Connect your wallet first.');
+        return;
+    }
+    if (typeof puter === 'undefined' || !puter.kv) {
+        log('CLOUD_LOAD: PUTER_NOT_LOADED');
+        if (!silent) alert('Puter.js not available. Check your connection.');
+        return;
+    }
+
+    var address = APP.wallet.address;
+    log('CLOUD_LOAD: CHECKING_KV for ' + address.slice(0, 6) + '...');
+
+    var raw;
+    try {
+        raw = await puter.kv.get(_puterKey(address));
+    } catch (e) {
+        log('CLOUD_LOAD: KV_ERR ' + e.message);
+        if (!silent) alert('Cloud load failed: ' + e.message);
+        return;
+    }
+
+    if (!raw) {
+        log('CLOUD_LOAD: NO_SESSION_FOUND');
+        if (!silent) alert('No cloud session found for this wallet.');
+        return;
+    }
+
+    var s;
+    try { s = JSON.parse(raw); } catch(e) { log('CLOUD_LOAD: PARSE_ERR'); return; }
+
+    var savedDate = s.timestamp ? new Date(s.timestamp).toLocaleString() : 'unknown date';
+    var prompt = silent
+        ? ('Previous session found for this wallet (' + address.slice(0,6) + '...' + address.slice(-4) + ')\nSaved: ' + savedDate + '\n\nRestore it?')
+        : ('Cloud session for ' + address.slice(0,6) + '...' + address.slice(-4) + '\nSaved: ' + savedDate + '\n\nLoad this session?');
+
+    if (!confirm(prompt)) { log('CLOUD_LOAD: USER_DECLINED'); return; }
+
+    try {
+        _applySessionSnapshot(s);
+        log('CLOUD_LOAD: SESSION_RESTORED from ' + savedDate);
+        alert('Session restored from cloud!\nSaved: ' + savedDate);
+    } catch(e) {
+        log('CLOUD_LOAD: APPLY_ERR ' + e.message);
+        alert('Failed to apply session: ' + e.message);
+    }
+};
+
 function isValidDataURI(str) {
     // Reject null, empty, or corrupt data URIs
     if (!str || typeof str !== 'string') return false;
@@ -4711,8 +4873,21 @@ function disconnectWalletUI() {
     APP.web3.address = null;
     APP.web3.isConnected = false;
     APP.web3.mode = 'guest';
+    APP.web3.provider = null;
+    APP.web3.signer = null;
     APP.user.assets = [];
     APP.nftVault.thumbnails = [];
+
+    // Purge all known wallet provider caches so the picker shows fresh on next connect
+    var _providerKeys = [
+        'WEB3_CONNECT_CACHED_PROVIDER',
+        'walletconnect',
+        'WALLETCONNECT_DEEPLINK_CHOICE',
+        'wc@2:core:0.3//session',
+        'wc@2:ethereum_provider:/chainId'
+    ];
+    _providerKeys.forEach(function(k) { try { localStorage.removeItem(k); } catch(_) {} });
+
     $('wallet-badge').style.borderColor = 'var(--o)';
     $('wallet-badge').style.color = 'var(--o)';
     $('wallet-badge').innerHTML = '<span class="dot off"></span>WALLET';
@@ -4720,7 +4895,7 @@ function disconnectWalletUI() {
     $('nft-vault-list').innerHTML = 'CONNECT_WALLET_FIRST';
     $('nft-count').textContent = 'ASSETS: 0';
     checkLayerReadiness();
-    log('WALLET: DISCONNECTED');
+    log('WALLET: DISCONNECTED + CACHE_CLEARED');
 }
 
 function autoScanNFTs() {
@@ -5074,8 +5249,16 @@ document.addEventListener('DOMContentLoaded', () => {
             return;
         }
         await requestManualConnect();
+        // After successful connection, silently check for a cloud session
+        if (APP.wallet && APP.wallet.connected) {
+            setTimeout(() => loadSessionFromCloud(true), 500);
+        }
     };
-    
+
+    // ── Cloud Sync button wiring ──
+    if ($('btn-cloud-save')) $('btn-cloud-save').onclick = () => saveSessionToCloud();
+    if ($('btn-cloud-load')) $('btn-cloud-load').onclick = () => loadSessionFromCloud(false);
+
     $('btn-stereo').onclick = () => setAudioMode('stereo');
     $('btn-spatial').onclick = () => setAudioMode('spatial');
     $('btn-dolby').onclick = () => setAudioMode('dolby');
@@ -7089,14 +7272,115 @@ var isVideo = nft.forceVideo || (imageUrl.toLowerCase().match(/\.(mp4|webm|mov|o
         return results;
     }
 
+    // ── ENS resolution: name.eth → 0x address ──
+    async function resolveEnsName(name) {
+        if (typeof ethers === 'undefined') throw new Error('ETHERS_NOT_LOADED');
+        var provider;
+        if (window.ethereum) {
+            provider = new ethers.providers.Web3Provider(window.ethereum);
+        } else {
+            // Fallback: ethers default provider (uses public Infura/ALCHEMY endpoints)
+            provider = ethers.getDefaultProvider('homestead');
+        }
+        var addr = await provider.resolveName(name);
+        if (!addr) throw new Error('ENS_NOT_FOUND: ' + name);
+        return addr;
+    }
+
+    // ── TezDomains resolution: name.tez → tz1/tz2 address ──
+    async function resolveTezDomain(name) {
+        // TzDomains public GraphQL endpoint (no API key needed)
+        var query = JSON.stringify({
+            query: '{ domain(name: "' + name + '") { address } }'
+        });
+        var resp = await fetch('https://api.tezos.domains/graphql', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: query
+        });
+        if (!resp.ok) throw new Error('TEZDOMAIN_HTTP_' + resp.status);
+        var data = await resp.json();
+        var addr = data && data.data && data.data.domain && data.data.domain.address;
+        if (!addr) throw new Error('TEZDOMAIN_NOT_FOUND: ' + name);
+        return addr;
+    }
+
     $('btn-scan-nfts').onclick = async () => {
-        var tezAddr = $('tezos-addr') ? $('tezos-addr').value.trim() : '';
-        var hasEth = APP.wallet.connected && APP.wallet.address;
-        var hasTez = tezAddr && tezAddr.startsWith('tz');
+        var ethManual    = $('eth-addr-manual') ? $('eth-addr-manual').value.trim() : '';
+        var tezInput     = $('tezos-addr')      ? $('tezos-addr').value.trim()      : '';
+        var resolvedLabel = $('vault-resolved-label');
+
+        // Hide the resolved-name strip until we need it
+        if (resolvedLabel) { resolvedLabel.style.display = 'none'; resolvedLabel.textContent = ''; }
+
+        // ── ETH address resolution ──
+        // Priority: manual input field > connected wallet address
+        var ethDisplayName = null; // tracks the human-readable name for the label
+        var ethAddr = null;
+
+        if (ethManual) {
+            if (ethManual.toLowerCase().endsWith('.eth')) {
+                $('nft-vault-list').innerHTML = 'RESOLVING ENS...';
+                log('NFT_VAULT: RESOLVING ' + ethManual);
+                try {
+                    ethAddr = await resolveEnsName(ethManual);
+                    ethDisplayName = ethManual; // keep the pretty name
+                    log('NFT_VAULT: ENS_OK ' + ethManual + ' → ' + ethAddr);
+                } catch (e) {
+                    log('NFT_VAULT: ENS_ERR ' + e.message);
+                    $('nft-vault-list').innerHTML = 'ENS_ERR: ' + e.message;
+                    return;
+                }
+            } else if (ethManual.startsWith('0x')) {
+                ethAddr = ethManual;
+            } else {
+                $('nft-vault-list').innerHTML = 'INVALID_ETH_INPUT (need 0x... or name.eth)';
+                return;
+            }
+        } else if (APP.wallet.connected && APP.wallet.address) {
+            ethAddr = APP.wallet.address;
+        }
+
+        // ── TEZOS address resolution ──
+        var tezDisplayName = null;
+        var tezAddr = null;
+
+        if (tezInput) {
+            if (tezInput.toLowerCase().endsWith('.tez')) {
+                $('nft-vault-list').innerHTML = 'RESOLVING TEZDOMAIN...';
+                log('NFT_VAULT: RESOLVING ' + tezInput);
+                try {
+                    tezAddr = await resolveTezDomain(tezInput);
+                    tezDisplayName = tezInput;
+                    log('NFT_VAULT: TEZDOMAIN_OK ' + tezInput + ' → ' + tezAddr);
+                } catch (e) {
+                    log('NFT_VAULT: TEZDOMAIN_ERR ' + e.message);
+                    $('nft-vault-list').innerHTML = 'TEZDOMAIN_ERR: ' + e.message;
+                    return;
+                }
+            } else if (tezInput.startsWith('tz')) {
+                tezAddr = tezInput;
+            } else {
+                $('nft-vault-list').innerHTML = 'INVALID_TEZ_INPUT (need tz1... or name.tez)';
+                return;
+            }
+        }
+
+        var hasEth = !!ethAddr;
+        var hasTez = !!tezAddr;
 
         if (!hasEth && !hasTez) {
-            $('nft-vault-list').innerHTML = 'CONNECT_WALLET_OR_ENTER_TEZOS_ADDR';
+            $('nft-vault-list').innerHTML = 'CONNECT_WALLET_OR_ENTER_ADDRESS';
             return;
+        }
+
+        // Show resolved-name privacy label (display the friendly name, not the raw hex)
+        var labelParts = [];
+        if (ethDisplayName) labelParts.push('ETH: ' + ethDisplayName);
+        if (tezDisplayName) labelParts.push('TEZ: ' + tezDisplayName);
+        if (labelParts.length && resolvedLabel) {
+            resolvedLabel.textContent = labelParts.join('  |  ');
+            resolvedLabel.style.display = 'block';
         }
 
         $('nft-vault-list').innerHTML = 'SCANNING...';
@@ -7105,10 +7389,17 @@ var isVideo = nft.forceVideo || (imageUrl.toLowerCase().match(/\.(mp4|webm|mov|o
         var allNfts = [];
         var errors = [];
 
-        // Scan in parallel
         var promises = [];
-        if (hasEth) promises.push(scanETHNfts(APP.wallet.address).then(function(r) { allNfts = allNfts.concat(r); log('NFT_VAULT: ETH_FOUND ' + r.length); }).catch(function(e) { errors.push('ETH:' + e.message); log('NFT_VAULT: ETH_FAIL ' + e.message); }));
-        if (hasTez) promises.push(scanTezosNfts(tezAddr).then(function(r) { allNfts = allNfts.concat(r); log('NFT_VAULT: TEZ_FOUND ' + r.length); }).catch(function(e) { errors.push('TEZ:' + e.message); log('NFT_VAULT: TEZ_FAIL ' + e.message); }));
+        if (hasEth) promises.push(
+            scanETHNfts(ethAddr)
+                .then(function(r) { allNfts = allNfts.concat(r); log('NFT_VAULT: ETH_FOUND ' + r.length); })
+                .catch(function(e) { errors.push('ETH:' + e.message); log('NFT_VAULT: ETH_FAIL ' + e.message); })
+        );
+        if (hasTez) promises.push(
+            scanTezosNfts(tezAddr)
+                .then(function(r) { allNfts = allNfts.concat(r); log('NFT_VAULT: TEZ_FOUND ' + r.length); })
+                .catch(function(e) { errors.push('TEZ:' + e.message); log('NFT_VAULT: TEZ_FAIL ' + e.message); })
+        );
 
         await Promise.all(promises);
 
@@ -7123,7 +7414,7 @@ var isVideo = nft.forceVideo || (imageUrl.toLowerCase().match(/\.(mp4|webm|mov|o
             if (errors.length > 0) {
                 msg = 'SCAN_ERR: ' + errors.join(', ');
             } else if (hasEth && !hasTez) {
-                msg = 'NO_ETH_NFTS — ENTER tz1... ABOVE FOR TEZOS';
+                msg = 'NO_ETH_NFTS — ADD TEZ ADDR ABOVE FOR TEZOS';
             } else {
                 msg = 'NO_NFTS_FOUND';
             }
