@@ -6947,8 +6947,7 @@ function endCallCleanup() {
             var imageUrl = resolveNFTUrl(nft.imageUrl);
             if (imageUrl) {
                 // 1. Detect if the URL is a video file
-                var isVideo = imageUrl.toLowerCase().match(/\.(mp4|webm|mov|ogg)(\?|$)/);
-                var mediaEl;
+var isVideo = nft.forceVideo || (imageUrl.toLowerCase().match(/\.(mp4|webm|mov|ogg)(\?|$)/) !== null);                var mediaEl;
 
                 if (isVideo) {
                     // --- THE GHOST VIDEO FIX ---
