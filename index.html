@@ -5729,9 +5729,10 @@ $('btn-init-peer').onclick = () => {
                         { urls: 'turn:openrelay.metered.ca:443?transport=tcp', username: 'openrelayproject', credential: 'openrelayproject' }
                     ],
                     iceTransportPolicy: 'all',
-                    iceCandidatePoolSize: 2
+                    iceCandidatePoolSize: 4,
+                    sdpSemantics: 'unified-plan'
                 },
-                debug: 1
+                debug: 0
             }),
             call: null,
             incomingCall: null,
@@ -5840,7 +5841,7 @@ $('btn-call-guest').onclick = async () => {
                 : { echoCancellation: true, noiseSuppression: true, autoGainControl: true };
 
             const stream = await navigator.mediaDevices.getUserMedia({
-                video: { facingMode: 'user', width: { ideal: 1280 }, height: { ideal: 720 } },
+                video: { facingMode: 'user', width: { ideal: 640 }, height: { ideal: 480 }, frameRate: { ideal: 30 } },
                 audio: audioConstraints
             });
             
@@ -5886,7 +5887,7 @@ $('btn-call-guest').onclick = async () => {
             : { echoCancellation: true, noiseSuppression: true, autoGainControl: true };
 
         const stream = await navigator.mediaDevices.getUserMedia({
-            video: { facingMode: 'user', width: { ideal: 1280 }, height: { ideal: 720 } },
+            video: { facingMode: 'user', width: { ideal: 640 }, height: { ideal: 480 }, frameRate: { ideal: 30 } },
             audio: audioConstraints
         });
         APP.peer.localStream = stream;
@@ -5931,8 +5932,8 @@ function handleCallStream(call) {
             APP.guest.videoElement.setAttribute('autoplay', '');
             APP.guest.videoElement.setAttribute('playsinline', '');
             APP.guest.videoElement.muted = false;
-            // Must have non-zero rendered size for iOS Safari to decode
-            APP.guest.videoElement.style.cssText = 'position:fixed;top:0;left:0;width:2px;height:2px;opacity:0.01;pointer-events:none;z-index:-1;';
+            // Off-screen but large enough for browser to actually decode
+            APP.guest.videoElement.style.cssText = 'position:fixed;top:-9999px;left:-9999px;width:320px;height:240px;pointer-events:none;z-index:-1;';
             document.body.appendChild(APP.guest.videoElement);
         }
 
@@ -5952,18 +5953,89 @@ function handleCallStream(call) {
 
         log('CALL_ESTABLISHED_WITH: ' + call.peer);
     });
-    
+
     call.on('close', () => {
-        endCallCleanup();
+        // Delay cleanup slightly — PeerJS fires 'close' on transient ICE restarts
+        setTimeout(() => {
+            // Only clean up if the call is truly dead (no new call replaced it)
+            if (APP.peer && APP.peer.call === call) {
+                endCallCleanup();
+            }
+        }, 1500);
     });
-    
+
     call.on('error', (err) => {
         log('CALL_ERROR: ' + err);
         endCallCleanup();
     });
-    
+
     APP.peer.call = call;
 }
+
+// ═══ P2P ORIENTATION / VISIBILITY RESILIENCE ═══
+// Prevent call from dying when user rotates phone or switches apps briefly
+(function() {
+    // On orientation change, iOS Safari may tear down getUserMedia tracks.
+    // Re-acquire media and replace tracks in the existing peer connection.
+    var _orientationTimer = null;
+    function handleOrientationChange() {
+        if (!APP.peer || !APP.peer.call) return;
+        clearTimeout(_orientationTimer);
+        _orientationTimer = setTimeout(async () => {
+            try {
+                if (!APP.peer || !APP.peer.call || !APP.peer.call.peerConnection) return;
+                var pc = APP.peer.call.peerConnection;
+                // Re-acquire camera with same constraints
+                var newStream = await navigator.mediaDevices.getUserMedia({
+                    video: { facingMode: 'user', width: { ideal: 640 }, height: { ideal: 480 }, frameRate: { ideal: 30 } },
+                    audio: APP.inputDevices && APP.inputDevices.selectedId
+                        ? { deviceId: { exact: APP.inputDevices.selectedId }, echoCancellation: true, noiseSuppression: true, autoGainControl: true }
+                        : { echoCancellation: true, noiseSuppression: true, autoGainControl: true }
+                });
+                // Replace tracks in the live RTCPeerConnection (no renegotiation needed)
+                var senders = pc.getSenders();
+                newStream.getTracks().forEach(function(newTrack) {
+                    var sender = senders.find(function(s) { return s.track && s.track.kind === newTrack.kind; });
+                    if (sender) sender.replaceTrack(newTrack);
+                });
+                // Stop old tracks, store new stream
+                if (APP.peer.localStream) {
+                    APP.peer.localStream.getTracks().forEach(function(t) { t.stop(); });
+                }
+                APP.peer.localStream = newStream;
+                log('P2P: TRACKS_REPLACED_AFTER_ROTATE');
+            } catch (e) {
+                log('P2P: TRACK_REPLACE_ERR: ' + e.message);
+            }
+        }, 500); // Wait for orientation to settle
+    }
+
+    window.addEventListener('orientationchange', handleOrientationChange);
+    // Some browsers fire resize instead of orientationchange
+    var _lastW = window.innerWidth, _lastH = window.innerHeight;
+    window.addEventListener('resize', function() {
+        // Detect actual orientation flip (width/height swap)
+        var w = window.innerWidth, h = window.innerHeight;
+        var wasLandscape = _lastW > _lastH, isLandscape = w > h;
+        if (wasLandscape !== isLandscape) handleOrientationChange();
+        _lastW = w; _lastH = h;
+    });
+
+    // On visibility change (app switch, lock screen), keep peer alive
+    document.addEventListener('visibilitychange', function() {
+        if (document.visibilityState === 'visible' && APP.peer && APP.peer.call) {
+            // Re-play remote video (iOS pauses media when backgrounded)
+            if (APP.guest.videoElement && APP.guest.videoElement.paused) {
+                APP.guest.videoElement.play().catch(function() {});
+            }
+            // Check if local tracks are still alive; re-acquire if dead
+            if (APP.peer.localStream) {
+                var dead = APP.peer.localStream.getTracks().some(function(t) { return t.readyState === 'ended'; });
+                if (dead) handleOrientationChange(); // reuse the track-replace logic
+            }
+        }
+    });
+})();
 
 $('btn-hangup').onclick = () => {
     if (APP.peer && APP.peer.call) {
