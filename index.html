@@ -3477,6 +3477,7 @@ async function initCamera() {
         const previewVid = $('preview-vid-float');
         if (preview && previewVid) {
             previewVid.srcObject = APP.camera.stream;
+            previewVid.muted = true;
             preview.classList.add('active');
             APP.camera.previewEl = previewVid;
         }
@@ -3989,11 +3990,14 @@ async function startNFTRecording() {
         if (APP.audio.ctx && APP.audio.masterGain) {
             var freshDest = APP.audio.ctx.createMediaStreamDestination();
 
-            // Tap the master bus (carries all loaded audio + video audio)
-            APP.audio.masterGain.connect(freshDest);
-
-            // Also tap the output limiter so we capture the final mix
-            if (APP.audio.outputLimiter) APP.audio.outputLimiter.connect(freshDest);
+            // Tap ONLY the output limiter (final node before speakers)
+            // masterGain → outputLimiter is already chained, so connecting
+            // both would double-tap the signal and cause flanging/phasing
+            if (APP.audio.outputLimiter) {
+                APP.audio.outputLimiter.connect(freshDest);
+            } else {
+                APP.audio.masterGain.connect(freshDest);
+            }
 
             // Include live mic if present
             if (APP.audio.micGainNode) APP.audio.micGainNode.connect(freshDest);
@@ -4517,7 +4521,7 @@ document.addEventListener('DOMContentLoaded', () => {
         }
         try {
             ensureAudioChain();
-            APP.camera.micStream = await navigator.mediaDevices.getUserMedia({ audio: { echoCancellation: false, noiseSuppression: false, autoGainControl: false, sampleRate: 48000 } });
+            APP.camera.micStream = await navigator.mediaDevices.getUserMedia({ audio: { echoCancellation: false, noiseSuppression: false, autoGainControl: false, channelCount: 2, sampleRate: 48000 } });
             const micSource = APP.audio.ctx.createMediaStreamSource(APP.camera.micStream);
             APP.audio.micGainNode = APP.audio.ctx.createGain();
             APP.audio.micGainNode.gain.value = 1.0;
@@ -5881,16 +5885,16 @@ $('btn-call-guest').onclick = async () => {
 
             // 1. Get Local Media — facingMode required for iOS Safari
             const audioConstraints = APP.inputDevices.selectedId
-                ? { deviceId: { exact: APP.inputDevices.selectedId }, echoCancellation: true, noiseSuppression: true, autoGainControl: true }
-                : { echoCancellation: true, noiseSuppression: true, autoGainControl: true };
+                ? { deviceId: { exact: APP.inputDevices.selectedId }, echoCancellation: false, noiseSuppression: false, autoGainControl: false, channelCount: 2 }
+                : { echoCancellation: false, noiseSuppression: false, autoGainControl: false, channelCount: 2 };
 
             const stream = await navigator.mediaDevices.getUserMedia({
                 video: { facingMode: 'user', width: { ideal: 1280 }, height: { ideal: 720 } },
                 audio: audioConstraints
             });
-            
+
             APP.peer.localStream = stream;
-            
+
             // 2. Answer the staged call
             const call = APP.peer.incomingCall;
             call.answer(stream);
@@ -5927,8 +5931,8 @@ $('btn-call-guest').onclick = async () => {
         startP2PRing();
 
         const audioConstraints = APP.inputDevices.selectedId
-            ? { deviceId: { exact: APP.inputDevices.selectedId }, echoCancellation: true, noiseSuppression: true, autoGainControl: true }
-            : { echoCancellation: true, noiseSuppression: true, autoGainControl: true };
+            ? { deviceId: { exact: APP.inputDevices.selectedId }, echoCancellation: false, noiseSuppression: false, autoGainControl: false, channelCount: 2 }
+            : { echoCancellation: false, noiseSuppression: false, autoGainControl: false, channelCount: 2 };
 
         const stream = await navigator.mediaDevices.getUserMedia({
             video: { facingMode: 'user', width: { ideal: 1280 }, height: { ideal: 720 } },
@@ -6760,6 +6764,7 @@ function endCallCleanup() {
         
         if (APP.camera.stream && preview && previewVid) {
             previewVid.srcObject = APP.camera.stream;
+            previewVid.muted = true;
             preview.classList.add('active');
             APP.camera.previewEl = previewVid;
         }
