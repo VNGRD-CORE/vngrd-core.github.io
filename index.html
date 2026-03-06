@@ -1335,6 +1335,11 @@ body.fx-nvg #stage::after {
                     <button class="btn" onclick="toggleFX('void')" style="font-size:9px;">VOID</button>
                     <button class="btn" onclick="toggleFX('lucy')" style="color:#ff00ff;border-color:#ff00ff;text-shadow:0 0 5px #ff00ff;font-size:9px;">LUCY</button>
                 </div>
+                <div class="btn-grid-3" style="margin-top:4px;">
+                    <button class="btn" id="btn-vhs" onclick="toggleVHS()">VHS_OVR</button>
+                    <button class="btn" onclick="toggleFX('nvg')" style="color:#00ff41;border-color:#00ff41;text-shadow:0 0 5px #00ff41;font-size:9px;">NVG</button>
+                    <button class="btn" onclick="triggerHardReset()" style="color:var(--r)">RESET</button>
+                </div>
             </div>
         </div>
 
@@ -1414,7 +1419,7 @@ body.fx-nvg #stage::after {
                 <div class="btn-grid-3">
                     <button class="btn" id="btn-ui-react" style="font-size:8px;">PARTY</button>
                     <button class="btn" id="btn-rumble" style="font-size:8px;">SEISMIC</button>
-                    <button class="btn" onclick="toggleFX('punch')" style="font-size:8px;">PUNCH</button>
+                    <button class="btn" onclick="toggleFX('punch')">PUNCH</button>
                 </div>
             </div>
         </div>
@@ -1427,8 +1432,10 @@ body.fx-nvg #stage::after {
             </div>
         </div>
         <div class="section">
-            <div class="sec-head collapsible open"><span class="sec-title">SESSION_LAB</span><span class="sec-arrow">&#x25BE;</span><div class="sec-dot"></div></div>
-            <div class="sec-body" id="session-lab-body" style="max-height:500px;padding:10px 12px;">
+            <div class="sec-head collapsible"><span class="sec-title">SESSION_LAB</span><span class="sec-arrow">&#x25B8;</span><div class="sec-dot"></div></div>
+            <div class="sec-body" id="session-lab-body">
+                <div class="lbl" style="font-size:7px;opacity:0.5;margin-bottom:2px;">CAPTURE / EXPORT</div>
+                <button class="btn" id="btn-nft-30" style="color:var(--c);border-color:var(--c);">CAPTURE_VGD_CLIP</button>
                 <div class="btn-row">
                     <button class="btn" id="btn-nft-30" style="flex:1;font-size:8px;color:var(--r);border-color:var(--r);">CAPTURE_VNGRD_CLIP</button>
                 </div>
@@ -1438,8 +1445,10 @@ body.fx-nvg #stage::after {
                 </div>
                 <div style="border-top:1px solid rgba(255,255,255,0.06);margin:6px 0 4px;"></div>
                 <div class="lbl" style="font-size:7px;opacity:0.5;margin-bottom:2px;">OUTPUT</div>
-                <button class="btn" id="btn-projector" style="text-align:left;">PROJECTOR</button>
-                <button class="btn" id="btn-vr" style="color:var(--v);text-align:left;">ENTER_VR</button>
+                <div class="btn-grid-2">
+                    <button class="btn" id="btn-projector" style="font-size:8px;">PROJECTOR</button>
+                    <button class="btn" id="btn-vr" style="color:var(--v);font-size:8px;">ENTER_VR</button>
+                </div>
             </div>
         </div>
 
