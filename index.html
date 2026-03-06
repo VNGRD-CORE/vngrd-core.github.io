@@ -1241,10 +1241,6 @@ body.fx-nvg #stage::after {
             <div class="badge" id="cycle-badge">CYCLE</div>
             <div class="stat"><div class="dot" id="main-dot"></div><span id="status-text">STANDBY</span></div>
             <div id="tally">ON_AIR</div>
-            <div id="presence-monitor" style="opacity:0.3;font-size:8px;font-family:monospace;display:flex;align-items:center;gap:4px;">
-                <div id="presence-dot" style="width:3px;height:3px;background:var(--c);border-radius:50%;"></div>
-                <span>NODES_ACTIVE: <span id="presence-count">1</span></span>
-            </div>
             <div id="clock">00:00:00</div>
         </div>
     </header>
@@ -1531,6 +1527,10 @@ body.fx-nvg #stage::after {
                 <div class="info-item">UP: <span id="uptime" class="hl">00:00:00</span></div>
                 <div class="info-item">RES: <span id="res">3840x2160</span></div>
                 <div class="info-item">Q: <span id="q-info">0</span></div>
+                <div id="presence-monitor" class="info-item" style="opacity:0.3;display:flex;align-items:center;gap:4px;">
+                    <div id="presence-dot" style="width:3px;height:3px;background:var(--c);border-radius:50%;flex-shrink:0;"></div>
+                    <span>NODES: <span id="presence-count">1</span></span>
+                </div>
             </div>
             <div class="info-group">
                 <div class="info-item">AI: <span style="color:var(--g)">[G]_TO_SUMMON</span></div>
