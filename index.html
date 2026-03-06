@@ -909,6 +909,25 @@ body.shooting-mode #btn-shooting {
         .lt-container { min-width: 200px; max-width: 300px; padding: 8px 16px 8px 10px; }
         .lt-title { font-size: 14px; }
         .lt-subtitle { font-size: 9px; }
+
+        /* Kill P2P badge hover glow + party animations — too heavy for mobile GPU */
+        .badge:hover { box-shadow: none !important; }
+        body.party-active .sidebar, body.party-active header, body.party-active footer {
+            animation: none !important;
+        }
+        body.seismic-active { animation: none !important; }
+
+        /* P2P modal: fit mobile viewport */
+        #p2p-modal { right: 10px !important; left: 10px !important; width: auto !important; }
+
+        /* Ghost terminal: constrain to mobile viewport + visible close button */
+        #ghost-terminal {
+            left: 10px !important; right: 10px !important;
+            bottom: 50px !important;
+            width: auto !important; max-width: none !important;
+            height: 180px !important; max-height: 40vh !important;
+        }
+        #ghost-close-btn { display: block !important; }
     }
 
 /* --- KINETIC SHUTTER TRANSITION --- */
@@ -1221,10 +1240,10 @@ body.fx-nvg #stage::after {
 
     <div id="ghost-terminal">
         <div id="ghost-terminal-header">
-            <span id="ghost-terminal-title">GHOST://AI</span>
+            <span id="ghost-terminal-title">GHOST://COMMAND_INTERFACE</span>
             <span style="display:flex;align-items:center;gap:8px;">
                 <span id="ghost-terminal-status">ONLINE</span>
-                <span style="font-size:8px;opacity:0.5;border:1px solid rgba(255,255,255,0.2);padding:1px 5px;border-radius:3px;letter-spacing:0.5px;">G to close</span>
+                <button id="ghost-close-btn" onclick="toggleGhost()" style="display:none;background:none;border:none;color:var(--text-dim);cursor:pointer;font-size:14px;line-height:1;padding:0;font-family:inherit;" title="Close">&times;</button>
             </span>
         </div>
         <div id="ghost-terminal-body"></div>
