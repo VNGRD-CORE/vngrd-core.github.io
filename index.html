@@ -1241,6 +1241,10 @@ body.fx-nvg #stage::after {
             <div class="badge" id="cycle-badge">CYCLE</div>
             <div class="stat"><div class="dot" id="main-dot"></div><span id="status-text">STANDBY</span></div>
             <div id="tally">ON_AIR</div>
+            <div id="presence-monitor" style="opacity:0.3;font-size:8px;font-family:monospace;display:flex;align-items:center;gap:4px;">
+                <div id="presence-dot" style="width:3px;height:3px;background:var(--c);border-radius:50%;"></div>
+                <span>NODES_ACTIVE: <span id="presence-count">1</span></span>
+            </div>
             <div id="clock">00:00:00</div>
         </div>
     </header>
@@ -7773,6 +7777,54 @@ var isVideo = nft.forceVideo || (imageUrl.toLowerCase().match(/\.(mp4|webm|mov|o
 
     // Initialize geo ticker injection
     setTimeout(injectGeoToTicker, 3000);
+
+    // ── PRESENCE MONITOR ──────────────────────────────────────────────────────
+    // Lightweight cloud heartbeat using Puter.js KV.
+    // Each tab gets a unique sessionId; every 45s it writes its timestamp and
+    // reads back all presence_* keys, filtering to those updated within 60s.
+    (function() {
+        var _presenceId = 'presence_' + Math.random().toString(36).substr(2, 10);
+        var _presenceTimer;
+
+        function _presenceHeartbeat() {
+            if (typeof puter === 'undefined' || !puter.kv) return;
+            puter.kv.set(_presenceId, String(Date.now()))
+                .then(function() { return puter.kv.list('presence_'); })
+                .then(function(items) {
+                    if (!Array.isArray(items)) return;
+                    var cutoff = Date.now() - 60000;
+                    // items may be [{key, value}] or bare strings depending on Puter version
+                    var active = items.filter(function(item) {
+                        var ts = parseInt(typeof item === 'object' ? (item.value || '0') : '0', 10);
+                        return ts > cutoff;
+                    });
+                    var el = document.getElementById('presence-count');
+                    if (el) el.textContent = Math.max(1, active.length);
+                })
+                .catch(function() {});
+        }
+
+        function _initPresence() {
+            if (typeof puter === 'undefined' || !puter.kv) {
+                setTimeout(_initPresence, 3000);
+                return;
+            }
+            _presenceHeartbeat();
+            _presenceTimer = setInterval(_presenceHeartbeat, 45000);
+        }
+
+        // Remove this session's key immediately on tab close
+        window.addEventListener('beforeunload', function() {
+            clearInterval(_presenceTimer);
+            if (typeof puter !== 'undefined' && puter.kv) {
+                puter.kv.del(_presenceId).catch(function() {});
+            }
+        });
+
+        // Delay start until Puter has had time to initialize
+        setTimeout(_initPresence, 4000);
+    })();
+    // ── END PRESENCE MONITOR ──────────────────────────────────────────────────
 
 }); // THIS IS THE END of the startup block. Do not put code after this line.
 // --- TACTICAL FX ELITE BRIDGE ---
