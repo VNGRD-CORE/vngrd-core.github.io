@@ -3498,17 +3498,30 @@ if ($('file-2d-logo')) {
             const file = e.target.files[0];
             const url = URL.createObjectURL(file);
             const logoLayer = $('user-logo-layer');
+            
             if (logoLayer) {
-                // SCRUB all Chrome GIF-freeze attributes before assigning blob URL
+                // SCRUB all Chrome GIF-freeze attributes
                 logoLayer.removeAttribute('crossOrigin');
                 logoLayer.removeAttribute('crossorigin');
                 logoLayer.style.display = 'block';
                 logoLayer.style.filter = 'none';
                 logoLayer.style.willChange = 'auto';
+                
+                // CRITICAL FIX: Wait for image to decode before flipping the switch
+                logoLayer.onload = () => {
+                    // Inject default scaling/positioning if it doesn't exist yet
+                    if (typeof APP.trinity.logo.scale === 'undefined') APP.trinity.logo.scale = 1.0;
+                    if (typeof APP.trinity.logo.x === 'undefined') APP.trinity.logo.x = 0.05; // 5% from left
+                    if (typeof APP.trinity.logo.y === 'undefined') APP.trinity.logo.y = 0.05; // 5% from top
+
+                    // NOW tell the render loop to draw it
+                    APP.trinity.logo.visible = true;
+                    log('2D_LOGO_READY: ' + file.name.toUpperCase());
+                };
+
+                // Trigger the load
                 logoLayer.src = url;
             }
-            APP.trinity.logo.visible = true;
-            log('2D_LOGO: ' + file.name.toUpperCase());
 
             // Send logo to peer via data channel as base64
             const reader = new FileReader();
