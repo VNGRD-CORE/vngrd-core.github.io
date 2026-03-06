@@ -1769,16 +1769,18 @@ function toggleGhost() {
     const isActive = term.classList.contains('active');
     if (isActive) {
         term.classList.remove('active');
+        term.style.display = '';
     } else {
+        term.style.display = 'flex';
         term.classList.add('active');
         $('ghost-input').focus();
-        ghostLog('GHOST_AI online. Ask me anything or type help.', 'ai');
     }
 }
 
 $('ghost-input').addEventListener('keydown', e => {
-    if (e.key === 'Escape') { toggleGhost(); return; }
-    if(e.key === 'Enter') { const val = e.target.value.trim(); if(val) processGhostCommand(val); e.target.value = ''; }
+    if (e.key === 'Escape') { e.preventDefault(); toggleGhost(); return; }
+    if ((e.key === 'g' || e.key === 'G') && e.target.value === '') { e.preventDefault(); toggleGhost(); return; }
+    if (e.key === 'Enter') { const val = e.target.value.trim(); if (val) processGhostCommand(val); e.target.value = ''; }
 });
 
 // ═══════════════════════════════════════════════════════════════
@@ -5016,12 +5018,6 @@ document.addEventListener('DOMContentLoaded', () => {
 
     // Final UI and Input Handlers
     document.addEventListener('keydown', e => {
-        // G closes ghost terminal even when ghost-input is focused
-        if (e.key === 'g' || e.key === 'G') {
-            const ghostOpen = $('ghost-terminal').classList.contains('active');
-            const inGhostInput = e.target.id === 'ghost-input';
-            if (ghostOpen && inGhostInput) { toggleGhost(); e.preventDefault(); return; }
-        }
         if (e.target.tagName === 'INPUT') return;
         if (e.key === 'g' || e.key === 'G') toggleGhost();
         if (e.key === 'h' || e.key === 'H') toggleFullscreen();
