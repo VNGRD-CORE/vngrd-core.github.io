@@ -1269,7 +1269,7 @@ body.fx-nvg #stage::after {
             <span id="ghost-terminal-title">GHOST://COMMAND_INTERFACE</span>
             <span style="display:flex;align-items:center;gap:8px;">
                 <span id="ghost-terminal-status">ONLINE</span>
-                <button id="ghost-close-btn" onclick="toggleGhost()" style="background:none;border:none;color:var(--text-dim);cursor:pointer;font-size:14px;line-height:1;padding:0;font-family:inherit;" title="Close [G]">&times;</button>
+                <button id="ghost-close-btn" onclick="toggleGhost()" style="background:none;border:none;color:var(--c);cursor:pointer;font-size:11px;line-height:1;padding:4px 6px;font-family:'JetBrains Mono',monospace;display:block;letter-spacing:1px;opacity:0.8;">&#x2715;&nbsp;[G]</button>
             </span>
         </div>
         <div id="ghost-terminal-body"></div>
@@ -1770,7 +1770,10 @@ function toggleGhost() {
     }
 }
 
-$('ghost-input').addEventListener('keydown', e => { if(e.key === 'Enter') { const val = e.target.value.trim(); if(val) processGhostCommand(val); e.target.value = ''; } });
+$('ghost-input').addEventListener('keydown', e => {
+    if (e.key === 'Escape') { toggleGhost(); return; }
+    if(e.key === 'Enter') { const val = e.target.value.trim(); if(val) processGhostCommand(val); e.target.value = ''; }
+});
 
 // ═══════════════════════════════════════════════════════════════
 // GHOST AI — CONTEXTUAL KNOWLEDGE BASE
@@ -5007,6 +5010,12 @@ document.addEventListener('DOMContentLoaded', () => {
 
     // Final UI and Input Handlers
     document.addEventListener('keydown', e => {
+        // G closes ghost terminal even when ghost-input is focused
+        if (e.key === 'g' || e.key === 'G') {
+            const ghostOpen = $('ghost-terminal').classList.contains('active');
+            const inGhostInput = e.target.id === 'ghost-input';
+            if (ghostOpen && inGhostInput) { toggleGhost(); e.preventDefault(); return; }
+        }
         if (e.target.tagName === 'INPUT') return;
         if (e.key === 'g' || e.key === 'G') toggleGhost();
         if (e.key === 'h' || e.key === 'H') toggleFullscreen();
