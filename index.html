@@ -6936,28 +6936,67 @@ function endCallCleanup() {
         return url;
     }
 
-    // Helper: build vault HTML + populate APP.user.assets from a flat array
+   // Helper: build vault HTML + populate APP.user.assets from a flat array
     function renderVaultList(allNfts) {
         APP.user.assets = [];
         APP.wallet.nfts = allNfts;
         var html = '';
         var assetIdx = 0;
+        
         allNfts.forEach(function(nft) {
             var imageUrl = resolveNFTUrl(nft.imageUrl);
             if (imageUrl) {
-                var img = new Image();
-                img.crossOrigin = 'anonymous';
-                img.src = imageUrl;
-                // Park in gif-host immediately — browser composites it → GIF frames advance
-                var _gh = document.getElementById('gif-host');
-                if (_gh) _gh.appendChild(img);
-                APP.user.assets.push({ name: nft.name, imageUrl: imageUrl, image: img });
+                // 1. Detect if the URL is a video file
+                var isVideo = imageUrl.toLowerCase().match(/\.(mp4|webm|mov|ogg)(\?|$)/);
+                var mediaEl;
+
+                if (isVideo) {
+                    // --- THE GHOST VIDEO FIX ---
+                    mediaEl = document.createElement('video');
+                    mediaEl.crossOrigin = 'anonymous';
+                    mediaEl.src = imageUrl;
+                    mediaEl.muted = true;
+                    mediaEl.loop = true;
+                    mediaEl.playsInline = true;
+
+                    // Force browser to render frames in the background
+                    mediaEl.style.position = 'absolute';
+                    mediaEl.style.opacity = '0';
+                    mediaEl.style.pointerEvents = 'none';
+                    mediaEl.style.width = '1px';
+                    mediaEl.style.height = '1px';
+                    mediaEl.style.zIndex = '-9999';
+
+                    document.body.appendChild(mediaEl);
+
+                    // Start playback so the canvas can scrape the live frames
+                    mediaEl.play().catch(e => console.warn('NFT Video Auto-Play Blocked:', e));
+
+                } else {
+                    // --- STANDARD IMAGE / GIF ---
+                    mediaEl = new Image();
+                    mediaEl.crossOrigin = 'anonymous';
+                    mediaEl.src = imageUrl;
+                    var _gh = document.getElementById('gif-host');
+                    if (_gh) _gh.appendChild(mediaEl);
+                }
+
+                // 2. Save the media element to your app state
+                APP.user.assets.push({ 
+                    name: nft.name, 
+                    imageUrl: imageUrl, 
+                    image: mediaEl, // Now this holds EITHER an <img> or a playing <video>!
+                    isVideo: isVideo 
+                });
+
+                // 3. Build the sidebar UI
                 html += '<div class="nft-vault-item" data-nft-index="' + assetIdx + '" style="margin:2px 0;padding:3px 4px;color:var(--accent);cursor:pointer;border:1px solid transparent;transition:border-color 0.15s;" onmouseenter="this.style.borderColor=\'var(--accent)\'" onmouseleave="this.style.borderColor=\'transparent\'">' + nft.name.substring(0, 20) + ' <span style="color:var(--text-dim);font-size:7px;">[' + nft.chain + ']</span></div>';
                 assetIdx++;
             } else {
                 html += '<div style="margin:2px 0;color:var(--text-dim);">' + nft.name.substring(0, 20) + ' [' + nft.chain + ']</div>';
             }
         });
+        
         return html;
     }
 
