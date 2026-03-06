@@ -7522,19 +7522,24 @@ var isVideo = nft.forceVideo || (imageUrl.toLowerCase().match(/\.(mp4|webm|mov|o
         log('AI: INJECTED >> ' + label);
     }
 
-    // Pollinations.ai — free, no API key, CORS-enabled
+    // Pollinations.ai — free, no API key, blob fetch avoids CORS taint on canvas
     async function _aiPollinations(prompt, btn) {
         _aiStatus('POLLINATIONS: GENERATING...', 'var(--v)');
         log('AI: [POLLINATIONS] >> ' + prompt);
         try {
+            var seed = Math.floor(Math.random() * 99999);
             var url = 'https://image.pollinations.ai/prompt/' + encodeURIComponent(prompt)
-                + '?width=1024&height=1024&nologo=true&model=flux';
+                + '?width=1024&height=1024&nologo=true&model=flux&seed=' + seed;
+            // fetch() follows redirects and gives raw bytes — no CORS taint on canvas
+            var resp = await fetch(url);
+            if (!resp.ok) throw new Error('HTTP_' + resp.status);
+            var blob = await resp.blob();
+            var objectUrl = URL.createObjectURL(blob);
             var img = new Image();
-            img.crossOrigin = 'anonymous';
             await new Promise(function(resolve, reject) {
                 img.onload = resolve;
-                img.onerror = function() { reject(new Error('IMG_LOAD_FAILED')); };
-                img.src = url;
+                img.onerror = function() { reject(new Error('IMG_DECODE_FAILED')); };
+                img.src = objectUrl;
             });
             _aiInject(img, prompt);
             _aiDone(btn);
