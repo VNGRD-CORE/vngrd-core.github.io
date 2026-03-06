@@ -451,9 +451,15 @@
         #cycle-badge.on { display: flex; }
 
         /* Sidebar: neutral borders — no theme color bleed, party mode animates border-color via console-breathe */
-        .sidebar { position: fixed; top: 45px; bottom: 55px; width: 200px; background: rgba(6,6,10,0.94); backdrop-filter: blur(20px) saturate(110%); -webkit-backdrop-filter: blur(20px) saturate(110%); border: 1px solid rgba(255,255,255,0.06); box-shadow: inset 0 0 20px rgba(0,0,0,0.65); overflow-y: auto; z-index: 4000; scrollbar-width: none; transition: border-color 0.4s ease, box-shadow 0.4s ease; }
-        #left-panel { left: 0; border-left: none; border-right: 1px solid rgba(255,255,255,0.07); }
-        #right-panel { right: 0; border-right: none; border-left: 1px solid rgba(255,255,255,0.07); }
+        .sidebar { position: fixed; top: 45px; bottom: 55px; width: 200px; background: rgba(6,6,10,0.94); backdrop-filter: blur(20px) saturate(110%); -webkit-backdrop-filter: blur(20px) saturate(110%); border: 1px solid rgba(255,255,255,0.06); box-shadow: inset 0 0 20px rgba(0,0,0,0.65); overflow-y: auto; z-index: 4000; scrollbar-width: none; transition: transform 0.45s cubic-bezier(0.4, 0, 0.2, 1), opacity 0.35s ease, border-color 0.4s ease, box-shadow 0.4s ease; will-change: transform, opacity; }
+        #left-panel { left: 0; border-left: none; border-right: 1px solid rgba(255,255,255,0.07); transform: translateX(0); }
+        #right-panel { right: 0; border-right: none; border-left: 1px solid rgba(255,255,255,0.07); transform: translateX(0); }
+
+        /* SYSTEM SLIDE — panels out, stage expands */
+        body.system-slide #left-panel { transform: translateX(-100%); opacity: 0; pointer-events: none; }
+        body.system-slide #right-panel { transform: translateX(100%); opacity: 0; pointer-events: none; }
+        body.system-slide #stage { left: 0; right: 0; transition: left 0.45s cubic-bezier(0.4, 0, 0.2, 1), right 0.45s cubic-bezier(0.4, 0, 0.2, 1); }
+        #stage { transition: left 0.45s cubic-bezier(0.4, 0, 0.2, 1), right 0.45s cubic-bezier(0.4, 0, 0.2, 1); }
         /* Hard divider between module blocks — dark gap above + white hairline below */
         .section {
             border-top: 3px solid rgba(0,0,0,0.85);
@@ -903,6 +909,25 @@ body.shooting-mode #btn-shooting {
         .lt-container { min-width: 200px; max-width: 300px; padding: 8px 16px 8px 10px; }
         .lt-title { font-size: 14px; }
         .lt-subtitle { font-size: 9px; }
+
+        /* Kill P2P badge hover glow + party animations — too heavy for mobile GPU */
+        .badge:hover { box-shadow: none !important; }
+        body.party-active .sidebar, body.party-active header, body.party-active footer {
+            animation: none !important;
+        }
+        body.seismic-active { animation: none !important; }
+
+        /* P2P modal: fit mobile viewport */
+        #p2p-modal { right: 10px !important; left: 10px !important; width: auto !important; }
+
+        /* Ghost terminal: constrain to mobile viewport + visible close button */
+        #ghost-terminal {
+            left: 10px !important; right: 10px !important;
+            bottom: 50px !important;
+            width: auto !important; max-width: none !important;
+            height: 180px !important; max-height: 40vh !important;
+        }
+        #ghost-close-btn { display: block !important; }
     }
 
 /* --- KINETIC SHUTTER TRANSITION --- */
@@ -1215,10 +1240,10 @@ body.fx-nvg #stage::after {
 
     <div id="ghost-terminal">
         <div id="ghost-terminal-header">
-            <span id="ghost-terminal-title">GHOST://AI</span>
+            <span id="ghost-terminal-title">GHOST://COMMAND_INTERFACE</span>
             <span style="display:flex;align-items:center;gap:8px;">
                 <span id="ghost-terminal-status">ONLINE</span>
-                <span style="font-size:8px;opacity:0.5;border:1px solid rgba(255,255,255,0.2);padding:1px 5px;border-radius:3px;letter-spacing:0.5px;">G to close</span>
+                <button id="ghost-close-btn" onclick="toggleGhost()" style="display:none;background:none;border:none;color:var(--text-dim);cursor:pointer;font-size:14px;line-height:1;padding:0;font-family:inherit;" title="Close">&times;</button>
             </span>
         </div>
         <div id="ghost-terminal-body"></div>
@@ -1300,6 +1325,11 @@ body.fx-nvg #stage::after {
                     <button class="btn" onclick="toggleFX('tear')" style="font-size:8px;">TEAR</button>
                     <button class="btn" id="btn-psychosis" style="font-size:8px;">FAILURE</button>
                 </div>
+                <div class="btn-grid-3" style="margin-bottom:4px;">
+                    <button class="btn" id="btn-vhs" onclick="toggleVHS()" style="font-size:9px;">VHS_OVR</button>
+                    <button class="btn" onclick="toggleFX('nvg')" style="color:#00ff41;border-color:#00ff41;text-shadow:0 0 5px #00ff41;font-size:9px;">NVG</button>
+                    <button class="btn" onclick="triggerHardReset()" style="color:var(--r);font-size:9px;">RESET</button>
+                </div>
                 <div class="btn-grid-3">
                     <button class="btn" id="btn-shooting" style="color:var(--r);border-color:var(--r);font-size:9px;">SHOOT</button>
                     <button class="btn" onclick="toggleFX('void')" style="font-size:9px;">VOID</button>
@@ -1367,11 +1397,10 @@ body.fx-nvg #stage::after {
                     <button class="btn btn-compact" id="btn-play-pause"><svg width="10" height="10" viewBox="0 0 12 12" id="icon-play-state"><path fill="currentColor" d="M3 2v8l7-4z"/></svg></button>
                     <button class="btn btn-compact" id="btn-next-track"><svg width="10" height="10" viewBox="0 0 12 12"><path fill="currentColor" d="M2 10l6-4-6-4v8zm6-8v8h2V2H8z"/></svg></button>
                 </div>
-                <div class="lbl" style="margin-top:8px;">INPUT_SIGNAL</div>
-                <select class="inp" id="audio-input-select" style="width:100%;font-size:9px;padding:5px;background:var(--panel);border:1px solid var(--border);color:var(--text);">
+                <button class="btn" id="btn-scan-inputs" style="font-size:8px;margin-top:8px;">SCAN_INPUTS</button>
+                <select class="inp" id="audio-input-select" style="width:100%;font-size:9px;padding:5px;background:var(--panel);border:1px solid var(--border);color:var(--text);display:none;margin-top:4px;">
                     <option value="">SELECT_DEVICE...</option>
                 </select>
-                <button class="btn" id="btn-scan-inputs" style="font-size:8px;margin-top:4px;">SCAN_DEVICES</button>
                 <div id="input-level" style="height:3px;background:var(--border);margin-top:4px;">
                     <div id="input-level-bar" style="height:100%;width:0%;background:var(--g);transition:width 0.05s;"></div>
                 </div>
@@ -1385,7 +1414,7 @@ body.fx-nvg #stage::after {
         </div>
 
         <div class="section">
-            <div class="sec-head"><span class="sec-title">FX_MANIPULATOR</span><div class="sec-dot on"></div></div>
+            <div class="sec-head"><span class="sec-title">AUDIO_REACTIVE</span><div class="sec-dot on"></div></div>
             <div class="sec-body">
                 <div class="btn-grid-3">
                     <button class="btn" id="btn-ui-react" style="font-size:8px;">PARTY</button>
@@ -1408,8 +1437,11 @@ body.fx-nvg #stage::after {
                 <div class="lbl" style="font-size:7px;opacity:0.5;margin-bottom:2px;">CAPTURE / EXPORT</div>
                 <button class="btn" id="btn-nft-30" style="color:var(--c);border-color:var(--c);">CAPTURE_VGD_CLIP</button>
                 <div class="btn-row">
-                    <button class="btn" id="btn-save-session" style="flex:1;">SAVE_SESSION</button>
-                    <button class="btn" id="btn-import-dna" style="flex:1;">IMPORT_VGD</button>
+                    <button class="btn" id="btn-nft-30" style="flex:1;font-size:8px;color:var(--r);border-color:var(--r);">CAPTURE_VNGRD_CLIP</button>
+                </div>
+                <div class="btn-row">
+                    <button class="btn" id="btn-save-session" style="flex:1;font-size:8px;">SAVE_SESSION</button>
+                    <button class="btn" id="btn-import-dna" style="flex:1;font-size:8px;">IMPORT_SESSION</button>
                 </div>
                 <div style="border-top:1px solid rgba(255,255,255,0.06);margin:6px 0 4px;"></div>
                 <div class="lbl" style="font-size:7px;opacity:0.5;margin-bottom:2px;">OUTPUT</div>
@@ -1943,6 +1975,7 @@ var GHOST = {
         if (c.match(/about|who|what is|version/)) return 'about';
         if (c.match(/clear|cls|wipe/)) return 'clear';
         if (c.match(/fullscreen|fs|maximize|expand/)) return 'fullscreen';
+        if (c.match(/slide|panels|hide panels|show panels|focus|cinema/)) return 'slide';
         if (c.match(/ai|generate|image|dall|prompt|inject|txt2img/)) return 'ai_help';
         if (c.match(/resolution|4k|1080|canvas size/)) return 'resolution';
         if (c.match(/spatial|stereo|dolby|surround|3d audio/)) return 'audio_mode';
@@ -2349,6 +2382,11 @@ function processGhostCommand(cmd) {
                 ghostLog('Fullscreen toggled. (Shortcut: press H)', 'success');
                 break;
 
+            case 'slide':
+                if (typeof toggleSystemSlide === 'function') toggleSystemSlide();
+                ghostLog('System slide toggled. Panels slide out, canvas takes over. (Shortcut: Tab)', 'success');
+                break;
+
             case 'resolution':
                 ghostLog('Canvas: ' + APP.render.width + 'x' + APP.render.height, 'ai');
                 ghostLog('The render pipeline outputs at this resolution. Records at native res.', 'ai');
@@ -2366,6 +2404,7 @@ function processGhostCommand(cmd) {
                 ghostLog('KEYBOARD SHORTCUTS:', 'success');
                 ghostLog('G — Toggle this terminal', 'ai');
                 ghostLog('H — Toggle fullscreen', 'ai');
+                ghostLog('TAB — System slide (hide/show panels)', 'ai');
                 ghostLog('SPACE — Rotate to next media', 'ai');
                 ghostLog('ESC — Panic reset (clears all FX + media)', 'ai');
                 break;
@@ -3482,6 +3521,7 @@ async function initCamera() {
         const previewVid = $('preview-vid-float');
         if (preview && previewVid) {
             previewVid.srcObject = APP.camera.stream;
+            previewVid.muted = true;
             preview.classList.add('active');
             APP.camera.previewEl = previewVid;
         }
@@ -3972,38 +4012,89 @@ function loadFromMemory() {
     } catch(e) { log('MEMORY_CORRUPT'); }
 }
 
-function startNFTRecording() {
+async function startNFTRecording() {
     if (APP.nft.isRecording) { stopNFTRecording(); return; }
     try {
-        const canvasStream = APP.render.canvas.captureStream(60);
-        if (APP.audio.ctx && APP.audio.recorderDest) {
-            if (APP.audio.recorderDest.stream.getAudioTracks().length > 0) canvasStream.addTrack(APP.audio.recorderDest.stream.getAudioTracks()[0]);
+        // 1. Guarantee full audio chain exists
+        ensureAudioChain();
+
+        // 2. Force-wake the AudioContext (browser autoplay policy)
+        if (APP.audio.ctx && APP.audio.ctx.state === 'suspended') {
+            await APP.audio.ctx.resume();
         }
-        let nftRecorderOpts = { mimeType: 'video/webm;codecs=vp9,opus', videoBitsPerSecond: 5000000, audioBitsPerSecond: 128000 };
-        try { APP.nft.recorder = new MediaRecorder(canvasStream, nftRecorderOpts); }
-        catch(e) { APP.nft.recorder = new MediaRecorder(canvasStream, { mimeType: 'video/webm' }); }
+
+        // 3. Grab video from the composited VJ canvas
+        var canvasStream = APP.render.canvas.captureStream(60);
+
+        // 4. Build a combined MediaStream: video tracks first
+        var combinedStream = new MediaStream(canvasStream.getVideoTracks());
+
+        // 5. Bulletproof audio injection — always create a FRESH destination
+        //    so we never hit a stale/dead track from a previous session
+        if (APP.audio.ctx && APP.audio.masterGain) {
+            var freshDest = APP.audio.ctx.createMediaStreamDestination();
+
+            // Tap ONLY the output limiter (final node before speakers)
+            // masterGain → outputLimiter is already chained, so connecting
+            // both would double-tap the signal and cause flanging/phasing
+            if (APP.audio.outputLimiter) {
+                APP.audio.outputLimiter.connect(freshDest);
+            } else {
+                APP.audio.masterGain.connect(freshDest);
+            }
+
+            // Include live mic if present
+            if (APP.audio.micGainNode) APP.audio.micGainNode.connect(freshDest);
+
+            // Store for potential external use
+            APP.audio.recorderDest = freshDest;
+
+            // Inject every audio track into the combined stream
+            freshDest.stream.getAudioTracks().forEach(function(t) { combinedStream.addTrack(t); });
+        }
+
+        // 6. Create MediaRecorder on the unified stream — codec cascade
+        var nftRecorderOpts = { mimeType: 'video/webm;codecs=vp9,opus', videoBitsPerSecond: 5000000, audioBitsPerSecond: 128000 };
+        try { APP.nft.recorder = new MediaRecorder(combinedStream, nftRecorderOpts); }
+        catch(e) {
+            try { APP.nft.recorder = new MediaRecorder(combinedStream, { mimeType: 'video/webm;codecs=vp8,opus' }); }
+            catch(e2) { APP.nft.recorder = new MediaRecorder(combinedStream, { mimeType: 'video/webm' }); }
+        }
+
         APP.nft.chunks = [];
-        APP.nft.recorder.ondataavailable = e => APP.nft.chunks.push(e.data);
+        APP.nft.recorder.ondataavailable = function(e) { if (e.data && e.data.size > 0) APP.nft.chunks.push(e.data); };
         APP.nft.recorder.onstop = finalizeNFT;
+
+        // 7. Start recording — NO time limit, runs until user stops
         APP.nft.recorder.start(1000);
-        APP.nft.isRecording = true; APP.nft.startTime = Date.now();
-        $('btn-nft-30').textContent = '■ STOP REC'; $('btn-nft-30').classList.add('on'); $('nft-hud').classList.add('active');
+        APP.nft.isRecording = true;
+        APP.nft.startTime = Date.now();
+
+        // 8. Toggle button to STOP state (red text for visibility)
+        var btn = $('btn-nft-30');
+        btn.textContent = '[ STOP_RECORDING ]';
+        btn.classList.add('on');
+        btn.style.color = '#ff3333';
+        $('nft-hud').classList.add('active');
         updateNFTTimer();
-        setTimeout(() => { if (APP.nft.isRecording) stopNFTRecording(); }, 30000);
-        log('NFT_REC_START');
-    } catch (e) { log('NFT_REC_ERR'); }
+
+        log('NFT_REC_START (' + combinedStream.getAudioTracks().length + ' audio trk)');
+    } catch (e) { log('NFT_REC_ERR: ' + e.message); }
 }
-function stopNFTRecording() { 
-    if (!APP.nft.isRecording) return; 
-    APP.nft.recorder.stop(); 
-    APP.nft.isRecording = false; 
-    
-    // UI - Keep the ID btn-nft-30 so the click still works, but change what the user sees
-    $('btn-nft-30').textContent = 'CAPTURE_VGD_CLIP'; 
-    $('btn-nft-30').classList.remove('on'); 
-    $('nft-hud').classList.remove('active'); 
-    
-    log('VGD_REC_STOP'); 
+
+function stopNFTRecording() {
+    if (!APP.nft.isRecording) return;
+    APP.nft.recorder.stop();
+    APP.nft.isRecording = false;
+
+    // Reset button to default state
+    var btn = $('btn-nft-30');
+    btn.textContent = 'CAPTURE_VNGRD_CLIP';
+    btn.classList.remove('on');
+    btn.style.color = '';
+    $('nft-hud').classList.remove('active');
+
+    log('VGD_REC_STOP');
 }
 
 function updateNFTTimer() { 
@@ -4030,7 +4121,7 @@ function finalizeNFT() {
     a.href = url; 
     
     // THE FIX: Save as VGD, not NFT
-    a.download = `VNGRD_VGD_${Date.now()}.webm`; 
+    a.download = `CAPTURE_VNGRD_${Date.now()}.webm`;
     
     a.click(); 
     APP.nft.chunks = []; 
@@ -4095,6 +4186,19 @@ function setTheme(theme) { document.body.className = document.body.className.rep
 function toggleVHS() { document.body.classList.toggle('vhs'); $('btn-vhs').classList.toggle('on'); log('VHS'); }
 function toggleCRT() { document.body.classList.toggle('crt'); $('btn-crt').classList.toggle('on'); log('CRT'); }
 function toggleFullscreen() { APP.state.isFullscreen = !APP.state.isFullscreen; document.body.classList.toggle('fullscreen', APP.state.isFullscreen); $('btn-fs').classList.toggle('on', APP.state.isFullscreen); log('FULLSCREEN'); }
+
+function toggleSystemSlide() {
+    var isSlid = document.body.classList.toggle('system-slide');
+    APP.state.systemSlide = isSlid;
+    if (typeof resizeCanvas === 'function') {
+        setTimeout(function() {
+            APP.render.width = APP.render.canvas.parentElement.clientWidth;
+            APP.render.height = APP.render.canvas.parentElement.clientHeight;
+            resizeCanvas();
+        }, 500);
+    }
+    log(isSlid ? 'SYSTEM_SLIDE: PANELS_OUT' : 'SYSTEM_SLIDE: PANELS_IN');
+}
 
 function morphLogo() { const logo = $('main-logo'); APP.ui.morphs.forEach(m => logo.classList.remove(m)); APP.ui.logoMorph = (APP.ui.logoMorph + 1) % APP.ui.morphs.length; logo.classList.add(APP.ui.morphs[APP.ui.logoMorph]); }
 function updateClock() { $('clock').textContent = new Date().toTimeString().split(' ')[0]; const s = Math.floor((Date.now() - APP.state.startTime) / 1000); $('uptime').textContent = `${String(Math.floor(s/3600)).padStart(2,'0')}:${String(Math.floor((s%3600)/60)).padStart(2,'0')}:${String(s%60).padStart(2,'0')}`; }
@@ -4474,7 +4578,7 @@ document.addEventListener('DOMContentLoaded', () => {
         }
         try {
             ensureAudioChain();
-            APP.camera.micStream = await navigator.mediaDevices.getUserMedia({ audio: { echoCancellation: false, noiseSuppression: false, autoGainControl: false, sampleRate: 48000 } });
+            APP.camera.micStream = await navigator.mediaDevices.getUserMedia({ audio: { echoCancellation: false, noiseSuppression: false, autoGainControl: false, channelCount: 2, sampleRate: 48000 } });
             const micSource = APP.audio.ctx.createMediaStreamSource(APP.camera.micStream);
             APP.audio.micGainNode = APP.audio.ctx.createGain();
             APP.audio.micGainNode.gain.value = 1.0;
@@ -4642,7 +4746,8 @@ document.addEventListener('DOMContentLoaded', () => {
         if (e.target.tagName === 'INPUT') return;
         if (e.key === 'g' || e.key === 'G') toggleGhost();
         if (e.key === 'h' || e.key === 'H') toggleFullscreen();
-        if (e.key === 'Escape') { $('btn-panic').click(); } 
+        if (e.key === 'Tab') { e.preventDefault(); toggleSystemSlide(); }
+        if (e.key === 'Escape') { $('btn-panic').click(); }
         if (e.key === ' ') { e.preventDefault(); rotateMedia(); }
     });
 
@@ -5839,16 +5944,16 @@ $('btn-call-guest').onclick = async () => {
 
             // 1. Get Local Media — facingMode required for iOS Safari
             const audioConstraints = APP.inputDevices.selectedId
-                ? { deviceId: { exact: APP.inputDevices.selectedId }, echoCancellation: true, noiseSuppression: true, autoGainControl: true }
-                : { echoCancellation: true, noiseSuppression: true, autoGainControl: true };
+                ? { deviceId: { exact: APP.inputDevices.selectedId }, echoCancellation: false, noiseSuppression: false, autoGainControl: false, channelCount: 2 }
+                : { echoCancellation: false, noiseSuppression: false, autoGainControl: false, channelCount: 2 };
 
             const stream = await navigator.mediaDevices.getUserMedia({
                 video: { facingMode: 'user', width: { ideal: 640 }, height: { ideal: 480 }, frameRate: { ideal: 30 } },
                 audio: audioConstraints
             });
-            
+
             APP.peer.localStream = stream;
-            
+
             // 2. Answer the staged call
             const call = APP.peer.incomingCall;
             call.answer(stream);
@@ -5885,8 +5990,8 @@ $('btn-call-guest').onclick = async () => {
         startP2PRing();
 
         const audioConstraints = APP.inputDevices.selectedId
-            ? { deviceId: { exact: APP.inputDevices.selectedId }, echoCancellation: true, noiseSuppression: true, autoGainControl: true }
-            : { echoCancellation: true, noiseSuppression: true, autoGainControl: true };
+            ? { deviceId: { exact: APP.inputDevices.selectedId }, echoCancellation: false, noiseSuppression: false, autoGainControl: false, channelCount: 2 }
+            : { echoCancellation: false, noiseSuppression: false, autoGainControl: false, channelCount: 2 };
 
         const stream = await navigator.mediaDevices.getUserMedia({
             video: { facingMode: 'user', width: { ideal: 640 }, height: { ideal: 480 }, frameRate: { ideal: 30 } },
@@ -6181,7 +6286,8 @@ function endCallCleanup() {
                 option.textContent = device.label || `INPUT_${idx + 1}`;
                 select.appendChild(option);
             });
-            
+
+            select.style.display = audioInputs.length ? 'block' : 'none';
             log('SCAN: ' + audioInputs.length + ' AUDIO_INPUTS');
             return audioInputs;
         } catch (e) {
@@ -6789,6 +6895,7 @@ function endCallCleanup() {
         
         if (APP.camera.stream && preview && previewVid) {
             previewVid.srcObject = APP.camera.stream;
+            previewVid.muted = true;
             preview.classList.add('active');
             APP.camera.previewEl = previewVid;
         }
