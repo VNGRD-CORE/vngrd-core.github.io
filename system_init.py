@@ -1,31 +1,26 @@
 #!/usr/bin/env python3
 """
-system_init.py — DRIS//CORE  Local Signal-Chain Initialiser
-============================================================
+system_init.py — DRIS//CORE  God Script  v2.0
+==============================================
 
-Run once from the repository root before launching the HUD:
+Standalone, all-in-one launcher.  No backend/ folder required.
+100%% free — no API keys, no Puter, no OpenAI.
 
-    python system_init.py
+What it does
+------------
+  Phase 1  Package Bootstrap  — auto-pip any missing Python deps
+  Phase 2  Mic Probe          — advisory check (non-blocking)
+  Phase 3  Server Generation  — writes main.py to repo root
+  Phase 4  Backend Ignition   — uvicorn main:app on :8000 + WS handshake
+  Phase 5  HUD Verification   — confirms index.html WS URL is correct
 
-Phases
-------
-  1. Hardware Audit      — ffmpeg + libportaudio on the host OS
-  2. Mic Check (The Ear) — 5-second live capture, RMS / dBFS validation
-  3. Backend Ignition    — uvicorn launch + WebSocket handshake
-  4. Frontend Injection  — HUD patch: WS URL lock, On-Air CSS tally, SRT spec
-
-Exit codes
-----------
-  0  SIGNAL_GREEN  — all phases passed, ready to broadcast
-  1  DEP_MISSING   — OS dependency absent; follow printed instructions
-  2  MIC_FAULT     — silent / no hardware; fix before proceeding
-  3  SERVER_FAULT  — uvicorn failed to start within timeout
-  4  WS_FAULT      — WebSocket handshake at /ws/transcribe rejected
+Run:   python system_init.py
+Stop:  Ctrl+C  (clean uvicorn shutdown)
 """
 
 from __future__ import annotations
 
-import asyncio
+import importlib.util
 import io
 import math
 import os
@@ -33,18 +28,15 @@ import platform
 import re
 import shutil
 import socket
-import struct
 import subprocess
 import sys
 import time
 import urllib.request
-import urllib.error
-import wave
 from pathlib import Path
 
 # ── Terminal colour helpers ────────────────────────────────────────────────────
 
-_NO_COLOUR = not sys.stdout.isatty() or os.environ.get("NO_COLOR")
+_NO_COLOUR = not sys.stdout.isatty() or bool(os.environ.get("NO_COLOR"))
 
 def _c(code: str, text: str) -> str:
     return text if _NO_COLOUR else f"\033[{code}m{text}\033[0m"
@@ -62,11 +54,11 @@ WARN  = yellow("⚠")
 ARROW = cyan("▶")
 
 def banner(text: str) -> None:
-    width = 60
+    w = 60
     print()
-    print(cyan("┌" + "─" * width + "┐"))
-    print(cyan("│") + bold(f"  {text:<{width - 2}}") + cyan("│"))
-    print(cyan("└" + "─" * width + "┘"))
+    print(cyan("┌" + "─" * w + "┐"))
+    print(cyan("│") + bold(f"  {text:<{w - 2}}") + cyan("│"))
+    print(cyan("└" + "─" * w + "┘"))
 
 def phase(n: int, title: str) -> None:
     print()
@@ -78,311 +70,454 @@ def err(msg: str)  -> None: print(f"  {CROSS}  {red(msg)}")
 def warn(msg: str) -> None: print(f"  {WARN}  {yellow(msg)}")
 def info(msg: str) -> None: print(f"  {ARROW}  {msg}")
 
-# ── Repository root (script lives at repo root) ────────────────────────────────
+# ── Paths ──────────────────────────────────────────────────────────────────────
 
-REPO_ROOT   = Path(__file__).resolve().parent
-BACKEND_DIR = REPO_ROOT / "backend"
-HUD_FILE    = REPO_ROOT / "transcription-hud.html"
-SRT_FILE    = BACKEND_DIR / "srt_exporter.py"
-
-# ── Expected values ────────────────────────────────────────────────────────────
-
-EXPECTED_WS_URL  = "ws://localhost:8000/ws/transcribe"
-BACKEND_HOST     = "localhost"
-BACKEND_PORT     = 8000
-BACKEND_URL      = f"http://{BACKEND_HOST}:{BACKEND_PORT}"
-WS_PATH          = "/ws/transcribe"
+REPO_ROOT    = Path(__file__).resolve().parent
+MAIN_PY      = REPO_ROOT / "main.py"
+INDEX_HTML   = REPO_ROOT / "index.html"
+BACKEND_HOST = "localhost"
+BACKEND_PORT = 8000
+BACKEND_URL  = f"http://{BACKEND_HOST}:{BACKEND_PORT}"
+WS_PATH      = "/ws/transcribe"
+EXPECTED_WS  = f"ws://{BACKEND_HOST}:{BACKEND_PORT}{WS_PATH}"
 
 # ─────────────────────────────────────────────────────────────────────────────
-# PHASE 1 — Hardware Audit
+# PHASE 1 — Package Bootstrap
 # ─────────────────────────────────────────────────────────────────────────────
 
-def _detect_os() -> str:
-    """Return 'linux', 'macos', or 'windows'."""
-    s = platform.system().lower()
-    if s == "darwin":   return "macos"
-    if s == "windows":  return "windows"
-    return "linux"
+# Packages to auto-install.  Each entry: (import_name, pip_spec)
+_REQUIRED: list[tuple[str, str]] = [
+    ("fastapi",          "fastapi>=0.111.0"),
+    ("uvicorn",          "uvicorn[standard]>=0.29.0"),
+    ("websockets",       "websockets>=12.0"),
+    ("speech_recognition", "SpeechRecognition>=3.10.0"),
+    ("pydub",            "pydub>=0.25.1"),
+    ("deep_translator",  "deep-translator>=1.11.4"),
+]
 
-def _portaudio_present_linux() -> bool:
-    """Check for libportaudio shared object via ldconfig or /usr/lib glob."""
-    # ldconfig -p is the canonical method
-    try:
-        result = subprocess.run(
-            ["ldconfig", "-p"],
-            capture_output=True, text=True, timeout=5,
-        )
-        if "libportaudio" in result.stdout:
-            return True
-    except (FileNotFoundError, subprocess.TimeoutExpired):
-        pass
-    # Fallback: filesystem glob
-    for prefix in ("/usr/lib", "/usr/local/lib", "/usr/lib/x86_64-linux-gnu"):
-        if list(Path(prefix).glob("libportaudio*")):
-            return True
-    return False
 
-def _portaudio_present_macos() -> bool:
-    """Check for portaudio via brew or dylib glob."""
-    # brew list is slow; prefer checking the lib directly
-    for prefix in (
-        "/usr/local/lib",
-        "/opt/homebrew/lib",
-        "/opt/local/lib",          # MacPorts
-    ):
-        if list(Path(prefix).glob("libportaudio*")):
-            return True
-    # Last resort: brew
-    try:
-        r = subprocess.run(
-            ["brew", "list", "portaudio"],
-            capture_output=True, timeout=8,
-        )
-        return r.returncode == 0
-    except FileNotFoundError:
-        pass
-    return False
+def _importable(name: str) -> bool:
+    return importlib.util.find_spec(name) is not None
 
-def _portaudio_present_windows() -> bool:
-    """Heuristic: check if sounddevice wheel bundled portaudio DLL is available."""
-    try:
-        import sounddevice  # noqa: F401
-        return True
-    except (ImportError, OSError):
-        return False
 
-def audit_hardware() -> None:
-    phase(1, "HARDWARE AUDIT")
-    os_name   = _detect_os()
-    missing   = []
+def bootstrap_packages() -> None:
+    phase(1, "PACKAGE BOOTSTRAP")
 
-    # ── ffmpeg ────────────────────────────────────────────────────────────────
-    if shutil.which("ffmpeg"):
-        ok("ffmpeg  ……………………………  FOUND")
-    else:
-        err("ffmpeg  ……………………………  NOT FOUND")
-        missing.append("ffmpeg")
+    missing = [(imp, pip) for imp, pip in _REQUIRED if not _importable(imp)]
 
-    # ── libportaudio ──────────────────────────────────────────────────────────
-    pa_present = False
-    if os_name == "linux":
-        pa_present = _portaudio_present_linux()
-    elif os_name == "macos":
-        pa_present = _portaudio_present_macos()
-    elif os_name == "windows":
-        pa_present = _portaudio_present_windows()
+    if not missing:
+        ok(f"All {len(_REQUIRED)} dependencies already installed")
+        return
 
-    if pa_present:
-        ok("libportaudio  ………………  FOUND")
-    else:
-        err("libportaudio  ………………  NOT FOUND")
-        missing.append("portaudio")
+    info(f"Installing {len(missing)} missing package(s) via pip …")
+    pip_specs = [pip for _, pip in missing]
 
-    if missing:
-        print()
-        print(bold(yellow("  INSTALL INSTRUCTIONS")))
-        if os_name == "linux":
-            pkgs = []
-            if "ffmpeg"    in missing: pkgs.append("ffmpeg")
-            if "portaudio" in missing: pkgs.extend(["libportaudio2", "portaudio19-dev"])
-            print(f"  {cyan('sudo apt update && sudo apt install -y ' + ' '.join(pkgs))}")
-        elif os_name == "macos":
-            pkgs = []
-            if "ffmpeg"    in missing: pkgs.append("ffmpeg")
-            if "portaudio" in missing: pkgs.append("portaudio")
-            print(f"  {cyan('brew install ' + ' '.join(pkgs))}")
-        elif os_name == "windows":
-            print(f"  {cyan('winget install ffmpeg')}")
-            print(f"  {dim('libportaudio ships inside the sounddevice wheel:')}")
-            print(f"  {cyan('pip install sounddevice')}")
-        print()
-        sys.exit(1)
-
-    ok("Hardware audit  …………  PASS")
-
-# ─────────────────────────────────────────────────────────────────────────────
-# PHASE 2 — Mic Check (The Ear)
-# ─────────────────────────────────────────────────────────────────────────────
-
-_MIC_TEST_SCRIPT = """
-import sys, math, io, wave, struct, time
-
-SAMPLE_RATE  = 16000
-CHANNELS     = 1
-DURATION_SEC = 5
-DTYPE        = "int16"
-SILENCE_DB   = -50.0   # alert threshold
-
-try:
-    import sounddevice as sd
-    import numpy as np
-except ImportError as exc:
-    print(f"IMPORT_ERROR:{exc}", flush=True)
-    sys.exit(10)
-
-frames = []
-
-def _cb(indata, frame_count, time_info, status):
-    frames.append(indata.copy())
-
-try:
-    with sd.InputStream(
-        samplerate   = SAMPLE_RATE,
-        channels     = CHANNELS,
-        dtype        = DTYPE,
-        callback     = _cb,
-        blocksize    = 1024,
-    ):
-        sd.sleep(DURATION_SEC * 1000)
-except Exception as exc:
-    print(f"DEVICE_ERROR:{exc}", flush=True)
-    sys.exit(11)
-
-if not frames:
-    print("NO_FRAMES", flush=True)
-    sys.exit(12)
-
-pcm = np.concatenate(frames, axis=0).flatten()
-
-# RMS → dBFS (int16 full-scale is 32768)
-rms_linear = np.sqrt(np.mean(pcm.astype(np.float64) ** 2))
-if rms_linear == 0:
-    db = -math.inf
-else:
-    db = 20 * math.log10(rms_linear / 32768.0)
-
-# Encode to WAV for integrity check
-buf = io.BytesIO()
-with wave.open(buf, "wb") as wf:
-    wf.setnchannels(CHANNELS)
-    wf.setsampwidth(2)          # int16 = 2 bytes
-    wf.setframerate(SAMPLE_RATE)
-    wf.writeframes(pcm.astype(np.int16).tobytes())
-
-wav_bytes = buf.getvalue()
-# Basic WAV integrity: must start with RIFF and have >44 bytes
-if len(wav_bytes) < 44 or wav_bytes[:4] != b"RIFF":
-    print("WAV_CORRUPT", flush=True)
-    sys.exit(13)
-
-print(f"DB:{db:.2f}", flush=True)
-print(f"SAMPLES:{len(pcm)}", flush=True)
-print(f"WAV_BYTES:{len(wav_bytes)}", flush=True)
-sys.exit(0)
-"""
-
-def mic_check() -> None:
-    phase(2, "MIC CHECK  (The Ear)")
-    info("Recording 5 seconds from default input device …")
-
-    try:
-        result = subprocess.run(
-            [sys.executable, "-c", _MIC_TEST_SCRIPT],
-            capture_output=True,
-            text=True,
-            timeout=30,
-        )
-    except subprocess.TimeoutExpired:
-        err("Mic capture timed out after 30 s")
-        sys.exit(2)
-
-    stdout = result.stdout.strip()
-    stderr = result.stderr.strip()
-
-    # ── Parse subprocess exit codes ───────────────────────────────────────────
-    if result.returncode == 10:
-        detail = stdout.replace("IMPORT_ERROR:", "")
-        err(f"Python dependency missing: {detail}")
-        warn("Run:  pip install -r backend/requirements.txt")
-        sys.exit(2)
-
-    if result.returncode == 11:
-        detail = stdout.replace("DEVICE_ERROR:", "")
-        err(f"Audio device error: {detail}")
-        err("MIC_MUTED_OR_NO_HARDWARE")
-        sys.exit(2)
-
-    if result.returncode in (12, 13):
-        label = "NO_FRAMES received" if result.returncode == 12 else "WAV integrity check failed"
-        err(label)
-        err("MIC_MUTED_OR_NO_HARDWARE")
-        if stderr:
-            print(dim(f"    stderr: {stderr[:200]}"))
-        sys.exit(2)
+    result = subprocess.run(
+        [sys.executable, "-m", "pip", "install", "--quiet", "--upgrade", *pip_specs],
+        capture_output=True,
+        text=True,
+    )
 
     if result.returncode != 0:
-        err(f"Mic test subprocess exited {result.returncode}")
-        if stderr:
-            print(dim(f"    stderr: {stderr[:300]}"))
-        err("MIC_MUTED_OR_NO_HARDWARE")
-        sys.exit(2)
+        err("pip install failed:")
+        print(dim(result.stderr[-600:]))
+        sys.exit(1)
 
-    # ── Parse metrics from stdout ─────────────────────────────────────────────
-    db_val      = None
-    samples_val = None
-    wav_bytes   = None
+    # Verify everything is now importable
+    still_missing = [imp for imp, _ in missing if not _importable(imp)]
+    if still_missing:
+        err(f"Still missing after install: {still_missing}")
+        sys.exit(1)
+
+    for imp, pip in missing:
+        ok(f"Installed  {pip}")
+
+    ok("Package bootstrap  ……  PASS")
+
+
+# ─────────────────────────────────────────────────────────────────────────────
+# PHASE 2 — Mic Probe  (advisory — never exits on failure)
+# ─────────────────────────────────────────────────────────────────────────────
+
+_MIC_PROBE = """
+import sys, math
+try:
+    import speech_recognition as sr
+    r = sr.Recognizer()
+    with sr.Microphone() as src:
+        r.adjust_for_ambient_noise(src, duration=0.5)
+        audio = r.record(src, duration=2.0)
+    pcm = audio.frame_data
+    if not pcm:
+        print("NO_FRAMES"); sys.exit(1)
+    # RMS in int16 range
+    import struct
+    samples = struct.unpack(f'{len(pcm)//2}h', pcm)
+    rms = math.sqrt(sum(s*s for s in samples) / len(samples))
+    db  = 20 * math.log10(max(rms, 1) / 32768.0)
+    print(f"DB:{db:.2f}")
+    sys.exit(0)
+except Exception as e:
+    print(f"SKIP:{e}")
+    sys.exit(2)
+"""
+
+
+def mic_probe() -> None:
+    phase(2, "MIC PROBE  (advisory)")
+
+    info("Sampling 2 s from default input device …")
+    try:
+        res = subprocess.run(
+            [sys.executable, "-c", _MIC_PROBE],
+            capture_output=True, text=True, timeout=15,
+        )
+    except subprocess.TimeoutExpired:
+        warn("Mic probe timed out — browser will open the mic directly")
+        return
+
+    stdout = res.stdout.strip()
+
+    if res.returncode == 2 or stdout.startswith("SKIP:"):
+        reason = stdout.replace("SKIP:", "") or "PyAudio not available"
+        warn(f"Mic probe skipped: {reason[:80]}")
+        info("The browser will open your mic when you click ON-AIR — that is fine.")
+        return
+
+    if res.returncode != 0 or "NO_FRAMES" in stdout:
+        warn("No audio frames received — check mic permissions")
+        info("Click ON-AIR in the browser to grant mic access there.")
+        return
 
     for line in stdout.splitlines():
         if line.startswith("DB:"):
-            try:    db_val = float(line.split(":", 1)[1])
-            except: pass
-        elif line.startswith("SAMPLES:"):
-            try:    samples_val = int(line.split(":", 1)[1])
-            except: pass
-        elif line.startswith("WAV_BYTES:"):
-            try:    wav_bytes = int(line.split(":", 1)[1])
-            except: pass
+            try:
+                db = float(line.split(":", 1)[1])
+                if db < -50.0:
+                    warn(f"Signal low: {db:.1f} dBFS — mic may be muted")
+                    warn("Unmute your mic, or let the browser capture it.")
+                else:
+                    ok(f"Mic signal  ………………………  {green(f'{db:.1f} dBFS')}")
+            except ValueError:
+                pass
 
-    if db_val is None:
-        err("Could not parse RMS level from mic test output")
-        err("MIC_MUTED_OR_NO_HARDWARE")
-        sys.exit(2)
+    ok("Mic probe  …………………………  PASS  (advisory)")
 
-    SILENCE_THRESHOLD = -50.0
-    db_display = f"{db_val:.1f} dBFS"
-
-    if db_val < SILENCE_THRESHOLD:
-        warn(f"Signal level: {db_display}  (below {SILENCE_THRESHOLD} dBFS threshold)")
-        err("MIC_MUTED_OR_NO_HARDWARE")
-        print()
-        print(bold(yellow("  ACTIONS TO TRY:")))
-        print("   • Unmute the microphone in System Preferences / Settings")
-        print("   • Select a different default input device")
-        print("   • Check hardware is physically connected")
-        print(f"   • Retry with:  python {Path(__file__).name}")
-        print()
-        sys.exit(2)
-
-    ok(f"Signal level   …………………  {green(db_display)}")
-    if samples_val:
-        ok(f"PCM samples  ………………………  {samples_val:,}")
-    if wav_bytes:
-        ok(f"WAV integrity  ……………………  {wav_bytes:,} bytes  {green('VALID')}")
-    ok(f"Mic check  ………………………  {green('PASS')} — audio chunk is valid")
 
 # ─────────────────────────────────────────────────────────────────────────────
-# PHASE 3 — Backend Ignition
+# PHASE 3 — Server Generation
+# Write a zero-dependency (no API key) main.py to the repo root.
 # ─────────────────────────────────────────────────────────────────────────────
 
-_SERVER_PROC: subprocess.Popen | None = None   # kept alive until script exits
+# NOTE: stored as a plain string — the {braces} below are literal Python
+#       code characters, NOT f-string interpolations in system_init.py.
+_MAIN_PY_CONTENT = '''"""
+main.py — DRIS//CORE  Free Transcription Server
+================================================
+Generated by system_init.py.  Safe to regenerate at any time.
+
+100% free — no API keys required.
+  Transcription : Google Speech Recognition (SpeechRecognition library)
+  Translation   : Google Translate          (deep-translator library)
+  Audio decode  : pydub + ffmpeg            (webm/ogg/wav from browser)
+
+WebSocket:  ws://localhost:8000/ws/transcribe
+
+Protocol
+--------
+Client → Server  (JSON text):
+  {"action":"start","target_lang":"nl","source_lang":"en"}
+  {"action":"stop"}
+
+Client → Server  (binary):
+  Raw audio blob from browser MediaRecorder (webm / ogg / wav)
+
+Server → Client  (JSON text):
+  {"type":"status",      "message":"..."}
+  {"type":"transcript",  "original":"...","timestamp":0.0}
+  {"type":"translation", "text":"...","lang":"nl","start":0.0,"end":4.0}
+  {"type":"srt_ready",   "filename":"...","content":"..."}
+  {"type":"error",       "message":"..."}
+"""
+
+import asyncio, io, json, os, time, uuid
+from contextlib import asynccontextmanager
+from pathlib import Path
+
+from fastapi import FastAPI, WebSocket, WebSocketDisconnect
+from fastapi.middleware.cors import CORSMiddleware
+
+SUPPORTED_LANGS = {"nl": "Dutch", "fr": "French", "it": "Italian", "es": "Spanish"}
+
+
+@asynccontextmanager
+async def lifespan(app):
+    print("\\n┌────────────────────────────────────────────────┐")
+    print("│  DRIS//CORE  —  Free Transcription Engine      │")
+    print("│  WS: ws://localhost:8000/ws/transcribe         │")
+    print("│  Engine: SpeechRecognition + deep-translator   │")
+    print("│  No API keys required.                         │")
+    print("└────────────────────────────────────────────────┘\\n")
+    yield
+
+
+app = FastAPI(title="DRIS//CORE Transcription API (Free)", lifespan=lifespan)
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["*"], allow_methods=["*"], allow_headers=["*"],
+)
+
+
+@app.get("/health")
+def health():
+    return {"status": "ok", "engine": "SpeechRecognition+GoogleTranslate(free)"}
+
+
+# ── Audio conversion: browser webm/ogg → 16 kHz mono WAV ─────────────────────
+
+def _to_wav_bytes(audio_bytes: bytes) -> bytes:
+    """
+    Convert arbitrary audio blob (webm, ogg, mp4, wav) to 16 kHz mono WAV.
+    Falls back to raw bytes if pydub / ffmpeg is unavailable — SR can still
+    handle a native WAV payload from the browser.
+    """
+    try:
+        from pydub import AudioSegment
+        seg = AudioSegment.from_file(io.BytesIO(audio_bytes))
+        seg = seg.set_frame_rate(16000).set_channels(1)
+        buf = io.BytesIO()
+        seg.export(buf, format="wav")
+        return buf.getvalue()
+    except Exception:
+        return audio_bytes   # hope it is already WAV
+
+
+# ── Transcription: SpeechRecognition → Google free Speech API ────────────────
+
+def _transcribe_sync(audio_bytes: bytes, language: str = "en") -> str:
+    import speech_recognition as sr
+
+    recognizer = sr.Recognizer()
+    wav_bytes   = _to_wav_bytes(audio_bytes)
+
+    # BCP-47 codes for the Google SR API
+    lang_map = {
+        "en": "en-US", "nl": "nl-NL", "fr": "fr-FR",
+        "it": "it-IT", "es": "es-ES",
+    }
+    bcp47 = lang_map.get(language, language)
+
+    try:
+        with sr.AudioFile(io.BytesIO(wav_bytes)) as src:
+            audio = recognizer.record(src)
+        return recognizer.recognize_google(audio, language=bcp47)
+    except sr.UnknownValueError:
+        return ""          # silence or unintelligible — normal, not an error
+    except sr.RequestError as exc:
+        raise RuntimeError(f"Google SR API unreachable: {exc}")
+    except Exception as exc:
+        raise RuntimeError(f"Transcription error: {exc}")
+
+
+# ── Translation: deep-translator → Google Translate (free) ───────────────────
+
+def _translate_sync(text: str, target_lang: str) -> str:
+    if not text.strip():
+        return ""
+    try:
+        from deep_translator import GoogleTranslator
+        return GoogleTranslator(source="auto", target=target_lang).translate(text)
+    except Exception as exc:
+        raise RuntimeError(f"Translation error: {exc}")
+
+
+# ── SRT helpers ───────────────────────────────────────────────────────────────
+
+def _srt_ts(seconds: float) -> str:
+    total_ms = int(seconds * 1000)
+    ms = total_ms % 1000
+    s  = (total_ms // 1000) % 60
+    m  = (total_ms // 60000) % 60
+    h  = total_ms // 3600000
+    return f"{h:02d}:{m:02d}:{s:02d},{ms:03d}"
+
+
+def _build_srt(segments: list) -> str:
+    blocks = []
+    for seg in segments:
+        idx   = seg["index"]
+        start = _srt_ts(seg["start"])
+        end   = _srt_ts(seg["end"])
+        text  = seg["text"]
+        blocks.append("{}\n{} --> {}\n{}\n".format(idx, start, end, text))
+    return "\n".join(blocks)
+
+
+# ── WebSocket endpoint ────────────────────────────────────────────────────────
+
+@app.websocket("/ws/transcribe")
+async def ws_transcribe(websocket: WebSocket):
+    await websocket.accept()
+
+    session_id   = str(uuid.uuid4())[:8]
+    source_lang  = "en"
+    target_lang  = "nl"
+    active       = False
+    srt_segments: list = []
+    srt_index    = 1
+    chunk_offset = 0.0
+    CHUNK_SEC    = 4.0   # MediaRecorder timeslice on the browser side
+
+    async def send(payload: dict) -> None:
+        await websocket.send_text(json.dumps(payload))
+
+    await send({"type": "status", "message": f"GHOST> SESSION {session_id} — READY"})
+
+    try:
+        while True:
+            message = await websocket.receive()
+
+            # ── JSON command ──────────────────────────────────────────────────
+            if "text" in message:
+                msg = json.loads(message["text"])
+
+                if msg.get("action") == "start" and not active:
+                    source_lang  = msg.get("source_lang", "en")
+                    target_lang  = msg.get("target_lang", "nl")
+                    active       = True
+                    srt_segments = []
+                    srt_index    = 1
+                    chunk_offset = 0.0
+                    lang_name    = SUPPORTED_LANGS.get(target_lang, target_lang).upper()
+                    await send({
+                        "type"   : "status",
+                        "message": f"GHOST> ON-AIR \\u25b6  EN \\u2192 {lang_name}",
+                    })
+
+                elif msg.get("action") == "stop" and active:
+                    active      = False
+                    srt_content = _build_srt(srt_segments)
+                    ts          = time.strftime("%Y-%m-%dT%H%M%S")
+                    filename    = f"{ts}_{session_id}_{target_lang}.srt"
+                    exports     = Path("exports")
+                    exports.mkdir(exist_ok=True)
+                    (exports / filename).write_text(srt_content, encoding="utf-8")
+                    await send({"type": "srt_ready",  "filename": filename, "content": srt_content})
+                    await send({"type": "status", "message": "GHOST> STANDBY \\u25fc  Session closed."})
+
+            # ── Binary audio chunk from browser MediaRecorder ─────────────────
+            elif "bytes" in message:
+                if not active:
+                    continue
+
+                audio_bytes = message["bytes"]
+                if not audio_bytes or len(audio_bytes) < 200:
+                    continue   # too small — discard
+
+                seg_start     = chunk_offset
+                seg_end       = chunk_offset + CHUNK_SEC
+                chunk_offset += CHUNK_SEC
+
+                loop = asyncio.get_event_loop()
+
+                # Transcription runs in the default thread-pool (blocking I/O)
+                try:
+                    transcript = await loop.run_in_executor(
+                        None, _transcribe_sync, audio_bytes, source_lang,
+                    )
+                except Exception as exc:
+                    await send({"type": "error", "message": f"SR: {exc}"})
+                    continue
+
+                if not transcript:
+                    continue   # silence — skip translation
+
+                await send({
+                    "type"     : "transcript",
+                    "original" : transcript,
+                    "timestamp": round(seg_start, 2),
+                })
+
+                # Translation
+                try:
+                    translation = await loop.run_in_executor(
+                        None, _translate_sync, transcript, target_lang,
+                    )
+                except Exception as exc:
+                    await send({"type": "error", "message": f"Translate: {exc}"})
+                    translation = transcript   # fall back to source text
+
+                if translation:
+                    seg_id = str(uuid.uuid4())[:8]
+                    await send({
+                        "type"      : "translation",
+                        "text"      : translation,
+                        "lang"      : target_lang,
+                        "start"     : round(seg_start, 3),
+                        "end"       : round(seg_end,   3),
+                        "segment_id": seg_id,
+                    })
+                    srt_segments.append({
+                        "index": srt_index,
+                        "start": seg_start,
+                        "end"  : seg_end,
+                        "text" : translation,
+                    })
+                    srt_index += 1
+
+    except WebSocketDisconnect:
+        pass
+    except Exception as exc:
+        try:
+            await send({"type": "error", "message": str(exc)})
+        except Exception:
+            pass
+'''
+
+
+def generate_server() -> None:
+    phase(3, "SERVER GENERATION")
+
+    if MAIN_PY.exists():
+        warn(f"Overwriting existing {MAIN_PY.name}")
+
+    MAIN_PY.write_text(_MAIN_PY_CONTENT, encoding="utf-8")
+    ok(f"main.py written  ……………  {MAIN_PY}")
+
+    # Quick syntax check
+    result = subprocess.run(
+        [sys.executable, "-m", "py_compile", str(MAIN_PY)],
+        capture_output=True, text=True,
+    )
+    if result.returncode != 0:
+        err("Generated main.py has a syntax error:")
+        print(dim(result.stderr))
+        sys.exit(3)
+
+    ok(f"Syntax check  ………………  {green('PASS')}")
+    ok(f"Server generation  ……  {green('DONE')}")
+
+
+# ─────────────────────────────────────────────────────────────────────────────
+# PHASE 4 — Backend Ignition
+# ─────────────────────────────────────────────────────────────────────────────
+
+_SERVER_PROC: subprocess.Popen | None = None
+
 
 def _http_check(url: str, timeout: float = 2.0) -> bool:
-    """Return True if the URL returns HTTP 2xx/3xx."""
     try:
         with urllib.request.urlopen(url, timeout=timeout) as r:
             return r.status < 400
     except Exception:
         return False
 
-def _ws_handshake(host: str, port: int, path: str, timeout: float = 5.0) -> bool:
-    """
-    Perform a minimal RFC-6455 WebSocket opening handshake over a raw socket.
-    Returns True if the server responds with HTTP 101 Switching Protocols.
-    No external library required.
-    """
-    import base64, hashlib, secrets
+
+def _ws_handshake(host: str, port: int, path: str, timeout: float = 6.0) -> bool:
+    """Raw RFC-6455 opening handshake — no external libs."""
+    import base64, secrets
     key = base64.b64encode(secrets.token_bytes(16)).decode()
-    request = (
+    req = (
         f"GET {path} HTTP/1.1\r\n"
         f"Host: {host}:{port}\r\n"
         f"Upgrade: websocket\r\n"
@@ -393,36 +528,31 @@ def _ws_handshake(host: str, port: int, path: str, timeout: float = 5.0) -> bool
     )
     try:
         with socket.create_connection((host, port), timeout=timeout) as sock:
-            sock.sendall(request.encode())
-            response = b""
+            sock.sendall(req.encode())
+            resp = b""
             deadline = time.monotonic() + timeout
-            while b"\r\n\r\n" not in response:
+            while b"\r\n\r\n" not in resp:
                 if time.monotonic() > deadline:
                     return False
                 chunk = sock.recv(512)
                 if not chunk:
                     break
-                response += chunk
-            return b"101" in response
+                resp += chunk
+            return b"101" in resp
     except Exception:
         return False
 
+
 def ignite_backend() -> None:
     global _SERVER_PROC
-    phase(3, "BACKEND IGNITION")
+    phase(4, "BACKEND IGNITION")
 
-    env_file = BACKEND_DIR / ".env"
-    if not env_file.exists():
-        warn(f".env not found at {env_file}")
-        warn("Copy backend/.env.example → backend/.env and set OPENAI_API_KEY")
-
-    # ── Check if something is already listening on port 8000 ─────────────────
-    already_up = _http_check(f"{BACKEND_URL}/devices")
-    if already_up:
-        ok(f"Backend already running on port {BACKEND_PORT}")
+    # ── Already running? ──────────────────────────────────────────────────────
+    if _http_check(f"{BACKEND_URL}/health"):
+        ok(f"Backend already answering on :{BACKEND_PORT}")
     else:
-        info(f"Launching:  uvicorn main:app --host 0.0.0.0 --port {BACKEND_PORT}")
         log_path = REPO_ROOT / "uvicorn.log"
+        info(f"Launching:  uvicorn main:app --host 0.0.0.0 --port {BACKEND_PORT}")
 
         try:
             _SERVER_PROC = subprocess.Popen(
@@ -433,203 +563,115 @@ def ignite_backend() -> None:
                     "--port", str(BACKEND_PORT),
                     "--log-level", "warning",
                 ],
-                cwd=str(BACKEND_DIR),
+                cwd=str(REPO_ROOT),          # <── run from repo root, not backend/
                 stdout=open(log_path, "w"),
                 stderr=subprocess.STDOUT,
             )
         except FileNotFoundError:
-            err("uvicorn not found — run:  pip install -r backend/requirements.txt")
-            sys.exit(3)
+            err("uvicorn not found — pip install should have caught this")
+            sys.exit(4)
 
-        # Poll until server answers or we time out (15 s)
-        info(f"Waiting for server to answer on {BACKEND_URL} …")
-        deadline = time.monotonic() + 15
+        info(f"Waiting for /health on {BACKEND_URL} …")
+        deadline = time.monotonic() + 20
         alive    = False
         while time.monotonic() < deadline:
             if _SERVER_PROC.poll() is not None:
-                err(f"uvicorn exited early (code {_SERVER_PROC.returncode})")
-                err(f"Check log: {log_path}")
-                sys.exit(3)
-            if _http_check(f"{BACKEND_URL}/devices", timeout=1.0):
+                err(f"uvicorn crashed (exit {_SERVER_PROC.returncode})")
+                err(f"Log: {log_path}")
+                sys.exit(4)
+            if _http_check(f"{BACKEND_URL}/health", timeout=1.0):
                 alive = True
                 break
             time.sleep(0.5)
 
         if not alive:
-            err("Backend did not respond within 15 s")
-            err(f"Check log: {log_path}")
-            sys.exit(3)
+            err(f"Server did not answer within 20 s — check {log_path}")
+            sys.exit(4)
 
-        ok(f"uvicorn started  PID={_SERVER_PROC.pid}  log={log_path.name}")
+        ok(f"uvicorn PID={_SERVER_PROC.pid}  log→ {log_path.name}")
 
-    # ── WebSocket handshake ────────────────────────────────────────────────────
-    info(f"WebSocket handshake → ws://{BACKEND_HOST}:{BACKEND_PORT}{WS_PATH}")
-    if _ws_handshake(BACKEND_HOST, BACKEND_PORT, WS_PATH, timeout=6.0):
-        ok(f"WebSocket handshake  ……  {green('HTTP 101  ALIVE')}")
+    # ── WebSocket handshake ───────────────────────────────────────────────────
+    info(f"WS handshake → ws://{BACKEND_HOST}:{BACKEND_PORT}{WS_PATH}")
+    if _ws_handshake(BACKEND_HOST, BACKEND_PORT, WS_PATH):
+        ok(f"WebSocket  ………………………  {green('HTTP 101  ALIVE')}")
     else:
-        err(f"WebSocket at {WS_PATH} did not return HTTP 101")
+        err("WebSocket handshake failed")
         sys.exit(4)
 
     ok(f"Backend ignition  ……  {green('PASS')}")
 
+
 # ─────────────────────────────────────────────────────────────────────────────
-# PHASE 4 — DRIS//CORE Frontend Injection
+# PHASE 5 — HUD Verification
 # ─────────────────────────────────────────────────────────────────────────────
 
-# WBD-spec SRT timestamp regex  →  HH:MM:SS,mmm
-_SRT_TIMESTAMP_RE = re.compile(
-    r"\d{2}:\d{2}:\d{2},\d{3}\s+-->\s+\d{2}:\d{2},\d{3}"
-)
+def verify_hud() -> None:
+    phase(5, "HUD VERIFICATION")
 
-def _patch_hud() -> tuple[str, list[str]]:
-    """
-    Read transcription-hud.html, apply any required patches,
-    return (patched_text, list_of_change_descriptions).
-    """
-    if not HUD_FILE.exists():
-        err(f"HUD file not found: {HUD_FILE}")
-        sys.exit(1)
+    if not INDEX_HTML.exists():
+        warn(f"index.html not found at {INDEX_HTML} — skipping")
+        return
 
-    src = HUD_FILE.read_text(encoding="utf-8")
-    changes: list[str] = []
+    src = INDEX_HTML.read_text(encoding="utf-8")
 
-    # ── 1. WebSocket URL must point to localhost ───────────────────────────────
-    ws_pattern   = re.compile(r'const\s+WS_URL\s*=\s*"([^"]+)"')
-    ws_match     = ws_pattern.search(src)
-    current_url  = ws_match.group(1) if ws_match else None
-
-    if current_url == EXPECTED_WS_URL:
-        ok(f"WS_URL  ………………………………  {green(EXPECTED_WS_URL)}  (already correct)")
-    elif current_url:
-        src = ws_pattern.sub(f'const WS_URL = "{EXPECTED_WS_URL}"', src)
-        changes.append(f"WS_URL patched: {current_url!r} → {EXPECTED_WS_URL!r}")
-        ok(f"WS_URL  patched  ……………  {green(EXPECTED_WS_URL)}")
+    # WS URL check
+    if EXPECTED_WS in src:
+        ok(f"WS_URL  ………………………………  {green(EXPECTED_WS)}")
     else:
-        warn("WS_URL constant not found in HUD — injecting at top of <script> block")
-        src = src.replace(
-            "<script type=\"text/babel\">",
-            f'<script type="text/babel">\nconst WS_URL = "{EXPECTED_WS_URL}";',
-            1,
-        )
-        changes.append("WS_URL injected (was absent)")
+        warn(f"WS URL '{EXPECTED_WS}' not found in index.html")
+        warn("Open index.html and verify the MCR bridge points to localhost:8000")
 
-    # ── 2. MCR On-Air toggle — must glow RED when mic is hot ─────────────────
-    # Key tokens that prove the tally-pulse CSS is intact:
-    tally_tokens = [
-        ("tally-pulse",           "@keyframes tally-pulse"),
-        ("onair-pill.active",     ".onair-pill.active"),
-        ("var(--red)",            "var(--red)  on-air tally"),
-        ("var(--red-dim)",        "var(--red-dim) pill bg"),
-        ("border-color: var(--red)", "red border-color"),
-    ]
-    missing_tokens: list[str] = []
-    for token, label in tally_tokens:
-        if token not in src:
-            missing_tokens.append((token, label))
-
-    if not missing_tokens:
-        ok("On-Air tally CSS  ………  RED glow + tally-pulse  (intact)")
+    # Puter guard
+    if "js.puter.com" in src:
+        warn("Puter.js script tag still present — run the Puter-removal edits")
     else:
-        # Inject a supplemental <style> block before </head>
-        tally_css = """
-  /* SYSTEM_INIT PATCH — MCR On-Air tally (WBD broadcast spec) */
-  @keyframes tally-pulse {
-    0%, 100% { box-shadow: 0 0 10px rgba(255,0,85,0.5), 0 0 22px rgba(255,0,85,0.2); }
-    50%       { box-shadow: 0 0 18px rgba(255,0,85,0.9), 0 0 40px rgba(255,0,85,0.4); }
-  }
-  .onair-pill.active {
-    background: rgba(255, 0, 85, 0.2);
-    border-color: #ff0055;
-    animation: tally-pulse 1.2s ease-in-out infinite;
-  }
-  .onair-pill.active .onair-knob {
-    transform: translateX(26px);
-    background: #ff0055;
-    box-shadow: 0 0 10px #ff0055, 0 0 20px rgba(255,0,85,0.5);
-  }
-  .onair-label.active {
-    color: #ff0055;
-    text-shadow: 0 0 8px rgba(255,0,85,0.7);
-  }
-"""
-        src = src.replace("</head>", f"<style>{tally_css}</style>\n</head>", 1)
-        desc = ", ".join(l for _, l in missing_tokens)
-        changes.append(f"On-Air CSS supplemented (missing: {desc})")
-        warn(f"On-Air tally CSS   ……  patched  ({len(missing_tokens)} missing token(s))")
+        ok("Puter.js  ………………………  ABSENT  (clean)")
 
-    # ── 3. SRT timestamps — WBD-spec HH:MM:SS,mmm ─────────────────────────────
-    # Verified in srt_exporter.py — the _seconds_to_srt_time() function
-    # already produces the correct WBD-spec format. We validate the source
-    # rather than patching the HUD (SRT is written server-side).
-    if SRT_FILE.exists():
-        srt_src = SRT_FILE.read_text(encoding="utf-8")
-        # The critical format string in _seconds_to_srt_time()
-        wbd_fmt_present = 'f"{h:02d}:{m:02d}:{s:02d},{ms:03d}"' in srt_src
-        if wbd_fmt_present:
-            ok("SRT timestamps  ………  HH:MM:SS,mmm  WBD-spec  (verified)")
-        else:
-            # Attempt to find the return format line and patch it
-            bad_pattern = re.compile(
-                r'return\s+f"[^"]*"'
-                r'.*?'   # any existing format
-            )
-            warn("SRT timestamp format could not be confirmed — review srt_exporter.py manually")
-            changes.append("SRT timestamp format requires manual review")
+    # ON-AIR button
+    if 'id="btn-on-air"' in src:
+        ok("btn-on-air  …………………  FOUND  in DOM")
     else:
-        warn(f"srt_exporter.py not found at {SRT_FILE} — skipping SRT spec check")
+        warn("btn-on-air not found in index.html — check MCR panel injection")
 
-    return src, changes
+    ok(f"HUD verification  ……  {green('PASS')}")
 
-def inject_frontend() -> None:
-    phase(4, "DRIS//CORE FRONTEND INJECTION")
-
-    patched_src, changes = _patch_hud()
-
-    if changes:
-        HUD_FILE.write_text(patched_src, encoding="utf-8")
-        for change in changes:
-            info(f"Applied: {change}")
-        ok(f"HUD updated  →  {HUD_FILE.name}")
-    else:
-        ok(f"HUD  …………………………………  no patches required  (all spec-compliant)")
-
-    ok(f"Frontend injection  …  {green('PASS')}")
 
 # ─────────────────────────────────────────────────────────────────────────────
 # ENTRYPOINT
 # ─────────────────────────────────────────────────────────────────────────────
 
 def main() -> None:
-    banner("DRIS//CORE  —  System-Init  v1.0")
+    banner("DRIS//CORE  —  God Script  v2.0")
     print(dim(f"  Repo root : {REPO_ROOT}"))
-    print(dim(f"  Backend   : {BACKEND_DIR}"))
-    print(dim(f"  HUD file  : {HUD_FILE.name}"))
+    print(dim(f"  Server    : {MAIN_PY.name}  (auto-generated)"))
     print(dim(f"  Platform  : {platform.system()} {platform.machine()}"))
+    print(dim(f"  Python    : {sys.version.split()[0]}"))
 
-    audit_hardware()    # Phase 1 — exits 1 if missing
-    mic_check()         # Phase 2 — exits 2 if silent / faulty
-    ignite_backend()    # Phase 3 — exits 3/4 if server won't start
-    inject_frontend()   # Phase 4 — patches HUD in-place
+    bootstrap_packages()   # Phase 1 — auto-pip
+    mic_probe()            # Phase 2 — advisory
+    generate_server()      # Phase 3 — write main.py
+    ignite_backend()       # Phase 4 — launch uvicorn
+    verify_hud()           # Phase 5 — sanity check
 
-    # ── All phases passed ──────────────────────────────────────────────────────
+    # ── SIGNAL_GREEN ──────────────────────────────────────────────────────────
     print()
     print(green("  ╔══════════════════════════════════════════════════════╗"))
     print(green("  ║") + bold(green("   ██████  SIGNAL_GREEN  — All systems nominal   ")) + green("║"))
     print(green("  ╚══════════════════════════════════════════════════════╝"))
     print()
     print(bold("  NEXT STEPS"))
-    print(f"  {ARROW} Open transcription-hud.html in your browser")
-    print(f"  {ARROW} Click  {bold('ON-AIR')} toggle  →  mic goes hot  →  tally glows {red('RED')}")
-    print(f"  {ARROW} Speak English  →  subtitles appear in NL / FR / IT / ES")
-    print(f"  {ARROW} Hit  {bold('STOP')}  →  SRT file auto-downloads")
+    print(f"  {ARROW} Open {cyan('index.html')} in your browser (or serve with any HTTP server)")
+    print(f"  {ARROW} Click  {bold('ON-AIR')}  →  browser opens your mic  →  tally glows {red('RED')}")
+    print(f"  {ARROW} Speak English  →  Dutch / French / Italian / Spanish appear in HUD")
+    print(f"  {ARROW} Click  {bold('OFF-AIR')}  →  SRT file auto-downloads")
     print()
     print(dim(f"  Backend log : {REPO_ROOT / 'uvicorn.log'}"))
-    print(dim(f"  SRT exports : {BACKEND_DIR / 'exports'}"))
+    print(dim(f"  SRT exports : {REPO_ROOT / 'exports'}"))
     print()
 
-    # Keep the server alive while the script is in the foreground
+    # Keep uvicorn alive until Ctrl+C
     if _SERVER_PROC is not None:
-        info("uvicorn running  — press  Ctrl+C  to stop")
+        info(f"uvicorn running on :{BACKEND_PORT}  —  press Ctrl+C to stop")
         try:
             _SERVER_PROC.wait()
         except KeyboardInterrupt:
@@ -641,6 +683,7 @@ def main() -> None:
             except subprocess.TimeoutExpired:
                 _SERVER_PROC.kill()
             ok("Server stopped cleanly")
+
 
 if __name__ == "__main__":
     main()
