@@ -1,0 +1,647 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>DRIS//CORE — Transcription HUD</title>
+
+  <!-- JetBrains Mono + Orbitron (matches main site) -->
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:ital,wght@0,300;0,400;0,500;0,700;1,400&family=Orbitron:wght@600;800&display=swap" rel="stylesheet" />
+
+  <!-- React 18 + Babel (no build step) -->
+  <script crossorigin src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
+  <script crossorigin src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
+  <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+
+  <style>
+    /* ── Reset & root vars (mirrors main DRIS//CORE palette) ──────────── */
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    :root {
+      --accent:      #00f3ff;
+      --accent-dim:  rgba(0, 243, 255, 0.18);
+      --accent-glow: rgba(0, 243, 255, 0.55);
+      --red:         #ff0055;
+      --red-dim:     rgba(255, 0, 85, 0.2);
+      --green:       #00ff88;
+      --green-dim:   rgba(0, 255, 136, 0.18);
+      --gold:        #ffcc00;
+      --bg:          #050508;
+      --glass-bg:    rgba(5, 5, 12, 0.65);
+      --glass-border:rgba(0, 243, 255, 0.25);
+      --text:        #a0a0a8;
+      --text-bright: #e8e8ec;
+      --mono:        'JetBrains Mono', monospace;
+    }
+
+    html, body { width: 100%; height: 100%; overflow: hidden; background: #000; }
+
+    /* ── Camera backdrop ───────────────────────────────────────────────── */
+    #camera-feed {
+      position: fixed; inset: 0;
+      width: 100%; height: 100%;
+      object-fit: cover;
+      transform: scaleX(-1);   /* mirror like a selfie cam */
+      z-index: 0;
+    }
+
+    /* Subtle vignette so HUD pops */
+    #camera-feed::after {
+      content: '';
+      position: fixed; inset: 0;
+      background: radial-gradient(ellipse at center,
+        transparent 40%, rgba(0,0,0,0.7) 100%);
+      pointer-events: none; z-index: 1;
+    }
+
+    /* ── HUD root ──────────────────────────────────────────────────────── */
+    #hud-root {
+      position: fixed; inset: 0;
+      z-index: 10;
+      pointer-events: none;   /* clicks pass through to camera layer */
+      font-family: var(--mono);
+    }
+    #hud-root > * { pointer-events: auto; }
+
+    /* ── Glassmorphism panel base ─────────────────────────────────────── */
+    .glass {
+      background:    var(--glass-bg);
+      backdrop-filter: blur(16px) saturate(180%);
+      -webkit-backdrop-filter: blur(16px) saturate(180%);
+      border:        1px solid var(--glass-border);
+      border-radius: 4px;
+    }
+
+    /* ── Top bar ──────────────────────────────────────────────────────── */
+    .top-bar {
+      position: absolute;
+      top: 20px; left: 50%;
+      transform: translateX(-50%);
+      display: flex; align-items: center; gap: 18px;
+      padding: 8px 22px;
+      min-width: 520px;
+    }
+
+    .top-bar .logo {
+      font-family: 'Orbitron', sans-serif;
+      font-weight: 800;
+      font-size: 13px;
+      letter-spacing: 3px;
+      color: var(--accent);
+      text-shadow: 0 0 12px var(--accent-glow);
+      white-space: nowrap;
+    }
+
+    .top-bar .sep {
+      width: 1px; height: 20px;
+      background: var(--glass-border);
+    }
+
+    /* ── On-Air toggle ────────────────────────────────────────────────── */
+    .onair-wrap {
+      display: flex; align-items: center; gap: 10px;
+      cursor: pointer; user-select: none;
+    }
+
+    .onair-pill {
+      position: relative;
+      width: 52px; height: 26px;
+      border-radius: 13px;
+      border: 1px solid var(--glass-border);
+      background: rgba(255,255,255,0.04);
+      transition: background 0.3s, border-color 0.3s, box-shadow 0.3s;
+    }
+    /* MCR tally-light pulse — breathes like a real On-Air lamp */
+    @keyframes tally-pulse {
+      0%, 100% { box-shadow: 0 0 10px rgba(255,0,85,0.5), 0 0 22px rgba(255,0,85,0.2); }
+      50%       { box-shadow: 0 0 18px rgba(255,0,85,0.9), 0 0 40px rgba(255,0,85,0.4); }
+    }
+    .onair-pill.active {
+      background: var(--red-dim);
+      border-color: var(--red);
+      animation: tally-pulse 1.2s ease-in-out infinite;
+    }
+    .onair-knob {
+      position: absolute;
+      top: 3px; left: 3px;
+      width: 18px; height: 18px;
+      border-radius: 50%;
+      background: var(--text);
+      transition: transform 0.3s, background 0.3s, box-shadow 0.3s;
+    }
+    .onair-pill.active .onair-knob {
+      transform: translateX(26px);
+      background: var(--red);
+      box-shadow: 0 0 10px var(--red), 0 0 20px rgba(255,0,85,0.5);
+    }
+
+    .onair-label {
+      font-size: 11px;
+      font-weight: 500;
+      letter-spacing: 2px;
+      color: var(--text);
+      transition: color 0.3s;
+      min-width: 60px;
+    }
+    .onair-label.active {
+      color: var(--red);
+      text-shadow: 0 0 8px rgba(255,0,85,0.7);
+    }
+
+    /* ── Language selector ────────────────────────────────────────────── */
+    .lang-selector {
+      display: flex; gap: 6px; margin-left: auto;
+    }
+    .lang-btn {
+      font-family: var(--mono);
+      font-size: 10px;
+      font-weight: 500;
+      letter-spacing: 1.5px;
+      padding: 4px 10px;
+      border-radius: 3px;
+      border: 1px solid var(--glass-border);
+      background: transparent;
+      color: var(--text);
+      cursor: pointer;
+      transition: all 0.2s;
+      text-transform: uppercase;
+    }
+    .lang-btn:hover { border-color: var(--accent); color: var(--accent); }
+    .lang-btn.selected {
+      border-color: var(--accent);
+      background: var(--accent-dim);
+      color: var(--accent);
+      box-shadow: 0 0 8px var(--accent-glow);
+    }
+
+    /* ── Status bar ───────────────────────────────────────────────────── */
+    .status-bar {
+      position: absolute;
+      top: 72px; left: 50%;
+      transform: translateX(-50%);
+      padding: 5px 18px;
+      font-size: 10px;
+      font-weight: 300;
+      letter-spacing: 1px;
+      color: var(--accent);
+      white-space: nowrap;
+      opacity: 0.8;
+    }
+
+    /* ── Subtitle card ────────────────────────────────────────────────── */
+    .subtitle-wrap {
+      position: absolute;
+      bottom: 80px; left: 50%;
+      transform: translateX(-50%);
+      width: min(860px, 88vw);
+      text-align: center;
+    }
+
+    .subtitle-card {
+      display: inline-block;
+      padding: 14px 28px;
+      text-align: center;
+      min-width: 320px;
+    }
+
+    .subtitle-original {
+      font-size: 12px;
+      font-weight: 300;
+      color: var(--text);
+      letter-spacing: 0.5px;
+      margin-bottom: 6px;
+      font-style: italic;
+    }
+
+    .subtitle-translation {
+      font-size: 22px;
+      font-weight: 500;
+      color: var(--text-bright);
+      line-height: 1.35;
+      text-shadow: 0 2px 12px rgba(0,0,0,0.9);
+      letter-spacing: 0.3px;
+      transition: opacity 0.25s;
+    }
+
+    .subtitle-translation.flash {
+      animation: textflash 0.3s ease-out;
+    }
+
+    @keyframes textflash {
+      0%   { opacity: 0; transform: translateY(4px); }
+      100% { opacity: 1; transform: translateY(0); }
+    }
+
+    .subtitle-lang-tag {
+      display: inline-block;
+      margin-top: 8px;
+      font-size: 9px;
+      letter-spacing: 2px;
+      color: var(--accent);
+      opacity: 0.7;
+      text-transform: uppercase;
+    }
+
+    /* ── Activity log (bottom-left) ───────────────────────────────────── */
+    .activity-log {
+      position: absolute;
+      bottom: 20px; left: 20px;
+      width: 340px;
+      max-height: 160px;
+      overflow: hidden;
+      padding: 10px 14px;
+    }
+
+    .activity-log-title {
+      font-size: 9px;
+      letter-spacing: 2.5px;
+      color: var(--accent);
+      margin-bottom: 8px;
+      text-transform: uppercase;
+      opacity: 0.7;
+    }
+
+    .log-entry {
+      font-size: 10px;
+      font-weight: 300;
+      color: var(--text);
+      line-height: 1.5;
+      border-left: 2px solid var(--accent-dim);
+      padding-left: 8px;
+      margin-bottom: 3px;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
+    .log-entry.new { color: var(--accent); border-color: var(--accent); }
+
+    /* ── SRT download button (bottom-right) ──────────────────────────── */
+    .srt-panel {
+      position: absolute;
+      bottom: 20px; right: 20px;
+      padding: 10px 16px;
+      display: flex; flex-direction: column; align-items: flex-end; gap: 8px;
+    }
+
+    .srt-counter {
+      font-size: 10px;
+      letter-spacing: 1px;
+      color: var(--text);
+    }
+    .srt-counter span { color: var(--gold); font-weight: 500; }
+
+    .srt-download-btn {
+      font-family: var(--mono);
+      font-size: 10px;
+      font-weight: 500;
+      letter-spacing: 1.5px;
+      padding: 6px 14px;
+      border-radius: 3px;
+      border: 1px solid var(--glass-border);
+      background: transparent;
+      color: var(--text);
+      cursor: pointer;
+      text-transform: uppercase;
+      transition: all 0.2s;
+    }
+    .srt-download-btn:hover:not(:disabled) {
+      border-color: var(--gold);
+      color: var(--gold);
+      box-shadow: 0 0 10px rgba(255,204,0,0.3);
+    }
+    .srt-download-btn:disabled { opacity: 0.35; cursor: default; }
+
+    /* ── Signal meter (top-right corner) ─────────────────────────────── */
+    .signal-meter {
+      position: absolute;
+      top: 20px; right: 20px;
+      display: flex; align-items: flex-end; gap: 3px;
+      padding: 8px 12px;
+    }
+
+    .signal-bar {
+      width: 4px;
+      border-radius: 1px;
+      background: var(--accent-dim);
+      transition: background 0.15s, height 0.15s;
+    }
+    .signal-bar.lit { background: var(--accent); }
+
+    /* Idle pulse on the logo when standby */
+    @keyframes idle-pulse {
+      0%, 100% { opacity: 0.5; }
+      50%       { opacity: 1; }
+    }
+    .idle .logo { animation: idle-pulse 2.4s ease-in-out infinite; }
+
+    /* No-camera overlay */
+    .no-cam {
+      position: fixed; inset: 0;
+      display: flex; align-items: center; justify-content: center;
+      background: var(--bg);
+      font-family: var(--mono);
+      color: var(--text);
+      font-size: 12px;
+      letter-spacing: 2px;
+      z-index: -1;
+    }
+  </style>
+</head>
+<body>
+
+<!-- Camera backdrop -->
+<video id="camera-feed" autoplay muted playsinline></video>
+<div class="no-cam" id="no-cam-msg">[ CAMERA UNAVAILABLE ]</div>
+
+<!-- React mount point -->
+<div id="hud-root"></div>
+
+<script type="text/babel">
+const { useState, useEffect, useRef, useCallback } = React;
+
+// ── Config ─────────────────────────────────────────────────────────────────
+const WS_URL   = "ws://localhost:8000/ws/transcribe";
+const LANGS    = [
+  { code: "nl", label: "NL", full: "Dutch"   },
+  { code: "fr", label: "FR", full: "French"  },
+  { code: "it", label: "IT", full: "Italian" },
+  { code: "es", label: "ES", full: "Spanish" },
+];
+const MAX_LOG  = 6;
+
+// ── Signal bars animated helper ────────────────────────────────────────────
+function SignalMeter({ active }) {
+  const HEIGHTS = [8, 12, 16, 20, 24];
+  const [level, setLevel] = useState(0);
+
+  useEffect(() => {
+    if (!active) { setLevel(0); return; }
+    const id = setInterval(() => {
+      setLevel(Math.floor(Math.random() * 5) + 1);
+    }, 200);
+    return () => clearInterval(id);
+  }, [active]);
+
+  return (
+    <div className="signal-meter glass">
+      {HEIGHTS.map((h, i) => (
+        <div
+          key={i}
+          className={`signal-bar${i < level ? " lit" : ""}`}
+          style={{ height: h }}
+        />
+      ))}
+    </div>
+  );
+}
+
+// ── Main HUD ───────────────────────────────────────────────────────────────
+function TranscriptionHUD() {
+  const [active,      setActive]      = useState(false);
+  const [targetLang,  setTargetLang]  = useState("fr");
+  const [statusMsg,   setStatusMsg]   = useState("GHOST> STANDBY ◼  Awaiting start.");
+  const [original,    setOriginal]    = useState("");
+  const [translation, setTranslation] = useState("");
+  const [langTag,     setLangTag]     = useState("FR");
+  const [flashKey,    setFlashKey]    = useState(0);
+  const [log,         setLog]         = useState([]);
+  const [srtCues,     setSrtCues]     = useState(0);
+  const [srtContent,  setSrtContent]  = useState("");
+  const [srtFilename, setSrtFilename] = useState("");
+  const [wsReady,     setWsReady]     = useState(false);
+
+  const wsRef = useRef(null);
+
+  const pushLog = useCallback((msg, isNew = false) => {
+    const ts  = new Date().toLocaleTimeString("en-GB", { hour12: false });
+    const entry = { ts, msg, isNew, id: Date.now() + Math.random() };
+    setLog(prev => [entry, ...prev].slice(0, MAX_LOG));
+  }, []);
+
+  // ── WebSocket lifecycle ─────────────────────────────────────────────────
+  const connectWS = useCallback(() => {
+    if (wsRef.current?.readyState === WebSocket.OPEN) return;
+
+    const ws = new WebSocket(WS_URL);
+    wsRef.current = ws;
+
+    ws.onopen = () => {
+      setWsReady(true);
+      pushLog("WebSocket connected");
+    };
+
+    ws.onclose = () => {
+      setWsReady(false);
+      pushLog("WebSocket disconnected");
+      // Reconnect after 3s if we didn't deliberately close
+      setTimeout(connectWS, 3000);
+    };
+
+    ws.onerror = () => pushLog("WS error — is the backend running?");
+
+    ws.onmessage = (ev) => {
+      const data = JSON.parse(ev.data);
+
+      if (data.type === "status") {
+        setStatusMsg(data.message);
+        pushLog(data.message, true);
+      }
+
+      if (data.type === "transcript") {
+        setOriginal(data.original);
+      }
+
+      if (data.type === "translation") {
+        setTranslation(data.text);
+        setLangTag(data.lang.toUpperCase());
+        setFlashKey(k => k + 1);
+        setSrtCues(c => c + 1);
+        pushLog(`[${data.lang.toUpperCase()}] ${data.text}`, true);
+      }
+
+      if (data.type === "srt_ready") {
+        setSrtContent(data.content);
+        setSrtFilename(data.filename);
+        pushLog(`SRT saved: ${data.filename}`);
+      }
+
+      if (data.type === "error") {
+        setStatusMsg(`GHOST> ERROR — ${data.message}`);
+        pushLog(`ERROR: ${data.message}`);
+      }
+    };
+  }, [pushLog]);
+
+  useEffect(() => {
+    connectWS();
+    return () => wsRef.current?.close();
+  }, [connectWS]);
+
+  // ── Camera ──────────────────────────────────────────────────────────────
+  useEffect(() => {
+    navigator.mediaDevices?.getUserMedia({ video: true, audio: false })
+      .then(stream => {
+        const vid = document.getElementById("camera-feed");
+        if (vid) {
+          vid.srcObject = stream;
+          document.getElementById("no-cam-msg").style.display = "none";
+        }
+      })
+      .catch(() => {
+        // Camera denied — HUD still works, just no video background
+      });
+  }, []);
+
+  // ── Toggle On-Air ───────────────────────────────────────────────────────
+  const toggleActive = useCallback(() => {
+    if (!wsReady) {
+      pushLog("Backend not connected. Start uvicorn first.");
+      return;
+    }
+
+    const ws = wsRef.current;
+    if (!active) {
+      setSrtCues(0);
+      setSrtContent("");
+      setSrtFilename("");
+      setOriginal("");
+      setTranslation("");
+      ws.send(JSON.stringify({
+        action     : "start",
+        target_lang: targetLang,
+        source_lang: "en",
+      }));
+    } else {
+      ws.send(JSON.stringify({ action: "stop" }));
+    }
+    setActive(a => !a);
+  }, [active, wsReady, targetLang, pushLog]);
+
+  // ── SRT Download ────────────────────────────────────────────────────────
+  const downloadSRT = useCallback(() => {
+    if (!srtContent) return;
+    const blob = new Blob([srtContent], { type: "text/plain;charset=utf-8" });
+    const url  = URL.createObjectURL(blob);
+    const a    = document.createElement("a");
+    a.href     = url;
+    a.download = srtFilename || `transcription_${targetLang}.srt`;
+    a.click();
+    URL.revokeObjectURL(url);
+  }, [srtContent, srtFilename, targetLang]);
+
+  // ── Render ──────────────────────────────────────────────────────────────
+  const langFull = LANGS.find(l => l.code === targetLang)?.full || "";
+
+  return (
+    <div className={active ? "" : "idle"}>
+
+      {/* ── Top bar ── */}
+      <div className="top-bar glass">
+        <span className="logo">DRIS//CORE</span>
+        <div className="sep" />
+
+        {/* On-Air toggle */}
+        <div
+          className="onair-wrap"
+          onClick={toggleActive}
+          title={active ? "Stop transcription" : "Start transcription"}
+        >
+          <div className={`onair-pill${active ? " active" : ""}`}>
+            <div className="onair-knob" />
+          </div>
+          <span className={`onair-label${active ? " active" : ""}`}>
+            {active ? "ON-AIR" : "STANDBY"}
+          </span>
+        </div>
+
+        <div className="sep" />
+
+        {/* Language selector */}
+        <div className="lang-selector">
+          {LANGS.map(l => (
+            <button
+              key={l.code}
+              className={`lang-btn${targetLang === l.code ? " selected" : ""}`}
+              onClick={() => { setTargetLang(l.code); setLangTag(l.code.toUpperCase()); }}
+              disabled={active}
+              title={l.full}
+            >
+              {l.label}
+            </button>
+          ))}
+        </div>
+      </div>
+
+      {/* ── Status bar ── */}
+      <div className="status-bar glass">
+        {statusMsg}
+      </div>
+
+      {/* ── Signal meter ── */}
+      <SignalMeter active={active} />
+
+      {/* ── Subtitle area ── */}
+      {(original || translation) && (
+        <div className="subtitle-wrap">
+          <div className="subtitle-card glass">
+            {original && (
+              <div className="subtitle-original">{original}</div>
+            )}
+            {translation && (
+              <div
+                key={flashKey}
+                className="subtitle-translation flash"
+              >
+                {translation}
+              </div>
+            )}
+            {translation && (
+              <div className="subtitle-lang-tag">
+                ◈ &nbsp;{langFull.toUpperCase()}&nbsp; ◈
+              </div>
+            )}
+          </div>
+        </div>
+      )}
+
+      {/* ── Activity log ── */}
+      <div className="activity-log glass">
+        <div className="activity-log-title">◈ Signal Log</div>
+        {log.map(entry => (
+          <div
+            key={entry.id}
+            className={`log-entry${entry.isNew ? " new" : ""}`}
+            title={entry.msg}
+          >
+            <span style={{opacity: 0.5}}>{entry.ts}&nbsp;</span>
+            {entry.msg}
+          </div>
+        ))}
+      </div>
+
+      {/* ── SRT panel ── */}
+      <div className="srt-panel glass">
+        <div className="srt-counter">
+          SRT CUES: <span>{srtCues}</span>
+        </div>
+        <button
+          className="srt-download-btn"
+          onClick={downloadSRT}
+          disabled={!srtContent}
+          title="Download .srt subtitle file"
+        >
+          ⬇ Export .srt
+        </button>
+      </div>
+
+    </div>
+  );
+}
+
+// ── Mount ───────────────────────────────────────────────────────────────────
+const root = ReactDOM.createRoot(document.getElementById("hud-root"));
+root.render(<TranscriptionHUD />);
+</script>
+</body>
+</html>

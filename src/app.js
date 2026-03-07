@@ -64,6 +64,7 @@ const APP = {
         vuData: new Uint8Array(32),
         isPlaying: false,
         isConnected: false,
+        videoSource: null,
         // Spatial Audio & Broadcast Chain
         spatialMode: 'stereo', // 'stereo', '3d', 'dolby'
         spatialEnabled: false,
@@ -526,6 +527,7 @@ function rotateMedia() {
     // 2. STOP CURRENT MEDIA
     if (APP.media.currentElement?.tagName === 'VIDEO') {
         APP.media.currentElement.pause();
+        disconnectVideoAudio();
     }
 
     // 3. THE DATA SWAP
@@ -537,6 +539,7 @@ function rotateMedia() {
         item.element.loop = !APP.state.isCycle;
         item.element.currentTime = 0;
         item.element.play().catch(() => {});
+        connectVideoAudio(item.element);
     }
 
     // 5. THE SEAMLESS HANDOFF
@@ -571,6 +574,7 @@ function previousMedia() {
     // Stop current
     if (APP.media.currentElement?.tagName === 'VIDEO') {
         APP.media.currentElement.pause();
+        disconnectVideoAudio();
     }
     
     // Go back (Index - 1), wrap around
@@ -582,6 +586,7 @@ function previousMedia() {
         item.element.loop = !APP.state.isCycle;
         item.element.currentTime = 0;
         item.element.play().catch(() => {});
+        connectVideoAudio(item.element);
     }
     
     triggerImpact();
@@ -604,6 +609,7 @@ function ejectCurrent() {
     
     // 1. Cleanup Memory
     if (current.element?.tagName === 'VIDEO') {
+        disconnectVideoAudio();
         current.element.pause();
         current.element.src = '';
         current.element.remove();
@@ -1040,55 +1046,44 @@ function playTrack() {
     if (!APP.audio.isConnected) setupAudioAnalyzer();
 }
 
+
 // ═══════════════════════════════════════════════════════════════════════════
 // PRO-GRADE SPATIAL AUDIO ENGINE (DOLBY SIMULATION)
 // ═══════════════════════════════════════════════════════════════════════════
-function setupAudioAnalyzer() {
+
+function ensureAudioChain() {
+    if (APP.audio.analyzer) return; // already built
     try {
         if (!APP.audio.ctx) APP.audio.ctx = new (window.AudioContext || window.webkitAudioContext)();
 
-        // 1. Create Core Nodes
-        APP.audio.source = APP.audio.ctx.createMediaElementSource(APP.audio.element);
         APP.audio.analyzer = APP.audio.ctx.createAnalyser();
         APP.audio.panner = APP.audio.ctx.createPanner();
         APP.audio.compressor = APP.audio.ctx.createDynamicsCompressor();
         APP.audio.masterGain = APP.audio.ctx.createGain();
 
-        // 2. Configure the Panner (HRTF is the Pro Standard)
         APP.audio.panner.panningModel = 'HRTF';
         APP.audio.panner.distanceModel = 'inverse';
         APP.audio.panner.refDistance = 1;
 
-        // 3. Configure the Broadcast Limiter (The "Dolby" Glue)
         APP.audio.compressor.threshold.setValueAtTime(-18, APP.audio.ctx.currentTime);
         APP.audio.compressor.knee.setValueAtTime(30, APP.audio.ctx.currentTime);
         APP.audio.compressor.ratio.setValueAtTime(12, APP.audio.ctx.currentTime);
         APP.audio.compressor.attack.setValueAtTime(0.003, APP.audio.ctx.currentTime);
         APP.audio.compressor.release.setValueAtTime(0.25, APP.audio.ctx.currentTime);
 
-        // 4. Configure Visuals & Headroom
         APP.audio.analyzer.fftSize = 64;
         APP.audio.masterGain.gain.setValueAtTime(0.9, APP.audio.ctx.currentTime);
 
-        // ═══════════════════════════════════════════════════════════════
-        // Phase 2: TRIPLE-PATH AUDIO MATRIX
-        // ═══════════════════════════════════════════════════════════════
-
-        // PATH 1: Stereo (Standard L/R monitoring)
         APP.audio.stereoGain = APP.audio.ctx.createGain();
         APP.audio.stereoGain.gain.setValueAtTime(1.0, APP.audio.ctx.currentTime);
 
-        // PATH 2: Surround (5.1/7.1 channel splitter for home theater export)
         try {
             APP.audio.surroundSplitter = APP.audio.ctx.createChannelSplitter(6);
             APP.audio.surroundMerger = APP.audio.ctx.createChannelMerger(6);
-            // Map stereo L/R to front L/R, center, LFE from mono mix
-            // Front Left (0), Front Right (1), Center (2), LFE (3), Surround L (4), Surround R (5)
         } catch (e) {
             log('SURROUND: 5.1_NOT_SUPPORTED');
         }
 
-        // PATH 3: Dolby HRTF (PannerNode for immersive headphone 3D audio)
         APP.audio.dolbyPanner = APP.audio.ctx.createPanner();
         APP.audio.dolbyPanner.panningModel = 'HRTF';
         APP.audio.dolbyPanner.distanceModel = 'inverse';
@@ -1104,28 +1099,20 @@ function setupAudioAnalyzer() {
             APP.audio.dolbyPanner.positionZ.setValueAtTime(-2, APP.audio.ctx.currentTime);
         }
 
-        // ═══════════════════════════════════════════════════════════════
-        // Phase 2: OUTPUT LIMITER (Hard 0dB ceiling - prevents clipping)
-        // ═══════════════════════════════════════════════════════════════
         APP.audio.outputLimiter = APP.audio.ctx.createDynamicsCompressor();
-        APP.audio.outputLimiter.threshold.setValueAtTime(-1, APP.audio.ctx.currentTime);  // 0dB ceiling
-        APP.audio.outputLimiter.knee.setValueAtTime(0, APP.audio.ctx.currentTime);        // Hard knee
-        APP.audio.outputLimiter.ratio.setValueAtTime(20, APP.audio.ctx.currentTime);      // Brick wall
-        APP.audio.outputLimiter.attack.setValueAtTime(0.001, APP.audio.ctx.currentTime);  // Instant
-        APP.audio.outputLimiter.release.setValueAtTime(0.1, APP.audio.ctx.currentTime);   // Fast release
+        APP.audio.outputLimiter.threshold.setValueAtTime(-1, APP.audio.ctx.currentTime);
+        APP.audio.outputLimiter.knee.setValueAtTime(0, APP.audio.ctx.currentTime);
+        APP.audio.outputLimiter.ratio.setValueAtTime(20, APP.audio.ctx.currentTime);
+        APP.audio.outputLimiter.attack.setValueAtTime(0.001, APP.audio.ctx.currentTime);
+        APP.audio.outputLimiter.release.setValueAtTime(0.1, APP.audio.ctx.currentTime);
 
-        // ═══════════════════════════════════════════════════════════════
-        // Phase 2: SIDE-CHAIN DUCKING
-        // ═══════════════════════════════════════════════════════════════
         APP.audio.duckingGain = APP.audio.ctx.createGain();
         APP.audio.duckingGain.gain.setValueAtTime(1.0, APP.audio.ctx.currentTime);
         APP.audio.micAnalyzer = APP.audio.ctx.createAnalyser();
         APP.audio.micAnalyzer.fftSize = 256;
 
-        // 5. THE SERIAL CHAIN (Upgraded Triple-Path Routing)
-        // Source -> Panner -> Compressor -> DuckingGain -> MasterGain -> Analyzer -> Limiter -> Destination
-        APP.audio.source
-            .connect(APP.audio.panner)
+        // Panner -> Compressor -> DuckingGain -> MasterGain -> Analyzer -> Limiter -> Destination
+        APP.audio.panner
             .connect(APP.audio.compressor)
             .connect(APP.audio.duckingGain)
             .connect(APP.audio.masterGain)
@@ -1133,20 +1120,13 @@ function setupAudioAnalyzer() {
             .connect(APP.audio.outputLimiter)
             .connect(APP.audio.ctx.destination);
 
-        // Stereo path tap (from masterGain for monitoring)
         APP.audio.masterGain.connect(APP.audio.stereoGain);
-
-        // Dolby path tap (from source, parallel HRTF processing)
-        APP.audio.source.connect(APP.audio.dolbyPanner);
         APP.audio.dolbyPanner.connect(APP.audio.outputLimiter);
 
         APP.audio.vuData = new Uint8Array(APP.audio.analyzer.frequencyBinCount);
-        APP.audio.isConnected = true;
 
-        // Default position: in front of listener (stereo feel)
         positionAudio(0, 0, -1);
 
-        // UI Update
         const vu = $('vu');
         vu.innerHTML = '';
         for (let i = 0; i < 16; i++) {
@@ -1156,13 +1136,58 @@ function setupAudioAnalyzer() {
         }
 
         updateVU();
-        log('DAW_ENGINE_ACTIVE: TRIPLE_PATH + LIMITER + DUCKING');
+        log('DAW_CHAIN_READY');
     } catch (e) { log('AUDIO_CHAIN_ERR: ' + e.message); }
+}
+
+function setupAudioAnalyzer() {
+    ensureAudioChain();
+    try {
+        if (!APP.audio.source) {
+            APP.audio.source = APP.audio.ctx.createMediaElementSource(APP.audio.element);
+            APP.audio.source.connect(APP.audio.panner);
+            APP.audio.source.connect(APP.audio.dolbyPanner);
+        }
+        APP.audio.isConnected = true;
+        log('DAW_ENGINE_ACTIVE: AUDIO_SRC_CONNECTED');
+    } catch (e) { log('AUDIO_SRC_ERR: ' + e.message); }
+}
+
+function connectVideoAudio(vid) {
+    if (!vid || vid.tagName !== 'VIDEO') return;
+    try {
+        if (!APP.audio.ctx) APP.audio.ctx = new (window.AudioContext || window.webkitAudioContext)();
+        if (APP.audio.ctx.state === 'suspended') APP.audio.ctx.resume();
+        ensureAudioChain();
+
+        // Disconnect previous video source
+        disconnectVideoAudio();
+
+        // createMediaElementSource can only be called once per element
+        if (!vid._audioSrc) {
+            vid._audioSrc = APP.audio.ctx.createMediaElementSource(vid);
+        }
+        vid.muted = false;
+        vid._audioSrc.connect(APP.audio.panner);
+        vid._audioSrc.connect(APP.audio.dolbyPanner);
+        APP.audio.videoSource = vid;
+        log('VIDEO_AUDIO: ON');
+    } catch (e) { log('VIDEO_AUDIO_ERR: ' + e.message); }
+}
+
+function disconnectVideoAudio() {
+    var vid = APP.audio.videoSource;
+    if (!vid) return;
+    try {
+        if (vid._audioSrc) vid._audioSrc.disconnect();
+        vid.muted = true;
+    } catch (e) { /* ok */ }
+    APP.audio.videoSource = null;
 }
 
 function updateVU() {
     requestAnimationFrame(updateVU);
-    if (!APP.audio.analyzer || !APP.audio.isPlaying) return;
+    if (!APP.audio.analyzer || (!APP.audio.isPlaying && !APP.audio.videoSource)) return;
     
     APP.audio.analyzer.getByteFrequencyData(APP.audio.vuData);
     const bars = $('vu').children;
@@ -2008,7 +2033,6 @@ function exportDNA() {
     }
 
     return dna;
-}turn dna;
 }
 
 // Assign to APP.state for API access
