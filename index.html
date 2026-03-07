@@ -162,8 +162,6 @@
         .version { font-size: 10px; color: var(--accent); padding: 3px 8px; background: var(--accent-dim); border: 1px solid var(--accent); margin-left: 10px; }
 
         #stage { position: fixed; top: 45px; left: 200px; right: 200px; bottom: 55px; background: #000; border: 1px solid var(--border); overflow: hidden; }
-        /* AI images fill the workspace perfectly — cover behaviour (scoped to vngrd-layer only) */
-        #stage .vngrd-layer { background-size: cover !important; background-position: center !important; }
         #vj-canvas { position: absolute; top: 0; left: 0; width: 100%; height: 100%; z-index: 1000; pointer-events: none !important; }
         #overlay-layer { position: absolute; inset: 0; z-index: 2000; pointer-events: none; }
         
@@ -1784,40 +1782,13 @@ body.fullscreen #transcription-hud { opacity: 0 !important; pointer-events: none
         <div class="section">
             <div class="sec-head"><span class="sec-title">THEME</span><div class="sec-dot"></div></div>
             <div class="sec-body">
-                <input type="text" class="inp" id="ai-prompt" placeholder="DESCRIBE_IMAGE..." style="font-size:9px;">
-                <button class="btn" id="btn-generate-ai" style="color:var(--v);border-color:var(--v);">LEXICA GENERATE</button>
-                <div id="ai-status" style="font-size:8px;color:var(--text-dim);margin-top:4px;">LEXICA_API: READY</div>
-            </div>
-        </div>
-        
-        <div class="section">
-            <div class="sec-head"><span class="sec-title">VOICE_IN</span><div class="sec-dot off" id="voice-dot"></div></div>
-            <div class="sec-body">
-                <button class="btn" id="btn-voice-input" style="color:var(--c);border-color:var(--c);">[ MIC ] VOICE INPUT</button>
-                <div id="voice-status" style="font-size:8px;color:var(--text-dim);margin-top:4px;text-align:center;">DEEPGRAM: STANDBY</div>
-            </div>
-        </div>
-
-        <div class="section" id="p2p-call-module">
-            <div class="fold-header" data-fold="p2p-call-module">
-                <div style="display:flex;align-items:center;gap:0;"><span class="fold-icon">[+]</span><span class="sec-title">P2P_E2E_CALL</span></div>
-                <div class="sec-dot off" id="guest-dot"></div>
-            </div>
-            <div class="fold-content hidden">
-                <div class="sec-body">
-                    <div class="lbl" style="font-size:8px;margin-bottom:4px;">YOUR_CALL_ID:</div>
-                    <input type="text" class="inp" id="peer-id-display" readonly placeholder="CLICK_INIT_TO_GET_ID..." style="font-size:9px;text-align:center;color:var(--g);">
-                    <button class="btn" id="btn-copy-id" style="font-size:8px;margin-bottom:6px;">COPY_ID</button>
-
-                    <div class="lbl" style="font-size:8px;margin-bottom:4px;">GUEST_ID_TO_CALL:</div>
-                    <input type="text" class="inp" id="remote-peer-id" placeholder="PASTE_GUEST_ID..." style="font-size:9px;">
-
-                    <div class="btn-row" style="margin-top:6px;">
-                        <button class="btn" id="btn-init-peer" style="color:var(--g)">INIT</button>
-                        <button class="btn" id="btn-call-guest" style="color:var(--c)">CALL</button>
-                    </div>
-                    <button class="btn" id="btn-hangup" style="color:var(--r);border-color:var(--r);">END_CALL</button>
-                    <div id="call-status" style="font-size:8px;color:var(--text-dim);margin-top:4px;text-align:center;">NOT_CONNECTED</div>
+                <div class="palette-grid">
+                    <div class="pal on" data-t="cyan"></div>
+                    <div class="pal" data-t="magenta"></div>
+                    <div class="pal" data-t="green"></div>
+                    <div class="pal" data-t="purple"></div>
+                    <div class="pal" data-t="gold"></div>
+                    <div class="pal" data-t="night"></div>
                 </div>
             </div>
         </div>
@@ -8042,73 +8013,85 @@ var isVideo = nft.forceVideo || (imageUrl.toLowerCase().match(/\.(mp4|webm|mov|o
         if (el) { el.textContent = msg; el.style.color = color || 'var(--text-dim)'; }
     }
 
-    // VNGRD BACKEND URL — local FastAPI server
-    const VNGRD_BACKEND = 'http://localhost:8000';
+    function _aiDone(btn) {
+        _aiGenerating = false;
+        if (btn) { btn.classList.remove('on'); btn.textContent = 'GENERATE'; }
+    }
 
-    const v19_AI = {
-        generate: async (prompt) => {
-            const status = $('ai-status');
-            const btn = $('btn-generate-ai');
-            if (!prompt) { if (status) status.textContent = 'ENTER_PROMPT'; return; }
-            if (APP.neural.generating) return;
-            APP.neural.generating = true;
-            if (status) { status.textContent = 'FLUX: RENDERING...'; status.style.color = 'var(--v)'; }
-            if (btn) btn.classList.add('on');
-            if ($('neural-dot')) $('neural-dot').classList.remove('off');
+    function _aiInject(img, prompt) {
+        var label = 'AI_' + prompt.substring(0, 20).replace(/\s+/g, '_');
+        var preview = $('ai-preview');
+        var previewImg = $('ai-preview-img');
+        if (preview && previewImg) { previewImg.src = img.src; preview.style.display = 'block'; }
+        var host = document.getElementById('gif-host');
+        if (host && !img.parentNode) host.appendChild(img);
+        APP.render.source = null;
+        APP.media.queue.push({ type: 'image', url: img.src, element: img, name: label });
+        APP.media.currentIndex = APP.media.queue.length - 1;
+        APP.media.currentElement = img;
+        if (typeof updateQueueDisplay === 'function') updateQueueDisplay();
+        if ($('media-dot')) $('media-dot').classList.remove('off');
+        var stage = $('stage');
+        if (stage) {
+            stage.style.transition = 'none';
+            stage.style.filter = 'brightness(3) saturate(2)';
+            setTimeout(function() { stage.style.transition = 'filter 0.5s'; stage.style.filter = ''; }, 100);
+        }
+        log('AI: INJECTED >> ' + label);
+    }
 
-            var finalPrompt = 'Hyper-detailed VJ glitch art, cyberpunk aesthetic, neon pulse, ' + prompt;
-            log('NEURAL: FLUX >> ' + finalPrompt);
+    // Pollinations.ai — free, no API key, blob fetch avoids CORS taint on canvas
+    async function _aiPollinations(prompt, btn, polModel) {
+        _aiStatus('POLLINATIONS: GENERATING...', 'var(--v)');
+        log('AI: [POLLINATIONS] >> ' + prompt);
+        try {
+            var seed = Math.floor(Math.random() * 99999);
+            var url = 'https://image.pollinations.ai/prompt/' + encodeURIComponent(prompt)
+                + '?width=1024&height=1024&nologo=true&model=' + (polModel || 'flux') + '&seed=' + seed;
+            // fetch() follows redirects and gives raw bytes — no CORS taint on canvas
+            var resp = await fetch(url);
+            if (!resp.ok) throw new Error('HTTP_' + resp.status);
+            var blob = await resp.blob();
+            var objectUrl = URL.createObjectURL(blob);
+            var img = new Image();
+            await new Promise(function(resolve, reject) {
+                img.onload = resolve;
+                img.onerror = function() { reject(new Error('IMG_DECODE_FAILED')); };
+                img.src = objectUrl;
+            });
+            _aiInject(img, prompt);
+            _aiDone(btn);
+            _aiStatus('DONE [POLLINATIONS]', 'var(--g)');
+        } catch (e) {
+            _aiDone(btn);
+            _aiStatus('POLLINATIONS FAIL: ' + e.message, 'var(--r)');
+            log('AI: POLLINATIONS FAIL: ' + e.message);
+        }
+    }
 
-            var imageUrl = null;
-            var sourceLabel = 'FLUX';
+    // Pollinations model → style parameter map
+    var _pollinationsStyles = {
+        'pollinations':       { model: 'flux',          style: '' },
+        'pollinations-turbo': { model: 'turbo',         style: 'cinematic, high detail' },
+        'pollinations-3d':    { model: 'flux',          style: '3D render, octane, volumetric lighting' },
+        'pollinations-anime': { model: 'flux',          style: 'anime, cel-shaded, vibrant' },
+    };
 
-            // ── Tier 1: Fal.ai via local backend ─────────────────────────────
-            try {
-                if (status) status.textContent = 'FAL.AI: QUEUING...';
-                var backendCtrl = new AbortController();
-                var backendTid = setTimeout(function() { backendCtrl.abort(); }, 90000);
-                var backendRes = await fetch(VNGRD_BACKEND + '/generate', {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ prompt: finalPrompt }),
-                    signal: backendCtrl.signal
-                });
-                clearTimeout(backendTid);
-                if (backendRes.ok) {
-                    var backendData = await backendRes.json();
-                    imageUrl = backendData.url;
-                    sourceLabel = backendData.source === 'pollinations-fallback' ? 'FLUX' : backendData.source.toUpperCase().replace(/-/g,'_');
-                    log('NEURAL: BACKEND_OK (' + backendData.source + ')');
-                }
-            } catch(e) {
-                log('NEURAL: BACKEND_OFFLINE → POLLINATIONS_FALLBACK');
-            }
+    async function aiGenerate(prompt) {
+        if (!prompt) { _aiStatus('TYPE A PROMPT', 'var(--y)'); return; }
+        if (_aiGenerating) return;
 
-            // ── Tier 2: Pollinations direct (if backend unavailable) ─────────
-            if (!imageUrl) {
-                var seed = Math.floor(Math.random() * 999999);
-                imageUrl = 'https://image.pollinations.ai/prompt/' + encodeURIComponent(finalPrompt) + '?width=1024&height=1024&model=flux&seed=' + seed + '&nologo=true';
-                sourceLabel = 'FLUX';
-            }
+        _aiGenerating = true;
+        var btn = $('btn-generate-ai');
+        if (btn) { btn.classList.add('on'); btn.textContent = 'GENERATING...'; }
+        if ($('neural-dot')) $('neural-dot').classList.remove('off');
 
-            // ── Fetch blob and inject ─────────────────────────────────────────
-            try {
-                if (status) status.textContent = sourceLabel + ': RENDERING...';
-                var controller = new AbortController();
-                var tid = setTimeout(function() { controller.abort(); }, 90000);
-                var res = await fetch(imageUrl, { signal: controller.signal });
-                clearTimeout(tid);
-                if (!res.ok) throw new Error(sourceLabel + '_HTTP_' + res.status);
-                var blob = await res.blob();
-                if (blob.size < 1000 || !blob.type.startsWith('image/')) throw new Error(sourceLabel + '_INVALID_RESPONSE');
-                var blobUrl = URL.createObjectURL(blob);
-                await injectAIImage(blobUrl, sourceLabel + '_' + prompt.substring(0, 20).replace(/\s+/g, '_'));
-                if (status) { status.textContent = sourceLabel + ' → MEDIA DECK'; status.style.color = 'var(--g)'; }
-                log('NEURAL: ' + sourceLabel + '_INJECTED');
-            } catch(err) {
-                if (status) { status.textContent = 'IMG_FAIL: ' + err.message; status.style.color = 'var(--r)'; }
-                log('NEURAL_ERROR: ' + err.message);
-            }
+        var modelKey  = $('ai-model-select') ? $('ai-model-select').value : 'pollinations';
+        var cfg       = _pollinationsStyles[modelKey] || _pollinationsStyles['pollinations'];
+        var fullPrompt = cfg.style ? prompt + ', ' + cfg.style : prompt;
+
+        _aiStatus(modelKey.toUpperCase() + ': GENERATING...', 'var(--v)');
+        log('AI: [' + modelKey.toUpperCase() + '] >> ' + prompt);
 
         // All models route through Pollinations.ai (free, no API key)
         await _aiPollinations(fullPrompt, btn, cfg.model);
@@ -8147,124 +8130,6 @@ var isVideo = nft.forceVideo || (imageUrl.toLowerCase().match(/\.(mp4|webm|mov|o
             if (arrow) arrow.textContent = isOpen ? '\u25BE' : '\u25B8';
         };
     });
-
-    // ── DEEPGRAM NOVA-3 VOICE ENGINE ─────────────────────────────────────────
-    // Connects to local backend WebSocket proxy → Deepgram Nova-3.
-    // Transcription overwrites #status-text instantly and logs to ghost terminal.
-    (function initVoiceEngine() {
-        var voiceBtn    = $('btn-voice-input');
-        var voiceStatus = $('voice-status');
-        var voiceDot    = $('voice-dot');
-        var statusText  = $('status-text');
-
-        if (!voiceBtn) return;
-
-        var voiceWS = null;
-        var mediaRecorder = null;
-        var micStream = null;
-        var isListening = false;
-
-        function ghostLog(msg) {
-            var body = $('ghost-terminal-body');
-            if (!body) return;
-            var line = document.createElement('div');
-            line.style.cssText = 'font-size:9px;padding:1px 8px;color:var(--c);font-family:"JetBrains Mono",monospace;';
-            line.textContent = 'GHOST> ' + msg;
-            body.appendChild(line);
-            body.scrollTop = body.scrollHeight;
-        }
-
-        function stopListening() {
-            isListening = false;
-            if (mediaRecorder && mediaRecorder.state !== 'inactive') mediaRecorder.stop();
-            if (micStream) { micStream.getTracks().forEach(t => t.stop()); micStream = null; }
-            if (voiceWS) { try { voiceWS.close(); } catch(e) {} voiceWS = null; }
-            voiceBtn.textContent = '[ MIC ] VOICE INPUT';
-            voiceBtn.classList.remove('on');
-            if (voiceDot) voiceDot.classList.add('off');
-            if (voiceStatus) { voiceStatus.textContent = 'DEEPGRAM: STANDBY'; voiceStatus.style.color = 'var(--text-dim)'; }
-            ghostLog('VOICE_ENGINE: OFFLINE');
-        }
-
-        async function startListening() {
-            try {
-                micStream = await navigator.mediaDevices.getUserMedia({ audio: true, video: false });
-            } catch(e) {
-                if (voiceStatus) { voiceStatus.textContent = 'MIC_ACCESS_DENIED'; voiceStatus.style.color = 'var(--r)'; }
-                ghostLog('VOICE_ERROR: MIC_ACCESS_DENIED');
-                return;
-            }
-
-            voiceWS = new WebSocket(VNGRD_BACKEND.replace('http', 'ws') + '/ws/transcribe');
-            voiceWS.binaryType = 'arraybuffer';
-
-            voiceWS.onopen = function() {
-                isListening = true;
-                voiceBtn.textContent = '[ ■ ] STOP VOICE';
-                voiceBtn.classList.add('on');
-                if (voiceDot) voiceDot.classList.remove('off');
-                if (voiceStatus) { voiceStatus.textContent = 'NOVA-3: LISTENING...'; voiceStatus.style.color = 'var(--g)'; }
-                ghostLog('VOICE_ENGINE: NOVA-3 ONLINE');
-
-                // Stream mic audio in 250ms chunks
-                mediaRecorder = new MediaRecorder(micStream, { mimeType: 'audio/webm;codecs=opus' });
-                mediaRecorder.ondataavailable = function(e) {
-                    if (e.data && e.data.size > 0 && voiceWS && voiceWS.readyState === WebSocket.OPEN) {
-                        e.data.arrayBuffer().then(buf => voiceWS.send(buf));
-                    }
-                };
-                mediaRecorder.start(250);
-            };
-
-            voiceWS.onmessage = function(ev) {
-                try {
-                    var data = JSON.parse(ev.data);
-                    if (data.error) {
-                        if (voiceStatus) { voiceStatus.textContent = data.error; voiceStatus.style.color = 'var(--r)'; }
-                        ghostLog('VOICE_ERROR: ' + data.error);
-                        stopListening();
-                        return;
-                    }
-                    var channel = data.channel || (data.results && data.results.channels && data.results.channels[0]);
-                    if (!channel) return;
-                    var alt = channel.alternatives && channel.alternatives[0];
-                    if (!alt || !alt.transcript) return;
-                    var transcript = alt.transcript.trim();
-                    if (!transcript) return;
-                    var isFinal = data.is_final || false;
-                    // Overwrite HUD status bar instantly
-                    if (statusText) {
-                        statusText.textContent = transcript.toUpperCase();
-                        statusText.style.color = isFinal ? 'var(--g)' : 'var(--c)';
-                    }
-                    if (isFinal) {
-                        ghostLog('TRANSCRIPT: ' + transcript);
-                        // Fade status back to LIVE/STANDBY after 4s
-                        setTimeout(function() {
-                            if (statusText && isListening) {
-                                statusText.textContent = 'LISTENING...';
-                                statusText.style.color = 'var(--c)';
-                            }
-                        }, 4000);
-                    }
-                } catch(e) { /* non-JSON frame */ }
-            };
-
-            voiceWS.onerror = function() {
-                if (voiceStatus) { voiceStatus.textContent = 'BACKEND_OFFLINE'; voiceStatus.style.color = 'var(--r)'; }
-                ghostLog('VOICE_ERROR: BACKEND_OFFLINE — run VANGUARD_START.command');
-                stopListening();
-            };
-
-            voiceWS.onclose = function() {
-                if (isListening) stopListening();
-            };
-        }
-
-        voiceBtn.onclick = function() {
-            if (isListening) { stopListening(); } else { startListening(); }
-        };
-    })();
 
     // Init v19 transitions
     v19_Transitions.init();
