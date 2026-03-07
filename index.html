@@ -1167,7 +1167,265 @@ body.fx-nvg #stage::after {
 }
 .anim-hard-reset {
     animation: crt-collapse 0.55s ease-in-out;
-}</style>
+}
+
+/* ═══════════════════════════════════════════════════════════════
+   MCR // SIGNAL_CENTRAL  —  On-Air Tally + Transcription HUD
+   ═══════════════════════════════════════════════════════════════ */
+
+/* ── Tally pulse — heavy red broadcast lamp breathing ──────── */
+@keyframes tally-pulse {
+    0%, 100% {
+        box-shadow: 0 0 6px rgba(255,0,85,0.4),
+                    0 0 15px rgba(255,0,85,0.2),
+                    inset 0 0 8px rgba(255,0,85,0.1);
+        border-color: rgba(255,0,85,0.6);
+    }
+    50% {
+        box-shadow: 0 0 14px rgba(255,0,85,1),
+                    0 0 30px rgba(255,0,85,0.55),
+                    0 0 60px rgba(255,0,85,0.2),
+                    inset 0 0 12px rgba(255,0,85,0.2);
+        border-color: #ff0055;
+    }
+}
+
+/* ── On-Air button (pill style, overrides .btn base) ───────── */
+#btn-on-air {
+    font-family: 'Orbitron', sans-serif;
+    font-size: 10px;
+    font-weight: 700;
+    letter-spacing: 3.5px;
+    text-align: center;
+    color: #404050;
+    background: linear-gradient(180deg, #0e0e14 0%, #08080c 100%);
+    border: 1px solid #252535;
+    border-radius: 2px;
+    padding: 10px 12px;
+    width: 100%;
+    cursor: pointer;
+    position: relative;
+    overflow: hidden;
+    transition: color 0.2s ease, border-color 0.2s ease, box-shadow 0.2s ease;
+    margin-bottom: 0;
+}
+#btn-on-air::before {
+    content: '';
+    position: absolute; inset: 0;
+    background: repeating-linear-gradient(
+        -48deg,
+        transparent, transparent 5px,
+        rgba(255,255,255,0.012) 5px, rgba(255,255,255,0.012) 10px
+    );
+    pointer-events: none;
+}
+#btn-on-air:hover {
+    color: #ff0055;
+    border-color: rgba(255,0,85,0.5);
+    box-shadow: 0 0 8px rgba(255,0,85,0.2);
+}
+#btn-on-air.active {
+    color: #ff0055;
+    background: linear-gradient(180deg, #140008 0%, #0a0005 100%);
+    animation: tally-pulse 1.25s ease-in-out infinite;
+    text-shadow: 0 0 10px rgba(255,0,85,0.9), 0 0 20px rgba(255,0,85,0.4);
+}
+
+/* On-Air tally dot inside sec-head */
+#mcr-on-air-dot {
+    width: 6px; height: 6px;
+    border-radius: 50%;
+    background: #252535;
+    box-shadow: none;
+    transition: background 0.3s, box-shadow 0.3s;
+    flex-shrink: 0;
+}
+#mcr-on-air-dot.hot {
+    background: #ff0055;
+    box-shadow: 0 0 6px #ff0055, 0 0 14px rgba(255,0,85,0.5);
+}
+
+/* WS connection LED */
+#mcr-ws-led {
+    display: inline-block;
+    width: 5px; height: 5px;
+    border-radius: 50%;
+    background: #303040;
+    flex-shrink: 0;
+    transition: background 0.3s, box-shadow 0.3s;
+}
+#mcr-ws-led.connected { background: #00ff88; box-shadow: 0 0 5px #00ff88; }
+#mcr-ws-led.error     { background: #ff3333; box-shadow: 0 0 5px #ff3333; }
+
+/* MCR sub-status strip */
+#mcr-status {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 8px;
+    letter-spacing: 0.5px;
+    color: #404050;
+    transition: color 0.25s;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+#mcr-status.hot { color: #ff0055; text-shadow: 0 0 6px rgba(255,0,85,0.5); }
+
+/* Language micro-selector row */
+.mcr-lang-row {
+    display: flex;
+    gap: 4px;
+    margin-top: 7px;
+}
+.mcr-lang-btn {
+    flex: 1;
+    padding: 5px 2px;
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 8px;
+    font-weight: 500;
+    letter-spacing: 1.5px;
+    text-align: center;
+    text-transform: uppercase;
+    color: #404050;
+    background: transparent;
+    border: 1px solid #1e1e2e;
+    border-radius: 1px;
+    cursor: pointer;
+    transition: all 0.15s ease;
+}
+.mcr-lang-btn:hover   { border-color: var(--accent); color: var(--accent); }
+.mcr-lang-btn.sel     {
+    border-color: var(--accent);
+    color: var(--accent);
+    background: rgba(0,243,255,0.07);
+    box-shadow: 0 0 6px rgba(0,243,255,0.2);
+}
+/* Lock lang buttons while ON-AIR */
+.mcr-lang-btn[disabled] { opacity: 0.3; pointer-events: none; }
+
+/* ── #transcription-hud — viewport overlay ─────────────────── */
+#transcription-hud {
+    position: fixed;
+    bottom: 62px;           /* above #bottom-bar (55px) + breathing room */
+    left: 208px;            /* just outside left sidebar (200px) */
+    right: 208px;           /* just outside right sidebar (200px) */
+    z-index: 4500;          /* above sidebars (4000), below bars (5000) */
+    pointer-events: none;   /* VJ canvas clicks pass through */
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 5px;
+    padding: 0 16px;
+    /* Hidden by default — JS adds .visible */
+    opacity: 0;
+    transform: translateY(10px);
+    transition: opacity 0.3s ease, transform 0.3s ease;
+}
+#transcription-hud.visible {
+    opacity: 1;
+    transform: translateY(0);
+}
+
+/* CRT scanline wash over the whole HUD */
+#transcription-hud::before {
+    content: '';
+    position: absolute; inset: 0;
+    pointer-events: none;
+    background: repeating-linear-gradient(
+        0deg,
+        transparent,  transparent 2px,
+        rgba(0,0,0,0.07) 2px, rgba(0,0,0,0.07) 4px
+    );
+    z-index: 10;
+}
+
+/* Primary English slot */
+#hud-en {
+    max-width: 700px;
+    width: 100%;
+    background: rgba(0,0,0,0.75);
+    border: 1px solid rgba(0,243,255,0.15);
+    border-left: 2px solid var(--accent);
+    padding: 7px 16px 8px;
+    backdrop-filter: blur(14px) saturate(140%);
+    -webkit-backdrop-filter: blur(14px) saturate(140%);
+    position: relative;
+}
+.hud-en-label {
+    font-size: 7px;
+    letter-spacing: 2.5px;
+    color: var(--accent);
+    opacity: 0.55;
+    text-transform: uppercase;
+    margin-bottom: 3px;
+    font-family: 'Orbitron', sans-serif;
+    font-weight: 600;
+}
+#hud-en-text {
+    font-size: 15px;
+    font-weight: 400;
+    color: #e8e8ec;
+    line-height: 1.45;
+    min-height: 22px;
+    letter-spacing: 0.2px;
+    text-shadow: 0 1px 10px rgba(0,0,0,0.95);
+}
+
+/* 4-column translation sub-slots */
+#hud-langs {
+    display: flex;
+    gap: 5px;
+    max-width: 700px;
+    width: 100%;
+}
+.hud-lang-slot {
+    flex: 1;
+    background: rgba(0,0,0,0.68);
+    border: 1px solid rgba(255,255,255,0.06);
+    border-top: 1px solid rgba(0,243,255,0.1);
+    padding: 5px 9px 6px;
+    backdrop-filter: blur(8px);
+    -webkit-backdrop-filter: blur(8px);
+    position: relative;
+    overflow: hidden;
+    transition: border-color 0.2s;
+}
+.hud-lang-slot::after {
+    /* language tag in upper-right corner */
+    content: attr(data-lang);
+    position: absolute;
+    top: 4px; right: 7px;
+    font-size: 7px;
+    letter-spacing: 2px;
+    font-family: 'Orbitron', sans-serif;
+    font-weight: 600;
+    color: var(--accent);
+    opacity: 0.35;
+}
+.hud-lang-slot.fresh {
+    border-color: rgba(0,243,255,0.35);
+}
+.hud-lang-text {
+    font-size: 11px;
+    color: #606068;
+    line-height: 1.45;
+    min-height: 17px;
+    padding-right: 22px;
+    transition: color 0.25s;
+}
+.hud-lang-slot.fresh .hud-lang-text {
+    color: var(--accent);
+    text-shadow: 0 0 8px rgba(0,243,255,0.35);
+}
+
+/* Text slide-in when new segment arrives */
+@keyframes hud-flash {
+    0%   { opacity: 0; transform: translateY(4px); }
+    100% { opacity: 1; transform: translateY(0); }
+}
+.hud-new { animation: hud-flash 0.22s ease-out both; }
+
+/* Collapse HUD when in fullscreen VJ mode */
+body.fullscreen #transcription-hud { opacity: 0 !important; pointer-events: none !important; }</style>
 </head>
 <body oncontextmenu="return false;">
     <!-- PORTRAIT ORIENTATION LOCK -->
@@ -1415,6 +1673,30 @@ body.fx-nvg #stage::after {
 
     <aside class="sidebar" id="right-panel">
 
+        <!-- ── MCR // SIGNAL_CENTRAL ─────────────────────────── -->
+        <div class="section" id="mcr-section">
+            <div class="sec-head">
+                <span class="sec-title">MCR // SIGNAL_CENTRAL</span>
+                <div id="mcr-on-air-dot"></div>
+            </div>
+            <div class="sec-body">
+                <!-- WS status strip -->
+                <div style="display:flex;align-items:center;gap:6px;margin-bottom:8px;">
+                    <span id="mcr-ws-led"></span>
+                    <span id="mcr-status">WS: DISCONNECTED</span>
+                </div>
+                <!-- ON-AIR toggle -->
+                <button id="btn-on-air" class="onair-pill">OFF-AIR</button>
+                <!-- Target language selector -->
+                <div class="mcr-lang-row">
+                    <button class="mcr-lang-btn sel" data-lang="nl">NL</button>
+                    <button class="mcr-lang-btn"     data-lang="fr">FR</button>
+                    <button class="mcr-lang-btn"     data-lang="it">IT</button>
+                    <button class="mcr-lang-btn"     data-lang="es">ES</button>
+                </div>
+            </div>
+        </div>
+
         <div class="section">
             <div class="sec-head"><span class="sec-title">AUDIO_ENGINE</span><div class="sec-dot off" id="audio-dot"></div></div>
             <div class="sec-body">
@@ -1544,6 +1826,38 @@ body.fx-nvg #stage::after {
         <div id="nft-timer">00:00</div>
         <div id="nft-label">SYSTEM_CAPTURING</div>
         <div class="nft-bar"><div class="nft-fill" id="nft-fill"></div></div>
+    </div>
+
+    <!-- ══════════════════════════════════════════════════════════
+         TRANSCRIPTION HUD OVERLAY — DRIS//CORE SIGNAL_CENTRAL
+         Sits above #bottom-bar, between the sidebars.
+         Visibility controlled by JS (.visible class).
+         pointer-events:none so VJ canvas stays fully interactive.
+         ══════════════════════════════════════════════════════════ -->
+    <div id="transcription-hud" role="region" aria-label="Live Transcription">
+
+        <!-- Primary English transcription slot -->
+        <div id="hud-en">
+            <div class="hud-en-label">EN // LIVE TRANSCRIPTION</div>
+            <div id="hud-en-text"></div>
+        </div>
+
+        <!-- 4 translation sub-slots: NL · FR · IT · ES -->
+        <div id="hud-langs">
+            <div class="hud-lang-slot" data-lang="NL">
+                <div class="hud-lang-text" id="hud-nl"></div>
+            </div>
+            <div class="hud-lang-slot" data-lang="FR">
+                <div class="hud-lang-text" id="hud-fr"></div>
+            </div>
+            <div class="hud-lang-slot" data-lang="IT">
+                <div class="hud-lang-text" id="hud-it"></div>
+            </div>
+            <div class="hud-lang-slot" data-lang="ES">
+                <div class="hud-lang-text" id="hud-es"></div>
+            </div>
+        </div>
+
     </div>
 
     <input type="file" id="file-media" multiple accept="image/*,video/*">
@@ -8667,6 +8981,285 @@ if (btn3dX) {
             </div>
         </div>
     </div>
+
+
+<script>
+/* ═══════════════════════════════════════════════════════════════════════
+   MCR // SIGNAL_CENTRAL  —  WebSocket Bridge
+   -----------------------------------------------------------------------
+   Connects to the DRIS//CORE FastAPI backend.
+   Protocol matches backend/main.py ws_transcribe() exactly:
+
+   Client → Server (JSON):
+     { action: "start", target_lang: "nl", source_lang: "en" }
+     { action: "stop" }
+
+   Server → Client (JSON):
+     { type: "status",      message: "..." }
+     { type: "transcript",  original: "...", timestamp: 0.0 }
+     { type: "translation", text: "...", lang: "nl", ... }
+     { type: "srt_ready",   filename: "...", content: "..." }
+     { type: "error",       message: "..." }
+   ═══════════════════════════════════════════════════════════════════════ */
+(function () {
+    'use strict';
+
+    var WS_URL      = 'ws://localhost:8000/ws/transcribe';
+    var RECONNECT   = 3500;    // ms between reconnect attempts
+
+    var ws          = null;
+    var onAir       = false;
+    var targetLang  = 'nl';    // matches default .sel lang button
+    var reconnTimer = null;
+
+    /* ── DOM refs ─────────────────────────────────────────────────────── */
+    var btnOnAir  = document.getElementById('btn-on-air');
+    var hud       = document.getElementById('transcription-hud');
+    var hudEN     = document.getElementById('hud-en-text');
+    var hudSlots  = {
+        nl: document.getElementById('hud-nl'),
+        fr: document.getElementById('hud-fr'),
+        it: document.getElementById('hud-it'),
+        es: document.getElementById('hud-es'),
+    };
+    var wsLed     = document.getElementById('mcr-ws-led');
+    var mcrStatus = document.getElementById('mcr-status');
+    var mcrDot    = document.getElementById('mcr-on-air-dot');
+    var langBtns  = document.querySelectorAll('.mcr-lang-btn');
+
+    /* ── Helpers ──────────────────────────────────────────────────────── */
+
+    function setWsState(state) {
+        // state: 'connecting' | 'connected' | 'error' | 'off'
+        if (!wsLed || !mcrStatus) return;
+        wsLed.className = '';
+        if (state === 'connected') {
+            wsLed.classList.add('connected');
+            mcrStatus.textContent = 'WS: CONNECTED';
+            mcrStatus.classList.remove('hot');
+        } else if (state === 'connecting') {
+            mcrStatus.textContent = 'WS: CONNECTING\u2026';
+            mcrStatus.classList.remove('hot');
+        } else if (state === 'error') {
+            wsLed.classList.add('error');
+            mcrStatus.textContent = 'WS: ERROR \u2014 RETRY IN 3s';
+            mcrStatus.classList.remove('hot');
+        } else {
+            mcrStatus.textContent = 'WS: DISCONNECTED';
+            mcrStatus.classList.remove('hot');
+        }
+    }
+
+    function setOnAirUI(active) {
+        onAir = active;
+        if (!btnOnAir) return;
+
+        btnOnAir.textContent = active ? 'ON-AIR' : 'OFF-AIR';
+        btnOnAir.classList.toggle('active', active);
+
+        if (mcrDot) mcrDot.classList.toggle('hot', active);
+
+        /* Lock / unlock language buttons */
+        langBtns.forEach(function (b) {
+            b.disabled = active;
+        });
+
+        if (active) {
+            if (mcrStatus) {
+                mcrStatus.classList.add('hot');
+                mcrStatus.textContent = 'MCR: ON-AIR \u25B6 ' + targetLang.toUpperCase();
+            }
+            if (hud) hud.classList.add('visible');
+        } else {
+            if (mcrStatus) {
+                mcrStatus.classList.remove('hot');
+                mcrStatus.textContent = 'MCR: STANDBY \u25FC';
+            }
+            if (hud) hud.classList.remove('visible');
+        }
+
+        /* Notify GHOST terminal if available */
+        if (typeof ghostLog === 'function') {
+            ghostLog(
+                active
+                    ? 'GHOST> MCR ON-AIR \u2014 streaming EN\u2192' + targetLang.toUpperCase()
+                    : 'GHOST> MCR STANDBY \u2014 signal stopped',
+                active ? 'ok' : 'info'
+            );
+        }
+    }
+
+    function clearHUD() {
+        if (hudEN) hudEN.textContent = '';
+        Object.keys(hudSlots).forEach(function (k) {
+            var el = hudSlots[k];
+            if (el) {
+                el.textContent = '';
+                el.classList.remove('hud-new');
+                var slot = el.closest('.hud-lang-slot');
+                if (slot) slot.classList.remove('fresh');
+            }
+        });
+    }
+
+    function flashText(el, text) {
+        if (!el) return;
+        el.textContent = text;
+        el.classList.remove('hud-new');
+        /* Force reflow to re-trigger animation */
+        void el.offsetWidth;
+        el.classList.add('hud-new');
+    }
+
+    function flashSlot(langCode, text) {
+        var el   = hudSlots[langCode];
+        var slot = el && el.closest('.hud-lang-slot');
+        if (!el) return;
+        flashText(el, text);
+        if (slot) {
+            slot.classList.add('fresh');
+            setTimeout(function () { slot.classList.remove('fresh'); }, 1400);
+        }
+    }
+
+    /* ── WebSocket lifecycle ──────────────────────────────────────────── */
+
+    function connect() {
+        if (ws && (ws.readyState === WebSocket.OPEN ||
+                   ws.readyState === WebSocket.CONNECTING)) return;
+
+        setWsState('connecting');
+
+        try {
+            ws = new WebSocket(WS_URL);
+        } catch (e) {
+            setWsState('error');
+            scheduleReconnect();
+            return;
+        }
+
+        ws.onopen = function () {
+            setWsState('connected');
+            clearTimeout(reconnTimer);
+            /* If the page reloaded mid-broadcast, reset state cleanly */
+            if (onAir) setOnAirUI(false);
+            if (typeof ghostLog === 'function') {
+                ghostLog('GHOST> MCR WS bridge online \u2192 ' + WS_URL, 'ok');
+            }
+        };
+
+        ws.onclose = function () {
+            setWsState('off');
+            if (onAir) setOnAirUI(false);
+            scheduleReconnect();
+        };
+
+        ws.onerror = function () {
+            setWsState('error');
+            /* onclose fires immediately after; it handles reconnect */
+        };
+
+        ws.onmessage = function (ev) {
+            var data;
+            try { data = JSON.parse(ev.data); } catch (e) { return; }
+
+            switch (data.type) {
+
+                case 'status':
+                    if (mcrStatus && !onAir) {
+                        mcrStatus.textContent = (data.message || 'READY')
+                            .substring(0, 36);
+                    }
+                    if (typeof ghostLog === 'function') {
+                        ghostLog(data.message, 'ok');
+                    }
+                    break;
+
+                case 'transcript':
+                    /* Raw English — primary slot, arrives before translations */
+                    if (hudEN && data.original) {
+                        flashText(hudEN, data.original);
+                    }
+                    break;
+
+                case 'translation':
+                    var lang = data.lang ? data.lang.toLowerCase() : null;
+                    if (lang && hudSlots[lang] && data.text) {
+                        flashSlot(lang, data.text);
+                    }
+                    break;
+
+                case 'srt_ready':
+                    if (typeof ghostLog === 'function') {
+                        ghostLog(
+                            'GHOST> SRT exported: ' + (data.filename || 'unknown'),
+                            'ok'
+                        );
+                    }
+                    break;
+
+                case 'error':
+                    var msg = (data.message || 'UNKNOWN ERROR').substring(0, 40);
+                    if (mcrStatus) mcrStatus.textContent = 'ERR: ' + msg;
+                    if (typeof ghostLog === 'function') {
+                        ghostLog('MCR ERR: ' + msg, 'crit');
+                    }
+                    break;
+            }
+        };
+    }
+
+    function scheduleReconnect() {
+        clearTimeout(reconnTimer);
+        reconnTimer = setTimeout(connect, RECONNECT);
+    }
+
+    /* ── Language selector ────────────────────────────────────────────── */
+    langBtns.forEach(function (btn) {
+        btn.addEventListener('click', function () {
+            if (onAir) return;   /* locked while broadcasting */
+            targetLang = btn.dataset.lang || 'nl';
+            langBtns.forEach(function (b) { b.classList.remove('sel'); });
+            btn.classList.add('sel');
+        });
+    });
+
+    /* ── ON-AIR toggle ────────────────────────────────────────────────── */
+    if (btnOnAir) {
+        btnOnAir.addEventListener('click', function () {
+            if (!ws || ws.readyState !== WebSocket.OPEN) {
+                setWsState('error');
+                if (typeof ghostLog === 'function') {
+                    ghostLog(
+                        'MCR: Backend offline \u2014 run: python system_init.py',
+                        'crit'
+                    );
+                }
+                return;
+            }
+
+            if (!onAir) {
+                /* ── START_MIC ── */
+                clearHUD();
+                ws.send(JSON.stringify({
+                    action      : 'start',
+                    target_lang : targetLang,
+                    source_lang : 'en',
+                }));
+                setOnAirUI(true);
+            } else {
+                /* ── STOP_MIC ── */
+                ws.send(JSON.stringify({ action: 'stop' }));
+                setOnAirUI(false);
+            }
+        });
+    }
+
+    /* ── Boot ─────────────────────────────────────────────────────────── */
+    connect();
+
+}());
+</script>
 
 </body>
 </html>
