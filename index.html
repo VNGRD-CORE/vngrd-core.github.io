@@ -1614,7 +1614,7 @@ window.VANGUARD_BUILD = '2026-02-09T' + Date.now();
 console.log('[VNGRD] Version ' + window.VANGUARD_VERSION + ' build ' + window.VANGUARD_BUILD);
 
 const APP = {
-    state: { isLive: false, isRecording: false, isFullscreen: false, isCycle: false, cycleTimer: null, isMobile: false, theme: 'cyan', startTime: Date.now(), psychosis: false },
+    state: { isLive: false, isRecording: false, isFullscreen: false, isCycle: false, cycleTimer: null, isMobile: false, theme: 'cyan', startTime: Date.now(), psychosis: false, showMediaStrips: true },
     vj: { 
         brightness: 1.0, contrast: 1.0, saturation: 1.0, hue: 0, trailsEnabled: false, trailAlpha: 0.92, rgbEnabled: false, rgbIntensity: 0, rgbBassLink: false, pixelateEnabled: false, pixelSize: 1, rumbleEnabled: false, invert: false, uiReactivity: false, shakeIntensity: 0, shockwave: 0, lastBassLevel: 0, avgVol: 0, maskMode: false, glitchSnap: 0,
         seismicVelocity: 0, seismicPosition: 0, springConstant: 0.8, damping: 0.9
@@ -2587,16 +2587,61 @@ function initCanvas() {
 function resizeCanvas() { APP.render.canvas.width = APP.render.width; APP.render.canvas.height = APP.render.height; $('res').textContent = `${APP.render.width}x${APP.render.height}`; }
 
 // ═══════════════════════════════════════════════════════════════════════════
+// MEDIA STRIP TOGGLE TAB — always-visible collapse handle at canvas bottom
+// ═══════════════════════════════════════════════════════════════════════════
+function drawMediaStripToggle(ctx, w, h) {
+    var hasContent = (APP.media.queue.length > 0 || (APP.user.assets && APP.user.assets.length > 0));
+    if (!hasContent) return 0;
+
+    var tabH = Math.max(18, Math.round(h * 0.011));
+    var tabW = Math.max(60, Math.round(h * 0.055));
+    var tabX = (w - tabW) / 2;
+    var tabY = h - tabH;
+
+    ctx.save();
+    ctx.globalCompositeOperation = 'source-over';
+
+    // Background pill
+    ctx.fillStyle = 'rgba(6,6,12,0.92)';
+    ctx.fillRect(tabX, tabY, tabW, tabH);
+
+    // Top accent line — subtle white
+    ctx.fillStyle = 'rgba(255,255,255,0.12)';
+    ctx.fillRect(tabX, tabY, tabW, 1);
+
+    // Arrow + label
+    var fs = Math.max(9, Math.round(tabH * 0.52));
+    ctx.font = '600 ' + fs + 'px monospace';
+    ctx.fillStyle = 'rgba(255,255,255,0.45)';
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'middle';
+    var arrow = APP.state.showMediaStrips ? '▼' : '▲';
+    ctx.fillText(arrow, tabX + tabW / 2, tabY + tabH / 2);
+
+    ctx.restore();
+
+    // Store hit zone
+    if (!APP.state.mediaStripToggleZone) APP.state.mediaStripToggleZone = {};
+    APP.state.mediaStripToggleZone.x = tabX;
+    APP.state.mediaStripToggleZone.y = tabY;
+    APP.state.mediaStripToggleZone.w = tabW;
+    APP.state.mediaStripToggleZone.h = tabH;
+
+    return tabH;
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
 // NFT_VAULT — Horizontal Gallery (burned into canvas bottom)
 // ═══════════════════════════════════════════════════════════════════════════
-function drawNFTVault(ctx, w, h) {
+function drawNFTVault(ctx, w, h, bottomY) {
     var assets = APP.user.assets;
-    if (!assets || assets.length === 0) return;
+    if (!assets || assets.length === 0) return 0;
+    if (!APP.state.showMediaStrips) return 0;
 
     var thumbSize = Math.round(h * 0.08);
     var padding = Math.round(thumbSize * 0.15);
     var barH = thumbSize + padding * 2;
-    var barY = h - barH;
+    var barY = (bottomY != null ? bottomY : h) - barH;
 
     // Gallery bar background — dark glass
     ctx.save();
@@ -2679,6 +2724,7 @@ function drawNFTVault(ctx, w, h) {
 function drawMediaQueue(ctx, w, h, bottomY) {
     var queue = APP.media.queue;
     if (!queue || queue.length === 0) return;
+    if (!APP.state.showMediaStrips) return;
 
     var thumbSize = Math.round(h * 0.065);
     var padding = Math.round(thumbSize * 0.15);
@@ -2774,6 +2820,13 @@ function initSummonerLogic() {
         var scaleY = APP.render.height / rect.height;
         var cx = (e.clientX - rect.left) * scaleX;
         var cy = (e.clientY - rect.top) * scaleY;
+
+        // ── TOGGLE TAB — collapse / expand both strips ──
+        var tz = APP.state.mediaStripToggleZone;
+        if (tz && cx >= tz.x && cx <= tz.x + tz.w && cy >= tz.y && cy <= tz.y + tz.h) {
+            APP.state.showMediaStrips = !APP.state.showMediaStrips;
+            return;
+        }
 
         // ── MEDIA QUEUE STRIP — duration badge (violet, above vault) ──
         var mqDz = (APP.media.queueStrip && APP.media.queueStrip.durationZones) || [];
@@ -3458,10 +3511,12 @@ function renderLoop(timestamp) {
         }
     }
 
-    // ═══ NFT_VAULT — Horizontal Gallery at bottom ═══
-    var _vaultH = drawNFTVault(ctx, w, h) || 0;
-    // ═══ MEDIA_QUEUE — Uploaded files strip, stacked above vault ═══
-    drawMediaQueue(ctx, w, h, h - _vaultH);
+    // ═══ STRIP TOGGLE TAB — always visible, collapses/expands both strips ═══
+    var _tabH = drawMediaStripToggle(ctx, w, h) || 0;
+    // ═══ NFT_VAULT — Gallery at bottom (above toggle tab) ═══
+    var _vaultH = drawNFTVault(ctx, w, h, h - _tabH) || 0;
+    // ═══ MEDIA_QUEUE — Uploaded files strip (above vault) ═══
+    drawMediaQueue(ctx, w, h, h - _tabH - _vaultH);
 
     // ═══ PERMANENT SIGNATURE — untouchable, not part of Trinity ═══
     ctx.save();
