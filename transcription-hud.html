@@ -112,10 +112,15 @@
       background: rgba(255,255,255,0.04);
       transition: background 0.3s, border-color 0.3s, box-shadow 0.3s;
     }
+    /* MCR tally-light pulse — breathes like a real On-Air lamp */
+    @keyframes tally-pulse {
+      0%, 100% { box-shadow: 0 0 10px rgba(255,0,85,0.5), 0 0 22px rgba(255,0,85,0.2); }
+      50%       { box-shadow: 0 0 18px rgba(255,0,85,0.9), 0 0 40px rgba(255,0,85,0.4); }
+    }
     .onair-pill.active {
       background: var(--red-dim);
       border-color: var(--red);
-      box-shadow: 0 0 14px rgba(255,0,85,0.5);
+      animation: tally-pulse 1.2s ease-in-out infinite;
     }
     .onair-knob {
       position: absolute;
@@ -128,7 +133,7 @@
     .onair-pill.active .onair-knob {
       transform: translateX(26px);
       background: var(--red);
-      box-shadow: 0 0 8px var(--red);
+      box-shadow: 0 0 10px var(--red), 0 0 20px rgba(255,0,85,0.5);
     }
 
     .onair-label {
@@ -139,7 +144,10 @@
       transition: color 0.3s;
       min-width: 60px;
     }
-    .onair-label.active { color: var(--red); }
+    .onair-label.active {
+      color: var(--red);
+      text-shadow: 0 0 8px rgba(255,0,85,0.7);
+    }
 
     /* ── Language selector ────────────────────────────────────────────── */
     .lang-selector {
