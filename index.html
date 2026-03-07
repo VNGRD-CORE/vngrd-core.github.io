@@ -14,7 +14,7 @@
 <script>if('serviceWorker' in navigator){navigator.serviceWorker.register('sw.js').catch(function(){});}</script>
 <script src="https://unpkg.com/peerjs@1.5.2/dist/peerjs.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/ethers/5.7.2/ethers.umd.min.js"></script>
-<script src="https://js.puter.com/v2/"></script>
+<!-- Puter.js removed — cloud session now uses localStorage; AI uses Pollinations (free) -->
 <script src="src/Compositor.js"></script>
 <script type="importmap">{"imports":{"three":"https://unpkg.com/three@0.160.0/build/three.module.js","three/addons/":"https://unpkg.com/three@0.160.0/examples/jsm/"}}</script>
     <style>
@@ -1592,10 +1592,9 @@ body.fullscreen #transcription-hud { opacity: 0 !important; pointer-events: none
                 <div class="lbl" style="font-size:7px;opacity:0.5;margin-bottom:2px;">MODEL</div>
                 <select class="inp" id="ai-model-select" style="font-size:8px;padding:4px;background:var(--panel);border:1px solid var(--border);color:var(--text);margin-bottom:4px;">
                     <option value="pollinations" selected>POLLINATIONS [FREE]</option>
-                    <option value="dall-e-3">DALL-E 3</option>
-                    <option value="stabilityai/stable-diffusion-xl-base-1.0">SDXL</option>
-                    <option value="stabilityai/stable-diffusion-3-medium">SD3</option>
-                    <option value="gpt-image-1">GPT IMAGE</option>
+                    <option value="pollinations-turbo">POLLINATIONS TURBO</option>
+                    <option value="pollinations-3d">POLLINATIONS 3D</option>
+                    <option value="pollinations-anime">POLLINATIONS ANIME</option>
                 </select>
                 <input type="text" class="inp" id="ai-prompt" placeholder="Describe your image..." style="font-size:9px;">
                 <button class="btn" id="btn-generate-ai" style="color:var(--v);border-color:var(--v);">GENERATE</button>
@@ -1755,7 +1754,7 @@ body.fullscreen #transcription-hud { opacity: 0 !important; pointer-events: none
                     <button class="btn" id="btn-import-dna" style="flex:1;font-size:8px;">IMPORT_SESSION</button>
                 </div>
                 <div class="btn-row" style="margin-top:4px;">
-                    <button class="btn" id="btn-cloud-save" style="flex:1;font-size:8px;color:var(--accent);border-color:var(--accent);" title="Sign + save workspace to Puter cloud (wallet required)">CLOUD_SAVE</button>
+                    <button class="btn" id="btn-cloud-save" style="flex:1;font-size:8px;color:var(--accent);border-color:var(--accent);" title="Sign + save workspace to localStorage (wallet required)">CLOUD_SAVE</button>
                     <button class="btn" id="btn-cloud-load" style="flex:1;font-size:8px;color:var(--accent);border-color:var(--accent);" title="Load last cloud session for this wallet">CLOUD_LOAD</button>
                 </div>
                 <div style="border-top:1px solid rgba(255,255,255,0.06);margin:6px 0 4px;"></div>
@@ -2700,7 +2699,7 @@ function processGhostCommand(cmd) {
                 ghostLog('1. Select a model: DALL-E 3, SDXL, SD3, or GPT IMAGE.', 'ai');
                 ghostLog('2. Type a prompt describing your image.', 'ai');
                 ghostLog('3. Hit GENERATE — the AI image injects directly onto your canvas.', 'ai');
-                ghostLog('Powered by Puter.js. No API key needed. Completely free.', 'ai');
+                ghostLog('AI: POLLINATIONS — free, no API key, no limits.', 'ai');
                 break;
 
             // ── UTILITY ──
@@ -4636,8 +4635,9 @@ $('file-vgd').onchange = (e) => {
 };
 
 // ═══════════════════════════════════════════════════════════════════════════
-// CLOUD SYNC — Wallet-authenticated session storage via Puter.js KV
-// Requires: connected wallet (window.ethereum) + puter.js loaded
+// LOCAL CLOUD SYNC — Wallet-authenticated session storage via localStorage
+// Puter.js removed. Sessions are wallet-signed and stored in localStorage.
+// Web3 wallet logic (ethers.js, APP.wallet, signatures) fully preserved.
 // ═══════════════════════════════════════════════════════════════════════════
 
 // Internal: build the same session snapshot that SAVE_SESSION uses
@@ -4697,97 +4697,76 @@ function _applySessionSnapshot(s) {
     if ($('sl-h')) $('sl-h').value = APP.vj.hue;
 }
 
-// Puter KV key — always call with APP.wallet.address which is set to the
-// signer-derived freshAddress by connectWalletUI() before any cloud op runs.
-function _puterKey(address) {
+// localStorage key scoped to wallet address (Web3 identity preserved)
+function _localKey(address) {
     return 'VNGRD_SESSION_' + address.toLowerCase();
 }
 
-// ── SAVE session to Puter cloud, wallet-signed ──
+// ── SAVE session to localStorage, wallet-signed ──
 window.saveSessionToCloud = async function() {
     if (!APP.wallet.connected || !APP.wallet.address) {
-        log('CLOUD_SAVE: WALLET_NOT_CONNECTED'); alert('Connect your wallet first.'); return;
-    }
-    if (typeof puter === 'undefined' || !puter.kv) {
-        log('CLOUD_SAVE: PUTER_NOT_LOADED'); alert('Puter.js not available. Check your connection.'); return;
+        log('LOCAL_SAVE: WALLET_NOT_CONNECTED'); alert('Connect your wallet first.'); return;
     }
 
     var address = APP.wallet.address;
     var session = _buildSessionSnapshot();
-    var sessionJson = JSON.stringify(session);
-    var sigMsg = 'VNGRD_CLOUD_SAVE:' + address.toLowerCase() + ':' + session.timestamp;
+    var sigMsg  = 'VNGRD_LOCAL_SAVE:' + address.toLowerCase() + ':' + session.timestamp;
 
-    log('CLOUD_SAVE: REQUESTING_SIGNATURE');
+    log('LOCAL_SAVE: REQUESTING_SIGNATURE');
     var signature;
     try {
-        signature = await window.ethereum.request({
-            method: 'personal_sign',
-            params: [sigMsg, address]
-        });
+        signature = await window.ethereum.request({ method: 'personal_sign', params: [sigMsg, address] });
     } catch (e) {
-        if (e.code === 4001) { log('CLOUD_SAVE: USER_REJECTED_SIGNATURE'); return; }
-        log('CLOUD_SAVE: SIGN_ERR ' + e.message); return;
+        if (e.code === 4001) { log('LOCAL_SAVE: USER_REJECTED_SIGNATURE'); return; }
+        log('LOCAL_SAVE: SIGN_ERR ' + e.message); return;
     }
 
-    // Attach signature metadata and persist
     session._cloudMeta = { address: address, signature: signature, signedMsg: sigMsg };
     try {
-        await puter.kv.set(_puterKey(address), JSON.stringify(session));
-        log('CLOUD_SAVE: OK — SESSION_STORED_FOR_' + address.slice(0, 6));
-        alert('SESSION SAVED TO CLOUD\n\nWallet: ' + address.slice(0, 6) + '...' + address.slice(-4) + '\nTimestamp: ' + new Date(session.timestamp).toLocaleString());
+        localStorage.setItem(_localKey(address), JSON.stringify(session));
+        log('LOCAL_SAVE: OK — SESSION_STORED_FOR_' + address.slice(0, 6));
+        alert('SESSION SAVED LOCALLY\n\nWallet: ' + address.slice(0,6) + '...' + address.slice(-4) + '\nSaved: ' + new Date(session.timestamp).toLocaleString() + '\n\n(Stored in browser localStorage — wallet-signed)');
     } catch (e) {
-        log('CLOUD_SAVE: KV_ERR ' + e.message);
-        alert('Cloud save failed: ' + e.message);
+        log('LOCAL_SAVE: ERR ' + e.message);
+        alert('Save failed: ' + e.message);
     }
 };
 
-// ── LOAD session from Puter cloud for the connected wallet ──
+// ── LOAD session from localStorage for the connected wallet ──
 window.loadSessionFromCloud = async function(silent) {
     if (!APP.wallet.connected || !APP.wallet.address) {
-        log('CLOUD_LOAD: WALLET_NOT_CONNECTED');
+        log('LOCAL_LOAD: WALLET_NOT_CONNECTED');
         if (!silent) alert('Connect your wallet first.');
-        return;
-    }
-    if (typeof puter === 'undefined' || !puter.kv) {
-        log('CLOUD_LOAD: PUTER_NOT_LOADED');
-        if (!silent) alert('Puter.js not available. Check your connection.');
         return;
     }
 
     var address = APP.wallet.address;
-    log('CLOUD_LOAD: CHECKING_KV for ' + address.slice(0, 6) + '...');
+    log('LOCAL_LOAD: CHECKING_LOCALSTORAGE for ' + address.slice(0, 6) + '...');
 
-    var raw;
-    try {
-        raw = await puter.kv.get(_puterKey(address));
-    } catch (e) {
-        log('CLOUD_LOAD: KV_ERR ' + e.message);
-        if (!silent) alert('Cloud load failed: ' + e.message);
-        return;
-    }
+    var raw = localStorage.getItem(_localKey(address));
 
     if (!raw) {
-        log('CLOUD_LOAD: NO_SESSION_FOUND');
-        if (!silent) alert('No cloud session found for this wallet.');
+        log('LOCAL_LOAD: NO_SESSION_FOUND');
+        if (!silent) alert('No saved session found for this wallet.');
         return;
     }
 
     var s;
-    try { s = JSON.parse(raw); } catch(e) { log('CLOUD_LOAD: PARSE_ERR'); return; }
+    try { s = JSON.parse(raw); } catch(e) { log('LOCAL_LOAD: PARSE_ERR'); return; }
 
     var savedDate = s.timestamp ? new Date(s.timestamp).toLocaleString() : 'unknown date';
     var prompt = silent
         ? ('Previous session found for this wallet (' + address.slice(0,6) + '...' + address.slice(-4) + ')\nSaved: ' + savedDate + '\n\nRestore it?')
-        : ('Cloud session for ' + address.slice(0,6) + '...' + address.slice(-4) + '\nSaved: ' + savedDate + '\n\nLoad this session?');
+        : ('Local session for ' + address.slice(0,6) + '...' + address.slice(-4) + '\nSaved: ' + savedDate + '\n\nLoad this session?');
 
-    if (!confirm(prompt)) { log('CLOUD_LOAD: USER_DECLINED'); return; }
+    if (!confirm(prompt)) { log('LOCAL_LOAD: USER_DECLINED'); return; }
 
     try {
         _applySessionSnapshot(s);
-        log('CLOUD_LOAD: SESSION_RESTORED from ' + savedDate);
-        alert('Session restored from cloud!\nSaved: ' + savedDate);
+        log('LOCAL_LOAD: SESSION_RESTORED from ' + savedDate);
+        alert('Session restored!\nSaved: ' + savedDate);
     } catch(e) {
-        log('CLOUD_LOAD: APPLY_ERR ' + e.message);
+        log('LOCAL_LOAD: APPLY_ERR ' + e.message);
         alert('Failed to apply session: ' + e.message);
     }
 };
@@ -7803,8 +7782,8 @@ var isVideo = nft.forceVideo || (imageUrl.toLowerCase().match(/\.(mp4|webm|mov|o
     };
 
     // ═══════════════════════════════════════════════════════════════════
-    // AI IMAGE GENERATOR v4 — Puter.js only (DALL-E 3, SDXL, SD3, GPT)
-    // Free, no API key, returns <img> element directly
+    // AI IMAGE GENERATOR v5 — Pollinations.ai only (100% free, no key)
+    // Puter.js removed. All models route through Pollinations.ai API.
     // ═══════════════════════════════════════════════════════════════════
     var _aiGenerating = false;
 
@@ -7841,13 +7820,13 @@ var isVideo = nft.forceVideo || (imageUrl.toLowerCase().match(/\.(mp4|webm|mov|o
     }
 
     // Pollinations.ai — free, no API key, blob fetch avoids CORS taint on canvas
-    async function _aiPollinations(prompt, btn) {
+    async function _aiPollinations(prompt, btn, polModel) {
         _aiStatus('POLLINATIONS: GENERATING...', 'var(--v)');
         log('AI: [POLLINATIONS] >> ' + prompt);
         try {
             var seed = Math.floor(Math.random() * 99999);
             var url = 'https://image.pollinations.ai/prompt/' + encodeURIComponent(prompt)
-                + '?width=1024&height=1024&nologo=true&model=flux&seed=' + seed;
+                + '?width=1024&height=1024&nologo=true&model=' + (polModel || 'flux') + '&seed=' + seed;
             // fetch() follows redirects and gives raw bytes — no CORS taint on canvas
             var resp = await fetch(url);
             if (!resp.ok) throw new Error('HTTP_' + resp.status);
@@ -7869,6 +7848,14 @@ var isVideo = nft.forceVideo || (imageUrl.toLowerCase().match(/\.(mp4|webm|mov|o
         }
     }
 
+    // Pollinations model → style parameter map
+    var _pollinationsStyles = {
+        'pollinations':       { model: 'flux',          style: '' },
+        'pollinations-turbo': { model: 'turbo',         style: 'cinematic, high detail' },
+        'pollinations-3d':    { model: 'flux',          style: '3D render, octane, volumetric lighting' },
+        'pollinations-anime': { model: 'flux',          style: 'anime, cel-shaded, vibrant' },
+    };
+
     async function aiGenerate(prompt) {
         if (!prompt) { _aiStatus('TYPE A PROMPT', 'var(--y)'); return; }
         if (_aiGenerating) return;
@@ -7878,48 +7865,15 @@ var isVideo = nft.forceVideo || (imageUrl.toLowerCase().match(/\.(mp4|webm|mov|o
         if (btn) { btn.classList.add('on'); btn.textContent = 'GENERATING...'; }
         if ($('neural-dot')) $('neural-dot').classList.remove('off');
 
-        var model = $('ai-model-select') ? $('ai-model-select').value : 'pollinations';
-        var modelName = model.split('/').pop().toUpperCase();
-        _aiStatus(modelName + ': GENERATING...', 'var(--v)');
-        log('AI: [' + modelName + '] >> ' + prompt);
+        var modelKey  = $('ai-model-select') ? $('ai-model-select').value : 'pollinations';
+        var cfg       = _pollinationsStyles[modelKey] || _pollinationsStyles['pollinations'];
+        var fullPrompt = cfg.style ? prompt + ', ' + cfg.style : prompt;
 
-        // Pollinations path — skip Puter entirely
-        if (model === 'pollinations') {
-            await _aiPollinations(prompt, btn);
-            return;
-        }
+        _aiStatus(modelKey.toUpperCase() + ': GENERATING...', 'var(--v)');
+        log('AI: [' + modelKey.toUpperCase() + '] >> ' + prompt);
 
-        if (typeof puter === 'undefined' || !puter.ai || !puter.ai.txt2img) {
-            _aiDone(btn);
-            _aiStatus('PUTER.JS NOT LOADED — FALLING BACK TO POLLINATIONS', 'var(--y)');
-            log('AI: PUTER_NOT_LOADED — FALLBACK POLLINATIONS');
-            await _aiPollinations(prompt, btn);
-            return;
-        }
-
-        try {
-            var imgEl = await puter.ai.txt2img(prompt, { model: model });
-            if (imgEl && imgEl.tagName === 'IMG' && imgEl.src) {
-                _aiInject(imgEl, prompt);
-                _aiDone(btn);
-                _aiStatus('DONE [' + modelName + ']', 'var(--g)');
-            } else {
-                _aiDone(btn);
-                _aiStatus('NO IMAGE RETURNED', 'var(--r)');
-            }
-        } catch (e) {
-            // Puter Low Balance / funding errors → auto-fallback to free Pollinations
-            var isBalanceErr = /balance|funding|upgrade|payment|insufficient|quota|credit/i.test(e.message || '');
-            if (isBalanceErr) {
-                log('AI: PUTER_BALANCE_LOW — FALLING BACK TO POLLINATIONS');
-                _aiStatus('BALANCE LOW → POLLINATIONS...', 'var(--y)');
-                await _aiPollinations(prompt, btn);
-            } else {
-                _aiDone(btn);
-                _aiStatus('FAIL: ' + (e.message || 'UNKNOWN_ERROR'), 'var(--r)');
-                log('AI: ' + modelName + ' FAIL: ' + (e.message || 'UNKNOWN_ERROR'));
-            }
-        }
+        // All models route through Pollinations.ai (free, no API key)
+        await _aiPollinations(fullPrompt, btn, cfg.model);
     }
 
     window.aiGenerate = aiGenerate;
@@ -8093,50 +8047,55 @@ var isVideo = nft.forceVideo || (imageUrl.toLowerCase().match(/\.(mp4|webm|mov|o
     setTimeout(injectGeoToTicker, 3000);
 
     // ── PRESENCE MONITOR ──────────────────────────────────────────────────────
-    // Lightweight cloud heartbeat using Puter.js KV.
-    // Each tab gets a unique sessionId; every 45s it writes its timestamp and
-    // reads back all presence_* keys, filtering to those updated within 60s.
+    // Lightweight cross-tab heartbeat via BroadcastChannel API (no server needed).
+    // Puter.js removed — presence tracking is now 100% local / offline-capable.
     (function() {
-        var _presenceId = 'presence_' + Math.random().toString(36).substr(2, 10);
-        var _presenceTimer;
+        var _nodeId    = Math.random().toString(36).substr(2, 10);
+        var _peers     = new Set([_nodeId]);
+        var _pingTimer = null;
 
-        function _presenceHeartbeat() {
-            if (typeof puter === 'undefined' || !puter.kv) return;
-            puter.kv.set(_presenceId, String(Date.now()))
-                .then(function() { return puter.kv.list('presence_'); })
-                .then(function(items) {
-                    if (!Array.isArray(items)) return;
-                    var cutoff = Date.now() - 60000;
-                    // items may be [{key, value}] or bare strings depending on Puter version
-                    var active = items.filter(function(item) {
-                        var ts = parseInt(typeof item === 'object' ? (item.value || '0') : '0', 10);
-                        return ts > cutoff;
-                    });
-                    var el = document.getElementById('presence-count');
-                    if (el) el.textContent = Math.max(1, active.length);
-                })
-                .catch(function() {});
+        function _updateCount() {
+            var el = document.getElementById('presence-count');
+            if (el) el.textContent = _peers.size;
         }
 
-        function _initPresence() {
-            if (typeof puter === 'undefined' || !puter.kv) {
-                setTimeout(_initPresence, 3000);
-                return;
-            }
-            _presenceHeartbeat();
-            _presenceTimer = setInterval(_presenceHeartbeat, 45000);
+        try {
+            var bc = new BroadcastChannel('vngrd_presence');
+
+            bc.onmessage = function(ev) {
+                var d = ev.data || {};
+                if (d.type === 'ping') {
+                    _peers.add(d.id);
+                    bc.postMessage({ type: 'pong', id: _nodeId });
+                } else if (d.type === 'pong') {
+                    _peers.add(d.id);
+                } else if (d.type === 'bye') {
+                    _peers.delete(d.id);
+                }
+                _updateCount();
+            };
+
+            // Broadcast a ping every 30 s; clear stale peers first
+            _pingTimer = setInterval(function() {
+                _peers.clear();
+                _peers.add(_nodeId);
+                bc.postMessage({ type: 'ping', id: _nodeId });
+                setTimeout(_updateCount, 1200);
+            }, 30000);
+
+            window.addEventListener('beforeunload', function() {
+                clearInterval(_pingTimer);
+                bc.postMessage({ type: 'bye', id: _nodeId });
+                bc.close();
+            });
+
+            // Initial ping so other open tabs register this one
+            bc.postMessage({ type: 'ping', id: _nodeId });
+            setTimeout(_updateCount, 1200);
+
+        } catch (e) {
+            // BroadcastChannel not supported (e.g. file:// in Safari) — degrade silently
         }
-
-        // Remove this session's key immediately on tab close
-        window.addEventListener('beforeunload', function() {
-            clearInterval(_presenceTimer);
-            if (typeof puter !== 'undefined' && puter.kv) {
-                puter.kv.del(_presenceId).catch(function() {});
-            }
-        });
-
-        // Delay start until Puter has had time to initialize
-        setTimeout(_initPresence, 4000);
     })();
     // ── END PRESENCE MONITOR ──────────────────────────────────────────────────
 
@@ -8764,32 +8723,40 @@ if (btn3dX) {
 
 <script>
 /* ═══════════════════════════════════════════════════════════════════════
-   MCR // SIGNAL_CENTRAL  —  WebSocket Bridge
+   MCR // SIGNAL_CENTRAL  —  WebSocket Bridge  v2  (local, free, no Puter)
    -----------------------------------------------------------------------
-   Connects to the DRIS//CORE FastAPI backend.
-   Protocol matches backend/main.py ws_transcribe() exactly:
+   Signal chain:
+     Browser getUserMedia → MediaRecorder (webm/opus, 4-s chunks)
+       → binary WebSocket → main.py (SpeechRecognition + deep-translator)
+         → JSON results → HUD slots
 
-   Client → Server (JSON):
-     { action: "start", target_lang: "nl", source_lang: "en" }
-     { action: "stop" }
+   Client → Server:
+     JSON text : { action:"start", target_lang:"nl", source_lang:"en" }
+                 { action:"stop" }
+     Binary    : Raw webm audio chunks from MediaRecorder.ondataavailable
 
    Server → Client (JSON):
-     { type: "status",      message: "..." }
-     { type: "transcript",  original: "...", timestamp: 0.0 }
-     { type: "translation", text: "...", lang: "nl", ... }
-     { type: "srt_ready",   filename: "...", content: "..." }
-     { type: "error",       message: "..." }
+     { type:"status",      message:"..." }
+     { type:"transcript",  original:"...", timestamp:0.0 }
+     { type:"translation", text:"...", lang:"nl", start:0.0, end:4.0 }
+     { type:"srt_ready",   filename:"...", content:"..." }
+     { type:"error",       message:"..." }
    ═══════════════════════════════════════════════════════════════════════ */
 (function () {
     'use strict';
 
-    var WS_URL      = 'ws://localhost:8000/ws/transcribe';
-    var RECONNECT   = 3500;    // ms between reconnect attempts
+    var WS_URL     = 'ws://localhost:8000/ws/transcribe';
+    var RECONNECT  = 3500;     // ms between reconnect attempts
+    var CHUNK_MS   = 4000;     // MediaRecorder timeslice — must match CHUNK_SEC in main.py
 
-    var ws          = null;
-    var onAir       = false;
-    var targetLang  = 'nl';    // matches default .sel lang button
-    var reconnTimer = null;
+    var ws         = null;
+    var onAir      = false;
+    var targetLang = 'nl';
+    var reconnTimer= null;
+
+    // Audio capture state
+    var micStream    = null;
+    var mediaRec     = null;
 
     /* ── DOM refs ─────────────────────────────────────────────────────── */
     var btnOnAir  = document.getElementById('btn-on-air');
@@ -8806,10 +8773,9 @@ if (btn3dX) {
     var mcrDot    = document.getElementById('mcr-on-air-dot');
     var langBtns  = document.querySelectorAll('.mcr-lang-btn');
 
-    /* ── Helpers ──────────────────────────────────────────────────────── */
+    /* ── UI helpers ───────────────────────────────────────────────────── */
 
     function setWsState(state) {
-        // state: 'connecting' | 'connected' | 'error' | 'off'
         if (!wsLed || !mcrStatus) return;
         wsLed.className = '';
         if (state === 'connected') {
@@ -8832,39 +8798,22 @@ if (btn3dX) {
     function setOnAirUI(active) {
         onAir = active;
         if (!btnOnAir) return;
-
         btnOnAir.textContent = active ? 'ON-AIR' : 'OFF-AIR';
         btnOnAir.classList.toggle('active', active);
-
         if (mcrDot) mcrDot.classList.toggle('hot', active);
-
-        /* Lock / unlock language buttons */
-        langBtns.forEach(function (b) {
-            b.disabled = active;
-        });
-
+        langBtns.forEach(function (b) { b.disabled = active; });
         if (active) {
-            if (mcrStatus) {
-                mcrStatus.classList.add('hot');
-                mcrStatus.textContent = 'MCR: ON-AIR \u25B6 ' + targetLang.toUpperCase();
-            }
+            if (mcrStatus) { mcrStatus.classList.add('hot'); mcrStatus.textContent = 'MCR: ON-AIR \u25B6 ' + targetLang.toUpperCase(); }
             if (hud) hud.classList.add('visible');
         } else {
-            if (mcrStatus) {
-                mcrStatus.classList.remove('hot');
-                mcrStatus.textContent = 'MCR: STANDBY \u25FC';
-            }
+            if (mcrStatus) { mcrStatus.classList.remove('hot'); mcrStatus.textContent = 'MCR: STANDBY \u25FC'; }
             if (hud) hud.classList.remove('visible');
         }
-
-        /* Notify GHOST terminal if available */
         if (typeof ghostLog === 'function') {
-            ghostLog(
-                active
-                    ? 'GHOST> MCR ON-AIR \u2014 streaming EN\u2192' + targetLang.toUpperCase()
-                    : 'GHOST> MCR STANDBY \u2014 signal stopped',
-                active ? 'ok' : 'info'
-            );
+            ghostLog(active
+                ? 'GHOST> MCR ON-AIR \u2014 mic → ws://localhost:8000 → HUD'
+                : 'GHOST> MCR STANDBY \u2014 signal stopped',
+                active ? 'ok' : 'info');
         }
     }
 
@@ -8872,12 +8821,9 @@ if (btn3dX) {
         if (hudEN) hudEN.textContent = '';
         Object.keys(hudSlots).forEach(function (k) {
             var el = hudSlots[k];
-            if (el) {
-                el.textContent = '';
-                el.classList.remove('hud-new');
-                var slot = el.closest('.hud-lang-slot');
-                if (slot) slot.classList.remove('fresh');
-            }
+            if (el) { el.textContent = ''; el.classList.remove('hud-new'); }
+            var slot = el && el.closest('.hud-lang-slot');
+            if (slot) slot.classList.remove('fresh');
         });
     }
 
@@ -8885,7 +8831,6 @@ if (btn3dX) {
         if (!el) return;
         el.textContent = text;
         el.classList.remove('hud-new');
-        /* Force reflow to re-trigger animation */
         void el.offsetWidth;
         el.classList.add('hud-new');
     }
@@ -8895,94 +8840,126 @@ if (btn3dX) {
         var slot = el && el.closest('.hud-lang-slot');
         if (!el) return;
         flashText(el, text);
-        if (slot) {
-            slot.classList.add('fresh');
-            setTimeout(function () { slot.classList.remove('fresh'); }, 1400);
+        if (slot) { slot.classList.add('fresh'); setTimeout(function () { slot.classList.remove('fresh'); }, 1400); }
+    }
+
+    /* ── Mic capture ──────────────────────────────────────────────────── */
+
+    async function startMicCapture() {
+        if (micStream) return;
+
+        try {
+            micStream = await navigator.mediaDevices.getUserMedia({
+                audio: {
+                    echoCancellation : true,
+                    noiseSuppression : true,
+                    autoGainControl  : true,
+                    channelCount     : 1,
+                    sampleRate       : 16000,
+                },
+                video: false,
+            });
+        } catch (e) {
+            var reason = e.name === 'NotAllowedError' ? 'PERMISSION_DENIED' : (e.message || e.name);
+            if (typeof ghostLog === 'function') ghostLog('MCR MIC: ' + reason, 'crit');
+            if (mcrStatus) mcrStatus.textContent = 'MIC: ' + reason.substring(0, 22);
+            setOnAirUI(false);
+            return;
         }
+
+        // Pick the best compressed format the browser supports
+        var mimeType = ['audio/webm;codecs=opus', 'audio/webm', 'audio/ogg;codecs=opus', 'audio/ogg']
+            .find(function (t) { return MediaRecorder.isTypeSupported(t); }) || '';
+
+        mediaRec = new MediaRecorder(micStream, mimeType ? { mimeType: mimeType } : {});
+
+        mediaRec.ondataavailable = function (e) {
+            if (!e.data || e.data.size < 100) return;   // skip tiny / empty chunks
+            if (!ws || ws.readyState !== WebSocket.OPEN) return;
+            // Send raw audio blob as binary WebSocket frame
+            e.data.arrayBuffer().then(function (buf) {
+                if (ws && ws.readyState === WebSocket.OPEN) ws.send(buf);
+            }).catch(function () {});
+        };
+
+        mediaRec.onerror = function (e) {
+            if (typeof ghostLog === 'function') ghostLog('MediaRecorder ERR: ' + (e.error || e), 'crit');
+        };
+
+        // Fire ondataavailable every CHUNK_MS (4 s)
+        mediaRec.start(CHUNK_MS);
+
+        if (typeof ghostLog === 'function') {
+            ghostLog('GHOST> mic → webm chunks every ' + (CHUNK_MS / 1000) + 's → WS', 'ok');
+        }
+    }
+
+    function stopMicCapture() {
+        if (mediaRec && mediaRec.state !== 'inactive') {
+            try { mediaRec.stop(); } catch (e) {}
+        }
+        if (micStream) {
+            micStream.getTracks().forEach(function (t) { t.stop(); });
+            micStream = null;
+        }
+        mediaRec = null;
     }
 
     /* ── WebSocket lifecycle ──────────────────────────────────────────── */
 
     function connect() {
-        if (ws && (ws.readyState === WebSocket.OPEN ||
-                   ws.readyState === WebSocket.CONNECTING)) return;
-
+        if (ws && (ws.readyState === WebSocket.OPEN || ws.readyState === WebSocket.CONNECTING)) return;
         setWsState('connecting');
+        try { ws = new WebSocket(WS_URL); }
+        catch (e) { setWsState('error'); scheduleReconnect(); return; }
 
-        try {
-            ws = new WebSocket(WS_URL);
-        } catch (e) {
-            setWsState('error');
-            scheduleReconnect();
-            return;
-        }
+        ws.binaryType = 'arraybuffer';
 
         ws.onopen = function () {
             setWsState('connected');
             clearTimeout(reconnTimer);
-            /* If the page reloaded mid-broadcast, reset state cleanly */
-            if (onAir) setOnAirUI(false);
-            if (typeof ghostLog === 'function') {
-                ghostLog('GHOST> MCR WS bridge online \u2192 ' + WS_URL, 'ok');
-            }
+            if (onAir) { stopMicCapture(); setOnAirUI(false); }   // reset on reconnect
+            if (typeof ghostLog === 'function') ghostLog('GHOST> MCR WS bridge online \u2192 ' + WS_URL, 'ok');
         };
 
         ws.onclose = function () {
             setWsState('off');
-            if (onAir) setOnAirUI(false);
+            if (onAir) { stopMicCapture(); setOnAirUI(false); }
             scheduleReconnect();
         };
 
-        ws.onerror = function () {
-            setWsState('error');
-            /* onclose fires immediately after; it handles reconnect */
-        };
+        ws.onerror = function () { setWsState('error'); };
 
         ws.onmessage = function (ev) {
             var data;
             try { data = JSON.parse(ev.data); } catch (e) { return; }
-
             switch (data.type) {
-
                 case 'status':
-                    if (mcrStatus && !onAir) {
-                        mcrStatus.textContent = (data.message || 'READY')
-                            .substring(0, 36);
-                    }
-                    if (typeof ghostLog === 'function') {
-                        ghostLog(data.message, 'ok');
-                    }
+                    if (mcrStatus && !onAir) mcrStatus.textContent = (data.message || 'READY').substring(0, 36);
+                    if (typeof ghostLog === 'function') ghostLog(data.message, 'ok');
                     break;
-
                 case 'transcript':
-                    /* Raw English — primary slot, arrives before translations */
-                    if (hudEN && data.original) {
-                        flashText(hudEN, data.original);
-                    }
+                    if (hudEN && data.original) flashText(hudEN, data.original);
                     break;
-
                 case 'translation':
                     var lang = data.lang ? data.lang.toLowerCase() : null;
-                    if (lang && hudSlots[lang] && data.text) {
-                        flashSlot(lang, data.text);
-                    }
+                    if (lang && hudSlots[lang] && data.text) flashSlot(lang, data.text);
                     break;
-
                 case 'srt_ready':
-                    if (typeof ghostLog === 'function') {
-                        ghostLog(
-                            'GHOST> SRT exported: ' + (data.filename || 'unknown'),
-                            'ok'
-                        );
+                    if (data.content && data.filename) {
+                        var blob = new Blob([data.content], { type: 'text/plain;charset=utf-8' });
+                        var a    = document.createElement('a');
+                        a.href     = URL.createObjectURL(blob);
+                        a.download = data.filename;
+                        a.click();
+                        URL.revokeObjectURL(a.href);
                     }
+                    if (typeof ghostLog === 'function') ghostLog('GHOST> SRT exported: ' + (data.filename || '?'), 'ok');
                     break;
-
                 case 'error':
-                    var msg = (data.message || 'UNKNOWN ERROR').substring(0, 40);
+                    var msg = (data.message || 'UNKNOWN').substring(0, 40);
                     if (mcrStatus) mcrStatus.textContent = 'ERR: ' + msg;
-                    if (typeof ghostLog === 'function') {
-                        ghostLog('MCR ERR: ' + msg, 'crit');
-                    }
+                    if (typeof ghostLog === 'function') ghostLog('MCR ERR: ' + msg, 'crit');
                     break;
             }
         };
@@ -8996,7 +8973,7 @@ if (btn3dX) {
     /* ── Language selector ────────────────────────────────────────────── */
     langBtns.forEach(function (btn) {
         btn.addEventListener('click', function () {
-            if (onAir) return;   /* locked while broadcasting */
+            if (onAir) return;
             targetLang = btn.dataset.lang || 'nl';
             langBtns.forEach(function (b) { b.classList.remove('sel'); });
             btn.classList.add('sel');
@@ -9009,25 +8986,20 @@ if (btn3dX) {
             if (!ws || ws.readyState !== WebSocket.OPEN) {
                 setWsState('error');
                 if (typeof ghostLog === 'function') {
-                    ghostLog(
-                        'MCR: Backend offline \u2014 run: python system_init.py',
-                        'crit'
-                    );
+                    ghostLog('MCR: backend offline \u2014 run: python system_init.py', 'crit');
                 }
                 return;
             }
 
             if (!onAir) {
-                /* ── START_MIC ── */
+                // ── START: tell server, open mic, begin streaming audio chunks ──
                 clearHUD();
-                ws.send(JSON.stringify({
-                    action      : 'start',
-                    target_lang : targetLang,
-                    source_lang : 'en',
-                }));
+                ws.send(JSON.stringify({ action: 'start', target_lang: targetLang, source_lang: 'en' }));
                 setOnAirUI(true);
+                startMicCapture();   // browser mic → binary WebSocket frames
             } else {
-                /* ── STOP_MIC ── */
+                // ── STOP: drain final chunk, tell server ──
+                stopMicCapture();
                 ws.send(JSON.stringify({ action: 'stop' }));
                 setOnAirUI(false);
             }
