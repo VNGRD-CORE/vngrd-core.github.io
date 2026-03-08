@@ -156,6 +156,27 @@
         @keyframes hollow-pulse { from { stroke-opacity: 1; } to { stroke-opacity: 0.3; } }
         @keyframes chromatic-shake { 0% { transform: translate(1px, 0); } 50% { transform: translate(-1px, 0); } 100% { transform: translate(1px, 0); } }
 
+        /* ── SVG LOGO TEMPLATE STYLES ─────────────────────────────────── */
+        @keyframes svg-scan-line { 0% { transform: translateY(0); opacity: 0.9; } 50% { opacity: 0.5; } 100% { transform: translateY(60px); opacity: 0; } }
+        @keyframes svg-ring-spin { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }
+        #vngrd-svg-templates { display: none; }
+        .vngrd-svg-tpl { display: none; pointer-events: none; }
+        .vngrd-svg-tpl.active { display: block; }
+        #vngrd-svg-stage {
+            position: absolute; bottom: 12px; right: 12px;
+            width: 200px; height: 80px;
+            z-index: 3100; pointer-events: none;
+            display: none;
+            will-change: transform;
+        }
+        #vngrd-svg-stage.active { display: block; }
+        #vngrd-svg-stage svg { width: 100%; height: 100%; }
+        .vngrd-text-target { user-select: none; -webkit-user-select: none; }
+        .vngrd-core-scan { animation: svg-scan-line 1.8s linear infinite; }
+        .vngrd-ring-spin { transform-origin: 50% 50%; animation: svg-ring-spin 4s linear infinite; }
+        /* GPU-composite the SVG stage via pulse-glow */
+        #vngrd-svg-stage { filter: drop-shadow(0 0 6px var(--accent)); animation: pulse-glow 2s infinite; }
+
         .sub-tag { font-size: 11px; letter-spacing: 3px; color: var(--accent); margin-left: 10px; opacity: 0.7; position: relative; display: inline-block; overflow: hidden; }
         .sub-tag::after { content: ''; position: absolute; top: 0; left: -100%; width: 50%; height: 100%; background: linear-gradient(90deg, transparent, rgba(255,255,255,0.3), transparent); animation: vngrd-shine 8s ease-in-out infinite; }
         @keyframes vngrd-shine { 0%, 85%, 100% { left: -100%; opacity: 0; } 90%, 95% { opacity: 1; } 92% { left: 150%; } }
@@ -1661,6 +1682,114 @@ body.fullscreen #transcription-hud { opacity: 0 !important; pointer-events: none
                     <button class="btn" id="btn-3d-x" title="Hide/Clear 3D">[X]</button>
                 </div>
                 <input type="file" id="file-3d-logo" accept=".obj,.fbx,.stl,.amf,.igs,.iges" style="display:none;">
+
+                <!-- ── ANIMATED SVG LOGO TEMPLATES ─────────────────── -->
+                <!-- Hidden template library (not rendered here; composited to canvas) -->
+                <div id="vngrd-svg-templates">
+                    <!-- TEMPLATE A: CORE — Industrial scan-line design -->
+                    <svg id="vngrd-tpl-core" class="vngrd-svg-tpl" xmlns="http://www.w3.org/2000/svg"
+                         viewBox="0 0 200 80" aria-hidden="true">
+                        <defs>
+                            <filter id="tpl-glow-core">
+                                <feGaussianBlur stdDeviation="2" result="blur"/>
+                                <feMerge><feMergeNode in="blur"/><feMergeNode in="SourceGraphic"/></feMerge>
+                            </filter>
+                        </defs>
+                        <!-- Frame -->
+                        <rect x="1" y="1" width="198" height="78" rx="3"
+                              fill="none" stroke="var(--accent)" stroke-width="1.2" opacity="0.8"/>
+                        <!-- Corner ticks -->
+                        <path d="M1,12 L1,1 L12,1 M188,1 L199,1 L199,12 M1,68 L1,79 L12,79 M188,79 L199,79 L199,68"
+                              fill="none" stroke="var(--accent)" stroke-width="1.5"/>
+                        <!-- Scan line (animated) -->
+                        <rect class="vngrd-core-scan" x="2" y="2" width="196" height="2"
+                              fill="var(--accent)" opacity="0.6"/>
+                        <!-- Signal bars -->
+                        <rect x="8" y="56" width="3" height="16" fill="var(--accent)" opacity="0.9"/>
+                        <rect x="13" y="50" width="3" height="22" fill="var(--accent)" opacity="0.9"/>
+                        <rect x="18" y="44" width="3" height="28" fill="var(--accent)" opacity="0.7"/>
+                        <rect x="23" y="60" width="3" height="12" fill="var(--accent)" opacity="0.4"/>
+                        <!-- Label -->
+                        <text x="36" y="66" font-family="'Courier New',monospace" font-size="7"
+                              fill="var(--accent)" opacity="0.6" class="vngrd-text-target">SIG//LIVE</text>
+                        <!-- Main identity text -->
+                        <text class="vngrd-text-target" x="8" y="40"
+                              font-family="'Orbitron','Courier New',monospace" font-weight="800"
+                              font-size="22" fill="var(--accent)" filter="url(#tpl-glow-core)"
+                              style="user-select:none;-webkit-user-select:none;">VNGRD</text>
+                        <!-- Sub-label right -->
+                        <text x="120" y="72" font-family="'Courier New',monospace" font-size="7"
+                              fill="var(--accent)" opacity="0.5" class="vngrd-text-target">CORE//BROADCAST</text>
+                    </svg>
+
+                    <!-- TEMPLATE B: HUD — Rotating tech-ring vector design -->
+                    <svg id="vngrd-tpl-hud" class="vngrd-svg-tpl" xmlns="http://www.w3.org/2000/svg"
+                         viewBox="0 0 200 80" aria-hidden="true">
+                        <defs>
+                            <filter id="tpl-glow-hud">
+                                <feGaussianBlur stdDeviation="2.5" result="blur"/>
+                                <feMerge><feMergeNode in="blur"/><feMergeNode in="SourceGraphic"/></feMerge>
+                            </filter>
+                        </defs>
+                        <!-- Rotating tech-ring -->
+                        <g transform="translate(170,40)">
+                            <g class="vngrd-ring-spin">
+                                <animateTransform attributeName="transform" type="rotate"
+                                    from="0 0 0" to="360 0 0" dur="4s" repeatCount="indefinite"/>
+                                <circle cx="0" cy="0" r="28" fill="none"
+                                        stroke="var(--accent)" stroke-width="1" stroke-dasharray="8 4" opacity="0.7"/>
+                                <circle cx="0" cy="0" r="22" fill="none"
+                                        stroke="var(--accent-glow,var(--accent))" stroke-width="0.5"
+                                        stroke-dasharray="3 9" opacity="0.4"/>
+                                <!-- Ring tick markers -->
+                                <line x1="0" y1="-28" x2="0" y2="-24" stroke="var(--accent)" stroke-width="1.5"/>
+                                <line x1="28" y1="0" x2="24" y2="0" stroke="var(--accent)" stroke-width="1.5"/>
+                                <line x1="0" y1="28" x2="0" y2="24" stroke="var(--accent)" stroke-width="1.5"/>
+                                <line x1="-28" y1="0" x2="-24" y2="0" stroke="var(--accent)" stroke-width="1.5"/>
+                            </g>
+                            <!-- Inner static crosshair -->
+                            <circle cx="0" cy="0" r="4" fill="var(--accent)" opacity="0.9"
+                                    filter="url(#tpl-glow-hud)"/>
+                            <line x1="-8" y1="0" x2="8" y2="0" stroke="var(--accent)" stroke-width="0.8"/>
+                            <line x1="0" y1="-8" x2="0" y2="8" stroke="var(--accent)" stroke-width="0.8"/>
+                        </g>
+                        <!-- HUD frame lines -->
+                        <line x1="2" y1="2" x2="130" y2="2" stroke="var(--accent)" stroke-width="0.8" opacity="0.5"/>
+                        <line x1="2" y1="78" x2="130" y2="78" stroke="var(--accent)" stroke-width="0.8" opacity="0.5"/>
+                        <line x1="2" y1="2" x2="2" y2="78" stroke="var(--accent)" stroke-width="0.8" opacity="0.5"/>
+                        <!-- Status indicators -->
+                        <circle cx="12" cy="12" r="3" fill="var(--accent)" opacity="0.8">
+                            <animate attributeName="opacity" values="0.8;0.2;0.8" dur="1.2s" repeatCount="indefinite"/>
+                        </circle>
+                        <text x="20" y="16" font-family="'Courier New',monospace" font-size="7"
+                              fill="var(--accent)" opacity="0.6" class="vngrd-text-target">ON_AIR</text>
+                        <!-- Main identity text -->
+                        <text class="vngrd-text-target" x="8" y="52"
+                              font-family="'Orbitron','Courier New',monospace" font-weight="800"
+                              font-size="24" fill="var(--accent)" filter="url(#tpl-glow-hud)"
+                              style="user-select:none;-webkit-user-select:none;">VNGRD</text>
+                        <!-- Sub-label -->
+                        <text x="8" y="68" font-family="'Courier New',monospace" font-size="7"
+                              fill="var(--accent)" opacity="0.5" class="vngrd-text-target">HUD//VECTOR</text>
+                    </svg>
+                </div>
+
+                <!-- SVG template live stage (composited to canvas) -->
+                <div id="vngrd-svg-stage" aria-hidden="true"></div>
+
+                <!-- ── SIGNATURE + TEMPLATE SELECTOR ─────────────────── -->
+                <div class="lbl" style="margin-top:10px;font-size:7px;opacity:0.5;">SIGNATURE</div>
+                <input type="text" class="inp" id="vngrd-signature" placeholder="VNGRD"
+                       maxlength="32" autocomplete="off" spellcheck="false"
+                       style="margin-bottom:6px;">
+                <div class="lbl" style="font-size:7px;opacity:0.5;">SVG_TEMPLATE</div>
+                <select class="inp" id="vngrd-tpl-select"
+                        style="width:100%;font-size:9px;padding:5px;background:var(--panel);
+                               border:1px solid var(--border);color:var(--text);margin-bottom:2px;">
+                    <option value="OFF">OFF</option>
+                    <option value="TEMPLATE_A">TEMPLATE_A // CORE</option>
+                    <option value="TEMPLATE_B">TEMPLATE_B // HUD</option>
+                </select>
             </div>
         </div>
 
@@ -1959,6 +2088,7 @@ const APP = {
         logo3d: { x: 0.40, y: 0.015, scale: 2.0, visible: false },
     },
     lowerThird: { visible: false, preset: 'guest' },
+    svgLogo: { activeTemplate: 'OFF', customText: 'VNGRD', svgCanvas: null },
     ui: { logoMorph: 0, morphs: ['m1','m2','m3','m4','m5','m6'] },
     ghost: { seismicEnergy: 0, nodesSecured: 0, directoryHandle: null },
     crypto: { ids: 'bitcoin,ethereum,solana,dogecoin' },
@@ -3487,7 +3617,23 @@ function renderLoop(timestamp) {
         } catch(e3d) {}
     }
 
-
+    // ACTOR 4: SVG LOGO TEMPLATE (rasterised offscreen → drawImage composite)
+    if (APP.svgLogo && APP.svgLogo.activeTemplate !== 'OFF' && APP.svgLogo.svgCanvas) {
+        try {
+            var sc = APP.svgLogo.svgCanvas;
+            if (sc.width > 0 && sc.height > 0) {
+                ctx.save();
+                ctx.globalAlpha = 0.92;
+                // Bottom-right quadrant, proportional to canvas
+                var svgW = Math.round(200 * (w / 1920));
+                var svgH = Math.round(80  * (h / 1080));
+                var svgX = w - svgW - Math.round(12 * (w / 1920));
+                var svgY = h - svgH - Math.round(12 * (h / 1080));
+                ctx.drawImage(sc, svgX, svgY, svgW, svgH);
+                ctx.restore();
+            }
+        } catch(esvg) {}
+    }
 
     // ══════════════════════════════════════════════════
     // BURN-IN LOWER THIRD — Premium Broadcast Canvas Render
@@ -4126,6 +4272,90 @@ if ($('btn-2d-x')) {
 }
 
 // 3D LOGO handled by module script at end of file (Three.js importmap + lazy loaders)
+
+// ── SVG LOGO TEMPLATE HELPERS ──────────────────────────────────────────────
+
+// Rasterise the active SVG template to an offscreen canvas for drawImage use
+function _rasteriseSvgTemplate(tplId, callback) {
+    var svgEl = $(tplId);
+    if (!svgEl) { if (callback) callback(null); return; }
+    var svgStr = new XMLSerializer().serializeToString(svgEl);
+    var blob = new Blob([svgStr], { type: 'image/svg+xml;charset=utf-8' });
+    var url  = URL.createObjectURL(blob);
+    var img  = new Image();
+    img.onload = function() {
+        var oc = document.createElement('canvas');
+        oc.width = 400; oc.height = 160; // 2x for HiDPI clarity
+        oc.getContext('2d').drawImage(img, 0, 0, oc.width, oc.height);
+        URL.revokeObjectURL(url);
+        if (callback) callback(oc);
+    };
+    img.onerror = function() { URL.revokeObjectURL(url); if (callback) callback(null); };
+    img.src = url;
+}
+
+// Activate or deactivate an SVG template by key ('OFF','TEMPLATE_A','TEMPLATE_B')
+function _activateSvgTemplate(key) {
+    APP.svgLogo.activeTemplate = key;
+    var stage = $('vngrd-svg-stage');
+
+    // Update select UI
+    if ($('vngrd-tpl-select')) $('vngrd-tpl-select').value = key;
+
+    if (key === 'OFF') {
+        if (stage) { stage.classList.remove('active'); stage.innerHTML = ''; }
+        APP.svgLogo.svgCanvas = null;
+        return;
+    }
+
+    var tplId = (key === 'TEMPLATE_A') ? 'vngrd-tpl-core' : 'vngrd-tpl-hud';
+    var svgEl  = $(tplId);
+    if (!svgEl) return;
+
+    // Clone into the live stage div for DOM display
+    if (stage) {
+        stage.innerHTML = '';
+        stage.appendChild(svgEl.cloneNode(true));
+        stage.classList.add('active');
+    }
+
+    // Rasterise to offscreen canvas for vj-canvas compositing
+    _rasteriseSvgTemplate(tplId, function(oc) {
+        APP.svgLogo.svgCanvas = oc;
+    });
+}
+
+// Push new text into all .vngrd-text-target nodes across both templates
+function _applySignatureText(text) {
+    APP.svgLogo.customText = text || 'VNGRD';
+    // Update hidden library SVGs
+    var tpls = document.querySelectorAll('#vngrd-svg-templates .vngrd-text-target');
+    tpls.forEach(function(el) {
+        // Only replace the main identity node (the largest font-size), leave sub-labels
+        if (parseFloat(el.getAttribute('font-size') || '0') >= 20) el.textContent = APP.svgLogo.customText;
+    });
+    // Re-rasterise if a template is active
+    if (APP.svgLogo.activeTemplate !== 'OFF') {
+        _activateSvgTemplate(APP.svgLogo.activeTemplate);
+    }
+}
+
+// Wire up SIGNATURE input (real-time update)
+if ($('vngrd-signature')) {
+    $('vngrd-signature').addEventListener('input', function() {
+        _applySignatureText(this.value.toUpperCase() || 'VNGRD');
+    });
+    // Initialise display value
+    $('vngrd-signature').value = APP.svgLogo.customText;
+}
+
+// Wire up template selector
+if ($('vngrd-tpl-select')) {
+    $('vngrd-tpl-select').addEventListener('change', function() {
+        _activateSvgTemplate(this.value);
+        log('SVG_TPL: ' + this.value);
+    });
+}
 
 // MEDIA & CYCLE LOGIC
 function loadMediaFiles(input) {
@@ -4975,6 +5205,10 @@ function _buildSessionSnapshot() {
             preset:  APP.lowerThird.preset,
             visible: APP.lowerThird.visible
         },
+        svgLogo: {
+            activeTemplate: APP.svgLogo.activeTemplate,
+            customText:     APP.svgLogo.customText
+        },
         timestamp: Date.now()
     };
 }
@@ -5005,6 +5239,14 @@ function _applySessionSnapshot(s) {
     if ($('sl-c')) $('sl-c').value = Math.round(APP.vj.contrast  * 100);
     if ($('sl-s')) $('sl-s').value = Math.round(APP.vj.saturation * 100);
     if ($('sl-h')) $('sl-h').value = APP.vj.hue;
+    if (s.svgLogo) {
+        APP.svgLogo.activeTemplate = s.svgLogo.activeTemplate || 'OFF';
+        APP.svgLogo.customText     = s.svgLogo.customText     || 'VNGRD';
+        if ($('vngrd-tpl-select'))  $('vngrd-tpl-select').value = APP.svgLogo.activeTemplate;
+        if ($('vngrd-signature'))   $('vngrd-signature').value  = APP.svgLogo.customText;
+        _applySignatureText(APP.svgLogo.customText);
+        _activateSvgTemplate(APP.svgLogo.activeTemplate);
+    }
 }
 
 // localStorage key scoped to wallet address (Web3 identity preserved)
