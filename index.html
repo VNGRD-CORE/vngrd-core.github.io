@@ -1170,7 +1170,7 @@ body.fx-nvg #stage::after {
 }
 
 /* ═══════════════════════════════════════════════════════════════
-   MCR // SIGNAL_CENTRAL  —  On-Air Tally + Transcription HUD
+   POLYTRANSLATOR // V1.0_SYNC  —  On-Air Tally + Transcription HUD
    ═══════════════════════════════════════════════════════════════ */
 
 /* ── Tally pulse — heavy red broadcast lamp breathing ──────── */
@@ -1315,14 +1315,14 @@ body.fx-nvg #stage::after {
     align-items: center;
     gap: 5px;
     padding: 0 16px;
-    /* Hidden by default — JS adds .visible */
+    /* Stealth Mode — hidden off-screen by default */
+    transform: translateY(120%);
     opacity: 0;
-    transform: translateY(10px);
-    transition: opacity 0.3s ease, transform 0.3s ease;
+    transition: opacity 0.4s ease, transform 0.4s cubic-bezier(0.22, 1, 0.36, 1);
 }
-#transcription-hud.visible {
-    opacity: 1;
+#transcription-hud.hud-active {
     transform: translateY(0);
+    opacity: 1;
 }
 
 /* CRT scanline wash over the whole HUD */
@@ -1525,6 +1525,12 @@ body.fullscreen #transcription-hud { opacity: 0 !important; pointer-events: none
     
     <!-- Camera preview moved inline into sidebar CAMERA_4K section -->
 
+    <!-- IMAGE LIGHTBOX OVERLAY -->
+    <div id="img-lightbox" onclick="closeLightbox()" style="display:none;position:fixed;top:0;left:0;width:100%;height:100%;background:rgba(0,0,0,0.93);z-index:9999;cursor:zoom-out;align-items:center;justify-content:center;flex-direction:column;">
+        <img id="img-lightbox-src" style="max-width:95vw;max-height:88vh;object-fit:contain;box-shadow:0 0 40px rgba(0,255,255,0.15);border:1px solid rgba(0,255,255,0.1);" onclick="event.stopPropagation()">
+        <div style="margin-top:10px;font-family:'JetBrains Mono',monospace;font-size:9px;color:rgba(255,255,255,0.35);letter-spacing:2px;">CLICK OUTSIDE TO CLOSE &nbsp;|&nbsp; ESC</div>
+    </div>
+
     <div id="ghost-terminal">
         <div id="ghost-terminal-header">
             <span id="ghost-terminal-title">GHOST://COMMAND_INTERFACE</span>
@@ -1584,6 +1590,7 @@ body.fullscreen #transcription-hud { opacity: 0 !important; pointer-events: none
                     <button class="btn btn-compact warn" id="btn-clear-deck" style="font-size:8px;">CLEAR</button>
                     <button class="btn btn-compact panic" id="btn-panic" style="font-size:8px;" title="PANIC KILL [ESC]">[ESC]</button>
                 </div>
+                <button class="btn btn-compact" id="btn-zoom-img" style="width:100%;margin-top:4px;font-size:8px;display:none;" title="View current image full screen">&#x1F50D; ZOOM IMAGE</button>
             </div>
         </div>
          <div class="section">
@@ -1672,10 +1679,10 @@ body.fullscreen #transcription-hud { opacity: 0 !important; pointer-events: none
 
     <aside class="sidebar" id="right-panel">
 
-        <!-- ── MCR // SIGNAL_CENTRAL ─────────────────────────── -->
+        <!-- ── POLYTRANSLATOR // V1.0_SYNC ─────────────────────────── -->
         <div class="section" id="mcr-section">
             <div class="sec-head">
-                <span class="sec-title">MCR // SIGNAL_CENTRAL</span>
+                <span class="sec-title">POLYTRANSLATOR // V1.0_SYNC</span>
                 <div id="mcr-on-air-dot"></div>
             </div>
             <div class="sec-body">
@@ -1828,7 +1835,7 @@ body.fullscreen #transcription-hud { opacity: 0 !important; pointer-events: none
     </div>
 
     <!-- ══════════════════════════════════════════════════════════
-         TRANSCRIPTION HUD OVERLAY — DRIS//CORE SIGNAL_CENTRAL
+         TRANSCRIPTION HUD OVERLAY — DRIS//CORE POLYTRANSLATOR V1.0_SYNC
          Sits above #bottom-bar, between the sidebars.
          Visibility controlled by JS (.visible class).
          pointer-events:none so VJ canvas stays fully interactive.
@@ -1927,14 +1934,14 @@ window.VANGUARD_BUILD = '2026-02-09T' + Date.now();
 console.log('[VNGRD] Version ' + window.VANGUARD_VERSION + ' build ' + window.VANGUARD_BUILD);
 
 const APP = {
-    state: { isLive: false, isRecording: false, isFullscreen: false, isCycle: false, cycleTimer: null, isMobile: false, theme: 'cyan', startTime: Date.now(), psychosis: false },
+    state: { isLive: false, isRecording: false, isFullscreen: false, isCycle: false, cycleTimer: null, isMobile: false, theme: 'cyan', startTime: Date.now(), psychosis: false, showMediaStrips: true },
     vj: { 
         brightness: 1.0, contrast: 1.0, saturation: 1.0, hue: 0, trailsEnabled: false, trailAlpha: 0.92, rgbEnabled: false, rgbIntensity: 0, rgbBassLink: false, pixelateEnabled: false, pixelSize: 1, rumbleEnabled: false, invert: false, uiReactivity: false, shakeIntensity: 0, shockwave: 0, lastBassLevel: 0, avgVol: 0, maskMode: false, glitchSnap: 0,
         seismicVelocity: 0, seismicPosition: 0, springConstant: 0.8, damping: 0.9
     },
     media: { queue: [], currentIndex: -1, currentElement: null },
     fx: { stutter: false, crush: false, invert: false, echo: false, rgbSplit: 0, freezeFrame: null },
-    audio: { ctx: null, analyzer: null, source: null, element: null, playlist: [], currentTrack: -1, currentTrackName: '', bassLevel: 0, vuData: new Uint8Array(32), isPlaying: false, isConnected: false, videoSource: null, videoMuted: false, spatialMode: 'stereo', panner: null, compressor: null, masterGain: null, lowShelf: null, highShelf: null, spatialInterval: null, recorderDest: null },
+    audio: { ctx: null, analyzer: null, source: null, element: null, playlist: [], currentTrack: -1, currentTrackName: '', bassLevel: 0, vuData: new Uint8Array(32), isPlaying: false, isConnected: false, videoSource: null, videoMuted: false, videoGain: null, spatialMode: 'stereo', panner: null, compressor: null, masterGain: null, lowShelf: null, highShelf: null, spatialInterval: null, recorderDest: null },
     projector: { window: null, stream: null, isOpen: false },
     nft: { recorder: null, chunks: [], isRecording: false, startTime: 0, duration: 30000, dnaSnapshot: null, audioDest: null },
     broadcast: { recorder: null, chunks: [], isRecording: false },
@@ -2900,16 +2907,61 @@ function initCanvas() {
 function resizeCanvas() { APP.render.canvas.width = APP.render.width; APP.render.canvas.height = APP.render.height; $('res').textContent = `${APP.render.width}x${APP.render.height}`; }
 
 // ═══════════════════════════════════════════════════════════════════════════
+// MEDIA STRIP TOGGLE TAB — always-visible collapse handle at canvas bottom
+// ═══════════════════════════════════════════════════════════════════════════
+function drawMediaStripToggle(ctx, w, h) {
+    var hasContent = (APP.media.queue.length > 0 || (APP.user.assets && APP.user.assets.length > 0));
+    if (!hasContent) return 0;
+
+    var tabH = Math.max(18, Math.round(h * 0.011));
+    var tabW = Math.max(60, Math.round(h * 0.055));
+    var tabX = (w - tabW) / 2;
+    var tabY = h - tabH;
+
+    ctx.save();
+    ctx.globalCompositeOperation = 'source-over';
+
+    // Background pill
+    ctx.fillStyle = 'rgba(6,6,12,0.92)';
+    ctx.fillRect(tabX, tabY, tabW, tabH);
+
+    // Top accent line — subtle white
+    ctx.fillStyle = 'rgba(255,255,255,0.12)';
+    ctx.fillRect(tabX, tabY, tabW, 1);
+
+    // Arrow + label
+    var fs = Math.max(9, Math.round(tabH * 0.52));
+    ctx.font = '600 ' + fs + 'px monospace';
+    ctx.fillStyle = 'rgba(255,255,255,0.45)';
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'middle';
+    var arrow = APP.state.showMediaStrips ? '▼' : '▲';
+    ctx.fillText(arrow, tabX + tabW / 2, tabY + tabH / 2);
+
+    ctx.restore();
+
+    // Store hit zone
+    if (!APP.state.mediaStripToggleZone) APP.state.mediaStripToggleZone = {};
+    APP.state.mediaStripToggleZone.x = tabX;
+    APP.state.mediaStripToggleZone.y = tabY;
+    APP.state.mediaStripToggleZone.w = tabW;
+    APP.state.mediaStripToggleZone.h = tabH;
+
+    return tabH;
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
 // NFT_VAULT — Horizontal Gallery (burned into canvas bottom)
 // ═══════════════════════════════════════════════════════════════════════════
-function drawNFTVault(ctx, w, h) {
+function drawNFTVault(ctx, w, h, bottomY) {
     var assets = APP.user.assets;
-    if (!assets || assets.length === 0) return;
+    if (!assets || assets.length === 0) return 0;
+    if (!APP.state.showMediaStrips) return 0;
 
     var thumbSize = Math.round(h * 0.08);
     var padding = Math.round(thumbSize * 0.15);
     var barH = thumbSize + padding * 2;
-    var barY = h - barH;
+    var barY = (bottomY != null ? bottomY : h) - barH;
 
     // Gallery bar background — dark glass
     ctx.save();
@@ -2923,6 +2975,7 @@ function drawNFTVault(ctx, w, h) {
 
     // Clear thumbnail hit areas for this frame
     APP.nftVault.thumbnails = [];
+    APP.nftVault.durationZones = [];
 
     // Calculate total gallery width for centering
     var totalW = assets.length * (thumbSize + padding) - padding;
@@ -2958,6 +3011,111 @@ function drawNFTVault(ctx, w, h) {
             x: tx, y: ty, w: thumbSize, h: thumbSize,
             index: i
         });
+
+        // Duration badge — images only (videos play their full length)
+        if (!asset.isVideo) {
+            var dur = asset.duration != null ? asset.duration : 8;
+            var badgeFS = Math.max(9, Math.round(thumbSize * 0.13));
+            var badgeW = Math.max(22, Math.round(thumbSize * 0.3));
+            var badgeH = Math.round(thumbSize * 0.19);
+            var badgeX = tx + thumbSize - badgeW - 2;
+            var badgeY = ty + 2;
+            // Dark pill
+            ctx.fillStyle = 'rgba(0,0,0,0.78)';
+            ctx.fillRect(badgeX, badgeY, badgeW, badgeH);
+            // Cyan text
+            ctx.fillStyle = 'rgba(0,243,255,0.95)';
+            ctx.font = '600 ' + badgeFS + 'px monospace';
+            ctx.textAlign = 'center';
+            ctx.textBaseline = 'middle';
+            ctx.fillText(dur + 's', badgeX + badgeW / 2, badgeY + badgeH / 2);
+            // Store hit zone — click cycles duration
+            APP.nftVault.durationZones.push({ x: badgeX, y: badgeY, w: badgeW, h: badgeH, index: i });
+        }
+    }
+
+    ctx.restore();
+    return barH;
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
+// MEDIA_QUEUE STRIP — Uploaded files carousel (violet accent, above vault)
+// ═══════════════════════════════════════════════════════════════════════════
+function drawMediaQueue(ctx, w, h, bottomY) {
+    var queue = APP.media.queue;
+    if (!queue || queue.length === 0) return;
+    if (!APP.state.showMediaStrips) return;
+
+    var thumbSize = Math.round(h * 0.065);
+    var padding = Math.round(thumbSize * 0.15);
+    var barH = thumbSize + padding * 2;
+    var barY = bottomY - barH;
+
+    ctx.save();
+    ctx.globalCompositeOperation = 'source-over';
+    ctx.fillStyle = 'rgba(4,4,8,0.80)';
+    ctx.fillRect(0, barY, w, barH);
+
+    // Top accent line — violet to distinguish from NFT vault (cyan)
+    ctx.fillStyle = 'rgba(160,80,255,0.5)';
+    ctx.fillRect(0, barY, w, 1);
+
+    // Init hit areas
+    if (!APP.media.queueStrip) APP.media.queueStrip = {};
+    APP.media.queueStrip.thumbnails = [];
+    APP.media.queueStrip.durationZones = [];
+
+    var totalW = queue.length * (thumbSize + padding) - padding;
+    var startX = Math.max(padding, (w - totalW) / 2);
+
+    for (var i = 0; i < queue.length; i++) {
+        var item = queue[i];
+        var el = item.element;
+        if (!el) continue;
+
+        var isVid = el.tagName === 'VIDEO';
+        if (el.tagName === 'IMG' && (!el.complete || el.naturalWidth === 0)) continue;
+        if (isVid && el.readyState < 2) continue;
+
+        var tx = startX + i * (thumbSize + padding);
+        var ty = barY + padding;
+
+        try { ctx.drawImage(el, tx, ty, thumbSize, thumbSize); } catch(e) { continue; }
+
+        // Border — red for active, violet for inactive
+        var isActive = (APP.media.currentIndex === i);
+        ctx.strokeStyle = isActive ? '#ff3333' : 'rgba(160,80,255,0.7)';
+        ctx.lineWidth = isActive ? 2 : 1;
+        ctx.strokeRect(tx, ty, thumbSize, thumbSize);
+
+        // Name label
+        var labelFS = Math.max(8, Math.round(thumbSize * 0.14));
+        ctx.font = '700 ' + labelFS + 'px Orbitron, sans-serif';
+        ctx.fillStyle = 'rgba(255,255,255,0.65)';
+        ctx.textAlign = 'center';
+        ctx.textBaseline = 'top';
+        ctx.fillText((item.name || 'FILE').substring(0, 10), tx + thumbSize / 2, ty + thumbSize + 2);
+
+        // Store thumbnail hit zone
+        APP.media.queueStrip.thumbnails.push({ x: tx, y: ty, w: thumbSize, h: thumbSize, index: i });
+
+        // Duration badge — images only (videos play full length)
+        if (!isVid) {
+            var dur = item.duration != null ? item.duration : 8;
+            var badgeFS = Math.max(9, Math.round(thumbSize * 0.13));
+            var badgeW = Math.max(22, Math.round(thumbSize * 0.3));
+            var badgeH = Math.round(thumbSize * 0.19);
+            var badgeX = tx + thumbSize - badgeW - 2;
+            var badgeY = ty + 2;
+            ctx.fillStyle = 'rgba(0,0,0,0.78)';
+            ctx.fillRect(badgeX, badgeY, badgeW, badgeH);
+            ctx.fillStyle = 'rgba(160,80,255,0.95)';
+            ctx.font = '600 ' + badgeFS + 'px monospace';
+            ctx.textAlign = 'center';
+            ctx.textBaseline = 'middle';
+            ctx.fillText(dur + 's', badgeX + badgeW / 2, badgeY + badgeH / 2);
+            APP.media.queueStrip.durationZones.push({ x: badgeX, y: badgeY, w: badgeW, h: badgeH, index: i });
+        }
     }
 
     ctx.restore();
@@ -2974,21 +3132,82 @@ function initSummonerLogic() {
     var canvas = APP.render.canvas;
     if (!stage || !canvas) return;
 
-    stage.addEventListener('click', function(e) {
-        if (!APP.user.assets || APP.user.assets.length === 0) return;
-        if (!APP.nftVault.thumbnails || APP.nftVault.thumbnails.length === 0) return;
+    var _durSteps = [3, 5, 8, 10, 15, 20, 30];
 
+    stage.addEventListener('click', function(e) {
         var rect = canvas.getBoundingClientRect();
         var scaleX = APP.render.width / rect.width;
         var scaleY = APP.render.height / rect.height;
         var cx = (e.clientX - rect.left) * scaleX;
         var cy = (e.clientY - rect.top) * scaleY;
 
-        for (var i = 0; i < APP.nftVault.thumbnails.length; i++) {
-            var t = APP.nftVault.thumbnails[i];
-            if (cx >= t.x && cx <= t.x + t.w && cy >= t.y && cy <= t.y + t.h) {
-                summonNFTByIndex(t.index);
-                return; // Only summon one per click
+        // ── TOGGLE TAB — collapse / expand both strips ──
+        var tz = APP.state.mediaStripToggleZone;
+        if (tz && cx >= tz.x && cx <= tz.x + tz.w && cy >= tz.y && cy <= tz.y + tz.h) {
+            APP.state.showMediaStrips = !APP.state.showMediaStrips;
+            return;
+        }
+
+        // ── MEDIA QUEUE STRIP — duration badge (violet, above vault) ──
+        var mqDz = (APP.media.queueStrip && APP.media.queueStrip.durationZones) || [];
+        for (var md = 0; md < mqDz.length; md++) {
+            var mz = mqDz[md];
+            if (cx >= mz.x && cx <= mz.x + mz.w && cy >= mz.y && cy <= mz.y + mz.h) {
+                var qitem = APP.media.queue[mz.index];
+                if (qitem && qitem.type !== 'video') {
+                    var mCur = _durSteps.indexOf(qitem.duration);
+                    qitem.duration = _durSteps[(mCur + 1) % _durSteps.length];
+                }
+                return;
+            }
+        }
+
+        // ── MEDIA QUEUE STRIP — thumbnail click (navigate to item) ──
+        var mqTh = (APP.media.queueStrip && APP.media.queueStrip.thumbnails) || [];
+        for (var mt = 0; mt < mqTh.length; mt++) {
+            var mthumb = mqTh[mt];
+            if (cx >= mthumb.x && cx <= mthumb.x + mthumb.w && cy >= mthumb.y && cy <= mthumb.y + mthumb.h) {
+                var qi = APP.media.queue[mthumb.index];
+                if (qi) {
+                    if (APP.media.currentElement && APP.media.currentElement.tagName === 'VIDEO') APP.media.currentElement.pause();
+                    APP.media.currentIndex = mthumb.index;
+                    APP.media.currentElement = qi.element;
+                    if (qi.element && qi.element.tagName === 'VIDEO') {
+                        qi.element.currentTime = 0;
+                        qi.element.play().catch(function(){});
+                    }
+                }
+                return;
+            }
+        }
+
+        // ── NFT VAULT STRIP — duration badge (cyan, bottom) ──
+        if (APP.user.assets && APP.user.assets.length > 0) {
+            var dz = APP.nftVault.durationZones || [];
+            for (var d = 0; d < dz.length; d++) {
+                var zone = dz[d];
+                if (cx >= zone.x && cx <= zone.x + zone.w && cy >= zone.y && cy <= zone.y + zone.h) {
+                    var asset = APP.user.assets[zone.index];
+                    if (asset && !asset.isVideo) {
+                        var cur = _durSteps.indexOf(asset.duration);
+                        asset.duration = _durSteps[(cur + 1) % _durSteps.length];
+                        for (var q = 0; q < APP.media.queue.length; q++) {
+                            if (APP.media.queue[q].element === asset.image) {
+                                APP.media.queue[q].duration = asset.duration;
+                            }
+                        }
+                    }
+                    return;
+                }
+            }
+
+            // ── NFT VAULT STRIP — thumbnail click (summon) ──
+            for (var i = 0; i < APP.nftVault.thumbnails.length; i++) {
+                var t = APP.nftVault.thumbnails[i];
+                if (cx >= t.x && cx <= t.x + t.w && cy >= t.y && cy <= t.y + t.h) {
+                    summonNFTByIndex(t.index);
+                    return;
+                }
             }
         }
     });
@@ -3044,7 +3263,7 @@ function summonNFTByIndex(index) {
     // ... (The rest of your code that adds a NEW NFT to the queue goes here) ...
 
     // Inject into media queue as a new item
-    var item = { type: 'image', url: asset.imageUrl || '', element: asset.image, name: 'NFT_' + (asset.name || index) };
+    var item = { type: 'image', url: asset.imageUrl || '', element: asset.image, name: 'NFT_' + (asset.name || index), duration: asset.duration != null ? asset.duration : 8 };
     // Append to gif-host at natural size (off-screen) for GIF animation
     var host = $('gif-host');
     if (host && !asset.image.parentNode) host.appendChild(asset.image);
@@ -3612,8 +3831,12 @@ function renderLoop(timestamp) {
         }
     }
 
-    // ═══ NFT_VAULT — Horizontal Gallery at bottom ═══
-    drawNFTVault(ctx, w, h);
+    // ═══ STRIP TOGGLE TAB — always visible, collapses/expands both strips ═══
+    var _tabH = drawMediaStripToggle(ctx, w, h) || 0;
+    // ═══ NFT_VAULT — Gallery at bottom (above toggle tab) ═══
+    var _vaultH = drawNFTVault(ctx, w, h, h - _tabH) || 0;
+    // ═══ MEDIA_QUEUE — Uploaded files strip (above vault) ═══
+    drawMediaQueue(ctx, w, h, h - _tabH - _vaultH);
 
     // ═══ PERMANENT SIGNATURE — untouchable, not part of Trinity ═══
     ctx.save();
@@ -3913,7 +4136,7 @@ function loadMediaFiles(input) {
     Array.from(input.files).forEach((file, idx) => {
         const url = URL.createObjectURL(file);
         const type = file.type.startsWith('video') ? 'video' : (file.type === 'image/gif' ? 'gif' : 'image');
-        const item = { type, url, element: null, name: file.name };
+        const item = { type, url, element: null, name: file.name, duration: type === 'video' ? null : 8 };
         if (type === 'video') {
             const vid = document.createElement('video'); vid.src = url; vid.muted = true; vid.loop = !APP.state.isCycle; vid.playsInline = true; vid.preload = 'auto'; item.element = vid; $('media-container').appendChild(vid);
         } else if (type === 'image') {
@@ -3985,11 +4208,17 @@ function ensureAudioChain() {
     if (APP.audio.dolbyPanner.positionX) { APP.audio.dolbyPanner.positionX.setValueAtTime(0, ctx.currentTime); APP.audio.dolbyPanner.positionY.setValueAtTime(5, ctx.currentTime); APP.audio.dolbyPanner.positionZ.setValueAtTime(-2, ctx.currentTime); }
     try { APP.audio.surroundSplitter = ctx.createChannelSplitter(6); APP.audio.surroundMerger = ctx.createChannelMerger(6); } catch(e) {}
     APP.audio.micAnalyzer = ctx.createAnalyser(); APP.audio.micAnalyzer.fftSize = 256;
+    // Dedicated gain node for video audio — allows independent mute without touching vid.muted
+    APP.audio.videoGain = ctx.createGain();
+    APP.audio.videoGain.gain.setValueAtTime(1.0, ctx.currentTime);
     APP.audio.panner.connect(APP.audio.lowShelf).connect(APP.audio.highShelf).connect(APP.audio.compressor).connect(APP.audio.duckingGain).connect(APP.audio.analyzer).connect(APP.audio.masterGain).connect(APP.audio.outputLimiter).connect(ctx.destination);
     APP.audio.masterGain.connect(APP.audio.stereoGain);
     APP.audio.recorderDest = ctx.createMediaStreamDestination();
     APP.audio.masterGain.connect(APP.audio.recorderDest);
     APP.audio.dolbyPanner.connect(APP.audio.outputLimiter);
+    // videoGain feeds both panner paths
+    APP.audio.videoGain.connect(APP.audio.panner);
+    APP.audio.videoGain.connect(APP.audio.dolbyPanner);
     APP.audio.vuData = new Uint8Array(APP.audio.analyzer.frequencyBinCount);
     updateVU();
     log('DAW_CHAIN_READY');
@@ -4003,12 +4232,25 @@ function connectVideoAudio(vid) {
         ensureAudioChain();
         disconnectVideoAudio();
         if (!vid._audioSrc) vid._audioSrc = APP.audio.ctx.createMediaElementSource(vid);
-        vid.muted = APP.audio.videoMuted;
-        vid._audioSrc.connect(APP.audio.panner);
-        vid._audioSrc.connect(APP.audio.dolbyPanner);
+        // Ensure videoGain exists — may be null if setupAudioChain() rebuilt nodes
+        if (!APP.audio.videoGain) {
+            APP.audio.videoGain = APP.audio.ctx.createGain();
+            APP.audio.videoGain.gain.value = APP.audio.videoMuted ? 0 : 1;
+            if (APP.audio.panner) APP.audio.videoGain.connect(APP.audio.panner);
+            if (APP.audio.dolbyPanner) APP.audio.videoGain.connect(APP.audio.dolbyPanner);
+        }
+        // vid.muted must be FALSE — Chrome silences MediaElementAudioSourceNode when muted=true
+        // Volume is controlled exclusively via videoGain (0=muted, 1=on), not via .muted
+        vid.muted = false;
+        vid._audioSrc.connect(APP.audio.videoGain);
+        // Apply current mute state via gain (0 = muted, 1 = audible)
+        APP.audio.videoGain.gain.setValueAtTime(APP.audio.videoMuted ? 0 : 1, APP.audio.ctx.currentTime);
         APP.audio.videoSource = vid;
-        $('btn-mute-vid').textContent = APP.audio.videoMuted ? '\u{1F507}' : '\u{1F50A}';
-        if (APP.audio.videoMuted) $('btn-mute-vid').classList.add('on'); else $('btn-mute-vid').classList.remove('on');
+        const muteBtn = $('btn-mute-vid');
+        if (muteBtn) {
+            muteBtn.textContent = APP.audio.videoMuted ? '\u{1F507}' : '\u{1F50A}';
+            muteBtn.classList.toggle('on', APP.audio.videoMuted);
+        }
         log('VIDEO_AUDIO: ' + (APP.audio.videoMuted ? 'MUTED' : 'ON'));
     } catch (e) { log('VIDEO_AUDIO_ERR: ' + e.message); }
 }
@@ -4016,7 +4258,10 @@ function connectVideoAudio(vid) {
 function disconnectVideoAudio() {
     var vid = APP.audio.videoSource;
     if (!vid) return;
-    try { if (vid._audioSrc) vid._audioSrc.disconnect(); vid.muted = true; } catch(e) {}
+    try {
+        if (vid._audioSrc) vid._audioSrc.disconnect();
+        vid.muted = true; // silence native output while not connected to Web Audio
+    } catch(e) {}
     APP.audio.videoSource = null;
 }
 
@@ -4039,6 +4284,7 @@ function rotateMedia() {
         item.element = img;
         APP.media.currentElement = null; // GIFs do not render to vj-canvas
         console.warn('[VNGRD] GIF asset "' + item.name + '" is rendered as a DOM element and will NOT be captured by vj-canvas.captureStream(). Convert animated assets to .webm for full recording compatibility.');
+        updateMediaControls();
         checkCycleLogic();
         return;
     }
@@ -4048,6 +4294,7 @@ function rotateMedia() {
     if (!item.element) { APP.media.currentElement = null; return; }
     APP.media.currentElement = item.element;
     if (item.type === 'video') { item.element.loop = !APP.state.isCycle; item.element.currentTime = 0; item.element.play().catch(() => {});  connectVideoAudio(item.element); }
+    updateMediaControls();
     checkCycleLogic();
 }
 
@@ -4067,6 +4314,7 @@ function previousMedia() {
         item.element = img;
         APP.media.currentElement = null;
         console.warn('[VNGRD] GIF asset "' + item.name + '" is rendered as a DOM element and will NOT be captured by vj-canvas.captureStream(). Convert animated assets to .webm for full recording compatibility.');
+        updateMediaControls();
         checkCycleLogic();
         return;
     }
@@ -4074,6 +4322,7 @@ function previousMedia() {
     if (!item.element) { APP.media.currentElement = null; return; }
     APP.media.currentElement = item.element;
     if (item.type === 'video') { item.element.loop = !APP.state.isCycle; item.element.currentTime = 0; item.element.play().catch(() => {});  connectVideoAudio(item.element); }
+    updateMediaControls();
     checkCycleLogic();
 }
 
@@ -4136,12 +4385,16 @@ function checkCycleLogic() {
     const current = APP.media.queue[APP.media.currentIndex];
     if (!current) return;
     if (current.type === 'video') { if (current.element) { current.element.loop = false; current.element.onended = () => { if (APP.state.isCycle) rotateMedia(); }; } }
-    else { const secs = parseInt($('sl-cycle').value) || 8; APP.state.cycleTimer = setTimeout(() => { if (APP.state.isCycle) rotateMedia(); }, secs * 1000); }
+    else {
+        var _qi = APP.media.queue[APP.media.currentIndex];
+        var secs = (_qi && _qi.duration != null) ? _qi.duration : (parseInt($('sl-cycle').value) || 8);
+        APP.state.cycleTimer = setTimeout(function() { if (APP.state.isCycle) rotateMedia(); }, secs * 1000);
+    }
 }
 
 function updateQueueDisplay() {
     const count = APP.media.queue.length;
-    if($('q-info')) $('q-info').textContent = count; 
+    if($('q-info')) $('q-info').textContent = count;
     const btn = $('btn-load-media');
     if (count > 0) {
         btn.innerHTML = `MEDIA LOADED [ ${count} ]`;
@@ -4152,6 +4405,28 @@ function updateQueueDisplay() {
         btn.classList.remove('active-mode');
         $('media-dot').classList.add('off');
     }
+    updateMediaControls();
+}
+
+function updateMediaControls() {
+    const zoomBtn = $('btn-zoom-img');
+    if (!zoomBtn) return;
+    const item = APP.media.queue[APP.media.currentIndex];
+    zoomBtn.style.display = (item && (item.type === 'image' || item.type === 'gif')) ? 'block' : 'none';
+}
+
+function openLightbox() {
+    const item = APP.media.queue[APP.media.currentIndex];
+    if (!item || (item.type !== 'image' && item.type !== 'gif')) return;
+    const lb = $('img-lightbox');
+    const lbImg = $('img-lightbox-src');
+    lbImg.src = item.url;
+    lb.style.display = 'flex';
+}
+
+function closeLightbox() {
+    var lb = $('img-lightbox');
+    if (lb) lb.style.display = 'none';
 }
 
 // CAMERA
@@ -4257,30 +4532,52 @@ function goLive() {
 
 $('btn-rec').onclick = () => {
     const btn = $('btn-rec');
-    if(APP.broadcast.isRecording) {
-        APP.broadcast.recorder.stop(); APP.broadcast.isRecording = false; btn.innerText = 'SAVING...'; btn.classList.remove('active'); 
-        $('rec-status').style.display = 'none'; 
+    if (APP.broadcast.isRecording) {
+        APP.broadcast.recorder.stop();
+        APP.broadcast.isRecording = false;
+        btn.innerText = 'SAVING...';
+        btn.classList.remove('active');
+        $('rec-status').style.display = 'none';
     } else {
-        // Ensure audio chain is up so recorderDest exists for audio capture
-        ensureAudioChain();
-        // Connect mic into recorderDest if active (so recording gets voice)
-        if (APP.audio.micGainNode && APP.audio.recorderDest) {
-            try { APP.audio.micGainNode.connect(APP.audio.recorderDest); } catch(e) {}
-        }
-        const stream = APP.render.canvas.captureStream(60);
-        if(APP.audio.ctx && APP.audio.recorderDest) {
-            if(APP.audio.recorderDest.stream.getAudioTracks().length > 0) stream.addTrack(APP.audio.recorderDest.stream.getAudioTracks()[0]);
-        }
-        APP.broadcast.chunks = [];
-        let bcastOpts = { mimeType: 'video/webm;codecs=vp9,opus', videoBitsPerSecond: 15000000, audioBitsPerSecond: 128000 };
-        try { APP.broadcast.recorder = new MediaRecorder(stream, bcastOpts); }
-        catch(e) { APP.broadcast.recorder = new MediaRecorder(stream, { mimeType: 'video/webm' }); }
-        APP.broadcast.recorder.ondataavailable = e => APP.broadcast.chunks.push(e.data);
-        APP.broadcast.recorder.onstop = () => {
-            const blob = new Blob(APP.broadcast.chunks, { type: 'video/webm' }); const url = URL.createObjectURL(blob); const a = document.createElement('a'); a.href = url; a.download = `VNGRD_BROADCAST_${Date.now()}.webm`; a.click(); btn.innerText = 'REC_BROADCAST'; log('BROADCAST_SAVED');
-        };
-        APP.broadcast.recorder.start(1000); APP.broadcast.isRecording = true; btn.innerText = '■ STOP & SAVE'; btn.classList.add('active'); 
-        $('rec-status').style.display = 'block'; 
+        try {
+            ensureAudioChain();
+            if (APP.audio.ctx && APP.audio.ctx.state === 'suspended') APP.audio.ctx.resume();
+
+            // Always build a fresh audio destination to avoid stale/dead tracks
+            // Tap outputLimiter (final mix node) so music + video audio are both captured
+            var bcastStream = new MediaStream(APP.render.canvas.captureStream(60).getVideoTracks());
+            if (APP.audio.ctx && APP.audio.outputLimiter) {
+                var bcastDest = APP.audio.ctx.createMediaStreamDestination();
+                APP.audio.outputLimiter.connect(bcastDest);
+                // Include live mic directly (it goes to recording only, not to speakers)
+                if (APP.audio.micGainNode) {
+                    try { APP.audio.micGainNode.connect(bcastDest); } catch(e) {}
+                }
+                bcastDest.stream.getAudioTracks().forEach(t => bcastStream.addTrack(t));
+            }
+
+            APP.broadcast.chunks = [];
+            var bcastOpts = { mimeType: 'video/webm;codecs=vp9,opus', videoBitsPerSecond: 15000000, audioBitsPerSecond: 128000 };
+            try { APP.broadcast.recorder = new MediaRecorder(bcastStream, bcastOpts); }
+            catch(e) {
+                try { APP.broadcast.recorder = new MediaRecorder(bcastStream, { mimeType: 'video/webm;codecs=vp8,opus' }); }
+                catch(e2) { APP.broadcast.recorder = new MediaRecorder(bcastStream, { mimeType: 'video/webm' }); }
+            }
+            APP.broadcast.recorder.ondataavailable = e => { if (e.data && e.data.size > 0) APP.broadcast.chunks.push(e.data); };
+            APP.broadcast.recorder.onstop = () => {
+                const blob = new Blob(APP.broadcast.chunks, { type: 'video/webm' });
+                const url = URL.createObjectURL(blob);
+                const a = document.createElement('a');
+                a.href = url; a.download = `VNGRD_BROADCAST_${Date.now()}.webm`; a.click();
+                btn.innerText = 'REC_BROADCAST'; log('BROADCAST_SAVED');
+            };
+            APP.broadcast.recorder.start(1000);
+            APP.broadcast.isRecording = true;
+            btn.innerText = '■ STOP & SAVE';
+            btn.classList.add('active');
+            $('rec-status').style.display = 'block';
+            log('BROADCAST_REC_START');
+        } catch(e) { log('BROADCAST_ERR: ' + e.message); }
     }
 };
 
@@ -4342,7 +4639,7 @@ function hideLowerThird() { $('lower-third').classList.remove('visible'); APP.lo
 
 // AUDIO ENGINEER IMPLEMENTATION
 APP.audio.element = $('audio-el');
-function loadAudioFiles(input) { Array.from(input.files).forEach(file => { APP.audio.playlist.push({ url: URL.createObjectURL(file), name: file.name.replace(/\.[^.]+$/, '') }); }); $('audio-dot').classList.remove('off'); if (!APP.audio.isPlaying && APP.audio.playlist.length) { disconnectVideoAudio(); playTrack(0); } log(`AUDIO: +${input.files.length}`); }
+function loadAudioFiles(input) { Array.from(input.files).forEach(file => { APP.audio.playlist.push({ url: URL.createObjectURL(file), name: file.name.replace(/\.[^.]+$/, '') }); }); $('audio-dot').classList.remove('off'); if (!APP.audio.isPlaying && APP.audio.playlist.length) { playTrack(0); } log(`AUDIO: +${input.files.length}`); }
 
 function playTrack(idx) {
     if (!APP.audio.playlist.length) return;
@@ -4482,7 +4779,23 @@ function setupAudioChain() {
     APP.audio.source.connect(APP.audio.dolbyPanner);
     APP.audio.dolbyPanner.connect(APP.audio.outputLimiter);
 
-    APP.audio.vuData = new Uint8Array(APP.audio.analyzer.frequencyBinCount); 
+    // Video audio gain node — independent mute without touching vid.muted
+    // Rebuilding here because setupAudioChain replaces all nodes
+    APP.audio.videoGain = ctx.createGain();
+    APP.audio.videoGain.gain.value = APP.audio.videoMuted ? 0 : 1;
+    APP.audio.videoGain.connect(APP.audio.panner);
+    APP.audio.videoGain.connect(APP.audio.dolbyPanner);
+
+    // Recorder destination for broadcast/NFT recording
+    APP.audio.recorderDest = ctx.createMediaStreamDestination();
+    APP.audio.masterGain.connect(APP.audio.recorderDest);
+
+    // Reconnect mic if it was active before chain was rebuilt
+    if (APP.audio.micGainNode) {
+        try { APP.audio.micGainNode.connect(APP.audio.recorderDest); } catch(e) {}
+    }
+
+    APP.audio.vuData = new Uint8Array(APP.audio.analyzer.frequencyBinCount);
     APP.audio.isConnected = true;
     log('DAW_ENGINE: TRIPLE_PATH + LIMITER + DUCKING');
     updateVU();
@@ -4817,48 +5130,40 @@ function loadFromMemory() {
 
 async function startNFTRecording() {
     if (APP.nft.isRecording) { stopNFTRecording(); return; }
+
+    // Force-enable button in case layer check left it disabled
+    var btn = $('btn-nft-30');
+    btn.disabled = false; btn.style.opacity = '1';
+
     try {
-        // 1. Guarantee full audio chain exists
+        // 1. Boot audio — ensure context exists (user gesture is active since button was clicked)
+        if (!APP.audio.ctx) APP.audio.ctx = new (window.AudioContext || window.webkitAudioContext)();
         ensureAudioChain();
 
-        // 2. Force-wake the AudioContext (browser autoplay policy)
+        // 2. Resume context if suspended (browser autoplay policy)
         if (APP.audio.ctx && APP.audio.ctx.state === 'suspended') {
             await APP.audio.ctx.resume();
         }
 
-        // 3. Grab video from the composited VJ canvas
+        // 3. Grab video from the composited VJ canvas (all FX are on this canvas)
         var canvasStream = APP.render.canvas.captureStream(60);
-
-        // 4. Build a combined MediaStream: video tracks first
         var combinedStream = new MediaStream(canvasStream.getVideoTracks());
 
-        // 5. Bulletproof audio injection — always create a FRESH destination
-        //    so we never hit a stale/dead track from a previous session
-        if (APP.audio.ctx && APP.audio.masterGain) {
+        // 4. Always build a FRESH audio destination — taps masterGain so music +
+        //    video audio (via videoGain→panner→masterGain) are all captured
+        //    Mic is added separately so it doesn't feed through speakers
+        if (APP.audio.ctx) {
             var freshDest = APP.audio.ctx.createMediaStreamDestination();
-
-            // Tap ONLY the output limiter (final node before speakers)
-            // masterGain → outputLimiter is already chained, so connecting
-            // both would double-tap the signal and cause flanging/phasing
-            if (APP.audio.outputLimiter) {
-                APP.audio.outputLimiter.connect(freshDest);
-            } else {
-                APP.audio.masterGain.connect(freshDest);
+            var tapNode = APP.audio.outputLimiter || APP.audio.masterGain;
+            if (tapNode) tapNode.connect(freshDest);
+            if (APP.audio.micGainNode) {
+                try { APP.audio.micGainNode.connect(freshDest); } catch(e) {}
             }
-
-            // Include live mic if present
-            if (APP.audio.micGainNode) APP.audio.micGainNode.connect(freshDest);
-
-            // Store for potential external use
-            APP.audio.recorderDest = freshDest;
-
-            // Inject every audio track into the combined stream
             freshDest.stream.getAudioTracks().forEach(function(t) { combinedStream.addTrack(t); });
         }
 
-        // 6. Create MediaRecorder on the unified stream — codec cascade
-        var nftRecorderOpts = { mimeType: 'video/webm;codecs=vp9,opus', videoBitsPerSecond: 5000000, audioBitsPerSecond: 128000 };
-        try { APP.nft.recorder = new MediaRecorder(combinedStream, nftRecorderOpts); }
+        // 5. Create MediaRecorder — codec cascade for broad compatibility
+        try { APP.nft.recorder = new MediaRecorder(combinedStream, { mimeType: 'video/webm;codecs=vp9,opus', videoBitsPerSecond: 5000000, audioBitsPerSecond: 128000 }); }
         catch(e) {
             try { APP.nft.recorder = new MediaRecorder(combinedStream, { mimeType: 'video/webm;codecs=vp8,opus' }); }
             catch(e2) { APP.nft.recorder = new MediaRecorder(combinedStream, { mimeType: 'video/webm' }); }
@@ -4868,21 +5173,19 @@ async function startNFTRecording() {
         APP.nft.recorder.ondataavailable = function(e) { if (e.data && e.data.size > 0) APP.nft.chunks.push(e.data); };
         APP.nft.recorder.onstop = finalizeNFT;
 
-        // 7. Start recording — NO time limit, runs until user stops
+        // 6. Start — no time limit, user stops manually
         APP.nft.recorder.start(1000);
         APP.nft.isRecording = true;
         APP.nft.startTime = Date.now();
 
-        // 8. Toggle button to STOP state (red text for visibility)
-        var btn = $('btn-nft-30');
         btn.textContent = '[ STOP_RECORDING ]';
         btn.classList.add('on');
         btn.style.color = '#ff3333';
         $('nft-hud').classList.add('active');
         updateNFTTimer();
 
-        log('NFT_REC_START (' + combinedStream.getAudioTracks().length + ' audio trk)');
-    } catch (e) { log('NFT_REC_ERR: ' + e.message); }
+        log('CAPTURE_VNGRD: START (' + combinedStream.getAudioTracks().length + ' audio_trk)');
+    } catch (e) { log('CAPTURE_VNGRD_ERR: ' + e.message); btn.textContent = 'CAPTURE_VNGRD_CLIP'; }
 }
 
 function stopNFTRecording() {
@@ -5436,8 +5739,11 @@ document.addEventListener('DOMContentLoaded', () => {
     $('btn-load-media').onclick = () => $('file-media').click();
     $('btn-cycle-toggle').onclick = toggleCycle;
 
+    // Image zoom/lightbox
+    $('btn-zoom-img').onclick = openLightbox;
+
     // Keep Navigation
-    $('btn-rotate').onclick = rotateMedia; 
+    $('btn-rotate').onclick = rotateMedia;
     $('btn-prev').onclick = previousMedia;
     $('file-media').onchange = e => loadMediaFiles(e.target);
     
@@ -5470,10 +5776,12 @@ document.addEventListener('DOMContentLoaded', () => {
 
     $('btn-mute-vid').onclick = () => {
         APP.audio.videoMuted = !APP.audio.videoMuted;
-        var vid = APP.audio.videoSource;
-        if (vid) { vid.muted = APP.audio.videoMuted; }
+        // Control volume via gain node — vid.muted stays true to prevent native double-output
+        if (APP.audio.videoGain && APP.audio.ctx) {
+            APP.audio.videoGain.gain.setValueAtTime(APP.audio.videoMuted ? 0 : 1, APP.audio.ctx.currentTime);
+        }
         $('btn-mute-vid').textContent = APP.audio.videoMuted ? '\u{1F507}' : '\u{1F50A}';
-        if (APP.audio.videoMuted) $('btn-mute-vid').classList.add('on'); else $('btn-mute-vid').classList.remove('on');
+        $('btn-mute-vid').classList.toggle('on', APP.audio.videoMuted);
         log('VIDEO_MUTE: ' + (APP.audio.videoMuted ? 'ON' : 'OFF'));
     };
     
@@ -5597,7 +5905,7 @@ document.addEventListener('DOMContentLoaded', () => {
         if (e.key === 'g' || e.key === 'G') toggleGhost();
         if (e.key === 'h' || e.key === 'H') toggleFullscreen();
         if (e.key === 'Tab') { e.preventDefault(); toggleSystemSlide(); }
-        if (e.key === 'Escape') { $('btn-panic').click(); }
+        if (e.key === 'Escape') { if ($('img-lightbox').style.display !== 'none') { closeLightbox(); } else { $('btn-panic').click(); } }
         if (e.key === ' ') { e.preventDefault(); rotateMedia(); }
     });
 
@@ -7507,11 +7815,12 @@ var isVideo = nft.forceVideo || (imageUrl.toLowerCase().match(/\.(mp4|webm|mov|o
                 }
 
                 // 2. Save the media element to your app state
-                APP.user.assets.push({ 
-                    name: nft.name, 
-                    imageUrl: imageUrl, 
+                APP.user.assets.push({
+                    name: nft.name,
+                    imageUrl: imageUrl,
                     image: mediaEl, // Now this holds EITHER an <img> or a playing <video>!
-                    isVideo: isVideo 
+                    isVideo: isVideo,
+                    duration: isVideo ? null : 8  // seconds on-screen; null = play full length
                 });
 
                 // 3. Build the sidebar UI
@@ -7872,8 +8181,55 @@ var isVideo = nft.forceVideo || (imageUrl.toLowerCase().match(/\.(mp4|webm|mov|o
         _aiStatus(modelKey.toUpperCase() + ': GENERATING...', 'var(--v)');
         log('AI: [' + modelKey.toUpperCase() + '] >> ' + prompt);
 
-        // All models route through Pollinations.ai (free, no API key)
-        await _aiPollinations(fullPrompt, btn, cfg.model);
+        // ── Tier 1: Fal.ai via local backend (localhost:8000) ─────────
+        var backendOk = false;
+        try {
+            var backendCtrl = new AbortController();
+            var backendTid = setTimeout(function() { backendCtrl.abort(); }, 90000);
+            var backendRes = await fetch('http://localhost:8000/generate', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ prompt: fullPrompt }),
+                signal: backendCtrl.signal
+            });
+            clearTimeout(backendTid);
+            if (backendRes.ok) {
+                var backendData = await backendRes.json();
+                if (backendData.url) {
+                    var resp = await fetch(backendData.url);
+                    if (!resp.ok) throw new Error('BACKEND_IMG_HTTP_' + resp.status);
+                    var blob = await resp.blob();
+                    var objectUrl = URL.createObjectURL(blob);
+                    var img = new Image();
+                    await new Promise(function(resolve, reject) {
+                        img.onload = resolve;
+                        img.onerror = function() { reject(new Error('BACKEND_IMG_DECODE_FAILED')); };
+                        img.src = objectUrl;
+                    });
+                    _aiInject(img, prompt);
+                    _aiDone(btn);
+                    var srcLabel = (backendData.source || 'FAL').toUpperCase().replace(/-/g, '_');
+                    _aiStatus('DONE [' + srcLabel + ']', 'var(--g)');
+                    log('AI: BACKEND_OK (' + (backendData.source || 'fal') + ')');
+                    backendOk = true;
+                }
+            }
+        } catch(e) {
+            log('AI: BACKEND_OFFLINE → POLLINATIONS_FALLBACK');
+        }
+
+        // ── Tier 2: Pollinations direct (if backend unavailable) ─────
+        if (!backendOk) {
+            try {
+                await _aiPollinations(fullPrompt, btn, cfg.model);
+            } catch(e2) {
+                _aiDone(btn);
+                _aiStatus('ALL_SOURCES_FAILED', 'var(--r)');
+                log('AI: ALL_SOURCES_FAILED: ' + e2.message);
+            }
+        }
+
+        _aiGenerating = false;
     }
 
     window.aiGenerate = aiGenerate;
@@ -8723,7 +9079,7 @@ if (btn3dX) {
 
 <script>
 /* ═══════════════════════════════════════════════════════════════════════
-   MCR // SIGNAL_CENTRAL  —  WebSocket Bridge  v2  (local, free, no Puter)
+   POLYTRANSLATOR // V1.0_SYNC  —  WebSocket Bridge  v2  (local, free, no Puter)
    -----------------------------------------------------------------------
    Signal chain:
      Browser getUserMedia → MediaRecorder (webm/opus, 4-s chunks)
@@ -8804,10 +9160,10 @@ if (btn3dX) {
         langBtns.forEach(function (b) { b.disabled = active; });
         if (active) {
             if (mcrStatus) { mcrStatus.classList.add('hot'); mcrStatus.textContent = 'MCR: ON-AIR \u25B6 ' + targetLang.toUpperCase(); }
-            if (hud) hud.classList.add('visible');
+            if (hud) hud.classList.add('hud-active');
         } else {
             if (mcrStatus) { mcrStatus.classList.remove('hot'); mcrStatus.textContent = 'MCR: STANDBY \u25FC'; }
-            if (hud) hud.classList.remove('visible');
+            if (hud) hud.classList.remove('hud-active');
         }
         if (typeof ghostLog === 'function') {
             ghostLog(active
