@@ -1172,7 +1172,7 @@ body.fx-nvg #stage::after {
 }
 
 /* ═══════════════════════════════════════════════════════════════
-   MCR // SIGNAL_CENTRAL  —  On-Air Tally + Transcription HUD
+   POLYTRANSLATOR // V1.0_SYNC  —  On-Air Tally + Transcription HUD
    ═══════════════════════════════════════════════════════════════ */
 
 /* ── Tally pulse — heavy red broadcast lamp breathing ──────── */
@@ -1317,14 +1317,14 @@ body.fx-nvg #stage::after {
     align-items: center;
     gap: 5px;
     padding: 0 16px;
-    /* Hidden by default — JS adds .visible */
+    /* Stealth Mode — hidden off-screen by default */
+    transform: translateY(120%);
     opacity: 0;
-    transform: translateY(10px);
-    transition: opacity 0.3s ease, transform 0.3s ease;
+    transition: opacity 0.4s ease, transform 0.4s cubic-bezier(0.22, 1, 0.36, 1);
 }
-#transcription-hud.visible {
-    opacity: 1;
+#transcription-hud.hud-active {
     transform: translateY(0);
+    opacity: 1;
 }
 
 /* CRT scanline wash over the whole HUD */
@@ -1674,10 +1674,10 @@ body.fullscreen #transcription-hud { opacity: 0 !important; pointer-events: none
 
     <aside class="sidebar" id="right-panel">
 
-        <!-- ── MCR // SIGNAL_CENTRAL ─────────────────────────── -->
+        <!-- ── POLYTRANSLATOR // V1.0_SYNC ─────────────────────────── -->
         <div class="section" id="mcr-section">
             <div class="sec-head">
-                <span class="sec-title">MCR // SIGNAL_CENTRAL</span>
+                <span class="sec-title">POLYTRANSLATOR // V1.0_SYNC</span>
                 <div id="mcr-on-air-dot"></div>
             </div>
             <div class="sec-body">
@@ -1857,7 +1857,7 @@ body.fullscreen #transcription-hud { opacity: 0 !important; pointer-events: none
     </div>
 
     <!-- ══════════════════════════════════════════════════════════
-         TRANSCRIPTION HUD OVERLAY — DRIS//CORE SIGNAL_CENTRAL
+         TRANSCRIPTION HUD OVERLAY — DRIS//CORE POLYTRANSLATOR V1.0_SYNC
          Sits above #bottom-bar, between the sidebars.
          Visibility controlled by JS (.visible class).
          pointer-events:none so VJ canvas stays fully interactive.
@@ -8108,13 +8108,16 @@ var isVideo = nft.forceVideo || (imageUrl.toLowerCase().match(/\.(mp4|webm|mov|o
             } catch(err) {
                 if (status) { status.textContent = 'IMG_FAIL: ' + err.message; status.style.color = 'var(--r)'; }
                 log('NEURAL_ERROR: ' + err.message);
+            } finally {
+                // Always unlock generator so it never stays STUCK
+                APP.neural.generating = false;
+                if (btn) btn.classList.remove('on');
+                if ($('neural-dot')) $('neural-dot').classList.add('off');
             }
+        }
+    };
 
-        // All models route through Pollinations.ai (free, no API key)
-        await _aiPollinations(fullPrompt, btn, cfg.model);
-    }
-
-    window.aiGenerate = aiGenerate;
+    window.aiGenerate = function(p) { v19_AI.generate(p); };
 
     // Wire button + Enter key
     if ($('btn-generate-ai')) {
@@ -9079,7 +9082,7 @@ if (btn3dX) {
 
 <script>
 /* ═══════════════════════════════════════════════════════════════════════
-   MCR // SIGNAL_CENTRAL  —  WebSocket Bridge  v2  (local, free, no Puter)
+   POLYTRANSLATOR // V1.0_SYNC  —  WebSocket Bridge  v2  (local, free, no Puter)
    -----------------------------------------------------------------------
    Signal chain:
      Browser getUserMedia → MediaRecorder (webm/opus, 4-s chunks)
@@ -9160,10 +9163,10 @@ if (btn3dX) {
         langBtns.forEach(function (b) { b.disabled = active; });
         if (active) {
             if (mcrStatus) { mcrStatus.classList.add('hot'); mcrStatus.textContent = 'MCR: ON-AIR \u25B6 ' + targetLang.toUpperCase(); }
-            if (hud) hud.classList.add('visible');
+            if (hud) hud.classList.add('hud-active');
         } else {
             if (mcrStatus) { mcrStatus.classList.remove('hot'); mcrStatus.textContent = 'MCR: STANDBY \u25FC'; }
-            if (hud) hud.classList.remove('visible');
+            if (hud) hud.classList.remove('hud-active');
         }
         if (typeof ghostLog === 'function') {
             ghostLog(active
