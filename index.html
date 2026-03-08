@@ -1377,6 +1377,15 @@ body.fx-nvg #stage::after {
     max-width: 700px;
     width: 100%;
 }
+/* ── localization-deck — collapsible translation panel ───────── */
+.localization-deck {
+    max-height: 0;
+    overflow: hidden;
+    transition: max-height 0.4s ease-out;
+}
+.localization-deck.active {
+    max-height: 200px;
+}
 .hud-lang-slot {
     flex: 1;
     background: rgba(0,0,0,0.68);
@@ -1695,10 +1704,7 @@ body.fullscreen #transcription-hud { opacity: 0 !important; pointer-events: none
                 <button id="btn-on-air" class="onair-pill">OFF-AIR</button>
                 <!-- Target language selector -->
                 <div class="mcr-lang-row">
-                    <button class="mcr-lang-btn sel" data-lang="nl">NL</button>
-                    <button class="mcr-lang-btn"     data-lang="fr">FR</button>
-                    <button class="mcr-lang-btn"     data-lang="it">IT</button>
-                    <button class="mcr-lang-btn"     data-lang="es">ES</button>
+                    <button class="mcr-lang-btn sel" data-lang="it">IT</button>
                 </div>
             </div>
         </div>
@@ -1848,19 +1854,10 @@ body.fullscreen #transcription-hud { opacity: 0 !important; pointer-events: none
             <div id="hud-en-text"></div>
         </div>
 
-        <!-- 4 translation sub-slots: NL · FR · IT · ES -->
-        <div id="hud-langs">
-            <div class="hud-lang-slot" data-lang="NL">
-                <div class="hud-lang-text" id="hud-nl"></div>
-            </div>
-            <div class="hud-lang-slot" data-lang="FR">
-                <div class="hud-lang-text" id="hud-fr"></div>
-            </div>
+        <!-- Translation slot: IT only -->
+        <div id="hud-langs" class="localization-deck">
             <div class="hud-lang-slot" data-lang="IT">
                 <div class="hud-lang-text" id="hud-it"></div>
-            </div>
-            <div class="hud-lang-slot" data-lang="ES">
-                <div class="hud-lang-text" id="hud-es"></div>
             </div>
         </div>
 
@@ -9079,35 +9076,38 @@ if (btn3dX) {
 
 <script>
 /* ═══════════════════════════════════════════════════════════════════════
-   POLYTRANSLATOR // V1.0_SYNC  —  WebSocket Bridge  v2  (local, free, no Puter)
+   MCR // SIGNAL_CENTRAL  —  WebSocket Bridge  v3  (Deepgram + fal-ai)
    -----------------------------------------------------------------------
    Signal chain:
      Browser getUserMedia → MediaRecorder (webm/opus, 4-s chunks)
-       → binary WebSocket → main.py (SpeechRecognition + deep-translator)
-         → JSON results → HUD slots
+       → binary WebSocket → main.py (Deepgram Nova-3 + deep-translator)
+         → JSON results → HUD slots (EN primary, IT translation)
 
    Client → Server:
-     JSON text : { action:"start", target_lang:"nl", source_lang:"en" }
+     JSON text : { action:"start", target_lang:"it", source_lang:"en" }
                  { action:"stop" }
      Binary    : Raw webm audio chunks from MediaRecorder.ondataavailable
 
-   Server → Client (JSON):
+   Server → Client (JSON) — "Plug-in" format:
      { type:"status",      message:"..." }
-     { type:"transcript",  original:"...", timestamp:0.0 }
-     { type:"translation", text:"...", lang:"nl", start:0.0, end:4.0 }
+     { type:"transcript",  text:"...", original:"...", timestamp:0.0 }
+     { type:"translation", text:"...", lang:"it", start:0.0, end:4.0 }
      { type:"srt_ready",   filename:"...", content:"..." }
      { type:"error",       message:"..." }
    ═══════════════════════════════════════════════════════════════════════ */
 (function () {
     'use strict';
 
-    var WS_URL     = 'ws://localhost:8000/ws/transcribe';
-    var RECONNECT  = 3500;     // ms between reconnect attempts
-    var CHUNK_MS   = 4000;     // MediaRecorder timeslice — must match CHUNK_SEC in main.py
+    var WS_URL       = 'ws://localhost:8000/ws/transcribe';
+    var CHUNK_MS     = 4000;   // MediaRecorder timeslice — must match CHUNK_SEC in main.py
+
+    // Exponential backoff: 1s → 2s → 4s → 8s → 16s → 30s (cap)
+    var _reconnDelay = 1000;
+    var _reconnMax   = 30000;
 
     var ws         = null;
     var onAir      = false;
-    var targetLang = 'nl';
+    var targetLang = 'it';
     var reconnTimer= null;
 
     // Audio capture state
@@ -9119,10 +9119,7 @@ if (btn3dX) {
     var hud       = document.getElementById('transcription-hud');
     var hudEN     = document.getElementById('hud-en-text');
     var hudSlots  = {
-        nl: document.getElementById('hud-nl'),
-        fr: document.getElementById('hud-fr'),
         it: document.getElementById('hud-it'),
-        es: document.getElementById('hud-es'),
     };
     var wsLed     = document.getElementById('mcr-ws-led');
     var mcrStatus = document.getElementById('mcr-status');
@@ -9158,12 +9155,15 @@ if (btn3dX) {
         btnOnAir.classList.toggle('active', active);
         if (mcrDot) mcrDot.classList.toggle('hot', active);
         langBtns.forEach(function (b) { b.disabled = active; });
+        var deck = document.getElementById('hud-langs');
         if (active) {
             if (mcrStatus) { mcrStatus.classList.add('hot'); mcrStatus.textContent = 'MCR: ON-AIR \u25B6 ' + targetLang.toUpperCase(); }
-            if (hud) hud.classList.add('hud-active');
+            if (hud)  hud.classList.add('visible');
+            if (deck) deck.classList.add('active');
         } else {
             if (mcrStatus) { mcrStatus.classList.remove('hot'); mcrStatus.textContent = 'MCR: STANDBY \u25FC'; }
-            if (hud) hud.classList.remove('hud-active');
+            if (hud)  hud.classList.remove('visible');
+            if (deck) deck.classList.remove('active');
         }
         if (typeof ghostLog === 'function') {
             ghostLog(active
@@ -9272,6 +9272,7 @@ if (btn3dX) {
         ws.binaryType = 'arraybuffer';
 
         ws.onopen = function () {
+            _reconnDelay = 1000;   // reset backoff on successful connect
             setWsState('connected');
             clearTimeout(reconnTimer);
             if (onAir) { stopMicCapture(); setOnAirUI(false); }   // reset on reconnect
@@ -9295,7 +9296,9 @@ if (btn3dX) {
                     if (typeof ghostLog === 'function') ghostLog(data.message, 'ok');
                     break;
                 case 'transcript':
-                    if (hudEN && data.original) flashText(hudEN, data.original);
+                    // Accept both Plug-in format (data.text) and legacy (data.original)
+                    var txText = data.text || data.original;
+                    if (hudEN && txText) flashText(hudEN, txText);
                     break;
                 case 'translation':
                     var lang = data.lang ? data.lang.toLowerCase() : null;
@@ -9323,7 +9326,11 @@ if (btn3dX) {
 
     function scheduleReconnect() {
         clearTimeout(reconnTimer);
-        reconnTimer = setTimeout(connect, RECONNECT);
+        var delay = _reconnDelay;
+        _reconnDelay = Math.min(_reconnDelay * 2, _reconnMax);
+        setWsState('error');
+        if (mcrStatus) mcrStatus.textContent = 'WS: RETRY IN ' + Math.round(delay / 1000) + 's\u2026';
+        reconnTimer = setTimeout(connect, delay);
     }
 
     /* ── Language selector ────────────────────────────────────────────── */
