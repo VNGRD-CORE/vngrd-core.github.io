@@ -1291,37 +1291,6 @@ body.fx-nvg #stage::after {
 }
 #mcr-status.hot { color: #ff0055; text-shadow: 0 0 6px rgba(255,0,85,0.5); }
 
-/* Language micro-selector row */
-.mcr-lang-row {
-    display: flex;
-    gap: 4px;
-    margin-top: 7px;
-}
-.mcr-lang-btn {
-    flex: 1;
-    padding: 5px 2px;
-    font-family: 'JetBrains Mono', monospace;
-    font-size: 8px;
-    font-weight: 500;
-    letter-spacing: 1.5px;
-    text-align: center;
-    text-transform: uppercase;
-    color: #404050;
-    background: transparent;
-    border: 1px solid #1e1e2e;
-    border-radius: 1px;
-    cursor: pointer;
-    transition: all 0.15s ease;
-}
-.mcr-lang-btn:hover   { border-color: var(--accent); color: var(--accent); }
-.mcr-lang-btn.sel     {
-    border-color: var(--accent);
-    color: var(--accent);
-    background: rgba(0,243,255,0.07);
-    box-shadow: 0 0 6px rgba(0,243,255,0.2);
-}
-/* Lock lang buttons while ON-AIR */
-.mcr-lang-btn[disabled] { opacity: 0.3; pointer-events: none; }
 
 /* ── #transcription-hud — viewport overlay ─────────────────── */
 #transcription-hud {
@@ -1391,62 +1360,6 @@ body.fx-nvg #stage::after {
     text-shadow: 0 1px 10px rgba(0,0,0,0.95);
 }
 
-/* 4-column translation sub-slots */
-#hud-langs {
-    display: flex;
-    gap: 5px;
-    max-width: 700px;
-    width: 100%;
-}
-/* ── localization-deck — collapsible translation panel ───────── */
-.localization-deck {
-    max-height: 0;
-    overflow: hidden;
-    transition: max-height 0.4s ease-out;
-}
-.localization-deck.active {
-    max-height: 200px;
-}
-.hud-lang-slot {
-    flex: 1;
-    background: rgba(0,0,0,0.68);
-    border: 1px solid rgba(255,255,255,0.06);
-    border-top: 1px solid rgba(0,243,255,0.1);
-    padding: 5px 9px 6px;
-    backdrop-filter: blur(8px);
-    -webkit-backdrop-filter: blur(8px);
-    position: relative;
-    overflow: hidden;
-    transition: border-color 0.2s;
-}
-.hud-lang-slot::after {
-    /* language tag in upper-right corner */
-    content: attr(data-lang);
-    position: absolute;
-    top: 4px; right: 7px;
-    font-size: 7px;
-    letter-spacing: 2px;
-    font-family: 'Orbitron', sans-serif;
-    font-weight: 600;
-    color: var(--accent);
-    opacity: 0.35;
-}
-.hud-lang-slot.fresh {
-    border-color: rgba(0,243,255,0.35);
-}
-.hud-lang-text {
-    font-size: 11px;
-    color: #606068;
-    line-height: 1.45;
-    min-height: 17px;
-    padding-right: 22px;
-    transition: color 0.25s;
-}
-.hud-lang-slot.fresh .hud-lang-text {
-    color: var(--accent);
-    text-shadow: 0 0 8px rgba(0,243,255,0.35);
-}
-
 /* Text slide-in when new segment arrives */
 @keyframes hud-flash {
     0%   { opacity: 0; transform: translateY(4px); }
@@ -1455,7 +1368,51 @@ body.fx-nvg #stage::after {
 .hud-new { animation: hud-flash 0.22s ease-out both; }
 
 /* Collapse HUD when in fullscreen VJ mode */
-body.fullscreen #transcription-hud { opacity: 0 !important; pointer-events: none !important; }</style>
+body.fullscreen #transcription-hud { opacity: 0 !important; pointer-events: none !important; }
+
+/* ── PODCAST TRAY — fixed bottom bar ─────────────────────────── */
+#podcast-tray {
+    display: none;
+    position: fixed;
+    bottom: 0; left: 0;
+    width: 100%;
+    background: rgba(0,0,0,0.9);
+    border-top: 1px solid #00ffcc;
+    z-index: 9999;
+    padding: 8px 16px;
+    box-sizing: border-box;
+    flex-direction: row;
+    gap: 12px;
+    align-items: stretch;
+}
+#podcast-tray.visible { display: flex; }
+.podcast-slot {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    gap: 3px;
+    min-width: 0;
+}
+.podcast-slot-label {
+    font-family: 'Orbitron', monospace;
+    font-size: 8px;
+    font-weight: 700;
+    letter-spacing: 2px;
+    color: #00ffcc;
+    opacity: 0.7;
+}
+.podcast-slot-text {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 12px;
+    color: #e0ffe8;
+    line-height: 1.4;
+    min-height: 18px;
+    text-shadow: 0 0 6px rgba(0,255,204,0.25);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+.podcast-slot-text.flash { animation: hud-flash 0.22s ease-out both; }</style>
 </head>
 <body oncontextmenu="return false;">
     <!-- PORTRAIT ORIENTATION LOCK -->
@@ -1831,10 +1788,6 @@ body.fullscreen #transcription-hud { opacity: 0 !important; pointer-events: none
                 </div>
                 <!-- ON-AIR toggle -->
                 <button id="btn-on-air" class="onair-pill">OFF-AIR</button>
-                <!-- Target language selector -->
-                <div class="mcr-lang-row">
-                    <button class="mcr-lang-btn sel" data-lang="it">IT</button>
-                </div>
             </div>
         </div>
 
@@ -1983,13 +1936,25 @@ body.fullscreen #transcription-hud { opacity: 0 !important; pointer-events: none
             <div id="hud-en-text"></div>
         </div>
 
-        <!-- Translation slot: IT only -->
-        <div id="hud-langs" class="localization-deck">
-            <div class="hud-lang-slot" data-lang="IT">
-                <div class="hud-lang-text" id="hud-it"></div>
-            </div>
-        </div>
+    </div>
 
+    <!-- ══════════════════════════════════════════════════════════
+         PODCAST TRAY — fixed bottom bar, closed by default.
+         Shows EN / ES / FR subtitles when ON-AIR and data arrives.
+         ══════════════════════════════════════════════════════════ -->
+    <div id="podcast-tray" role="region" aria-label="Live Subtitles">
+        <div class="podcast-slot">
+            <div class="podcast-slot-label">EN</div>
+            <div class="podcast-slot-text" id="podcast-en"></div>
+        </div>
+        <div class="podcast-slot">
+            <div class="podcast-slot-label">ES</div>
+            <div class="podcast-slot-text" id="podcast-es"></div>
+        </div>
+        <div class="podcast-slot">
+            <div class="podcast-slot-label">FR</div>
+            <div class="podcast-slot-text" id="podcast-fr"></div>
+        </div>
     </div>
 
     <input type="file" id="file-media" multiple accept="image/*,video/*">
@@ -9318,55 +9283,52 @@ if (btn3dX) {
 
 <script>
 /* ═══════════════════════════════════════════════════════════════════════
-   MCR // SIGNAL_CENTRAL  —  WebSocket Bridge  v3  (Deepgram + fal-ai)
+   MCR // SIGNAL_CENTRAL  —  WebSocket Bridge  v4  (Podcast Plug-in)
    -----------------------------------------------------------------------
    Signal chain:
      Browser getUserMedia → MediaRecorder (webm/opus, 4-s chunks)
-       → binary WebSocket → main.py (Deepgram Nova-3 + deep-translator)
-         → JSON results → HUD slots (EN primary, IT translation)
+       → binary WebSocket → main.py (Deepgram via raw websockets)
+         → vngrd_podcast_data {en, es, fr} → #podcast-tray
 
    Client → Server:
-     JSON text : { action:"start", target_lang:"it", source_lang:"en" }
+     JSON text : { action:"start", source_lang:"en" }
                  { action:"stop" }
      Binary    : Raw webm audio chunks from MediaRecorder.ondataavailable
 
-   Server → Client (JSON) — "Plug-in" format:
-     { type:"status",      message:"..." }
-     { type:"transcript",  text:"...", original:"...", timestamp:0.0 }
-     { type:"translation", text:"...", lang:"it", start:0.0, end:4.0 }
-     { type:"srt_ready",   filename:"...", content:"..." }
-     { type:"error",       message:"..." }
+   Server → Client (JSON):
+     { type:"vngrd_podcast_data", en:"...", es:"...", fr:"..." }
+     { type:"status",             message:"..." }
+     { type:"error",              message:"..." }
+
+   #podcast-tray is closed by default; shown only when onAir AND data arrives.
+   Reconnect uses a fixed 3-second backoff to keep the HUD stable.
    ═══════════════════════════════════════════════════════════════════════ */
 (function () {
     'use strict';
 
-    var WS_URL       = 'ws://localhost:8000/ws/transcribe';
-    var CHUNK_MS     = 4000;   // MediaRecorder timeslice — must match CHUNK_SEC in main.py
-
-    // Exponential backoff: 1s → 2s → 4s → 8s → 16s → 30s (cap)
-    var _reconnDelay = 1000;
-    var _reconnMax   = 30000;
+    var WS_URL   = 'ws://localhost:8000/ws/transcribe';
+    var CHUNK_MS = 4000;   // MediaRecorder timeslice
+    var RECONNECT_DELAY = 3000;   // fixed 3-second backoff
 
     var ws         = null;
     var onAir      = false;
-    var targetLang = 'it';
     var reconnTimer= null;
 
     // Audio capture state
-    var micStream    = null;
-    var mediaRec     = null;
+    var micStream = null;
+    var mediaRec  = null;
 
     /* ── DOM refs ─────────────────────────────────────────────────────── */
-    var btnOnAir  = document.getElementById('btn-on-air');
-    var hud       = document.getElementById('transcription-hud');
-    var hudEN     = document.getElementById('hud-en-text');
-    var hudSlots  = {
-        it: document.getElementById('hud-it'),
-    };
-    var wsLed     = document.getElementById('mcr-ws-led');
-    var mcrStatus = document.getElementById('mcr-status');
-    var mcrDot    = document.getElementById('mcr-on-air-dot');
-    var langBtns  = document.querySelectorAll('.mcr-lang-btn');
+    var btnOnAir    = document.getElementById('btn-on-air');
+    var hud         = document.getElementById('transcription-hud');
+    var hudEN       = document.getElementById('hud-en-text');
+    var podcastTray = document.getElementById('podcast-tray');
+    var podEN       = document.getElementById('podcast-en');
+    var podES       = document.getElementById('podcast-es');
+    var podFR       = document.getElementById('podcast-fr');
+    var wsLed       = document.getElementById('mcr-ws-led');
+    var mcrStatus   = document.getElementById('mcr-status');
+    var mcrDot      = document.getElementById('mcr-on-air-dot');
 
     /* ── UI helpers ───────────────────────────────────────────────────── */
 
@@ -9382,7 +9344,7 @@ if (btn3dX) {
             mcrStatus.classList.remove('hot');
         } else if (state === 'error') {
             wsLed.classList.add('error');
-            mcrStatus.textContent = 'WS: ERROR \u2014 RETRY IN 3s';
+            mcrStatus.textContent = 'WS: RETRY IN 3s\u2026';
             mcrStatus.classList.remove('hot');
         } else {
             mcrStatus.textContent = 'WS: DISCONNECTED';
@@ -9396,20 +9358,18 @@ if (btn3dX) {
         btnOnAir.textContent = active ? 'ON-AIR' : 'OFF-AIR';
         btnOnAir.classList.toggle('active', active);
         if (mcrDot) mcrDot.classList.toggle('hot', active);
-        langBtns.forEach(function (b) { b.disabled = active; });
-        var deck = document.getElementById('hud-langs');
         if (active) {
-            if (mcrStatus) { mcrStatus.classList.add('hot'); mcrStatus.textContent = 'MCR: ON-AIR \u25B6 ' + targetLang.toUpperCase(); }
-            if (hud)  hud.classList.add('visible');
-            if (deck) deck.classList.add('active');
+            if (mcrStatus) { mcrStatus.classList.add('hot'); mcrStatus.textContent = 'MCR: ON-AIR \u25B6 EN/ES/FR'; }
+            if (hud) hud.classList.add('visible');
         } else {
             if (mcrStatus) { mcrStatus.classList.remove('hot'); mcrStatus.textContent = 'MCR: STANDBY \u25FC'; }
-            if (hud)  hud.classList.remove('visible');
-            if (deck) deck.classList.remove('active');
+            if (hud) hud.classList.remove('visible');
+            // Hide tray when going off-air
+            if (podcastTray) podcastTray.classList.remove('visible');
         }
         if (typeof ghostLog === 'function') {
             ghostLog(active
-                ? 'GHOST> MCR ON-AIR \u2014 mic → ws://localhost:8000 → HUD'
+                ? 'GHOST> MCR ON-AIR \u2014 mic \u2192 ws://localhost:8000 \u2192 TRAY'
                 : 'GHOST> MCR STANDBY \u2014 signal stopped',
                 active ? 'ok' : 'info');
         }
@@ -9417,43 +9377,48 @@ if (btn3dX) {
 
     function clearHUD() {
         if (hudEN) hudEN.textContent = '';
-        Object.keys(hudSlots).forEach(function (k) {
-            var el = hudSlots[k];
-            if (el) { el.textContent = ''; el.classList.remove('hud-new'); }
-            var slot = el && el.closest('.hud-lang-slot');
-            if (slot) slot.classList.remove('fresh');
-        });
+        if (podEN) podEN.textContent = '';
+        if (podES) podES.textContent = '';
+        if (podFR) podFR.textContent = '';
+        if (podcastTray) podcastTray.classList.remove('visible');
     }
 
-    function flashText(el, text) {
-        if (!el) return;
+    function flashPodcastSlot(el, text) {
+        if (!el || !text) return;
         el.textContent = text;
-        el.classList.remove('hud-new');
+        el.classList.remove('flash');
         void el.offsetWidth;
-        el.classList.add('hud-new');
+        el.classList.add('flash');
     }
 
-    function flashSlot(langCode, text) {
-        var el   = hudSlots[langCode];
-        var slot = el && el.closest('.hud-lang-slot');
-        if (!el) return;
-        flashText(el, text);
-        if (slot) { slot.classList.add('fresh'); setTimeout(function () { slot.classList.remove('fresh'); }, 1400); }
+    function updatePodcastTray(data) {
+        if (!onAir) return;
+        flashPodcastSlot(podEN, data.en);
+        flashPodcastSlot(podES, data.es);
+        flashPodcastSlot(podFR, data.fr);
+        // Also keep the existing HUD EN slot in sync
+        if (hudEN && data.en) {
+            hudEN.textContent = data.en;
+            hudEN.classList.remove('hud-new');
+            void hudEN.offsetWidth;
+            hudEN.classList.add('hud-new');
+        }
+        // Show tray on first data packet
+        if (podcastTray) podcastTray.classList.add('visible');
     }
 
     /* ── Mic capture ──────────────────────────────────────────────────── */
 
     async function startMicCapture() {
         if (micStream) return;
-
         try {
             micStream = await navigator.mediaDevices.getUserMedia({
                 audio: {
-                    echoCancellation : true,
-                    noiseSuppression : true,
-                    autoGainControl  : true,
-                    channelCount     : 1,
-                    sampleRate       : 16000,
+                    echoCancellation: true,
+                    noiseSuppression: true,
+                    autoGainControl : true,
+                    channelCount    : 1,
+                    sampleRate      : 16000,
                 },
                 video: false,
             });
@@ -9465,16 +9430,14 @@ if (btn3dX) {
             return;
         }
 
-        // Pick the best compressed format the browser supports
         var mimeType = ['audio/webm;codecs=opus', 'audio/webm', 'audio/ogg;codecs=opus', 'audio/ogg']
             .find(function (t) { return MediaRecorder.isTypeSupported(t); }) || '';
 
         mediaRec = new MediaRecorder(micStream, mimeType ? { mimeType: mimeType } : {});
 
         mediaRec.ondataavailable = function (e) {
-            if (!e.data || e.data.size < 100) return;   // skip tiny / empty chunks
+            if (!e.data || e.data.size < 100) return;
             if (!ws || ws.readyState !== WebSocket.OPEN) return;
-            // Send raw audio blob as binary WebSocket frame
             e.data.arrayBuffer().then(function (buf) {
                 if (ws && ws.readyState === WebSocket.OPEN) ws.send(buf);
             }).catch(function () {});
@@ -9484,11 +9447,10 @@ if (btn3dX) {
             if (typeof ghostLog === 'function') ghostLog('MediaRecorder ERR: ' + (e.error || e), 'crit');
         };
 
-        // Fire ondataavailable every CHUNK_MS (4 s)
         mediaRec.start(CHUNK_MS);
 
         if (typeof ghostLog === 'function') {
-            ghostLog('GHOST> mic → webm chunks every ' + (CHUNK_MS / 1000) + 's → WS', 'ok');
+            ghostLog('GHOST> mic \u2192 webm chunks every ' + (CHUNK_MS / 1000) + 's \u2192 WS', 'ok');
         }
     }
 
@@ -9514,10 +9476,10 @@ if (btn3dX) {
         ws.binaryType = 'arraybuffer';
 
         ws.onopen = function () {
-            _reconnDelay = 1000;   // reset backoff on successful connect
             setWsState('connected');
             clearTimeout(reconnTimer);
-            if (onAir) { stopMicCapture(); setOnAirUI(false); }   // reset on reconnect
+            // Reset if was live when connection dropped
+            if (onAir) { stopMicCapture(); setOnAirUI(false); }
             if (typeof ghostLog === 'function') ghostLog('GHOST> MCR WS bridge online \u2192 ' + WS_URL, 'ok');
         };
 
@@ -9533,34 +9495,17 @@ if (btn3dX) {
             var data;
             try { data = JSON.parse(ev.data); } catch (e) { return; }
             switch (data.type) {
+                case 'vngrd_podcast_data':
+                    updatePodcastTray(data);
+                    break;
                 case 'status':
                     if (mcrStatus && !onAir) mcrStatus.textContent = (data.message || 'READY').substring(0, 36);
                     if (typeof ghostLog === 'function') ghostLog(data.message, 'ok');
                     break;
-                case 'transcript':
-                    // Accept both Plug-in format (data.text) and legacy (data.original)
-                    var txText = data.text || data.original;
-                    if (hudEN && txText) flashText(hudEN, txText);
-                    break;
-                case 'translation':
-                    var lang = data.lang ? data.lang.toLowerCase() : null;
-                    if (lang && hudSlots[lang] && data.text) flashSlot(lang, data.text);
-                    break;
-                case 'srt_ready':
-                    if (data.content && data.filename) {
-                        var blob = new Blob([data.content], { type: 'text/plain;charset=utf-8' });
-                        var a    = document.createElement('a');
-                        a.href     = URL.createObjectURL(blob);
-                        a.download = data.filename;
-                        a.click();
-                        URL.revokeObjectURL(a.href);
-                    }
-                    if (typeof ghostLog === 'function') ghostLog('GHOST> SRT exported: ' + (data.filename || '?'), 'ok');
-                    break;
                 case 'error':
-                    var msg = (data.message || 'UNKNOWN').substring(0, 40);
-                    if (mcrStatus) mcrStatus.textContent = 'ERR: ' + msg;
-                    if (typeof ghostLog === 'function') ghostLog('MCR ERR: ' + msg, 'crit');
+                    var errMsg = (data.message || 'UNKNOWN').substring(0, 40);
+                    if (mcrStatus) mcrStatus.textContent = 'ERR: ' + errMsg;
+                    if (typeof ghostLog === 'function') ghostLog('MCR ERR: ' + errMsg, 'crit');
                     break;
             }
         };
@@ -9568,22 +9513,9 @@ if (btn3dX) {
 
     function scheduleReconnect() {
         clearTimeout(reconnTimer);
-        var delay = _reconnDelay;
-        _reconnDelay = Math.min(_reconnDelay * 2, _reconnMax);
         setWsState('error');
-        if (mcrStatus) mcrStatus.textContent = 'WS: RETRY IN ' + Math.round(delay / 1000) + 's\u2026';
-        reconnTimer = setTimeout(connect, delay);
+        reconnTimer = setTimeout(connect, RECONNECT_DELAY);
     }
-
-    /* ── Language selector ────────────────────────────────────────────── */
-    langBtns.forEach(function (btn) {
-        btn.addEventListener('click', function () {
-            if (onAir) return;
-            targetLang = btn.dataset.lang || 'nl';
-            langBtns.forEach(function (b) { b.classList.remove('sel'); });
-            btn.classList.add('sel');
-        });
-    });
 
     /* ── ON-AIR toggle ────────────────────────────────────────────────── */
     if (btnOnAir) {
@@ -9597,13 +9529,11 @@ if (btn3dX) {
             }
 
             if (!onAir) {
-                // ── START: tell server, open mic, begin streaming audio chunks ──
                 clearHUD();
-                ws.send(JSON.stringify({ action: 'start', target_lang: targetLang, source_lang: 'en' }));
+                ws.send(JSON.stringify({ action: 'start', source_lang: 'en' }));
                 setOnAirUI(true);
-                startMicCapture();   // browser mic → binary WebSocket frames
+                startMicCapture();
             } else {
-                // ── STOP: drain final chunk, tell server ──
                 stopMicCapture();
                 ws.send(JSON.stringify({ action: 'stop' }));
                 setOnAirUI(false);
