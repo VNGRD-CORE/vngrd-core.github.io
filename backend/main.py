@@ -1,249 +1,463 @@
 """
-main.py — FastAPI WebSocket server for the real-time transcription/translation
-signal chain.
+POLYTRANSLATOR // V1.0_SYNC  —  Backend Server
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+  POST /generate       →  Fal.ai Flux-Pro → SDXL → Pollinations fallback
+  WS   /ws/transcribe  →  Deepgram Nova-3 STT + MyMemory translation
+  GET  /health         →  Service status check
 
-Signal flow:
-    Microphone → PyAudio → Whisper API → GPT-4o → WebSocket → React HUD
-                                                             → SRT file
-
-Start the server:
+Start:
     uvicorn main:app --host 0.0.0.0 --port 8000 --reload
 
-Environment variables (see .env):
-    OPENAI_API_KEY   — required
-    SOURCE_LANG      — ISO-639-1, defaults to "en"
-    MIC_DEVICE_INDEX — optional integer, auto-selects default device if omitted
+Environment (.env):
+    DEEPGRAM_API_KEY  — Deepgram Nova-3 speech-to-text
+    FAL_KEY           — Fal.ai image generation
 """
 
 import asyncio
 import json
 import os
+import random
 import time
 import uuid
 from contextlib import asynccontextmanager
+from urllib.parse import quote
 
+import fal_client
+import httpx
+import websockets
 from dotenv import load_dotenv
 from fastapi import FastAPI, WebSocket, WebSocketDisconnect
 from fastapi.middleware.cors import CORSMiddleware
+from pydantic import BaseModel
 
-from audio_capture import MicrophoneCapture, list_input_devices
-from transcriber   import transcribe_with_timestamps
-from translator    import translate_segments, SUPPORTED_LANGUAGES
-from srt_exporter  import SRTExporter
+# ── Load .env — check Desktop project folder first, then local ───────────────
+_desktop_env = os.path.expanduser("~/Desktop/vanguard-core/.env")
+if os.path.exists(_desktop_env):
+    load_dotenv(dotenv_path=_desktop_env, override=True)
+load_dotenv()  # local .env as fallback / supplement
 
-load_dotenv()
+DEEPGRAM_API_KEY = os.getenv("DEEPGRAM_API_KEY", "")
+FAL_KEY = os.getenv("FAL_KEY", "")
 
-# ── App factory ───────────────────────────────────────────────────────────────
+if FAL_KEY:
+    os.environ["FAL_KEY"] = FAL_KEY
+
+# ── Translation config ───────────────────────────────────────────────────────
+SUPPORTED_LANGUAGES = {
+    "nl": "Dutch",
+    "fr": "French",
+    "it": "Italian",
+    "es": "Spanish",
+}
+
+# ── App ──────────────────────────────────────────────────────────────────────
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-    print("┌─────────────────────────────────────────┐")
-    print("│  DRIS//CORE  —  Transcription Engine     │")
-    print("│  POST: /devices  │  WS: /ws/transcribe  │")
-    print("└─────────────────────────────────────────┘")
+    print("┌───────────────────────────────────────────────┐")
+    print("│  POLYTRANSLATOR // V1.0_SYNC  —  BACKEND      │")
+    print("│  POST /generate  │  WS /ws/transcribe         │")
+    print(f"│  DEEPGRAM: {'✓' if DEEPGRAM_API_KEY else '✗'}   FAL: {'✓' if FAL_KEY else '✗'}                          │")
+    print("└───────────────────────────────────────────────┘")
     yield
 
-app = FastAPI(title="DRIS//CORE Transcription API", lifespan=lifespan)
+app = FastAPI(title="POLYTRANSLATOR Backend", version="1.0.0", lifespan=lifespan)
 
 app.add_middleware(
     CORSMiddleware,
-    allow_origins  = ["*"],   # tighten for production
-    allow_methods  = ["*"],
-    allow_headers  = ["*"],
+    allow_origins=["*"],
+    allow_methods=["*"],
+    allow_headers=["*"],
 )
 
 
-# ── REST helpers ──────────────────────────────────────────────────────────────
+# ══════════════════════════════════════════════════════════════════════════════
+#  POST /generate  —  AI Image Generation (Fal.ai → Pollinations fallback)
+# ══════════════════════════════════════════════════════════════════════════════
 
-@app.get("/devices")
-def get_devices():
-    """List available microphone input devices."""
-    return {"devices": list_input_devices()}
-
-
-@app.get("/languages")
-def get_languages():
-    """List supported output languages."""
-    return {"languages": SUPPORTED_LANGUAGES}
+class GenerateRequest(BaseModel):
+    prompt: str
+    width: int = 1024
+    height: int = 1024
 
 
-# ── WebSocket — main signal chain ─────────────────────────────────────────────
+@app.post("/generate")
+async def generate_image(req: GenerateRequest):
+    """
+    Tier 1: Fal.ai Flux-Pro  →  Tier 2: Fal.ai SDXL  →  Tier 3: Pollinations
+    Returns { url, source } — frontend fetches the URL and creates a blob.
+    """
+    prompt = req.prompt
+
+    # ── Tier 1: Fal.ai Flux-Pro ──────────────────────────────────────────────
+    if FAL_KEY:
+        try:
+            result = await fal_client.run_async(
+                "fal-ai/flux-pro",
+                arguments={
+                    "prompt": prompt,
+                    "image_size": "square_hd",
+                    "num_images": 1,
+                    "safety_tolerance": "2",
+                },
+            )
+            url = result["images"][0]["url"]
+            return {"url": url, "source": "fal-flux-pro"}
+        except Exception as e:
+            print(f"[POLYTRANSLATOR] FAL_FLUX_PRO_FAIL: {e}")
+
+        # ── Tier 2: Fal.ai SDXL ─────────────────────────────────────────────
+        try:
+            result = await fal_client.run_async(
+                "fal-ai/stable-diffusion-xl",
+                arguments={
+                    "prompt": prompt,
+                    "image_size": "square_hd",
+                    "num_images": 1,
+                },
+            )
+            url = result["images"][0]["url"]
+            return {"url": url, "source": "fal-sdxl"}
+        except Exception as e:
+            print(f"[POLYTRANSLATOR] FAL_SDXL_FAIL: {e}")
+
+    # ── Tier 3: Pollinations free fallback (always works) ────────────────────
+    seed = random.randint(0, 999999)
+    url = (
+        f"https://image.pollinations.ai/prompt/{quote(prompt)}"
+        f"?width={req.width}&height={req.height}&model=flux&seed={seed}&nologo=true"
+    )
+    return {"url": url, "source": "pollinations-fallback"}
+
+
+# ══════════════════════════════════════════════════════════════════════════════
+#  WS /ws/transcribe  —  Deepgram Nova-3 STT + Translation
+# ══════════════════════════════════════════════════════════════════════════════
+#
+#  POLYTRANSLATOR// protocol  (matches frontend expectations):
+#
+#  Client → Server:
+#    JSON:   { action:"start", target_lang:"nl", source_lang:"en" }
+#            { action:"stop" }
+#    Binary: Raw webm/opus audio chunks from MediaRecorder
+#
+#  Server → Client:
+#    { type:"status",      message:"..." }
+#    { type:"transcript",  original:"...", timestamp:0.0 }
+#    { type:"translation", text:"...", lang:"nl", start:0.0, end:4.0 }
+#    { type:"srt_ready",   filename:"...", content:"..." }
+#    { type:"error",       message:"..." }
+# ══════════════════════════════════════════════════════════════════════════════
 
 @app.websocket("/ws/transcribe")
-async def ws_transcribe(websocket: WebSocket):
-    """
-    WebSocket protocol:
+async def ws_transcribe(client_ws: WebSocket):
+    await client_ws.accept()
 
-    Client → server  (JSON):
-        { "action": "start", "target_lang": "fr", "source_lang": "en",
-          "device_index": null }
-        { "action": "stop" }
-
-    Server → client  (JSON):
-        { "type": "status",      "message": "..." }
-        { "type": "transcript",  "original": "...", "timestamp": 0.0 }
-        { "type": "translation", "text": "...", "lang": "fr",
-          "start": 0.0, "end": 3.2, "segment_id": "..." }
-        { "type": "srt_ready",   "filename": "...", "content": "..." }
-        { "type": "error",       "message": "..." }
-    """
-    await websocket.accept()
-    session_id  = str(uuid.uuid4())[:8]
-    active      = False
-    mic         = None
-    capture_task= None
-    exporter    = None
+    session_id = str(uuid.uuid4())[:8]
+    target_lang = "nl"
+    source_lang = "en"
+    on_air = False
+    dg_ws = None
+    tasks = []
+    srt_segments = []
+    chunk_time = 0.0
 
     async def send(payload: dict):
-        await websocket.send_text(json.dumps(payload))
+        try:
+            await client_ws.send_text(json.dumps(payload))
+        except Exception:
+            pass
 
-    await send({"type": "status", "message": f"GHOST> SESSION {session_id} — READY"})
+    # ── Greeting — triggers LED green in frontend ────────────────────────────
+    await send({
+        "type": "status",
+        "message": f"GHOST> SESSION {session_id} — READY",
+    })
 
     try:
         while True:
-            raw = await websocket.receive_text()
-            msg = json.loads(raw)
+            message = await client_ws.receive()
 
-            # ── START command ─────────────────────────────────────────────
-            if msg.get("action") == "start" and not active:
-                target_lang  = msg.get("target_lang", "fr")
-                source_lang  = msg.get("source_lang", os.getenv("SOURCE_LANG", "en"))
-                device_index = msg.get("device_index")
-                if isinstance(device_index, float):
-                    device_index = int(device_index)
+            # ── Binary audio: forward to Deepgram ────────────────────────────
+            if "bytes" in message and message["bytes"] and dg_ws:
+                try:
+                    await dg_ws.send(message["bytes"])
+                except Exception:
+                    pass
+                continue
+
+            # ── Text messages: JSON commands ──────────────────────────────────
+            raw = message.get("text", "")
+            if not raw:
+                continue
+
+            try:
+                msg = json.loads(raw)
+            except json.JSONDecodeError:
+                continue
+
+            action = msg.get("action", "")
+
+            # ── START ────────────────────────────────────────────────────────
+            if action == "start" and not on_air:
+                target_lang = msg.get("target_lang", "nl")
+                source_lang = msg.get("source_lang", "en")
+                srt_segments = []
+                chunk_time = 0.0
 
                 if target_lang not in SUPPORTED_LANGUAGES:
-                    await send({"type": "error",
-                                "message": f"Unsupported language: {target_lang}"})
+                    await send({
+                        "type": "error",
+                        "message": f"Unsupported language: {target_lang}",
+                    })
                     continue
 
-                exporter = SRTExporter(
-                    target_lang = target_lang,
-                    output_dir  = "./exports",
-                    session_id  = session_id,
-                )
+                if not DEEPGRAM_API_KEY:
+                    await send({
+                        "type": "error",
+                        "message": "DEEPGRAM_KEY_MISSING — add to .env",
+                    })
+                    continue
 
                 await send({
-                    "type"   : "status",
+                    "type": "status",
                     "message": (
                         f"GHOST> ON-AIR ▶  {source_lang.upper()} → "
                         f"{SUPPORTED_LANGUAGES[target_lang].upper()}"
                     ),
                 })
 
-                active = True
-                mic    = MicrophoneCapture(device_index=device_index)
-                mic.__enter__()
+                # Open Deepgram Nova-3 WebSocket
+                dg_url = (
+                    "wss://api.deepgram.com/v1/listen"
+                    f"?model=nova-3"
+                    f"&language={source_lang}"
+                    "&smart_format=true"
+                    "&punctuate=true"
+                    "&interim_results=true"
+                    "&encoding=webm-opus"
+                    "&sample_rate=48000"
+                    "&channels=1"
+                )
+                dg_headers = {"Authorization": f"Token {DEEPGRAM_API_KEY}"}
 
-                # Fire-and-forget capture loop as a background task
-                capture_task = asyncio.create_task(
-                    _capture_loop(
-                        websocket   = websocket,
-                        mic         = mic,
-                        source_lang = source_lang,
-                        target_lang = target_lang,
-                        exporter    = exporter,
-                        send        = send,
+                try:
+                    dg_ws = await websockets.connect(
+                        dg_url, extra_headers=dg_headers
+                    )
+                except Exception as e:
+                    await send({
+                        "type": "error",
+                        "message": f"DEEPGRAM_CONNECT_FAIL: {e}",
+                    })
+                    continue
+
+                on_air = True
+
+                # Background task: read Deepgram results → transform → send
+                task = asyncio.create_task(
+                    _deepgram_reader(
+                        dg_ws=dg_ws,
+                        client_send=send,
+                        target_lang=target_lang,
+                        srt_segments=srt_segments,
+                        session_id=session_id,
                     )
                 )
+                tasks.append(task)
 
-            # ── STOP command ──────────────────────────────────────────────
-            elif msg.get("action") == "stop" and active:
-                active = False
-                if capture_task:
-                    capture_task.cancel()
-                if mic:
-                    mic.stop()
+            # ── STOP ─────────────────────────────────────────────────────────
+            elif action == "stop" and on_air:
+                on_air = False
 
-                srt_path    = exporter.save() if exporter else None
-                srt_content = ""
-                if srt_path and os.path.exists(srt_path):
-                    with open(srt_path, "r", encoding="utf-8") as f:
-                        srt_content = f.read()
+                # Signal Deepgram to flush
+                if dg_ws:
+                    try:
+                        await dg_ws.send(json.dumps({"type": "CloseStream"}))
+                        await asyncio.sleep(0.5)
+                        await dg_ws.close()
+                    except Exception:
+                        pass
+                    dg_ws = None
 
+                # Cancel reader task
+                for t in tasks:
+                    t.cancel()
+                tasks.clear()
+
+                # Build and send SRT
+                srt_content = _build_srt(srt_segments)
+                filename = (
+                    f"{time.strftime('%Y-%m-%dT%H%M%S')}"
+                    f"_{session_id}_{target_lang}.srt"
+                )
                 await send({
-                    "type"    : "srt_ready",
-                    "filename": os.path.basename(srt_path) if srt_path else "",
-                    "content" : srt_content,
+                    "type": "srt_ready",
+                    "filename": filename,
+                    "content": srt_content,
                 })
-                await send({"type": "status",
-                            "message": "GHOST> STANDBY ◼  Session closed."})
+                await send({
+                    "type": "status",
+                    "message": "GHOST> STANDBY ◼  Session closed.",
+                })
 
     except WebSocketDisconnect:
         pass
     except Exception as exc:
-        try:
-            await send({"type": "error", "message": str(exc)})
-        except Exception:
-            pass
+        await send({"type": "error", "message": str(exc)})
     finally:
-        if mic:
-            mic.stop()
-        if capture_task and not capture_task.done():
-            capture_task.cancel()
+        if dg_ws:
+            try:
+                await dg_ws.close()
+            except Exception:
+                pass
+        for t in tasks:
+            t.cancel()
 
 
-# ── Capture loop (background task) ────────────────────────────────────────────
+# ── Deepgram reader — transforms Nova-3 JSON → POLYTRANSLATOR protocol ──────
 
-async def _capture_loop(
-    websocket   : WebSocket,
-    mic         : MicrophoneCapture,
-    source_lang : str,
-    target_lang : str,
-    exporter    : SRTExporter,
-    send,
+async def _deepgram_reader(
+    dg_ws,
+    client_send,
+    target_lang: str,
+    srt_segments: list,
+    session_id: str,
 ):
     """
-    Consumes audio chunks from the mic, transcribes, translates,
-    streams results over the WebSocket, and writes to the SRT exporter.
+    Reads Deepgram WebSocket results, extracts final transcripts,
+    translates them, and pushes both to the frontend in POLYTRANSLATOR format.
     """
-    chunk_offset = 0.0   # running timeline offset in seconds
-    from audio_capture import CHUNK_SECONDS
-
     try:
-        async for wav_bytes in mic.stream_wav_chunks():
-            t_start = time.perf_counter()
-
-            # 1. Transcribe
-            segments = await transcribe_with_timestamps(wav_bytes, language=source_lang)
-            if not segments:
-                chunk_offset += CHUNK_SECONDS
+        async for raw_msg in dg_ws:
+            try:
+                data = json.loads(raw_msg)
+            except json.JSONDecodeError:
                 continue
 
-            # Shift segment timestamps by the running offset
-            for seg in segments:
-                seg["start"] += chunk_offset
-                seg["end"]   += chunk_offset
+            # Only process speech results
+            if data.get("type") != "Results":
+                continue
 
-            # Stream raw transcript to the HUD immediately
-            combined_original = " ".join(s["text"] for s in segments)
-            await send({
-                "type"     : "transcript",
-                "original" : combined_original,
-                "timestamp": round(chunk_offset, 2),
+            channel = data.get("channel", {})
+            alternatives = channel.get("alternatives", [])
+            if not alternatives:
+                continue
+
+            alt = alternatives[0]
+            transcript = alt.get("transcript", "").strip()
+            if not transcript:
+                continue
+
+            is_final = data.get("is_final", False)
+            start = data.get("start", 0.0)
+            duration = data.get("duration", 0.0)
+
+            # Always send transcript (interim + final) so HUD feels live
+            await client_send({
+                "type": "transcript",
+                "original": transcript,
+                "timestamp": round(start, 2),
             })
 
-            # 2. Translate all segments in parallel
-            translated = await translate_segments(segments, target_lang)
+            # Only translate final results (not interim) to avoid spam
+            if is_final and transcript:
+                translated = await _translate(transcript, target_lang)
+                if translated:
+                    end = start + duration
 
-            # 3. Stream each translated segment to HUD + write to SRT
-            for seg in translated:
-                seg_id = str(uuid.uuid4())[:8]
-                await send({
-                    "type"      : "translation",
-                    "text"      : seg["translation"],
-                    "lang"      : target_lang,
-                    "start"     : round(seg["start"], 3),
-                    "end"       : round(seg["end"],   3),
-                    "segment_id": seg_id,
-                })
-                exporter.add_segment(seg["start"], seg["end"], seg["translation"])
+                    await client_send({
+                        "type": "translation",
+                        "text": translated,
+                        "lang": target_lang,
+                        "start": round(start, 3),
+                        "end": round(end, 3),
+                    })
 
-            chunk_offset += CHUNK_SECONDS
-            elapsed = time.perf_counter() - t_start
-            print(f"[PIPELINE] chunk {chunk_offset:.0f}s  processed in {elapsed:.2f}s")
+                    srt_segments.append({
+                        "start": start,
+                        "end": end,
+                        "text": translated,
+                    })
 
     except asyncio.CancelledError:
         pass
-    except Exception as exc:
-        await send({"type": "error", "message": f"Pipeline error: {exc}"})
+    except websockets.exceptions.ConnectionClosed:
+        pass
+    except Exception as e:
+        await client_send({
+            "type": "error",
+            "message": f"DEEPGRAM_STREAM_ERR: {e}",
+        })
+
+
+# ── Translation — MyMemory API (free, no key) ───────────────────────────────
+
+_LANG_CODES = {
+    "nl": "nl-NL",
+    "fr": "fr-FR",
+    "it": "it-IT",
+    "es": "es-ES",
+}
+
+_http_client = httpx.AsyncClient(timeout=10.0)
+
+
+async def _translate(text: str, target_lang: str) -> str:
+    """Translate text using MyMemory API (free, no API key required)."""
+    lang_pair = f"en|{_LANG_CODES.get(target_lang, target_lang)}"
+    try:
+        resp = await _http_client.get(
+            "https://api.mymemory.translated.net/get",
+            params={"q": text, "langpair": lang_pair},
+        )
+        if resp.status_code == 200:
+            data = resp.json()
+            translated = data.get("responseData", {}).get("translatedText", "")
+            if translated and translated.upper() != text.upper():
+                return translated
+    except Exception as e:
+        print(f"[POLYTRANSLATOR] TRANSLATE_FAIL ({target_lang}): {e}")
+    return ""
+
+
+# ── SRT builder ──────────────────────────────────────────────────────────────
+
+def _srt_time(seconds: float) -> str:
+    """Convert seconds to SRT timestamp format: HH:MM:SS,mmm"""
+    h = int(seconds // 3600)
+    m = int((seconds % 3600) // 60)
+    s = int(seconds % 60)
+    ms = int((seconds % 1) * 1000)
+    return f"{h:02d}:{m:02d}:{s:02d},{ms:03d}"
+
+
+def _build_srt(segments: list) -> str:
+    """Build SRT content from a list of {start, end, text} segments."""
+    lines = []
+    for i, seg in enumerate(segments, 1):
+        lines.append(str(i))
+        lines.append(f"{_srt_time(seg['start'])} --> {_srt_time(seg['end'])}")
+        lines.append(seg["text"])
+        lines.append("")
+    return "\n".join(lines)
+
+
+# ── Health check ─────────────────────────────────────────────────────────────
+
+@app.get("/health")
+def health():
+    return {
+        "status": "ONLINE",
+        "engine": "POLYTRANSLATOR // V1.0_SYNC",
+        "deepgram_key": bool(DEEPGRAM_API_KEY),
+        "fal_key": bool(FAL_KEY),
+    }
+
+
+# ── Direct run ───────────────────────────────────────────────────────────────
+
+if __name__ == "__main__":
+    import uvicorn
+
+    uvicorn.run(app, host="0.0.0.0", port=8000)
