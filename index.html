@@ -160,22 +160,21 @@
         @keyframes svg-scan-line { 0% { transform: translateY(0); opacity: 0.9; } 50% { opacity: 0.5; } 100% { transform: translateY(60px); opacity: 0; } }
         @keyframes svg-ring-spin { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }
         #vngrd-svg-templates { display: none; }
-        .vngrd-svg-tpl { display: none; pointer-events: none; }
-        .vngrd-svg-tpl.active { display: block; }
+        /* SVG stage lives inside #overlay-layer (position:absolute;inset:0) */
         #vngrd-svg-stage {
-            position: absolute; bottom: 12px; right: 12px;
+            position: absolute; bottom: 14px; right: 14px;
             width: 200px; height: 80px;
-            z-index: 3100; pointer-events: none;
+            z-index: 2100; pointer-events: none;
             display: none;
             will-change: transform;
+            filter: drop-shadow(0 0 6px var(--accent));
+            animation: pulse-glow 2s infinite;
         }
         #vngrd-svg-stage.active { display: block; }
-        #vngrd-svg-stage svg { width: 100%; height: 100%; }
+        #vngrd-svg-stage svg { width: 100%; height: 100%; overflow: visible; }
         .vngrd-text-target { user-select: none; -webkit-user-select: none; }
         .vngrd-core-scan { animation: svg-scan-line 1.8s linear infinite; }
         .vngrd-ring-spin { transform-origin: 50% 50%; animation: svg-ring-spin 4s linear infinite; }
-        /* GPU-composite the SVG stage via pulse-glow */
-        #vngrd-svg-stage { filter: drop-shadow(0 0 6px var(--accent)); animation: pulse-glow 2s infinite; }
 
         .sub-tag { font-size: 11px; letter-spacing: 3px; color: var(--accent); margin-left: 10px; opacity: 0.7; position: relative; display: inline-block; overflow: hidden; }
         .sub-tag::after { content: ''; position: absolute; top: 0; left: -100%; width: 50%; height: 100%; background: linear-gradient(90deg, transparent, rgba(255,255,255,0.3), transparent); animation: vngrd-shine 8s ease-in-out infinite; }
@@ -1499,6 +1498,8 @@ body.fullscreen #transcription-hud { opacity: 0 !important; pointer-events: none
         <div id="overlay-layer">
             <!-- V33 MANUAL LAYER SEPARATION -->
             <div id="station-bug">VNGRD</div>
+            <!-- SVG template overlay — shown on stage when a preset is active -->
+            <div id="vngrd-svg-stage" aria-hidden="true"></div>
             <!-- user-logo-layer moved to gif-host for reliable GIF compositing -->
             <div id="lower-third">
                 <div class="lt-container lt-guest">
@@ -1730,9 +1731,6 @@ body.fullscreen #transcription-hud { opacity: 0 !important; pointer-events: none
                               fill="var(--accent)" opacity="0.5" class="vngrd-text-target">HUD//VECTOR</text>
                     </svg>
                 </div>
-
-                <!-- SVG template live stage (composited to canvas) -->
-                <div id="vngrd-svg-stage" aria-hidden="true"></div>
 
                 <!-- ── SIGNATURE + TEMPLATE SELECTOR ─────────────────── -->
                 <div class="lbl" style="margin-top:10px;font-size:7px;opacity:0.5;">SIGNATURE</div>
@@ -3530,7 +3528,8 @@ function renderLoop(timestamp) {
                 var bh = bugImg.naturalHeight * bScale * (h / 1080);
                 ctx.drawImage(bugImg, bx, by, bw, bh);
                 ctx.restore();
-            } else if (APP.bug.text) {
+            } else if (APP.bug.text && !(APP.svgLogo && APP.svgLogo.activeTemplate !== 'OFF')) {
+                // Skip plain text when a template preset handles rendering (ACTOR 4)
                 ctx.save();
                 var bugFS = Math.max(14, 28 * bScale * (h / 1080));
                 ctx.font = '800 ' + bugFS + 'px Orbitron, sans-serif';
@@ -3583,20 +3582,102 @@ function renderLoop(timestamp) {
     }
 
     // ACTOR 4: SVG LOGO TEMPLATE (rasterised offscreen → drawImage composite)
-    if (APP.svgLogo && APP.svgLogo.activeTemplate !== 'OFF' && APP.svgLogo.svgCanvas) {
+    // ACTOR 4: SVG LOGO TEMPLATE — canvas-native per-frame drawing
+    // Mirrors the animated DOM overlay burned into vj-canvas for captureStream
+    if (APP.svgLogo && APP.svgLogo.activeTemplate !== 'OFF') {
         try {
-            var sc = APP.svgLogo.svgCanvas;
-            if (sc.width > 0 && sc.height > 0) {
+            var _sl = APP.svgLogo;
+            var _accent = getComputedStyle(document.documentElement).getPropertyValue('--accent').trim() || '#00f3ff';
+            var _scale  = (APP.trinity && APP.trinity.bug) ? APP.trinity.bug.scale : 1.5;
+            // Position: bottom-right, same margin as DOM overlay
+            var _tplW = 200 * _scale * (w / 1920);
+            var _tplH = 80  * _scale * (h / 1080);
+            var _tplX = w - _tplW - 14 * (w / 1920);
+            var _tplY = h - _tplH - 14 * (h / 1080);
+            var _fs   = Math.max(12, 20 * _scale * (h / 1080));
+            var _label = _sl.customText || APP.bug.text || 'VNGRD';
+
+            ctx.save();
+            ctx.font = '800 ' + _fs + 'px Orbitron, sans-serif';
+            ctx.fillStyle   = _accent;
+            ctx.strokeStyle = _accent;
+            ctx.shadowColor = _accent;
+            ctx.shadowBlur  = 8;
+            ctx.globalAlpha = 0.92;
+            ctx.globalCompositeOperation = 'source-over';
+            ctx.filter = 'none';
+
+            if (_sl.activeTemplate === 'TEMPLATE_A') {
+                // ── CORE: industrial frame + scan-line + signal bars ──
+                ctx.lineWidth = 1.2 * (w / 1920);
+                ctx.strokeRect(_tplX, _tplY, _tplW, _tplH);
+                // Corner ticks
+                var _tk = 10 * (w / 1920);
+                ctx.beginPath();
+                ctx.moveTo(_tplX, _tplY + _tk); ctx.lineTo(_tplX, _tplY); ctx.lineTo(_tplX + _tk, _tplY);
+                ctx.moveTo(_tplX + _tplW - _tk, _tplY); ctx.lineTo(_tplX + _tplW, _tplY); ctx.lineTo(_tplX + _tplW, _tplY + _tk);
+                ctx.moveTo(_tplX, _tplY + _tplH - _tk); ctx.lineTo(_tplX, _tplY + _tplH); ctx.lineTo(_tplX + _tk, _tplY + _tplH);
+                ctx.moveTo(_tplX + _tplW - _tk, _tplY + _tplH); ctx.lineTo(_tplX + _tplW, _tplY + _tplH); ctx.lineTo(_tplX + _tplW, _tplY + _tplH - _tk);
+                ctx.stroke();
+                // Animated scan line
+                var _scan = _tplY + 2 + ((timestamp % 1800) / 1800) * (_tplH - 4);
+                ctx.globalAlpha = 0.45;
+                ctx.fillRect(_tplX + 2, _scan, _tplW - 4, 2 * (h / 1080));
+                ctx.globalAlpha = 0.9;
+                // Signal bars (left side)
+                var _bx = _tplX + 8 * (w / 1920);
+                var _bb = _tplY + _tplH - 8 * (h / 1080);
+                var _bw = 3 * (w / 1920);
+                [16, 22, 28, 12].forEach(function(bh, i) {
+                    var _bhS = bh * _scale * (h / 1080);
+                    ctx.fillRect(_bx + i * (_bw + 2 * (w / 1920)), _bb - _bhS, _bw, _bhS);
+                });
+                // Identity text
+                ctx.globalAlpha = 1;
+                ctx.textAlign = 'left'; ctx.textBaseline = 'top';
+                ctx.fillText(_label, _tplX + 36 * (w / 1920), _tplY + 14 * (h / 1080));
+
+            } else if (_sl.activeTemplate === 'TEMPLATE_B') {
+                // ── HUD: rotating ring + crosshair + blinking dot ──
+                var _cx = _tplX + _tplW - 32 * (w / 1920);
+                var _cy = _tplY + _tplH / 2;
+                var _r  = 26 * _scale * Math.min(w / 1920, h / 1080);
+                var _angle = (timestamp % 4000) / 4000 * Math.PI * 2;
+                // Rotating dashed ring
                 ctx.save();
-                ctx.globalAlpha = 0.92;
-                // Bottom-right quadrant, proportional to canvas
-                var svgW = Math.round(200 * (w / 1920));
-                var svgH = Math.round(80  * (h / 1080));
-                var svgX = w - svgW - Math.round(12 * (w / 1920));
-                var svgY = h - svgH - Math.round(12 * (h / 1080));
-                ctx.drawImage(sc, svgX, svgY, svgW, svgH);
+                ctx.translate(_cx, _cy);
+                ctx.rotate(_angle);
+                ctx.setLineDash([8 * (w / 1920), 4 * (w / 1920)]);
+                ctx.lineWidth = 1;
+                ctx.globalAlpha = 0.75;
+                ctx.beginPath(); ctx.arc(0, 0, _r, 0, Math.PI * 2); ctx.stroke();
+                ctx.setLineDash([]);
+                // Cardinal ticks
+                ctx.lineWidth = 1.5; ctx.globalAlpha = 0.9;
+                [[0, -_r], [_r, 0], [0, _r], [-_r, 0]].forEach(function(p) {
+                    ctx.beginPath(); ctx.moveTo(p[0] * 0.82, p[1] * 0.82); ctx.lineTo(p[0], p[1]); ctx.stroke();
+                });
                 ctx.restore();
+                // Center dot + crosshair
+                ctx.globalAlpha = 0.9;
+                ctx.beginPath(); ctx.arc(_cx, _cy, 4 * (w / 1920), 0, Math.PI * 2); ctx.fill();
+                ctx.lineWidth = 0.8;
+                ctx.beginPath();
+                ctx.moveTo(_cx - 8 * (w / 1920), _cy); ctx.lineTo(_cx + 8 * (w / 1920), _cy);
+                ctx.moveTo(_cx, _cy - 8 * (h / 1080)); ctx.lineTo(_cx, _cy + 8 * (h / 1080));
+                ctx.stroke();
+                // Blinking ON_AIR dot
+                ctx.globalAlpha = Math.sin(timestamp * 0.005) > 0 ? 0.9 : 0.2;
+                ctx.beginPath(); ctx.arc(_tplX + 12 * (w / 1920), _tplY + 12 * (h / 1080), 3 * (w / 1920), 0, Math.PI * 2); ctx.fill();
+                // HUD left-frame line
+                ctx.globalAlpha = 0.45; ctx.lineWidth = 0.8;
+                ctx.strokeRect(_tplX, _tplY, _tplW * 0.62, _tplH);
+                // Identity text
+                ctx.globalAlpha = 1;
+                ctx.textAlign = 'left'; ctx.textBaseline = 'middle';
+                ctx.fillText(_label, _tplX + 8 * (w / 1920), _tplY + _tplH * 0.55);
             }
+            ctx.restore();
         } catch(esvg) {}
     }
 
@@ -4240,36 +4321,19 @@ if ($('btn-2d-x')) {
 
 // ── SVG LOGO TEMPLATE HELPERS ──────────────────────────────────────────────
 
-// Rasterise the active SVG template to an offscreen canvas for drawImage use
-function _rasteriseSvgTemplate(tplId, callback) {
-    var svgEl = $(tplId);
-    if (!svgEl) { if (callback) callback(null); return; }
-    var svgStr = new XMLSerializer().serializeToString(svgEl);
-    var blob = new Blob([svgStr], { type: 'image/svg+xml;charset=utf-8' });
-    var url  = URL.createObjectURL(blob);
-    var img  = new Image();
-    img.onload = function() {
-        var oc = document.createElement('canvas');
-        oc.width = 400; oc.height = 160; // 2x for HiDPI clarity
-        oc.getContext('2d').drawImage(img, 0, 0, oc.width, oc.height);
-        URL.revokeObjectURL(url);
-        if (callback) callback(oc);
-    };
-    img.onerror = function() { URL.revokeObjectURL(url); if (callback) callback(null); };
-    img.src = url;
-}
-
-// Activate or deactivate an SVG template by key ('OFF','TEMPLATE_A','TEMPLATE_B')
+// Activate or deactivate an SVG template by key ('OFF','TEMPLATE_A','TEMPLATE_B').
+// The DOM stage is inside #overlay-layer so it's visible on the broadcast area.
+// Canvas burn-in is handled per-frame in renderLoop (ACTOR 4) via canvas 2D API.
 function _activateSvgTemplate(key) {
     APP.svgLogo.activeTemplate = key;
     var stage = $('vngrd-svg-stage');
-
-    // Update select UI
     if ($('vngrd-tpl-select')) $('vngrd-tpl-select').value = key;
 
     if (key === 'OFF') {
         if (stage) { stage.classList.remove('active'); stage.innerHTML = ''; }
-        APP.svgLogo.svgCanvas = null;
+        // Also un-hide the plain station-bug so text is still visible
+        var bug = $('station-bug');
+        if (bug) bug.style.opacity = '';
         return;
     }
 
@@ -4277,40 +4341,50 @@ function _activateSvgTemplate(key) {
     var svgEl  = $(tplId);
     if (!svgEl) return;
 
-    // Clone into the live stage div for DOM display
+    // Clone the template SVG into the live stage div for the animated DOM overlay
     if (stage) {
         stage.innerHTML = '';
-        stage.appendChild(svgEl.cloneNode(true));
+        var clone = svgEl.cloneNode(true);
+        // Stamp current text into the clone's identity node
+        clone.querySelectorAll('.vngrd-text-target').forEach(function(el) {
+            if (parseFloat(el.getAttribute('font-size') || '0') >= 20)
+                el.textContent = APP.svgLogo.customText;
+        });
+        stage.appendChild(clone);
         stage.classList.add('active');
     }
 
-    // Rasterise to offscreen canvas for vj-canvas compositing
-    _rasteriseSvgTemplate(tplId, function(oc) {
-        APP.svgLogo.svgCanvas = oc;
-    });
+    // Hide the plain #station-bug text while a template is active to avoid overlap
+    var bug = $('station-bug');
+    if (bug) bug.style.opacity = '0';
 }
 
-// Push new text into all .vngrd-text-target nodes across both templates
+// Update the signature text across the live stage and the APP state.
+// Also updates APP.bug.text so the canvas Actor 1 / Actor 4 both see the new value.
 function _applySignatureText(text) {
-    APP.svgLogo.customText = text || 'VNGRD';
-    // Update hidden library SVGs
-    var tpls = document.querySelectorAll('#vngrd-svg-templates .vngrd-text-target');
-    tpls.forEach(function(el) {
-        // Only replace the main identity node (the largest font-size), leave sub-labels
-        if (parseFloat(el.getAttribute('font-size') || '0') >= 20) el.textContent = APP.svgLogo.customText;
-    });
-    // Re-rasterise if a template is active
-    if (APP.svgLogo.activeTemplate !== 'OFF') {
-        _activateSvgTemplate(APP.svgLogo.activeTemplate);
+    var val = (text || 'VNGRD').toUpperCase().slice(0, 32);
+    APP.svgLogo.customText = val;
+    // Keep APP.bug.text in sync so canvas rendering uses the same string
+    APP.bug.text = val;
+    // Update the station-bug DOM element
+    var bug = $('station-bug');
+    if (bug && !bug.querySelector('img')) bug.textContent = val;
+    // Mirror into the existing SET BUG input
+    if ($('bug-text')) $('bug-text').value = val;
+    // Update text nodes in the live stage clone
+    var stage = $('vngrd-svg-stage');
+    if (stage) {
+        stage.querySelectorAll('.vngrd-text-target').forEach(function(el) {
+            if (parseFloat(el.getAttribute('font-size') || '0') >= 20) el.textContent = val;
+        });
     }
 }
 
-// Wire up SIGNATURE input (real-time update)
+// Wire up SIGNATURE input — real-time, mirrors SET BUG
 if ($('vngrd-signature')) {
     $('vngrd-signature').addEventListener('input', function() {
-        _applySignatureText(this.value.toUpperCase() || 'VNGRD');
+        _applySignatureText(this.value);
     });
-    // Initialise display value
     $('vngrd-signature').value = APP.svgLogo.customText;
 }
 
