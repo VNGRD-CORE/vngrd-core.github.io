@@ -4239,9 +4239,9 @@ function connectVideoAudio(vid) {
             if (APP.audio.panner) APP.audio.videoGain.connect(APP.audio.panner);
             if (APP.audio.dolbyPanner) APP.audio.videoGain.connect(APP.audio.dolbyPanner);
         }
-        // Always keep the HTML element muted — audio is routed exclusively via videoGain node
-        // This prevents double-output conflicts with the native audio pipeline
-        vid.muted = true;
+        // vid.muted must be FALSE — Chrome silences MediaElementAudioSourceNode when muted=true
+        // Volume is controlled exclusively via videoGain (0=muted, 1=on), not via .muted
+        vid.muted = false;
         vid._audioSrc.connect(APP.audio.videoGain);
         // Apply current mute state via gain (0 = muted, 1 = audible)
         APP.audio.videoGain.gain.setValueAtTime(APP.audio.videoMuted ? 0 : 1, APP.audio.ctx.currentTime);
@@ -4258,7 +4258,10 @@ function connectVideoAudio(vid) {
 function disconnectVideoAudio() {
     var vid = APP.audio.videoSource;
     if (!vid) return;
-    try { if (vid._audioSrc) vid._audioSrc.disconnect(); } catch(e) {}
+    try {
+        if (vid._audioSrc) vid._audioSrc.disconnect();
+        vid.muted = true; // silence native output while not connected to Web Audio
+    } catch(e) {}
     APP.audio.videoSource = null;
 }
 
@@ -4636,7 +4639,7 @@ function hideLowerThird() { $('lower-third').classList.remove('visible'); APP.lo
 
 // AUDIO ENGINEER IMPLEMENTATION
 APP.audio.element = $('audio-el');
-function loadAudioFiles(input) { Array.from(input.files).forEach(file => { APP.audio.playlist.push({ url: URL.createObjectURL(file), name: file.name.replace(/\.[^.]+$/, '') }); }); $('audio-dot').classList.remove('off'); if (!APP.audio.isPlaying && APP.audio.playlist.length) { disconnectVideoAudio(); playTrack(0); } log(`AUDIO: +${input.files.length}`); }
+function loadAudioFiles(input) { Array.from(input.files).forEach(file => { APP.audio.playlist.push({ url: URL.createObjectURL(file), name: file.name.replace(/\.[^.]+$/, '') }); }); $('audio-dot').classList.remove('off'); if (!APP.audio.isPlaying && APP.audio.playlist.length) { playTrack(0); } log(`AUDIO: +${input.files.length}`); }
 
 function playTrack(idx) {
     if (!APP.audio.playlist.length) return;
