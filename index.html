@@ -4232,6 +4232,13 @@ function connectVideoAudio(vid) {
         ensureAudioChain();
         disconnectVideoAudio();
         if (!vid._audioSrc) vid._audioSrc = APP.audio.ctx.createMediaElementSource(vid);
+        // Ensure videoGain exists — may be null if setupAudioChain() rebuilt nodes
+        if (!APP.audio.videoGain) {
+            APP.audio.videoGain = APP.audio.ctx.createGain();
+            APP.audio.videoGain.gain.value = APP.audio.videoMuted ? 0 : 1;
+            if (APP.audio.panner) APP.audio.videoGain.connect(APP.audio.panner);
+            if (APP.audio.dolbyPanner) APP.audio.videoGain.connect(APP.audio.dolbyPanner);
+        }
         // Always keep the HTML element muted — audio is routed exclusively via videoGain node
         // This prevents double-output conflicts with the native audio pipeline
         vid.muted = true;
@@ -4522,30 +4529,52 @@ function goLive() {
 
 $('btn-rec').onclick = () => {
     const btn = $('btn-rec');
-    if(APP.broadcast.isRecording) {
-        APP.broadcast.recorder.stop(); APP.broadcast.isRecording = false; btn.innerText = 'SAVING...'; btn.classList.remove('active'); 
-        $('rec-status').style.display = 'none'; 
+    if (APP.broadcast.isRecording) {
+        APP.broadcast.recorder.stop();
+        APP.broadcast.isRecording = false;
+        btn.innerText = 'SAVING...';
+        btn.classList.remove('active');
+        $('rec-status').style.display = 'none';
     } else {
-        // Ensure audio chain is up so recorderDest exists for audio capture
-        ensureAudioChain();
-        // Connect mic into recorderDest if active (so recording gets voice)
-        if (APP.audio.micGainNode && APP.audio.recorderDest) {
-            try { APP.audio.micGainNode.connect(APP.audio.recorderDest); } catch(e) {}
-        }
-        const stream = APP.render.canvas.captureStream(60);
-        if(APP.audio.ctx && APP.audio.recorderDest) {
-            if(APP.audio.recorderDest.stream.getAudioTracks().length > 0) stream.addTrack(APP.audio.recorderDest.stream.getAudioTracks()[0]);
-        }
-        APP.broadcast.chunks = [];
-        let bcastOpts = { mimeType: 'video/webm;codecs=vp9,opus', videoBitsPerSecond: 15000000, audioBitsPerSecond: 128000 };
-        try { APP.broadcast.recorder = new MediaRecorder(stream, bcastOpts); }
-        catch(e) { APP.broadcast.recorder = new MediaRecorder(stream, { mimeType: 'video/webm' }); }
-        APP.broadcast.recorder.ondataavailable = e => APP.broadcast.chunks.push(e.data);
-        APP.broadcast.recorder.onstop = () => {
-            const blob = new Blob(APP.broadcast.chunks, { type: 'video/webm' }); const url = URL.createObjectURL(blob); const a = document.createElement('a'); a.href = url; a.download = `VNGRD_BROADCAST_${Date.now()}.webm`; a.click(); btn.innerText = 'REC_BROADCAST'; log('BROADCAST_SAVED');
-        };
-        APP.broadcast.recorder.start(1000); APP.broadcast.isRecording = true; btn.innerText = '■ STOP & SAVE'; btn.classList.add('active'); 
-        $('rec-status').style.display = 'block'; 
+        try {
+            ensureAudioChain();
+            if (APP.audio.ctx && APP.audio.ctx.state === 'suspended') APP.audio.ctx.resume();
+
+            // Always build a fresh audio destination to avoid stale/dead tracks
+            // Tap outputLimiter (final mix node) so music + video audio are both captured
+            var bcastStream = new MediaStream(APP.render.canvas.captureStream(60).getVideoTracks());
+            if (APP.audio.ctx && APP.audio.outputLimiter) {
+                var bcastDest = APP.audio.ctx.createMediaStreamDestination();
+                APP.audio.outputLimiter.connect(bcastDest);
+                // Include live mic directly (it goes to recording only, not to speakers)
+                if (APP.audio.micGainNode) {
+                    try { APP.audio.micGainNode.connect(bcastDest); } catch(e) {}
+                }
+                bcastDest.stream.getAudioTracks().forEach(t => bcastStream.addTrack(t));
+            }
+
+            APP.broadcast.chunks = [];
+            var bcastOpts = { mimeType: 'video/webm;codecs=vp9,opus', videoBitsPerSecond: 15000000, audioBitsPerSecond: 128000 };
+            try { APP.broadcast.recorder = new MediaRecorder(bcastStream, bcastOpts); }
+            catch(e) {
+                try { APP.broadcast.recorder = new MediaRecorder(bcastStream, { mimeType: 'video/webm;codecs=vp8,opus' }); }
+                catch(e2) { APP.broadcast.recorder = new MediaRecorder(bcastStream, { mimeType: 'video/webm' }); }
+            }
+            APP.broadcast.recorder.ondataavailable = e => { if (e.data && e.data.size > 0) APP.broadcast.chunks.push(e.data); };
+            APP.broadcast.recorder.onstop = () => {
+                const blob = new Blob(APP.broadcast.chunks, { type: 'video/webm' });
+                const url = URL.createObjectURL(blob);
+                const a = document.createElement('a');
+                a.href = url; a.download = `VNGRD_BROADCAST_${Date.now()}.webm`; a.click();
+                btn.innerText = 'REC_BROADCAST'; log('BROADCAST_SAVED');
+            };
+            APP.broadcast.recorder.start(1000);
+            APP.broadcast.isRecording = true;
+            btn.innerText = '■ STOP & SAVE';
+            btn.classList.add('active');
+            $('rec-status').style.display = 'block';
+            log('BROADCAST_REC_START');
+        } catch(e) { log('BROADCAST_ERR: ' + e.message); }
     }
 };
 
@@ -4747,7 +4776,23 @@ function setupAudioChain() {
     APP.audio.source.connect(APP.audio.dolbyPanner);
     APP.audio.dolbyPanner.connect(APP.audio.outputLimiter);
 
-    APP.audio.vuData = new Uint8Array(APP.audio.analyzer.frequencyBinCount); 
+    // Video audio gain node — independent mute without touching vid.muted
+    // Rebuilding here because setupAudioChain replaces all nodes
+    APP.audio.videoGain = ctx.createGain();
+    APP.audio.videoGain.gain.value = APP.audio.videoMuted ? 0 : 1;
+    APP.audio.videoGain.connect(APP.audio.panner);
+    APP.audio.videoGain.connect(APP.audio.dolbyPanner);
+
+    // Recorder destination for broadcast/NFT recording
+    APP.audio.recorderDest = ctx.createMediaStreamDestination();
+    APP.audio.masterGain.connect(APP.audio.recorderDest);
+
+    // Reconnect mic if it was active before chain was rebuilt
+    if (APP.audio.micGainNode) {
+        try { APP.audio.micGainNode.connect(APP.audio.recorderDest); } catch(e) {}
+    }
+
+    APP.audio.vuData = new Uint8Array(APP.audio.analyzer.frequencyBinCount);
     APP.audio.isConnected = true;
     log('DAW_ENGINE: TRIPLE_PATH + LIMITER + DUCKING');
     updateVU();
@@ -5082,48 +5127,40 @@ function loadFromMemory() {
 
 async function startNFTRecording() {
     if (APP.nft.isRecording) { stopNFTRecording(); return; }
+
+    // Force-enable button in case layer check left it disabled
+    var btn = $('btn-nft-30');
+    btn.disabled = false; btn.style.opacity = '1';
+
     try {
-        // 1. Guarantee full audio chain exists
+        // 1. Boot audio — ensure context exists (user gesture is active since button was clicked)
+        if (!APP.audio.ctx) APP.audio.ctx = new (window.AudioContext || window.webkitAudioContext)();
         ensureAudioChain();
 
-        // 2. Force-wake the AudioContext (browser autoplay policy)
+        // 2. Resume context if suspended (browser autoplay policy)
         if (APP.audio.ctx && APP.audio.ctx.state === 'suspended') {
             await APP.audio.ctx.resume();
         }
 
-        // 3. Grab video from the composited VJ canvas
+        // 3. Grab video from the composited VJ canvas (all FX are on this canvas)
         var canvasStream = APP.render.canvas.captureStream(60);
-
-        // 4. Build a combined MediaStream: video tracks first
         var combinedStream = new MediaStream(canvasStream.getVideoTracks());
 
-        // 5. Bulletproof audio injection — always create a FRESH destination
-        //    so we never hit a stale/dead track from a previous session
-        if (APP.audio.ctx && APP.audio.masterGain) {
+        // 4. Always build a FRESH audio destination — taps masterGain so music +
+        //    video audio (via videoGain→panner→masterGain) are all captured
+        //    Mic is added separately so it doesn't feed through speakers
+        if (APP.audio.ctx) {
             var freshDest = APP.audio.ctx.createMediaStreamDestination();
-
-            // Tap ONLY the output limiter (final node before speakers)
-            // masterGain → outputLimiter is already chained, so connecting
-            // both would double-tap the signal and cause flanging/phasing
-            if (APP.audio.outputLimiter) {
-                APP.audio.outputLimiter.connect(freshDest);
-            } else {
-                APP.audio.masterGain.connect(freshDest);
+            var tapNode = APP.audio.outputLimiter || APP.audio.masterGain;
+            if (tapNode) tapNode.connect(freshDest);
+            if (APP.audio.micGainNode) {
+                try { APP.audio.micGainNode.connect(freshDest); } catch(e) {}
             }
-
-            // Include live mic if present
-            if (APP.audio.micGainNode) APP.audio.micGainNode.connect(freshDest);
-
-            // Store for potential external use
-            APP.audio.recorderDest = freshDest;
-
-            // Inject every audio track into the combined stream
             freshDest.stream.getAudioTracks().forEach(function(t) { combinedStream.addTrack(t); });
         }
 
-        // 6. Create MediaRecorder on the unified stream — codec cascade
-        var nftRecorderOpts = { mimeType: 'video/webm;codecs=vp9,opus', videoBitsPerSecond: 5000000, audioBitsPerSecond: 128000 };
-        try { APP.nft.recorder = new MediaRecorder(combinedStream, nftRecorderOpts); }
+        // 5. Create MediaRecorder — codec cascade for broad compatibility
+        try { APP.nft.recorder = new MediaRecorder(combinedStream, { mimeType: 'video/webm;codecs=vp9,opus', videoBitsPerSecond: 5000000, audioBitsPerSecond: 128000 }); }
         catch(e) {
             try { APP.nft.recorder = new MediaRecorder(combinedStream, { mimeType: 'video/webm;codecs=vp8,opus' }); }
             catch(e2) { APP.nft.recorder = new MediaRecorder(combinedStream, { mimeType: 'video/webm' }); }
@@ -5133,21 +5170,19 @@ async function startNFTRecording() {
         APP.nft.recorder.ondataavailable = function(e) { if (e.data && e.data.size > 0) APP.nft.chunks.push(e.data); };
         APP.nft.recorder.onstop = finalizeNFT;
 
-        // 7. Start recording — NO time limit, runs until user stops
+        // 6. Start — no time limit, user stops manually
         APP.nft.recorder.start(1000);
         APP.nft.isRecording = true;
         APP.nft.startTime = Date.now();
 
-        // 8. Toggle button to STOP state (red text for visibility)
-        var btn = $('btn-nft-30');
         btn.textContent = '[ STOP_RECORDING ]';
         btn.classList.add('on');
         btn.style.color = '#ff3333';
         $('nft-hud').classList.add('active');
         updateNFTTimer();
 
-        log('NFT_REC_START (' + combinedStream.getAudioTracks().length + ' audio trk)');
-    } catch (e) { log('NFT_REC_ERR: ' + e.message); }
+        log('CAPTURE_VNGRD: START (' + combinedStream.getAudioTracks().length + ' audio_trk)');
+    } catch (e) { log('CAPTURE_VNGRD_ERR: ' + e.message); btn.textContent = 'CAPTURE_VNGRD_CLIP'; }
 }
 
 function stopNFTRecording() {
