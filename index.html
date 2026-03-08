@@ -1922,7 +1922,7 @@ const APP = {
     nftVault: { thumbnails: [], scrollOffset: 0 },
     camera: { stream: null, recorder: null, chunks: [], mode: 'off', isRecording: false, videoEl: null, previewEl: null, micStream: null },
     render: { canvas: null, ctx: null, width: 3840, height: 2160, fps: 0, frameCount: 0, lastTime: 0, lastFpsUpdate: 0, rafId: null, scale: 1.0, pixelCanvas: null, pixelCtx: null, rgbActive: false, source: null },
-    bug: { visible: true, text: 'VNGRD', image: null, textMode: 0, textVisible: true, imageVisible: false },
+    bug: { visible: true, text: 'VNGRD', style: 'plain', image: null, textMode: 0, textVisible: true, imageVisible: false },
     layers: { logoScale: 1.0, logoSrc: null, bugScale: 1.0 },
     // IDENTITY TRINITY — three independent broadcast actors
     trinity: {
@@ -3407,7 +3407,8 @@ function renderLoop(timestamp) {
                 var bh = bugImg.naturalHeight * bScale * (h / 1080);
                 ctx.drawImage(bugImg, bx, by, bw, bh);
                 ctx.restore();
-            } else if (APP.bug.text) {
+            } else if (APP.bug.text && APP.bug.style === 'plain') {
+                // PULSE / GLITCH styles: DOM element is sole renderer — skip canvas to avoid doubling
                 ctx.save();
                 var bugFS = Math.max(14, 28 * bScale * (h / 1080));
                 ctx.font = '800 ' + bugFS + 'px Orbitron, sans-serif';
@@ -4033,8 +4034,9 @@ if ($('btn-bug-toggle')) {
     $(id).onclick = function() {
         var bug = $('station-bug');
         if (bug) { bug.classList.remove('bug-pulse', 'bug-glitch'); }
-        if (id === 'btn-bug-pulse')  bug.classList.add('bug-pulse');
-        if (id === 'btn-bug-glitch') bug.classList.add('bug-glitch');
+        if (id === 'btn-bug-pulse')  { bug.classList.add('bug-pulse');  APP.bug.style = 'pulse';  }
+        else if (id === 'btn-bug-glitch') { bug.classList.add('bug-glitch'); APP.bug.style = 'glitch'; }
+        else { APP.bug.style = 'plain'; }
         document.querySelectorAll('#btn-bug-plain,#btn-bug-pulse,#btn-bug-glitch').forEach(function(b) { b.classList.remove('active-mode'); });
         $(id).classList.add('active-mode');
     };
