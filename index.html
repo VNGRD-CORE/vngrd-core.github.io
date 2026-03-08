@@ -442,6 +442,29 @@
         #ghost-prompt { color: var(--accent); margin-right: 6px; font-size: 9px; }
         #ghost-input { background: transparent; border: none; color: #fff; flex: 1; font-family: 'JetBrains Mono', monospace; font-size: 10px; outline: none; }
 
+        /* ── PODCAST TRAY ── */
+        #podcast-tray {
+            position: fixed; bottom: 70px; left: 0;
+            width: 100%; padding-right: 390px;
+            box-sizing: border-box; z-index: 5500;
+            display: flex; gap: 6px; padding-left: 12px;
+            transform: translateY(120%); opacity: 0;
+            transition: transform 0.4s cubic-bezier(.4,0,.2,1), opacity 0.3s ease;
+            pointer-events: none;
+        }
+        #podcast-tray.on-air { transform: translateY(0); opacity: 1; pointer-events: auto; }
+        .podcast-slot {
+            flex: 1; min-width: 0;
+            background: rgba(0,5,12,0.92);
+            border: 1px solid rgba(0,243,255,0.25);
+            border-top: 2px solid var(--accent);
+            padding: 6px 10px; font-family: 'JetBrains Mono', monospace;
+            font-size: 9px; color: var(--text-dim); letter-spacing: 1px;
+            overflow: hidden; white-space: nowrap; text-overflow: ellipsis;
+        }
+        .podcast-slot .slot-lang { font-size: 7px; color: var(--accent); letter-spacing: 2px; margin-bottom: 3px; }
+        .podcast-slot .slot-text { color: #fff; font-size: 10px; }
+
         #top-bar { position: fixed; top: 0; left: 0; right: 0; height: 45px; background: var(--panel); border-bottom: 2px solid rgba(255,255,255,0.08); box-shadow: 0 2px 8px rgba(0,0,0,0.7); display: flex; align-items: center; justify-content: space-between; padding: 0 15px; z-index: 5000; border-radius: 0; overflow: hidden; }
         #brand { display: flex; align-items: center; min-width: 0; flex-shrink: 1; overflow: hidden; }
         #status-bar { display: flex; align-items: center; gap: 15px; flex-shrink: 0; }
@@ -1500,8 +1523,9 @@ body.fullscreen #transcription-hud { opacity: 0 !important; pointer-events: none
     <div id="ghost-terminal">
         <div id="ghost-terminal-header">
             <span id="ghost-terminal-title">GHOST://COMMAND_INTERFACE</span>
-            <span style="display:flex;align-items:center;gap:8px;">
+            <span style="display:flex;align-items:center;gap:6px;">
                 <span id="ghost-terminal-status">ONLINE</span>
+                <button onclick="$('ghost-terminal-body').innerHTML='';_ghostLastMsg='';" title="Clear chat" style="background:none;border:1px solid rgba(255,255,255,0.15);color:var(--text-dim);cursor:pointer;font-size:8px;line-height:1;padding:3px 6px;font-family:'JetBrains Mono',monospace;letter-spacing:1px;border-radius:2px;">PURGE</button>
                 <button id="ghost-close-btn" onclick="toggleGhost()" style="background:none;border:none;color:var(--c);cursor:pointer;font-size:11px;line-height:1;padding:4px 6px;font-family:'JetBrains Mono',monospace;display:block;letter-spacing:1px;opacity:0.8;">&#x2715;&nbsp;[G]</button>
             </span>
         </div>
@@ -1843,6 +1867,22 @@ body.fullscreen #transcription-hud { opacity: 0 !important; pointer-events: none
         </div>
     </div>
 
+    <!-- ── PODCAST TRAY — subtitle slots, slides up on ON-AIR ── -->
+    <div id="podcast-tray">
+        <div class="podcast-slot" id="pt-en">
+            <div class="slot-lang">EN // LINKING</div>
+            <div class="slot-text" id="pt-en-text">[LINKING_EN]</div>
+        </div>
+        <div class="podcast-slot" id="pt-es">
+            <div class="slot-lang">ES // LOC</div>
+            <div class="slot-text" id="pt-es-text">[LOC_ES]</div>
+        </div>
+        <div class="podcast-slot" id="pt-fr">
+            <div class="slot-lang">FR // LOC</div>
+            <div class="slot-text" id="pt-fr-text">[LOC_FR]</div>
+        </div>
+    </div>
+
     <input type="file" id="file-media" multiple accept="image/*,video/*">
     <input type="file" id="file-audio" multiple accept="audio/*">
     <input type="file" id="file-logo" accept="image/*">
@@ -2041,7 +2081,19 @@ function igniteAudio() {
 }
 
 // GHOST TERMINAL — Sentient AI Companion v5
+var _ghostLastMsg = '';
+var _ghostSysLastAt = 0;
 function ghostLog(msg, type = 'cmd') {
+    // Suppress duplicate consecutive messages
+    var dedupKey = type + '|' + msg;
+    if (dedupKey === _ghostLastMsg && type !== 'user') return;
+    _ghostLastMsg = dedupKey;
+    // Throttle system-generated alerts (non-user) to max 1 per 5s
+    if (type !== 'user' && type !== 'success') {
+        var now = Date.now();
+        if (now - _ghostSysLastAt < 5000 && type === 'cmd') return;
+        _ghostSysLastAt = now;
+    }
     const body = $('ghost-terminal-body');
     const ts = new Date().toTimeString().split(' ')[0].substring(0, 5);
     const line = document.createElement('div');
@@ -2196,8 +2248,8 @@ var GHOST = {
         // Wallet connected
         { condition: function(ctx) { return ctx.hasWallet; },
           msgs: [
-            'Wallet connected. Type "mint" to snapshot your canvas as an NFT-ready PNG. Click SCAN_WALLET to browse your assets.',
-            'Your NFTs appear in the vault at the bottom. Click any NFT thumbnail to summon it onto the canvas.'
+            'Wallet connected. Click SCAN_WALLET_ASSETS to browse and summon assets onto the canvas.',
+            'Assets appear in the vault at the bottom — click any thumbnail to bring it onto the canvas.'
           ]
         },
         // General pro tips (always available as fallback)
@@ -2357,15 +2409,7 @@ function processGhostCommand(cmd) {
 
             // ── HELP ──
             case 'help':
-                ghostLog('I\'m GHOST, your AI copilot. I know every function in this console.', 'ai');
-                ghostLog('Ask me naturally: "how do I go live?" "what FX are there?" "how does MIDI work?"', 'ai');
-                ghostLog('', 'ai');
-                ghostLog('QUICK COMMANDS:', 'success');
-                ghostLog('load / shatter / mint / party / seismic / crush / stutter / invert', 'ai');
-                ghostLog('theme [name] / clear / fs / time / crypto / joke / status / tip', 'ai');
-                ghostLog('', 'ai');
-                ghostLog('OR ASK ME ABOUT:', 'success');
-                ghostLog('camera, fx, midi, audio, p2p calls, wallet, projector, vr, ai generator, shortcuts...', 'ai');
+                ghostLog('GHOST copilot online. Ask naturally or use: load / shatter / party / seismic / crush / stutter / invert / theme [name] / tip / status', 'ai');
                 break;
 
             // ── CONTEXTUAL TIPS ──
@@ -2412,12 +2456,8 @@ function processGhostCommand(cmd) {
                 break;
 
             case 'audio_help':
-                ghostLog('AUDIO SYSTEM:', 'success');
-                ghostLog('1. Click the audio icon in MEDIA_DECK to load MP3/WAV files.', 'ai');
-                ghostLog('2. Use PLAY/PAUSE/NEXT/PREV buttons to control playback.', 'ai');
-                ghostLog('3. Audio feeds the FFT analyzer — this drives all beat-reactive FX.', 'ai');
-                ghostLog('4. Audio modes: STEREO (flat), 3D_SPATIAL (HRTF), DOLBY (compressed + EQ).', 'ai');
-                if (!ctx.hasAudio) ghostLog('You have no audio loaded yet. Load some music to unlock reactivity!', 'ai');
+                ghostLog('Load MP3/WAV via LOAD_AUDIO. Audio drives beat-reactive FX. Modes: STEREO / 3D_SPATIAL / DOLBY.', 'ai');
+                if (!ctx.hasAudio) ghostLog('No audio loaded yet.', 'cmd');
                 break;
 
             case 'play':
@@ -2453,13 +2493,8 @@ function processGhostCommand(cmd) {
 
             // ── CAMERA & LIVE ──
             case 'camera_help':
-                ghostLog('CAMERA SYSTEM:', 'success');
-                ghostLog('1. Click INIT_CAM to start your webcam (requests 4K if available).', 'ai');
-                ghostLog('2. Hit GO_LIVE for the 3-2-1 cinematic countdown.', 'ai');
-                ghostLog('3. Going live makes your camera the canvas source. Audio auto-ducks.', 'ai');
-                ghostLog('4. MIC button toggles your microphone feed into the mix.', 'ai');
-                ghostLog('5. KILL shuts down the camera completely.', 'ai');
-                if (ctx.hasCamera) ghostLog('Camera is currently ' + (ctx.isLive ? 'LIVE!' : 'on standby. Ready when you are.'), 'ai');
+                ghostLog('INIT_CAM → GO_LIVE (3-2-1 countdown). MIC toggles mic. KILL shuts down completely.', 'ai');
+                if (ctx.hasCamera) ghostLog('Camera: ' + (ctx.isLive ? 'LIVE' : 'STANDBY'), ctx.isLive ? 'success' : 'cmd');
                 break;
 
             case 'golive_help':
@@ -2469,11 +2504,7 @@ function processGhostCommand(cmd) {
                 break;
 
             case 'record_help':
-                ghostLog('RECORDING:', 'success');
-                ghostLog('1. REC button in the header starts/stops broadcast recording.', 'ai');
-                ghostLog('2. Everything on canvas is captured — visuals, FX, overlays, camera feed.', 'ai');
-                ghostLog('3. INJECT captures a 10-second camera loop.', 'ai');
-                ghostLog('4. The NFT_VAULT 30s button captures a VGD clip with DNA signature.', 'ai');
+                ghostLog('REC header button records the full canvas output. INJECT = 10s camera loop. CAPTURE_VNGRD_CLIP = signed 30s VGD.', 'ai');
                 break;
 
             case 'kill_help':
@@ -2540,13 +2571,7 @@ function processGhostCommand(cmd) {
                 break;
 
             case 'fx_help':
-                ghostLog('FX ENGINE — all effects stack:', 'success');
-                ghostLog('TOGGLES (persistent): void, lucy, xray, tear, punch, nvg, vhs', 'ai');
-                ghostLog('IMPACTS (500ms burst): crush, stutter, invert', 'ai');
-                ghostLog('CINEMATIC: shatter (glass fractures), failure (5s chaos)', 'ai');
-                ghostLog('REACTIVE: party (auto-morph on beat), seismic (bass shake)', 'ai');
-                ghostLog('All FX are audio-reactive when music is playing. Type any FX name to trigger it.', 'ai');
-                ghostLog('Type "reset" to clear all active FX.', 'ai');
+                ghostLog('Toggles: void lucy xray tear punch nvg vhs | Bursts: crush stutter invert shatter failure | Reactive: party seismic | "reset" clears all.', 'ai');
                 break;
 
             case 'party':
@@ -2582,89 +2607,52 @@ function processGhostCommand(cmd) {
                 break;
 
             case 'theme_help':
-                ghostLog('THEMES: cyan (default), magenta, green, purple, gold, night', 'success');
-                ghostLog('Type "theme magenta" to switch. Or click palette dots in the THEME section.', 'ai');
-                ghostLog('Current: ' + ctx.theme.toUpperCase(), 'ai');
-                ghostLog('Night mode is great for dark rooms. Gold for luxury aesthetics.', 'ai');
-                if (ctx.hasMidi) ghostLog('MIDI notes 40-47 also switch themes live!', 'ai');
+                ghostLog('Themes: cyan / magenta / green / purple / gold / night. Current: ' + ctx.theme.toUpperCase() + '. Type "theme [name]" to switch.', 'ai');
                 break;
 
             // ── IDENTITY & OVERLAY ──
             case 'identity_help':
-                ghostLog('IDENTITY SYSTEM — 3 independent broadcast actors:', 'success');
-                ghostLog('1. STATION BUG: Text watermark. Type a name, click SET. Draggable on canvas.', 'ai');
-                ghostLog('2. 2D LOGO: Upload PNG/JPG/GIF/WebP. Draggable + pinch-to-resize on canvas.', 'ai');
-                ghostLog('3. 3D LOGO: Upload OBJ/FBX/STL. Renders with HUD material, auto-rotates.', 'ai');
-                ghostLog('All three can be positioned anywhere. Two-finger pinch (or Ctrl+scroll) to resize.', 'ai');
+                ghostLog('STATION BUG: text watermark (draggable). 2D LOGO: PNG/GIF upload. 3D LOGO: OBJ/FBX. All pinch-to-resize on canvas.', 'ai');
                 break;
 
             case 'lt_help':
-                ghostLog('LOWER THIRDS — broadcast-grade overlays:', 'success');
-                ghostLog('GUEST: Name + role for interview guests.', 'ai');
-                ghostLog('TRACK: Auto-fills with current playing song.', 'ai');
-                ghostLog('BREAKING: Red alert breaking news banner.', 'ai');
-                ghostLog('Edit title/subtitle fields — changes appear live. OFF hides it.', 'ai');
-                if (ctx.hasGuest) ghostLog('Lower thirds auto-sync to your P2P guest!', 'ai');
+                ghostLog('Lower thirds: GUEST (name/role), TRACK (auto-fill from audio), B.NEWS (red alert). Edit fields live. [X] hides.', 'ai');
                 break;
 
             // ── P2P ──
             case 'p2p_help':
-                ghostLog('P2P CALLS — peer-to-peer video + data:', 'success');
-                ghostLog('1. Click the P2P CALL badge in the header bar.', 'ai');
-                ghostLog('2. INIT_PEER generates your unique ID. Share it with your guest.', 'ai');
-                ghostLog('3. Enter their ID and hit CALL. Audio + data channel established.', 'ai');
-                ghostLog('4. Guest stream appears in your canvas. UI state syncs both ways.', 'ai');
-                ghostLog('5. Close the panel X to disconnect fully.', 'ai');
+                ghostLog('P2P CALL: open header panel → INIT_PEER → share ID → CALL. Guest stream appears on canvas with full UI sync.', 'ai');
                 break;
 
             // ── MIDI ──
             case 'midi_help':
-                ghostLog('MIDI CONTROLLER INTEGRATION:', 'success');
-                ghostLog('1. Click MIDI button in sidebar to initialize (requires user gesture).', 'ai');
-                ghostLog('2. Notes 36-39: Stutter, Invert, Crush, Seismic impacts.', 'ai');
-                ghostLog('3. Notes 40-47: Theme switching (cyan, magenta, gold, purple, green).', 'ai');
-                ghostLog('4. CC1: Brightness (0-127 maps to 0.2-2.0).', 'ai');
-                ghostLog('5. CC7: Master volume.', 'ai');
-                ghostLog('6. MIDI LEARN: Click any button, then move a knob/fader to map it.', 'ai');
+                ghostLog('INIT WEBMIDI in sidebar. Notes 36-39: burst FX. 40-47: themes. CC1: brightness, CC7: volume. Use LEARN mode to map any control.', 'ai');
                 break;
 
             // ── WALLET & NFT ──
             case 'mint':
-                ghostLog('MINT_PROTOCOL: PREPARING...', 'ai');
                 if (APP.render.canvas) {
                     try {
                         var dataUrl = APP.render.canvas.toDataURL('image/png');
                         APP.nft.dnaSnapshot = dataUrl;
-                        ghostLog('SNAPSHOT: ' + (dataUrl.length / 1024).toFixed(0) + 'KB', 'success');
-                        ghostLog('READY_FOR_MINT // CONNECT_WALLET', 'ai');
                         var a = document.createElement('a'); a.href = dataUrl;
-                        a.download = 'VNGRD_MINT_' + Date.now() + '.png'; a.click();
-                        ghostLog('SNAPSHOT_DOWNLOADED', 'success');
-                    } catch (e) { ghostLog('MINT_ERROR: ' + e.message, 'crit'); }
+                        a.download = 'VNGRD_SNAP_' + Date.now() + '.png'; a.click();
+                        ghostLog('SNAPSHOT_SAVED // ' + (dataUrl.length / 1024).toFixed(0) + 'KB PNG', 'success');
+                    } catch (e) { ghostLog('SNAPSHOT_ERROR: ' + e.message, 'crit'); }
                 }
                 break;
 
             case 'wallet_help':
-                ghostLog('WALLET & NFT SYSTEM:', 'success');
-                ghostLog('1. Click WALLET badge in header to connect (MetaMask/WalletConnect).', 'ai');
-                ghostLog('2. SCAN_WALLET_ASSETS browses your ETH + Tezos NFTs.', 'ai');
-                ghostLog('3. NFTs appear in the vault at screen bottom. Click to summon onto canvas.', 'ai');
-                ghostLog('4. Type "mint" to snapshot canvas as NFT-ready PNG.', 'ai');
-                ghostLog('5. 30s VGD clip button captures signed video with DNA header.', 'ai');
+                ghostLog('Connect wallet via header badge. SCAN_WALLET_ASSETS loads assets into vault — click thumbnail to summon to canvas.', 'ai');
                 break;
 
             // ── OUTPUT ──
             case 'projector_help':
-                ghostLog('PROJECTOR — second screen output:', 'success');
-                ghostLog('Click PROJECTOR in Session Lab to open canvas in a new window.', 'ai');
-                ghostLog('Perfect for external displays, projector mapping, or dual-screen setups.', 'ai');
-                ghostLog('The projector window mirrors your canvas stream in real-time.', 'ai');
+                ghostLog('PROJECTOR in Session Lab opens canvas in a new window — use for second screens or external displays.', 'ai');
                 break;
 
             case 'vr_help':
-                ghostLog('VR MODE — immersive WebXR:', 'success');
-                ghostLog('Click ENTER_VR in Session Lab. Requires WebXR-capable browser + headset.', 'ai');
-                ghostLog('Your canvas is projected into a VR viewport as a fullscreen quad.', 'ai');
+                ghostLog('ENTER_VR in Session Lab launches WebXR immersive mode. Requires a WebXR-capable browser + headset.', 'ai');
                 break;
 
             // ── SESSION ──
@@ -2678,12 +2666,7 @@ function processGhostCommand(cmd) {
 
             // ── AI GENERATOR ──
             case 'ai_help':
-                ghostLog('AI IMAGE GENERATOR:', 'success');
-                ghostLog('In the AI_INJECTION sidebar section:', 'ai');
-                ghostLog('1. Select a model: DALL-E 3, SDXL, SD3, or GPT IMAGE.', 'ai');
-                ghostLog('2. Type a prompt describing your image.', 'ai');
-                ghostLog('3. Hit GENERATE — the AI image injects directly onto your canvas.', 'ai');
-                ghostLog('AI: POLLINATIONS — free, no API key, no limits.', 'ai');
+                ghostLog('AI_INJECTION sidebar: pick model (DALL-E 3 / SDXL / SD3), type prompt, hit GENERATE. Powered by Pollinations — no API key needed.', 'ai');
                 break;
 
             // ── UTILITY ──
@@ -2711,9 +2694,7 @@ function processGhostCommand(cmd) {
                 break;
 
             case 'about':
-                ghostLog('GHOST://AI v5 — Sentient companion for DRIS//CORE VNGRD', 'ai');
-                ghostLog('I know every command, every FX, every shortcut. Just ask.', 'ai');
-                ghostLog('Built for VJs, streamers, visual artists, and digital explorers.', 'ai');
+                ghostLog('GHOST://AI v5 — DRIS//CORE companion. Every command, every FX, every shortcut. Just ask.', 'ai');
                 break;
 
             case 'clear':
@@ -2745,12 +2726,7 @@ function processGhostCommand(cmd) {
                 break;
 
             case 'shortcuts':
-                ghostLog('KEYBOARD SHORTCUTS:', 'success');
-                ghostLog('G — Toggle this terminal', 'ai');
-                ghostLog('H — Toggle fullscreen', 'ai');
-                ghostLog('TAB — System slide (hide/show panels)', 'ai');
-                ghostLog('SPACE — Rotate to next media', 'ai');
-                ghostLog('ESC — Panic reset (clears all FX + media)', 'ai');
+                ghostLog('G: terminal | H: fullscreen | TAB: slide panels | SPACE: next media | ESC: panic reset', 'ai');
                 break;
 
             // ── UNKNOWN — smart fallback ──
@@ -2786,9 +2762,8 @@ function ghostStartupSequence() {
     var hour = ctx.hour;
     var greeting = hour < 12 ? 'Good morning' : hour < 18 ? 'Good afternoon' : 'Good evening';
 
-    setTimeout(function() { ghostLog(greeting + ', operator. I\'m GHOST, your AI copilot.', 'ai'); }, 400);
-    setTimeout(function() { ghostLog('I know every function in this console. Ask me anything or type "help".', 'ai'); }, 1200);
-    setTimeout(function() { ghostLog(GHOST.getTip(), 'ai'); }, 2400);
+    setTimeout(function() { ghostLog(greeting + ' — GHOST online. Ask anything or type "help".', 'ai'); }, 400);
+    setTimeout(function() { ghostLog(GHOST.getTip(), 'ai'); }, 6000);
 
     // Start idle tip cycle
     resetGhostIdleTimer();
@@ -9171,14 +9146,19 @@ if (btn3dX) {
         btnOnAir.textContent = active ? 'ON-AIR' : 'OFF-AIR';
         btnOnAir.classList.toggle('active', active);
         if (mcrDot) mcrDot.classList.toggle('hot', active);
+        langBtns.forEach(function (b) { b.disabled = active; });
+        var deck = document.getElementById('hud-langs');
+        var podcastTray = document.getElementById('podcast-tray');
         if (active) {
-            if (mcrStatus) { mcrStatus.classList.add('hot'); mcrStatus.textContent = 'MCR: ON-AIR \u25B6 EN/ES/FR'; }
-            if (hud) hud.classList.add('visible');
+            if (mcrStatus) { mcrStatus.classList.add('hot'); mcrStatus.textContent = 'MCR: ON-AIR \u25B6 ' + targetLang.toUpperCase(); }
+            if (hud)  hud.classList.add('visible');
+            if (deck) deck.classList.add('active');
+            if (podcastTray) podcastTray.classList.add('on-air');
         } else {
             if (mcrStatus) { mcrStatus.classList.remove('hot'); mcrStatus.textContent = 'MCR: STANDBY \u25FC'; }
-            if (hud) hud.classList.remove('visible');
-            // Hide tray when going off-air
-            if (podcastTray) podcastTray.classList.remove('visible');
+            if (hud)  hud.classList.remove('visible');
+            if (deck) deck.classList.remove('active');
+            if (podcastTray) podcastTray.classList.remove('on-air');
         }
         if (typeof ghostLog === 'function') {
             ghostLog(active
