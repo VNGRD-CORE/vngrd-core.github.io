@@ -1525,6 +1525,12 @@ body.fullscreen #transcription-hud { opacity: 0 !important; pointer-events: none
     
     <!-- Camera preview moved inline into sidebar CAMERA_4K section -->
 
+    <!-- IMAGE LIGHTBOX OVERLAY -->
+    <div id="img-lightbox" onclick="closeLightbox()" style="display:none;position:fixed;top:0;left:0;width:100%;height:100%;background:rgba(0,0,0,0.93);z-index:9999;cursor:zoom-out;align-items:center;justify-content:center;flex-direction:column;">
+        <img id="img-lightbox-src" style="max-width:95vw;max-height:88vh;object-fit:contain;box-shadow:0 0 40px rgba(0,255,255,0.15);border:1px solid rgba(0,255,255,0.1);" onclick="event.stopPropagation()">
+        <div style="margin-top:10px;font-family:'JetBrains Mono',monospace;font-size:9px;color:rgba(255,255,255,0.35);letter-spacing:2px;">CLICK OUTSIDE TO CLOSE &nbsp;|&nbsp; ESC</div>
+    </div>
+
     <div id="ghost-terminal">
         <div id="ghost-terminal-header">
             <span id="ghost-terminal-title">GHOST://COMMAND_INTERFACE</span>
@@ -1584,6 +1590,7 @@ body.fullscreen #transcription-hud { opacity: 0 !important; pointer-events: none
                     <button class="btn btn-compact warn" id="btn-clear-deck" style="font-size:8px;">CLEAR</button>
                     <button class="btn btn-compact panic" id="btn-panic" style="font-size:8px;" title="PANIC KILL [ESC]">[ESC]</button>
                 </div>
+                <button class="btn btn-compact" id="btn-zoom-img" style="width:100%;margin-top:4px;font-size:8px;display:none;" title="View current image full screen">&#x1F50D; ZOOM IMAGE</button>
             </div>
         </div>
          <div class="section">
@@ -1934,7 +1941,7 @@ const APP = {
     },
     media: { queue: [], currentIndex: -1, currentElement: null },
     fx: { stutter: false, crush: false, invert: false, echo: false, rgbSplit: 0, freezeFrame: null },
-    audio: { ctx: null, analyzer: null, source: null, element: null, playlist: [], currentTrack: -1, currentTrackName: '', bassLevel: 0, vuData: new Uint8Array(32), isPlaying: false, isConnected: false, videoSource: null, videoMuted: false, spatialMode: 'stereo', panner: null, compressor: null, masterGain: null, lowShelf: null, highShelf: null, spatialInterval: null, recorderDest: null },
+    audio: { ctx: null, analyzer: null, source: null, element: null, playlist: [], currentTrack: -1, currentTrackName: '', bassLevel: 0, vuData: new Uint8Array(32), isPlaying: false, isConnected: false, videoSource: null, videoMuted: false, videoGain: null, spatialMode: 'stereo', panner: null, compressor: null, masterGain: null, lowShelf: null, highShelf: null, spatialInterval: null, recorderDest: null },
     projector: { window: null, stream: null, isOpen: false },
     nft: { recorder: null, chunks: [], isRecording: false, startTime: 0, duration: 30000, dnaSnapshot: null, audioDest: null },
     broadcast: { recorder: null, chunks: [], isRecording: false },
@@ -4201,11 +4208,17 @@ function ensureAudioChain() {
     if (APP.audio.dolbyPanner.positionX) { APP.audio.dolbyPanner.positionX.setValueAtTime(0, ctx.currentTime); APP.audio.dolbyPanner.positionY.setValueAtTime(5, ctx.currentTime); APP.audio.dolbyPanner.positionZ.setValueAtTime(-2, ctx.currentTime); }
     try { APP.audio.surroundSplitter = ctx.createChannelSplitter(6); APP.audio.surroundMerger = ctx.createChannelMerger(6); } catch(e) {}
     APP.audio.micAnalyzer = ctx.createAnalyser(); APP.audio.micAnalyzer.fftSize = 256;
+    // Dedicated gain node for video audio — allows independent mute without touching vid.muted
+    APP.audio.videoGain = ctx.createGain();
+    APP.audio.videoGain.gain.setValueAtTime(1.0, ctx.currentTime);
     APP.audio.panner.connect(APP.audio.lowShelf).connect(APP.audio.highShelf).connect(APP.audio.compressor).connect(APP.audio.duckingGain).connect(APP.audio.analyzer).connect(APP.audio.masterGain).connect(APP.audio.outputLimiter).connect(ctx.destination);
     APP.audio.masterGain.connect(APP.audio.stereoGain);
     APP.audio.recorderDest = ctx.createMediaStreamDestination();
     APP.audio.masterGain.connect(APP.audio.recorderDest);
     APP.audio.dolbyPanner.connect(APP.audio.outputLimiter);
+    // videoGain feeds both panner paths
+    APP.audio.videoGain.connect(APP.audio.panner);
+    APP.audio.videoGain.connect(APP.audio.dolbyPanner);
     APP.audio.vuData = new Uint8Array(APP.audio.analyzer.frequencyBinCount);
     updateVU();
     log('DAW_CHAIN_READY');
@@ -4219,12 +4232,18 @@ function connectVideoAudio(vid) {
         ensureAudioChain();
         disconnectVideoAudio();
         if (!vid._audioSrc) vid._audioSrc = APP.audio.ctx.createMediaElementSource(vid);
-        vid.muted = APP.audio.videoMuted;
-        vid._audioSrc.connect(APP.audio.panner);
-        vid._audioSrc.connect(APP.audio.dolbyPanner);
+        // Always keep the HTML element muted — audio is routed exclusively via videoGain node
+        // This prevents double-output conflicts with the native audio pipeline
+        vid.muted = true;
+        vid._audioSrc.connect(APP.audio.videoGain);
+        // Apply current mute state via gain (0 = muted, 1 = audible)
+        APP.audio.videoGain.gain.setValueAtTime(APP.audio.videoMuted ? 0 : 1, APP.audio.ctx.currentTime);
         APP.audio.videoSource = vid;
-        $('btn-mute-vid').textContent = APP.audio.videoMuted ? '\u{1F507}' : '\u{1F50A}';
-        if (APP.audio.videoMuted) $('btn-mute-vid').classList.add('on'); else $('btn-mute-vid').classList.remove('on');
+        const muteBtn = $('btn-mute-vid');
+        if (muteBtn) {
+            muteBtn.textContent = APP.audio.videoMuted ? '\u{1F507}' : '\u{1F50A}';
+            muteBtn.classList.toggle('on', APP.audio.videoMuted);
+        }
         log('VIDEO_AUDIO: ' + (APP.audio.videoMuted ? 'MUTED' : 'ON'));
     } catch (e) { log('VIDEO_AUDIO_ERR: ' + e.message); }
 }
@@ -4232,7 +4251,7 @@ function connectVideoAudio(vid) {
 function disconnectVideoAudio() {
     var vid = APP.audio.videoSource;
     if (!vid) return;
-    try { if (vid._audioSrc) vid._audioSrc.disconnect(); vid.muted = true; } catch(e) {}
+    try { if (vid._audioSrc) vid._audioSrc.disconnect(); } catch(e) {}
     APP.audio.videoSource = null;
 }
 
@@ -4255,6 +4274,7 @@ function rotateMedia() {
         item.element = img;
         APP.media.currentElement = null; // GIFs do not render to vj-canvas
         console.warn('[VNGRD] GIF asset "' + item.name + '" is rendered as a DOM element and will NOT be captured by vj-canvas.captureStream(). Convert animated assets to .webm for full recording compatibility.');
+        updateMediaControls();
         checkCycleLogic();
         return;
     }
@@ -4264,6 +4284,7 @@ function rotateMedia() {
     if (!item.element) { APP.media.currentElement = null; return; }
     APP.media.currentElement = item.element;
     if (item.type === 'video') { item.element.loop = !APP.state.isCycle; item.element.currentTime = 0; item.element.play().catch(() => {});  connectVideoAudio(item.element); }
+    updateMediaControls();
     checkCycleLogic();
 }
 
@@ -4283,6 +4304,7 @@ function previousMedia() {
         item.element = img;
         APP.media.currentElement = null;
         console.warn('[VNGRD] GIF asset "' + item.name + '" is rendered as a DOM element and will NOT be captured by vj-canvas.captureStream(). Convert animated assets to .webm for full recording compatibility.');
+        updateMediaControls();
         checkCycleLogic();
         return;
     }
@@ -4290,6 +4312,7 @@ function previousMedia() {
     if (!item.element) { APP.media.currentElement = null; return; }
     APP.media.currentElement = item.element;
     if (item.type === 'video') { item.element.loop = !APP.state.isCycle; item.element.currentTime = 0; item.element.play().catch(() => {});  connectVideoAudio(item.element); }
+    updateMediaControls();
     checkCycleLogic();
 }
 
@@ -4361,7 +4384,7 @@ function checkCycleLogic() {
 
 function updateQueueDisplay() {
     const count = APP.media.queue.length;
-    if($('q-info')) $('q-info').textContent = count; 
+    if($('q-info')) $('q-info').textContent = count;
     const btn = $('btn-load-media');
     if (count > 0) {
         btn.innerHTML = `MEDIA LOADED [ ${count} ]`;
@@ -4372,6 +4395,28 @@ function updateQueueDisplay() {
         btn.classList.remove('active-mode');
         $('media-dot').classList.add('off');
     }
+    updateMediaControls();
+}
+
+function updateMediaControls() {
+    const zoomBtn = $('btn-zoom-img');
+    if (!zoomBtn) return;
+    const item = APP.media.queue[APP.media.currentIndex];
+    zoomBtn.style.display = (item && (item.type === 'image' || item.type === 'gif')) ? 'block' : 'none';
+}
+
+function openLightbox() {
+    const item = APP.media.queue[APP.media.currentIndex];
+    if (!item || (item.type !== 'image' && item.type !== 'gif')) return;
+    const lb = $('img-lightbox');
+    const lbImg = $('img-lightbox-src');
+    lbImg.src = item.url;
+    lb.style.display = 'flex';
+}
+
+function closeLightbox() {
+    var lb = $('img-lightbox');
+    if (lb) lb.style.display = 'none';
 }
 
 // CAMERA
@@ -5656,8 +5701,11 @@ document.addEventListener('DOMContentLoaded', () => {
     $('btn-load-media').onclick = () => $('file-media').click();
     $('btn-cycle-toggle').onclick = toggleCycle;
 
+    // Image zoom/lightbox
+    $('btn-zoom-img').onclick = openLightbox;
+
     // Keep Navigation
-    $('btn-rotate').onclick = rotateMedia; 
+    $('btn-rotate').onclick = rotateMedia;
     $('btn-prev').onclick = previousMedia;
     $('file-media').onchange = e => loadMediaFiles(e.target);
     
@@ -5690,10 +5738,12 @@ document.addEventListener('DOMContentLoaded', () => {
 
     $('btn-mute-vid').onclick = () => {
         APP.audio.videoMuted = !APP.audio.videoMuted;
-        var vid = APP.audio.videoSource;
-        if (vid) { vid.muted = APP.audio.videoMuted; }
+        // Control volume via gain node — vid.muted stays true to prevent native double-output
+        if (APP.audio.videoGain && APP.audio.ctx) {
+            APP.audio.videoGain.gain.setValueAtTime(APP.audio.videoMuted ? 0 : 1, APP.audio.ctx.currentTime);
+        }
         $('btn-mute-vid').textContent = APP.audio.videoMuted ? '\u{1F507}' : '\u{1F50A}';
-        if (APP.audio.videoMuted) $('btn-mute-vid').classList.add('on'); else $('btn-mute-vid').classList.remove('on');
+        $('btn-mute-vid').classList.toggle('on', APP.audio.videoMuted);
         log('VIDEO_MUTE: ' + (APP.audio.videoMuted ? 'ON' : 'OFF'));
     };
     
@@ -5817,7 +5867,7 @@ document.addEventListener('DOMContentLoaded', () => {
         if (e.key === 'g' || e.key === 'G') toggleGhost();
         if (e.key === 'h' || e.key === 'H') toggleFullscreen();
         if (e.key === 'Tab') { e.preventDefault(); toggleSystemSlide(); }
-        if (e.key === 'Escape') { $('btn-panic').click(); }
+        if (e.key === 'Escape') { if ($('img-lightbox').style.display !== 'none') { closeLightbox(); } else { $('btn-panic').click(); } }
         if (e.key === ' ') { e.preventDefault(); rotateMedia(); }
     });
 
