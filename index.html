@@ -1604,15 +1604,16 @@ body.fullscreen #transcription-hud { opacity: 0 !important; pointer-events: none
             <div class="sec-head"><span class="sec-title">IDENTITY</span><div class="sec-dot"></div></div>
             <div class="sec-body">
                 <input type="text" class="inp" id="bug-text" placeholder="STATION_NAME..." value="VNGRD">
-                <div class="btn-row">
+                <div class="btn-row" style="gap:4px;">
                     <button class="btn" id="btn-set-station" style="flex:2;">SET BUG</button>
+                    <select id="bug-style-select" title="Style" style="background:var(--panel);border:1px solid var(--border);color:var(--text);font-size:8px;font-family:inherit;padding:2px 3px;cursor:pointer;min-width:0;">
+                        <option value="plain">PL</option>
+                        <option value="pulse">PU</option>
+                        <option value="glitch">GL</option>
+                    </select>
+                    <input type="color" id="bug-color" value="#ffffff" title="Bug colour" style="width:26px;height:26px;padding:1px;border:1px solid var(--border);background:var(--panel);cursor:pointer;flex-shrink:0;">
                     <button class="btn" id="btn-bug-toggle" title="Toggle Bug">[X]</button>
                 </div>
-                <select class="inp" id="bug-style-select" style="width:100%;margin-top:4px;font-size:9px;padding:5px;background:var(--panel);border:1px solid var(--border);color:var(--text);">
-                    <option value="plain">STYLE: PLAIN</option>
-                    <option value="pulse">STYLE: PULSE</option>
-                    <option value="glitch">STYLE: GLITCH</option>
-                </select>
                 <div class="btn-row" style="margin-top:6px;">
                     <button class="btn" id="btn-upload-2d" style="flex:2;">2D LOGO</button>
                     <button class="btn" id="btn-2d-x" title="Hide/Clear 2D">[X]</button>
@@ -1920,7 +1921,7 @@ const APP = {
     nftVault: { thumbnails: [], scrollOffset: 0 },
     camera: { stream: null, recorder: null, chunks: [], mode: 'off', isRecording: false, videoEl: null, previewEl: null, micStream: null },
     render: { canvas: null, ctx: null, width: 3840, height: 2160, fps: 0, frameCount: 0, lastTime: 0, lastFpsUpdate: 0, rafId: null, scale: 1.0, pixelCanvas: null, pixelCtx: null, rgbActive: false, source: null },
-    bug: { visible: true, text: 'VNGRD', style: 'plain', image: null, textMode: 0, textVisible: true, imageVisible: false },
+    bug: { visible: true, text: 'VNGRD', style: 'plain', color: '#ffffff', image: null, textMode: 0, textVisible: true, imageVisible: false },
     layers: { logoScale: 1.0, logoSrc: null, bugScale: 1.0 },
     // IDENTITY TRINITY — three independent broadcast actors
     trinity: {
@@ -3406,36 +3407,30 @@ function renderLoop(timestamp) {
                 ctx.drawImage(bugImg, bx, by, bw, bh);
                 ctx.restore();
             } else if (APP.bug.text) {
+                // Canvas is sole renderer for all styles — keep DOM element invisible
+                if (!bugEl.classList.contains('hidden')) bugEl.style.opacity = '0';
                 ctx.save();
                 var bugFS = Math.max(14, 28 * bScale * (h / 1080));
                 ctx.font = '800 ' + bugFS + 'px Orbitron, sans-serif';
                 ctx.textAlign = 'left'; ctx.textBaseline = 'top';
+                var _bc = APP.bug.color || '#ffffff';
                 if (APP.bug.style === 'pulse') {
-                    // DOM hidden — canvas owns this render
-                    if (!bugEl.classList.contains('hidden')) bugEl.style.opacity = '0';
                     var _p = (Math.sin(timestamp * 0.002) + 1) / 2;
-                    ctx.fillStyle = 'rgba(0,243,255,' + (0.65 + 0.35 * _p) + ')';
-                    ctx.shadowColor = '#00f3ff';
-                    ctx.shadowBlur = 4 + 20 * _p;
+                    var _pr = parseInt(_bc.slice(1,3),16), _pg = parseInt(_bc.slice(3,5),16), _pb = parseInt(_bc.slice(5,7),16);
+                    ctx.fillStyle = 'rgba('+_pr+','+_pg+','+_pb+','+(0.65+0.35*_p)+')';
+                    ctx.shadowColor = _bc; ctx.shadowBlur = 4 + 20 * _p;
                     ctx.fillText(APP.bug.text, bx, by);
                 } else if (APP.bug.style === 'glitch') {
-                    // DOM hidden — canvas owns this render
-                    if (!bugEl.classList.contains('hidden')) bugEl.style.opacity = '0';
                     var _gt = timestamp % 200;
                     var _gx = _gt < 66 ? -3 : _gt < 133 ? 3 : 0;
                     var _gy = _gt < 100 ? 1 : -1;
                     ctx.globalAlpha = 0.8;
-                    ctx.fillStyle = '#ff0055';
-                    ctx.fillText(APP.bug.text, bx + 3, by + _gy);
-                    ctx.fillStyle = '#00f3ff';
-                    ctx.fillText(APP.bug.text, bx - 3, by - _gy);
+                    ctx.fillStyle = '#ff0055'; ctx.fillText(APP.bug.text, bx + 3, by + _gy);
+                    ctx.fillStyle = '#00f3ff'; ctx.fillText(APP.bug.text, bx - 3, by - _gy);
                     ctx.globalAlpha = 1;
-                    ctx.fillStyle = '#ffffff';
-                    ctx.fillText(APP.bug.text, bx + _gx, by);
+                    ctx.fillStyle = _bc; ctx.fillText(APP.bug.text, bx + _gx, by);
                 } else {
-                    // PLAIN — restore DOM opacity, canvas draws normally
-                    if (!bugEl.classList.contains('hidden')) bugEl.style.opacity = '';
-                    ctx.fillStyle = 'rgba(255,255,255,0.9)';
+                    ctx.fillStyle = _bc;
                     ctx.shadowColor = 'rgba(0,0,0,0.5)'; ctx.shadowBlur = 4;
                     ctx.shadowOffsetX = 2; ctx.shadowOffsetY = 2;
                     ctx.fillText(APP.bug.text, bx, by);
@@ -4051,17 +4046,9 @@ if ($('btn-bug-toggle')) {
     };
 }
 
-// STATION BUG - Animation style preset (select)
-if ($('bug-style-select')) {
-    $('bug-style-select').onchange = function() {
-        APP.bug.style = this.value;
-        // If switching back to plain, restore DOM opacity immediately
-        if (this.value === 'plain') {
-            var bug = $('station-bug');
-            if (bug && !bug.classList.contains('hidden')) bug.style.opacity = '';
-        }
-    };
-}
+// STATION BUG - style + colour
+if ($('bug-style-select')) $('bug-style-select').onchange = function() { APP.bug.style = this.value; };
+if ($('bug-color'))        $('bug-color').oninput        = function() { APP.bug.color = this.value; };
 
 // 2D LOGO - Upload
 if ($('btn-upload-2d')) {
