@@ -5353,8 +5353,46 @@ async function executeWorkspaceExport() {
 }
 
 // QR MODAL
+function buildWorkspaceURL(cid) {
+    // On localhost, try to substitute the local network IP so mobile devices can reach the server
+    var origin = window.location.origin;
+    if (/^https?:\/\/localhost|^https?:\/\/127\.0\.0\.1/.test(origin)) {
+        // RTCPeerConnection trick: gather a local IP via ICE candidates
+        // Falls back to localhost if WebRTC is unavailable
+        return new Promise(function(resolve) {
+            var resolved = false;
+            function done(ip) {
+                if (resolved) return;
+                resolved = true;
+                var port = window.location.port ? ':' + window.location.port : '';
+                resolve(window.location.protocol + '//' + ip + port + '/?workspace=' + cid);
+            }
+            try {
+                var pc = new RTCPeerConnection({ iceServers: [] });
+                pc.createDataChannel('');
+                pc.createOffer().then(function(offer) { pc.setLocalDescription(offer); });
+                pc.onicecandidate = function(e) {
+                    if (!e || !e.candidate) return;
+                    var m = e.candidate.candidate.match(/(\d+\.\d+\.\d+\.\d+)/);
+                    if (m && !/^(127\.|169\.254\.)/.test(m[1])) {
+                        pc.close();
+                        done(m[1]);
+                    }
+                };
+                setTimeout(function() { done('localhost'); }, 2000);
+            } catch(e) {
+                done('localhost');
+            }
+        });
+    }
+    return Promise.resolve(origin + '/?workspace=' + cid);
+}
+
 function showQRModal(cid) {
-    var url = 'https://vngrd.app/?workspace=' + cid;
+    buildWorkspaceURL(cid).then(function(url) { _renderQRModal(cid, url); });
+}
+
+function _renderQRModal(cid, url) {
     var modal = $('qr-modal');
     var container = $('qr-code-container');
     var cidLabel = $('qr-modal-cid-label');
@@ -5363,6 +5401,8 @@ function showQRModal(cid) {
     cidLabel.textContent = 'CID: ' + cid;
     urlDisplay.textContent = url;
     container.innerHTML = '';
+
+    ghostLog('SYSTEM: DYNAMIC_LINK_GENERATED_AT_' + window.location.origin, 'success');
 
     if (typeof QRCode !== 'undefined') {
         new QRCode(container, {
