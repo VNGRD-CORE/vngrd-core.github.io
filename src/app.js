@@ -384,26 +384,105 @@ function renderLoop(timestamp) {
         ctx.drawImage(APP.render.pixelCanvas, 0, 0, tW, tH, 0, 0, w, h);
     }
     
-    // RGB Shift: Apply via CSS filter (GPU-accelerated)
+    // RGB Shift (canvas-native — captured in recordings)
+    // We copy the current frame to an off-screen buffer then draw it twice
+    // with horizontal offsets and 'screen' blend mode, producing chromatic split.
     if (APP.vj.rgbEnabled && APP.vj.rgbIntensity > 0) {
         let offset = APP.vj.rgbIntensity;
         if (APP.vj.rgbBassLink) offset = Math.floor((APP.audio.bassLevel / 255) * APP.vj.rgbIntensity * 2);
         if (offset > 0) {
-            APP.render.canvas.style.filter = `url(#chromatic-ghost)`;
-            APP.render.rgbActive = true;
+            // Lazy-create the off-screen scratch buffer
+            if (!APP.render.rgbCanvas) {
+                APP.render.rgbCanvas = document.createElement('canvas');
+                APP.render.rgbCtx   = APP.render.rgbCanvas.getContext('2d');
+            }
+            if (APP.render.rgbCanvas.width !== w || APP.render.rgbCanvas.height !== h) {
+                APP.render.rgbCanvas.width  = w;
+                APP.render.rgbCanvas.height = h;
+            }
+            // Snapshot current frame into scratch
+            APP.render.rgbCtx.drawImage(APP.render.canvas, 0, 0);
+            // Draw two ghost copies shifted ± offset with screen blend
+            ctx.save();
+            ctx.globalAlpha = 0.55;
+            ctx.globalCompositeOperation = 'screen';
+            ctx.drawImage(APP.render.rgbCanvas,  offset, 0); // red ghost
+            ctx.drawImage(APP.render.rgbCanvas, -offset, 0); // blue ghost
+            ctx.restore();
+            // Ensure no CSS filter left over from old approach
+            if (APP.render.canvas.style.filter) APP.render.canvas.style.filter = 'none';
         }
-    } else if (APP.render.rgbActive) {
-        APP.render.canvas.style.filter = 'none';
-        APP.render.rgbActive = false;
     }
     
+    // ══ CANVAS FX OVERLAYS (captured in all recordings) ════════════════════════
+
+    // Chromatic aberration trigger (from triggerChromaticAberration / rotateMedia)
+    if (APP.render.chromaticEnd && performance.now() < APP.render.chromaticEnd) {
+        const cOff = 18;
+        if (!APP.render.rgbCanvas) {
+            APP.render.rgbCanvas = document.createElement('canvas');
+            APP.render.rgbCtx   = APP.render.rgbCanvas.getContext('2d');
+        }
+        if (APP.render.rgbCanvas.width !== w) { APP.render.rgbCanvas.width = w; APP.render.rgbCanvas.height = h; }
+        APP.render.rgbCtx.drawImage(APP.render.canvas, 0, 0);
+        ctx.save();
+        ctx.globalAlpha = 0.6;
+        ctx.globalCompositeOperation = 'screen';
+        ctx.drawImage(APP.render.rgbCanvas,  cOff, 0);
+        ctx.drawImage(APP.render.rgbCanvas, -cOff, 0);
+        ctx.restore();
+    }
+
+    // Impact flash (from triggerImpact)
+    if (APP.render.impactEnd && performance.now() < APP.render.impactEnd) {
+        const prog = (APP.render.impactEnd - performance.now()) / 80;
+        ctx.save();
+        ctx.fillStyle = `rgba(255,255,255,${Math.min(1, prog) * 0.75})`;
+        ctx.fillRect(0, 0, w, h);
+        ctx.restore();
+    }
+
+    // VHS overlay: scanlines + tracking stripe + color noise (canvas layer)
+    if (document.body.classList.contains('vhs')) {
+        ctx.save();
+        ctx.fillStyle = 'rgba(0,0,0,0.13)';
+        for (let sy = 0; sy < h; sy += 3) ctx.fillRect(0, sy, w, 1);
+        // Slow-moving tracking bar
+        const trackY = ((performance.now() / 25) % (h + 20)) - 10;
+        ctx.fillStyle = 'rgba(255,255,255,0.05)';
+        ctx.fillRect(0, trackY, w, 10);
+        // Bass-reactive static burst
+        if (APP.audio && APP.audio.bassLevel > 80) {
+            ctx.fillStyle = `rgba(255,255,255,${((APP.audio.bassLevel - 80) / 175) * 0.06})`;
+            ctx.fillRect(0, 0, w, h);
+        }
+        ctx.restore();
+    }
+
+    // NVG overlay: green phosphor tint
+    if (document.body.classList.contains('nvg')) {
+        ctx.save();
+        ctx.globalCompositeOperation = 'multiply';
+        ctx.fillStyle = 'rgba(0,255,70,0.38)';
+        ctx.fillRect(0, 0, w, h);
+        ctx.globalCompositeOperation = 'source-over';
+        ctx.restore();
+    }
+
+    // CRT overlay: tight phosphor scanlines
+    if (document.body.classList.contains('crt')) {
+        ctx.save();
+        ctx.fillStyle = 'rgba(0,0,0,0.09)';
+        for (let sy = 0; sy < h; sy += 2) ctx.fillRect(0, sy, w, 1);
+        ctx.restore();
+    }
+
+    // ══ END FX OVERLAYS ══════════════════════════════════════════════════════
+
     // ── LOWER THIRD CANVAS BAKE-IN ──
-    // Draw the LT graphic directly onto the canvas ONLY when recording so the
-    // captureStream() output contains it. During live (non-recording) the HTML
-    // #lower-third overlay is used instead — drawing on both causes a double.
-    const _ltRecording = APP.camera && APP.camera.isRecording ||
-                         APP.timeMachine && APP.timeMachine.isRecording;
-    if (APP.lowerThird.visible && _ltRecording) {
+    // HTML #lower-third is permanently hidden (CSS display:none).
+    // This canvas draw is the ONLY visual instance — live and recording alike.
+    if (APP.lowerThird.visible) {
         const ltTitle   = APP.lowerThird.title    || ($('lt-title-text')   ? $('lt-title-text').textContent   : '');
         const ltSub     = APP.lowerThird.subtitle || ($('lt-subtitle-text') ? $('lt-subtitle-text').textContent : '');
         const ltPreset  = APP.lowerThird.preset   || 'guest';
@@ -463,21 +542,19 @@ function renderLoop(timestamp) {
 // IMPACT FX (Musical Performance)
 // ═══════════════════════════════════════════════════════════════════════════
 function triggerImpact() {
-    // Remove and force reflow for rapid-fire triggers
+    // CSS flash (browser live view)
     document.body.classList.remove('impact-flash');
-    void document.body.offsetWidth; // Force reflow
+    void document.body.offsetWidth;
     document.body.classList.add('impact-flash');
     setTimeout(() => document.body.classList.remove('impact-flash'), 200);
+    // Canvas flash (captured in recordings)
+    APP.render.impactEnd = performance.now() + 80;
 }
 
 function triggerChromaticAberration() {
-    // GPU-accelerated chromatic aberration via SVG filter
-    const canvas = APP.render.canvas;
-    canvas.style.filter = 'url(#chromatic-ghost)';
-    
-    setTimeout(() => {
-        canvas.style.filter = 'none';
-    }, 200);
+    // Canvas-native chromatic aberration — drawn in renderLoop, captured in recordings.
+    // Sets a timer; the render loop draws the split effect until the timer expires.
+    APP.render.chromaticEnd = performance.now() + 200;
 }
 
 function impactStutter() {

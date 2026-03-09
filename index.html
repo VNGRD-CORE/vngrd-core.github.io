@@ -172,7 +172,9 @@
         body.fullscreen #stage { position: fixed; inset: 0; z-index: 9999; border: none; }
         body.fullscreen .sidebar, body.fullscreen #top-bar, body.fullscreen #bottom-bar, body.fullscreen #ghost-terminal { opacity: 0; pointer-events: none; }
 
-        #lower-third { position: absolute; bottom: 8%; left: 20px; }
+        #lower-third { position: absolute; bottom: 8%; left: 20px; display: none !important; }
+        /* ^^ Hidden: canvas bake-in (app.js renderLoop) is the sole LT renderer.
+           DOM elements inside stay readable for textContent — only display is suppressed. */
         .lt-container { 
             display: flex; flex-direction: column; 
             background: linear-gradient(90deg, rgba(0,0,0,0.9) 0%, rgba(0,0,0,0.7) 100%);
@@ -7731,10 +7733,10 @@ function handleCallStream(call) {
         ghostBridge.play().catch(function() {});
 
         // ── Route guest audio through Web Audio compressor chain ──
-        // This mixes guest voice into masterGain so it is captured by the
-        // Compositor's audioDest and baked into the recording. The ghost bridge
-        // video stays muted to avoid double-audio. The in-panel remoteVid (below)
-        // plays unmuted for the broadcaster's monitoring headphones.
+        // This mixes guest voice into masterGain → ctx.destination (speakers) AND
+        // Compositor audioDest (recording). Panel remoteVid is muted when this
+        // succeeds to prevent double-audio echo. Falls back to unmuted panel video.
+        var _guestAudioRouted = false;
         if (APP.audio && APP.audio.ctx && APP.audio.compressor) {
             try {
                 if (APP.peer.remoteAudioSrc) {
@@ -7742,6 +7744,7 @@ function handleCallStream(call) {
                 }
                 APP.peer.remoteAudioSrc = APP.audio.ctx.createMediaStreamSource(remoteStream);
                 APP.peer.remoteAudioSrc.connect(APP.audio.compressor);
+                _guestAudioRouted = true;
                 log('GUEST_AUDIO: ROUTED_-18dB_COMPRESSOR');
             } catch(e) {
                 log('GUEST_AUDIO_ERR: ' + e.message);
@@ -7754,11 +7757,11 @@ function handleCallStream(call) {
         APP.guest.isActive = true;
 
         // ── Panel preview: show the remote stream in the in-panel video element ──
-        // This is for the broadcaster's eyes only and is NOT used for canvas rendering.
+        // Muted when Web Audio handles speaker output; unmuted as audio fallback.
         var remoteVid = $('p2p-remote-video-el');
         if (remoteVid) {
             remoteVid.srcObject = remoteStream;
-            remoteVid.muted = false; // Unmuted so broadcaster can monitor guest audio
+            remoteVid.muted = _guestAudioRouted; // true = Web Audio plays, false = fallback
             remoteVid.play().catch(function(e) {
                 document.addEventListener('touchstart', function _retry() {
                     remoteVid.play().catch(function() {});
