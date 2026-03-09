@@ -1438,23 +1438,43 @@ body.fullscreen #transcription-hud { opacity: 0 !important; pointer-events: none
     background: #00f3ff;
     box-shadow: 0 0 4px #00f3ff;
     flex-shrink: 0;
-    opacity: 0.3;
-    transition: opacity 0.1s;
+    margin-left: auto;
+    opacity: 0.25;
+    transition: opacity 0.15s, box-shadow 0.15s;
+    cursor: default;
 }
-#sync-led.blink { opacity: 1; box-shadow: 0 0 8px #00f3ff, 0 0 16px #00f3ff; }
+#sync-led.blink {
+    opacity: 1;
+    box-shadow: 0 0 8px #00f3ff, 0 0 18px rgba(0,243,255,0.6);
+    animation: led-pulse 1s ease-out forwards;
+}
+@keyframes led-pulse {
+    0%   { opacity: 1; box-shadow: 0 0 8px #00f3ff, 0 0 18px rgba(0,243,255,0.6); }
+    100% { opacity: 0.25; box-shadow: 0 0 4px #00f3ff; }
+}
 
-/* ── DEPLOY TRAY ── */
-#deploy-tray {
-    background: rgba(0,243,255,0.03);
-    border: 1px solid rgba(0,243,255,0.15);
-    border-radius: 2px;
-    padding: 4px;
-    animation: tray-slide 0.15s ease-out;
+/* ── SAVE MODAL ── */
+#save-modal {
+    position: fixed; inset: 0; z-index: 99999;
+    background: rgba(0,0,0,0.72);
+    backdrop-filter: blur(10px);
+    -webkit-backdrop-filter: blur(10px);
+    display: flex; align-items: center; justify-content: center;
 }
-@keyframes tray-slide {
-    from { opacity: 0; transform: translateY(-4px); }
-    to   { opacity: 1; transform: translateY(0); }
+#save-modal-inner {
+    background: rgba(8,8,12,0.94);
+    border: 1px solid rgba(0,243,255,0.25);
+    border-radius: 3px;
+    padding: 16px 18px;
+    width: 220px;
+    box-shadow: 0 0 30px rgba(0,243,255,0.1);
+    display: flex; flex-direction: column; gap: 10px;
 }
+#save-modal-title {
+    font-family: 'Orbitron', monospace; font-size: 9px; font-weight: 700;
+    color: var(--accent); letter-spacing: 2px; text-align: center;
+}
+#save-modal-actions { display: flex; gap: 6px; }
 
 /* ── QR MODAL ── */
 #qr-modal {
@@ -1570,7 +1590,6 @@ body.fullscreen #transcription-hud { opacity: 0 !important; pointer-events: none
             <div class="badge" id="cycle-badge">CYCLE</div>
             <div class="stat"><div class="dot" id="main-dot"></div><span id="status-text">STANDBY</span></div>
             <div id="tally">ON_AIR</div>
-            <div id="sync-led" title="AUTO-SAVE"></div>
             <div id="clock">00:00:00</div>
         </div>
     </header>
@@ -1834,24 +1853,18 @@ body.fullscreen #transcription-hud { opacity: 0 !important; pointer-events: none
             </div>
         </div>
         <div class="section">
-            <div class="sec-head collapsible open"><span class="sec-title">SESSION_LAB</span><span class="sec-arrow">&#x25BE;</span><div class="sec-dot"></div></div>
+            <div class="sec-head collapsible open" style="display:flex;align-items:center;gap:6px;"><span class="sec-title">SESSION_LAB</span><span class="sec-arrow">&#x25BE;</span><div class="sec-dot"></div><div id="sync-led" title="INTEL: AUTO_SAVE // 60s PULSE"></div></div>
             <div class="sec-body" id="session-lab-body" style="max-height:500px;padding:10px 12px;">
                 <div class="btn-row">
                     <button class="btn" id="btn-nft-30" style="flex:1;font-size:8px;color:var(--o);border-color:var(--o);">CAPTURE_VNGRD_CLIP</button>
                 </div>
-                <div style="border-top:1px solid rgba(255,255,255,0.06);margin:6px 0 4px;"></div>
-                <div class="lbl" style="font-size:7px;opacity:0.5;margin-bottom:4px;">OUTPUT</div>
-                <div class="btn-row" style="align-items:center;gap:6px;">
-                    <button class="btn" id="btn-deploy" style="flex:1;font-size:9px;letter-spacing:1px;" title="INTEL: EXPORT_ENGINE">[ ^ ] DEPLOY</button>
+                <div class="btn-row" style="margin-top:6px;gap:4px;">
+                    <button class="btn" id="btn-save" style="flex:1;font-size:8px;" title="INTEL: SAVE_ENGINE // LOCAL + WALLET">SAVE</button>
+                    <button class="btn" id="btn-import-dna" style="flex:1;font-size:8px;" title="INTEL: IMPORT_DECK // .VGD / .JSON">IMPORT</button>
+                    <button class="btn" id="btn-share-qr" style="flex:1;font-size:8px;" title="INTEL: EXPORT_ENGINE // IPFS + QR">SHARE_QR</button>
                 </div>
-                <div id="deploy-tray" style="display:none;margin-top:4px;">
-                    <div class="btn-row" style="gap:4px;">
-                        <button class="btn" id="btn-snapshot" style="flex:1;font-size:8px;">[ SNAPSHOT ]</button>
-                        <button class="btn" id="btn-generate-qr" style="flex:1;font-size:8px;">[ GENERATE_QR ]</button>
-                    </div>
-                </div>
-                <div style="margin-top:8px;display:flex;justify-content:center;">
-                    <button class="btn" id="btn-vr" style="width:100%;text-align:center;" title="INTEL: SPATIAL_GATEWAY">ENTER_VR</button>
+                <div style="margin-top:8px;">
+                    <button class="btn" id="btn-vr" style="width:100%;text-align:center;" title="INTEL: SPATIAL_GATEWAY // WEBXR">ENTER_VR</button>
                 </div>
             </div>
         </div>
@@ -1918,6 +1931,18 @@ body.fullscreen #transcription-hud { opacity: 0 !important; pointer-events: none
             </div>
         </div>
     </footer>
+
+    <!-- SAVE MODAL -->
+    <div id="save-modal" style="display:none;">
+        <div id="save-modal-inner">
+            <div id="save-modal-title">SAVE_SESSION</div>
+            <div id="save-modal-actions">
+                <button class="btn" id="btn-save-local" style="flex:1;font-size:9px;" title="INTEL: LOCAL_JSON // DOWNLOAD .VGD">LOCAL_JSON</button>
+                <button class="btn" id="btn-save-wallet" style="flex:1;font-size:9px;color:var(--accent);border-color:var(--accent);" title="INTEL: WALLET_SYNC // SIGN + STORE">WALLET_SYNC</button>
+            </div>
+            <button class="btn" id="btn-save-modal-close" style="width:100%;font-size:8px;opacity:0.6;margin-top:4px;">CLOSE</button>
+        </div>
+    </div>
 
     <!-- QR MODAL -->
     <div id="qr-modal" style="display:none;">
@@ -5250,20 +5275,17 @@ window.loadSessionFromCloud = async function(silent) {
 // ══════════════════════════════════════════════════════════════════════════
 function vngrdAutoSave() {
     try {
-        var snap = _buildSessionSnapshot();
-        localStorage.setItem('vngrd_state', JSON.stringify(snap));
-        log('AUTO_SAVE: OK');
-        // Blink the sync LED
-        var led = $('sync-led');
-        if (led) {
-            led.classList.add('blink');
-            setTimeout(function() { led.classList.remove('blink'); }, 400);
-        }
-    } catch(e) {
-        log('AUTO_SAVE: ERR ' + e.message);
+        localStorage.setItem('vngrd_state', JSON.stringify(_buildSessionSnapshot()));
+    } catch(e) { return; }
+    // 1s cyan pulse — CSS animation handles timing, no setTimeout needed
+    var led = $('sync-led');
+    if (led) {
+        led.classList.remove('blink');
+        void led.offsetWidth; // force reflow to restart animation
+        led.classList.add('blink');
     }
 }
-setInterval(vngrdAutoSave, 60000);
+APP.autoSaveInterval = setInterval(vngrdAutoSave, 60000);
 
 // ══════════════════════════════════════════════════════════════════════════
 // DEPLOY SYSTEM — SNAPSHOT + GENERATE_QR / IPFS via Pinata
@@ -5287,24 +5309,24 @@ function downloadWorkspaceSnapshot() {
 async function executeWorkspaceExport() {
     var jwt = localStorage.getItem('pinata_jwt');
     if (!jwt) {
-        jwt = prompt('PINATA JWT TOKEN (stored locally):');
-        if (!jwt) { log('IPFS_EXPORT: NO_JWT'); return; }
-        localStorage.setItem('pinata_jwt', jwt.trim());
+        var raw = prompt('PINATA JWT TOKEN (stored locally):');
+        if (!raw) { log('IPFS_EXPORT: NO_JWT'); return; }
+        jwt = raw.trim();
+        localStorage.setItem('pinata_jwt', jwt);
     }
 
-    log('IPFS: COMPILING_STATE');
+    log('IPFS: PINNING_TO_PINATA');
     var payload = _buildSessionSnapshot();
     payload._type = 'VNGRD_WORKSPACE';
     payload._version = 'V34';
 
-    log('IPFS: PINNING_TO_PINATA');
     var res, data;
     try {
         res = await fetch('https://api.pinata.cloud/pinning/pinJSONToIPFS', {
             method: 'POST',
             headers: {
                 'Content-Type': 'application/json',
-                'Authorization': 'Bearer ' + jwt.trim()
+                'Authorization': 'Bearer ' + jwt
             },
             body: JSON.stringify({
                 pinataContent: payload,
@@ -5371,7 +5393,6 @@ function showQRModal(cid) {
 
     $('btn-qr-close').onclick = function() {
         modal.style.display = 'none';
-        container.innerHTML = '';
     };
 }
 
@@ -6662,15 +6683,56 @@ document.addEventListener('DOMContentLoaded', () => {
 
     $('btn-nft-30').onclick = startNFTRecording;
 
-    // ── DEPLOY SYSTEM ──
-    $('btn-deploy').onclick = function() {
-        var tray = $('deploy-tray');
-        var isOpen = tray.style.display !== 'none';
-        tray.style.display = isOpen ? 'none' : 'block';
-        $('btn-deploy').classList.toggle('on', !isOpen);
+    // ── SESSION LAB BUTTONS ──
+    $('btn-save').onclick = function() { $('save-modal').style.display = 'flex'; };
+    $('btn-save-modal-close').onclick = function() { $('save-modal').style.display = 'none'; };
+    $('btn-save-local').onclick = function() {
+        downloadWorkspaceSnapshot();
+        $('save-modal').style.display = 'none';
     };
-    $('btn-snapshot').onclick = downloadWorkspaceSnapshot;
-    $('btn-generate-qr').onclick = executeWorkspaceExport;
+    $('btn-save-wallet').onclick = function() {
+        $('save-modal').style.display = 'none';
+        saveSessionToCloud();
+    };
+
+    $('btn-import-dna').onclick = function() { $('file-vgd').click(); };
+    $('file-vgd').onchange = function(e) {
+        var file = e.target.files[0];
+        if (!file) return;
+        var reader = new FileReader();
+        reader.onload = function(ev) {
+            try {
+                var s = JSON.parse(ev.target.result);
+                if (s.theme) setTheme(s.theme);
+                if (s.bug) { APP.bug.text = s.bug; $('bug-text').value = s.bug; $('station-bug').textContent = s.bug; }
+                if (s.vj) APP.vj = Object.assign({}, APP.vj, s.vj);
+                if (s.layers) {
+                    APP.layers = Object.assign({}, APP.layers, s.layers);
+                    APP.trinity.logo.scale = APP.layers.logoScale || 1.0;
+                    APP.trinity.bug.scale = APP.layers.bugScale || 1.5;
+                }
+                if (s.logo2d && isValidDataURI(s.logo2d)) {
+                    var ll = $('user-logo-layer');
+                    if (ll) { ll.src = s.logo2d; ll.style.display = 'block'; APP.trinity.logo.visible = true; }
+                }
+                if (s.lowerThird) {
+                    if (s.lowerThird.title) { if ($('lt-title-text')) $('lt-title-text').textContent = s.lowerThird.title; if ($('lt-title')) $('lt-title').value = s.lowerThird.title; }
+                    if (s.lowerThird.subtitle) { if ($('lt-subtitle-text')) $('lt-subtitle-text').textContent = s.lowerThird.subtitle; if ($('lt-sub')) $('lt-sub').value = s.lowerThird.subtitle; }
+                    if (s.lowerThird.preset) APP.lowerThird.preset = s.lowerThird.preset;
+                    APP.lowerThird.visible = !!s.lowerThird.visible;
+                }
+                if ($('sl-b')) $('sl-b').value = Math.round(APP.vj.brightness * 100);
+                if ($('sl-c')) $('sl-c').value = Math.round(APP.vj.contrast * 100);
+                if ($('sl-s')) $('sl-s').value = Math.round(APP.vj.saturation * 100);
+                if ($('sl-h')) $('sl-h').value = APP.vj.hue;
+                log('VGD: ' + file.name.toUpperCase());
+            } catch(err) { log('VGD_ERR: ' + err.message); }
+        };
+        reader.readAsText(file);
+        e.target.value = '';
+    };
+
+    $('btn-share-qr').onclick = executeWorkspaceExport;
 
     // ========================================
     // ========================================
