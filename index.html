@@ -490,11 +490,15 @@
         #left-panel { left: 0; border-left: none; border-right: 1px solid rgba(255,255,255,0.07); transform: translateX(0); }
         #right-panel { right: 0; border-right: none; border-left: 1px solid rgba(255,255,255,0.07); transform: translateX(0); }
 
-        /* SYSTEM SLIDE — panels out, stage expands */
-        body.system-slide #left-panel { transform: translateX(-100%); opacity: 0; pointer-events: none; }
-        body.system-slide #right-panel { transform: translateX(100%); opacity: 0; pointer-events: none; }
-        body.system-slide #stage { left: 0; right: 0; transition: left 0.45s cubic-bezier(0.4, 0, 0.2, 1), right 0.45s cubic-bezier(0.4, 0, 0.2, 1); }
-        #stage { transition: left 0.45s cubic-bezier(0.4, 0, 0.2, 1), right 0.45s cubic-bezier(0.4, 0, 0.2, 1); }
+        /* SYSTEM SLIDE — panels out, stage expands — spring feel */
+        #left-panel  { transition: transform 0.52s cubic-bezier(0.34,1.56,0.64,1), opacity 0.35s ease; }
+        #right-panel { transition: transform 0.52s cubic-bezier(0.34,1.56,0.64,1), opacity 0.35s ease; }
+        body.system-slide #left-panel  { transform: translateX(-102%); opacity: 0; pointer-events: none; }
+        body.system-slide #right-panel { transform: translateX(102%);  opacity: 0; pointer-events: none; }
+        #stage { transition: left 0.48s cubic-bezier(0.34,1.2,0.64,1), right 0.48s cubic-bezier(0.34,1.2,0.64,1); }
+        body.system-slide #stage { left: 0; right: 0; }
+        /* Slide glow: canvas border pulses on expand */
+        body.system-slide #stage { box-shadow: inset 0 0 0 1px rgba(0,243,255,0.12), 0 0 40px rgba(0,243,255,0.04); }
         /* Hard divider between module blocks — dark gap above + white hairline below */
         .section {
             border-top: 3px solid rgba(0,0,0,0.85);
@@ -544,6 +548,7 @@
         /* VNGRD BUTTONS - DIGITAL SNAP */
         .btn {
             display: block; width: 100%; padding: 8px 10px; margin-bottom: 6px;
+            position: relative;
             background: linear-gradient(180deg, #121218 0%, #090910 100%);
             border-radius: 0;
             border-top: 1px solid rgba(255,255,255,0.09);
@@ -1060,6 +1065,10 @@ body.fx-scan #stage::after {
 
 /* punch-hit class kept for legacy compat — punch is now canvas-native */
 .punch-hit { }
+/* Console-mode indicator: subtle dot on top-right of button */
+.btn.console-mode::after { content: '●'; position: absolute; top: 2px; right: 3px; font-size: 5px; color: var(--accent); opacity: 0.8; pointer-events: none; }
+.btn.on { color: var(--accent) !important; border-color: var(--accent) !important; background: rgba(0,243,255,0.08) !important; text-shadow: 0 0 8px var(--accent) !important; }
+.btn.active-fx { color: var(--accent) !important; border-color: var(--accent) !important; background: rgba(0,243,255,0.06) !important; }
 
 /* Ensure no FX overlay blocks clicks */
 .fx-punch::after, .punch-hit::after {
@@ -1729,9 +1738,9 @@ body.fullscreen #transcription-hud { opacity: 0 !important; pointer-events: none
             <div class="sec-head"><span class="sec-title">AUDIO_REACTIVE</span><div class="sec-dot on"></div></div>
             <div class="sec-body">
                 <div class="btn-grid-3">
-                    <button class="btn" id="btn-ui-react" style="font-size:8px;">PARTY</button>
-                    <button class="btn" id="btn-rumble" style="font-size:8px;">SEISMIC</button>
-                    <button class="btn" onclick="toggleFX('punch')" style="font-size:8px;">PUNCH</button>
+                    <button class="btn" id="btn-ui-react" style="font-size:8px;" title="Beat-reactive auto-morph">PARTY</button>
+                    <button class="btn" id="btn-rumble" style="font-size:8px;" title="Click: arm SEISMIC&#10;Double-click: toggle canvas-only vs console shake">SEISMIC</button>
+                    <button class="btn" id="btn-punch" style="font-size:8px;" title="Click: arm PUNCH&#10;Double-click: toggle canvas-only vs console flash">PUNCH</button>
                 </div>
             </div>
         </div>
@@ -1813,8 +1822,14 @@ body.fullscreen #transcription-hud { opacity: 0 !important; pointer-events: none
                     <span>NODES: <span id="presence-count">1</span></span>
                 </div>
             </div>
-            <div class="info-group">
-                <div class="info-item">AI: <span style="color:var(--g)">[G]_TO_SUMMON</span></div>
+            <div class="info-group" style="gap:12px;">
+                <div class="info-item">AI: <span style="color:var(--g)">[G]</span></div>
+                <div class="info-item kb-hint" onclick="toggleSystemSlide()" title="Tab — slide panels / expand canvas" style="cursor:pointer;opacity:0.38;font-size:8px;letter-spacing:1px;transition:opacity 0.2s;" onmouseenter="this.style.opacity='0.75'" onmouseleave="this.style.opacity='0.38'">
+                    <span style="border:1px solid rgba(255,255,255,0.2);padding:1px 4px;border-radius:2px;font-size:7px;margin-right:3px;">TAB</span>SLIDE
+                </div>
+                <div class="info-item kb-hint" onclick="if(typeof toggleFullscreen==='function')toggleFullscreen()" title="H — fullscreen" style="cursor:pointer;opacity:0.38;font-size:8px;letter-spacing:1px;transition:opacity 0.2s;" onmouseenter="this.style.opacity='0.75'" onmouseleave="this.style.opacity='0.38'">
+                    <span style="border:1px solid rgba(255,255,255,0.2);padding:1px 4px;border-radius:2px;font-size:7px;margin-right:3px;">H</span>FULL
+                </div>
             </div>
         </div>
     </footer>
@@ -3262,31 +3277,38 @@ function renderLoop(timestamp) {
 
     // --- SEISMIC: canvas-level translate (captured by captureStream) ---
     let finalShakeX = 0, finalShakeY = 0;
-    if (APP.vj.rumbleEnabled && (APP.audio.isPlaying || APP.audio.videoSource) && APP.audio.bassLevel > 150) {
-        const intensity = (APP.audio.bassLevel - 150) / 105 * 6;
-        finalShakeX = (Math.random() - 0.5) * intensity;
-        finalShakeY = (Math.random() - 0.5) * intensity;
+    if (APP.vj.rumbleEnabled && (APP.audio.isPlaying || APP.audio.videoSource) && APP.audio.bassLevel > 140) {
+        const _sei = (APP.audio.bassLevel - 140) / 115 * 14;
+        finalShakeX = (Math.random() - 0.5) * _sei;
+        finalShakeY = (Math.random() - 0.5) * _sei * 0.6;
     }
     APP.vj._canvasShakeX = finalShakeX;
     APP.vj._canvasShakeY = finalShakeY;
-    // Clear any leftover body transform
-    if (document.body.style.transform) document.body.style.transform = '';
+    // Console shake: only if console mode is enabled
+    if (APP.vj.rumbleEnabled && APP.vj.seismicConsoleMode && (Math.abs(finalShakeX) > 0.5 || Math.abs(finalShakeY) > 0.5)) {
+        document.body.style.transform = 'translate3d(' + finalShakeX.toFixed(1) + 'px,' + finalShakeY.toFixed(1) + 'px,0)';
+    } else {
+        if (document.body.style.transform) document.body.style.transform = '';
+    }
 
     // --- PUNCH: canvas-level spring scale (captured by captureStream) ---
-    // _punchSpring: 0..1 spring value, decays per frame
     if (typeof APP.vj._punchSpring === 'undefined') APP.vj._punchSpring = 0;
     if (document.body.classList.contains('fx-punch') &&
         (APP.audio.isPlaying || APP.audio.videoSource) &&
-        APP.audio.bassLevel > 185 &&
+        APP.audio.bassLevel > 175 &&
         !window._punchCooldown) {
-        APP.vj._punchSpring = 1.0;   // kick fires the spring
+        APP.vj._punchSpring = 1.0;
         window._punchCooldown = true;
-        setTimeout(() => { window._punchCooldown = false; }, 280);
-        // No CSS class needed — remove any stale ones
+        setTimeout(() => { window._punchCooldown = false; }, 260);
+        // Console flash: only if console mode enabled
+        if (APP.vj.punchConsoleMode) {
+            document.body.style.filter = 'brightness(1.6) contrast(1.15)';
+            setTimeout(() => { document.body.style.filter = ''; }, 80);
+        }
         document.body.classList.remove('punch-hit');
     }
-    // Decay spring: fast attack already done at kick, smooth exponential release
-    APP.vj._punchSpring *= 0.72;
+    // Smooth spring decay — speaker bounce feel
+    APP.vj._punchSpring *= 0.68;
 
     // --- AUTONOMOUS PARTY MODE (audio-reactive via analyser) ---
     if (APP.vj.uiReactivity && APP.audio.bassLevel > 220 && Math.random() > 0.9) {
@@ -3318,13 +3340,13 @@ function renderLoop(timestamp) {
             var _sX = APP.vj._canvasShakeX || 0, _sY = APP.vj._canvasShakeY || 0;
             if (_punch > 0.01 || Math.abs(_sX) > 0.1 || Math.abs(_sY) > 0.1) {
                 ctx.save();
-                // Punch: scale from centre, max 1.018 (speaker bounce — never clips)
-                var _ps = 1 + _punch * 0.018;
+                // Punch: scale from centre — speaker bounce, max 1.028 (never clips)
+                var _ps = 1 + _punch * 0.028;
                 ctx.translate(w * 0.5 + _sX, h * 0.5 + _sY);
                 ctx.scale(_ps, _ps);
                 ctx.translate(-w * 0.5, -h * 0.5);
-                // Punch brightness via filter
-                if (_punch > 0.05) ctx.filter = 'brightness(' + (1 + _punch * 0.55) + ')';
+                // Punch: brightness burst via filter
+                if (_punch > 0.05) ctx.filter = 'brightness(' + (1 + _punch * 0.9) + ')';
             }
 
             // --- VIEWPORT-FIT: object-fit:contain logic for canvas ---
@@ -3439,31 +3461,27 @@ function renderLoop(timestamp) {
     if (T.logo.visible) {
         var logoImg = $('user-logo-layer');
         if (APP.layers.logo2dIsGif) {
-            // GIF: position DOM overlay to match canvas logo coords
+            // GIF display: DOM overlay positioned over canvas (screen view only)
             var gifOvEl = $('logo-gif-overlay');
-            if (gifOvEl && gifOvEl.naturalWidth > 0) {
+            var _lsc2 = T.logo.scale || 1;
+            if (gifOvEl && logoImg && logoImg.naturalWidth > 0) {
                 var _cnv = APP.render.canvas;
                 var _cr = _cnv ? _cnv.getBoundingClientRect() : null;
                 if (_cr) {
                     var _sx = _cr.width / w, _sy = _cr.height / h;
-                    var _lsc = T.logo.scale || 1;
-                    var _lw = gifOvEl.naturalWidth * _lsc * (w / 1920) * _sx;
-                    var _lh = gifOvEl.naturalHeight * _lsc * (h / 1080) * _sy;
-                    var _lx = (T.logo.x || 0) * _cr.width + _cr.left;
-                    var _ly = (T.logo.y || 0) * _cr.height + _cr.top;
-                    gifOvEl.style.left   = (_lx - _cr.left) + 'px';
-                    gifOvEl.style.top    = (_ly - _cr.top)  + 'px';
+                    var _lw = logoImg.naturalWidth * _lsc2 * (w / 1920) * _sx;
+                    var _lh = logoImg.naturalHeight * _lsc2 * (h / 1080) * _sy;
+                    gifOvEl.style.left   = ((T.logo.x || 0) * _cr.width)  + 'px';
+                    gifOvEl.style.top    = ((T.logo.y || 0) * _cr.height) + 'px';
                     gifOvEl.style.width  = _lw + 'px';
                     gifOvEl.style.height = _lh + 'px';
                     gifOvEl.style.display = 'block';
                 }
-                // ALSO blit current GIF frame to canvas so captureStream() records it
+                // GIF recording: draw from body-level #user-logo-layer (Chrome animates there)
                 ctx.save();
-                var _clsc = T.logo.scale || 1;
-                var _clw = gifOvEl.naturalWidth * _clsc * (w / 1920);
-                var _clh = gifOvEl.naturalHeight * _clsc * (h / 1080);
-                var _clx = (T.logo.x || 0) * w, _cly = (T.logo.y || 0) * h;
-                ctx.drawImage(gifOvEl, _clx, _cly, _clw, _clh);
+                var _clw = logoImg.naturalWidth * _lsc2 * (w / 1920);
+                var _clh = logoImg.naturalHeight * _lsc2 * (h / 1080);
+                ctx.drawImage(logoImg, (T.logo.x || 0) * w, (T.logo.y || 0) * h, _clw, _clh);
                 ctx.restore();
             }
         } else if (logoImg && logoImg.src && logoImg.src !== window.location.href && logoImg.naturalWidth > 0) {
@@ -5338,12 +5356,15 @@ function toggleFullscreen() { APP.state.isFullscreen = !APP.state.isFullscreen; 
 function toggleSystemSlide() {
     var isSlid = document.body.classList.toggle('system-slide');
     APP.state.systemSlide = isSlid;
+    // Pulse the TAB hint so user knows how to return
+    var tabHint = document.querySelector('.kb-hint');
+    if (tabHint) { tabHint.style.opacity = '0.85'; setTimeout(() => { tabHint.style.opacity = '0.38'; }, 1800); }
     if (typeof resizeCanvas === 'function') {
         setTimeout(function() {
             APP.render.width = APP.render.canvas.parentElement.clientWidth;
             APP.render.height = APP.render.canvas.parentElement.clientHeight;
             resizeCanvas();
-        }, 500);
+        }, 520);
     }
     log(isSlid ? 'SYSTEM_SLIDE: PANELS_OUT' : 'SYSTEM_SLIDE: PANELS_IN');
 }
@@ -5900,13 +5921,49 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     };
 
-    // SEISMIC TOGGLE
-    $('btn-rumble').onclick = () => {
-        APP.vj.rumbleEnabled = !APP.vj.rumbleEnabled;
-        $('btn-rumble').classList.toggle('on');
-        if (!APP.vj.rumbleEnabled) document.body.style.transform = '';
-        log(APP.vj.rumbleEnabled ? "SEISMIC: ON" : "SEISMIC: OFF");
-    };
+    // SEISMIC TOGGLE — click to arm, double-click to switch canvas-only / console mode
+    APP.vj.seismicConsoleMode = false; // false = canvas-only, true = canvas + console shake
+    (function() {
+        var btn = $('btn-rumble');
+        var _dct = 0;
+        btn.addEventListener('click', function() {
+            var now = Date.now();
+            if (now - _dct < 320) {
+                // Double-click: toggle console mode
+                APP.vj.seismicConsoleMode = !APP.vj.seismicConsoleMode;
+                btn.classList.toggle('console-mode', APP.vj.seismicConsoleMode);
+                btn.title = 'Click: arm SEISMIC\nDouble-click: toggle canvas-only vs console shake\nMode: ' + (APP.vj.seismicConsoleMode ? 'CANVAS + CONSOLE' : 'CANVAS ONLY');
+                _dct = 0;
+                return;
+            }
+            _dct = now;
+            APP.vj.rumbleEnabled = !APP.vj.rumbleEnabled;
+            btn.classList.toggle('on', APP.vj.rumbleEnabled);
+            if (!APP.vj.rumbleEnabled) document.body.style.transform = '';
+            log(APP.vj.rumbleEnabled ? 'SEISMIC: ON [' + (APP.vj.seismicConsoleMode ? 'CONSOLE+CANVAS' : 'CANVAS') + ']' : 'SEISMIC: OFF');
+        });
+    })();
+
+    // PUNCH TOGGLE — click to arm, double-click to switch canvas-only / console mode
+    APP.vj.punchConsoleMode = false;
+    (function() {
+        var btn = $('btn-punch');
+        var _dct = 0;
+        btn.addEventListener('click', function() {
+            var now = Date.now();
+            if (now - _dct < 320) {
+                APP.vj.punchConsoleMode = !APP.vj.punchConsoleMode;
+                btn.classList.toggle('console-mode', APP.vj.punchConsoleMode);
+                btn.title = 'Click: arm PUNCH\nDouble-click: toggle canvas-only vs console flash\nMode: ' + (APP.vj.punchConsoleMode ? 'CANVAS + CONSOLE' : 'CANVAS ONLY');
+                _dct = 0;
+                return;
+            }
+            _dct = now;
+            var armed = document.body.classList.toggle('fx-punch');
+            btn.classList.toggle('on', armed);
+            log(armed ? 'PUNCH: ARMED [' + (APP.vj.punchConsoleMode ? 'CONSOLE+CANVAS' : 'CANVAS') + ']' : 'PUNCH: OFF');
+        });
+    })();
 
     // WALLET — badge delegates entirely to requestManualConnect()
     $('wallet-badge').onclick = async () => {
@@ -8627,10 +8684,11 @@ window.toggleFX = function(fxName) {
     // One-shot durations (ms); 0 = persistent toggle
     const autoOff = { void: 2500, lucy: 5000 };
 
-    // Find the specific button to "light it up"
-    const btn = Array.from(document.querySelectorAll('.btn')).find(b =>
-        b.getAttribute('onclick')?.includes(`'${fxName}'`)
-    );
+    // Find the specific button to "light it up" (by id first, then onclick attr)
+    const btn = document.getElementById('btn-' + fxName) ||
+        Array.from(document.querySelectorAll('.btn')).find(b =>
+            b.getAttribute('onclick')?.includes(`'${fxName}'`)
+        );
 
     if (target.classList.contains(className)) {
         // TURN OFF
