@@ -398,9 +398,12 @@ function renderLoop(timestamp) {
     }
     
     // ── LOWER THIRD CANVAS BAKE-IN ──
-    // HTML elements are invisible in recordings. Draw the LT graphic directly
-    // onto the canvas ctx so APP.render.canvas.captureStream() captures it.
-    if (APP.lowerThird.visible) {
+    // Draw the LT graphic directly onto the canvas ONLY when recording so the
+    // captureStream() output contains it. During live (non-recording) the HTML
+    // #lower-third overlay is used instead — drawing on both causes a double.
+    const _ltRecording = APP.camera && APP.camera.isRecording ||
+                         APP.timeMachine && APP.timeMachine.isRecording;
+    if (APP.lowerThird.visible && _ltRecording) {
         const ltTitle   = APP.lowerThird.title    || ($('lt-title-text')   ? $('lt-title-text').textContent   : '');
         const ltSub     = APP.lowerThird.subtitle || ($('lt-subtitle-text') ? $('lt-subtitle-text').textContent : '');
         const ltPreset  = APP.lowerThird.preset   || 'guest';

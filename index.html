@@ -6110,36 +6110,27 @@ document.addEventListener('DOMContentLoaded', () => {
         $('cycle-slider-wrap').style.display = APP.state.isCycle ? 'block' : 'none';
     };
 
-    // ── Centralized LT Controller ──
-    // All LT triggers (sidebar buttons, text edits, style changes) flow through
-    // handleUISync so there is a single code path for animation + state.
-    // sendLT also broadcasts to the peer via sendUISync.
-    function sendLT(preset) {
-        var title    = $('lt-title-text')  ? $('lt-title-text').textContent   : ($('lt-title').value || '');
-        var subtitle = $('lt-subtitle-text') ? $('lt-subtitle-text').textContent : ($('lt-sub').value  || '');
-        var payload  = { action: 'show', preset: preset, title: title, subtitle: subtitle };
-        handleUISync({ type: 'UI_SYNC', target: 'LOWER_THIRD', payload: payload });
-        sendUISync('LOWER_THIRD', payload);
-    }
-    function hideLT() {
-        var payload = { action: 'hide' };
-        handleUISync({ type: 'UI_SYNC', target: 'LOWER_THIRD', payload: payload });
-        sendUISync('LOWER_THIRD', payload);
-    }
-
+    // LT Buttons — direct calls. Anti-double reflow is inside showLowerThird().
+    // These handlers run last (after app.js ACTION_MAP), so they are the final word.
     ['guest', 'track', 'breaking', 'neon', 'split', 'scan'].forEach(function(m) {
         var el = $('btn-lt-' + m); if (!el) return;
-        el.onclick = function() { sendLT(m); };
+        el.onclick = function() {
+            showLowerThird(m);
+            sendUISync('LOWER_THIRD', { action: 'show', preset: m, title: $('lt-title-text').textContent, subtitle: $('lt-subtitle-text').textContent });
+        };
     });
-    $('btn-lt-off').onclick = hideLT;
+    $('btn-lt-off').onclick = () => { hideLowerThird(); sendUISync('LOWER_THIRD', { action: 'hide' }); };
     if ($('lt-style-select')) $('lt-style-select').onchange = function() {
         APP.lowerThird.ltStyle = this.value;
-        if (APP.lowerThird.visible) { sendLT(APP.lowerThird.preset || 'guest'); }
+        if (APP.lowerThird.visible) {
+            showLowerThird(APP.lowerThird.preset || 'guest');
+            sendUISync('LOWER_THIRD', { action: 'show', preset: APP.lowerThird.preset, title: $('lt-title-text').textContent, subtitle: $('lt-subtitle-text').textContent });
+        }
     };
     if ($('lt-color')) $('lt-color').oninput = function() { APP.lowerThird.ltColor = this.value; var d=$('lt-color-dot'); if(d){d.style.background=this.value;d.style.boxShadow='0 0 5px '+this.value;} };
     if ($('bug-color')) $('bug-color').oninput = function() { APP.bug.color=this.value; var d=$('bug-color-dot'); if(d){d.style.background=this.value;d.style.boxShadow='0 0 5px '+this.value;} };
-    $('lt-title').oninput = e => { if (APP.lowerThird.visible) { $('lt-title-text').textContent = e.target.value; sendLT(APP.lowerThird.preset); } };
-    $('lt-sub').oninput   = e => { if (APP.lowerThird.visible) { $('lt-subtitle-text').textContent = e.target.value; sendLT(APP.lowerThird.preset); } };
+    $('lt-title').oninput = e => { if (APP.lowerThird.visible) { $('lt-title-text').textContent = e.target.value; showLowerThird(APP.lowerThird.preset); sendUISync('LOWER_THIRD', { action: 'show', preset: APP.lowerThird.preset, title: $('lt-title-text').textContent, subtitle: $('lt-subtitle-text').textContent }); } };
+    $('lt-sub').oninput   = e => { if (APP.lowerThird.visible) { $('lt-subtitle-text').textContent = e.target.value; showLowerThird(APP.lowerThird.preset); sendUISync('LOWER_THIRD', { action: 'show', preset: APP.lowerThird.preset, title: $('lt-title-text').textContent, subtitle: $('lt-subtitle-text').textContent }); } };
     $('btn-audio').onclick = () => { igniteAudio(); $('file-audio').click(); }; $('file-audio').onchange = e => loadAudioFiles(e.target);
 
     $('btn-mute-vid').onclick = () => {
@@ -7733,7 +7724,7 @@ function handleCallStream(call) {
             ghostBridge.setAttribute('autoplay', '');
             ghostBridge.setAttribute('playsinline', '');
             ghostBridge.muted = true; // Muted — audio handled via Web Audio chain below
-            ghostBridge.style.cssText = 'position:fixed;width:1px;height:1px;opacity:0.001;pointer-events:none;z-index:-1;';
+            ghostBridge.style.cssText = 'position:fixed;top:0;left:-9999px;width:320px;height:180px;opacity:0.001;pointer-events:none;';
             document.body.appendChild(ghostBridge);
         }
         ghostBridge.srcObject = remoteStream;
