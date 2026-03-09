@@ -4911,68 +4911,28 @@ function killCamera() {
     log('CAM_OFF');
 }
 
-// Master UI Controller: The ONLY function allowed to touch the Lower Third DOM
 function showLowerThird(preset) {
-    const lt = $('lower-third'); 
-    const container = lt.querySelector('.lt-container');
+    const lt = $('lower-third'); const container = lt.querySelector('.lt-container');
     const modePresets = ['guest', 'track', 'breaking'];
-
+    // Update content mode when a mode button triggers this
     if (modePresets.includes(preset)) APP.lowerThird.mode = preset;
+    // Update style if a legacy style name was passed (P2P sync compat)
     if (['neon','split','scan'].includes(preset)) {
         APP.lowerThird.ltStyle = preset;
         if ($('lt-style-select')) $('lt-style-select').value = preset;
     }
-
     const mode  = APP.lowerThird.mode  || 'guest';
     const style = ($('lt-style-select') ? $('lt-style-select').value : null) || APP.lowerThird.ltStyle || 'default';
     const visualPreset = (style !== 'default') ? style : mode;
-
     container.classList.remove('lt-guest','lt-track','lt-breaking','lt-neon','lt-split','lt-scan');
     container.classList.add(`lt-${visualPreset}`);
-    
-    // Fill Text
-    if (mode === 'track') { 
-        $('lt-title-text').textContent = APP.audio.currentTrackName || 'NO TRACK'; 
-        $('lt-subtitle-text').textContent = 'NOW PLAYING'; 
-    } else { 
-        $('lt-title-text').textContent = $('lt-title').value || (mode === 'breaking' ? 'BREAKING NEWS' : 'GUEST NAME'); 
-        $('lt-subtitle-text').textContent = $('lt-sub').value || (mode === 'breaking' ? 'LIVE UPDATE' : 'CONTRIBUTOR'); 
-    }
-
-    // Trigger Animation (Reset first to prevent double-glitch)
-    lt.classList.remove('visible');
-    void lt.offsetWidth; // Force reflow
+    APP.lowerThird.preset = visualPreset; APP.lowerThird.visible = true; APP.lowerThird._lastShimmer = null;
+    // Fill text from content mode (track always pulls live track name)
+    if (mode === 'track') { $('lt-title-text').textContent = APP.audio.currentTrackName || $('lt-title').value || 'TRACK TITLE'; $('lt-subtitle-text').textContent = 'NOW PLAYING'; }
+    else if (mode === 'breaking') { $('lt-title-text').textContent = $('lt-title').value || 'BREAKING NEWS'; $('lt-subtitle-text').textContent = $('lt-sub').value || 'LIVE UPDATE'; }
+    else { $('lt-title-text').textContent = $('lt-title').value || 'GUEST NAME'; $('lt-subtitle-text').textContent = $('lt-sub').value || 'TITLE / ROLE'; }
     lt.classList.add('visible');
-    
-    APP.lowerThird.visible = true;
-    
-    // HUD active state
-    ['guest','track','breaking'].forEach(m => { 
-        const el = $(`btn-lt-${m}`); 
-        if (el) el.classList.toggle('active-mode', m === mode); 
-    });
-}
-
-// Data Sync Logic: Routes everything to the Master Controller
-function handleUISync(msg) {
-    if (!msg) return;
-    if (msg.target === 'lt') {
-        // Sync inputs so both sides see the same text
-        if (msg.title && $('lt-title')) $('lt-title').value = msg.title;
-        if (msg.subtitle && $('lt-sub')) $('lt-sub').value = msg.subtitle;
-        
-        showLowerThird(msg.type || msg.preset);
-    }
-}
-
-function sendUISync(data) {
-    // 1. Run locally
-    handleUISync(data);
-    
-    // 2. Broadcast to Guest
-    if (APP.peer && APP.peer.dataConn && APP.peer.dataConn.open) {
-        APP.peer.dataConn.send({ type: 'UI_SYNC', ...data });
-    }
+    ['guest','track','breaking'].forEach(m => { const el = $(`btn-lt-${m}`); if (el) el.classList.toggle('active-mode', m === mode); });
 }
 function hideLowerThird() {
     $('lower-third').classList.remove('visible'); APP.lowerThird.visible = false;
@@ -7289,26 +7249,23 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     };
 
-   // ═══ P2P / E2E CALL (MAJESTIC SYNC RESTORE) ═══
+    // --- P2P / E2E CALL (FIXED) ---
 
+// Helper to reset buttons to default state
 const resetP2PButtons = () => {
-    try {
-        var btnCall = $('btn-call-guest');
-        if (btnCall) {
-            btnCall.textContent = 'CALL';
-            btnCall.style.borderColor = '';
-            btnCall.style.color = 'var(--c,#0ff)';
-        }
-        var btnInit = $('btn-init-peer');
-        if (btnInit) {
-            btnInit.textContent = 'INIT';
-            btnInit.style.display = 'inline-block';
-        }
-        if (APP.peer) APP.peer.incomingCall = null;
-    } catch(e) {}
+    var btnCall = $('btn-call-guest');
+    btnCall.textContent = 'CALL';
+    btnCall.style.borderColor = '';
+    btnCall.style.color = 'var(--c,#0ff)';
+
+    $('btn-init-peer').textContent = 'INIT';
+    $('btn-init-peer').style.display = '';
+
+    // Clear the temp incoming call object
+    if (APP.peer) APP.peer.incomingCall = null;
 };
 
-// 1. Majestic Ringtone (Strictly from porcodio — prevents UI thread freeze)
+// ═══ P2P RING TONE (Web Audio API) — Uplifting ascending arpeggio ═══
 var _p2pRing = { ctx: null, oscs: [], gain: null, timeout: null, active: false };
 function startP2PRing() {
     stopP2PRing();
@@ -7317,46 +7274,65 @@ function startP2PRing() {
         var gain = ctx.createGain();
         gain.gain.value = 0;
         gain.connect(ctx.destination);
-        _p2pRing.ctx = ctx; _p2pRing.gain = gain; _p2pRing.active = true;
-        var notes = [523.25, 659.25, 783.99, 1046.50]; 
+        _p2pRing.ctx = ctx;
+        _p2pRing.gain = gain;
+        _p2pRing.active = true;
+        // Ascending arpeggio: C5 E5 G5 C6 — bright major chord
+        var notes = [523.25, 659.25, 783.99, 1046.50];
+        var noteLen = 0.15, gap = 0.05, vol = 0.12;
         function playArpeggio() {
             if (!_p2pRing.active) return;
             var t = ctx.currentTime;
             for (var i = 0; i < notes.length; i++) {
                 var osc = ctx.createOscillator();
                 var noteGain = ctx.createGain();
-                osc.type = 'sine'; osc.frequency.value = notes[i];
-                osc.connect(noteGain); noteGain.connect(gain);
-                var start = t + i * 0.2;
+                osc.type = 'sine';
+                osc.frequency.value = notes[i];
+                osc.connect(noteGain);
+                noteGain.connect(gain);
+                var start = t + i * (noteLen + gap);
                 noteGain.gain.setValueAtTime(0, start);
-                noteGain.gain.linearRampToValueAtTime(0.1, start + 0.02);
-                noteGain.gain.linearRampToValueAtTime(0, start + 0.15);
-                osc.start(start); osc.stop(start + 0.2);
+                noteGain.gain.linearRampToValueAtTime(vol, start + 0.02);
+                noteGain.gain.setValueAtTime(vol, start + noteLen - 0.03);
+                noteGain.gain.linearRampToValueAtTime(0, start + noteLen);
+                osc.start(start);
+                osc.stop(start + noteLen + 0.01);
                 _p2pRing.oscs.push(osc);
             }
             gain.gain.setValueAtTime(1, t);
+            // Repeat after pause (arpeggio ~0.8s + 1.2s silence = 2s cycle)
             _p2pRing.timeout = setTimeout(playArpeggio, 2000);
         }
         playArpeggio();
-    } catch (e) {}
+    } catch (e) { /* silent fail */ }
 }
-
 function stopP2PRing() {
     _p2pRing.active = false;
     if (_p2pRing.timeout) { clearTimeout(_p2pRing.timeout); _p2pRing.timeout = null; }
-    _p2pRing.oscs.forEach(o => { try{ o.stop(); } catch(e){} });
+    _p2pRing.oscs.forEach(function(o) { try { o.stop(); } catch(e){} });
     _p2pRing.oscs = [];
-    if (_p2pRing.ctx) { try{ _p2pRing.ctx.close(); } catch(e){} _p2pRing.ctx = null; }
+    if (_p2pRing.ctx) { try { _p2pRing.ctx.close(); } catch(e){} _p2pRing.ctx = null; }
+    _p2pRing.gain = null;
 }
 
-// 2. UI Controls (Floating Panel Logic)
+// ═══ P2P FLOATING PANEL: TOGGLE / MINIMIZE / DRAG (mouse + touch) ═══
 $('btn-open-p2p-modal').onclick = () => {
     var p = $('p2p-modal');
-    p.style.display = (p.style.display === 'none') ? 'block' : 'none';
+    if (p.style.display === 'none') {
+        // Always open expanded
+        $('p2p-body').style.display = '';
+        $('p2p-titlebar').style.borderRadius = '5px 5px 0 0';
+        $('p2p-titlebar').style.borderBottom = 'none';
+        p.style.display = 'block';
+    } else {
+        p.style.display = 'none';
+    }
 };
 $('btn-close-p2p-modal').onclick = () => {
+    // If there's an active call, end it fully for both sides
     if (APP.peer && (APP.peer.call || APP.peer.incomingCall)) {
         if (APP.peer.call) APP.peer.call.close();
+        if (APP.peer.incomingCall) { APP.peer.incomingCall.close(); }
         endCallCleanup();
     }
     $('p2p-modal').style.display = 'none';
@@ -7366,138 +7342,415 @@ $('btn-min-p2p').onclick = () => {
     var isMin = body.style.display === 'none';
     body.style.display = isMin ? '' : 'none';
     $('p2p-titlebar').style.borderRadius = isMin ? '5px 5px 0 0' : '5px';
+    $('p2p-titlebar').style.borderBottom = isMin ? 'none' : '1px solid var(--c,#0ff)';
 };
+// Drag logic (mouse + touch)
+(function() {
+    var bar = $('p2p-titlebar'), panel = $('p2p-modal'), dx = 0, dy = 0, dragging = false;
+    function startDrag(cx, cy, e) {
+        if (e.target.tagName === 'BUTTON') return;
+        dragging = true;
+        dx = cx - panel.offsetLeft;
+        dy = cy - panel.offsetTop;
+        bar.style.cursor = 'grabbing';
+        e.preventDefault();
+    }
+    function moveDrag(cx, cy) {
+        if (!dragging) return;
+        panel.style.left = Math.max(0, Math.min(window.innerWidth - 60, cx - dx)) + 'px';
+        panel.style.top = Math.max(0, Math.min(window.innerHeight - 30, cy - dy)) + 'px';
+        panel.style.right = 'auto';
+    }
+    function endDrag() { dragging = false; bar.style.cursor = 'grab'; }
+    // Mouse
+    bar.addEventListener('mousedown', function(e) { startDrag(e.clientX, e.clientY, e); });
+    document.addEventListener('mousemove', function(e) { moveDrag(e.clientX, e.clientY); });
+    document.addEventListener('mouseup', endDrag);
+    // Touch
+    bar.addEventListener('touchstart', function(e) {
+        var t = e.touches[0];
+        startDrag(t.clientX, t.clientY, e);
+    }, { passive: false });
+    document.addEventListener('touchmove', function(e) {
+        if (!dragging) return;
+        var t = e.touches[0];
+        moveDrag(t.clientX, t.clientY);
+        e.preventDefault();
+    }, { passive: false });
+    document.addEventListener('touchend', endDrag);
+})();
 
-// 3. Peer Initialization (The Stable TURN Server Config)
+// Resize logic (mouse + touch)
+(function() {
+    var handle = $('p2p-resize'), panel = $('p2p-modal'), resizing = false, startW, startH, startX, startY;
+    function startResize(cx, cy, e) {
+        resizing = true; startW = panel.offsetWidth; startH = panel.offsetHeight; startX = cx; startY = cy;
+        e.preventDefault(); e.stopPropagation();
+    }
+    function moveResize(cx, cy) {
+        if (!resizing) return;
+        panel.style.width = Math.max(200, startW + (cx - startX)) + 'px';
+    }
+    function endResize() { resizing = false; }
+    handle.addEventListener('mousedown', function(e) { startResize(e.clientX, e.clientY, e); });
+    document.addEventListener('mousemove', function(e) { if (resizing) { moveResize(e.clientX, e.clientY); e.preventDefault(); } });
+    document.addEventListener('mouseup', endResize);
+    handle.addEventListener('touchstart', function(e) { var t = e.touches[0]; startResize(t.clientX, t.clientY, e); }, { passive: false });
+    document.addEventListener('touchmove', function(e) { if (resizing) { var t = e.touches[0]; moveResize(t.clientX, t.clientY); e.preventDefault(); } }, { passive: false });
+    document.addEventListener('touchend', endResize);
+})();
+
 $('btn-init-peer').onclick = () => {
-    if (APP.peer && APP.peer.peer) return;
+    if (APP.peer && APP.peer.peer) {
+        log('PEER: Already initialized');
+        return;
+    }
+    
     try {
         const peerId = 'VNGRD-' + Math.random().toString(36).substr(2, 8).toUpperCase();
         APP.peer = {
             peer: new Peer(peerId, {
-                host: '0.peerjs.com', secure: true, port: 443, path: '/',
-                config: { iceServers: [
-                    { urls: 'stun:stun.l.google.com:19302' },
-                    { urls: 'turn:a.relay.metered.ca:80', username: 'e8dd65b92c0b8d40f3386771', credential: 'YxOlRjMTsPnEfMqy' },
-                    { urls: 'turns:a.relay.metered.ca:443', username: 'e8dd65b92c0b8d40f3386771', credential: 'YxOlRjMTsPnEfMqy' }
-                ]}
-            })
+                host: '0.peerjs.com',
+                secure: true,
+                port: 443,
+                path: '/',
+                config: {
+                    iceServers: [
+                        { urls: 'stun:stun.l.google.com:19302' },
+                        { urls: 'stun:stun1.l.google.com:19302' },
+                        { urls: 'stun:stun.cloudflare.com:3478' },
+                        // Metered TURN relay — needed for symmetric NAT / iOS cellular
+                        { urls: 'turn:a.relay.metered.ca:80', username: 'e8dd65b92c0b8d40f3386771', credential: 'YxOlRjMTsPnEfMqy' },
+                        { urls: 'turn:a.relay.metered.ca:80?transport=tcp', username: 'e8dd65b92c0b8d40f3386771', credential: 'YxOlRjMTsPnEfMqy' },
+                        { urls: 'turns:a.relay.metered.ca:443', username: 'e8dd65b92c0b8d40f3386771', credential: 'YxOlRjMTsPnEfMqy' },
+                        // OpenRelay TURN backup (free, no signup)
+                        { urls: 'turn:openrelay.metered.ca:80', username: 'openrelayproject', credential: 'openrelayproject' },
+                        { urls: 'turn:openrelay.metered.ca:443', username: 'openrelayproject', credential: 'openrelayproject' },
+                        { urls: 'turn:openrelay.metered.ca:443?transport=tcp', username: 'openrelayproject', credential: 'openrelayproject' }
+                    ],
+                    iceTransportPolicy: 'all',
+                    iceCandidatePoolSize: 4,
+                    sdpSemantics: 'unified-plan'
+                },
+                debug: 0
+            }),
+            call: null,
+            incomingCall: null,
+            localStream: null,
+            dataConn: null
         };
-
-        APP.peer.peer.on('open', id => {
+        
+        APP.peer.peer.on('open', (id) => {
             $('peer-id-display').value = id;
-            $('btn-init-peer').textContent = 'READY';
-            $('btn-init-peer').style.color = 'var(--g)';
-            log('PEER_OPEN: ' + id);
+            $('call-status').textContent = 'READY';
+            $('call-status').style.color = 'var(--g)';
+            if ($('p2p-conn-label')) $('p2p-conn-label').textContent = 'NODE\u00a0READY';
+            $('btn-init-peer').textContent = 'ON';
+            $('btn-init-peer').style.color = 'var(--g,#0f8)';
+            log('PEER: ' + id);
         });
+        
+        APP.peer.peer.on('error', (err) => {
+            log('PEER ERROR: ' + err.type);
+            $('call-status').textContent = 'ERR:' + err.type;
+            $('call-status').style.color = 'var(--r)';
+            if ($('p2p-conn-label')) $('p2p-conn-label').textContent = 'ERROR';
+            // Auto-cleanup on fatal errors
+            if (err.type === 'network' || err.type === 'server-error' || err.type === 'socket-error') {
+                stopP2PRing();
+            }
+        });
+        
+        // --- INCOMING CALL HANDLER (Non-Blocking) ---
+        APP.peer.peer.on('call', (call) => {
+            log('INCOMING_CALL FROM ' + call.peer);
 
-        APP.peer.peer.on('call', incoming => {
-            APP.peer.incomingCall = incoming;
+            // 1. Store the call — user must click ACCEPT to answer
+            APP.peer.incomingCall = call;
+
+            // 2. Update status UI
+            $('call-status').textContent = 'INCOMING...';
+            $('call-status').style.color = 'var(--y)';
+            if ($('p2p-conn-label')) $('p2p-conn-label').textContent = 'RINGING';
+            if ($('p2p-overlay-txt')) $('p2p-overlay-txt').textContent = 'INCOMING\u00a0CALL';
+
+            // 3. Auto-open the P2P panel so user sees it
+            $('p2p-modal').style.display = 'block';
+            $('p2p-body').style.display = '';
+            $('p2p-titlebar').style.borderRadius = '5px 5px 0 0';
+            $('p2p-titlebar').style.borderBottom = 'none';
+
+            // 4. Play ring tone
             startP2PRing();
-            if ($('btn-call-guest')) $('btn-call-guest').textContent = 'ANSWER?';
-            if ($('call-status')) $('call-status').textContent = 'RINGING...';
+
+            // 5. Turn CALL button into ACCEPT
+            const btnCall = $('btn-call-guest');
+            btnCall.textContent = 'ACCEPT';
+            btnCall.style.borderColor = 'var(--g,#0f8)';
+            btnCall.style.color = 'var(--g,#0f8)';
         });
 
-        APP.peer.peer.on('connection', conn => {
-            APP.peer.dataConn = conn;
-            conn.on('data', data => {
+        // --- INCOMING DATA CONNECTION (Guest Side) ---
+        APP.peer.peer.on('connection', (conn) => {
+            log('DATA_CHANNEL: INCOMING FROM ' + conn.peer);
+            conn.on('open', () => {
+                APP.peer.dataConn = conn;
+                log('DATA_CHANNEL: OPEN');
+            });
+            conn.on('data', (data) => {
                 try {
                     const msg = typeof data === 'string' ? JSON.parse(data) : data;
-                    if (msg.type === 'UI_SYNC' && typeof handleUISync === 'function') handleUISync(msg);
-                } catch(e) {}
+                    // Debug: confirm packet arrival before any DOM work
+                    console.log('RECEIVED P2P DATA:', msg);
+                    log('DATA_CHANNEL: RECV ' + (msg.target || 'UNKNOWN'));
+                    if (msg.type === 'UI_SYNC') handleUISync(msg);
+                } catch (e) {
+                    console.error('DATA_CHANNEL PARSE ERROR:', e, data);
+                    log('DATA_CHANNEL: PARSE_ERR');
+                }
+            });
+            conn.on('close', () => {
+                log('DATA_CHANNEL: CLOSED');
+                if (APP.peer.dataConn === conn) APP.peer.dataConn = null;
             });
         });
-    } catch (e) { log('PEER_INIT_FAIL'); }
+
+    } catch (e) {
+        log('PEER INIT ERROR: ' + e.message);
+    }
 };
 
-// 4. Unified Call/Answer
+$('btn-copy-id').onclick = () => {
+    const idField = $('peer-id-display');
+    if (idField && idField.value) {
+        navigator.clipboard.writeText(idField.value);
+        const originalText = $('btn-copy-id').textContent;
+        $('btn-copy-id').textContent = '✓ COPIED';
+        setTimeout(() => $('btn-copy-id').textContent = originalText, 2000);
+    }
+};
+
+// --- UNIFIED CALL / ANSWER BUTTON ---
 $('btn-call-guest').onclick = async () => {
-    if (!APP.peer || !APP.peer.peer) return alert('INIT FIRST');
+    if (!APP.peer || !APP.peer.peer) {
+        alert('CLICK_INIT_FIRST');
+        return;
+    }
+
+    // Helper: show local camera in the PiP slot of the panel
+   function startLocalPreview(stream) {
+    const localVid = $('p2p-local-video-el');
+    if (localVid) {
+        localVid.srcObject = stream;
+        localVid.muted = true; // CRITICAL: Prevents your mic from echoing in your own ears
+        
+        // ═══ Majestic Styling ═══
+        localVid.style.display = 'block';
+        localVid.style.width = '100%';
+        localVid.style.height = '100%';
+        localVid.style.objectFit = 'cover'; // Makes the image fit to screen
+        localVid.style.transform = 'scaleX(-1)'; // Mirrors it so it feels natural like a real mirror
+        
+        localVid.play().catch(() => {});
+
+        // UI Feedback
+        if ($('p2p-live-badge')) {
+            $('p2p-live-badge').style.display = 'block';
+            $('p2p-live-badge').textContent = 'LOCAL_PREVIEW';
+            $('p2p-live-badge').style.background = 'var(--c)';
+        }
+    }
+}
+    // Helper: build the outgoing stream (canvas + mic, falling back to raw cam)
+    function buildOutgoingStream(rawStream) {
+        var out = new MediaStream();
+        // Video: prefer canvas capture so guest sees full VJ output
+        var vidTrack = null;
+        try {
+            if (APP.render && APP.render.canvas) {
+                var captured = APP.render.canvas.captureStream(30);
+                vidTrack = captured.getVideoTracks()[0] || null;
+            }
+        } catch(e) { vidTrack = null; }
+        // Fallback: raw camera track
+        if (!vidTrack) vidTrack = rawStream.getVideoTracks()[0] || null;
+        if (vidTrack) out.addTrack(vidTrack);
+        // Audio: mic track
+        var micTrack = rawStream.getAudioTracks()[0] || null;
+        if (micTrack) out.addTrack(micTrack);
+        return out;
+    }
+
+    // SCENARIO A: ANSWERING AN INCOMING CALL
+    if (APP.peer.incomingCall) {
+        try {
+            log('ANSWERING CALL...');
+            $('call-status').textContent = 'CONNECTING...';
+            stopP2PRing();
+
+            // 1. Acquire local media (facingMode required for iOS Safari)
+            const audioConstraints = APP.inputDevices.selectedId
+                ? { deviceId: { exact: APP.inputDevices.selectedId }, echoCancellation: false, noiseSuppression: false, autoGainControl: false, channelCount: 2 }
+                : { echoCancellation: false, noiseSuppression: false, autoGainControl: false, channelCount: 2 };
+
+            const stream = await navigator.mediaDevices.getUserMedia({
+                video: { facingMode: 'user', width: { ideal: 1280 }, height: { ideal: 720 }, frameRate: { ideal: 30 } },
+                audio: audioConstraints
+            });
+            APP.peer.localStream = stream;
+
+            // 2. Show local feed in panel PiP
+            startLocalPreview(stream);
+
+            // 3. Build composite outgoing stream and answer
+            const call = APP.peer.incomingCall;
+            call.answer(buildOutgoingStream(stream));
+
+            // 4. Wire up stream + close/error handlers
+            handleCallStream(call);
+
+            // 5. Clear staging flag
+            APP.peer.incomingCall = null;
+
+        } catch (e) {
+            log('ANSWER ERROR: ' + e.message);
+            $('call-status').textContent = 'ERR: ' + e.message;
+            $('call-status').style.color = 'var(--r)';
+            resetP2PButtons();
+        }
+        return;
+    }
+
+    // SCENARIO B: MAKING A NEW OUTGOING CALL
+    const remoteId = $('remote-peer-id').value.trim();
+    if (!remoteId) {
+        alert('ENTER_GUEST_ID_TO_CALL');
+        return;
+    }
+
     try {
-        // High quality stream for the Hybrid Workstation
-        const stream = await navigator.mediaDevices.getUserMedia({ 
-            video: { width: 1280, height: 720 }, 
-            audio: true 
+        $('call-status').textContent = 'CALLING...';
+        $('call-status').style.color = 'var(--y)';
+        startP2PRing();
+
+        const audioConstraints = APP.inputDevices.selectedId
+            ? { deviceId: { exact: APP.inputDevices.selectedId }, echoCancellation: false, noiseSuppression: false, autoGainControl: false, channelCount: 2 }
+            : { echoCancellation: false, noiseSuppression: false, autoGainControl: false, channelCount: 2 };
+
+        const stream = await navigator.mediaDevices.getUserMedia({
+            video: { facingMode: 'user', width: { ideal: 1280 }, height: { ideal: 720 }, frameRate: { ideal: 30 } },
+            audio: audioConstraints
         });
         APP.peer.localStream = stream;
 
-        if (APP.peer.incomingCall) {
-            stopP2PRing();
-            APP.peer.incomingCall.answer(stream);
-            handleCallStream(APP.peer.incomingCall);
-            APP.peer.dataConn = APP.peer.peer.connect(APP.peer.incomingCall.peer);
-        } else {
-            const id = $('remote-peer-id').value.trim();
-            if (!id) return alert('NEED REMOTE ID');
-            handleCallStream(APP.peer.peer.call(id, stream));
-            APP.peer.dataConn = APP.peer.peer.connect(id);
-            if ($('call-status')) $('call-status').textContent = 'CALLING...';
-        }
-    } catch (e) { log('MEDIA_ERR: ' + e.message); }
+        // Show local feed in PiP while waiting for answer
+        startLocalPreview(stream);
+
+        // Build composite stream and place the call
+        const call = APP.peer.peer.call(remoteId, buildOutgoingStream(stream));
+        handleCallStream(call);
+
+        // ── Parallel data channel for UI sync ──
+        const dataConn = APP.peer.peer.connect(remoteId);
+        dataConn.on('open', () => {
+            APP.peer.dataConn = dataConn;
+            log('DATA_CHANNEL: OPEN TO ' + remoteId);
+        });
+        dataConn.on('data', (data) => {
+            try {
+                const msg = typeof data === 'string' ? JSON.parse(data) : data;
+                if (msg.type === 'UI_SYNC') handleUISync(msg);
+            } catch (e) {
+                log('DATA_CHANNEL: PARSE_ERR');
+            }
+        });
+        dataConn.on('close', () => {
+            log('DATA_CHANNEL: CLOSED');
+            if (APP.peer.dataConn === dataConn) APP.peer.dataConn = null;
+        });
+
+    } catch (e) {
+        log('CALL_ERROR: ' + e.message);
+        stopP2PRing();
+        $('call-status').textContent = 'FAILED: ' + e.message;
+        $('call-status').style.color = 'var(--r)';
+    }
 };
 
-// 5. Majestic Stream Handler (Double Lower Thirds Support)
+// Shared Logic for both Incoming and Outgoing calls
 function handleCallStream(call) {
     APP.peer.call = call;
-    call.on('stream', remoteStream => {
-        stopP2PRing();
-        log('P2P: CONNECTED');
 
-        // Target the video element inside your p2p-video-wrap
+    call.on('stream', (remoteStream) => {
+        // ── Use the in-panel video element (always in DOM, always visible to GPU) ──
         var remoteVid = $('p2p-remote-video-el');
-        if (remoteVid) {
-            remoteVid.srcObject = remoteStream;
-            remoteVid.play().catch(() => {
-                // Browser security fallback
-                document.addEventListener('click', () => { remoteVid.play().catch(()=>{}); }, {once:true});
+        if (!remoteVid) {
+            // Fallback: create one if somehow missing
+            remoteVid = document.createElement('video');
+            remoteVid.id = 'p2p-remote-video-el';
+            remoteVid.setAttribute('autoplay', '');
+            remoteVid.setAttribute('playsinline', '');
+            remoteVid.muted = false;
+            document.body.appendChild(remoteVid);
+        }
+
+        // Assign stream — DO NOT route through APP.audio.ctx (creates echo)
+        remoteVid.srcObject = remoteStream;
+        remoteVid.muted = false;
+
+        // iOS Safari requires explicit play() after srcObject assignment
+        var playPromise = remoteVid.play();
+        if (playPromise !== undefined) {
+            playPromise.catch(function(e) {
+                log('REMOTE_PLAY_ERR: ' + e.message);
+                // Retry once on user gesture — common iOS restriction
+                document.addEventListener('touchstart', function _retry() {
+                    remoteVid.play().catch(function(){});
+                    document.removeEventListener('touchstart', _retry);
+                }, { once: true });
             });
         }
 
-        // ── SYNC TO WORKSTATION CANVAS ──
-        // This ensures the Compositor paints the video onto your main hybrid workspace
+        // Set APP.guest so the render loop picks it up for the main canvas
         APP.guest.videoElement = remoteVid;
         APP.guest.stream = remoteStream;
         APP.guest.isActive = true;
 
-        // Reveal the floating UI
-        if ($('p2p-video-wrap')) $('p2p-video-wrap').style.display = 'block';
-        if ($('p2p-video-overlay')) $('p2p-video-overlay').style.display = 'none';
-        if ($('call-status')) {
-            $('call-status').textContent = 'CONNECTED';
-            $('call-status').style.color = 'var(--g)';
-        }
+        // Auto-reveal video section when stream arrives
+        var vw = $('p2p-video-wrap');
+        if (vw) vw.style.display = 'block';
+
+        // Update panel UI
+        var overlay = $('p2p-video-overlay');
+        if (overlay) overlay.style.display = 'none';
+        var liveBadge = $('p2p-live-badge');
+        if (liveBadge) liveBadge.style.display = 'block';
         if ($('guest-dot')) $('guest-dot').classList.remove('off');
+        if ($('p2p-conn-label')) $('p2p-conn-label').textContent = 'P2P\u00a0ACTIVE';
+
+        stopP2PRing();
+        $('call-status').textContent = 'CONNECTED';
+        $('call-status').style.color = 'var(--g)';
+        $('btn-call-guest').textContent = 'ACTIVE';
+
+        log('CALL_ESTABLISHED_WITH: ' + call.peer);
     });
 
-    call.on('close', endCallCleanup);
+    call.on('close', () => {
+        // Delay cleanup slightly — PeerJS fires 'close' on transient ICE restarts
+        setTimeout(() => {
+            if (APP.peer && APP.peer.call === call) {
+                endCallCleanup();
+            }
+        }, 1500);
+    });
+
+    call.on('error', (err) => {
+        log('CALL_ERROR: ' + err);
+        endCallCleanup();
+    });
 }
 
-function endCallCleanup() {
-    stopP2PRing();
-    if (APP.peer && APP.peer.localStream) {
-        APP.peer.localStream.getTracks().forEach(t => t.stop());
-    }
-    if (APP.peer && APP.peer.dataConn) {
-        try { APP.peer.dataConn.close(); } catch(e){}
-    }
-    
-    var remoteVid = $('p2p-remote-video-el');
-    if (remoteVid) { remoteVid.srcObject = null; remoteVid.load(); }
-    
-    // Clear Workstation State
-    APP.guest.isActive = false;
-    APP.guest.stream = null;
-    APP.guest.videoElement = null;
-
-    if ($('p2p-video-wrap')) $('p2p-video-wrap').style.display = 'none';
-    if ($('p2p-video-overlay')) $('p2p-video-overlay').style.display = 'flex';
-    if ($('call-status')) {
-        $('call-status').textContent = 'OFFLINE';
-        $('call-status').style.color = '';
-    }
-    if ($('guest-dot')) $('guest-dot').classList.add('off');
-    resetP2PButtons();
-}
 // ═══ P2P ORIENTATION / VISIBILITY RESILIENCE ═══
 // Prevent call from dying when user rotates phone or switches apps briefly
 (function() {
