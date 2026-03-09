@@ -420,31 +420,30 @@
 
         #ghost-terminal {
             position: fixed; bottom: 70px; right: 210px;
-            width: 420px; height: 300px;
+            width: 340px; height: 240px;
             background: rgba(2,8,12,0.97);
             border: 1px solid var(--c);
             z-index: 6000; font-family: 'JetBrains Mono', monospace; font-size: 10px;
             display: none; flex-direction: column;
-            box-shadow: 0 0 32px rgba(0,243,255,0.12), 0 0 2px var(--c) inset;
-            backdrop-filter: blur(4px);
+            box-shadow: 0 0 24px rgba(0,243,255,0.10), 0 0 1px var(--c) inset;
         }
         #ghost-terminal.active { display: flex; }
         #ghost-terminal-header {
             display: flex; justify-content: space-between; align-items: center;
-            padding: 7px 10px; flex-shrink: 0; overflow: hidden;
-            background: linear-gradient(90deg, rgba(0,243,255,0.10) 0%, rgba(0,243,255,0.04) 100%);
-            border-bottom: 1px solid rgba(0,243,255,0.18);
+            padding: 6px 10px; flex-shrink: 0; overflow: hidden;
+            background: linear-gradient(90deg, rgba(0,243,255,0.09) 0%, rgba(0,243,255,0.03) 100%);
+            border-bottom: 1px solid rgba(0,243,255,0.15);
         }
         #ghost-terminal-title {
             font-family: 'Orbitron', sans-serif; font-size: 9px; letter-spacing: 2px;
             color: var(--c); white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
             min-width: 0; flex: 1; padding-right: 8px;
         }
-        #ghost-terminal-controls { display: flex; align-items: center; gap: 6px; flex-shrink: 0; }
+        #ghost-terminal-controls { display: flex; align-items: center; gap: 5px; flex-shrink: 0; }
         #ghost-terminal-status { font-size: 7px; color: var(--g); letter-spacing: 1px; opacity: 0.85; }
-        #ghost-terminal-body { flex: 1; padding: 10px 12px; overflow-y: auto; scrollbar-width: none; }
-        .ghost-log { margin-bottom: 4px; line-height: 1.5; font-size: 9px; }
-        .ghost-log .ts { color: rgba(255,255,255,0.25); margin-right: 6px; font-size: 8px; }
+        #ghost-terminal-body { flex: 1; padding: 8px 10px; overflow-y: auto; scrollbar-width: none; }
+        .ghost-log { margin-bottom: 3px; line-height: 1.4; font-size: 9px; }
+        .ghost-log .ts { color: rgba(255,255,255,0.25); margin-right: 5px; font-size: 8px; }
         .ghost-log .ai { color: var(--accent); }
         .ghost-log .cmd { color: rgba(255,255,255,0.55); }
         .ghost-log .user { color: #fff; }
@@ -453,10 +452,10 @@
         #ghost-input-line {
             display: flex; align-items: center;
             border-top: 1px solid rgba(0,243,255,0.12);
-            padding: 7px 12px; background: rgba(0,0,0,0.3); flex-shrink: 0;
+            padding: 6px 10px; background: rgba(0,0,0,0.25); flex-shrink: 0;
         }
-        #ghost-prompt { color: var(--accent); margin-right: 8px; font-size: 9px; font-weight: 700; letter-spacing: 1px; opacity: 0.9; }
-        #ghost-input { background: transparent; border: none; color: #fff; flex: 1; font-family: 'JetBrains Mono', monospace; font-size: 10px; outline: none; letter-spacing: 0.5px; }
+        #ghost-prompt { color: var(--accent); margin-right: 7px; font-size: 9px; font-weight: 700; letter-spacing: 1px; opacity: 0.9; }
+        #ghost-input { background: transparent; border: none; color: #fff; flex: 1; font-family: 'JetBrains Mono', monospace; font-size: 10px; outline: none; }
 
         /* ── PODCAST TRAY ── */
         #podcast-tray {
@@ -1546,7 +1545,7 @@ body.fullscreen #transcription-hud { opacity: 0 !important; pointer-events: none
             <div id="ghost-terminal-controls">
                 <span id="ghost-terminal-status">ONLINE</span>
                 <button onclick="$('ghost-terminal-body').innerHTML='';_ghostLastMsg='';" title="Purge chat log" style="background:none;border:none;color:rgba(255,255,255,0.28);cursor:pointer;font-size:13px;line-height:1;padding:1px 2px;opacity:0.7;">⌫</button>
-                <button id="ghost-close-btn" onclick="toggleGhost()" title="Close [G]" style="background:none;border:1px solid rgba(0,243,255,0.2);color:var(--c);cursor:pointer;font-size:9px;line-height:1;padding:3px 7px;font-family:'JetBrains Mono',monospace;display:block;letter-spacing:1px;opacity:0.85;border-radius:1px;">✕</button>
+                <button id="ghost-close-btn" onclick="toggleGhost()" style="background:none;border:1px solid rgba(0,243,255,0.2);color:var(--c);cursor:pointer;font-size:9px;line-height:1;padding:3px 6px;font-family:'JetBrains Mono',monospace;display:block;letter-spacing:1px;opacity:0.85;border-radius:1px;">✕&nbsp;[G]</button>
             </div>
         </div>
         <div id="ghost-terminal-body"></div>
@@ -1838,13 +1837,15 @@ body.fullscreen #transcription-hud { opacity: 0 !important; pointer-events: none
                     <span>NODES: <span id="presence-count">1</span></span>
                 </div>
             </div>
-            <div class="info-group" style="gap:10px;flex-shrink:0;">
-                <div class="info-item">AI: <span style="color:var(--g)">[G]</span></div>
-                <div class="info-item kb-hint" onclick="toggleSystemSlide()" title="Tab — slide panels / expand canvas" style="cursor:pointer;opacity:0.5;font-size:8px;letter-spacing:1px;transition:opacity 0.2s;display:flex;align-items:center;gap:3px;" onmouseenter="this.style.opacity='0.9'" onmouseleave="this.style.opacity='0.5'">
-                    <span style="border:1px solid rgba(0,243,255,0.3);color:rgba(0,243,255,0.7);padding:1px 4px;border-radius:2px;font-size:7px;">TAB</span><span style="color:rgba(255,255,255,0.45);">SLIDE</span>
+            <div class="info-group" style="gap:8px;flex-shrink:0;align-items:center;">
+                <div class="info-item" style="color:rgba(255,255,255,0.4);">AI:<span style="color:var(--g);margin-left:2px;">[G]</span></div>
+                <div onclick="toggleSystemSlide()" title="Tab — expand canvas" style="cursor:pointer;display:flex;align-items:center;gap:3px;padding:2px 5px;border:1px solid rgba(0,243,255,0.25);border-radius:2px;transition:all 0.15s;background:rgba(0,243,255,0.04);" onmouseenter="this.style.background='rgba(0,243,255,0.12)';this.style.borderColor='rgba(0,243,255,0.6)'" onmouseleave="this.style.background='rgba(0,243,255,0.04)';this.style.borderColor='rgba(0,243,255,0.25)'">
+                    <span style="font-size:7px;color:rgba(0,243,255,0.7);font-family:'JetBrains Mono',monospace;letter-spacing:1px;">TAB</span>
+                    <span style="font-size:7px;color:rgba(255,255,255,0.4);font-family:'JetBrains Mono',monospace;letter-spacing:1px;">SLIDE</span>
                 </div>
-                <div class="info-item kb-hint" onclick="if(typeof toggleFullscreen==='function')toggleFullscreen()" title="H — fullscreen" style="cursor:pointer;opacity:0.5;font-size:8px;letter-spacing:1px;transition:opacity 0.2s;display:flex;align-items:center;gap:3px;" onmouseenter="this.style.opacity='0.9'" onmouseleave="this.style.opacity='0.5'">
-                    <span style="border:1px solid rgba(0,243,255,0.3);color:rgba(0,243,255,0.7);padding:1px 4px;border-radius:2px;font-size:7px;">H</span><span style="color:rgba(255,255,255,0.45);">FULL</span>
+                <div onclick="if(typeof toggleFullscreen==='function')toggleFullscreen()" title="H — fullscreen" style="cursor:pointer;display:flex;align-items:center;gap:3px;padding:2px 5px;border:1px solid rgba(0,243,255,0.25);border-radius:2px;transition:all 0.15s;background:rgba(0,243,255,0.04);" onmouseenter="this.style.background='rgba(0,243,255,0.12)';this.style.borderColor='rgba(0,243,255,0.6)'" onmouseleave="this.style.background='rgba(0,243,255,0.04)';this.style.borderColor='rgba(0,243,255,0.25)'">
+                    <span style="font-size:7px;color:rgba(0,243,255,0.7);font-family:'JetBrains Mono',monospace;letter-spacing:1px;">H</span>
+                    <span style="font-size:7px;color:rgba(255,255,255,0.4);font-family:'JetBrains Mono',monospace;letter-spacing:1px;">FULL</span>
                 </div>
             </div>
         </div>
@@ -3273,6 +3274,69 @@ function _summonGlitch() {
     }, 500);
 }
 
+// ═══ INLINE GIF DECODER — extracts every frame as a canvas for captureStream recording ═══
+// Parses GIF89a binary: LZW decode → composite frames → store canvases with delays
+function _gifLzwDecode(data, mcs, count) {
+    var cc=1<<mcs,eof=cc+1,cs=mcs+1,nc=eof+1,bp=0;
+    var tbl=[],i; for(i=0;i<cc;i++)tbl[i]=[i]; tbl[cc]=[]; tbl[eof]=[];
+    function rc(){var v=0;for(var b=0;b<cs;b++){var B=bp>>3,bi=bp&7;if(B<data.length)v|=((data[B]>>bi)&1)<<b;bp++;}return v;}
+    var out=[],code=rc(),prev;
+    if(code===cc){tbl=[];for(i=0;i<cc;i++)tbl[i]=[i];tbl[cc]=[];tbl[eof]=[];cs=mcs+1;nc=eof+1;code=rc();}
+    prev=code; if(tbl[code])out.push.apply(out,tbl[code]);
+    while(out.length<count){
+        code=rc(); if(code===eof)break;
+        if(code===cc){tbl=[];for(i=0;i<cc;i++)tbl[i]=[i];tbl[cc]=[];tbl[eof]=[];cs=mcs+1;nc=eof+1;code=rc();prev=code;if(tbl[code])out.push.apply(out,tbl[code]);continue;}
+        var e=tbl[code]!=null?tbl[code]:(tbl[prev]?[...tbl[prev],tbl[prev][0]]:[0]);
+        out.push.apply(out,e);
+        if(tbl[prev]&&e.length)tbl[nc++]=[...tbl[prev],e[0]];
+        if(nc>=(1<<cs)&&cs<12)cs++; prev=code;
+    }
+    return out;
+}
+function _decodeGIF(buf) {
+    var u=new Uint8Array(buf),p=6;
+    var sw=u[p]|u[p+1]<<8,sh=u[p+2]|u[p+3]<<8,fl=u[p+4];
+    var hasGCT=(fl>>7)&1,gctSz=3*(2<<(fl&7)); p+=7;
+    var gct=hasGCT?u.slice(p,p+gctSz):null; if(hasGCT)p+=gctSz;
+    var frames=[],delay=100,transIdx=-1,disposal=0;
+    var cc=document.createElement('canvas'); cc.width=sw; cc.height=sh;
+    var cctx=cc.getContext('2d');
+    var prevSnap=null;
+    while(p<u.length){
+        var b=u[p++];
+        if(b===0x21){
+            var lbl=u[p++];
+            if(lbl===0xF9&&u[p]===4){
+                p++; var gf=u[p++]; disposal=(gf>>2)&7;
+                delay=(u[p]|u[p+1]<<8)*10; p+=2;
+                transIdx=(gf&1)?u[p++]:-1; if(!(gf&1))p++; p++;
+            } else { var sz2; while((sz2=u[p++])>0)p+=sz2; }
+        } else if(b===0x2C){
+            var ix=u[p]|u[p+1]<<8,iy=u[p+2]|u[p+3]<<8,iw=u[p+4]|u[p+5]<<8,ih=u[p+6]|u[p+7]<<8;
+            var ilf=u[p+8],hasLCT=(ilf>>7)&1,interlace=(ilf>>6)&1,lctSz=3*(2<<(ilf&7)); p+=9;
+            var ct=gct; if(hasLCT){ct=u.slice(p,p+lctSz);p+=lctSz;}
+            var mcs2=u[p++],lzw=[],sz3; while((sz3=u[p++])>0){for(var j=0;j<sz3;j++)lzw.push(u[p++]);}
+            var pxl=_gifLzwDecode(new Uint8Array(lzw),mcs2,iw*ih);
+            if(disposal===3&&prevSnap)cctx.putImageData(prevSnap,0,0);
+            var snap=null; if(disposal===3)snap=cctx.getImageData(0,0,sw,sh);
+            var imgd=cctx.getImageData(ix,iy,iw,ih),d=imgd.data;
+            // Build interlace row map
+            var rowMap=new Uint16Array(ih);
+            if(interlace){var ri2=0,ps=[[0,8],[4,8],[2,4],[1,2]];ps.forEach(function(ps){for(var r=ps[0];r<ih;r+=ps[1])rowMap[r]=ri2++;});}
+            else{for(var ri3=0;ri3<ih;ri3++)rowMap[ri3]=ri3;}
+            for(var row=0;row<ih;row++){var srcRow=interlace?rowMap[row]:row;for(var col=0;col<iw;col++){var pi2=(row*iw+col)*4,cidx=pxl[srcRow*iw+col];if(cidx===transIdx){d[pi2+3]=0;continue;}var ci3=cidx*3;d[pi2]=ct[ci3];d[pi2+1]=ct[ci3+1];d[pi2+2]=ct[ci3+2];d[pi2+3]=255;}}
+            cctx.putImageData(imgd,ix,iy);
+            var fc=document.createElement('canvas');fc.width=sw;fc.height=sh;fc.getContext('2d').drawImage(cc,0,0);
+            frames.push({canvas:fc,delay:delay||100});
+            prevSnap=snap;
+            if(disposal===2)cctx.clearRect(ix,iy,iw,ih);
+            delay=100;transIdx=-1;disposal=0;
+        } else if(b===0x3B){break;}
+        else{var sz4;while(p<u.length&&(sz4=u[p++])>0)p+=sz4;}
+    }
+    return{frames:frames,width:sw,height:sh};
+}
+
 let _lastFrameTime = 0;
 function renderLoop(timestamp) {
     APP.render.rafId = requestAnimationFrame(renderLoop);
@@ -3488,14 +3552,19 @@ function renderLoop(timestamp) {
                     gifOvEl.style.height = _lh + 'px';
                     gifOvEl.style.display = 'block';
                 }
-                // GIF recording: createImageBitmap captures current compositor frame (animated)
-                // Each rAF: kick off async bitmap fetch → store result → next frame draws it
-                createImageBitmap(logoImg).then(function(bm) { APP.layers._gifBitmap = bm; }).catch(function(){});
+                // GIF recording: use JS-decoded frames (captureStream-compatible, guaranteed animated)
                 ctx.save();
                 var _clw = logoImg.naturalWidth * _lsc2 * (w / 1920);
                 var _clh = logoImg.naturalHeight * _lsc2 * (h / 1080);
-                var _gifSrc = APP.layers._gifBitmap || logoImg;
-                ctx.drawImage(_gifSrc, (T.logo.x || 0) * w, (T.logo.y || 0) * h, _clw, _clh);
+                if (APP.layers._gifFrames && APP.layers._gifFrames.length > 0) {
+                    var _tot = APP.layers._gifTotalDelay || 1000;
+                    var _el = (performance.now() - APP.layers._gifFrameStart) % _tot;
+                    var _cum = 0, _fi = 0;
+                    for (; _fi < APP.layers._gifFrames.length - 1; _fi++) { _cum += APP.layers._gifFrames[_fi].delay; if (_el < _cum) break; }
+                    ctx.drawImage(APP.layers._gifFrames[_fi].canvas, (T.logo.x||0)*w, (T.logo.y||0)*h, _clw, _clh);
+                } else {
+                    ctx.drawImage(logoImg, (T.logo.x || 0) * w, (T.logo.y || 0) * h, _clw, _clh);
+                }
                 ctx.restore();
             }
         } else if (logoImg && logoImg.src && logoImg.src !== window.location.href && logoImg.naturalWidth > 0) {
@@ -4145,6 +4214,22 @@ if ($('file-2d-logo')) {
                 gifOverlay.src = url;
                 // Also load into logoLayer so naturalWidth is available for position math
                 if (logoLayer) { logoLayer.removeAttribute('crossOrigin'); logoLayer.src = url; }
+                // Decode all GIF frames for canvas recording (captureStream-compatible)
+                APP.layers._gifFrames = null; APP.layers._gifBitmap = null;
+                APP.layers._gifFrameStart = performance.now();
+                const gifReader = new FileReader();
+                gifReader.onload = function(ev) {
+                    try {
+                        const dec = _decodeGIF(ev.target.result);
+                        if (dec.frames.length > 0) {
+                            APP.layers._gifFrames = dec.frames;
+                            APP.layers._gifTotalDelay = dec.frames.reduce((s,f)=>s+f.delay, 0);
+                            APP.layers._gifFrameStart = performance.now();
+                            log('GIF_DECODED: ' + dec.frames.length + ' frames');
+                        }
+                    } catch(e) { log('GIF_DECODE_ERR: ' + e.message); }
+                };
+                gifReader.readAsArrayBuffer(file);
             } else if (logoLayer) {
                 // Static image: canvas drawImage path
                 gifOverlay.style.display = 'none';
