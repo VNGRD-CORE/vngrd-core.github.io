@@ -1496,6 +1496,8 @@ body.fullscreen #transcription-hud { opacity: 0 !important; pointer-events: none
         <canvas id="vj-canvas"></canvas>
         <!-- GIF overlay: DOM-rendered animated GIFs (not captured by captureStream) -->
         <div id="gif-overlay" style="position:absolute; top:0; left:0; width:100%; height:100%; pointer-events:none; z-index: 1100;"></div>
+        <!-- 2D logo GIF overlay: positioned by rAF to match canvas logo coords -->
+        <img id="logo-gif-overlay" alt="" style="position:absolute;display:none;pointer-events:none;z-index:1200;image-rendering:auto;">
 
         <div id="glass-fracture-layer"></div>
         <div id="overlay-layer">
@@ -3424,10 +3426,30 @@ function renderLoop(timestamp) {
         }
     }
     
-    // ACTOR 2: 2D LOGO (uploaded image via drawImage — no size cap)
+    // ACTOR 2: 2D LOGO
     if (T.logo.visible) {
         var logoImg = $('user-logo-layer');
-        if (logoImg && logoImg.src && logoImg.src !== window.location.href && logoImg.naturalWidth > 0) {
+        if (APP.layers.logo2dIsGif) {
+            // GIF: position DOM overlay to match canvas logo coords
+            var gifOvEl = $('logo-gif-overlay');
+            if (gifOvEl && gifOvEl.naturalWidth > 0) {
+                var _cnv = APP.render.canvas;
+                var _cr = _cnv ? _cnv.getBoundingClientRect() : null;
+                if (_cr) {
+                    var _sx = _cr.width / w, _sy = _cr.height / h;
+                    var _lsc = T.logo.scale || 1;
+                    var _lw = gifOvEl.naturalWidth * _lsc * (w / 1920) * _sx;
+                    var _lh = gifOvEl.naturalHeight * _lsc * (h / 1080) * _sy;
+                    var _lx = (T.logo.x || 0) * _cr.width + _cr.left;
+                    var _ly = (T.logo.y || 0) * _cr.height + _cr.top;
+                    gifOvEl.style.left   = (_lx - _cr.left) + 'px';
+                    gifOvEl.style.top    = (_ly - _cr.top)  + 'px';
+                    gifOvEl.style.width  = _lw + 'px';
+                    gifOvEl.style.height = _lh + 'px';
+                    gifOvEl.style.display = 'block';
+                }
+            }
+        } else if (logoImg && logoImg.src && logoImg.src !== window.location.href && logoImg.naturalWidth > 0) {
             ctx.save();
             var lScale = T.logo.scale;
             var lw = logoImg.naturalWidth * lScale * (w / 1920);
@@ -3436,6 +3458,10 @@ function renderLoop(timestamp) {
             ctx.drawImage(logoImg, lx, ly, lw, lh);
             ctx.restore();
         }
+    } else {
+        // Hide GIF overlay when logo is hidden
+        var _go = $('logo-gif-overlay');
+        if (_go) _go.style.display = 'none';
     }
 
     // ACTOR 3: 3D LOGO (offscreen WebGL canvas → drawImage composite)
@@ -4040,42 +4066,51 @@ if ($('btn-upload-2d')) {
     $('btn-upload-2d').onclick = () => $('file-2d-logo').click();
 }
 
+APP.layers.logo2dIsGif = false;
 if ($('file-2d-logo')) {
     $('file-2d-logo').onchange = e => {
         if (e.target.files.length) {
             const file = e.target.files[0];
             const url = URL.createObjectURL(file);
+            const isGif = file.type === 'image/gif' || file.name.toLowerCase().endsWith('.gif');
+            APP.layers.logo2dIsGif = isGif;
             const logoLayer = $('user-logo-layer');
-            
-            if (logoLayer) {
-                // SCRUB all Chrome GIF-freeze attributes
+            const gifOverlay = $('logo-gif-overlay');
+
+            if (isGif && gifOverlay) {
+                // GIF: render as DOM element to keep Chrome's GIF decoder alive
+                gifOverlay.onload = () => {
+                    if (typeof APP.trinity.logo.scale === 'undefined') APP.trinity.logo.scale = 1.0;
+                    if (typeof APP.trinity.logo.x === 'undefined') APP.trinity.logo.x = 0.05;
+                    if (typeof APP.trinity.logo.y === 'undefined') APP.trinity.logo.y = 0.05;
+                    APP.trinity.logo.visible = true;
+                    gifOverlay.style.display = 'block';
+                    log('2D_LOGO_GIF_READY: ' + file.name.toUpperCase());
+                };
+                gifOverlay.src = url;
+                // Also load into logoLayer so naturalWidth is available for position math
+                if (logoLayer) { logoLayer.removeAttribute('crossOrigin'); logoLayer.src = url; }
+            } else if (logoLayer) {
+                // Static image: canvas drawImage path
+                gifOverlay.style.display = 'none';
                 logoLayer.removeAttribute('crossOrigin');
                 logoLayer.removeAttribute('crossorigin');
                 logoLayer.style.display = 'block';
                 logoLayer.style.filter = 'none';
                 logoLayer.style.willChange = 'auto';
-                
-                // CRITICAL FIX: Wait for image to decode before flipping the switch
                 logoLayer.onload = () => {
-                    // Inject default scaling/positioning if it doesn't exist yet
                     if (typeof APP.trinity.logo.scale === 'undefined') APP.trinity.logo.scale = 1.0;
-                    if (typeof APP.trinity.logo.x === 'undefined') APP.trinity.logo.x = 0.05; // 5% from left
-                    if (typeof APP.trinity.logo.y === 'undefined') APP.trinity.logo.y = 0.05; // 5% from top
-
-                    // NOW tell the render loop to draw it
+                    if (typeof APP.trinity.logo.x === 'undefined') APP.trinity.logo.x = 0.05;
+                    if (typeof APP.trinity.logo.y === 'undefined') APP.trinity.logo.y = 0.05;
                     APP.trinity.logo.visible = true;
                     log('2D_LOGO_READY: ' + file.name.toUpperCase());
                 };
-
-                // Trigger the load
                 logoLayer.src = url;
             }
 
             // Send logo to peer via data channel as base64
             const reader = new FileReader();
-            reader.onload = () => {
-                sendUISync('2D_LOGO', { action: 'show', dataURI: reader.result });
-            };
+            reader.onload = () => { sendUISync('2D_LOGO', { action: 'show', dataURI: reader.result }); };
             reader.readAsDataURL(file);
         }
     };
@@ -4089,14 +4124,16 @@ if ($('btn-2d-x')) {
         const logoLayer = $('user-logo-layer');
         if (!logoLayer) return;
 
+        const gifOvEl = $('logo-gif-overlay');
         if (APP.trinity.logo.visible) {
-            // Visible -> Hidden (canvas stops drawing, but element stays alive for GIF decoder)
             APP.trinity.logo.visible = false;
+            if (gifOvEl) gifOvEl.style.display = 'none';
             sendUISync('2D_LOGO', { action: 'hide' });
             log('2D_LOGO: HIDDEN');
         } else if (logoLayer.src && logoLayer.src !== window.location.href) {
-            // Hidden -> Clear (revoke blob URL to free memory)
             APP.trinity.logo.visible = false;
+            APP.layers.logo2dIsGif = false;
+            if (gifOvEl) { gifOvEl.style.display = 'none'; if (gifOvEl.src && gifOvEl.src.startsWith('blob:')) URL.revokeObjectURL(gifOvEl.src); gifOvEl.removeAttribute('src'); }
             if (logoLayer.src.startsWith('blob:')) URL.revokeObjectURL(logoLayer.src);
             logoLayer.removeAttribute('src');
             sendUISync('2D_LOGO', { action: 'clear' });
@@ -9313,23 +9350,22 @@ if (btn3dX) {
     /* ── ON-AIR toggle ────────────────────────────────────────────────── */
     if (btnOnAir) {
         btnOnAir.addEventListener('click', function () {
-            if (!ws || ws.readyState !== WebSocket.OPEN) {
-                setWsState('error');
-                if (typeof ghostLog === 'function') {
-                    ghostLog('MCR: backend offline \u2014 run: python system_init.py', 'crit');
-                }
-                return;
-            }
-
             if (!onAir) {
-                clearHUD();
-                ws.send(JSON.stringify({ action: 'start', source_lang: 'en' }));
+                // Always show tray + UI. Only start WS ops if connected.
                 setOnAirUI(true);
-                startMicCapture();
+                if (ws && ws.readyState === WebSocket.OPEN) {
+                    clearHUD();
+                    ws.send(JSON.stringify({ action: 'start', target_lang: targetLang, source_lang: 'en' }));
+                    startMicCapture();
+                } else {
+                    if (typeof ghostLog === 'function') ghostLog('PODCAST TRAY: ON-AIR (offline mode — no MCR backend)', 'ai');
+                }
             } else {
-                stopMicCapture();
-                ws.send(JSON.stringify({ action: 'stop' }));
                 setOnAirUI(false);
+                if (ws && ws.readyState === WebSocket.OPEN) {
+                    stopMicCapture();
+                    ws.send(JSON.stringify({ action: 'stop' }));
+                }
             }
         });
     }
