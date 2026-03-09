@@ -6110,19 +6110,36 @@ document.addEventListener('DOMContentLoaded', () => {
         $('cycle-slider-wrap').style.display = APP.state.isCycle ? 'block' : 'none';
     };
 
-    ['guest','track','breaking'].forEach(function(m) {
+    // ── Centralized LT Controller ──
+    // All LT triggers (sidebar buttons, text edits, style changes) flow through
+    // handleUISync so there is a single code path for animation + state.
+    // sendLT also broadcasts to the peer via sendUISync.
+    function sendLT(preset) {
+        var title    = $('lt-title-text')  ? $('lt-title-text').textContent   : ($('lt-title').value || '');
+        var subtitle = $('lt-subtitle-text') ? $('lt-subtitle-text').textContent : ($('lt-sub').value  || '');
+        var payload  = { action: 'show', preset: preset, title: title, subtitle: subtitle };
+        handleUISync({ type: 'UI_SYNC', target: 'LOWER_THIRD', payload: payload });
+        sendUISync('LOWER_THIRD', payload);
+    }
+    function hideLT() {
+        var payload = { action: 'hide' };
+        handleUISync({ type: 'UI_SYNC', target: 'LOWER_THIRD', payload: payload });
+        sendUISync('LOWER_THIRD', payload);
+    }
+
+    ['guest', 'track', 'breaking', 'neon', 'split', 'scan'].forEach(function(m) {
         var el = $('btn-lt-' + m); if (!el) return;
-        el.onclick = function() { showLowerThird(m); sendUISync('LOWER_THIRD', { action:'show', preset: APP.lowerThird.preset, title: $('lt-title-text').textContent, subtitle: $('lt-subtitle-text').textContent }); };
+        el.onclick = function() { sendLT(m); };
     });
-    $('btn-lt-off').onclick = () => { hideLowerThird(); sendUISync('LOWER_THIRD', { action: 'hide' }); };
+    $('btn-lt-off').onclick = hideLT;
     if ($('lt-style-select')) $('lt-style-select').onchange = function() {
         APP.lowerThird.ltStyle = this.value;
-        if (APP.lowerThird.visible) { showLowerThird(APP.lowerThird.mode || 'guest'); sendUISync('LOWER_THIRD', { action:'show', preset: APP.lowerThird.preset, title: $('lt-title-text').textContent, subtitle: $('lt-subtitle-text').textContent }); }
+        if (APP.lowerThird.visible) { sendLT(APP.lowerThird.preset || 'guest'); }
     };
     if ($('lt-color')) $('lt-color').oninput = function() { APP.lowerThird.ltColor = this.value; var d=$('lt-color-dot'); if(d){d.style.background=this.value;d.style.boxShadow='0 0 5px '+this.value;} };
     if ($('bug-color')) $('bug-color').oninput = function() { APP.bug.color=this.value; var d=$('bug-color-dot'); if(d){d.style.background=this.value;d.style.boxShadow='0 0 5px '+this.value;} };
-    $('lt-title').oninput = e => { if (APP.lowerThird.visible) { $('lt-title-text').textContent = e.target.value; sendUISync('LOWER_THIRD', { action: 'show', preset: APP.lowerThird.preset, title: $('lt-title-text').textContent, subtitle: $('lt-subtitle-text').textContent }); } };
-    $('lt-sub').oninput = e => { if (APP.lowerThird.visible) { $('lt-subtitle-text').textContent = e.target.value; sendUISync('LOWER_THIRD', { action: 'show', preset: APP.lowerThird.preset, title: $('lt-title-text').textContent, subtitle: $('lt-subtitle-text').textContent }); } };
+    $('lt-title').oninput = e => { if (APP.lowerThird.visible) { $('lt-title-text').textContent = e.target.value; sendLT(APP.lowerThird.preset); } };
+    $('lt-sub').oninput   = e => { if (APP.lowerThird.visible) { $('lt-subtitle-text').textContent = e.target.value; sendLT(APP.lowerThird.preset); } };
     $('btn-audio').onclick = () => { igniteAudio(); $('file-audio').click(); }; $('file-audio').onchange = e => loadAudioFiles(e.target);
 
     $('btn-mute-vid').onclick = () => {
@@ -7538,29 +7555,17 @@ $('btn-call-guest').onclick = async () => {
     }
 
     // Helper: show local camera in the PiP slot of the panel
-   function startLocalPreview(stream) {
-    const localVid = $('p2p-local-video-el');
-    if (localVid) {
-        localVid.srcObject = stream;
-        localVid.muted = true; // CRITICAL: Prevents your mic from echoing in your own ears
-        
-        // ═══ Majestic Styling ═══
-        localVid.style.display = 'block';
-        localVid.style.width = '100%';
-        localVid.style.height = '100%';
-        localVid.style.objectFit = 'cover'; // Makes the image fit to screen
-        localVid.style.transform = 'scaleX(-1)'; // Mirrors it so it feels natural like a real mirror
-        
-        localVid.play().catch(() => {});
-
-        // UI Feedback
-        if ($('p2p-live-badge')) {
-            $('p2p-live-badge').style.display = 'block';
-            $('p2p-live-badge').textContent = 'LOCAL_PREVIEW';
-            $('p2p-live-badge').style.background = 'var(--c)';
+    function startLocalPreview(stream) {
+        const localVid = $('p2p-local-video-el');
+        if (localVid) {
+            localVid.srcObject = stream;
+            localVid.muted = true;              // CRITICAL: no mic echo
+            localVid.style.transform = 'scaleX(-1)'; // Mirror — natural camera feel
+            localVid.style.objectFit = 'cover'; // Fill PiP box without letterbox
+            localVid.style.display = 'block';   // Reveal PiP (HTML width:27% preserved)
+            localVid.play().catch(() => {});
         }
     }
-}
     // Helper: build the outgoing stream (canvas + mic, falling back to raw cam)
     function buildOutgoingStream(rawStream) {
         var out = new MediaStream();
@@ -7601,6 +7606,23 @@ $('btn-call-guest').onclick = async () => {
 
             // 2. Show local feed in panel PiP
             startLocalPreview(stream);
+
+            // 2b. Route local mic through Web Audio for recording bake-in
+            // Connects mic directly to Compositor audioDest (not to speakers — no echo).
+            try {
+                const micTrack = stream.getAudioTracks()[0];
+                if (micTrack && APP.compositor && APP.compositor.audioDest && APP.audio.ctx) {
+                    if (APP.peer.micRecSrc) { try { APP.peer.micRecSrc.disconnect(); } catch(e) {} }
+                    const micStream = new MediaStream([micTrack]);
+                    const micRecGain = APP.audio.ctx.createGain();
+                    micRecGain.gain.value = 0.85;
+                    APP.peer.micRecSrc = APP.audio.ctx.createMediaStreamSource(micStream);
+                    APP.peer.micRecSrc.connect(micRecGain);
+                    micRecGain.connect(APP.compositor.audioDest);
+                    APP.peer.micRecGain = micRecGain;
+                    log('MIC: ROUTED_TO_RECORDING');
+                }
+            } catch(e) { log('MIC_ROUTE_ERR: ' + e.message); }
 
             // 3. Build composite outgoing stream and answer
             const call = APP.peer.incomingCall;
@@ -7646,6 +7668,23 @@ $('btn-call-guest').onclick = async () => {
         // Show local feed in PiP while waiting for answer
         startLocalPreview(stream);
 
+        // Route local mic through Web Audio for recording bake-in
+        // Connects mic directly to Compositor audioDest (not to speakers — no echo).
+        try {
+            const micTrack = stream.getAudioTracks()[0];
+            if (micTrack && APP.compositor && APP.compositor.audioDest && APP.audio.ctx) {
+                if (APP.peer.micRecSrc) { try { APP.peer.micRecSrc.disconnect(); } catch(e) {} }
+                const micStream = new MediaStream([micTrack]);
+                const micRecGain = APP.audio.ctx.createGain();
+                micRecGain.gain.value = 0.85;
+                APP.peer.micRecSrc = APP.audio.ctx.createMediaStreamSource(micStream);
+                APP.peer.micRecSrc.connect(micRecGain);
+                micRecGain.connect(APP.compositor.audioDest);
+                APP.peer.micRecGain = micRecGain;
+                log('MIC: ROUTED_TO_RECORDING');
+            }
+        } catch(e) { log('MIC_ROUTE_ERR: ' + e.message); }
+
         // Build composite stream and place the call
         const call = APP.peer.peer.call(remoteId, buildOutgoingStream(stream));
         handleCallStream(call);
@@ -7682,39 +7721,60 @@ function handleCallStream(call) {
     APP.peer.call = call;
 
     call.on('stream', (remoteStream) => {
-        // ── Use the in-panel video element (always in DOM, always visible to GPU) ──
-        var remoteVid = $('p2p-remote-video-el');
-        if (!remoteVid) {
-            // Fallback: create one if somehow missing
-            remoteVid = document.createElement('video');
-            remoteVid.id = 'p2p-remote-video-el';
-            remoteVid.setAttribute('autoplay', '');
-            remoteVid.setAttribute('playsinline', '');
-            remoteVid.muted = false;
-            document.body.appendChild(remoteVid);
+        // ── Ghost Bridge: a hidden off-screen video element that feeds the canvas ──
+        // The visible #p2p-remote-video-el stays for the in-panel preview only.
+        // The render loop reads APP.guest.videoElement (the ghost bridge), so
+        // the Guest appears on the main workstation canvas but never causes a
+        // routing conflict with the floating panel view.
+        var ghostBridge = $('p2p-ghost-bridge');
+        if (!ghostBridge) {
+            ghostBridge = document.createElement('video');
+            ghostBridge.id = 'p2p-ghost-bridge';
+            ghostBridge.setAttribute('autoplay', '');
+            ghostBridge.setAttribute('playsinline', '');
+            ghostBridge.muted = true; // Muted — audio handled via Web Audio chain below
+            ghostBridge.style.cssText = 'position:fixed;width:1px;height:1px;opacity:0.001;pointer-events:none;z-index:-1;';
+            document.body.appendChild(ghostBridge);
+        }
+        ghostBridge.srcObject = remoteStream;
+        ghostBridge.play().catch(function() {});
+
+        // ── Route guest audio through Web Audio compressor chain ──
+        // This mixes guest voice into masterGain so it is captured by the
+        // Compositor's audioDest and baked into the recording. The ghost bridge
+        // video stays muted to avoid double-audio. The in-panel remoteVid (below)
+        // plays unmuted for the broadcaster's monitoring headphones.
+        if (APP.audio && APP.audio.ctx && APP.audio.compressor) {
+            try {
+                if (APP.peer.remoteAudioSrc) {
+                    try { APP.peer.remoteAudioSrc.disconnect(); } catch(e) {}
+                }
+                APP.peer.remoteAudioSrc = APP.audio.ctx.createMediaStreamSource(remoteStream);
+                APP.peer.remoteAudioSrc.connect(APP.audio.compressor);
+                log('GUEST_AUDIO: ROUTED_-18dB_COMPRESSOR');
+            } catch(e) {
+                log('GUEST_AUDIO_ERR: ' + e.message);
+            }
         }
 
-        // Assign stream — DO NOT route through APP.audio.ctx (creates echo)
-        remoteVid.srcObject = remoteStream;
-        remoteVid.muted = false;
+        // ── Assign ghost bridge as the render loop's canvas source ──
+        APP.guest.videoElement = ghostBridge;
+        APP.guest.stream = remoteStream;
+        APP.guest.isActive = true;
 
-        // iOS Safari requires explicit play() after srcObject assignment
-        var playPromise = remoteVid.play();
-        if (playPromise !== undefined) {
-            playPromise.catch(function(e) {
-                log('REMOTE_PLAY_ERR: ' + e.message);
-                // Retry once on user gesture — common iOS restriction
+        // ── Panel preview: show the remote stream in the in-panel video element ──
+        // This is for the broadcaster's eyes only and is NOT used for canvas rendering.
+        var remoteVid = $('p2p-remote-video-el');
+        if (remoteVid) {
+            remoteVid.srcObject = remoteStream;
+            remoteVid.muted = false; // Unmuted so broadcaster can monitor guest audio
+            remoteVid.play().catch(function(e) {
                 document.addEventListener('touchstart', function _retry() {
-                    remoteVid.play().catch(function(){});
+                    remoteVid.play().catch(function() {});
                     document.removeEventListener('touchstart', _retry);
                 }, { once: true });
             });
         }
-
-        // Set APP.guest so the render loop picks it up for the main canvas
-        APP.guest.videoElement = remoteVid;
-        APP.guest.stream = remoteStream;
-        APP.guest.isActive = true;
 
         // Auto-reveal video section when stream arrives
         var vw = $('p2p-video-wrap');
@@ -7724,7 +7784,7 @@ function handleCallStream(call) {
         var overlay = $('p2p-video-overlay');
         if (overlay) overlay.style.display = 'none';
         var liveBadge = $('p2p-live-badge');
-        if (liveBadge) liveBadge.style.display = 'block';
+        if (liveBadge) { liveBadge.style.display = 'block'; liveBadge.textContent = '\u25cf\u00a0LIVE'; liveBadge.style.background = 'var(--r,#f33)'; }
         if ($('guest-dot')) $('guest-dot').classList.remove('off');
         if ($('p2p-conn-label')) $('p2p-conn-label').textContent = 'P2P\u00a0ACTIVE';
 
@@ -7914,6 +7974,26 @@ function endCallCleanup() {
     if (APP.peer && APP.peer.dataConn) {
         try { APP.peer.dataConn.close(); } catch(e) {}
         APP.peer.dataConn = null;
+    }
+
+    // ── Tear down Ghost Bridge (canvas source) ──
+    var ghostBridge = $('p2p-ghost-bridge');
+    if (ghostBridge) { ghostBridge.srcObject = null; }
+
+    // ── Disconnect guest audio from Web Audio chain ──
+    if (APP.peer && APP.peer.remoteAudioSrc) {
+        try { APP.peer.remoteAudioSrc.disconnect(); } catch(e) {}
+        APP.peer.remoteAudioSrc = null;
+    }
+
+    // ── Disconnect local mic from recording chain ──
+    if (APP.peer && APP.peer.micRecGain) {
+        try { APP.peer.micRecGain.disconnect(); } catch(e) {}
+        APP.peer.micRecGain = null;
+    }
+    if (APP.peer && APP.peer.micRecSrc) {
+        try { APP.peer.micRecSrc.disconnect(); } catch(e) {}
+        APP.peer.micRecSrc = null;
     }
 
     // ── Clear in-panel video elements and hide video section ──
