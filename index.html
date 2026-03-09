@@ -987,7 +987,8 @@ body.shooting-mode #btn-shooting {
         body.seismic-active { animation: none !important; }
 
         /* P2P modal: fit mobile viewport */
-        #p2p-modal { right: 10px !important; left: 10px !important; width: auto !important; }
+        #p2p-modal { right: 6px !important; left: 6px !important; width: auto !important; }
+        #p2p-video-wrap { padding-bottom: 52% !important; }
 
         /* Ghost terminal: constrain to mobile viewport + visible close button */
         #ghost-terminal {
@@ -7185,13 +7186,14 @@ document.addEventListener('DOMContentLoaded', () => {
 
 // Helper to reset buttons to default state
 const resetP2PButtons = () => {
-    $('btn-call-guest').textContent = 'CALL';
-    $('btn-call-guest').style.borderColor = 'var(--text-main)';
-    $('btn-call-guest').style.color = 'var(--text-main)';
-    
+    var btnCall = $('btn-call-guest');
+    btnCall.textContent = 'CALL';
+    btnCall.style.borderColor = '';
+    btnCall.style.color = 'var(--c,#0ff)';
+
     $('btn-init-peer').textContent = 'INIT';
-    $('btn-init-peer').style.display = 'inline-block';
-    
+    $('btn-init-peer').style.display = '';
+
     // Clear the temp incoming call object
     if (APP.peer) APP.peer.incomingCall = null;
 };
@@ -7373,44 +7375,52 @@ $('btn-init-peer').onclick = () => {
         
         APP.peer.peer.on('open', (id) => {
             $('peer-id-display').value = id;
-            if ($('guest-dot')) $('guest-dot').classList.remove('off');
-            $('call-status').textContent = 'READY TO CALL';
+            $('call-status').textContent = 'READY';
             $('call-status').style.color = 'var(--g)';
+            if ($('p2p-conn-label')) $('p2p-conn-label').textContent = 'NODE\u00a0READY';
+            $('btn-init-peer').textContent = 'ON';
+            $('btn-init-peer').style.color = 'var(--g,#0f8)';
             log('PEER: ' + id);
         });
         
         APP.peer.peer.on('error', (err) => {
             log('PEER ERROR: ' + err.type);
-            $('call-status').textContent = 'ERR: ' + err.type;
+            $('call-status').textContent = 'ERR:' + err.type;
             $('call-status').style.color = 'var(--r)';
+            if ($('p2p-conn-label')) $('p2p-conn-label').textContent = 'ERROR';
+            // Auto-cleanup on fatal errors
+            if (err.type === 'network' || err.type === 'server-error' || err.type === 'socket-error') {
+                stopP2PRing();
+            }
         });
         
         // --- INCOMING CALL HANDLER (Non-Blocking) ---
         APP.peer.peer.on('call', (call) => {
             log('INCOMING_CALL FROM ' + call.peer);
-            
-            // 1. Store the call object but DO NOT answer yet
-            APP.peer.incomingCall = call;
-            
-            // 2. Update UI to "Ringing" Mode
-            $('call-status').textContent = 'RINGING... (' + call.peer + ')';
-            $('call-status').style.color = 'var(--y)'; // Yellow for caution
 
-            // 2b. Auto-open the P2P panel so user sees incoming call
+            // 1. Store the call — user must click ACCEPT to answer
+            APP.peer.incomingCall = call;
+
+            // 2. Update status UI
+            $('call-status').textContent = 'INCOMING...';
+            $('call-status').style.color = 'var(--y)';
+            if ($('p2p-conn-label')) $('p2p-conn-label').textContent = 'RINGING';
+            if ($('p2p-overlay-txt')) $('p2p-overlay-txt').textContent = 'INCOMING\u00a0CALL';
+
+            // 3. Auto-open the P2P panel so user sees it
             $('p2p-modal').style.display = 'block';
             $('p2p-body').style.display = '';
+            $('p2p-titlebar').style.borderRadius = '5px 5px 0 0';
+            $('p2p-titlebar').style.borderBottom = 'none';
 
-            // 2c. Play ring tone
+            // 4. Play ring tone
             startP2PRing();
 
-            // 3. Turn the "CALL" button into an "ACCEPT" button
+            // 5. Turn CALL button into ACCEPT
             const btnCall = $('btn-call-guest');
-            btnCall.textContent = 'ACCEPT CALL';
-            btnCall.style.borderColor = 'var(--g)';
-            btnCall.style.color = 'var(--g)';
-            
-            // 4. Play a ring sound if you have one (optional)
-            // new Audio('assets/ring.mp3').play().catch(e => {});
+            btnCall.textContent = 'ACCEPT';
+            btnCall.style.borderColor = 'var(--g,#0f8)';
+            btnCall.style.color = 'var(--g,#0f8)';
         });
 
         // --- INCOMING DATA CONNECTION (Guest Side) ---
@@ -7460,62 +7470,77 @@ $('btn-call-guest').onclick = async () => {
         return;
     }
 
+    // Helper: show local camera in the PiP slot of the panel
+    function startLocalPreview(stream) {
+        var localVid = $('p2p-local-video-el');
+        if (localVid) {
+            localVid.srcObject = stream;
+            localVid.style.display = 'block';
+            localVid.play().catch(function(){});
+        }
+    }
+
+    // Helper: build the outgoing stream (canvas + mic, falling back to raw cam)
+    function buildOutgoingStream(rawStream) {
+        var out = new MediaStream();
+        // Video: prefer canvas capture so guest sees full VJ output
+        var vidTrack = null;
+        try {
+            if (APP.render && APP.render.canvas) {
+                var captured = APP.render.canvas.captureStream(30);
+                vidTrack = captured.getVideoTracks()[0] || null;
+            }
+        } catch(e) { vidTrack = null; }
+        // Fallback: raw camera track
+        if (!vidTrack) vidTrack = rawStream.getVideoTracks()[0] || null;
+        if (vidTrack) out.addTrack(vidTrack);
+        // Audio: mic track
+        var micTrack = rawStream.getAudioTracks()[0] || null;
+        if (micTrack) out.addTrack(micTrack);
+        return out;
+    }
+
     // SCENARIO A: ANSWERING AN INCOMING CALL
     if (APP.peer.incomingCall) {
         try {
             log('ANSWERING CALL...');
             $('call-status').textContent = 'CONNECTING...';
+            stopP2PRing();
 
-            // 1. Get Local Media — facingMode required for iOS Safari
+            // 1. Acquire local media (facingMode required for iOS Safari)
             const audioConstraints = APP.inputDevices.selectedId
                 ? { deviceId: { exact: APP.inputDevices.selectedId }, echoCancellation: false, noiseSuppression: false, autoGainControl: false, channelCount: 2 }
                 : { echoCancellation: false, noiseSuppression: false, autoGainControl: false, channelCount: 2 };
 
             const stream = await navigator.mediaDevices.getUserMedia({
-                video: { facingMode: 'user', width: { ideal: 640 }, height: { ideal: 480 }, frameRate: { ideal: 30 } },
+                video: { facingMode: 'user', width: { ideal: 1280 }, height: { ideal: 720 }, frameRate: { ideal: 30 } },
                 audio: audioConstraints
             });
-
             APP.peer.localStream = stream;
 
-            // 2. Build composite stream: canvas video + mic audio
-            // This makes the guest see your full canvas (graphics, lower thirds, effects)
-            var compositeAnswer = new MediaStream();
-            if (APP.render && APP.render.canvas) {
-                var canvasVidTrack = APP.render.canvas.captureStream(30).getVideoTracks()[0];
-                if (canvasVidTrack) compositeAnswer.addTrack(canvasVidTrack);
-            } else {
-                // Fallback: raw camera if canvas not ready
-                var rawVid = stream.getVideoTracks()[0];
-                if (rawVid) compositeAnswer.addTrack(rawVid);
-            }
-            var micTrackA = stream.getAudioTracks()[0];
-            if (micTrackA) compositeAnswer.addTrack(micTrackA);
+            // 2. Show local feed in panel PiP
+            startLocalPreview(stream);
 
-            // 3. Answer the staged call with the canvas stream
+            // 3. Build composite outgoing stream and answer
             const call = APP.peer.incomingCall;
-            call.answer(compositeAnswer);
-            
-            // 3. Handle the stream when it arrives
+            call.answer(buildOutgoingStream(stream));
+
+            // 4. Wire up stream + close/error handlers
             handleCallStream(call);
 
-            // 4. Data channel: the caller already did peer.connect() which
-            // triggers our peer.on('connection') handler — that sets
-            // APP.peer.dataConn for bidirectional send/receive. No reverse
-            // connect needed (creating one causes a race that overwrites
-            // the working connection).
+            // 5. Clear staging flag
+            APP.peer.incomingCall = null;
 
-            // 5. Cleanup UI
-            APP.peer.incomingCall = null; // Clear staging
-            
         } catch (e) {
             log('ANSWER ERROR: ' + e.message);
+            $('call-status').textContent = 'ERR: ' + e.message;
+            $('call-status').style.color = 'var(--r)';
             resetP2PButtons();
         }
         return;
     }
 
-    // SCENARIO B: MAKING A NEW CALL
+    // SCENARIO B: MAKING A NEW OUTGOING CALL
     const remoteId = $('remote-peer-id').value.trim();
     if (!remoteId) {
         alert('ENTER_GUEST_ID_TO_CALL');
@@ -7532,28 +7557,19 @@ $('btn-call-guest').onclick = async () => {
             : { echoCancellation: false, noiseSuppression: false, autoGainControl: false, channelCount: 2 };
 
         const stream = await navigator.mediaDevices.getUserMedia({
-            video: { facingMode: 'user', width: { ideal: 640 }, height: { ideal: 480 }, frameRate: { ideal: 30 } },
+            video: { facingMode: 'user', width: { ideal: 1280 }, height: { ideal: 720 }, frameRate: { ideal: 30 } },
             audio: audioConstraints
         });
         APP.peer.localStream = stream;
 
-        // Build composite stream: canvas video + mic audio
-        // Guest will see your full canvas output (graphics, lower thirds, VJ effects)
-        var compositeCall = new MediaStream();
-        if (APP.render && APP.render.canvas) {
-            var canvasVidTrackC = APP.render.canvas.captureStream(30).getVideoTracks()[0];
-            if (canvasVidTrackC) compositeCall.addTrack(canvasVidTrackC);
-        } else {
-            var rawVidC = stream.getVideoTracks()[0];
-            if (rawVidC) compositeCall.addTrack(rawVidC);
-        }
-        var micTrackC = stream.getAudioTracks()[0];
-        if (micTrackC) compositeCall.addTrack(micTrackC);
+        // Show local feed in PiP while waiting for answer
+        startLocalPreview(stream);
 
-        const call = APP.peer.peer.call(remoteId, compositeCall);
+        // Build composite stream and place the call
+        const call = APP.peer.peer.call(remoteId, buildOutgoingStream(stream));
         handleCallStream(call);
 
-        // --- Establish parallel Data Channel for UI sync ---
+        // ── Parallel data channel for UI sync ──
         const dataConn = APP.peer.peer.connect(remoteId);
         dataConn.on('open', () => {
             APP.peer.dataConn = dataConn;
@@ -7582,32 +7598,55 @@ $('btn-call-guest').onclick = async () => {
 
 // Shared Logic for both Incoming and Outgoing calls
 function handleCallStream(call) {
+    APP.peer.call = call;
+
     call.on('stream', (remoteStream) => {
-        // Ensure video element exists — must be in DOM for iOS Safari to play
-        if (!APP.guest.videoElement) {
-            APP.guest.videoElement = document.createElement('video');
-            APP.guest.videoElement.id = 'p2p-remote-video';
-            APP.guest.videoElement.setAttribute('autoplay', '');
-            APP.guest.videoElement.setAttribute('playsinline', '');
-            APP.guest.videoElement.muted = false;
-            // Off-screen but large enough for browser to actually decode
-            APP.guest.videoElement.style.cssText = 'position:fixed;top:-9999px;left:-9999px;width:320px;height:240px;pointer-events:none;z-index:-1;';
-            document.body.appendChild(APP.guest.videoElement);
+        // ── Use the in-panel video element (always in DOM, always visible to GPU) ──
+        var remoteVid = $('p2p-remote-video-el');
+        if (!remoteVid) {
+            // Fallback: create one if somehow missing
+            remoteVid = document.createElement('video');
+            remoteVid.id = 'p2p-remote-video-el';
+            remoteVid.setAttribute('autoplay', '');
+            remoteVid.setAttribute('playsinline', '');
+            remoteVid.muted = false;
+            document.body.appendChild(remoteVid);
         }
 
-        // Remote stream plays via HTML5 video element.
-        // DO NOT route into APP.audio.ctx or masterGain — creates echo.
-        APP.guest.videoElement.srcObject = remoteStream;
+        // Assign stream — DO NOT route through APP.audio.ctx (creates echo)
+        remoteVid.srcObject = remoteStream;
+        remoteVid.muted = false;
+
+        // iOS Safari requires explicit play() after srcObject assignment
+        var playPromise = remoteVid.play();
+        if (playPromise !== undefined) {
+            playPromise.catch(function(e) {
+                log('REMOTE_PLAY_ERR: ' + e.message);
+                // Retry once on user gesture — common iOS restriction
+                document.addEventListener('touchstart', function _retry() {
+                    remoteVid.play().catch(function(){});
+                    document.removeEventListener('touchstart', _retry);
+                }, { once: true });
+            });
+        }
+
+        // Set APP.guest so the render loop picks it up for the main canvas
+        APP.guest.videoElement = remoteVid;
         APP.guest.stream = remoteStream;
         APP.guest.isActive = true;
 
-        // iOS Safari requires explicit play() after srcObject assignment
-        APP.guest.videoElement.play().catch(function(e) { log('GUEST_PLAY_ERR: ' + e.message); });
+        // Update panel UI
+        var overlay = $('p2p-video-overlay');
+        if (overlay) overlay.style.display = 'none';
+        var liveBadge = $('p2p-live-badge');
+        if (liveBadge) liveBadge.style.display = 'block';
+        if ($('guest-dot')) $('guest-dot').classList.remove('off');
+        if ($('p2p-conn-label')) $('p2p-conn-label').textContent = 'P2P\u00a0ACTIVE';
 
         stopP2PRing();
         $('call-status').textContent = 'CONNECTED';
         $('call-status').style.color = 'var(--g)';
-        $('btn-call-guest').textContent = 'CALL (ACTIVE)';
+        $('btn-call-guest').textContent = 'ACTIVE';
 
         log('CALL_ESTABLISHED_WITH: ' + call.peer);
     });
@@ -7615,7 +7654,6 @@ function handleCallStream(call) {
     call.on('close', () => {
         // Delay cleanup slightly — PeerJS fires 'close' on transient ICE restarts
         setTimeout(() => {
-            // Only clean up if the call is truly dead (no new call replaced it)
             if (APP.peer && APP.peer.call === call) {
                 endCallCleanup();
             }
@@ -7626,8 +7664,6 @@ function handleCallStream(call) {
         log('CALL_ERROR: ' + err);
         endCallCleanup();
     });
-
-    APP.peer.call = call;
 }
 
 // ═══ P2P ORIENTATION / VISIBILITY RESILIENCE ═══
@@ -7785,30 +7821,49 @@ function handleUISync(msg) {
 
 function endCallCleanup() {
     stopP2PRing();
+
+    // Stop local media tracks
     if (APP.peer && APP.peer.localStream) {
         APP.peer.localStream.getTracks().forEach(t => t.stop());
     }
     if (APP.peer && APP.peer.dataConn) {
-        APP.peer.dataConn.close();
+        try { APP.peer.dataConn.close(); } catch(e) {}
         APP.peer.dataConn = null;
     }
 
-    // Remove hidden video element from DOM (cleanup for iOS)
-    if (APP.guest.videoElement) {
-        APP.guest.videoElement.srcObject = null;
-        if (APP.guest.videoElement.parentNode) APP.guest.videoElement.parentNode.removeChild(APP.guest.videoElement);
-        APP.guest.videoElement = null;
+    // ── Clear in-panel video elements ──
+    var remoteVid = $('p2p-remote-video-el');
+    if (remoteVid) { remoteVid.srcObject = null; remoteVid.load(); }
+
+    var localVid = $('p2p-local-video-el');
+    if (localVid) { localVid.srcObject = null; localVid.style.display = 'none'; }
+
+    // Re-show the waiting overlay
+    var overlay = $('p2p-video-overlay');
+    if (overlay) overlay.style.display = 'flex';
+    var liveBadge = $('p2p-live-badge');
+    if (liveBadge) liveBadge.style.display = 'none';
+    var overlayTxt = $('p2p-overlay-txt');
+    if (overlayTxt) {
+        overlayTxt.textContent = 'CALL\u00a0ENDED';
+        setTimeout(function() { if (overlayTxt) overlayTxt.textContent = 'AWAITING\u00a0SIGNAL'; }, 3000);
     }
 
+    // Clear guest state
     APP.guest.isActive = false;
     APP.guest.stream = null;
+    APP.guest.videoElement = null;
+
     if (APP.peer) {
         APP.peer.call = null;
         APP.peer.incomingCall = null;
+        APP.peer.localStream = null;
     }
 
     $('call-status').textContent = 'DISCONNECTED';
     $('call-status').style.color = 'var(--text-dim)';
+    if ($('guest-dot')) $('guest-dot').classList.add('off');
+    if ($('p2p-conn-label')) $('p2p-conn-label').textContent = 'P2P\u00a0OFFLINE';
 
     resetP2PButtons();
     log('CALL_ENDED_CLEANUP');
@@ -9412,32 +9467,59 @@ if (btn3dX) {
     </div>
 
     <!-- P2P FLOATING PANEL (draggable + minimizable) -->
-    <div id="p2p-modal" style="display:none;position:fixed;top:52px;right:210px;z-index:5000;width:240px;font-family:inherit;">
+    <div id="p2p-modal" style="display:none;position:fixed;top:52px;right:210px;z-index:5000;width:300px;min-width:220px;font-family:inherit;">
         <!-- TITLE BAR (drag handle + controls) -->
-        <div id="p2p-titlebar" style="display:flex;align-items:center;justify-content:space-between;background:rgba(20,20,20,0.98);border:1px solid var(--c,#0ff);border-bottom:none;border-radius:5px 5px 0 0;padding:5px 10px;cursor:grab;user-select:none;">
-            <span style="font-size:9px;letter-spacing:1.5px;color:var(--c,#0ff);text-transform:uppercase;">&#9742; P2P CALL</span>
-            <span style="display:flex;gap:8px;align-items:center;">
-                <span id="p2p-dot" class="dot off" style="margin:0;"></span>
-                <button id="btn-min-p2p" style="background:none;border:none;color:var(--text-dim,#666);cursor:pointer;font-size:14px;line-height:1;padding:0;font-family:inherit;" title="Minimize">&#9604;</button>
-                <button id="btn-close-p2p-modal" style="background:none;border:none;color:var(--text-dim,#666);cursor:pointer;font-size:14px;line-height:1;padding:0;font-family:inherit;" title="Close">&times;</button>
-            </span>
+        <div id="p2p-titlebar" style="display:flex;align-items:center;gap:6px;background:rgba(0,2,6,0.98);border:1px solid var(--c,#0ff);border-bottom:none;border-radius:5px 5px 0 0;padding:6px 10px;cursor:grab;user-select:none;box-shadow:0 0 12px rgba(0,243,255,0.1);">
+            <span style="font-size:8px;letter-spacing:2px;color:var(--c,#0ff);text-transform:uppercase;white-space:nowrap;text-shadow:0 0 8px var(--c,#0ff);">&#9742; P2P&nbsp;//&nbsp;LINK</span>
+            <span id="call-status" style="flex:1;font-size:7px;letter-spacing:1px;color:var(--text-dim,#505058);text-align:center;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;padding:0 4px;">OFFLINE</span>
+            <span id="p2p-dot" class="dot off" style="margin:0;flex-shrink:0;"></span>
+            <button id="btn-min-p2p" style="background:none;border:none;color:var(--text-dim,#666);cursor:pointer;font-size:12px;line-height:1;padding:0 3px;font-family:inherit;" title="Minimize">&#9604;</button>
+            <button id="btn-close-p2p-modal" style="background:none;border:none;color:var(--text-dim,#666);cursor:pointer;font-size:15px;line-height:1;padding:0 2px;font-family:inherit;" title="Close">&times;</button>
         </div>
         <!-- BODY (collapsible) -->
-        <div id="p2p-body" style="position:relative;background:rgba(10,10,10,0.97);border:1px solid var(--c,#0ff);border-top:1px solid rgba(255,255,255,0.05);border-radius:0 0 5px 5px;padding:12px 12px 10px;">
-            <div class="lbl" style="font-size:8px;margin-bottom:3px;opacity:0.6;">YOUR_ID</div>
-            <input type="text" class="inp" id="peer-id-display" readonly placeholder="CLICK INIT..." style="font-size:9px;text-align:center;color:var(--g);padding:4px 6px;">
-            <button class="btn" id="btn-copy-id" style="font-size:8px;padding:3px 8px;margin-bottom:6px;">COPY</button>
-            <div class="lbl" style="font-size:8px;margin-bottom:3px;opacity:0.6;">REMOTE_ID</div>
-            <input type="text" class="inp" id="remote-peer-id" placeholder="Paste ID..." style="font-size:9px;padding:4px 6px;">
-            <div style="display:flex;gap:4px;margin-top:8px;">
-                <button class="btn" id="btn-init-peer" style="color:var(--g);font-size:8px;padding:4px 0;flex:1;">INIT</button>
-                <button class="btn" id="btn-call-guest" style="color:var(--c);font-size:8px;padding:4px 0;flex:1;">CALL</button>
-                <button class="btn" id="btn-hangup" style="color:var(--r);border-color:var(--r);font-size:8px;padding:4px 0;flex:1;">END</button>
+        <div id="p2p-body" style="position:relative;background:rgba(3,4,10,0.98);border:1px solid var(--c,#0ff);border-top:1px solid rgba(0,243,255,0.08);border-radius:0 0 5px 5px;padding:10px 10px 12px;box-shadow:0 0 18px rgba(0,243,255,0.07);">
+
+            <!-- ═══ REMOTE VIDEO FEED ═══ -->
+            <div id="p2p-video-wrap" style="position:relative;width:100%;padding-bottom:56.25%;background:#000;border:1px solid rgba(0,243,255,0.18);border-radius:3px;overflow:hidden;margin-bottom:8px;box-shadow:inset 0 0 20px rgba(0,0,0,0.8);">
+                <!-- Remote feed fills the box -->
+                <video id="p2p-remote-video-el" autoplay playsinline style="position:absolute;top:0;left:0;width:100%;height:100%;object-fit:cover;background:#000;display:block;"></video>
+                <!-- Local PiP (bottom-right corner) -->
+                <video id="p2p-local-video-el" autoplay playsinline muted style="position:absolute;bottom:5px;right:5px;width:30%;border:1px solid var(--c,#0ff);border-radius:2px;background:#000;display:none;z-index:2;box-shadow:0 0 6px rgba(0,243,255,0.4);"></video>
+                <!-- Overlay shown while no remote stream -->
+                <div id="p2p-video-overlay" style="position:absolute;top:0;left:0;width:100%;height:100%;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:8px;pointer-events:none;background:rgba(0,0,0,0.6);">
+                    <svg width="28" height="28" viewBox="0 0 28 28" fill="none" style="opacity:0.2;"><circle cx="14" cy="14" r="13" stroke="#00f3ff" stroke-width="1"/><path d="M9 10h6l3-3v14l-3-3H9V10z" stroke="#00f3ff" stroke-width="1" fill="none"/><line x1="19" y1="11" x2="23" y2="9" stroke="#00f3ff" stroke-width="1"/><line x1="19" y1="17" x2="23" y2="19" stroke="#00f3ff" stroke-width="1"/></svg>
+                    <span id="p2p-overlay-txt" style="font-size:7px;letter-spacing:2.5px;color:rgba(0,243,255,0.3);text-transform:uppercase;">AWAITING&nbsp;SIGNAL</span>
+                </div>
+                <!-- LIVE badge (hidden until connected) -->
+                <div id="p2p-live-badge" style="display:none;position:absolute;top:5px;left:5px;font-size:6px;letter-spacing:1.5px;color:#000;background:var(--r,#f33);padding:2px 5px;border-radius:2px;font-weight:bold;z-index:3;">&#9679;&nbsp;LIVE</div>
             </div>
-            <div id="call-status" style="font-size:8px;color:var(--text-dim);margin-top:6px;text-align:center;">NOT_CONNECTED</div>
-            <div class="sec-dot off" id="guest-dot" style="margin-top:4px;"></div>
+
+            <!-- ═══ YOUR ID ═══ -->
+            <div class="lbl" style="margin-bottom:3px;">YOUR&nbsp;NODE&nbsp;ID</div>
+            <div style="display:flex;gap:4px;margin-bottom:8px;">
+                <input type="text" class="inp" id="peer-id-display" readonly placeholder="CLICK&nbsp;INIT..." style="font-size:8px;color:var(--g,#0f8);letter-spacing:0.5px;margin-bottom:0;flex:1;min-width:0;background:rgba(0,255,136,0.04);border-color:rgba(0,255,136,0.2);">
+                <button class="btn" id="btn-copy-id" style="font-size:7px;padding:3px 8px;white-space:nowrap;flex-shrink:0;letter-spacing:1px;">CPY</button>
+            </div>
+
+            <!-- ═══ REMOTE ID ═══ -->
+            <div class="lbl" style="margin-bottom:3px;">REMOTE&nbsp;NODE&nbsp;ID</div>
+            <input type="text" class="inp" id="remote-peer-id" placeholder="PASTE_PEER_ID..." style="font-size:8px;letter-spacing:0.5px;margin-bottom:10px;">
+
+            <!-- ═══ CONTROL ROW ═══ -->
+            <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:5px;margin-bottom:8px;">
+                <button class="btn" id="btn-init-peer" style="font-size:8px;padding:7px 0;color:var(--g,#0f8);border-color:rgba(0,255,136,0.5);letter-spacing:1px;text-transform:uppercase;">INIT</button>
+                <button class="btn" id="btn-call-guest" style="font-size:8px;padding:7px 0;color:var(--c,#0ff);letter-spacing:1px;text-transform:uppercase;">CALL</button>
+                <button class="btn" id="btn-hangup" style="font-size:8px;padding:7px 0;color:var(--r,#f33);border-color:rgba(255,51,51,0.5);letter-spacing:1px;text-transform:uppercase;">END</button>
+            </div>
+
+            <!-- ═══ STATUS ROW ═══ -->
+            <div style="display:flex;align-items:center;justify-content:center;gap:6px;">
+                <div class="sec-dot off" id="guest-dot"></div>
+                <span id="p2p-conn-label" style="font-size:7px;letter-spacing:1.5px;color:var(--text-dim,#505058);text-transform:uppercase;">P2P&nbsp;OFFLINE</span>
+            </div>
+
             <!-- Resize handle -->
-            <div id="p2p-resize" style="position:absolute;bottom:0;right:0;width:14px;height:14px;cursor:nwse-resize;opacity:0.4;" title="Resize">
+            <div id="p2p-resize" style="position:absolute;bottom:0;right:0;width:14px;height:14px;cursor:nwse-resize;opacity:0.3;" title="Resize">
                 <svg width="14" height="14" viewBox="0 0 14 14"><path d="M12 2L2 12M12 6L6 12M12 10L10 12" stroke="var(--c,#0ff)" stroke-width="1" fill="none"/></svg>
             </div>
         </div>
