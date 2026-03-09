@@ -1527,9 +1527,9 @@ body.fullscreen #transcription-hud { opacity: 0 !important; pointer-events: none
     <div id="ghost-terminal">
         <div id="ghost-terminal-header">
             <span id="ghost-terminal-title">GHOST://COMMAND_INTERFACE</span>
-            <span style="display:flex;align-items:center;gap:6px;">
+            <span style="display:flex;align-items:center;gap:4px;">
                 <span id="ghost-terminal-status">ONLINE</span>
-                <button onclick="$('ghost-terminal-body').innerHTML='';_ghostLastMsg='';" title="Clear chat" style="background:none;border:1px solid rgba(255,255,255,0.15);color:var(--text-dim);cursor:pointer;font-size:8px;line-height:1;padding:3px 6px;font-family:'JetBrains Mono',monospace;letter-spacing:1px;border-radius:2px;">PURGE</button>
+                <button onclick="$('ghost-terminal-body').innerHTML='';_ghostLastMsg='';" title="Purge chat log" style="background:none;border:none;color:rgba(255,255,255,0.3);cursor:pointer;font-size:12px;line-height:1;padding:2px 3px;">⌫</button>
                 <button id="ghost-close-btn" onclick="toggleGhost()" style="background:none;border:none;color:var(--c);cursor:pointer;font-size:11px;line-height:1;padding:4px 6px;font-family:'JetBrains Mono',monospace;display:block;letter-spacing:1px;opacity:0.8;">&#x2715;&nbsp;[G]</button>
             </span>
         </div>
@@ -3319,6 +3319,19 @@ function renderLoop(timestamp) {
     ctx.clearRect(0, 0, w, h);
     ctx.fillStyle = '#000';
     ctx.fillRect(0, 0, w, h);
+
+    // --- PUNCH / SEISMIC: frame-level transform — wraps ALL drawing (canvas only) ---
+    var _punch = APP.vj._punchSpring || 0;
+    var _sX = APP.vj._canvasShakeX || 0, _sY = APP.vj._canvasShakeY || 0;
+    var _hasFX = _punch > 0.01 || Math.abs(_sX) > 0.1 || Math.abs(_sY) > 0.1;
+    if (_hasFX) {
+        ctx.save();
+        var _ps = 1 + _punch * 0.028;
+        ctx.translate(w * 0.5 + _sX, h * 0.5 + _sY);
+        ctx.scale(_ps, _ps);
+        ctx.translate(-w * 0.5, -h * 0.5);
+        if (_punch > 0.05) ctx.filter = 'brightness(' + (1 + _punch * 0.9) + ')';
+    }
     
     // FILTER STACK - values are decimals (1.0 = 100%), convert to proper CSS
     // Skip setting filter at identity to avoid forcing software compositing path (prevents black-frame glitch)
@@ -3335,19 +3348,6 @@ function renderLoop(timestamp) {
     if (source) {
         const ready = source.tagName === 'VIDEO' ? source.readyState >= 2 : (source.complete && source.naturalWidth > 0);
         if (ready) {
-            // --- PUNCH / SEISMIC: canvas-space transforms applied before source draw ---
-            var _punch = APP.vj._punchSpring || 0;
-            var _sX = APP.vj._canvasShakeX || 0, _sY = APP.vj._canvasShakeY || 0;
-            if (_punch > 0.01 || Math.abs(_sX) > 0.1 || Math.abs(_sY) > 0.1) {
-                ctx.save();
-                // Punch: scale from centre — speaker bounce, max 1.028 (never clips)
-                var _ps = 1 + _punch * 0.028;
-                ctx.translate(w * 0.5 + _sX, h * 0.5 + _sY);
-                ctx.scale(_ps, _ps);
-                ctx.translate(-w * 0.5, -h * 0.5);
-                // Punch: brightness burst via filter
-                if (_punch > 0.05) ctx.filter = 'brightness(' + (1 + _punch * 0.9) + ')';
-            }
 
             // --- VIEWPORT-FIT: object-fit:contain logic for canvas ---
             // Computes centered, aspect-ratio-preserving draw rect (no stretching)
@@ -3386,11 +3386,6 @@ function renderLoop(timestamp) {
                 ctx.globalCompositeOperation = 'destination-in';
                 ctx.beginPath(); ctx.arc(w/2, h/2, (h/3) * pulse, 0, Math.PI * 2); ctx.fill();
                 ctx.globalCompositeOperation = 'source-over';
-            }
-            // Close punch/seismic transform block
-            if (_punch > 0.01 || Math.abs(_sX) > 0.1 || Math.abs(_sY) > 0.1) {
-                ctx.filter = 'none';
-                ctx.restore();
             }
         }
     }
@@ -3477,11 +3472,24 @@ function renderLoop(timestamp) {
                     gifOvEl.style.height = _lh + 'px';
                     gifOvEl.style.display = 'block';
                 }
-                // GIF recording: draw from body-level #user-logo-layer (Chrome animates there)
+                // GIF recording: intermediate canvas forces Chrome to re-composite current animation frame
+                if (!APP.layers._gifBlitCanvas) {
+                    var _gbc = document.createElement('canvas');
+                    _gbc.style.cssText = 'position:fixed;top:-1px;left:-1px;width:1px;height:1px;opacity:0.001;pointer-events:none;z-index:-1;';
+                    document.body.appendChild(_gbc);
+                    APP.layers._gifBlitCanvas = _gbc;
+                }
+                var _gbc = APP.layers._gifBlitCanvas;
+                var _gbcCtx = _gbc.getContext('2d');
+                if (_gbc.width !== logoImg.naturalWidth || _gbc.height !== logoImg.naturalHeight) {
+                    _gbc.width = logoImg.naturalWidth; _gbc.height = logoImg.naturalHeight;
+                }
+                _gbcCtx.clearRect(0, 0, _gbc.width, _gbc.height);
+                _gbcCtx.drawImage(logoImg, 0, 0);
                 ctx.save();
                 var _clw = logoImg.naturalWidth * _lsc2 * (w / 1920);
                 var _clh = logoImg.naturalHeight * _lsc2 * (h / 1080);
-                ctx.drawImage(logoImg, (T.logo.x || 0) * w, (T.logo.y || 0) * h, _clw, _clh);
+                ctx.drawImage(_gbc, (T.logo.x || 0) * w, (T.logo.y || 0) * h, _clw, _clh);
                 ctx.restore();
             }
         } else if (logoImg && logoImg.src && logoImg.src !== window.location.href && logoImg.naturalWidth > 0) {
@@ -3882,6 +3890,12 @@ function renderLoop(timestamp) {
     ctx.shadowColor = 'rgba(0,0,0,0.6)'; ctx.shadowBlur = sigFS / 8;
     ctx.fillText('VNGRD', w - (w * 0.01), h - (h * 0.01));
     ctx.restore();
+
+    // --- Close frame-level punch/seismic transform ---
+    if (_hasFX) {
+        ctx.filter = 'none';
+        ctx.restore();
+    }
 }
 
 function triggerImpact() { document.body.classList.remove('impact-flash'); void document.body.offsetWidth; document.body.classList.add('impact-flash'); setTimeout(() => document.body.classList.remove('impact-flash'), 200); }
