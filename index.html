@@ -872,7 +872,8 @@ body.shooting-mode #btn-shooting {
             60% { transform: translate(-2px, 3px); }
             80% { transform: translate(2px, -3px); }
         }
-        body.seismic-active { animation: seismic-shake 0.08s infinite; }
+        /* seismic-shake is now canvas-native; CSS kept for reference only */
+        body.seismic-active { }
         
     /* ═══ MIRROR COCKPIT — MOBILE ═══ */
 
@@ -1057,16 +1058,8 @@ body.fx-scan #stage::after {
     /* armed state — no infinite loop; kick detection drives .punch-hit */
 }
 
-/* One-shot fired by render loop on each kick drum hit */
-.punch-hit {
-    animation: punch-pulse 0.32s cubic-bezier(0, 1, 0, 1) forwards;
-}
-
-@keyframes punch-pulse {
-    0%   { transform: scale(1.025); filter: brightness(1.5); }
-    60%  { transform: scale(1.01);  filter: brightness(1.1); }
-    100% { transform: scale(1);     filter: brightness(1); }
-}
+/* punch-hit class kept for legacy compat — punch is now canvas-native */
+.punch-hit { }
 
 /* Ensure no FX overlay blocks clicks */
 .fx-punch::after, .punch-hit::after {
@@ -3267,36 +3260,33 @@ function renderLoop(timestamp) {
         document.body.classList.contains('fx-void') ||
         document.body.classList.contains('fx-lucy');
 
+    // --- SEISMIC: canvas-level translate (captured by captureStream) ---
     let finalShakeX = 0, finalShakeY = 0;
-
     if (APP.vj.rumbleEnabled && (APP.audio.isPlaying || APP.audio.videoSource) && APP.audio.bassLevel > 150) {
-        // Classic random shake on bass hits (like v22.1)
-        const intensity = (APP.audio.bassLevel - 150) / 100 * 8;
+        const intensity = (APP.audio.bassLevel - 150) / 105 * 6;
         finalShakeX = (Math.random() - 0.5) * intensity;
         finalShakeY = (Math.random() - 0.5) * intensity;
     }
+    APP.vj._canvasShakeX = finalShakeX;
+    APP.vj._canvasShakeY = finalShakeY;
+    // Clear any leftover body transform
+    if (document.body.style.transform) document.body.style.transform = '';
 
-    // Apply transform to BODY
-    const targetTransform = (Math.abs(finalShakeX) > 0.2 || Math.abs(finalShakeY) > 0.2)
-        ? `translate3d(${finalShakeX.toFixed(1)}px, ${finalShakeY.toFixed(1)}px, 0)`
-        : '';
-    if (document.body.style.transform !== targetTransform) {
-        document.body.style.transform = targetTransform;
-    }
-
-    // --- PUNCH FX — locked to kick drum ---
-    // Fires a one-shot CSS hit animation on each bass transient when armed
+    // --- PUNCH: canvas-level spring scale (captured by captureStream) ---
+    // _punchSpring: 0..1 spring value, decays per frame
+    if (typeof APP.vj._punchSpring === 'undefined') APP.vj._punchSpring = 0;
     if (document.body.classList.contains('fx-punch') &&
         (APP.audio.isPlaying || APP.audio.videoSource) &&
         APP.audio.bassLevel > 185 &&
         !window._punchCooldown) {
-        document.body.classList.add('punch-hit');
+        APP.vj._punchSpring = 1.0;   // kick fires the spring
         window._punchCooldown = true;
-        setTimeout(() => {
-            document.body.classList.remove('punch-hit');
-            window._punchCooldown = false;
-        }, 260);
+        setTimeout(() => { window._punchCooldown = false; }, 280);
+        // No CSS class needed — remove any stale ones
+        document.body.classList.remove('punch-hit');
     }
+    // Decay spring: fast attack already done at kick, smooth exponential release
+    APP.vj._punchSpring *= 0.72;
 
     // --- AUTONOMOUS PARTY MODE (audio-reactive via analyser) ---
     if (APP.vj.uiReactivity && APP.audio.bassLevel > 220 && Math.random() > 0.9) {
@@ -3323,6 +3313,20 @@ function renderLoop(timestamp) {
     if (source) {
         const ready = source.tagName === 'VIDEO' ? source.readyState >= 2 : (source.complete && source.naturalWidth > 0);
         if (ready) {
+            // --- PUNCH / SEISMIC: canvas-space transforms applied before source draw ---
+            var _punch = APP.vj._punchSpring || 0;
+            var _sX = APP.vj._canvasShakeX || 0, _sY = APP.vj._canvasShakeY || 0;
+            if (_punch > 0.01 || Math.abs(_sX) > 0.1 || Math.abs(_sY) > 0.1) {
+                ctx.save();
+                // Punch: scale from centre, max 1.018 (speaker bounce — never clips)
+                var _ps = 1 + _punch * 0.018;
+                ctx.translate(w * 0.5 + _sX, h * 0.5 + _sY);
+                ctx.scale(_ps, _ps);
+                ctx.translate(-w * 0.5, -h * 0.5);
+                // Punch brightness via filter
+                if (_punch > 0.05) ctx.filter = 'brightness(' + (1 + _punch * 0.55) + ')';
+            }
+
             // --- VIEWPORT-FIT: object-fit:contain logic for canvas ---
             // Computes centered, aspect-ratio-preserving draw rect (no stretching)
             // _effectiveWidth/_effectiveHeight = EXIF-corrected (mobile photo orientation)
@@ -3360,6 +3364,11 @@ function renderLoop(timestamp) {
                 ctx.globalCompositeOperation = 'destination-in';
                 ctx.beginPath(); ctx.arc(w/2, h/2, (h/3) * pulse, 0, Math.PI * 2); ctx.fill();
                 ctx.globalCompositeOperation = 'source-over';
+            }
+            // Close punch/seismic transform block
+            if (_punch > 0.01 || Math.abs(_sX) > 0.1 || Math.abs(_sY) > 0.1) {
+                ctx.filter = 'none';
+                ctx.restore();
             }
         }
     }
@@ -3448,6 +3457,14 @@ function renderLoop(timestamp) {
                     gifOvEl.style.height = _lh + 'px';
                     gifOvEl.style.display = 'block';
                 }
+                // ALSO blit current GIF frame to canvas so captureStream() records it
+                ctx.save();
+                var _clsc = T.logo.scale || 1;
+                var _clw = gifOvEl.naturalWidth * _clsc * (w / 1920);
+                var _clh = gifOvEl.naturalHeight * _clsc * (h / 1080);
+                var _clx = (T.logo.x || 0) * w, _cly = (T.logo.y || 0) * h;
+                ctx.drawImage(gifOvEl, _clx, _cly, _clw, _clh);
+                ctx.restore();
             }
         } else if (logoImg && logoImg.src && logoImg.src !== window.location.href && logoImg.naturalWidth > 0) {
             ctx.save();
