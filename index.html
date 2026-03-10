@@ -1520,7 +1520,14 @@ body.fullscreen #transcription-hud { opacity: 0 !important; pointer-events: none
     pointer-events: none !important; /* Clicks pass straight through this box */
     border: none !important;         /* Ensures no ghost borders appear */
     background: transparent !important;
-}#logo-gif-overlay { pointer-events: none !important; border: none !important; background: transparent !important; }</style>
+}#logo-gif-overlay { pointer-events: none !important; border: none !important; background: transparent !important; }#logo-gif-overlay {
+    pointer-events: none !important;
+    border: none !important;
+    background: transparent !important;
+    box-shadow: none !important;
+    outline: none !important;
+    z-index: 2500;
+}</style>
 </head>
 <body oncontextmenu="return false;">
     <!-- PORTRAIT ORIENTATION LOCK -->
@@ -3645,7 +3652,7 @@ function renderLoop(timestamp) {
         }
     }
     
-    // ACTOR 2: 2D LOGO
+   // --- OPTIMIZED ACTOR 2: 2D LOGO (NO THRASHING) ---
 if (T.logo.visible) {
     var logoImg = $('user-logo-layer');
     var gifOvEl = $('logo-gif-overlay');
@@ -3653,21 +3660,26 @@ if (T.logo.visible) {
     if (APP.layers.logo2dIsGif) {
         var _lsc2 = T.logo.scale || 1;
         if (gifOvEl && logoImg && logoImg.naturalWidth > 0) {
-            var _cnv = APP.render.canvas;
-            var _cr = _cnv ? _cnv.getBoundingClientRect() : null;
+            // Only calculate layout once to prevent lag
+            if (!APP.render._cachedRect) {
+                var _cnv = APP.render.canvas;
+                APP.render._cachedRect = _cnv ? _cnv.getBoundingClientRect() : null;
+            }
+            
+            var _cr = APP.render._cachedRect;
             if (_cr) {
                 var _sx = _cr.width / w, _sy = _cr.height / h;
                 var _lw = logoImg.naturalWidth * _lsc2 * (w / 1920) * _sx;
                 var _lh = logoImg.naturalHeight * _lsc2 * (h / 1080) * _sy;
-                gifOvEl.style.left   = ((T.logo.x || 0) * _cr.width)  + 'px';
-                gifOvEl.style.top    = ((T.logo.y || 0) * _cr.height) + 'px';
+                
+                // Use transform for hardware acceleration
+                gifOvEl.style.transform = `translate(${((T.logo.x || 0) * _cr.width)}px, ${((T.logo.y || 0) * _cr.height)}px)`;
                 gifOvEl.style.width  = _lw + 'px';
                 gifOvEl.style.height = _lh + 'px';
                 gifOvEl.style.display = 'block';
-                gifOvEl.style.pointerEvents = 'none'; // Extra safety
             }
             
-            // GIF recording logic
+            // Draw to canvas for recording
             ctx.save();
             var _clw = logoImg.naturalWidth * _lsc2 * (w / 1920);
             var _clh = logoImg.naturalHeight * _lsc2 * (h / 1080);
@@ -3686,16 +3698,12 @@ if (T.logo.visible) {
             ctx.restore();
         }
     } else {
-        // Not a GIF: Hide overlay and use standard drawImage
         if (gifOvEl) gifOvEl.style.display = 'none';
-        
-        if (logoImg && logoImg.src && logoImg.src !== window.location.href && logoImg.naturalWidth > 0) {
+        if (logoImg && logoImg.naturalWidth > 0) {
             ctx.save();
-            var lScale = T.logo.scale;
-            var lw = logoImg.naturalWidth * lScale * (w / 1920);
-            var lh = logoImg.naturalHeight * lScale * (h / 1080);
-            var lx = T.logo.x * w, ly = T.logo.y * h;
-            ctx.drawImage(logoImg, lx, ly, lw, lh);
+            var lw = logoImg.naturalWidth * (T.logo.scale || 1) * (w / 1920);
+            var lh = logoImg.naturalHeight * (T.logo.scale || 1) * (h / 1080);
+            ctx.drawImage(logoImg, (T.logo.x || 0) * w, (T.logo.y || 0) * h, lw, lh);
             ctx.restore();
         }
     }
@@ -9872,6 +9880,7 @@ if (btn3dX) {
     }
 
     /* ── Boot ─────────────────────────────────────────────────────────── */
+    window.addEventListener('resize', () => { APP.render._cachedRect = null; });
     connect();
 
 }()); 
