@@ -172,7 +172,7 @@
         body.fullscreen #stage { position: fixed; inset: 0; z-index: 9999; border: none; }
         body.fullscreen .sidebar, body.fullscreen #top-bar, body.fullscreen #bottom-bar, body.fullscreen #ghost-terminal { opacity: 0; pointer-events: none; }
 
-        #lower-third { position: absolute; bottom: 8%; left: 20px; }
+        #lower-third { display: none !important; }
         .lt-container { 
             display: flex; flex-direction: column; 
             background: linear-gradient(90deg, rgba(0,0,0,0.9) 0%, rgba(0,0,0,0.7) 100%);
@@ -986,9 +986,8 @@ body.shooting-mode #btn-shooting {
         }
         body.seismic-active { animation: none !important; }
 
-        /* P2P modal: fit landscape mobile */
-        #p2p-modal { right: 6px !important; left: auto !important; width: 220px !important; }
-        #p2p-video-wrap { aspect-ratio: 16/9 !important; }
+        /* P2P modal: fit mobile viewport */
+        #p2p-modal { right: 10px !important; left: 10px !important; width: auto !important; }
 
         /* Ghost terminal: constrain to mobile viewport + visible close button */
         #ghost-terminal {
@@ -999,33 +998,6 @@ body.shooting-mode #btn-shooting {
         }
         #ghost-close-btn { display: block !important; }
         #top-center-controls button { font-size: 7px; padding: 2px 7px; }
-    }
-
-    /* PORTRAIT MOBILE — compact P2P panel anchored top-right, never blocks UI */
-    @media (max-width: 768px) and (orientation: portrait) {
-        #p2p-modal {
-            top: 4px !important;
-            right: 4px !important;
-            left: auto !important;
-            width: 200px !important;
-        }
-        #p2p-titlebar { padding: 4px 8px !important; }
-        #p2p-body { padding: 7px 8px 8px !important; }
-        /* Peer ID input: ensure full text readable */
-        #peer-id-display { font-size: 8px !important; padding: 3px 4px !important; }
-        #btn-copy-id { font-size: 6px !important; padding: 2px 0 !important; margin-bottom: 5px !important; }
-        #remote-peer-id { font-size: 8px !important; padding: 3px 4px !important; margin-bottom: 6px !important; }
-        /* Buttons: smaller but still tappable */
-        #btn-init-peer, #btn-call-guest, #btn-hangup { font-size: 8px !important; padding: 6px 0 !important; }
-        /* Video when connected: standard ratio, full panel width */
-        #p2p-video-wrap { aspect-ratio: 16/9 !important; margin-bottom: 6px !important; }
-        /* Status label */
-        #p2p-conn-label { font-size: 6px !important; }
-        /* Lower thirds */
-        #lower-third { bottom: 12% !important; left: 8px !important; }
-        .lt-container { min-width: 160px !important; max-width: 260px !important; padding: 6px 12px 6px 8px !important; }
-        .lt-title { font-size: 12px !important; }
-        .lt-subtitle { font-size: 8px !important; }
     }
 
 /* --- KINETIC SHUTTER TRANSITION --- */
@@ -6110,36 +6082,19 @@ document.addEventListener('DOMContentLoaded', () => {
         $('cycle-slider-wrap').style.display = APP.state.isCycle ? 'block' : 'none';
     };
 
-    // ── Centralized LT Controller ──
-    // All LT triggers (sidebar buttons, text edits, style changes) flow through
-    // handleUISync so there is a single code path for animation + state.
-    // sendLT also broadcasts to the peer via sendUISync.
-    function sendLT(preset) {
-        var title    = $('lt-title-text')  ? $('lt-title-text').textContent   : ($('lt-title').value || '');
-        var subtitle = $('lt-subtitle-text') ? $('lt-subtitle-text').textContent : ($('lt-sub').value  || '');
-        var payload  = { action: 'show', preset: preset, title: title, subtitle: subtitle };
-        handleUISync({ type: 'UI_SYNC', target: 'LOWER_THIRD', payload: payload });
-        sendUISync('LOWER_THIRD', payload);
-    }
-    function hideLT() {
-        var payload = { action: 'hide' };
-        handleUISync({ type: 'UI_SYNC', target: 'LOWER_THIRD', payload: payload });
-        sendUISync('LOWER_THIRD', payload);
-    }
-
-    ['guest', 'track', 'breaking', 'neon', 'split', 'scan'].forEach(function(m) {
+    ['guest','track','breaking'].forEach(function(m) {
         var el = $('btn-lt-' + m); if (!el) return;
-        el.onclick = function() { sendLT(m); };
+        el.onclick = function() { showLowerThird(m); sendUISync('LOWER_THIRD', { action:'show', preset: APP.lowerThird.preset, title: $('lt-title-text').textContent, subtitle: $('lt-subtitle-text').textContent }); };
     });
-    $('btn-lt-off').onclick = hideLT;
+    $('btn-lt-off').onclick = () => { hideLowerThird(); sendUISync('LOWER_THIRD', { action: 'hide' }); };
     if ($('lt-style-select')) $('lt-style-select').onchange = function() {
         APP.lowerThird.ltStyle = this.value;
-        if (APP.lowerThird.visible) { sendLT(APP.lowerThird.preset || 'guest'); }
+        if (APP.lowerThird.visible) { showLowerThird(APP.lowerThird.mode || 'guest'); sendUISync('LOWER_THIRD', { action:'show', preset: APP.lowerThird.preset, title: $('lt-title-text').textContent, subtitle: $('lt-subtitle-text').textContent }); }
     };
     if ($('lt-color')) $('lt-color').oninput = function() { APP.lowerThird.ltColor = this.value; var d=$('lt-color-dot'); if(d){d.style.background=this.value;d.style.boxShadow='0 0 5px '+this.value;} };
     if ($('bug-color')) $('bug-color').oninput = function() { APP.bug.color=this.value; var d=$('bug-color-dot'); if(d){d.style.background=this.value;d.style.boxShadow='0 0 5px '+this.value;} };
-    $('lt-title').oninput = e => { if (APP.lowerThird.visible) { $('lt-title-text').textContent = e.target.value; sendLT(APP.lowerThird.preset); } };
-    $('lt-sub').oninput   = e => { if (APP.lowerThird.visible) { $('lt-subtitle-text').textContent = e.target.value; sendLT(APP.lowerThird.preset); } };
+    $('lt-title').oninput = e => { if (APP.lowerThird.visible) { $('lt-title-text').textContent = e.target.value; sendUISync('LOWER_THIRD', { action: 'show', preset: APP.lowerThird.preset, title: $('lt-title-text').textContent, subtitle: $('lt-subtitle-text').textContent }); } };
+    $('lt-sub').oninput = e => { if (APP.lowerThird.visible) { $('lt-subtitle-text').textContent = e.target.value; sendUISync('LOWER_THIRD', { action: 'show', preset: APP.lowerThird.preset, title: $('lt-title-text').textContent, subtitle: $('lt-subtitle-text').textContent }); } };
     $('btn-audio').onclick = () => { igniteAudio(); $('file-audio').click(); }; $('file-audio').onchange = e => loadAudioFiles(e.target);
 
     $('btn-mute-vid').onclick = () => {
@@ -7270,14 +7225,13 @@ document.addEventListener('DOMContentLoaded', () => {
 
 // Helper to reset buttons to default state
 const resetP2PButtons = () => {
-    var btnCall = $('btn-call-guest');
-    btnCall.textContent = 'CALL';
-    btnCall.style.borderColor = '';
-    btnCall.style.color = 'var(--c,#0ff)';
-
+    $('btn-call-guest').textContent = 'CALL';
+    $('btn-call-guest').style.borderColor = 'var(--text-main)';
+    $('btn-call-guest').style.color = 'var(--text-main)';
+    
     $('btn-init-peer').textContent = 'INIT';
-    $('btn-init-peer').style.display = '';
-
+    $('btn-init-peer').style.display = 'inline-block';
+    
     // Clear the temp incoming call object
     if (APP.peer) APP.peer.incomingCall = null;
 };
@@ -7459,52 +7413,44 @@ $('btn-init-peer').onclick = () => {
         
         APP.peer.peer.on('open', (id) => {
             $('peer-id-display').value = id;
-            $('call-status').textContent = 'READY';
+            if ($('guest-dot')) $('guest-dot').classList.remove('off');
+            $('call-status').textContent = 'READY TO CALL';
             $('call-status').style.color = 'var(--g)';
-            if ($('p2p-conn-label')) $('p2p-conn-label').textContent = 'NODE\u00a0READY';
-            $('btn-init-peer').textContent = 'ON';
-            $('btn-init-peer').style.color = 'var(--g,#0f8)';
             log('PEER: ' + id);
         });
         
         APP.peer.peer.on('error', (err) => {
             log('PEER ERROR: ' + err.type);
-            $('call-status').textContent = 'ERR:' + err.type;
+            $('call-status').textContent = 'ERR: ' + err.type;
             $('call-status').style.color = 'var(--r)';
-            if ($('p2p-conn-label')) $('p2p-conn-label').textContent = 'ERROR';
-            // Auto-cleanup on fatal errors
-            if (err.type === 'network' || err.type === 'server-error' || err.type === 'socket-error') {
-                stopP2PRing();
-            }
         });
         
         // --- INCOMING CALL HANDLER (Non-Blocking) ---
         APP.peer.peer.on('call', (call) => {
             log('INCOMING_CALL FROM ' + call.peer);
-
-            // 1. Store the call — user must click ACCEPT to answer
+            
+            // 1. Store the call object but DO NOT answer yet
             APP.peer.incomingCall = call;
+            
+            // 2. Update UI to "Ringing" Mode
+            $('call-status').textContent = 'RINGING... (' + call.peer + ')';
+            $('call-status').style.color = 'var(--y)'; // Yellow for caution
 
-            // 2. Update status UI
-            $('call-status').textContent = 'INCOMING...';
-            $('call-status').style.color = 'var(--y)';
-            if ($('p2p-conn-label')) $('p2p-conn-label').textContent = 'RINGING';
-            if ($('p2p-overlay-txt')) $('p2p-overlay-txt').textContent = 'INCOMING\u00a0CALL';
-
-            // 3. Auto-open the P2P panel so user sees it
+            // 2b. Auto-open the P2P panel so user sees incoming call
             $('p2p-modal').style.display = 'block';
             $('p2p-body').style.display = '';
-            $('p2p-titlebar').style.borderRadius = '5px 5px 0 0';
-            $('p2p-titlebar').style.borderBottom = 'none';
 
-            // 4. Play ring tone
+            // 2c. Play ring tone
             startP2PRing();
 
-            // 5. Turn CALL button into ACCEPT
+            // 3. Turn the "CALL" button into an "ACCEPT" button
             const btnCall = $('btn-call-guest');
-            btnCall.textContent = 'ACCEPT';
-            btnCall.style.borderColor = 'var(--g,#0f8)';
-            btnCall.style.color = 'var(--g,#0f8)';
+            btnCall.textContent = 'ACCEPT CALL';
+            btnCall.style.borderColor = 'var(--g)';
+            btnCall.style.color = 'var(--g)';
+            
+            // 4. Play a ring sound if you have one (optional)
+            // new Audio('assets/ring.mp3').play().catch(e => {});
         });
 
         // --- INCOMING DATA CONNECTION (Guest Side) ---
@@ -7554,96 +7500,62 @@ $('btn-call-guest').onclick = async () => {
         return;
     }
 
-    // Helper: show local camera in the PiP slot of the panel
-    function startLocalPreview(stream) {
-        const localVid = $('p2p-local-video-el');
-        if (localVid) {
-            localVid.srcObject = stream;
-            localVid.muted = true;              // CRITICAL: no mic echo
-            localVid.style.transform = 'scaleX(-1)'; // Mirror — natural camera feel
-            localVid.style.objectFit = 'cover'; // Fill PiP box without letterbox
-            localVid.style.display = 'block';   // Reveal PiP (HTML width:27% preserved)
-            localVid.play().catch(() => {});
-        }
-    }
-    // Helper: build the outgoing stream (canvas + mic, falling back to raw cam)
-    function buildOutgoingStream(rawStream) {
-        var out = new MediaStream();
-        // Video: prefer canvas capture so guest sees full VJ output
-        var vidTrack = null;
-        try {
-            if (APP.render && APP.render.canvas) {
-                var captured = APP.render.canvas.captureStream(30);
-                vidTrack = captured.getVideoTracks()[0] || null;
-            }
-        } catch(e) { vidTrack = null; }
-        // Fallback: raw camera track
-        if (!vidTrack) vidTrack = rawStream.getVideoTracks()[0] || null;
-        if (vidTrack) out.addTrack(vidTrack);
-        // Audio: mic track
-        var micTrack = rawStream.getAudioTracks()[0] || null;
-        if (micTrack) out.addTrack(micTrack);
-        return out;
-    }
-
     // SCENARIO A: ANSWERING AN INCOMING CALL
     if (APP.peer.incomingCall) {
         try {
             log('ANSWERING CALL...');
             $('call-status').textContent = 'CONNECTING...';
-            stopP2PRing();
 
-            // 1. Acquire local media (facingMode required for iOS Safari)
+            // 1. Get Local Media — facingMode required for iOS Safari
             const audioConstraints = APP.inputDevices.selectedId
                 ? { deviceId: { exact: APP.inputDevices.selectedId }, echoCancellation: false, noiseSuppression: false, autoGainControl: false, channelCount: 2 }
                 : { echoCancellation: false, noiseSuppression: false, autoGainControl: false, channelCount: 2 };
 
             const stream = await navigator.mediaDevices.getUserMedia({
-                video: { facingMode: 'user', width: { ideal: 1280 }, height: { ideal: 720 }, frameRate: { ideal: 30 } },
+                video: { facingMode: 'user', width: { ideal: 640 }, height: { ideal: 480 }, frameRate: { ideal: 30 } },
                 audio: audioConstraints
             });
+
             APP.peer.localStream = stream;
 
-            // 2. Show local feed in panel PiP
-            startLocalPreview(stream);
+            // 2. Build composite stream: canvas video + mic audio
+            // This makes the guest see your full canvas (graphics, lower thirds, effects)
+            var compositeAnswer = new MediaStream();
+            if (APP.render && APP.render.canvas) {
+                var canvasVidTrack = APP.render.canvas.captureStream(30).getVideoTracks()[0];
+                if (canvasVidTrack) compositeAnswer.addTrack(canvasVidTrack);
+            } else {
+                // Fallback: raw camera if canvas not ready
+                var rawVid = stream.getVideoTracks()[0];
+                if (rawVid) compositeAnswer.addTrack(rawVid);
+            }
+            var micTrackA = stream.getAudioTracks()[0];
+            if (micTrackA) compositeAnswer.addTrack(micTrackA);
 
-            // 2b. Route local mic through Web Audio for recording bake-in
-            // Connects mic directly to Compositor audioDest (not to speakers — no echo).
-            try {
-                const micTrack = stream.getAudioTracks()[0];
-                if (micTrack && APP.compositor && APP.compositor.audioDest && APP.audio.ctx) {
-                    if (APP.peer.micRecSrc) { try { APP.peer.micRecSrc.disconnect(); } catch(e) {} }
-                    const micStream = new MediaStream([micTrack]);
-                    const micRecGain = APP.audio.ctx.createGain();
-                    micRecGain.gain.value = 0.85;
-                    APP.peer.micRecSrc = APP.audio.ctx.createMediaStreamSource(micStream);
-                    APP.peer.micRecSrc.connect(micRecGain);
-                    micRecGain.connect(APP.compositor.audioDest);
-                    APP.peer.micRecGain = micRecGain;
-                    log('MIC: ROUTED_TO_RECORDING');
-                }
-            } catch(e) { log('MIC_ROUTE_ERR: ' + e.message); }
-
-            // 3. Build composite outgoing stream and answer
+            // 3. Answer the staged call with the canvas stream
             const call = APP.peer.incomingCall;
-            call.answer(buildOutgoingStream(stream));
-
-            // 4. Wire up stream + close/error handlers
+            call.answer(compositeAnswer);
+            
+            // 3. Handle the stream when it arrives
             handleCallStream(call);
 
-            // 5. Clear staging flag
-            APP.peer.incomingCall = null;
+            // 4. Data channel: the caller already did peer.connect() which
+            // triggers our peer.on('connection') handler — that sets
+            // APP.peer.dataConn for bidirectional send/receive. No reverse
+            // connect needed (creating one causes a race that overwrites
+            // the working connection).
 
+            // 5. Cleanup UI
+            APP.peer.incomingCall = null; // Clear staging
+            
         } catch (e) {
             log('ANSWER ERROR: ' + e.message);
-            $('call-status').textContent = 'ERR: ' + e.message;
-            $('call-status').style.color = 'var(--r)';
             resetP2PButtons();
         }
         return;
     }
 
-    // SCENARIO B: MAKING A NEW OUTGOING CALL
+    // SCENARIO B: MAKING A NEW CALL
     const remoteId = $('remote-peer-id').value.trim();
     if (!remoteId) {
         alert('ENTER_GUEST_ID_TO_CALL');
@@ -7660,36 +7572,28 @@ $('btn-call-guest').onclick = async () => {
             : { echoCancellation: false, noiseSuppression: false, autoGainControl: false, channelCount: 2 };
 
         const stream = await navigator.mediaDevices.getUserMedia({
-            video: { facingMode: 'user', width: { ideal: 1280 }, height: { ideal: 720 }, frameRate: { ideal: 30 } },
+            video: { facingMode: 'user', width: { ideal: 640 }, height: { ideal: 480 }, frameRate: { ideal: 30 } },
             audio: audioConstraints
         });
         APP.peer.localStream = stream;
 
-        // Show local feed in PiP while waiting for answer
-        startLocalPreview(stream);
+        // Build composite stream: canvas video + mic audio
+        // Guest will see your full canvas output (graphics, lower thirds, VJ effects)
+        var compositeCall = new MediaStream();
+        if (APP.render && APP.render.canvas) {
+            var canvasVidTrackC = APP.render.canvas.captureStream(30).getVideoTracks()[0];
+            if (canvasVidTrackC) compositeCall.addTrack(canvasVidTrackC);
+        } else {
+            var rawVidC = stream.getVideoTracks()[0];
+            if (rawVidC) compositeCall.addTrack(rawVidC);
+        }
+        var micTrackC = stream.getAudioTracks()[0];
+        if (micTrackC) compositeCall.addTrack(micTrackC);
 
-        // Route local mic through Web Audio for recording bake-in
-        // Connects mic directly to Compositor audioDest (not to speakers — no echo).
-        try {
-            const micTrack = stream.getAudioTracks()[0];
-            if (micTrack && APP.compositor && APP.compositor.audioDest && APP.audio.ctx) {
-                if (APP.peer.micRecSrc) { try { APP.peer.micRecSrc.disconnect(); } catch(e) {} }
-                const micStream = new MediaStream([micTrack]);
-                const micRecGain = APP.audio.ctx.createGain();
-                micRecGain.gain.value = 0.85;
-                APP.peer.micRecSrc = APP.audio.ctx.createMediaStreamSource(micStream);
-                APP.peer.micRecSrc.connect(micRecGain);
-                micRecGain.connect(APP.compositor.audioDest);
-                APP.peer.micRecGain = micRecGain;
-                log('MIC: ROUTED_TO_RECORDING');
-            }
-        } catch(e) { log('MIC_ROUTE_ERR: ' + e.message); }
-
-        // Build composite stream and place the call
-        const call = APP.peer.peer.call(remoteId, buildOutgoingStream(stream));
+        const call = APP.peer.peer.call(remoteId, compositeCall);
         handleCallStream(call);
 
-        // ── Parallel data channel for UI sync ──
+        // --- Establish parallel Data Channel for UI sync ---
         const dataConn = APP.peer.peer.connect(remoteId);
         dataConn.on('open', () => {
             APP.peer.dataConn = dataConn;
@@ -7718,80 +7622,32 @@ $('btn-call-guest').onclick = async () => {
 
 // Shared Logic for both Incoming and Outgoing calls
 function handleCallStream(call) {
-    APP.peer.call = call;
-
     call.on('stream', (remoteStream) => {
-        // ── Ghost Bridge: a hidden off-screen video element that feeds the canvas ──
-        // The visible #p2p-remote-video-el stays for the in-panel preview only.
-        // The render loop reads APP.guest.videoElement (the ghost bridge), so
-        // the Guest appears on the main workstation canvas but never causes a
-        // routing conflict with the floating panel view.
-        var ghostBridge = $('p2p-ghost-bridge');
-        if (!ghostBridge) {
-            ghostBridge = document.createElement('video');
-            ghostBridge.id = 'p2p-ghost-bridge';
-            ghostBridge.setAttribute('autoplay', '');
-            ghostBridge.setAttribute('playsinline', '');
-            ghostBridge.muted = true; // Muted — audio handled via Web Audio chain below
-            ghostBridge.style.cssText = 'position:fixed;width:1px;height:1px;opacity:0.001;pointer-events:none;z-index:-1;';
-            document.body.appendChild(ghostBridge);
-        }
-        ghostBridge.srcObject = remoteStream;
-        ghostBridge.play().catch(function() {});
-
-        // ── Route guest audio through Web Audio compressor chain ──
-        // This mixes guest voice into masterGain so it is captured by the
-        // Compositor's audioDest and baked into the recording. The ghost bridge
-        // video stays muted to avoid double-audio. The in-panel remoteVid (below)
-        // plays unmuted for the broadcaster's monitoring headphones.
-        if (APP.audio && APP.audio.ctx && APP.audio.compressor) {
-            try {
-                if (APP.peer.remoteAudioSrc) {
-                    try { APP.peer.remoteAudioSrc.disconnect(); } catch(e) {}
-                }
-                APP.peer.remoteAudioSrc = APP.audio.ctx.createMediaStreamSource(remoteStream);
-                APP.peer.remoteAudioSrc.connect(APP.audio.compressor);
-                log('GUEST_AUDIO: ROUTED_-18dB_COMPRESSOR');
-            } catch(e) {
-                log('GUEST_AUDIO_ERR: ' + e.message);
-            }
+        // Ensure video element exists — must be in DOM for iOS Safari to play
+        if (!APP.guest.videoElement) {
+            APP.guest.videoElement = document.createElement('video');
+            APP.guest.videoElement.id = 'p2p-remote-video';
+            APP.guest.videoElement.setAttribute('autoplay', '');
+            APP.guest.videoElement.setAttribute('playsinline', '');
+            APP.guest.videoElement.muted = false;
+            // Off-screen but large enough for browser to actually decode
+            APP.guest.videoElement.style.cssText = 'position:fixed;top:-9999px;left:-9999px;width:320px;height:240px;pointer-events:none;z-index:-1;';
+            document.body.appendChild(APP.guest.videoElement);
         }
 
-        // ── Assign ghost bridge as the render loop's canvas source ──
-        APP.guest.videoElement = ghostBridge;
+        // Remote stream plays via HTML5 video element.
+        // DO NOT route into APP.audio.ctx or masterGain — creates echo.
+        APP.guest.videoElement.srcObject = remoteStream;
         APP.guest.stream = remoteStream;
         APP.guest.isActive = true;
 
-        // ── Panel preview: show the remote stream in the in-panel video element ──
-        // This is for the broadcaster's eyes only and is NOT used for canvas rendering.
-        var remoteVid = $('p2p-remote-video-el');
-        if (remoteVid) {
-            remoteVid.srcObject = remoteStream;
-            remoteVid.muted = false; // Unmuted so broadcaster can monitor guest audio
-            remoteVid.play().catch(function(e) {
-                document.addEventListener('touchstart', function _retry() {
-                    remoteVid.play().catch(function() {});
-                    document.removeEventListener('touchstart', _retry);
-                }, { once: true });
-            });
-        }
-
-        // Auto-reveal video section when stream arrives
-        var vw = $('p2p-video-wrap');
-        if (vw) vw.style.display = 'block';
-
-        // Update panel UI
-        var overlay = $('p2p-video-overlay');
-        if (overlay) overlay.style.display = 'none';
-        var liveBadge = $('p2p-live-badge');
-        if (liveBadge) { liveBadge.style.display = 'block'; liveBadge.textContent = '\u25cf\u00a0LIVE'; liveBadge.style.background = 'var(--r,#f33)'; }
-        if ($('guest-dot')) $('guest-dot').classList.remove('off');
-        if ($('p2p-conn-label')) $('p2p-conn-label').textContent = 'P2P\u00a0ACTIVE';
+        // iOS Safari requires explicit play() after srcObject assignment
+        APP.guest.videoElement.play().catch(function(e) { log('GUEST_PLAY_ERR: ' + e.message); });
 
         stopP2PRing();
         $('call-status').textContent = 'CONNECTED';
         $('call-status').style.color = 'var(--g)';
-        $('btn-call-guest').textContent = 'ACTIVE';
+        $('btn-call-guest').textContent = 'CALL (ACTIVE)';
 
         log('CALL_ESTABLISHED_WITH: ' + call.peer);
     });
@@ -7799,6 +7655,7 @@ function handleCallStream(call) {
     call.on('close', () => {
         // Delay cleanup slightly — PeerJS fires 'close' on transient ICE restarts
         setTimeout(() => {
+            // Only clean up if the call is truly dead (no new call replaced it)
             if (APP.peer && APP.peer.call === call) {
                 endCallCleanup();
             }
@@ -7809,6 +7666,8 @@ function handleCallStream(call) {
         log('CALL_ERROR: ' + err);
         endCallCleanup();
     });
+
+    APP.peer.call = call;
 }
 
 // ═══ P2P ORIENTATION / VISIBILITY RESILIENCE ═══
@@ -7966,73 +7825,30 @@ function handleUISync(msg) {
 
 function endCallCleanup() {
     stopP2PRing();
-
-    // Stop local media tracks
     if (APP.peer && APP.peer.localStream) {
         APP.peer.localStream.getTracks().forEach(t => t.stop());
     }
     if (APP.peer && APP.peer.dataConn) {
-        try { APP.peer.dataConn.close(); } catch(e) {}
+        APP.peer.dataConn.close();
         APP.peer.dataConn = null;
     }
 
-    // ── Tear down Ghost Bridge (canvas source) ──
-    var ghostBridge = $('p2p-ghost-bridge');
-    if (ghostBridge) { ghostBridge.srcObject = null; }
-
-    // ── Disconnect guest audio from Web Audio chain ──
-    if (APP.peer && APP.peer.remoteAudioSrc) {
-        try { APP.peer.remoteAudioSrc.disconnect(); } catch(e) {}
-        APP.peer.remoteAudioSrc = null;
+    // Remove hidden video element from DOM (cleanup for iOS)
+    if (APP.guest.videoElement) {
+        APP.guest.videoElement.srcObject = null;
+        if (APP.guest.videoElement.parentNode) APP.guest.videoElement.parentNode.removeChild(APP.guest.videoElement);
+        APP.guest.videoElement = null;
     }
 
-    // ── Disconnect local mic from recording chain ──
-    if (APP.peer && APP.peer.micRecGain) {
-        try { APP.peer.micRecGain.disconnect(); } catch(e) {}
-        APP.peer.micRecGain = null;
-    }
-    if (APP.peer && APP.peer.micRecSrc) {
-        try { APP.peer.micRecSrc.disconnect(); } catch(e) {}
-        APP.peer.micRecSrc = null;
-    }
-
-    // ── Clear in-panel video elements and hide video section ──
-    var remoteVid = $('p2p-remote-video-el');
-    if (remoteVid) { remoteVid.srcObject = null; remoteVid.load(); }
-
-    var localVid = $('p2p-local-video-el');
-    if (localVid) { localVid.srcObject = null; localVid.style.display = 'none'; }
-
-    // Hide the video wrap again (compact view when not in call)
-    var vw = $('p2p-video-wrap');
-    if (vw) vw.style.display = 'none';
-
-    // Reset overlay text for next call
-    var overlay = $('p2p-video-overlay');
-    if (overlay) overlay.style.display = 'flex';
-    var liveBadge = $('p2p-live-badge');
-    if (liveBadge) liveBadge.style.display = 'none';
-    var overlayTxt = $('p2p-overlay-txt');
-    if (overlayTxt) {
-        overlayTxt.textContent = 'CALL\u00a0ENDED';
-        setTimeout(function() { if (overlayTxt) overlayTxt.textContent = 'AWAITING\u00a0SIGNAL'; }, 3000);
-    }
-
-    // Clear guest state
     APP.guest.isActive = false;
     APP.guest.stream = null;
-    APP.guest.videoElement = null;
-
     if (APP.peer) {
         APP.peer.call = null;
         APP.peer.incomingCall = null;
-        APP.peer.localStream = null;
     }
 
     $('call-status').textContent = 'DISCONNECTED';
     $('call-status').style.color = 'var(--text-dim)';
-    if ($('guest-dot')) $('guest-dot').classList.add('off');
-    if ($('p2p-conn-label')) $('p2p-conn-label').textContent = 'P2P\u00a0OFFLINE';
 
     resetP2PButtons();
     log('CALL_ENDED_CLEANUP');
@@ -9625,7 +9441,57 @@ if (btn3dX) {
         }
     });
 }
-</script>
+// --- AUDIO HARDWARE SCAN ENGINE ---
+    // --- HARDWARE SCANNER: COPIED FROM TEST.HTML ---
+(function() {
+    const btnScan = document.getElementById('btn-scan-inputs');
+    const selInput = document.getElementById('audio-input-select');
+
+    if (btnScan) {
+        btnScan.onclick = async function() {
+            try {
+                // 1. PRIME: Request stream to unlock the real hardware names on the Mac
+                const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+                
+                // 2. ENUMERATE: Now that labels are unlocked, get the real names
+                const devices = await navigator.mediaDevices.enumerateDevices();
+                const audioInputs = devices.filter(d => d.kind === 'audioinput');
+                
+                if (selInput) {
+                    selInput.innerHTML = '<option value="">SELECT_HARDWARE...</option>';
+                    audioInputs.forEach(d => {
+                        const opt = document.createElement('option');
+                        opt.value = d.deviceId;
+                        // This will now show "MacBook Pro Microphone" instead of "Input 1"
+                        opt.text = d.label || 'HARDWARE_INPUT_' + (selInput.length);
+                        selInput.appendChild(opt);
+                    });
+                    
+                    // Reveal the menu now that it has real names
+                    selInput.style.display = 'block'; 
+                    
+                    // 3. CLEANUP: Stop the temp stream so the red recording dot goes away
+                    stream.getTracks().forEach(t => t.stop());
+                    
+                    if (typeof ghostLog === 'function') ghostLog('AUDIO: HARDWARE_LABELS_UNLOCKED', 'ok');
+                }
+            } catch (e) { 
+                if (typeof ghostLog === 'function') ghostLog('SCAN_ERR: ' + e.message, 'crit'); 
+            }
+        };
+    }
+
+    if (selInput) {
+        selInput.onchange = function() {
+            const deviceId = selInput.value;
+            if (deviceId && typeof startMicCapture === 'function') {
+                if (typeof ghostLog === 'function') ghostLog('AUDIO: SWITCHING_TO_HARDWARE', 'ai');
+                // Triggers the workstation mic engine with the specific Mac/AudioCard ID
+                startMicCapture(deviceId); 
+            }
+        };
+    }
+})();</script>
 
     <!-- gif-host: DIRECT child of <body>, NOT inside #stage.
          #stage has transform:translate3d(0,0,0) which creates a containing block for
@@ -9639,49 +9505,27 @@ if (btn3dX) {
     <div id="p2p-modal" style="display:none;position:fixed;top:52px;right:210px;z-index:5000;width:240px;font-family:inherit;">
         <!-- TITLE BAR (drag handle + controls) -->
         <div id="p2p-titlebar" style="display:flex;align-items:center;justify-content:space-between;background:rgba(20,20,20,0.98);border:1px solid var(--c,#0ff);border-bottom:none;border-radius:5px 5px 0 0;padding:5px 10px;cursor:grab;user-select:none;">
-            <span style="font-size:9px;letter-spacing:1.5px;color:var(--c,#0ff);text-transform:uppercase;white-space:nowrap;">&#9742; P2P CALL</span>
-            <span style="display:flex;gap:6px;align-items:center;">
-                <span id="call-status" style="font-size:7px;color:var(--text-dim,#505058);white-space:nowrap;max-width:72px;overflow:hidden;text-overflow:ellipsis;">NOT_CONNECTED</span>
-                <span id="p2p-dot" class="dot off" style="margin:0;flex-shrink:0;"></span>
-                <button id="btn-min-p2p" style="background:none;border:none;color:var(--text-dim,#666);cursor:pointer;font-size:13px;line-height:1;padding:0;font-family:inherit;" title="Minimize">&#9604;</button>
-                <button id="btn-close-p2p-modal" style="background:none;border:none;color:var(--text-dim,#666);cursor:pointer;font-size:15px;line-height:1;padding:0;font-family:inherit;" title="Close">&times;</button>
+            <span style="font-size:9px;letter-spacing:1.5px;color:var(--c,#0ff);text-transform:uppercase;">&#9742; P2P CALL</span>
+            <span style="display:flex;gap:8px;align-items:center;">
+                <span id="p2p-dot" class="dot off" style="margin:0;"></span>
+                <button id="btn-min-p2p" style="background:none;border:none;color:var(--text-dim,#666);cursor:pointer;font-size:14px;line-height:1;padding:0;font-family:inherit;" title="Minimize">&#9604;</button>
+                <button id="btn-close-p2p-modal" style="background:none;border:none;color:var(--text-dim,#666);cursor:pointer;font-size:14px;line-height:1;padding:0;font-family:inherit;" title="Close">&times;</button>
             </span>
         </div>
         <!-- BODY (collapsible) -->
-        <div id="p2p-body" style="position:relative;background:rgba(10,10,10,0.97);border:1px solid var(--c,#0ff);border-top:1px solid rgba(255,255,255,0.05);border-radius:0 0 5px 5px;padding:10px 10px 10px;">
-
-            <!-- VIDEO SECTION — hidden until stream arrives, auto-shown on connect -->
-            <div id="p2p-video-wrap" style="display:none;position:relative;width:100%;aspect-ratio:16/9;background:#000;border:1px solid rgba(0,243,255,0.2);border-radius:3px;overflow:hidden;margin-bottom:8px;">
-                <video id="p2p-remote-video-el" autoplay playsinline style="position:absolute;inset:0;width:100%;height:100%;object-fit:cover;"></video>
-                <video id="p2p-local-video-el" autoplay playsinline muted style="position:absolute;bottom:4px;right:4px;width:27%;aspect-ratio:4/3;border:1px solid var(--c,#0ff);border-radius:2px;background:#000;display:none;z-index:2;"></video>
-                <div id="p2p-video-overlay" style="position:absolute;inset:0;display:flex;align-items:center;justify-content:center;pointer-events:none;background:rgba(0,0,0,0.5);">
-                    <span id="p2p-overlay-txt" style="font-size:7px;letter-spacing:2px;color:rgba(0,243,255,0.3);text-transform:uppercase;">AWAITING&nbsp;SIGNAL</span>
-                </div>
-                <div id="p2p-live-badge" style="display:none;position:absolute;top:4px;left:4px;font-size:6px;letter-spacing:1px;color:#000;background:var(--r,#f33);padding:2px 4px;border-radius:2px;font-weight:bold;z-index:3;">&#9679;&nbsp;LIVE</div>
+        <div id="p2p-body" style="position:relative;background:rgba(10,10,10,0.97);border:1px solid var(--c,#0ff);border-top:1px solid rgba(255,255,255,0.05);border-radius:0 0 5px 5px;padding:12px 12px 10px;">
+            <div class="lbl" style="font-size:8px;margin-bottom:3px;opacity:0.6;">YOUR_ID</div>
+            <input type="text" class="inp" id="peer-id-display" readonly placeholder="CLICK INIT..." style="font-size:9px;text-align:center;color:var(--g);padding:4px 6px;">
+            <button class="btn" id="btn-copy-id" style="font-size:8px;padding:3px 8px;margin-bottom:6px;">COPY</button>
+            <div class="lbl" style="font-size:8px;margin-bottom:3px;opacity:0.6;">REMOTE_ID</div>
+            <input type="text" class="inp" id="remote-peer-id" placeholder="Paste ID..." style="font-size:9px;padding:4px 6px;">
+            <div style="display:flex;gap:4px;margin-top:8px;">
+                <button class="btn" id="btn-init-peer" style="color:var(--g);font-size:8px;padding:4px 0;flex:1;">INIT</button>
+                <button class="btn" id="btn-call-guest" style="color:var(--c);font-size:8px;padding:4px 0;flex:1;">CALL</button>
+                <button class="btn" id="btn-hangup" style="color:var(--r);border-color:var(--r);font-size:8px;padding:4px 0;flex:1;">END</button>
             </div>
-
-            <!-- YOUR ID -->
-            <div class="lbl" style="font-size:8px;margin-bottom:2px;opacity:0.6;">YOUR_ID</div>
-            <input type="text" class="inp" id="peer-id-display" readonly placeholder="CLICK INIT..." style="font-size:9px;text-align:center;color:var(--g,#0f8);padding:4px 6px;margin-bottom:3px;width:100%;box-sizing:border-box;">
-            <button class="btn" id="btn-copy-id" style="font-size:7px;padding:2px 0;margin-bottom:7px;width:100%;">COPY ID</button>
-
-            <!-- REMOTE ID -->
-            <div class="lbl" style="font-size:8px;margin-bottom:2px;opacity:0.6;">REMOTE_ID</div>
-            <input type="text" class="inp" id="remote-peer-id" placeholder="Paste ID..." style="font-size:9px;padding:4px 6px;margin-bottom:8px;">
-
-            <!-- CONTROL BUTTONS -->
-            <div style="display:flex;gap:4px;margin-bottom:0;">
-                <button class="btn" id="btn-init-peer" style="color:var(--g,#0f8);font-size:8px;padding:5px 0;flex:1;">INIT</button>
-                <button class="btn" id="btn-call-guest" style="color:var(--c,#0ff);font-size:8px;padding:5px 0;flex:1;">CALL</button>
-                <button class="btn" id="btn-hangup" style="color:var(--r,#f33);border-color:var(--r,#f33);font-size:8px;padding:5px 0;flex:1;">END</button>
-            </div>
-
-            <!-- STATUS ROW -->
-            <div style="display:flex;align-items:center;justify-content:center;gap:5px;margin-top:6px;">
-                <div class="sec-dot off" id="guest-dot"></div>
-                <span id="p2p-conn-label" style="font-size:7px;letter-spacing:1.5px;color:var(--text-dim,#505058);text-transform:uppercase;">OFFLINE</span>
-            </div>
-
+            <div id="call-status" style="font-size:8px;color:var(--text-dim);margin-top:6px;text-align:center;">NOT_CONNECTED</div>
+            <div class="sec-dot off" id="guest-dot" style="margin-top:4px;"></div>
             <!-- Resize handle -->
             <div id="p2p-resize" style="position:absolute;bottom:0;right:0;width:14px;height:14px;cursor:nwse-resize;opacity:0.4;" title="Resize">
                 <svg width="14" height="14" viewBox="0 0 14 14"><path d="M12 2L2 12M12 6L6 12M12 10L10 12" stroke="var(--c,#0ff)" stroke-width="1" fill="none"/></svg>
@@ -9823,27 +9667,51 @@ if (btn3dX) {
 
     /* ── Mic capture ──────────────────────────────────────────────────── */
 
-    async function startMicCapture() {
-        if (micStream) return;
+   async function startMicCapture(deviceId = null) {
+        // If we are already capturing and no new device is requested, exit
+        if (micStream && !deviceId) return;
+
+        // 1. Hardware Cleanup: Stop existing tracks before switching to new hardware
+        if (micStream) {
+            micStream.getTracks().forEach(function(t) { t.stop(); });
+            micStream = null;
+        }
+
+        // 2. Set Constraints: Lock to specific hardware ID if provided
+        var constraints = {
+            audio: deviceId ? { 
+                deviceId: { exact: deviceId },
+                echoCancellation: true,
+                noiseSuppression: true,
+                autoGainControl : true
+            } : {
+                echoCancellation: true,
+                noiseSuppression: true,
+                autoGainControl : true,
+                channelCount    : 1,
+                sampleRate      : 16000,
+            },
+            video: false
+        };
+
         try {
-            micStream = await navigator.mediaDevices.getUserMedia({
-                audio: {
-                    echoCancellation: true,
-                    noiseSuppression: true,
-                    autoGainControl : true,
-                    channelCount    : 1,
-                    sampleRate      : 16000,
-                },
-                video: false,
-            });
+            micStream = await navigator.mediaDevices.getUserMedia(constraints);
+            
+            // Link to the Workstation Analyzer (for the visualizers)
+            if (window.APP && window.APP.audio && window.APP.audio.ctx) {
+                var source = window.APP.audio.ctx.createMediaStreamSource(micStream);
+                if (window.APP.audio.micAnalyzer) source.connect(window.APP.audio.micAnalyzer);
+            }
+
         } catch (e) {
             var reason = e.name === 'NotAllowedError' ? 'PERMISSION_DENIED' : (e.message || e.name);
-            if (typeof ghostLog === 'function') ghostLog('MCR MIC: ' + reason, 'crit');
+            if (typeof ghostLog === 'function') ghostLog('HARDWARE ERR: ' + reason, 'crit');
             if (mcrStatus) mcrStatus.textContent = 'MIC: ' + reason.substring(0, 22);
             setOnAirUI(false);
             return;
         }
 
+        // 3. MediaRecorder Setup (MCR Backend)
         var mimeType = ['audio/webm;codecs=opus', 'audio/webm', 'audio/ogg;codecs=opus', 'audio/ogg']
             .find(function (t) { return MediaRecorder.isTypeSupported(t); }) || '';
 
@@ -9864,7 +9732,8 @@ if (btn3dX) {
         mediaRec.start(CHUNK_MS);
 
         if (typeof ghostLog === 'function') {
-            ghostLog('GHOST> mic \u2192 webm chunks every ' + (CHUNK_MS / 1000) + 's \u2192 WS', 'ok');
+            var label = deviceId ? 'EXTERNAL_CARD' : 'DEFAULT_MIC';
+            ghostLog('GHOST> hardware locked [' + label + '] \u2192 webm chunks \u2192 WS', 'ok');
         }
     }
 
@@ -9954,8 +9823,101 @@ if (btn3dX) {
         });
     }
 
-    /* ── Boot ─────────────────────────────────────────────────────────── */
-    connect();
+/* ── HARDWARE SCANNER (Surgical Fix) ──────────────────────────────── */
+    const scanBtn = document.getElementById('btn-scan-inputs');
+    const inputSelect = document.getElementById('audio-input-select');
+
+    if (scanBtn) {
+        scanBtn.onclick = async function() {
+            try {
+                // 1. PRIME: Request stream. If labels are "Input 1", this FORCES the Mac to show real names.
+                const tempStream = await navigator.mediaDevices.getUserMedia({ audio: true });
+                
+                // 2. ENUMERATE: Get devices while the "Prime" is active
+                const devices = await navigator.mediaDevices.enumerateDevices();
+                const audioInputs = devices.filter(d => d.kind === 'audioinput');
+                
+                if (inputSelect) {
+                    inputSelect.innerHTML = '<option value="">SELECT_MIC_HARDWARE...</option>';
+                    audioInputs.forEach(d => {
+                        const opt = document.createElement('option');
+                        opt.value = d.deviceId;
+                        // Use the label from the Mac; fallback only if still locked
+                        opt.text = d.label || 'EXTERNAL_INPUT_' + (inputSelect.length);
+                        inputSelect.appendChild(opt);
+                    });
+                    
+                    inputSelect.style.display = 'block'; 
+                    
+                    // 3. CLEANUP: Kill temp stream
+                    tempStream.getTracks().forEach(t => t.stop());
+                    
+                    if (typeof ghostLog === 'function') ghostLog('AUDIO: HARDWARE_LABELS_UNLOCKED', 'ok');
+                }
+            } catch (e) { 
+                if (typeof ghostLog === 'function') ghostLog('SCAN_ERR: ' + e.message, 'crit'); 
+            }
+        };
+    }
+
+    if (inputSelect) {
+        inputSelect.onchange = function() {
+            const deviceId = inputSelect.value;
+            if (deviceId) {
+                if (typeof ghostLog === 'function') ghostLog('SWITCHING_TO: ' + inputSelect.options[inputSelect.selectedIndex].text, 'ai');
+                // Call the internal startMicCapture with the deviceId
+                startMicCapture(deviceId); 
+            }
+        };
+    }  /* ── HARDWARE SCANNER (Surgical Fix) ──────────────────────────────── */
+    const scanBtn = document.getElementById('btn-scan-inputs');
+    const inputSelect = document.getElementById('audio-input-select');
+
+    if (scanBtn) {
+        scanBtn.onclick = async function() {
+            try {
+                // 1. PRIME: Request stream briefly to unlock the real hardware names on the Mac
+                const tempStream = await navigator.mediaDevices.getUserMedia({ audio: true });
+                
+                // 2. ENUMERATE: Get devices while the "permission" is active
+                const devices = await navigator.mediaDevices.enumerateDevices();
+                const audioInputs = devices.filter(d => d.kind === 'audioinput');
+                
+                if (inputSelect) {
+                    inputSelect.innerHTML = '<option value="">SELECT_MIC_HARDWARE...</option>';
+                    audioInputs.forEach(d => {
+                        const opt = document.createElement('option');
+                        opt.value = d.deviceId;
+                        // This uses the real label (e.g. "MacBook Pro Microphone") 
+                        opt.text = d.label || 'EXTERNAL_INPUT_' + (inputSelect.length);
+                        inputSelect.appendChild(opt);
+                    });
+                    
+                    inputSelect.style.display = 'block'; 
+                    
+                    // 3. CLEANUP: Stop the temp stream so the red recording dot goes away
+                    tempStream.getTracks().forEach(t => t.stop());
+                    
+                    if (typeof ghostLog === 'function') ghostLog('AUDIO: HARDWARE_LABELS_UNLOCKED', 'ok');
+                }
+            } catch (e) { 
+                if (typeof ghostLog === 'function') ghostLog('SCAN_ERR: ' + e.message, 'crit'); 
+            }
+        };
+    }
+
+    if (inputSelect) {
+        inputSelect.onchange = function() {
+            const deviceId = inputSelect.value;
+            if (deviceId) {
+                if (typeof ghostLog === 'function') {
+                    ghostLog('SWITCHING_TO: ' + inputSelect.options[inputSelect.selectedIndex].text, 'ai');
+                }
+                // Pass the ID to your engine's mic capture function
+                startMicCapture(deviceId); 
+            }
+        };
+    }  connect();
 
 }());
 </script>
