@@ -269,33 +269,35 @@ class GenerateRequest(BaseModel):
 
 
 @app.post("/generate")
-async def generate_image(req: GenerateRequest):
+async def generate_image(request: Request): # Import Request from fastapi
     if not FAL_KEY:
-        return JSONResponse(
-            status_code=503,
-            content={"error": "FAL_KEY not set in backend/.env"},
-        )
+        return JSONResponse(status_code=503, content={"error": "FAL_KEY missing"})
 
     try:
-        loop   = asyncio.get_event_loop()
+        # Flexible parsing: Handles different ways the frontend might send data
+        data = await request.json()
+        prompt = data.get("prompt")
+        
+        if not prompt:
+            return JSONResponse(status_code=400, content={"error": "No prompt provided"})
+
+        loop = asyncio.get_event_loop()
         result = await loop.run_in_executor(
             None,
             lambda: fal_client.subscribe(
                 "fal-ai/flux-pro",
                 arguments={
-                    "prompt": req.prompt,
-                    "width" : req.width,
-                    "height": req.height,
+                    "prompt": prompt,
+                    "width": data.get("width", 1024),
+                    "height": data.get("height", 1024),
                 },
             ),
         )
         images = result.get("images") or []
-        if not images:
-            return JSONResponse(status_code=502, content={"error": "fal-ai returned no images"})
-
-        return {"url": images[0]["url"], "prompt": req.prompt}
+        return {"url": images[0]["url"], "prompt": prompt}
 
     except Exception as exc:
+        print(f"ERROR: {exc}")
         return JSONResponse(status_code=500, content={"error": str(exc)})
 
 
