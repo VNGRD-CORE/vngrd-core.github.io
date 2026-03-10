@@ -269,14 +269,18 @@ class GenerateRequest(BaseModel):
 
 
 @app.post("/generate")
-async def generate_image(request: Request): # Import Request from fastapi
+async def generate_image(request: Request):
     if not FAL_KEY:
-        return JSONResponse(status_code=503, content={"error": "FAL_KEY missing"})
+        return JSONResponse(
+            status_code=503, 
+            content={"error": "FAL_KEY not set in backend/.env"}
+        )
 
     try:
-        # Flexible parsing: Handles different ways the frontend might send data
         data = await request.json()
         prompt = data.get("prompt")
+        width = data.get("width", 1024)
+        height = data.get("height", 1024)
         
         if not prompt:
             return JSONResponse(status_code=400, content={"error": "No prompt provided"})
@@ -288,18 +292,21 @@ async def generate_image(request: Request): # Import Request from fastapi
                 "fal-ai/flux-pro",
                 arguments={
                     "prompt": prompt,
-                    "width": data.get("width", 1024),
-                    "height": data.get("height", 1024),
+                    "width": width,
+                    "height": height,
                 },
             ),
         )
+
         images = result.get("images") or []
+        if not images:
+            return JSONResponse(status_code=502, content={"error": "fal-ai returned no images"})
+
         return {"url": images[0]["url"], "prompt": prompt}
 
     except Exception as exc:
         print(f"ERROR: {exc}")
         return JSONResponse(status_code=500, content={"error": str(exc)})
-
 
 # ── Entrypoint ────────────────────────────────────────────────────────────────
 
