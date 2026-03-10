@@ -1516,7 +1516,11 @@ body.fullscreen #transcription-hud { opacity: 0 !important; pointer-events: none
     border: 1px solid rgba(0,243,255,0.1); border-radius: 2px;
 }
 #qr-modal-actions { display: flex; gap: 6px; }
-</style>
+#logo-gif-overlay {
+    pointer-events: none !important; /* Clicks pass straight through this box */
+    border: none !important;         /* Ensures no ghost borders appear */
+    background: transparent !important;
+}</style>
 </head>
 <body oncontextmenu="return false;">
     <!-- PORTRAIT ORIENTATION LOCK -->
@@ -3642,41 +3646,50 @@ function renderLoop(timestamp) {
     }
     
     // ACTOR 2: 2D LOGO
-    if (T.logo.visible) {
-        var logoImg = $('user-logo-layer');
-        if (APP.layers.logo2dIsGif) {
-            // GIF display: DOM overlay positioned over canvas (screen view only)
-            var gifOvEl = $('logo-gif-overlay');
-            var _lsc2 = T.logo.scale || 1;
-            if (gifOvEl && logoImg && logoImg.naturalWidth > 0) {
-                var _cnv = APP.render.canvas;
-                var _cr = _cnv ? _cnv.getBoundingClientRect() : null;
-                if (_cr) {
-                    var _sx = _cr.width / w, _sy = _cr.height / h;
-                    var _lw = logoImg.naturalWidth * _lsc2 * (w / 1920) * _sx;
-                    var _lh = logoImg.naturalHeight * _lsc2 * (h / 1080) * _sy;
-                    gifOvEl.style.left   = ((T.logo.x || 0) * _cr.width)  + 'px';
-                    gifOvEl.style.top    = ((T.logo.y || 0) * _cr.height) + 'px';
-                    gifOvEl.style.width  = _lw + 'px';
-                    gifOvEl.style.height = _lh + 'px';
-                    gifOvEl.style.display = 'block';
-                }
-                // GIF recording: use JS-decoded frames (captureStream-compatible, guaranteed animated)
-                ctx.save();
-                var _clw = logoImg.naturalWidth * _lsc2 * (w / 1920);
-                var _clh = logoImg.naturalHeight * _lsc2 * (h / 1080);
-                if (APP.layers._gifFrames && APP.layers._gifFrames.length > 0) {
-                    var _tot = APP.layers._gifTotalDelay || 1000;
-                    var _el = (performance.now() - APP.layers._gifFrameStart) % _tot;
-                    var _cum = 0, _fi = 0;
-                    for (; _fi < APP.layers._gifFrames.length - 1; _fi++) { _cum += APP.layers._gifFrames[_fi].delay; if (_el < _cum) break; }
-                    ctx.drawImage(APP.layers._gifFrames[_fi].canvas, (T.logo.x||0)*w, (T.logo.y||0)*h, _clw, _clh);
-                } else {
-                    ctx.drawImage(logoImg, (T.logo.x || 0) * w, (T.logo.y || 0) * h, _clw, _clh);
-                }
-                ctx.restore();
+if (T.logo.visible) {
+    var logoImg = $('user-logo-layer');
+    var gifOvEl = $('logo-gif-overlay');
+
+    if (APP.layers.logo2dIsGif) {
+        var _lsc2 = T.logo.scale || 1;
+        if (gifOvEl && logoImg && logoImg.naturalWidth > 0) {
+            var _cnv = APP.render.canvas;
+            var _cr = _cnv ? _cnv.getBoundingClientRect() : null;
+            if (_cr) {
+                var _sx = _cr.width / w, _sy = _cr.height / h;
+                var _lw = logoImg.naturalWidth * _lsc2 * (w / 1920) * _sx;
+                var _lh = logoImg.naturalHeight * _lsc2 * (h / 1080) * _sy;
+                gifOvEl.style.left   = ((T.logo.x || 0) * _cr.width)  + 'px';
+                gifOvEl.style.top    = ((T.logo.y || 0) * _cr.height) + 'px';
+                gifOvEl.style.width  = _lw + 'px';
+                gifOvEl.style.height = _lh + 'px';
+                gifOvEl.style.display = 'block';
+                gifOvEl.style.pointerEvents = 'none'; // Extra safety
             }
-        } else if (logoImg && logoImg.src && logoImg.src !== window.location.href && logoImg.naturalWidth > 0) {
+            
+            // GIF recording logic
+            ctx.save();
+            var _clw = logoImg.naturalWidth * _lsc2 * (w / 1920);
+            var _clh = logoImg.naturalHeight * _lsc2 * (h / 1080);
+            if (APP.layers._gifFrames && APP.layers._gifFrames.length > 0) {
+                var _tot = APP.layers._gifTotalDelay || 1000;
+                var _el = (performance.now() - APP.layers._gifFrameStart) % _tot;
+                var _cum = 0, _fi = 0;
+                for (; _fi < APP.layers._gifFrames.length - 1; _fi++) { 
+                    _cum += APP.layers._gifFrames[_fi].delay; 
+                    if (_el < _cum) break; 
+                }
+                ctx.drawImage(APP.layers._gifFrames[_fi].canvas, (T.logo.x||0)*w, (T.logo.y||0)*h, _clw, _clh);
+            } else {
+                ctx.drawImage(logoImg, (T.logo.x || 0) * w, (T.logo.y || 0) * h, _clw, _clh);
+            }
+            ctx.restore();
+        }
+    } else {
+        // Not a GIF: Hide overlay and use standard drawImage
+        if (gifOvEl) gifOvEl.style.display = 'none';
+        
+        if (logoImg && logoImg.src && logoImg.src !== window.location.href && logoImg.naturalWidth > 0) {
             ctx.save();
             var lScale = T.logo.scale;
             var lw = logoImg.naturalWidth * lScale * (w / 1920);
@@ -3685,11 +3698,11 @@ function renderLoop(timestamp) {
             ctx.drawImage(logoImg, lx, ly, lw, lh);
             ctx.restore();
         }
-    } else {
-        // Hide GIF overlay when logo is hidden
-        var _go = $('logo-gif-overlay');
-        if (_go) _go.style.display = 'none';
     }
+} else {
+    var _go = $('logo-gif-overlay');
+    if (_go) _go.style.display = 'none';
+}
 
     // ACTOR 3: 3D LOGO (offscreen WebGL canvas → drawImage composite)
     if (T.logo3d && T.logo3d.visible && window._three && window._three.ready && window._three.model) {
