@@ -1520,7 +1520,7 @@ body.fullscreen #transcription-hud { opacity: 0 !important; pointer-events: none
     pointer-events: none !important; /* Clicks pass straight through this box */
     border: none !important;         /* Ensures no ghost borders appear */
     background: transparent !important;
-}</style>
+}#logo-gif-overlay { pointer-events: none !important; border: none !important; background: transparent !important; }</style>
 </head>
 <body oncontextmenu="return false;">
     <!-- PORTRAIT ORIENTATION LOCK -->
@@ -9837,103 +9837,45 @@ if (btn3dX) {
     }
 
 /* ── HARDWARE SCANNER (Surgical Fix) ──────────────────────────────── */
+    /* ── HARDWARE SCANNER ────────────────────────────────────────────── */
     const scanBtn = document.getElementById('btn-scan-inputs');
     const inputSelect = document.getElementById('audio-input-select');
 
     if (scanBtn) {
         scanBtn.onclick = async function() {
             try {
-                // 1. PRIME: Request stream. If labels are "Input 1", this FORCES the Mac to show real names.
+                // Prime the browser to unlock labels
                 const tempStream = await navigator.mediaDevices.getUserMedia({ audio: true });
-                
-                // 2. ENUMERATE: Get devices while the "Prime" is active
+                await new Promise(r => setTimeout(r, 600)); 
                 const devices = await navigator.mediaDevices.enumerateDevices();
                 const audioInputs = devices.filter(d => d.kind === 'audioinput');
                 
                 if (inputSelect) {
-                    inputSelect.innerHTML = '<option value="">SELECT_MIC_HARDWARE...</option>';
+                    inputSelect.innerHTML = '<option value="">SELECT_HARDWARE...</option>';
                     audioInputs.forEach(d => {
                         const opt = document.createElement('option');
                         opt.value = d.deviceId;
-                        // Use the label from the Mac; fallback only if still locked
                         opt.text = d.label || 'EXTERNAL_INPUT_' + (inputSelect.length);
                         inputSelect.appendChild(opt);
                     });
-                    
                     inputSelect.style.display = 'block'; 
-                    
-                    // 3. CLEANUP: Kill temp stream
                     tempStream.getTracks().forEach(t => t.stop());
-                    
-                    if (typeof ghostLog === 'function') ghostLog('AUDIO: HARDWARE_LABELS_UNLOCKED', 'ok');
                 }
-            } catch (e) { 
-                if (typeof ghostLog === 'function') ghostLog('SCAN_ERR: ' + e.message, 'crit'); 
-            }
+            } catch (e) { if (typeof ghostLog === 'function') ghostLog('SCAN_ERR: ' + e.message, 'crit'); }
         };
     }
 
     if (inputSelect) {
         inputSelect.onchange = function() {
-            const deviceId = inputSelect.value;
-            if (deviceId) {
-                if (typeof ghostLog === 'function') ghostLog('SWITCHING_TO: ' + inputSelect.options[inputSelect.selectedIndex].text, 'ai');
-                // Call the internal startMicCapture with the deviceId
-                startMicCapture(deviceId); 
-            }
-        };
-    }  /* ── HARDWARE SCANNER (Surgical Fix) ──────────────────────────────── */
-    const scanBtn = document.getElementById('btn-scan-inputs');
-    const inputSelect = document.getElementById('audio-input-select');
-
-    if (scanBtn) {
-        scanBtn.onclick = async function() {
-            try {
-                // 1. PRIME: Request stream briefly to unlock the real hardware names on the Mac
-                const tempStream = await navigator.mediaDevices.getUserMedia({ audio: true });
-                
-                // 2. ENUMERATE: Get devices while the "permission" is active
-                const devices = await navigator.mediaDevices.enumerateDevices();
-                const audioInputs = devices.filter(d => d.kind === 'audioinput');
-                
-                if (inputSelect) {
-                    inputSelect.innerHTML = '<option value="">SELECT_MIC_HARDWARE...</option>';
-                    audioInputs.forEach(d => {
-                        const opt = document.createElement('option');
-                        opt.value = d.deviceId;
-                        // This uses the real label (e.g. "MacBook Pro Microphone") 
-                        opt.text = d.label || 'EXTERNAL_INPUT_' + (inputSelect.length);
-                        inputSelect.appendChild(opt);
-                    });
-                    
-                    inputSelect.style.display = 'block'; 
-                    
-                    // 3. CLEANUP: Stop the temp stream so the red recording dot goes away
-                    tempStream.getTracks().forEach(t => t.stop());
-                    
-                    if (typeof ghostLog === 'function') ghostLog('AUDIO: HARDWARE_LABELS_UNLOCKED', 'ok');
-                }
-            } catch (e) { 
-                if (typeof ghostLog === 'function') ghostLog('SCAN_ERR: ' + e.message, 'crit'); 
-            }
+            if (this.value) startMicCapture(this.value);
         };
     }
 
-    if (inputSelect) {
-        inputSelect.onchange = function() {
-            const deviceId = inputSelect.value;
-            if (deviceId) {
-                if (typeof ghostLog === 'function') {
-                    ghostLog('SWITCHING_TO: ' + inputSelect.options[inputSelect.selectedIndex].text, 'ai');
-                }
-                // Pass the ID to your engine's mic capture function
-                startMicCapture(deviceId); 
-            }
-        };
-    }  connect();
+    /* ── Boot ─────────────────────────────────────────────────────────── */
+    connect();
 
-}());
+}()); 
 </script>
-
 </body>
 </html>
+
