@@ -2016,20 +2016,15 @@ body.fullscreen #transcription-hud { opacity: 0 !important; pointer-events: none
 
     <!-- ── PODCAST TRAY — subtitle slots, slides up on ON-AIR ── -->
     <div id="podcast-tray">
-        <div class="podcast-slot" id="pt-en">
-            <div class="slot-lang">EN // LINKING</div>
-            <div class="slot-text" id="pt-en-text">[LINKING_EN]</div>
+        <div class="podcast-slot">
+            <div class="slot-lang">EN // LIVE</div>
+            <div class="slot-text" id="hud-en-text">WAITING_FOR_SIGNAL...</div>
         </div>
-        <div class="podcast-slot" id="pt-es">
-            <div class="slot-lang">ES // LOC</div>
-            <div class="slot-text" id="pt-es-text">[LOC_ES]</div>
-        </div>
-        <div class="podcast-slot" id="pt-fr">
-            <div class="slot-lang">FR // LOC</div>
-            <div class="slot-text" id="pt-fr-text">[LOC_FR]</div>
+        <div class="podcast-slot">
+            <div class="slot-lang">ES // TRANS</div>
+            <div class="slot-text" id="hud-es">WAITING_FOR_SIGNAL...</div>
         </div>
     </div>
-
     <input type="file" id="file-media" multiple accept="image/*,video/*">
     <input type="file" id="file-audio" multiple accept="audio/*">
     <input type="file" id="file-logo" accept="image/*">
@@ -9596,8 +9591,7 @@ if (btn3dX) {
    ═══════════════════════════════════════════════════════════════════════ */
 (function () {
     'use strict';
-
-    var WS_URL   = 'ws://localhost:8000/ws/transcribe';
+ws://127.0.0.1:8000/ws/transcribe;
     var CHUNK_MS = 4000;   // MediaRecorder timeslice
     var RECONNECT_DELAY = 3000;   // fixed 3-second backoff
 
@@ -9904,4 +9898,3 @@ if (btn3dX) {
 </script>
 </body>
 </html>
-
