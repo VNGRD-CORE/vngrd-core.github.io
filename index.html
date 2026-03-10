@@ -989,7 +989,7 @@ body.shooting-mode #btn-shooting {
         /* P2P modal: fit mobile viewport */
         #p2p-modal { right: 10px !important; left: 10px !important; width: auto !important; }
 
-        /* Ghost terminal: constrain to mobile viewport + visible close button */
+        /* Ghost terminal: rain to mobile viewport + visible close button */
         #ghost-terminal {
             left: 10px !important; right: 10px !important;
             bottom: 50px !important;
@@ -8691,42 +8691,66 @@ var isVideo = nft.forceVideo || (imageUrl.toLowerCase().match(/\.(mp4|webm|mov|o
         _aiStatus(modelKey.toUpperCase() + ': GENERATING...', 'var(--v)');
         log('AI: [' + modelKey.toUpperCase() + '] >> ' + prompt);
 
-        // ── Tier 1: Fal.ai via local backend (localhost:8000) ─────────
+        /// ── Tier 1: Fal.ai via local backend (Surgical Fix) ─────────
         var backendOk = false;
         try {
             var backendCtrl = new AbortController();
             var backendTid = setTimeout(function() { backendCtrl.abort(); }, 90000);
-            var backendRes = await fetch('http://localhost:8000/generate', {
+            
+           // ── Tier 1: Fal.ai via local backend (Surgical Fix) ─────────
+        var backendOk = false;
+        try {
+            var backendCtrl = new AbortController();
+            var backendTid = setTimeout(function() { backendCtrl.abort(); }, 90000);
+            
+            var backendRes = await fetch('http://127.0.0.1:8000/generate', {
                 method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ prompt: fullPrompt }),
+                headers: { 
+                    'Content-Type': 'application/json',
+                    'Accept': 'application/json'
+                },
+                body: JSON.stringify({ 
+                    prompt: fullPrompt,
+                    width: 1024,   
+                    height: 1024   
+                }),
                 signal: backendCtrl.signal
             });
+
             clearTimeout(backendTid);
+
             if (backendRes.ok) {
                 var backendData = await backendRes.json();
                 if (backendData.url) {
                     var resp = await fetch(backendData.url);
                     if (!resp.ok) throw new Error('BACKEND_IMG_HTTP_' + resp.status);
+                    
                     var blob = await resp.blob();
                     var objectUrl = URL.createObjectURL(blob);
                     var img = new Image();
+                    
                     await new Promise(function(resolve, reject) {
                         img.onload = resolve;
                         img.onerror = function() { reject(new Error('BACKEND_IMG_DECODE_FAILED')); };
                         img.src = objectUrl;
                     });
+
                     _aiInject(img, prompt);
                     _aiDone(btn);
+                    
                     var srcLabel = (backendData.source || 'FAL').toUpperCase().replace(/-/g, '_');
                     _aiStatus('DONE [' + srcLabel + ']', 'var(--g)');
-                    log('AI: BACKEND_OK (' + (backendData.source || 'fal') + ')');
+                    log('AI: BACKEND_OK');
                     backendOk = true;
                 }
+            } else {
+                const errDetail = await backendRes.json();
+                log('AI: BACKEND_REJECTED: ' + JSON.stringify(errDetail));
             }
         } catch(e) {
-            log('AI: BACKEND_OFFLINE → POLLINATIONS_FALLBACK');
+            log('AI: BACKEND_OFFLINE/TIMEOUT → FALLBACK');
         }
+        // Tier 1 ends here—Tier 2 (Pollinations) starts next
 
         // ── Tier 2: Pollinations direct (if backend unavailable) ─────
         if (!backendOk) {
