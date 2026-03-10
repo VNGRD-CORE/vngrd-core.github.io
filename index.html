@@ -8592,29 +8592,23 @@ var isVideo = nft.forceVideo || (imageUrl.toLowerCase().match(/\.(mp4|webm|mov|o
         'pollinations-anime': { model: 'flux',          style: 'anime, cel-shaded, vibrant' },
     };
 
-    async function aiGenerate(prompt) {
+  async function aiGenerate(prompt) {
         if (!prompt) { _aiStatus('TYPE A PROMPT', 'var(--y)'); return; }
         if (_aiGenerating) return;
 
         _aiGenerating = true;
-        var btn = $('btn-generate-ai');
+        var btn = document.getElementById('btn-generate-ai');
         if (btn) { btn.classList.add('on'); btn.textContent = 'GENERATING...'; }
-        if ($('neural-dot')) $('neural-dot').classList.remove('off');
+        if (document.getElementById('neural-dot')) document.getElementById('neural-dot').classList.remove('off');
 
-        var modelKey  = $('ai-model-select') ? $('ai-model-select').value : 'pollinations';
-        var cfg       = _pollinationsStyles[modelKey] || _pollinationsStyles['pollinations'];
+        var modelKey = document.getElementById('ai-model-select') ? document.getElementById('ai-model-select').value : 'pollinations';
+        var cfg = _pollinationsStyles[modelKey] || _pollinationsStyles['pollinations'];
         var fullPrompt = cfg.style ? prompt + ', ' + cfg.style : prompt;
 
         _aiStatus(modelKey.toUpperCase() + ': GENERATING...', 'var(--v)');
         log('AI: [' + modelKey.toUpperCase() + '] >> ' + prompt);
 
-        /// ── Tier 1: Fal.ai via local backend (Surgical Fix) ─────────
-        var backendOk = false;
-        try {
-            var backendCtrl = new AbortController();
-            var backendTid = setTimeout(function() { backendCtrl.abort(); }, 90000);
-            
-           // ── Tier 1: Fal.ai via local backend (Surgical Fix) ─────────
+        // ── Tier 1: Fal.ai via local backend ─────────────────────────
         var backendOk = false;
         try {
             var backendCtrl = new AbortController();
@@ -8667,9 +8661,8 @@ var isVideo = nft.forceVideo || (imageUrl.toLowerCase().match(/\.(mp4|webm|mov|o
         } catch(e) {
             log('AI: BACKEND_OFFLINE/TIMEOUT → FALLBACK');
         }
-        // Tier 1 ends here—Tier 2 (Pollinations) starts next
 
-        // ── Tier 2: Pollinations direct (if backend unavailable) ─────
+        // ── Tier 2: Pollinations direct (Fallback) ───────────────────
         if (!backendOk) {
             try {
                 await _aiPollinations(fullPrompt, btn, cfg.model);
