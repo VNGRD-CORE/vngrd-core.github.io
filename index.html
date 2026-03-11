@@ -9750,12 +9750,10 @@ ws://127.0.0.1:8000/ws/transcribe;
         mediaRec = new MediaRecorder(micStream, mimeType ? { mimeType: mimeType } : {});
 
         mediaRec.ondataavailable = function (e) {
-            if (!e.data || e.data.size < 100) return;
-            if (!ws || ws.readyState !== WebSocket.OPEN) return;
-            e.data.arrayBuffer().then(function (buf) {
-                if (ws && ws.readyState === WebSocket.OPEN) ws.send(buf);
-            }).catch(function () {});
-        };
+    // RE-FIX: Ensure this doesn't have "&& e.data.size < 100"
+    if (!e.data || e.data.size === 0) return; 
+    // ... send to websocket ...
+};
 
         mediaRec.onerror = function (e) {
             if (typeof ghostLog === 'function') ghostLog('MediaRecorder ERR: ' + (e.error || e), 'crit');
