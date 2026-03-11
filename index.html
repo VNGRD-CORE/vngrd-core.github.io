@@ -9637,15 +9637,18 @@ function updatePodcastTray(data) {
 
         mediaRec = new MediaRecorder(micStream, mimeType ? { mimeType: mimeType } : {});
 
-        mediaRec.ondataavailable = function (e) {
-            if (!e.data || e.data.size < 100) return;
+       mediaRec.ondataavailable = function (e) {
+            // FIX: Removed the "< 100" limit so it stops dropping the Keep-Alive packets
+            if (!e.data || e.data.size === 0) return;
             if (!ws || ws.readyState !== WebSocket.OPEN) return;
             
-            // 2. DIAGNOSTIC: Prints the audio payload size in your browser console
+            // DIAGNOSTIC: Watch this in your Chrome Console (Cmd + Option + J)
             console.log("🎙️ SIGNAL PACKED:", e.data.size, "bytes");
 
             e.data.arrayBuffer().then(function (buf) {
-                if (ws && ws.readyState === WebSocket.OPEN) ws.send(buf);
+                if (ws && ws.readyState === WebSocket.OPEN) {
+                    ws.send(buf);
+                }
             }).catch(function () {});
         };
 
