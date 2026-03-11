@@ -3989,6 +3989,51 @@ if (T.logo.visible) {
     ctx.fillText('VNGRD', w - (w * 0.01), h - (h * 0.01));
     ctx.restore();
 
+    // ═══ CANVAS-LEVEL FX COMPOSITING ═══
+    // Mirrors CSS body-class FX (NVG, VOID, LUCY, SCAN) onto the canvas so
+    // captureStream() recordings show the same visual effects seen on screen.
+    (function applyCanvasFX() {
+        var bc = document.body.classList;
+        var fxFilter = '';
+        if (bc.contains('fx-nvg')) {
+            fxFilter = 'grayscale(1) brightness(1.6) contrast(2.2) sepia(1) hue-rotate(78deg) saturate(5)';
+        } else if (bc.contains('fx-void')) {
+            fxFilter = 'saturate(0) contrast(3.5) brightness(1.4)';
+        } else if (bc.contains('fx-lucy')) {
+            if (!APP.render._lucyHue) APP.render._lucyHue = 0;
+            APP.render._lucyHue = (APP.render._lucyHue + 2) % 360;
+            fxFilter = 'hue-rotate(' + APP.render._lucyHue + 'deg) saturate(4) brightness(1.1)';
+        }
+        if (fxFilter) {
+            // Cache the offscreen FX canvas to avoid per-frame allocation
+            if (!APP.render._fxCanvas) APP.render._fxCanvas = document.createElement('canvas');
+            var fc = APP.render._fxCanvas;
+            if (fc.width !== w) fc.width = w;
+            if (fc.height !== h) fc.height = h;
+            var fctx = fc.getContext('2d');
+            fctx.drawImage(APP.render.canvas, 0, 0);
+            ctx.filter = fxFilter;
+            ctx.drawImage(fc, 0, 0);
+            ctx.filter = 'none';
+        }
+        // X-Ray scan bar (fx-scan): draw animated cyan laser line directly to canvas
+        if (bc.contains('fx-scan')) {
+            var scanPeriod = 6000;
+            var scanFrac = (timestamp % scanPeriod) / scanPeriod;
+            var scanY = scanFrac < 0.5 ? scanFrac * 2 * h : (1 - (scanFrac - 0.5) * 2) * h;
+            ctx.save();
+            var scanGrad = ctx.createLinearGradient(0, scanY - 10, 0, scanY + 10);
+            scanGrad.addColorStop(0, 'rgba(0,255,255,0)');
+            scanGrad.addColorStop(0.5, 'rgba(0,255,255,0.85)');
+            scanGrad.addColorStop(1, 'rgba(0,255,255,0)');
+            ctx.fillStyle = scanGrad;
+            ctx.shadowColor = 'rgba(0,255,255,1)';
+            ctx.shadowBlur = 25;
+            ctx.fillRect(0, scanY - 5, w, 10);
+            ctx.restore();
+        }
+    })();
+
     // --- Close frame-level punch/seismic transform ---
     if (_hasFX) {
         ctx.filter = 'none';
@@ -4722,15 +4767,18 @@ $('btn-rec').onclick = () => {
 
             // Always build a fresh audio destination to avoid stale/dead tracks
             // Tap outputLimiter (final mix node) so music + video audio are both captured
-            var bcastStream = new MediaStream(APP.render.canvas.captureStream(60).getVideoTracks());
+            var bcastStream = new MediaStream(APP.render.canvas.captureStream(30).getVideoTracks());
             if (APP.audio.ctx && APP.audio.outputLimiter) {
                 var bcastDest = APP.audio.ctx.createMediaStreamDestination();
                 APP.audio.outputLimiter.connect(bcastDest);
-                // Include live mic directly (it goes to recording only, not to speakers)
+                // Include live mic gain node (routed through AudioContext)
                 if (APP.audio.micGainNode) {
                     try { APP.audio.micGainNode.connect(bcastDest); } catch(e) {}
                 }
                 bcastDest.stream.getAudioTracks().forEach(t => bcastStream.addTrack(t));
+            } else if (APP.camera.micStream) {
+                // Fallback: add raw mic tracks directly if AudioContext not yet initialised
+                APP.camera.micStream.getAudioTracks().forEach(t => bcastStream.addTrack(t));
             }
 
             APP.broadcast.chunks = [];
@@ -5233,6 +5281,37 @@ async function executeWorkspaceExport() {
     var payload = _buildSessionSnapshot();
     payload._type = 'VNGRD_WORKSPACE';
     payload._version = 'V34';
+
+    // ── Pin large media blobs separately so the JSON payload stays small ──
+    // logo2d is stored as a data: URL which can be several MB.
+    // Pin it as a file first; replace the field with an ipfs:// CID reference.
+    if (payload.logo2d && payload.logo2d.startsWith('data:')) {
+        log('IPFS: PINNING_LOGO2D_AS_FILE');
+        try {
+            var logoResp = await fetch(payload.logo2d);
+            var logoBlob = await logoResp.blob();
+            var logoForm = new FormData();
+            logoForm.append('file', logoBlob, 'logo2d.png');
+            logoForm.append('pinataMetadata', JSON.stringify({ name: 'VNGRD_LOGO2D_' + Date.now() }));
+            var logoUpRes = await fetch('https://api.pinata.cloud/pinning/pinFileToIPFS', {
+                method: 'POST',
+                headers: { 'Authorization': 'Bearer ' + jwt },
+                body: logoForm
+            });
+            var logoUpData = await logoUpRes.json();
+            if (logoUpRes.ok && logoUpData.IpfsHash) {
+                payload.logo2d = 'ipfs://' + logoUpData.IpfsHash;
+                log('IPFS: LOGO2D_PINNED CID=' + logoUpData.IpfsHash);
+            } else {
+                // Failed to pin separately — drop it to avoid oversized JSON
+                log('IPFS: LOGO2D_PIN_FAILED (' + JSON.stringify(logoUpData) + ') — omitting from payload');
+                payload.logo2d = null;
+            }
+        } catch(logoErr) {
+            log('IPFS: LOGO2D_PIN_ERR ' + logoErr.message + ' — omitting from payload');
+            payload.logo2d = null;
+        }
+    }
 
     var res, data;
     try {
@@ -7782,17 +7861,21 @@ function endCallCleanup() {
     // ========================================
     async function scanAudioInputDevices() {
         try {
-            // Request permission with basic constraints first
-            await navigator.mediaDevices.getUserMedia({ audio: true });
-            
+            // Permission prime: briefly open the mic so enumerateDevices returns real labels
+            const _primeMicStream = await navigator.mediaDevices.getUserMedia({ audio: true });
+
             const devices = await navigator.mediaDevices.enumerateDevices();
+
+            // Stop the temp stream immediately so the red recording dot clears
+            _primeMicStream.getTracks().forEach(t => t.stop());
+
             const audioInputs = devices.filter(d => d.kind === 'audioinput');
-            
+
             APP.inputDevices.list = audioInputs;
-            
+
             const select = $('audio-input-select');
             select.innerHTML = '<option value="">SELECT_DEVICE...</option>';
-            
+
             audioInputs.forEach((device, idx) => {
                 const option = document.createElement('option');
                 option.value = device.deviceId;
