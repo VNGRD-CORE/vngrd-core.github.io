@@ -8514,7 +8514,7 @@ var isVideo = nft.forceVideo || (imageUrl.toLowerCase().match(/\.(mp4|webm|mov|o
 
     // ═══════════════════════════════════════════════════════════════════
     // AI IMAGE GENERATOR v5 — Pollinations.ai only (100% free, no key)
-    // Puter.js removed. All models route through Pollinations.ai API.
+    // Server backend completely bypassed.
     // ═══════════════════════════════════════════════════════════════════
     var _aiGenerating = false;
 
@@ -8535,10 +8535,13 @@ var isVideo = nft.forceVideo || (imageUrl.toLowerCase().match(/\.(mp4|webm|mov|o
         if (preview && previewImg) { previewImg.src = img.src; preview.style.display = 'block'; }
         var host = document.getElementById('gif-host');
         if (host && !img.parentNode) host.appendChild(img);
+        
+        // Pushes the image into your Compositor to render on the canvas
         APP.render.source = null;
         APP.media.queue.push({ type: 'image', url: img.src, element: img, name: label });
         APP.media.currentIndex = APP.media.queue.length - 1;
         APP.media.currentElement = img;
+        
         if (typeof updateQueueDisplay === 'function') updateQueueDisplay();
         if ($('media-dot')) $('media-dot').classList.remove('off');
         var stage = $('stage');
@@ -8556,9 +8559,10 @@ var isVideo = nft.forceVideo || (imageUrl.toLowerCase().match(/\.(mp4|webm|mov|o
         log('AI: [POLLINATIONS] >> ' + prompt);
         try {
             var seed = Math.floor(Math.random() * 99999);
+            // Forced 1920x1080 resolution to fit the canvas dimensions
             var url = 'https://image.pollinations.ai/prompt/' + encodeURIComponent(prompt)
-                + '?width=1024&height=1024&nologo=true&model=' + (polModel || 'flux') + '&seed=' + seed;
-            // fetch() follows redirects and gives raw bytes — no CORS taint on canvas
+                + '?width=1920&height=1080&nologo=true&model=' + (polModel || 'flux') + '&seed=' + seed;
+            
             var resp = await fetch(url);
             if (!resp.ok) throw new Error('HTTP_' + resp.status);
             var blob = await resp.blob();
@@ -8587,7 +8591,7 @@ var isVideo = nft.forceVideo || (imageUrl.toLowerCase().match(/\.(mp4|webm|mov|o
         'pollinations-anime': { model: 'flux',          style: 'anime, cel-shaded, vibrant' },
     };
 
-  async function aiGenerate(prompt) {
+    async function aiGenerate(prompt) {
         if (!prompt) { _aiStatus('TYPE A PROMPT', 'var(--y)'); return; }
         if (_aiGenerating) return;
 
@@ -8603,69 +8607,13 @@ var isVideo = nft.forceVideo || (imageUrl.toLowerCase().match(/\.(mp4|webm|mov|o
         _aiStatus(modelKey.toUpperCase() + ': GENERATING...', 'var(--v)');
         log('AI: [' + modelKey.toUpperCase() + '] >> ' + prompt);
 
-        // ── Tier 1: Fal.ai via local backend ─────────────────────────
-        var backendOk = false;
+        // Tier 1 backend removed. Routing directly to Tier 2 Pollinations.
         try {
-            var backendCtrl = new AbortController();
-            var backendTid = setTimeout(function() { backendCtrl.abort(); }, 90000);
-            
-            var backendRes = await fetch('http://127.0.0.1:8000/generate', {
-                method: 'POST',
-                headers: { 
-                    'Content-Type': 'application/json',
-                    'Accept': 'application/json'
-                },
-                body: JSON.stringify({ 
-                    prompt: fullPrompt,
-                    width: 1024,   
-                    height: 1024   
-                }),
-                signal: backendCtrl.signal
-            });
-
-            clearTimeout(backendTid);
-
-            if (backendRes.ok) {
-                var backendData = await backendRes.json();
-                if (backendData.url) {
-                    var resp = await fetch(backendData.url);
-                    if (!resp.ok) throw new Error('BACKEND_IMG_HTTP_' + resp.status);
-                    
-                    var blob = await resp.blob();
-                    var objectUrl = URL.createObjectURL(blob);
-                    var img = new Image();
-                    
-                    await new Promise(function(resolve, reject) {
-                        img.onload = resolve;
-                        img.onerror = function() { reject(new Error('BACKEND_IMG_DECODE_FAILED')); };
-                        img.src = objectUrl;
-                    });
-
-                    _aiInject(img, prompt);
-                    _aiDone(btn);
-                    
-                    var srcLabel = (backendData.source || 'FAL').toUpperCase().replace(/-/g, '_');
-                    _aiStatus('DONE [' + srcLabel + ']', 'var(--g)');
-                    log('AI: BACKEND_OK');
-                    backendOk = true;
-                }
-            } else {
-                const errDetail = await backendRes.json();
-                log('AI: BACKEND_REJECTED: ' + JSON.stringify(errDetail));
-            }
+            await _aiPollinations(fullPrompt, btn, cfg.model);
         } catch(e) {
-            log('AI: BACKEND_OFFLINE/TIMEOUT → FALLBACK');
-        }
-
-        // ── Tier 2: Pollinations direct (Fallback) ───────────────────
-        if (!backendOk) {
-            try {
-                await _aiPollinations(fullPrompt, btn, cfg.model);
-            } catch(e2) {
-                _aiDone(btn);
-                _aiStatus('ALL_SOURCES_FAILED', 'var(--r)');
-                log('AI: ALL_SOURCES_FAILED: ' + e2.message);
-            }
+            _aiDone(btn);
+            _aiStatus('ALL_SOURCES_FAILED', 'var(--r)');
+            log('AI: ALL_SOURCES_FAILED: ' + e.message);
         }
 
         _aiGenerating = false;
