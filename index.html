@@ -7738,34 +7738,42 @@ function handleUISync(msg) {
 }
 
 function endCallCleanup() {
-    stopP2PRing();
-    if (APP.peer && APP.peer.localStream) {
-        APP.peer.localStream.getTracks().forEach(t => t.stop());
-    }
+    if (typeof stopP2PRing === 'function') stopP2PRing();
+    
+    // SAFEKEEPING: We specifically DO NOT stop the APP.peer.localStream tracks here anymore.
+    // This keeps your local workstation camera perfectly alive!
+    
     if (APP.peer && APP.peer.dataConn) {
         APP.peer.dataConn.close();
         APP.peer.dataConn = null;
     }
 
-    // Remove hidden video element from DOM (cleanup for iOS)
-    if (APP.guest.videoElement) {
+    if (APP.guest && APP.guest.videoElement) {
         APP.guest.videoElement.srcObject = null;
-        if (APP.guest.videoElement.parentNode) APP.guest.videoElement.parentNode.removeChild(APP.guest.videoElement);
+        if (APP.guest.videoElement.parentNode) {
+            APP.guest.videoElement.parentNode.removeChild(APP.guest.videoElement);
+        }
         APP.guest.videoElement = null;
     }
-
-    APP.guest.isActive = false;
-    APP.guest.stream = null;
+    
+    if (APP.guest) {
+        APP.guest.isActive = false;
+        APP.guest.stream = null;
+    }
+    
     if (APP.peer) {
         APP.peer.call = null;
         APP.peer.incomingCall = null;
     }
-
-    $('call-status').textContent = 'DISCONNECTED';
-    $('call-status').style.color = 'var(--text-dim)';
-
-    resetP2PButtons();
-    log('CALL_ENDED_CLEANUP');
+    
+    const callStatus = document.getElementById('call-status');
+    if (callStatus) {
+        callStatus.textContent = 'DISCONNECTED';
+        callStatus.style.color = 'var(--text-dim)';
+    }
+    
+    if (typeof resetP2PButtons === 'function') resetP2PButtons();
+    if (typeof log === 'function') log('CALL_ENDED: CAMERA SAVED');
 }
     // ========================================
     // ========================================
@@ -9007,11 +9015,28 @@ window.initAudioReactor = function() {
     const cooldown = 300; // Minimum MS between punches (prevents machine-gunning)
     const bassThreshold = 210; // 0-255 volume threshold for a "hit"
 
-    function renderLoop() {
-        if (!window.audioReactorActive) return;
-        requestAnimationFrame(renderLoop);
+    // 1. GLOBAL LOCK (Put this line OUTSIDE/ABOVE the function)
+    window.renderLoopId = null; 
 
-        analyzer.getByteFrequencyData(dataArray);
+    function renderLoop() {
+        // 2. THE KILLSWITCH: Stop duplicate loops from stacking and smearing
+        if (window.renderLoopId) {
+            cancelAnimationFrame(window.renderLoopId);
+        }
+
+        // 3. THE WIPE: Clean the chalkboard
+        if (APP && APP.render && APP.render.ctx) {
+            APP.render.ctx.clearRect(0, 0, APP.render.width, APP.render.height);
+            APP.render.ctx.globalCompositeOperation = 'source-over';
+        }
+
+        if (!window.audioReactorActive) return;
+
+        // 4. LOCK THE NEXT FRAME
+        window.renderLoopId = requestAnimationFrame(renderLoop);
+
+        // ... Keep all your existing drawing code below this line! ...
+        // ... (Leave the rest of your drawing code exactly as it is below this line!) ...
 
         // Calculate average volume of the lowest frequencies (Bass / Kick drum)
         // Usually the first 5-10 bins represent the sub-bass
@@ -9373,7 +9398,7 @@ if (btn3dX) {
     });
 }
 // --- AUDIO HARDWARE SCAN ENGINE ---
-    // --- HARDWARE SCANNER: COPIED FROM TEST.HTML ---
+   // --- HARDWARE SCANNER: HYBRID WORKSTATION ---
 (function() {
     const btnScan = document.getElementById('btn-scan-inputs');
     const selInput = document.getElementById('audio-input-select');
@@ -9381,8 +9406,9 @@ if (btn3dX) {
     if (btnScan) {
         btnScan.onclick = async function() {
             try {
-                // 1. PRIME: Request stream to unlock the real hardware names on the Mac
-                const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+                // 1. PRIME: Request both Audio AND Video to unlock all hardware labels upfront
+                // This guarantees macOS won't block the camera when a P2P call initiates
+                const stream = await navigator.mediaDevices.getUserMedia({ audio: true, video: true });
                 
                 // 2. ENUMERATE: Now that labels are unlocked, get the real names
                 const devices = await navigator.mediaDevices.enumerateDevices();
@@ -9393,7 +9419,7 @@ if (btn3dX) {
                     audioInputs.forEach(d => {
                         const opt = document.createElement('option');
                         opt.value = d.deviceId;
-                        // This will now show "MacBook Pro Microphone" instead of "Input 1"
+                        // This will now successfully show "MacBook Pro Microphone"
                         opt.text = d.label || 'HARDWARE_INPUT_' + (selInput.length);
                         selInput.appendChild(opt);
                     });
@@ -9401,10 +9427,10 @@ if (btn3dX) {
                     // Reveal the menu now that it has real names
                     selInput.style.display = 'block'; 
                     
-                    // 3. CLEANUP: Stop the temp stream so the red recording dot goes away
+                    // 3. CLEANUP: Stop the temp stream so the green/red recording dots go away
                     stream.getTracks().forEach(t => t.stop());
                     
-                    if (typeof ghostLog === 'function') ghostLog('AUDIO: HARDWARE_LABELS_UNLOCKED', 'ok');
+                    if (typeof ghostLog === 'function') ghostLog('HARDWARE: AUDIO/VIDEO LABELS UNLOCKED', 'ok');
                 }
             } catch (e) { 
                 if (typeof ghostLog === 'function') ghostLog('SCAN_ERR: ' + e.message, 'crit'); 
@@ -9417,12 +9443,14 @@ if (btn3dX) {
             const deviceId = selInput.value;
             if (deviceId && typeof startMicCapture === 'function') {
                 if (typeof ghostLog === 'function') ghostLog('AUDIO: SWITCHING_TO_HARDWARE', 'ai');
-                // Triggers the workstation mic engine with the specific Mac/AudioCard ID
+                
+                // Triggers the workstation capture engine with the specific Mac/AudioCard ID
+                // Because we primed video above, the camera will safely turn on alongside the mic
                 startMicCapture(deviceId); 
             }
         };
     }
-})();</script>
+})();
 
     <!-- gif-host: DIRECT child of <body>, NOT inside #stage.
          #stage has transform:translate3d(0,0,0) which creates a containing block for
@@ -9598,15 +9626,15 @@ function updatePodcastTray(data) {
             micStream = null;
         }
 
-        // 1. FIXED CONSTRAINTS: Force 16kHz Mono on ALL hardware
+        // 1. FIXED CONSTRAINTS: Allow Video for P2P, keep 16kHz for Deepgram
         var constraints = {
             audio: deviceId ? { 
                 deviceId: { exact: deviceId },
                 echoCancellation: true,
                 noiseSuppression: true,
                 autoGainControl : true,
-                channelCount    : 1,     // Deepgram fix
-                sampleRate      : 16000  // Deepgram fix
+                channelCount    : 1,     
+                sampleRate      : 16000  
             } : {
                 echoCancellation: true,
                 noiseSuppression: true,
@@ -9614,7 +9642,7 @@ function updatePodcastTray(data) {
                 channelCount    : 1,
                 sampleRate      : 16000
             },
-            video: false
+            video: true // <--- CHANGE THIS FROM FALSE TO TRUE!
         };
 
         try {
