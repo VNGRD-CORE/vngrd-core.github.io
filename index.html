@@ -1310,76 +1310,147 @@ body.fx-nvg #stage::after {
 #mcr-status.hot { color: #ff0055; text-shadow: 0 0 6px rgba(255,0,85,0.5); }
 
 
-/* ── UNIFIED HYBRID HUD & PODCAST TRAY ─────────────────────────── */
+/* ── #transcription-hud — viewport overlay ─────────────────── */
+#transcription-hud {
+    position: fixed;
+    bottom: 62px;           /* above #bottom-bar (55px) + breathing room */
+    left: 208px;            /* just outside left sidebar (200px) */
+    right: 208px;           /* just outside right sidebar (200px) */
+    z-index: 4500;          /* above sidebars (4000), below bars (5000) */
+    pointer-events: none;   /* VJ canvas clicks pass through */
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 5px;
+    padding: 0 16px;
+    /* Stealth Mode — hidden off-screen by default */
+    transform: translateY(120%);
+    opacity: 0;
+    transition: opacity 0.4s ease, transform 0.4s cubic-bezier(0.22, 1, 0.36, 1);
+}
+#transcription-hud.hud-active {
+    transform: translateY(0);
+    opacity: 1;
+}
+
+/* CRT scanline wash over the whole HUD */
+#transcription-hud::before {
+    content: '';
+    position: absolute; inset: 0;
+    pointer-events: none;
+    background: repeating-linear-gradient(
+        0deg,
+        transparent,  transparent 2px,
+        rgba(0,0,0,0.07) 2px, rgba(0,0,0,0.07) 4px
+    );
+    z-index: 10;
+}
+
+/* Primary English slot */
+#hud-en {
+    max-width: 700px;
+    width: 100%;
+    background: rgba(0,0,0,0.75);
+    border: 1px solid rgba(0,243,255,0.15);
+    border-left: 2px solid var(--accent);
+    padding: 7px 16px 8px;
+    backdrop-filter: blur(14px) saturate(140%);
+    -webkit-backdrop-filter: blur(14px) saturate(140%);
+    position: relative;
+}
+.hud-en-label {
+    font-size: 7px;
+    letter-spacing: 2.5px;
+    color: var(--accent);
+    opacity: 0.55;
+    text-transform: uppercase;
+    margin-bottom: 3px;
+    font-family: 'Orbitron', sans-serif;
+    font-weight: 600;
+}
+#hud-en-text {
+    font-size: 15px;
+    font-weight: 400;
+    color: #e8e8ec;
+    line-height: 1.45;
+    min-height: 22px;
+    letter-spacing: 0.2px;
+    text-shadow: 0 1px 10px rgba(0,0,0,0.95);
+}
+
+/* Text slide-in when new segment arrives */
+@keyframes hud-flash {
+    0%   { opacity: 0; transform: translateY(4px); }
+    100% { opacity: 1; transform: translateY(0); }
+}
+.hud-new { animation: hud-flash 0.22s ease-out both; }
+
+/* Collapse HUD when in fullscreen VJ mode */
+body.fullscreen #transcription-hud { opacity: 0 !important; pointer-events: none !important; }
+
+/* ── PODCAST TRAY — fixed bottom bar ─────────────────────────── */
 #podcast-tray {
+    display: none;
     position: fixed;
     bottom: 0; left: 0;
     width: 100%;
-    background: rgba(0,0,0,0.85);
-    border-top: 2px solid var(--accent, #00ffcc);
+    background: rgba(0,0,0,0.9);
+    border-top: 1px solid #00ffcc;
     z-index: 9999;
-    padding: 12px 20px;
+    padding: 8px 16px;
     box-sizing: border-box;
-    display: none; /* Stays invisible until ON-AIR is active */
     flex-direction: row;
-    gap: 15px;
+    gap: 12px;
     align-items: stretch;
-    backdrop-filter: blur(14px) saturate(140%);
-    -webkit-backdrop-filter: blur(14px) saturate(140%);
 }
-
-/* Slides up dynamically when the connection goes live */
-#podcast-tray.visible, #podcast-tray.on-air { 
-    display: flex; 
-    animation: tray-slide-up 0.4s cubic-bezier(0.22, 1, 0.36, 1);
-}
-
-@keyframes tray-slide-up {
-    0%   { transform: translateY(100%); opacity: 0; }
-    100% { transform: translateY(0); opacity: 1; }
-}
-
+#podcast-tray.visible { display: flex; }
 .podcast-slot {
     flex: 1;
     display: flex;
     flex-direction: column;
-    gap: 4px;
+    gap: 3px;
     min-width: 0;
-    border-left: 1px solid rgba(0, 255, 204, 0.2);
-    padding-left: 12px;
 }
-
-.slot-lang {
-    font-family: 'Orbitron', monospace, sans-serif;
-    font-size: 9px;
+.podcast-slot-label {
+    font-family: 'Orbitron', monospace;
+    font-size: 8px;
     font-weight: 700;
     letter-spacing: 2px;
-    color: var(--accent, #00ffcc);
+    color: #00ffcc;
     opacity: 0.7;
-    text-transform: uppercase;
 }
-
-.slot-text {
-    font-family: 'JetBrains Mono', monospace, sans-serif;
-    font-size: 14px;
+.podcast-slot-text {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 12px;
     color: #e0ffe8;
     line-height: 1.4;
-    min-height: 20px;
+    min-height: 18px;
     text-shadow: 0 0 6px rgba(0,255,204,0.25);
-    white-space: pre-wrap;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
 }
+.podcast-slot-text.flash { animation: hud-flash 0.22s ease-out both; }
 
-/* Flashes text slightly when Deepgram sends a new update */
-@keyframes hud-flash {
-    0%   { opacity: 0.5; transform: translateY(2px); }
-    100% { opacity: 1; transform: translateY(0); }
+/* ── SYNC LED ── */
+#sync-led {
+    width: 4px; height: 4px; border-radius: 50%;
+    background: #00f3ff;
+    box-shadow: 0 0 4px #00f3ff;
+    flex-shrink: 0;
+    margin-left: auto;
+    opacity: 0.25;
+    transition: opacity 0.15s, box-shadow 0.15s;
+    cursor: default;
 }
-.slot-text.flash { animation: hud-flash 0.2s ease-out both; }
-
-/* Stealth Mode: Hide HUD when pushing visuals to full screen */
-body.fullscreen #podcast-tray { 
-    opacity: 0 !important; 
-    pointer-events: none !important; 
+#sync-led.blink {
+    opacity: 1;
+    box-shadow: 0 0 8px #00f3ff, 0 0 18px rgba(0,243,255,0.6);
+    animation: led-pulse 1s ease-out forwards;
+}
+@keyframes led-pulse {
+    0%   { opacity: 1; box-shadow: 0 0 8px #00f3ff, 0 0 18px rgba(0,243,255,0.6); }
+    100% { opacity: 0.25; box-shadow: 0 0 4px #00f3ff; }
 }
 
 /* ── SAVE MODAL ── */
@@ -1908,17 +1979,52 @@ body.fullscreen #podcast-tray {
         <div class="nft-bar"><div class="nft-fill" id="nft-fill"></div></div>
     </div>
 
-   <div id="podcast-tray">
-    <div class="podcast-slot">
-        <div class="slot-lang">EN // LIVE</div>
-        <div class="slot-text" id="hud-en-text">WAITING_FOR_SIGNAL...</div>
-    </div>
-    <div class="podcast-slot">
-        <div class="slot-lang">ES // TRANS</div>
-        <div class="slot-text" id="hud-es">WAITING_FOR_SIGNAL...</div>
-    </div>
-</div>
+    <!-- ══════════════════════════════════════════════════════════
+         TRANSCRIPTION HUD OVERLAY — DRIS//CORE POLYTRANSLATOR V1.0_SYNC
+         Sits above #bottom-bar, between the sidebars.
+         Visibility controlled by JS (.visible class).
+         pointer-events:none so VJ canvas stays fully interactive.
+         ══════════════════════════════════════════════════════════ -->
+    <div id="transcription-hud" role="region" aria-label="Live Transcription">
 
+        <!-- Primary English transcription slot -->
+        <div id="hud-en">
+            <div class="hud-en-label">EN // LIVE TRANSCRIPTION</div>
+            <div id="hud-en-text"></div>
+        </div>
+
+    </div>
+
+    <!-- ══════════════════════════════════════════════════════════
+         PODCAST TRAY — fixed bottom bar, closed by default.
+         Shows EN / ES / FR subtitles when ON-AIR and data arrives.
+         ══════════════════════════════════════════════════════════ -->
+    <div id="podcast-tray" role="region" aria-label="Live Subtitles">
+        <div class="podcast-slot">
+            <div class="podcast-slot-label">EN</div>
+            <div class="podcast-slot-text" id="podcast-en"></div>
+        </div>
+        <div class="podcast-slot">
+            <div class="podcast-slot-label">ES</div>
+            <div class="podcast-slot-text" id="podcast-es"></div>
+        </div>
+        <div class="podcast-slot">
+            <div class="podcast-slot-label">FR</div>
+            <div class="podcast-slot-text" id="podcast-fr"></div>
+        </div>
+    </div>
+
+    <!-- ── PODCAST TRAY — subtitle slots, slides up on ON-AIR ── -->
+    <div id="podcast-tray">
+        <div class="podcast-slot">
+            <div class="slot-lang">EN // LIVE</div>
+            <div class="slot-text" id="hud-en-text">WAITING_FOR_SIGNAL...</div>
+        </div>
+        <div class="podcast-slot">
+            <div class="slot-lang">ES // TRANS</div>
+            <div class="slot-text" id="hud-es">WAITING_FOR_SIGNAL...</div>
+        </div>
+    </div>
     <input type="file" id="file-media" multiple accept="image/*,video/*">
     <input type="file" id="file-audio" multiple accept="audio/*">
     <input type="file" id="file-logo" accept="image/*">
@@ -1973,13 +2079,9 @@ function makeLogSafeDraggable(el) {
         el.style.right = '200px'; el.style.bottom = '55px';
     };
 }
-
 // --- KILL SWITCH ---
 document.addEventListener('keydown', e => {
-    if ((e.ctrlKey || e.metaKey) && (e.key === 's' || e.key === 'S')) { 
-        e.preventDefault(); 
-        console.log('SYS: SAVE_DISABLED'); 
-    }
+    if ((e.ctrlKey || e.metaKey) && (e.key === 's' || e.key === 'S')) { e.preventDefault(); console.log('SYS: SAVE_DISABLED'); }
 });
 document.ondragstart = function() { return false; };
 
@@ -3989,51 +4091,6 @@ if (T.logo.visible) {
     ctx.fillText('VNGRD', w - (w * 0.01), h - (h * 0.01));
     ctx.restore();
 
-    // ═══ CANVAS-LEVEL FX COMPOSITING ═══
-    // Mirrors CSS body-class FX (NVG, VOID, LUCY, SCAN) onto the canvas so
-    // captureStream() recordings show the same visual effects seen on screen.
-    (function applyCanvasFX() {
-        var bc = document.body.classList;
-        var fxFilter = '';
-        if (bc.contains('fx-nvg')) {
-            fxFilter = 'grayscale(1) brightness(1.6) contrast(2.2) sepia(1) hue-rotate(78deg) saturate(5)';
-        } else if (bc.contains('fx-void')) {
-            fxFilter = 'saturate(0) contrast(3.5) brightness(1.4)';
-        } else if (bc.contains('fx-lucy')) {
-            if (!APP.render._lucyHue) APP.render._lucyHue = 0;
-            APP.render._lucyHue = (APP.render._lucyHue + 2) % 360;
-            fxFilter = 'hue-rotate(' + APP.render._lucyHue + 'deg) saturate(4) brightness(1.1)';
-        }
-        if (fxFilter) {
-            // Cache the offscreen FX canvas to avoid per-frame allocation
-            if (!APP.render._fxCanvas) APP.render._fxCanvas = document.createElement('canvas');
-            var fc = APP.render._fxCanvas;
-            if (fc.width !== w) fc.width = w;
-            if (fc.height !== h) fc.height = h;
-            var fctx = fc.getContext('2d');
-            fctx.drawImage(APP.render.canvas, 0, 0);
-            ctx.filter = fxFilter;
-            ctx.drawImage(fc, 0, 0);
-            ctx.filter = 'none';
-        }
-        // X-Ray scan bar (fx-scan): draw animated cyan laser line directly to canvas
-        if (bc.contains('fx-scan')) {
-            var scanPeriod = 6000;
-            var scanFrac = (timestamp % scanPeriod) / scanPeriod;
-            var scanY = scanFrac < 0.5 ? scanFrac * 2 * h : (1 - (scanFrac - 0.5) * 2) * h;
-            ctx.save();
-            var scanGrad = ctx.createLinearGradient(0, scanY - 10, 0, scanY + 10);
-            scanGrad.addColorStop(0, 'rgba(0,255,255,0)');
-            scanGrad.addColorStop(0.5, 'rgba(0,255,255,0.85)');
-            scanGrad.addColorStop(1, 'rgba(0,255,255,0)');
-            ctx.fillStyle = scanGrad;
-            ctx.shadowColor = 'rgba(0,255,255,1)';
-            ctx.shadowBlur = 25;
-            ctx.fillRect(0, scanY - 5, w, 10);
-            ctx.restore();
-        }
-    })();
-
     // --- Close frame-level punch/seismic transform ---
     if (_hasFX) {
         ctx.filter = 'none';
@@ -4767,18 +4824,15 @@ $('btn-rec').onclick = () => {
 
             // Always build a fresh audio destination to avoid stale/dead tracks
             // Tap outputLimiter (final mix node) so music + video audio are both captured
-            var bcastStream = new MediaStream(APP.render.canvas.captureStream(30).getVideoTracks());
+            var bcastStream = new MediaStream(APP.render.canvas.captureStream(60).getVideoTracks());
             if (APP.audio.ctx && APP.audio.outputLimiter) {
                 var bcastDest = APP.audio.ctx.createMediaStreamDestination();
                 APP.audio.outputLimiter.connect(bcastDest);
-                // Include live mic gain node (routed through AudioContext)
+                // Include live mic directly (it goes to recording only, not to speakers)
                 if (APP.audio.micGainNode) {
                     try { APP.audio.micGainNode.connect(bcastDest); } catch(e) {}
                 }
                 bcastDest.stream.getAudioTracks().forEach(t => bcastStream.addTrack(t));
-            } else if (APP.camera.micStream) {
-                // Fallback: add raw mic tracks directly if AudioContext not yet initialised
-                APP.camera.micStream.getAudioTracks().forEach(t => bcastStream.addTrack(t));
             }
 
             APP.broadcast.chunks = [];
@@ -5281,37 +5335,6 @@ async function executeWorkspaceExport() {
     var payload = _buildSessionSnapshot();
     payload._type = 'VNGRD_WORKSPACE';
     payload._version = 'V34';
-
-    // ── Pin large media blobs separately so the JSON payload stays small ──
-    // logo2d is stored as a data: URL which can be several MB.
-    // Pin it as a file first; replace the field with an ipfs:// CID reference.
-    if (payload.logo2d && payload.logo2d.startsWith('data:')) {
-        log('IPFS: PINNING_LOGO2D_AS_FILE');
-        try {
-            var logoResp = await fetch(payload.logo2d);
-            var logoBlob = await logoResp.blob();
-            var logoForm = new FormData();
-            logoForm.append('file', logoBlob, 'logo2d.png');
-            logoForm.append('pinataMetadata', JSON.stringify({ name: 'VNGRD_LOGO2D_' + Date.now() }));
-            var logoUpRes = await fetch('https://api.pinata.cloud/pinning/pinFileToIPFS', {
-                method: 'POST',
-                headers: { 'Authorization': 'Bearer ' + jwt },
-                body: logoForm
-            });
-            var logoUpData = await logoUpRes.json();
-            if (logoUpRes.ok && logoUpData.IpfsHash) {
-                payload.logo2d = 'ipfs://' + logoUpData.IpfsHash;
-                log('IPFS: LOGO2D_PINNED CID=' + logoUpData.IpfsHash);
-            } else {
-                // Failed to pin separately — drop it to avoid oversized JSON
-                log('IPFS: LOGO2D_PIN_FAILED (' + JSON.stringify(logoUpData) + ') — omitting from payload');
-                payload.logo2d = null;
-            }
-        } catch(logoErr) {
-            log('IPFS: LOGO2D_PIN_ERR ' + logoErr.message + ' — omitting from payload');
-            payload.logo2d = null;
-        }
-    }
 
     var res, data;
     try {
@@ -7817,42 +7840,34 @@ function handleUISync(msg) {
 }
 
 function endCallCleanup() {
-    if (typeof stopP2PRing === 'function') stopP2PRing();
-    
-    // SAFEKEEPING: We specifically DO NOT stop the APP.peer.localStream tracks here anymore.
-    // This keeps your local workstation camera perfectly alive!
-    
+    stopP2PRing();
+    if (APP.peer && APP.peer.localStream) {
+        APP.peer.localStream.getTracks().forEach(t => t.stop());
+    }
     if (APP.peer && APP.peer.dataConn) {
         APP.peer.dataConn.close();
         APP.peer.dataConn = null;
     }
 
-    if (APP.guest && APP.guest.videoElement) {
+    // Remove hidden video element from DOM (cleanup for iOS)
+    if (APP.guest.videoElement) {
         APP.guest.videoElement.srcObject = null;
-        if (APP.guest.videoElement.parentNode) {
-            APP.guest.videoElement.parentNode.removeChild(APP.guest.videoElement);
-        }
+        if (APP.guest.videoElement.parentNode) APP.guest.videoElement.parentNode.removeChild(APP.guest.videoElement);
         APP.guest.videoElement = null;
     }
-    
-    if (APP.guest) {
-        APP.guest.isActive = false;
-        APP.guest.stream = null;
-    }
-    
+
+    APP.guest.isActive = false;
+    APP.guest.stream = null;
     if (APP.peer) {
         APP.peer.call = null;
         APP.peer.incomingCall = null;
     }
-    
-    const callStatus = document.getElementById('call-status');
-    if (callStatus) {
-        callStatus.textContent = 'DISCONNECTED';
-        callStatus.style.color = 'var(--text-dim)';
-    }
-    
-    if (typeof resetP2PButtons === 'function') resetP2PButtons();
-    if (typeof log === 'function') log('CALL_ENDED: CAMERA SAVED');
+
+    $('call-status').textContent = 'DISCONNECTED';
+    $('call-status').style.color = 'var(--text-dim)';
+
+    resetP2PButtons();
+    log('CALL_ENDED_CLEANUP');
 }
     // ========================================
     // ========================================
@@ -7861,21 +7876,17 @@ function endCallCleanup() {
     // ========================================
     async function scanAudioInputDevices() {
         try {
-            // Permission prime: briefly open the mic so enumerateDevices returns real labels
-            const _primeMicStream = await navigator.mediaDevices.getUserMedia({ audio: true });
-
+            // Request permission with basic constraints first
+            await navigator.mediaDevices.getUserMedia({ audio: true });
+            
             const devices = await navigator.mediaDevices.enumerateDevices();
-
-            // Stop the temp stream immediately so the red recording dot clears
-            _primeMicStream.getTracks().forEach(t => t.stop());
-
             const audioInputs = devices.filter(d => d.kind === 'audioinput');
-
+            
             APP.inputDevices.list = audioInputs;
-
+            
             const select = $('audio-input-select');
             select.innerHTML = '<option value="">SELECT_DEVICE...</option>';
-
+            
             audioInputs.forEach((device, idx) => {
                 const option = document.createElement('option');
                 option.value = device.deviceId;
@@ -9098,28 +9109,11 @@ window.initAudioReactor = function() {
     const cooldown = 300; // Minimum MS between punches (prevents machine-gunning)
     const bassThreshold = 210; // 0-255 volume threshold for a "hit"
 
-    // 1. GLOBAL LOCK (Put this line OUTSIDE/ABOVE the function)
-    window.renderLoopId = null; 
-
     function renderLoop() {
-        // 2. THE KILLSWITCH: Stop duplicate loops from stacking and smearing
-        if (window.renderLoopId) {
-            cancelAnimationFrame(window.renderLoopId);
-        }
-
-        // 3. THE WIPE: Clean the chalkboard
-        if (APP && APP.render && APP.render.ctx) {
-            APP.render.ctx.clearRect(0, 0, APP.render.width, APP.render.height);
-            APP.render.ctx.globalCompositeOperation = 'source-over';
-        }
-
         if (!window.audioReactorActive) return;
+        requestAnimationFrame(renderLoop);
 
-        // 4. LOCK THE NEXT FRAME
-        window.renderLoopId = requestAnimationFrame(renderLoop);
-
-        // ... Keep all your existing drawing code below this line! ...
-        // ... (Leave the rest of your drawing code exactly as it is below this line!) ...
+        analyzer.getByteFrequencyData(dataArray);
 
         // Calculate average volume of the lowest frequencies (Bass / Kick drum)
         // Usually the first 5-10 bins represent the sub-bass
@@ -9481,7 +9475,7 @@ if (btn3dX) {
     });
 }
 // --- AUDIO HARDWARE SCAN ENGINE ---
-   // --- HARDWARE SCANNER: HYBRID WORKSTATION ---
+    // --- HARDWARE SCANNER: COPIED FROM TEST.HTML ---
 (function() {
     const btnScan = document.getElementById('btn-scan-inputs');
     const selInput = document.getElementById('audio-input-select');
@@ -9489,9 +9483,8 @@ if (btn3dX) {
     if (btnScan) {
         btnScan.onclick = async function() {
             try {
-                // 1. PRIME: Request both Audio AND Video to unlock all hardware labels upfront
-                // This guarantees macOS won't block the camera when a P2P call initiates
-                const stream = await navigator.mediaDevices.getUserMedia({ audio: true, video: true });
+                // 1. PRIME: Request stream to unlock the real hardware names on the Mac
+                const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
                 
                 // 2. ENUMERATE: Now that labels are unlocked, get the real names
                 const devices = await navigator.mediaDevices.enumerateDevices();
@@ -9502,7 +9495,7 @@ if (btn3dX) {
                     audioInputs.forEach(d => {
                         const opt = document.createElement('option');
                         opt.value = d.deviceId;
-                        // This will now successfully show "MacBook Pro Microphone"
+                        // This will now show "MacBook Pro Microphone" instead of "Input 1"
                         opt.text = d.label || 'HARDWARE_INPUT_' + (selInput.length);
                         selInput.appendChild(opt);
                     });
@@ -9510,10 +9503,10 @@ if (btn3dX) {
                     // Reveal the menu now that it has real names
                     selInput.style.display = 'block'; 
                     
-                    // 3. CLEANUP: Stop the temp stream so the green/red recording dots go away
+                    // 3. CLEANUP: Stop the temp stream so the red recording dot goes away
                     stream.getTracks().forEach(t => t.stop());
                     
-                    if (typeof ghostLog === 'function') ghostLog('HARDWARE: AUDIO/VIDEO LABELS UNLOCKED', 'ok');
+                    if (typeof ghostLog === 'function') ghostLog('AUDIO: HARDWARE_LABELS_UNLOCKED', 'ok');
                 }
             } catch (e) { 
                 if (typeof ghostLog === 'function') ghostLog('SCAN_ERR: ' + e.message, 'crit'); 
@@ -9526,14 +9519,12 @@ if (btn3dX) {
             const deviceId = selInput.value;
             if (deviceId && typeof startMicCapture === 'function') {
                 if (typeof ghostLog === 'function') ghostLog('AUDIO: SWITCHING_TO_HARDWARE', 'ai');
-                
-                // Triggers the workstation capture engine with the specific Mac/AudioCard ID
-                // Because we primed video above, the camera will safely turn on alongside the mic
+                // Triggers the workstation mic engine with the specific Mac/AudioCard ID
                 startMicCapture(deviceId); 
             }
         };
     }
-})();
+})();</script>
 
     <!-- gif-host: DIRECT child of <body>, NOT inside #stage.
          #stage has transform:translate3d(0,0,0) which creates a containing block for
@@ -9600,11 +9591,10 @@ if (btn3dX) {
    ═══════════════════════════════════════════════════════════════════════ */
 (function () {
     'use strict';
+ws://127.0.0.1:8000/ws/transcribe;
+    var CHUNK_MS = 4000;   // MediaRecorder timeslice
+    var RECONNECT_DELAY = 3000;   // fixed 3-second backoff
 
-    // FIX: This must be assigned to WS_URL to work
-    var WS_URL = 'ws://127.0.0.1:8000/ws/transcribe';
-    var CHUNK_MS = 250;           // Set to 250ms for real-time Deepgram response
-    var RECONNECT_DELAY = 3000;   // 3-second backoff
     var ws         = null;
     var onAir      = false;
     var reconnTimer= null;
@@ -9647,94 +9637,104 @@ if (btn3dX) {
         }
     }
 
-   function setOnAirUI(active) {
+    function setOnAirUI(active) {
         onAir = active;
         if (!btnOnAir) return;
-        
         btnOnAir.textContent = active ? 'ON-AIR' : 'OFF-AIR';
         btnOnAir.classList.toggle('active', active);
         if (mcrDot) mcrDot.classList.toggle('hot', active);
-        
-        var tray = document.getElementById('podcast-tray');
-        
+        langBtns.forEach(function (b) { b.disabled = active; });
+        var deck = document.getElementById('hud-langs');
+        var podcastTray = document.getElementById('podcast-tray');
         if (active) {
-            if (mcrStatus) { 
-                mcrStatus.classList.add('hot'); 
-                mcrStatus.textContent = 'MCR: ON-AIR'; 
-            }
-            // THIS forces the tray to slide up
-            if (tray) tray.classList.add('visible'); 
+            if (mcrStatus) { mcrStatus.classList.add('hot'); mcrStatus.textContent = 'MCR: ON-AIR \u25B6 ' + targetLang.toUpperCase(); }
+            if (hud)  hud.classList.add('visible');
+            if (deck) deck.classList.add('active');
+            if (podcastTray) podcastTray.classList.add('on-air');
         } else {
-            if (mcrStatus) { 
-                mcrStatus.classList.remove('hot'); 
-                mcrStatus.textContent = 'MCR: STANDBY'; 
-            }
-            if (tray) tray.classList.remove('visible');
+            if (mcrStatus) { mcrStatus.classList.remove('hot'); mcrStatus.textContent = 'MCR: STANDBY \u25FC'; }
+            if (hud)  hud.classList.remove('visible');
+            if (deck) deck.classList.remove('active');
+            if (podcastTray) podcastTray.classList.remove('on-air');
+        }
+        if (typeof ghostLog === 'function') {
+            ghostLog(active
+                ? 'GHOST> MCR ON-AIR \u2014 mic \u2192 ws://localhost:8000 \u2192 TRAY'
+                : 'GHOST> MCR STANDBY \u2014 signal stopped',
+                active ? 'ok' : 'info');
         }
     }
-function updatePodcastTray(data) {
+
+    function clearHUD() {
+        if (hudEN) hudEN.textContent = '';
+        if (podEN) podEN.textContent = '';
+        if (podES) podES.textContent = '';
+        if (podFR) podFR.textContent = '';
+        if (podcastTray) podcastTray.classList.remove('visible');
+    }
+
+    function flashPodcastSlot(el, text) {
+        if (!el || !text) return;
+        el.textContent = text;
+        el.classList.remove('flash');
+        void el.offsetWidth;
+        el.classList.add('flash');
+    }
+
+    function updatePodcastTray(data) {
         if (!onAir) return;
-        
-        // 1. THE ENFORCER: Force the tray to stay visible the moment data arrives
-        const tray = document.getElementById('podcast-tray');
-        if (tray) tray.classList.add('visible');
-        
-        // 2. TARGET THE UNIFIED IDs
-        const enSlot = document.getElementById('hud-en-text');
-        const esSlot = document.getElementById('hud-es');
-        
-        // 3. INJECT & ANIMATE ENGLISH
-        if (enSlot && data.en) {
-            enSlot.textContent = data.en;
-            enSlot.classList.remove('flash');
-            void enSlot.offsetWidth; // Trigger CSS reflow for the animation
-            enSlot.classList.add('flash');
+        flashPodcastSlot(podEN, data.en);
+        flashPodcastSlot(podES, data.es);
+        flashPodcastSlot(podFR, data.fr);
+        // Also keep the existing HUD EN slot in sync
+        if (hudEN && data.en) {
+            hudEN.textContent = data.en;
+            hudEN.classList.remove('hud-new');
+            void hudEN.offsetWidth;
+            hudEN.classList.add('hud-new');
         }
-        
-        // 4. INJECT & ANIMATE SPANISH
-        if (esSlot && data.es) {
-            esSlot.textContent = data.es;
-            esSlot.classList.remove('flash');
-            void esSlot.offsetWidth;
-            esSlot.classList.add('flash');
-        }
+        // Show tray on first data packet
+        if (podcastTray) podcastTray.classList.add('visible');
     }
+
     /* ── Mic capture ──────────────────────────────────────────────────── */
 
    async function startMicCapture(deviceId = null) {
+        // If we are already capturing and no new device is requested, exit
         if (micStream && !deviceId) return;
 
+        // 1. Hardware Cleanup: Stop existing tracks before switching to new hardware
         if (micStream) {
             micStream.getTracks().forEach(function(t) { t.stop(); });
             micStream = null;
         }
 
-        // 1. FIXED CONSTRAINTS: Allow Video for P2P, keep 16kHz for Deepgram
+        // 2. Set Constraints: Lock to specific hardware ID if provided
         var constraints = {
             audio: deviceId ? { 
                 deviceId: { exact: deviceId },
                 echoCancellation: true,
                 noiseSuppression: true,
-                autoGainControl : true,
-                channelCount    : 1,     
-                sampleRate      : 16000  
+                autoGainControl : true
             } : {
                 echoCancellation: true,
                 noiseSuppression: true,
                 autoGainControl : true,
                 channelCount    : 1,
-                sampleRate      : 16000
+                sampleRate      : 16000,
             },
-            video: true // <--- CHANGE THIS FROM FALSE TO TRUE!
+            video: false
         };
 
         try {
             micStream = await navigator.mediaDevices.getUserMedia(constraints);
             
+            // Link to the Workstation Analyzer (for the visualizers)
             if (window.APP && window.APP.audio && window.APP.audio.ctx) {
                 var source = window.APP.audio.ctx.createMediaStreamSource(micStream);
                 if (window.APP.audio.micAnalyzer) source.connect(window.APP.audio.micAnalyzer);
             }
+
         } catch (e) {
             var reason = e.name === 'NotAllowedError' ? 'PERMISSION_DENIED' : (e.message || e.name);
             if (typeof ghostLog === 'function') ghostLog('HARDWARE ERR: ' + reason, 'crit');
@@ -9743,23 +9743,17 @@ function updatePodcastTray(data) {
             return;
         }
 
+        // 3. MediaRecorder Setup (MCR Backend)
         var mimeType = ['audio/webm;codecs=opus', 'audio/webm', 'audio/ogg;codecs=opus', 'audio/ogg']
             .find(function (t) { return MediaRecorder.isTypeSupported(t); }) || '';
 
         mediaRec = new MediaRecorder(micStream, mimeType ? { mimeType: mimeType } : {});
 
-       mediaRec.ondataavailable = function (e) {
-            // FIX: Removed the "< 100" limit so it stops dropping the Keep-Alive packets
-            if (!e.data || e.data.size === 0) return;
+        mediaRec.ondataavailable = function (e) {
+            if (!e.data || e.data.size < 100) return;
             if (!ws || ws.readyState !== WebSocket.OPEN) return;
-            
-            // DIAGNOSTIC: Watch this in your Chrome Console (Cmd + Option + J)
-            console.log("🎙️ SIGNAL PACKED:", e.data.size, "bytes");
-
             e.data.arrayBuffer().then(function (buf) {
-                if (ws && ws.readyState === WebSocket.OPEN) {
-                    ws.send(buf);
-                }
+                if (ws && ws.readyState === WebSocket.OPEN) ws.send(buf);
             }).catch(function () {});
         };
 
@@ -9767,8 +9761,7 @@ function updatePodcastTray(data) {
             if (typeof ghostLog === 'function') ghostLog('MediaRecorder ERR: ' + (e.error || e), 'crit');
         };
 
-        // CHUNK_MS should be defined above as 250
-        mediaRec.start(typeof CHUNK_MS !== 'undefined' ? CHUNK_MS : 250);
+        mediaRec.start(CHUNK_MS);
 
         if (typeof ghostLog === 'function') {
             var label = deviceId ? 'EXTERNAL_CARD' : 'DEFAULT_MIC';
@@ -9788,6 +9781,7 @@ function updatePodcastTray(data) {
     }
 
     /* ── WebSocket lifecycle ──────────────────────────────────────────── */
+
     function connect() {
         if (ws && (ws.readyState === WebSocket.OPEN || ws.readyState === WebSocket.CONNECTING)) return;
         setWsState('connecting');
@@ -9799,6 +9793,7 @@ function updatePodcastTray(data) {
         ws.onopen = function () {
             setWsState('connected');
             clearTimeout(reconnTimer);
+            // Reset if was live when connection dropped
             if (onAir) { stopMicCapture(); setOnAirUI(false); }
             if (typeof ghostLog === 'function') ghostLog('GHOST> MCR WS bridge online \u2192 ' + WS_URL, 'ok');
         };
@@ -9841,21 +9836,14 @@ function updatePodcastTray(data) {
     if (btnOnAir) {
         btnOnAir.addEventListener('click', function () {
             if (!onAir) {
+                // Always show tray + UI. Only start WS ops if connected.
                 setOnAirUI(true);
                 if (ws && ws.readyState === WebSocket.OPEN) {
                     clearHUD();
-                    // 3. FATAL CRASH FIX: Ensure targetLang safely defaults to 'es' if undefined
-                    var safeTargetLang = typeof targetLang !== 'undefined' ? targetLang : 'es';
-                    
-                    ws.send(JSON.stringify({ 
-                        action: 'start', 
-                        target_lang: safeTargetLang, 
-                        source_lang: 'en' 
-                    }));
-                    
+                    ws.send(JSON.stringify({ action: 'start', target_lang: targetLang, source_lang: 'en' }));
                     startMicCapture();
                 } else {
-                    if (typeof ghostLog === 'function') ghostLog('PODCAST TRAY: ON-AIR (offline mode)', 'ai');
+                    if (typeof ghostLog === 'function') ghostLog('PODCAST TRAY: ON-AIR (offline mode — no MCR backend)', 'ai');
                 }
             } else {
                 setOnAirUI(false);
