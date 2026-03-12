@@ -516,12 +516,20 @@
         /* SYSTEM SLIDE — panels out, stage expands */
         body.system-slide #left-panel  {
             transform: translateX(-100%); opacity: 0; pointer-events: none; visibility: hidden;
-            /* slide-OUT transitions: visibility hidden after opacity fades (0.28s delay) */
+            /* Kill backdrop-filter immediately — it composites stage content through
+               the panel and creates the "ghost text behind" bleed. Also go fully
+               opaque so nothing can show through while fading. */
+            backdrop-filter: none !important;
+            -webkit-backdrop-filter: none !important;
+            background: rgb(6,6,10) !important;
             transition: transform 0.38s cubic-bezier(0.55,0,1,0.45),
                         opacity 0.28s ease,
                         visibility 0s 0.28s; }
         body.system-slide #right-panel {
             transform: translateX(100%);  opacity: 0; pointer-events: none; visibility: hidden;
+            backdrop-filter: none !important;
+            -webkit-backdrop-filter: none !important;
+            background: rgb(6,6,10) !important;
             transition: transform 0.38s cubic-bezier(0.55,0,1,0.45),
                         opacity 0.28s ease,
                         visibility 0s 0.28s; }
@@ -3571,8 +3579,9 @@ function renderLoop(timestamp) {
         const ready = source.tagName === 'VIDEO' ? source.readyState >= 2 : (source.complete && source.naturalWidth > 0);
         if (ready) {
 
-            // --- VIEWPORT-FIT: object-fit:contain logic for canvas ---
-            // Computes centered, aspect-ratio-preserving draw rect (no stretching)
+            // --- VIEWPORT-FIT: object-fit:cover logic for canvas ---
+            // Fills the full canvas — one dimension matches exactly, the other
+            // overflows and is clipped by the canvas bounds (no black bars).
             // _effectiveWidth/_effectiveHeight = EXIF-corrected (mobile photo orientation)
             var srcW = source.videoWidth || source._effectiveWidth || source.naturalWidth || w;
             var srcH = source.videoHeight || source._effectiveHeight || source.naturalHeight || h;
@@ -3580,13 +3589,13 @@ function renderLoop(timestamp) {
             var canvasAR = w / h;
             var drawW, drawH, drawX, drawY;
             if (srcAR > canvasAR) {
-                // Source is wider — fit to width, letterbox top/bottom
-                drawW = w; drawH = w / srcAR;
-                drawX = 0; drawY = (h - drawH) / 2;
-            } else {
-                // Source is taller — fit to height, pillarbox left/right
+                // Source is wider than canvas — fill height, overflow left/right (cropped)
                 drawH = h; drawW = h * srcAR;
                 drawX = (w - drawW) / 2; drawY = 0;
+            } else {
+                // Source is taller than canvas — fill width, overflow top/bottom (cropped)
+                drawW = w; drawH = w / srcAR;
+                drawX = 0; drawY = (h - drawH) / 2;
             }
 
             if (APP.vj.pixelateEnabled && APP.vj.pixelSize > 1) {
