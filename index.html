@@ -5675,6 +5675,28 @@ function toggleSystemSlide() {
     const isSlid = document.body.classList.toggle('system-slide');
     APP.state.systemSlide = isSlid;
 
+    // THE BLACKOUT FIX: Put this here to hide the background scripts instantly
+    const stage = document.getElementById('stage');
+    if (stage) stage.style.backgroundColor = '#000000';
+
+    // 1. Force immediate cache clear so logos don't drift
+    if (APP.render) {
+        APP.render._cachedRect = null;
+    }
+
+    // 2. Sync resize with the very first frame of the animation
+    requestAnimationFrame(() => {
+        if (typeof resizeCanvas === 'function') {
+            // Measure the parent immediately as the class is added
+            APP.render.width = APP.render.canvas.parentElement.clientWidth;
+            APP.render.height = APP.render.canvas.parentElement.clientHeight;
+            resizeCanvas();
+        }
+    });
+    
+    // ... rest of your function
+}
+
     // 1. Force immediate cache clear so logos don't drift
     if (APP.render) {
         APP.render._cachedRect = null;
