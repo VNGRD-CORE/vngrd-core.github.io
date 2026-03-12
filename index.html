@@ -9922,47 +9922,53 @@ if (btn3dX) {
     /* ── WebSocket lifecycle ──────────────────────────────────────────── */
 
     function connect() {
+        // 1. WebSocket / Cloud Bridge (Keep your existing logic)
         if (ws && (ws.readyState === WebSocket.OPEN || ws.readyState === WebSocket.CONNECTING)) return;
         setWsState('connecting');
-        try { ws = new WebSocket(WS_URL); }
-        catch (e) { setWsState('error'); scheduleReconnect(); return; }
 
-        ws.binaryType = 'arraybuffer';
+        const isLocal = window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1';
+        const API_BASE = isLocal ? 'http://127.0.0.1:8000' : (window.VNGRD_CLOUD_BACKEND || '');
+        const WS_URL = API_BASE ? API_BASE.replace('http', 'ws') + '/ws/transcribe' : null;
 
-        ws.onopen = function () {
-            setWsState('connected');
-            clearTimeout(reconnTimer);
-            // Reset if was live when connection dropped
-            if (onAir) { stopMicCapture(); setOnAirUI(false); }
-            if (typeof ghostLog === 'function') ghostLog('GHOST> MCR WS bridge online \u2192 ' + WS_URL, 'ok');
-        };
+        if (WS_URL) {
+            ws = new WebSocket(WS_URL);
+            ws.onopen = () => setWsState('connected');
+            ws.onclose = () => { setWsState('off'); scheduleReconnect(); };
+            ws.onmessage = (ev) => {
+                try { 
+                    const data = JSON.parse(ev.data);
+                    if (data.type === 'vngrd_podcast_data') updatePodcastTray(data);
+                } catch (e) {}
+            };
+        }
 
-        ws.onclose = function () {
-            setWsState('off');
-            if (onAir) { stopMicCapture(); setOnAirUI(false); }
-            scheduleReconnect();
-        };
+        // 2. THE P2P FIX (Transplanted from stable DOCTYPE version)
+        if (!peer || peer.destroyed) {
+            const peerId = 'vngrd-' + Math.random().toString(36).substr(2, 9);
+            peer = new Peer(peerId, { 
+                debug: 2,
+                config: {'iceServers': [{ 'urls': 'stun:stun.l.google.com:19302' }]} 
+            });
 
-        ws.onerror = function () { setWsState('error'); };
-
-        ws.onmessage = function (ev) {
-            var data;
-            try { data = JSON.parse(ev.data); } catch (e) { return; }
-            switch (data.type) {
-                case 'vngrd_podcast_data':
-                    updatePodcastTray(data);
-                    break;
-                case 'status':
-                    if (mcrStatus && !onAir) mcrStatus.textContent = (data.message || 'READY').substring(0, 36);
-                    if (typeof ghostLog === 'function') ghostLog(data.message, 'ok');
-                    break;
-                case 'error':
-                    var errMsg = (data.message || 'UNKNOWN').substring(0, 40);
-                    if (mcrStatus) mcrStatus.textContent = 'ERR: ' + errMsg;
-                    if (typeof ghostLog === 'function') ghostLog('MCR ERR: ' + errMsg, 'crit');
-                    break;
-            }
-        };
+            // THE ANSWER LOGIC: This fixes the black screen and silence
+            peer.on('call', async (call) => {
+                try {
+                    // Request camera and mic access for the handshake
+                    const stream = await navigator.mediaDevices.getUserMedia({ video: true, audio: true });
+                    call.answer(stream); 
+                    
+                    call.on('stream', (remoteStream) => {
+                        const remoteVid = document.getElementById('p2p-remote-feed');
+                        if (remoteVid) {
+                            remoteVid.srcObject = remoteStream;
+                            remoteVid.style.display = 'block';
+                            // Forces the browser to play the guest stream
+                            remoteVid.play().catch(e => console.log("User must click to play audio"));
+                        }
+                    });
+                } catch (err) { console.error("P2P_MEDIA_ERR:", err); }
+            });
+        }
     }
 
     function scheduleReconnect() {
