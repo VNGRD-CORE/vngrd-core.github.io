@@ -507,94 +507,52 @@
     top: 45px; 
     bottom: 55px; 
     width: 200px; 
-    background: rgba(6,6,10,0.94); 
-    backdrop-filter: blur(20px) saturate(110%); 
-    -webkit-backdrop-filter: blur(20px) saturate(110%); 
-    border: 1px solid rgba(255,255,255,0.06); 
-    box-shadow: inset 0 0 20px rgba(0,0,0,0.65); 
-    overflow: hidden; 
+    background: rgba(6,6,10,0.98); /* Increased opacity for solid feel */
+    backdrop-filter: blur(25px); 
+    -webkit-backdrop-filter: blur(25px); 
+    border: 1px solid rgba(255,255,255,0.08); 
     z-index: 4000; 
-    scrollbar-width: none; 
-    will-change: transform, opacity; 
+    overflow: hidden; 
+    will-change: transform;
 }
 
 #left-panel { 
     left: 0; 
-    border-left: none; 
-    border-right: 1px solid rgba(255,255,255,0.07); 
     transform: translateX(0); 
-    visibility: visible;
-    transition: transform 0.42s cubic-bezier(0.25,0.46,0.45,0.94),
-                opacity 0.28s ease,
-                visibility 0s 0s; 
+    transition: transform 0.4s cubic-bezier(0.4, 0, 0.2, 1);
 }
 
 #right-panel { 
     right: 0; 
-    border-right: none; 
-    border-left: 1px solid rgba(255,255,255,0.07); 
     transform: translateX(0); 
-    visibility: visible;
-    transition: transform 0.42s cubic-bezier(0.25,0.46,0.45,0.94),
-                opacity 0.28s ease,
-                visibility 0s 0s; 
+    transition: transform 0.4s cubic-bezier(0.4, 0, 0.2, 1);
 }
 
-/* SYSTEM SLIDE — Hard cut to opaque to prevent ghosting */
-body.system-slide #left-panel  {
-    transform: translateX(-100%); 
-    pointer-events: none; 
+/* SYSTEM SLIDE FIX: Hard-cut to black + Kill visibility */
+body.system-slide #left-panel {
+    transform: translateX(-110%); /* Extra 10% to ensure it's fully off-screen */
     visibility: hidden;
-    opacity: 0;
-    
-    /* KILL GHOSTING: Remove opacity transition. 
-       Force solid background immediately. */
+    background: #06060a !important; 
     backdrop-filter: none !important;
-    -webkit-backdrop-filter: none !important;
-    background: rgb(6,6,10) !important;
-    
-    /* Only transition the slide movement */
-    transition: transform 0.38s cubic-bezier(0.55,0,1,0.45),
-                visibility 0s 0.38s; 
+    transition: transform 0.4s cubic-bezier(0.4, 0, 0.2, 1), visibility 0s 0.4s;
 }
 
 body.system-slide #right-panel {
-    transform: translateX(100%);  
-    pointer-events: none; 
+    transform: translateX(110%);
     visibility: hidden;
-    opacity: 0;
-
+    background: #06060a !important;
     backdrop-filter: none !important;
-    -webkit-backdrop-filter: none !important;
-    background: rgb(6,6,10) !important;
-    
-    transition: transform 0.38s cubic-bezier(0.55,0,1,0.45),
-                visibility 0s 0.38s; 
+    transition: transform 0.4s cubic-bezier(0.4, 0, 0.2, 1), visibility 0s 0.4s;
 }
 
 #stage { 
-    transition: left 0.42s cubic-bezier(0.25,0.46,0.45,0.94), 
-                right 0.42s cubic-bezier(0.25,0.46,0.45,0.94); 
+    transition: all 0.4s cubic-bezier(0.4, 0, 0.2, 1); 
 }
 
 body.system-slide #stage { 
-    left: 0; 
-    right: 0; 
-    box-shadow: inset 0 0 0 1px rgba(0,243,255,0.12), 0 0 40px rgba(0,243,255,0.04); 
+    left: 0 !important; 
+    right: 0 !important; 
 }
-
-/* Force stage media to cover screen edge-to-edge */
-#stage canvas, #stage video, #stage img {
-    width: 100% !important;
-    height: 100% !important;
-    object-fit: cover !important;
-}
-
-.section {
-    border-top: 3px solid rgba(0,0,0,0.85);
-    border-bottom: 1px solid rgba(255,255,255,0.04);
-}
-.section:first-child { border-top: none; }
         /* SCANNING ANIMATION FOR CYCLE MODE */
         .sec-head {
             display: flex; align-items: center; justify-content: space-between;
