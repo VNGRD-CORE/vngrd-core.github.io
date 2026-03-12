@@ -1611,6 +1611,16 @@ body.fullscreen #transcription-hud { opacity: 0 !important; pointer-events: none
         <div id="gif-overlay" style="position:absolute; top:0; left:0; width:100%; height:100%; pointer-events:none; z-index: 1100;"></div>
         <!-- 2D logo GIF overlay: positioned by rAF to match canvas logo coords -->
         <img id="logo-gif-overlay" alt="" style="position:absolute;display:none;pointer-events:none;z-index:1200;image-rendering:auto;">
+        <!--
+          P2P CANVAS OVERLAY — remote peer video sits ABOVE the vj-canvas (z-1000)
+          but BELOW the HUD overlays (overlay-layer z-2000 → station-bug z-2600,
+          lower-third z-3002, scanlines z-3000, vignette z-3001).
+          The local vj-canvas continues capturing our GFX via captureStream for sending.
+          muted=true: audio is handled by APP.guest.videoElement to avoid double output.
+        -->
+        <video id="p2p-canvas-overlay" autoplay playsinline muted
+               style="display:none; position:absolute; top:0; left:0; width:100%; height:100%;
+                      object-fit:cover; z-index:1500; pointer-events:none; background:#000;"></video>
 
         <div id="glass-fracture-layer"></div>
         <div id="overlay-layer">
@@ -3537,7 +3547,10 @@ function renderLoop(timestamp) {
     let source = null;
     if (APP.render.source) source = APP.render.source;
     else if (APP.state.isLive && APP.camera.stream && APP.camera.videoEl) source = APP.camera.videoEl;
-    else if (APP.guest.stream && APP.guest.isActive && APP.guest.videoElement) source = APP.guest.videoElement;
+    // During a P2P call, render the LOCAL camera on the canvas so captureStream()
+    // sends our camera + GFX to the peer. The REMOTE stream is shown via
+    // #p2p-canvas-overlay (DOM overlay, z-1500) — not on the canvas itself.
+    else if (APP.peer && APP.peer.call && APP.peer.localVideoEl) source = APP.peer.localVideoEl;
     else if (APP.media.currentElement) source = APP.media.currentElement;
     
     if (source) {
@@ -7523,12 +7536,14 @@ $('btn-call-guest').onclick = async () => {
             $('call-status').textContent = 'CONNECTING...';
 
             // 1. Get Local Media — facingMode required for iOS Safari
+            // AEC/NS/AGC MUST be enabled for P2P — without them the remote audio
+            // heard through speakers is picked up by the mic and looped back.
             const audioConstraints = APP.inputDevices.selectedId
-                ? { deviceId: { exact: APP.inputDevices.selectedId }, echoCancellation: false, noiseSuppression: false, autoGainControl: false, channelCount: 2 }
-                : { echoCancellation: false, noiseSuppression: false, autoGainControl: false, channelCount: 2 };
+                ? { deviceId: { exact: APP.inputDevices.selectedId }, echoCancellation: true, noiseSuppression: true, autoGainControl: true }
+                : { echoCancellation: true, noiseSuppression: true, autoGainControl: true };
 
             const stream = await navigator.mediaDevices.getUserMedia({
-                video: { facingMode: 'user', width: { ideal: 640 }, height: { ideal: 480 }, frameRate: { ideal: 30 } },
+                video: { width: { ideal: 640 }, height: { ideal: 480 }, frameRate: { ideal: 30 } },
                 audio: audioConstraints
             });
 
@@ -7583,12 +7598,13 @@ $('btn-call-guest').onclick = async () => {
         $('call-status').style.color = 'var(--y)';
         startP2PRing();
 
+        // AEC/NS/AGC required for P2P to prevent speaker→mic feedback loop
         const audioConstraints = APP.inputDevices.selectedId
-            ? { deviceId: { exact: APP.inputDevices.selectedId }, echoCancellation: false, noiseSuppression: false, autoGainControl: false, channelCount: 2 }
-            : { echoCancellation: false, noiseSuppression: false, autoGainControl: false, channelCount: 2 };
+            ? { deviceId: { exact: APP.inputDevices.selectedId }, echoCancellation: true, noiseSuppression: true, autoGainControl: true }
+            : { echoCancellation: true, noiseSuppression: true, autoGainControl: true };
 
         const stream = await navigator.mediaDevices.getUserMedia({
-            video: { facingMode: 'user', width: { ideal: 640 }, height: { ideal: 480 }, frameRate: { ideal: 30 } },
+            video: { width: { ideal: 640 }, height: { ideal: 480 }, frameRate: { ideal: 30 } },
             audio: audioConstraints
         });
         APP.peer.localStream = stream;
@@ -7639,33 +7655,60 @@ $('btn-call-guest').onclick = async () => {
 // Shared Logic for both Incoming and Outgoing calls
 function handleCallStream(call) {
     call.on('stream', (remoteStream) => {
-        // Ensure video element exists — must be in DOM for iOS Safari to play
+
+        // ── Audio-only hidden element ──────────────────────────────────────────
+        // Plays remote audio through speakers WITHOUT routing into Web Audio (no echo).
+        // Must be in DOM and large enough for browsers to fully decode the stream.
         if (!APP.guest.videoElement) {
             APP.guest.videoElement = document.createElement('video');
-            APP.guest.videoElement.id = 'p2p-remote-video';
+            APP.guest.videoElement.id = 'p2p-audio-sink';
             APP.guest.videoElement.setAttribute('autoplay', '');
             APP.guest.videoElement.setAttribute('playsinline', '');
-            APP.guest.videoElement.muted = false;
-            // Off-screen but large enough for browser to actually decode
-            APP.guest.videoElement.style.cssText = 'position:fixed;top:-9999px;left:-9999px;width:320px;height:240px;pointer-events:none;z-index:-1;';
+            APP.guest.videoElement.muted = false;    // AUDIO output — not muted
+            APP.guest.videoElement.style.cssText = 'position:fixed;top:-9999px;left:-9999px;width:1px;height:1px;pointer-events:none;opacity:0;';
             document.body.appendChild(APP.guest.videoElement);
         }
-
-        // Remote stream plays via HTML5 video element.
-        // DO NOT route into APP.audio.ctx or masterGain — creates echo.
         APP.guest.videoElement.srcObject = remoteStream;
-        APP.guest.stream = remoteStream;
-        APP.guest.isActive = true;
+        APP.guest.videoElement.play().catch(function(e) { log('AUDIO_SINK_ERR: ' + e.message); });
 
-        // iOS Safari requires explicit play() after srcObject assignment
-        APP.guest.videoElement.play().catch(function(e) { log('GUEST_PLAY_ERR: ' + e.message); });
+        // ── Visual: full-stage overlay (z-1500) ───────────────────────────────
+        // Remote video covers the vj-canvas but stays BELOW the HUD overlays
+        // (station-bug z-2600, lower-third z-3002, scanlines z-3000/3001).
+        // Our vj-canvas (z-1000) keeps rendering our local GFX for captureStream.
+        var _ov = $('p2p-canvas-overlay');
+        if (_ov) {
+            _ov.srcObject = remoteStream;   // muted=true attr in HTML — visual only
+            _ov.play().catch(function(e) { log('OVERLAY_PLAY_ERR: ' + e.message); });
+            _ov.style.display = 'block';
+            log('P2P: REMOTE_VIDEO_ON_STAGE');
+        }
 
-        // Also show the feed in the P2P modal mini-monitor (below HUD, inside panel)
-        var remoteFeed = $('p2p-remote-feed');
-        if (remoteFeed) {
-            remoteFeed.srcObject = remoteStream;
-            remoteFeed.play().catch(function() {});
-            remoteFeed.style.display = 'block';
+        APP.guest.stream    = remoteStream;
+        APP.guest.isActive  = true;
+
+        // ── Local "send" preview in the P2P panel ────────────────────────────
+        // Shows the user what THEY are transmitting to the peer.
+        // This is separate from the remote overlay — no cross-feed.
+        var _localFeed = $('p2p-remote-feed');
+        if (_localFeed && APP.peer && APP.peer.localStream) {
+            _localFeed.srcObject = APP.peer.localStream;
+            _localFeed.muted = true;    // visual only — DO NOT play their own mic back
+            _localFeed.play().catch(function() {});
+            _localFeed.style.display = 'block';
+        }
+
+        // ── Ensure local camera renders on canvas for captureStream ───────────
+        // Creates a tiny off-screen video element from APP.peer.localStream so
+        // the render loop can draw it onto the vj-canvas and send it to the peer.
+        if (APP.peer && APP.peer.localStream && !APP.peer.localVideoEl) {
+            var _lv = document.createElement('video');
+            _lv.autoplay = true; _lv.playsInline = true; _lv.muted = true;
+            _lv.style.cssText = 'position:fixed;top:-9999px;left:-9999px;width:1px;height:1px;';
+            _lv.srcObject = APP.peer.localStream;
+            document.body.appendChild(_lv);
+            _lv.play().catch(function(){});
+            APP.peer.localVideoEl = _lv;
+            log('P2P: LOCAL_VIDEO_ELEMENT_READY');
         }
 
         stopP2PRing();
@@ -7746,10 +7789,13 @@ function handleCallStream(call) {
     // On visibility change (app switch, lock screen), keep peer alive
     document.addEventListener('visibilitychange', function() {
         if (document.visibilityState === 'visible' && APP.peer && APP.peer.call) {
-            // Re-play remote video (iOS pauses media when backgrounded)
+            // Re-play remote audio sink (iOS pauses media when backgrounded)
             if (APP.guest.videoElement && APP.guest.videoElement.paused) {
                 APP.guest.videoElement.play().catch(function() {});
             }
+            // Re-play remote visual overlay
+            var _ov = $('p2p-canvas-overlay');
+            if (_ov && _ov.paused && _ov.srcObject) _ov.play().catch(function() {});
             // Check if local tracks are still alive; re-acquire if dead
             if (APP.peer.localStream) {
                 var dead = APP.peer.localStream.getTracks().some(function(t) { return t.readyState === 'ended'; });
@@ -7876,14 +7922,25 @@ function endCallCleanup() {
         APP.peer.dataConn = null;
     }
 
-    // Remove hidden video element from DOM (cleanup for iOS)
+    // Clear audio sink (off-screen hidden video element)
     if (APP.guest.videoElement) {
         APP.guest.videoElement.srcObject = null;
         if (APP.guest.videoElement.parentNode) APP.guest.videoElement.parentNode.removeChild(APP.guest.videoElement);
         APP.guest.videoElement = null;
     }
 
-    // Clear P2P modal mini-monitor
+    // Clear local camera video element used by render loop
+    if (APP.peer && APP.peer.localVideoEl) {
+        APP.peer.localVideoEl.srcObject = null;
+        if (APP.peer.localVideoEl.parentNode) APP.peer.localVideoEl.parentNode.removeChild(APP.peer.localVideoEl);
+        APP.peer.localVideoEl = null;
+    }
+
+    // Clear #stage remote video overlay
+    var _ov = $('p2p-canvas-overlay');
+    if (_ov) { _ov.srcObject = null; _ov.style.display = 'none'; }
+
+    // Clear P2P panel feed monitor
     var _rf = $('p2p-remote-feed');
     if (_rf) { _rf.srcObject = null; _rf.style.display = 'none'; }
 
@@ -9554,11 +9611,12 @@ if (btn3dX) {
             </div>
             <div id="call-status" style="font-size:8px;color:var(--text-dim);margin-top:6px;text-align:center;">NOT_CONNECTED</div>
             <div class="sec-dot off" id="guest-dot" style="margin-top:4px;"></div>
-            <!-- Remote peer video monitor — hidden until a call is active -->
-            <video id="p2p-remote-feed" autoplay playsinline
-                   style="display:none;width:100%;margin-top:8px;border:1px solid var(--c,#0ff);
-                          border-radius:3px;background:#000;max-height:135px;object-fit:cover;
-                          z-index:1;"></video>
+            <!-- Your local send feed — shows what you are transmitting to the peer.
+                 The remote stream fills the main stage via #p2p-canvas-overlay. -->
+            <div style="font-size:7px;opacity:0.45;letter-spacing:1px;margin-top:7px;margin-bottom:2px;">YOUR FEED ↑ SENDING</div>
+            <video id="p2p-remote-feed" autoplay playsinline muted
+                   style="display:none;width:100%;border:1px solid rgba(0,243,255,0.35);
+                          border-radius:3px;background:#000;max-height:120px;object-fit:cover;"></video>
             <!-- Resize handle -->
             <div id="p2p-resize" style="position:absolute;bottom:0;right:0;width:14px;height:14px;cursor:nwse-resize;opacity:0.4;" title="Resize">
                 <svg width="14" height="14" viewBox="0 0 14 14"><path d="M12 2L2 12M12 6L6 12M12 10L10 12" stroke="var(--c,#0ff)" stroke-width="1" fill="none"/></svg>
