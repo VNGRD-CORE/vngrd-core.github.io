@@ -7660,6 +7660,14 @@ function handleCallStream(call) {
         // iOS Safari requires explicit play() after srcObject assignment
         APP.guest.videoElement.play().catch(function(e) { log('GUEST_PLAY_ERR: ' + e.message); });
 
+        // Also show the feed in the P2P modal mini-monitor (below HUD, inside panel)
+        var remoteFeed = $('p2p-remote-feed');
+        if (remoteFeed) {
+            remoteFeed.srcObject = remoteStream;
+            remoteFeed.play().catch(function() {});
+            remoteFeed.style.display = 'block';
+        }
+
         stopP2PRing();
         $('call-status').textContent = 'CONNECTED';
         $('call-status').style.color = 'var(--g)';
@@ -7836,6 +7844,25 @@ function handleUISync(msg) {
             bug.classList.remove('hidden');
         }
         log('DATA_SYNC_RECV: STATION_LOGO "' + msg.payload.text + '"');
+    } else if (msg.target === 'AI_BG') {
+        // Inject the peer's AI-generated background into the local compositor
+        var _src = msg.payload.dataURI || msg.payload.url || '';
+        if (_src) {
+            var _bgImg = new Image();
+            _bgImg.onload = function () {
+                if (typeof APP !== 'undefined' && APP.media) {
+                    APP.render.source = null;
+                    APP.media.queue.push({ type: 'image', url: _bgImg.src, element: _bgImg, name: 'P2P_AI_BG' });
+                    APP.media.currentIndex   = APP.media.queue.length - 1;
+                    APP.media.currentElement = _bgImg;
+                    if (typeof updateQueueDisplay === 'function') updateQueueDisplay();
+                    if ($('media-dot')) $('media-dot').classList.remove('off');
+                }
+                log('DATA_SYNC_RECV: AI_BG/INJECTED');
+            };
+            _bgImg.src = _src;
+        }
+        log('DATA_SYNC_RECV: AI_BG');
     }
 }
 
@@ -7855,6 +7882,10 @@ function endCallCleanup() {
         if (APP.guest.videoElement.parentNode) APP.guest.videoElement.parentNode.removeChild(APP.guest.videoElement);
         APP.guest.videoElement = null;
     }
+
+    // Clear P2P modal mini-monitor
+    var _rf = $('p2p-remote-feed');
+    if (_rf) { _rf.srcObject = null; _rf.style.display = 'none'; }
 
     APP.guest.isActive = false;
     APP.guest.stream = null;
@@ -8551,6 +8582,22 @@ var isVideo = nft.forceVideo || (imageUrl.toLowerCase().match(/\.(mp4|webm|mov|o
             setTimeout(function() { stage.style.transition = 'filter 0.5s'; stage.style.filter = ''; }, 100);
         }
         log('AI: INJECTED >> ' + label);
+
+        // ── Sync AI background to connected peer via DataChannel ──────────────
+        if (typeof sendUISync === 'function' && typeof APP !== 'undefined' &&
+            APP.peer && APP.peer.dataConn && APP.peer.dataConn.open) {
+            try {
+                var _sc = document.createElement('canvas');
+                _sc.width  = img.naturalWidth  || 1920;
+                _sc.height = img.naturalHeight || 1080;
+                _sc.getContext('2d').drawImage(img, 0, 0);
+                // JPEG at 70% quality keeps the DataChannel payload under 1 MB
+                sendUISync('AI_BG', { dataURI: _sc.toDataURL('image/jpeg', 0.7) });
+                log('DATA_SYNC_SENT: AI_BG');
+            } catch (_e) {
+                // Cross-origin guard — skip silently
+            }
+        }
     }
 
     // Pollinations.ai — free, no API key, blob fetch avoids CORS taint on canvas
@@ -9507,6 +9554,11 @@ if (btn3dX) {
             </div>
             <div id="call-status" style="font-size:8px;color:var(--text-dim);margin-top:6px;text-align:center;">NOT_CONNECTED</div>
             <div class="sec-dot off" id="guest-dot" style="margin-top:4px;"></div>
+            <!-- Remote peer video monitor — hidden until a call is active -->
+            <video id="p2p-remote-feed" autoplay playsinline
+                   style="display:none;width:100%;margin-top:8px;border:1px solid var(--c,#0ff);
+                          border-radius:3px;background:#000;max-height:135px;object-fit:cover;
+                          z-index:1;"></video>
             <!-- Resize handle -->
             <div id="p2p-resize" style="position:absolute;bottom:0;right:0;width:14px;height:14px;cursor:nwse-resize;opacity:0.4;" title="Resize">
                 <svg width="14" height="14" viewBox="0 0 14 14"><path d="M12 2L2 12M12 6L6 12M12 10L10 12" stroke="var(--c,#0ff)" stroke-width="1" fill="none"/></svg>
@@ -9539,7 +9591,28 @@ if (btn3dX) {
    ═══════════════════════════════════════════════════════════════════════ */
 (function () {
     'use strict';
-ws://127.0.0.1:8000/ws/transcribe;
+
+    // ── Smart URL detection: localhost dev vs deployed cloud backend ────────
+    // Override by setting window.VNGRD_CLOUD_BACKEND before this script loads.
+    // e.g. <script>window.VNGRD_CLOUD_BACKEND='https://my-app.railway.app';</script>
+    var _isLocal   = /^(localhost|127\.|0\.0\.0\.0)/.test(location.hostname);
+    var _wsProto   = location.protocol === 'https:' ? 'wss' : 'ws';
+    var _httpProto = location.protocol === 'https:' ? 'https' : 'http';
+    var _cloudBackend = window.VNGRD_CLOUD_BACKEND || '';
+
+    // API_BASE  — used for HTTP fetch calls (POST /generate, POST /export-to-pinata)
+    // WS_URL    — used for WebSocket transcription bridge
+    var API_BASE = _isLocal
+        ? (_httpProto + '://localhost:8000')
+        : _cloudBackend;
+    var WS_URL = _isLocal
+        ? (_wsProto + '://localhost:8000/ws/transcribe')
+        : (_cloudBackend ? _cloudBackend.replace(/^https?/, _wsProto) + '/ws/transcribe' : '');
+
+    // Expose globally so other script blocks can use them
+    window.VNGRD_API_BASE = API_BASE;
+    window.VNGRD_WS_URL   = WS_URL;
+
     var CHUNK_MS = 4000;   // MediaRecorder timeslice
     var RECONNECT_DELAY = 3000;   // fixed 3-second backoff
 
@@ -9607,7 +9680,7 @@ ws://127.0.0.1:8000/ws/transcribe;
         }
         if (typeof ghostLog === 'function') {
             ghostLog(active
-                ? 'GHOST> MCR ON-AIR \u2014 mic \u2192 ws://localhost:8000 \u2192 TRAY'
+                ? 'GHOST> MCR ON-AIR \u2014 mic \u2192 ' + (WS_URL || 'ws://localhost:8000') + ' \u2192 TRAY'
                 : 'GHOST> MCR STANDBY \u2014 signal stopped',
                 active ? 'ok' : 'info');
         }
