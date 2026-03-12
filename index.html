@@ -515,7 +515,7 @@
            5. NO clip-path — Chrome halts GIF animation on clipped elements
            6. overflow:visible — lets img render at natural size for drawImage
            7. will-change:auto on img — avoid GPU layer promotion that can freeze frames */
-        #gif-host { position: fixed; top: 0; left: 0; width: 1px; height: 1px; overflow: visible; opacity: 0.01; pointer-events: none; z-index: 0; }
+        #gif-host { position: fixed; top: -99999px; left: -99999px; width: 1px; height: 1px; overflow: visible; opacity: 0.01; pointer-events: none; z-index: 0; }
         #gif-host img { position: absolute; display: block !important; width: auto !important; height: auto !important; max-width: none; pointer-events: none; }
         
         /* VNGRD BUTTONS - DIGITAL SNAP */
