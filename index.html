@@ -502,57 +502,25 @@
         #cycle-badge.on { display: flex; }
 
         /* Sidebar: neutral borders — no theme color bleed, party mode animates border-color via console-breathe */
-.sidebar { 
-    position: fixed; 
-    top: 45px; 
-    bottom: 55px; 
-    width: 200px; 
-    background: rgba(6,6,10,0.98); /* Increased opacity for solid feel */
-    backdrop-filter: blur(25px); 
-    -webkit-backdrop-filter: blur(25px); 
-    border: 1px solid rgba(255,255,255,0.08); 
-    z-index: 4000; 
-    overflow: hidden; 
-    will-change: transform;
-}
+        .sidebar { position: fixed; top: 45px; bottom: 55px; width: 200px; background: rgba(6,6,10,0.94); backdrop-filter: blur(20px) saturate(110%); -webkit-backdrop-filter: blur(20px) saturate(110%); border: 1px solid rgba(255,255,255,0.06); box-shadow: inset 0 0 20px rgba(0,0,0,0.65); overflow-y: auto; z-index: 4000; scrollbar-width: none; transition: transform 0.45s cubic-bezier(0.4, 0, 0.2, 1), opacity 0.35s ease, border-color 0.4s ease, box-shadow 0.4s ease; will-change: transform, opacity; }
+        #left-panel { left: 0; border-left: none; border-right: 1px solid rgba(255,255,255,0.07); transform: translateX(0); }
+        #right-panel { right: 0; border-right: none; border-left: 1px solid rgba(255,255,255,0.07); transform: translateX(0); }
 
-#left-panel { 
-    left: 0; 
-    transform: translateX(0); 
-    transition: transform 0.4s cubic-bezier(0.4, 0, 0.2, 1);
-}
-
-#right-panel { 
-    right: 0; 
-    transform: translateX(0); 
-    transition: transform 0.4s cubic-bezier(0.4, 0, 0.2, 1);
-}
-
-/* SYSTEM SLIDE FIX: Hard-cut to black + Kill visibility */
-body.system-slide #left-panel {
-    transform: translateX(-110%); /* Extra 10% to ensure it's fully off-screen */
-    visibility: hidden;
-    background: #06060a !important; 
-    backdrop-filter: none !important;
-    transition: transform 0.4s cubic-bezier(0.4, 0, 0.2, 1), visibility 0s 0.4s;
-}
-
-body.system-slide #right-panel {
-    transform: translateX(110%);
-    visibility: hidden;
-    background: #06060a !important;
-    backdrop-filter: none !important;
-    transition: transform 0.4s cubic-bezier(0.4, 0, 0.2, 1), visibility 0s 0.4s;
-}
-
-#stage { 
-    transition: all 0.4s cubic-bezier(0.4, 0, 0.2, 1); 
-}
-
-body.system-slide #stage { 
-    left: 0 !important; 
-    right: 0 !important; 
-}
+        /* SYSTEM SLIDE — panels out, stage expands — spring feel */
+        #left-panel  { transition: transform 0.52s cubic-bezier(0.34,1.56,0.64,1), opacity 0.35s ease; }
+        #right-panel { transition: transform 0.52s cubic-bezier(0.34,1.56,0.64,1), opacity 0.35s ease; }
+        body.system-slide #left-panel  { transform: translateX(-102%); opacity: 0; pointer-events: none; }
+        body.system-slide #right-panel { transform: translateX(102%);  opacity: 0; pointer-events: none; }
+        #stage { transition: left 0.48s cubic-bezier(0.34,1.2,0.64,1), right 0.48s cubic-bezier(0.34,1.2,0.64,1); }
+        body.system-slide #stage { left: 0; right: 0; }
+        /* Slide glow: canvas border pulses on expand */
+        body.system-slide #stage { box-shadow: inset 0 0 0 1px rgba(0,243,255,0.12), 0 0 40px rgba(0,243,255,0.04); }
+        /* Hard divider between module blocks — dark gap above + white hairline below */
+        .section {
+            border-top: 3px solid rgba(0,0,0,0.85);
+            border-bottom: 1px solid rgba(255,255,255,0.04);
+        }
+        .section:first-child { border-top: none; }
         /* SCANNING ANIMATION FOR CYCLE MODE */
         .sec-head {
             display: flex; align-items: center; justify-content: space-between;
@@ -1559,6 +1527,18 @@ body.fullscreen #transcription-hud { opacity: 0 !important; pointer-events: none
     box-shadow: none !important;
     outline: none !important;
     z-index: 2500;
+}/* Ensure Guest Video sits ABOVE GFX but BELOW sidebars */
+#p2p-remote-feed {
+    position: fixed;
+    top: 60px;
+    right: 220px;
+    width: 320px;
+    aspect-ratio: 16/9;
+    background: #000;
+    border: 1px solid #00f3ff;
+    z-index: 4500; /* Priority layer */
+    display: none;
+    object-fit: cover;
 }</style>
 </head>
 <body oncontextmenu="return false;">
@@ -1643,16 +1623,6 @@ body.fullscreen #transcription-hud { opacity: 0 !important; pointer-events: none
         <div id="gif-overlay" style="position:absolute; top:0; left:0; width:100%; height:100%; pointer-events:none; z-index: 1100;"></div>
         <!-- 2D logo GIF overlay: positioned by rAF to match canvas logo coords -->
         <img id="logo-gif-overlay" alt="" style="position:absolute;display:none;pointer-events:none;z-index:1200;image-rendering:auto;">
-        <!--
-          P2P CANVAS OVERLAY — remote peer video sits ABOVE the vj-canvas (z-1000)
-          but BELOW the HUD overlays (overlay-layer z-2000 → station-bug z-2600,
-          lower-third z-3002, scanlines z-3000, vignette z-3001).
-          The local vj-canvas continues capturing our GFX via captureStream for sending.
-          muted=true: audio is handled by APP.guest.videoElement to avoid double output.
-        -->
-        <video id="p2p-canvas-overlay" autoplay playsinline muted
-               style="display:none; position:absolute; top:0; left:0; width:100%; height:100%;
-                      object-fit:cover; z-index:1500; pointer-events:none; background:#000;"></video>
 
         <div id="glass-fracture-layer"></div>
         <div id="overlay-layer">
@@ -3579,19 +3549,15 @@ function renderLoop(timestamp) {
     let source = null;
     if (APP.render.source) source = APP.render.source;
     else if (APP.state.isLive && APP.camera.stream && APP.camera.videoEl) source = APP.camera.videoEl;
-    // During a P2P call, render the LOCAL camera on the canvas so captureStream()
-    // sends our camera + GFX to the peer. The REMOTE stream is shown via
-    // #p2p-canvas-overlay (DOM overlay, z-1500) — not on the canvas itself.
-    else if (APP.peer && APP.peer.call && APP.peer.localVideoEl) source = APP.peer.localVideoEl;
+    else if (APP.guest.stream && APP.guest.isActive && APP.guest.videoElement) source = APP.guest.videoElement;
     else if (APP.media.currentElement) source = APP.media.currentElement;
     
     if (source) {
         const ready = source.tagName === 'VIDEO' ? source.readyState >= 2 : (source.complete && source.naturalWidth > 0);
         if (ready) {
 
-            // --- VIEWPORT-FIT: object-fit:cover logic for canvas ---
-            // Fills the full canvas — one dimension matches exactly, the other
-            // overflows and is clipped by the canvas bounds (no black bars).
+            // --- VIEWPORT-FIT: object-fit:contain logic for canvas ---
+            // Computes centered, aspect-ratio-preserving draw rect (no stretching)
             // _effectiveWidth/_effectiveHeight = EXIF-corrected (mobile photo orientation)
             var srcW = source.videoWidth || source._effectiveWidth || source.naturalWidth || w;
             var srcH = source.videoHeight || source._effectiveHeight || source.naturalHeight || h;
@@ -3599,13 +3565,13 @@ function renderLoop(timestamp) {
             var canvasAR = w / h;
             var drawW, drawH, drawX, drawY;
             if (srcAR > canvasAR) {
-                // Source is wider than canvas — fill height, overflow left/right (cropped)
-                drawH = h; drawW = h * srcAR;
-                drawX = (w - drawW) / 2; drawY = 0;
-            } else {
-                // Source is taller than canvas — fill width, overflow top/bottom (cropped)
+                // Source is wider — fit to width, letterbox top/bottom
                 drawW = w; drawH = w / srcAR;
                 drawX = 0; drawY = (h - drawH) / 2;
+            } else {
+                // Source is taller — fit to height, pillarbox left/right
+                drawH = h; drawW = h * srcAR;
+                drawX = (w - drawW) / 2; drawY = 0;
             }
 
             if (APP.vj.pixelateEnabled && APP.vj.pixelSize > 1) {
@@ -5367,90 +5333,41 @@ function downloadWorkspaceSnapshot() {
     log('SNAPSHOT: DOWNLOADED');
 }
 
-// GENERATE_QR: pin to IPFS via Pinata, then show QR modal
+//// ══════════════════════════════════════════════════════════════════════════
+// DEPLOY SYSTEM — PIN TO IPFS via Desktop Backend
+// ══════════════════════════════════════════════════════════════════════════
+
 async function executeWorkspaceExport() {
-    var jwt = localStorage.getItem('pinata_jwt');
-    if (!jwt) {
-        var raw = prompt('PINATA JWT TOKEN (stored locally):');
-        if (!raw) { log('IPFS_EXPORT: NO_JWT'); return; }
-        jwt = raw.trim();
-        localStorage.setItem('pinata_jwt', jwt);
-    }
+    log('IPFS: REQUESTING_BACKEND_PIN...');
 
-    log('IPFS: PINNING_TO_PINATA');
-    var payload = _buildSessionSnapshot();
-    payload._type = 'VNGRD_WORKSPACE';
-    payload._version = 'V34';
+    // Path to the media file on your Mac Desktop
+    // Note: In a real flow, you could dynamicize this based on the last generated image
+    var localMediaPath = "/Users/andreamerella/Desktop/VANGUARD-CORE/output_media.jpg"; 
 
-    var res, data;
     try {
-        res = await fetch('https://api.pinata.cloud/pinning/pinJSONToIPFS', {
+        // We call the local backend we just updated in main.py
+        var res = await fetch('http://127.0.0.1:8000/export-to-pinata', {
             method: 'POST',
-            headers: {
-                'Content-Type': 'application/json',
-                'Authorization': 'Bearer ' + jwt
-            },
-            body: JSON.stringify({
-                pinataContent: payload,
-                pinataMetadata: { name: 'VNGRD_WORKSPACE_' + Date.now() }
-            })
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ file_path: localMediaPath })
         });
-        data = await res.json();
+        
+        var data = await res.json();
+
+        if (data.success) {
+            var globalUrl = data.ipfs_url;
+            log('IPFS: PINNED GLOBAL LINK=' + globalUrl);
+            
+            // Directly show the modal with the permanent IPFS gateway link
+            _renderQRModal("SUCCESS", globalUrl);
+        } else {
+            log('IPFS: PIN_FAILED ' + data.error, 'crit');
+            alert('Export Error: ' + data.error);
+        }
     } catch(e) {
-        log('IPFS: FETCH_ERR ' + e.message);
-        alert('IPFS export failed: ' + e.message);
-        return;
+        log('IPFS: BACKEND_OFFLINE - Is Uvicorn running?', 'crit');
+        alert('Could not reach your Desktop Backend. Make sure main.py is running!');
     }
-
-    if (!res.ok || !data.IpfsHash) {
-        log('IPFS: PIN_FAILED ' + JSON.stringify(data));
-        alert('Pinata error: ' + (data.error && data.error.details ? data.error.details : JSON.stringify(data)));
-        return;
-    }
-
-    var cid = data.IpfsHash;
-    log('IPFS: PINNED CID=' + cid);
-    showQRModal(cid);
-}
-
-// QR MODAL
-function buildWorkspaceURL(cid) {
-    // On localhost, try to substitute the local network IP so mobile devices can reach the server
-    var origin = window.location.origin;
-    if (/^https?:\/\/localhost|^https?:\/\/127\.0\.0\.1/.test(origin)) {
-        // RTCPeerConnection trick: gather a local IP via ICE candidates
-        // Falls back to localhost if WebRTC is unavailable
-        return new Promise(function(resolve) {
-            var resolved = false;
-            function done(ip) {
-                if (resolved) return;
-                resolved = true;
-                var port = window.location.port ? ':' + window.location.port : '';
-                resolve(window.location.protocol + '//' + ip + port + '/?workspace=' + cid);
-            }
-            try {
-                var pc = new RTCPeerConnection({ iceServers: [] });
-                pc.createDataChannel('');
-                pc.createOffer().then(function(offer) { pc.setLocalDescription(offer); });
-                pc.onicecandidate = function(e) {
-                    if (!e || !e.candidate) return;
-                    var m = e.candidate.candidate.match(/(\d+\.\d+\.\d+\.\d+)/);
-                    if (m && !/^(127\.|169\.254\.)/.test(m[1])) {
-                        pc.close();
-                        done(m[1]);
-                    }
-                };
-                setTimeout(function() { done('localhost'); }, 2000);
-            } catch(e) {
-                done('localhost');
-            }
-        });
-    }
-    return Promise.resolve(origin + '/?workspace=' + cid);
-}
-
-function showQRModal(cid) {
-    buildWorkspaceURL(cid).then(function(url) { _renderQRModal(cid, url); });
 }
 
 function _renderQRModal(cid, url) {
@@ -5459,11 +5376,11 @@ function _renderQRModal(cid, url) {
     var cidLabel = $('qr-modal-cid-label');
     var urlDisplay = $('qr-url-display');
 
-    cidLabel.textContent = 'CID: ' + cid;
+    cidLabel.textContent = 'IPFS_READY';
     urlDisplay.textContent = url;
     container.innerHTML = '';
 
-    ghostLog('SYSTEM: DYNAMIC_LINK_GENERATED_AT_' + window.location.origin, 'success');
+    ghostLog('SYSTEM: GLOBAL_LINK_GENERATED', 'success');
 
     if (typeof QRCode !== 'undefined') {
         new QRCode(container, {
@@ -5476,20 +5393,14 @@ function _renderQRModal(cid, url) {
         });
     } else {
         container.textContent = url;
-        container.style.wordBreak = 'break-all';
-        container.style.color = '#000';
-        container.style.fontSize = '8px';
     }
 
     modal.style.display = 'flex';
 
     $('btn-qr-copy').onclick = function() {
         navigator.clipboard.writeText(url).then(function() {
-            log('QR: URL_COPIED');
             $('btn-qr-copy').textContent = 'COPIED!';
             setTimeout(function() { $('btn-qr-copy').textContent = 'COPY_URL'; }, 1500);
-        }).catch(function() {
-            prompt('Copy this URL:', url);
         });
     };
 
@@ -5670,47 +5581,21 @@ function setTheme(theme) { document.body.className = document.body.className.rep
 function toggleVHS() { document.body.classList.toggle('vhs'); $('btn-vhs').classList.toggle('on'); log('VHS'); }
 function toggleCRT() { document.body.classList.toggle('crt'); $('btn-crt').classList.toggle('on'); log('CRT'); }
 function toggleFullscreen() { APP.state.isFullscreen = !APP.state.isFullscreen; document.body.classList.toggle('fullscreen', APP.state.isFullscreen); log('FULLSCREEN'); }
-
 function toggleSystemSlide() {
-    // 1. Core State & UI Class Toggle
     const isSlid = document.body.classList.toggle('system-slide');
     APP.state.systemSlide = isSlid;
-
-    // 2. THE BLACKOUT: Mask the background instantly to hide scripts/code
-    const stage = document.getElementById('stage');
-    if (stage) {
-        stage.style.background = '#000000';
-    }
-
-    // 3. Coordinate Sync: Clear cache immediately so logos/HUD don't drift
-    if (APP.render) {
-        APP.render._cachedRect = null;
-    }
-
-    // 4. Resize Execution: Use 50ms to allow the CSS to start moving without freezing
+    if (APP.render) APP.render._cachedRect = null;
+    
+    // THE FIX: Reduce delay to 100ms to hide the "scripts" instantly
     setTimeout(() => {
-        if (typeof resizeCanvas === 'function' && APP.render && APP.render.canvas) {
-            const parent = APP.render.canvas.parentElement;
-            APP.render.width = parent.clientWidth;
-            APP.render.height = parent.clientHeight;
-            
-            // Execute the system resize
+        if (typeof resizeCanvas === 'function') {
+            APP.render.width = APP.render.canvas.parentElement.clientWidth;
+            APP.render.height = APP.render.canvas.parentElement.clientHeight;
             resizeCanvas();
-            
-            // Optional: Force a single draw call to snap the logos to the new edges
-            if (APP.render.draw) APP.render.draw();
         }
-    }, 50);
-
-    // 5. User Feedback: Pulse the KB hint
-    const tabHint = document.querySelector('.kb-hint');
-    if (tabHint) { 
-        tabHint.style.opacity = '0.85'; 
-        setTimeout(() => { tabHint.style.opacity = '0.38'; }, 1800); 
-    }
-
-    log(isSlid ? 'SYSTEM: FULL_EXPAND' : 'SYSTEM: DOCKED_VIEW');
+    }, 100); 
 }
+
 function morphLogo() { const logo = $('main-logo'); APP.ui.morphs.forEach(m => logo.classList.remove(m)); APP.ui.logoMorph = (APP.ui.logoMorph + 1) % APP.ui.morphs.length; logo.classList.add(APP.ui.morphs[APP.ui.logoMorph]); }
 function updateClock() { $('clock').textContent = new Date().toTimeString().split(' ')[0]; const s = Math.floor((Date.now() - APP.state.startTime) / 1000); $('uptime').textContent = `${String(Math.floor(s/3600)).padStart(2,'0')}:${String(Math.floor((s%3600)/60)).padStart(2,'0')}:${String(s%60).padStart(2,'0')}`; }
 
@@ -7593,14 +7478,12 @@ $('btn-call-guest').onclick = async () => {
             $('call-status').textContent = 'CONNECTING...';
 
             // 1. Get Local Media — facingMode required for iOS Safari
-            // AEC/NS/AGC MUST be enabled for P2P — without them the remote audio
-            // heard through speakers is picked up by the mic and looped back.
             const audioConstraints = APP.inputDevices.selectedId
-                ? { deviceId: { exact: APP.inputDevices.selectedId }, echoCancellation: true, noiseSuppression: true, autoGainControl: true }
-                : { echoCancellation: true, noiseSuppression: true, autoGainControl: true };
+                ? { deviceId: { exact: APP.inputDevices.selectedId }, echoCancellation: false, noiseSuppression: false, autoGainControl: false, channelCount: 2 }
+                : { echoCancellation: false, noiseSuppression: false, autoGainControl: false, channelCount: 2 };
 
             const stream = await navigator.mediaDevices.getUserMedia({
-                video: { width: { ideal: 640 }, height: { ideal: 480 }, frameRate: { ideal: 30 } },
+                video: { facingMode: 'user', width: { ideal: 640 }, height: { ideal: 480 }, frameRate: { ideal: 30 } },
                 audio: audioConstraints
             });
 
@@ -7655,13 +7538,12 @@ $('btn-call-guest').onclick = async () => {
         $('call-status').style.color = 'var(--y)';
         startP2PRing();
 
-        // AEC/NS/AGC required for P2P to prevent speaker→mic feedback loop
         const audioConstraints = APP.inputDevices.selectedId
-            ? { deviceId: { exact: APP.inputDevices.selectedId }, echoCancellation: true, noiseSuppression: true, autoGainControl: true }
-            : { echoCancellation: true, noiseSuppression: true, autoGainControl: true };
+            ? { deviceId: { exact: APP.inputDevices.selectedId }, echoCancellation: false, noiseSuppression: false, autoGainControl: false, channelCount: 2 }
+            : { echoCancellation: false, noiseSuppression: false, autoGainControl: false, channelCount: 2 };
 
         const stream = await navigator.mediaDevices.getUserMedia({
-            video: { width: { ideal: 640 }, height: { ideal: 480 }, frameRate: { ideal: 30 } },
+            video: { facingMode: 'user', width: { ideal: 640 }, height: { ideal: 480 }, frameRate: { ideal: 30 } },
             audio: audioConstraints
         });
         APP.peer.localStream = stream;
@@ -7712,61 +7594,26 @@ $('btn-call-guest').onclick = async () => {
 // Shared Logic for both Incoming and Outgoing calls
 function handleCallStream(call) {
     call.on('stream', (remoteStream) => {
-
-        // ── Audio-only hidden element ──────────────────────────────────────────
-        // Plays remote audio through speakers WITHOUT routing into Web Audio (no echo).
-        // Must be in DOM and large enough for browsers to fully decode the stream.
+        // Ensure video element exists — must be in DOM for iOS Safari to play
         if (!APP.guest.videoElement) {
             APP.guest.videoElement = document.createElement('video');
-            APP.guest.videoElement.id = 'p2p-audio-sink';
+            APP.guest.videoElement.id = 'p2p-remote-video';
             APP.guest.videoElement.setAttribute('autoplay', '');
             APP.guest.videoElement.setAttribute('playsinline', '');
-            APP.guest.videoElement.muted = false;    // AUDIO output — not muted
-            APP.guest.videoElement.style.cssText = 'position:fixed;top:-9999px;left:-9999px;width:1px;height:1px;pointer-events:none;opacity:0;';
+            APP.guest.videoElement.muted = false;
+            // Off-screen but large enough for browser to actually decode
+            APP.guest.videoElement.style.cssText = 'position:fixed;top:-9999px;left:-9999px;width:320px;height:240px;pointer-events:none;z-index:-1;';
             document.body.appendChild(APP.guest.videoElement);
         }
+
+        // Remote stream plays via HTML5 video element.
+        // DO NOT route into APP.audio.ctx or masterGain — creates echo.
         APP.guest.videoElement.srcObject = remoteStream;
-        APP.guest.videoElement.play().catch(function(e) { log('AUDIO_SINK_ERR: ' + e.message); });
+        APP.guest.stream = remoteStream;
+        APP.guest.isActive = true;
 
-        // ── Visual: full-stage overlay (z-1500) ───────────────────────────────
-        // Remote video covers the vj-canvas but stays BELOW the HUD overlays
-        // (station-bug z-2600, lower-third z-3002, scanlines z-3000/3001).
-        // Our vj-canvas (z-1000) keeps rendering our local GFX for captureStream.
-        var _ov = $('p2p-canvas-overlay');
-        if (_ov) {
-            _ov.srcObject = remoteStream;   // muted=true attr in HTML — visual only
-            _ov.play().catch(function(e) { log('OVERLAY_PLAY_ERR: ' + e.message); });
-            _ov.style.display = 'block';
-            log('P2P: REMOTE_VIDEO_ON_STAGE');
-        }
-
-        APP.guest.stream    = remoteStream;
-        APP.guest.isActive  = true;
-
-        // ── Local "send" preview in the P2P panel ────────────────────────────
-        // Shows the user what THEY are transmitting to the peer.
-        // This is separate from the remote overlay — no cross-feed.
-        var _localFeed = $('p2p-remote-feed');
-        if (_localFeed && APP.peer && APP.peer.localStream) {
-            _localFeed.srcObject = APP.peer.localStream;
-            _localFeed.muted = true;    // visual only — DO NOT play their own mic back
-            _localFeed.play().catch(function() {});
-            _localFeed.style.display = 'block';
-        }
-
-        // ── Ensure local camera renders on canvas for captureStream ───────────
-        // Creates a tiny off-screen video element from APP.peer.localStream so
-        // the render loop can draw it onto the vj-canvas and send it to the peer.
-        if (APP.peer && APP.peer.localStream && !APP.peer.localVideoEl) {
-            var _lv = document.createElement('video');
-            _lv.autoplay = true; _lv.playsInline = true; _lv.muted = true;
-            _lv.style.cssText = 'position:fixed;top:-9999px;left:-9999px;width:1px;height:1px;';
-            _lv.srcObject = APP.peer.localStream;
-            document.body.appendChild(_lv);
-            _lv.play().catch(function(){});
-            APP.peer.localVideoEl = _lv;
-            log('P2P: LOCAL_VIDEO_ELEMENT_READY');
-        }
+        // iOS Safari requires explicit play() after srcObject assignment
+        APP.guest.videoElement.play().catch(function(e) { log('GUEST_PLAY_ERR: ' + e.message); });
 
         stopP2PRing();
         $('call-status').textContent = 'CONNECTED';
@@ -7846,13 +7693,10 @@ function handleCallStream(call) {
     // On visibility change (app switch, lock screen), keep peer alive
     document.addEventListener('visibilitychange', function() {
         if (document.visibilityState === 'visible' && APP.peer && APP.peer.call) {
-            // Re-play remote audio sink (iOS pauses media when backgrounded)
+            // Re-play remote video (iOS pauses media when backgrounded)
             if (APP.guest.videoElement && APP.guest.videoElement.paused) {
                 APP.guest.videoElement.play().catch(function() {});
             }
-            // Re-play remote visual overlay
-            var _ov = $('p2p-canvas-overlay');
-            if (_ov && _ov.paused && _ov.srcObject) _ov.play().catch(function() {});
             // Check if local tracks are still alive; re-acquire if dead
             if (APP.peer.localStream) {
                 var dead = APP.peer.localStream.getTracks().some(function(t) { return t.readyState === 'ended'; });
@@ -7947,25 +7791,6 @@ function handleUISync(msg) {
             bug.classList.remove('hidden');
         }
         log('DATA_SYNC_RECV: STATION_LOGO "' + msg.payload.text + '"');
-    } else if (msg.target === 'AI_BG') {
-        // Inject the peer's AI-generated background into the local compositor
-        var _src = msg.payload.dataURI || msg.payload.url || '';
-        if (_src) {
-            var _bgImg = new Image();
-            _bgImg.onload = function () {
-                if (typeof APP !== 'undefined' && APP.media) {
-                    APP.render.source = null;
-                    APP.media.queue.push({ type: 'image', url: _bgImg.src, element: _bgImg, name: 'P2P_AI_BG' });
-                    APP.media.currentIndex   = APP.media.queue.length - 1;
-                    APP.media.currentElement = _bgImg;
-                    if (typeof updateQueueDisplay === 'function') updateQueueDisplay();
-                    if ($('media-dot')) $('media-dot').classList.remove('off');
-                }
-                log('DATA_SYNC_RECV: AI_BG/INJECTED');
-            };
-            _bgImg.src = _src;
-        }
-        log('DATA_SYNC_RECV: AI_BG');
     }
 }
 
@@ -7979,27 +7804,12 @@ function endCallCleanup() {
         APP.peer.dataConn = null;
     }
 
-    // Clear audio sink (off-screen hidden video element)
+    // Remove hidden video element from DOM (cleanup for iOS)
     if (APP.guest.videoElement) {
         APP.guest.videoElement.srcObject = null;
         if (APP.guest.videoElement.parentNode) APP.guest.videoElement.parentNode.removeChild(APP.guest.videoElement);
         APP.guest.videoElement = null;
     }
-
-    // Clear local camera video element used by render loop
-    if (APP.peer && APP.peer.localVideoEl) {
-        APP.peer.localVideoEl.srcObject = null;
-        if (APP.peer.localVideoEl.parentNode) APP.peer.localVideoEl.parentNode.removeChild(APP.peer.localVideoEl);
-        APP.peer.localVideoEl = null;
-    }
-
-    // Clear #stage remote video overlay
-    var _ov = $('p2p-canvas-overlay');
-    if (_ov) { _ov.srcObject = null; _ov.style.display = 'none'; }
-
-    // Clear P2P panel feed monitor
-    var _rf = $('p2p-remote-feed');
-    if (_rf) { _rf.srcObject = null; _rf.style.display = 'none'; }
 
     APP.guest.isActive = false;
     APP.guest.stream = null;
@@ -8696,44 +8506,31 @@ var isVideo = nft.forceVideo || (imageUrl.toLowerCase().match(/\.(mp4|webm|mov|o
             setTimeout(function() { stage.style.transition = 'filter 0.5s'; stage.style.filter = ''; }, 100);
         }
         log('AI: INJECTED >> ' + label);
-
-        // ── Sync AI background to connected peer via DataChannel ──────────────
-        if (typeof sendUISync === 'function' && typeof APP !== 'undefined' &&
-            APP.peer && APP.peer.dataConn && APP.peer.dataConn.open) {
-            try {
-                var _sc = document.createElement('canvas');
-                _sc.width  = img.naturalWidth  || 1920;
-                _sc.height = img.naturalHeight || 1080;
-                _sc.getContext('2d').drawImage(img, 0, 0);
-                // JPEG at 70% quality keeps the DataChannel payload under 1 MB
-                sendUISync('AI_BG', { dataURI: _sc.toDataURL('image/jpeg', 0.7) });
-                log('DATA_SYNC_SENT: AI_BG');
-            } catch (_e) {
-                // Cross-origin guard — skip silently
-            }
-        }
     }
 
-    // Pollinations.ai — free, no API key, blob fetch avoids CORS taint on canvas
+    // Pollinations.ai — direct load bypasses fetch() 403 blocks
     async function _aiPollinations(prompt, btn, polModel) {
         _aiStatus('POLLINATIONS: GENERATING...', 'var(--v)');
         log('AI: [POLLINATIONS] >> ' + prompt);
         try {
             var seed = Math.floor(Math.random() * 99999);
-            // Forced 1920x1080 resolution to fit the canvas dimensions
+            // 1920x1080 resolution to fit your hybrid workstation screen natively
             var url = 'https://image.pollinations.ai/prompt/' + encodeURIComponent(prompt)
                 + '?width=1920&height=1080&nologo=true&model=' + (polModel || 'flux') + '&seed=' + seed;
             
-            var resp = await fetch(url);
-            if (!resp.ok) throw new Error('HTTP_' + resp.status);
-            var blob = await resp.blob();
-            var objectUrl = URL.createObjectURL(blob);
             var img = new Image();
+            // This is required so the image can be drawn on your WebGL/Canvas layer
+            img.crossOrigin = 'Anonymous'; 
+            
             await new Promise(function(resolve, reject) {
                 img.onload = resolve;
-                img.onerror = function() { reject(new Error('IMG_DECODE_FAILED')); };
-                img.src = objectUrl;
+                img.onerror = function() { 
+                    reject(new Error('BLOCKED_BY_SERVER_OR_FILTER')); 
+                };
+                // Loading directly via src bypasses the fetch() 403 error
+                img.src = url;
             });
+            
             _aiInject(img, prompt);
             _aiDone(btn);
             _aiStatus('DONE [POLLINATIONS]', 'var(--g)');
@@ -8743,14 +8540,6 @@ var isVideo = nft.forceVideo || (imageUrl.toLowerCase().match(/\.(mp4|webm|mov|o
             log('AI: POLLINATIONS FAIL: ' + e.message);
         }
     }
-
-    // Pollinations model → style parameter map
-    var _pollinationsStyles = {
-        'pollinations':       { model: 'flux',          style: '' },
-        'pollinations-turbo': { model: 'turbo',         style: 'cinematic, high detail' },
-        'pollinations-3d':    { model: 'flux',          style: '3D render, octane, volumetric lighting' },
-        'pollinations-anime': { model: 'flux',          style: 'anime, cel-shaded, vibrant' },
-    };
 
     async function aiGenerate(prompt) {
         if (!prompt) { _aiStatus('TYPE A PROMPT', 'var(--y)'); return; }
@@ -9668,12 +9457,6 @@ if (btn3dX) {
             </div>
             <div id="call-status" style="font-size:8px;color:var(--text-dim);margin-top:6px;text-align:center;">NOT_CONNECTED</div>
             <div class="sec-dot off" id="guest-dot" style="margin-top:4px;"></div>
-            <!-- Your local send feed — shows what you are transmitting to the peer.
-                 The remote stream fills the main stage via #p2p-canvas-overlay. -->
-            <div style="font-size:7px;opacity:0.45;letter-spacing:1px;margin-top:7px;margin-bottom:2px;">YOUR FEED ↑ SENDING</div>
-            <video id="p2p-remote-feed" autoplay playsinline muted
-                   style="display:none;width:100%;border:1px solid rgba(0,243,255,0.35);
-                          border-radius:3px;background:#000;max-height:120px;object-fit:cover;"></video>
             <!-- Resize handle -->
             <div id="p2p-resize" style="position:absolute;bottom:0;right:0;width:14px;height:14px;cursor:nwse-resize;opacity:0.4;" title="Resize">
                 <svg width="14" height="14" viewBox="0 0 14 14"><path d="M12 2L2 12M12 6L6 12M12 10L10 12" stroke="var(--c,#0ff)" stroke-width="1" fill="none"/></svg>
@@ -9706,28 +9489,7 @@ if (btn3dX) {
    ═══════════════════════════════════════════════════════════════════════ */
 (function () {
     'use strict';
-
-    // ── Smart URL detection: localhost dev vs deployed cloud backend ────────
-    // Override by setting window.VNGRD_CLOUD_BACKEND before this script loads.
-    // e.g. <script>window.VNGRD_CLOUD_BACKEND='https://my-app.railway.app';</script>
-    var _isLocal   = /^(localhost|127\.|0\.0\.0\.0)/.test(location.hostname);
-    var _wsProto   = location.protocol === 'https:' ? 'wss' : 'ws';
-    var _httpProto = location.protocol === 'https:' ? 'https' : 'http';
-    var _cloudBackend = window.VNGRD_CLOUD_BACKEND || '';
-
-    // API_BASE  — used for HTTP fetch calls (POST /generate, POST /export-to-pinata)
-    // WS_URL    — used for WebSocket transcription bridge
-    var API_BASE = _isLocal
-        ? (_httpProto + '://localhost:8000')
-        : _cloudBackend;
-    var WS_URL = _isLocal
-        ? (_wsProto + '://localhost:8000/ws/transcribe')
-        : (_cloudBackend ? _cloudBackend.replace(/^https?/, _wsProto) + '/ws/transcribe' : '');
-
-    // Expose globally so other script blocks can use them
-    window.VNGRD_API_BASE = API_BASE;
-    window.VNGRD_WS_URL   = WS_URL;
-
+ws://127.0.0.1:8000/ws/transcribe;
     var CHUNK_MS = 4000;   // MediaRecorder timeslice
     var RECONNECT_DELAY = 3000;   // fixed 3-second backoff
 
@@ -9795,7 +9557,7 @@ if (btn3dX) {
         }
         if (typeof ghostLog === 'function') {
             ghostLog(active
-                ? 'GHOST> MCR ON-AIR \u2014 mic \u2192 ' + (WS_URL || 'ws://localhost:8000') + ' \u2192 TRAY'
+                ? 'GHOST> MCR ON-AIR \u2014 mic \u2192 ws://localhost:8000 \u2192 TRAY'
                 : 'GHOST> MCR STANDBY \u2014 signal stopped',
                 active ? 'ok' : 'info');
         }
@@ -9921,49 +9683,38 @@ if (btn3dX) {
 
     /* ── WebSocket lifecycle ──────────────────────────────────────────── */
 
-    function connect() {
-        // 1. WebSocket / Cloud Bridge (Keep your existing logic)
+  ffunction connect() {
+        // 1. WebSocket / Cloud Bridge
         if (ws && (ws.readyState === WebSocket.OPEN || ws.readyState === WebSocket.CONNECTING)) return;
-        setWsState('connecting');
-
         const isLocal = window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1';
         const API_BASE = isLocal ? 'http://127.0.0.1:8000' : (window.VNGRD_CLOUD_BACKEND || '');
-        const WS_URL = API_BASE ? API_BASE.replace('http', 'ws') + '/ws/transcribe' : null;
-
-        if (WS_URL) {
-            ws = new WebSocket(WS_URL);
-            ws.onopen = () => setWsState('connected');
-            ws.onclose = () => { setWsState('off'); scheduleReconnect(); };
-            ws.onmessage = (ev) => {
-                try { 
-                    const data = JSON.parse(ev.data);
-                    if (data.type === 'vngrd_podcast_data') updatePodcastTray(data);
-                } catch (e) {}
-            };
+        if (API_BASE) {
+            ws = new WebSocket(API_BASE.replace('http', 'ws') + '/ws/transcribe');
+            ws.onopen = () => { if (typeof ghostLog === 'function') ghostLog('MCR_WS_CONNECTED', 'ok'); };
+            ws.onmessage = (ev) => { try { const d = JSON.parse(ev.data); if (d.type === 'vngrd_podcast_data') updatePodcastTray(d); } catch (e) {} };
         }
 
-        // 2. THE P2P FIX (Transplanted from stable DOCTYPE version)
+        // 2. THE P2P ENGINE (Direct transplant from stable file)
         if (!peer || peer.destroyed) {
             const peerId = 'vngrd-' + Math.random().toString(36).substr(2, 9);
-            peer = new Peer(peerId, { 
-                debug: 2,
-                config: {'iceServers': [{ 'urls': 'stun:stun.l.google.com:19302' }]} 
-            });
+            peer = new Peer(peerId, { debug: 2 });
+            
+            peer.on('open', (id) => { if (typeof ghostLog === 'function') ghostLog('P2P_ID: ' + id, 'ok'); });
 
-            // THE ANSWER LOGIC: This fixes the black screen and silence
+            // THE GUEST FIX: This specific block makes the camera work
             peer.on('call', async (call) => {
                 try {
-                    // Request camera and mic access for the handshake
+                    // This asks for permissions and fixes the "Black Screen"
                     const stream = await navigator.mediaDevices.getUserMedia({ video: true, audio: true });
                     call.answer(stream); 
                     
                     call.on('stream', (remoteStream) => {
+                        // This connects the guest's face to your screen
                         const remoteVid = document.getElementById('p2p-remote-feed');
                         if (remoteVid) {
                             remoteVid.srcObject = remoteStream;
                             remoteVid.style.display = 'block';
-                            // Forces the browser to play the guest stream
-                            remoteVid.play().catch(e => console.log("User must click to play audio"));
+                            remoteVid.play().catch(e => ghostLog('CLICK_TO_ENABLE_AUDIO', 'ai'));
                         }
                     });
                 } catch (err) { console.error("P2P_MEDIA_ERR:", err); }
@@ -9973,8 +9724,7 @@ if (btn3dX) {
 
     function scheduleReconnect() {
         clearTimeout(reconnTimer);
-        setWsState('error');
-        reconnTimer = setTimeout(connect, RECONNECT_DELAY);
+        reconnTimer = setTimeout(connect, 3000); // Standard 3s delay
     }
 
     /* ── ON-AIR toggle ────────────────────────────────────────────────── */
@@ -10041,5 +9791,6 @@ if (btn3dX) {
 
 }()); 
 </script>
+<video id="p2p-remote-feed" autoplay playsinline></video>
 </body>
 </html>
