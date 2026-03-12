@@ -5672,12 +5672,30 @@ function toggleCRT() { document.body.classList.toggle('crt'); $('btn-crt').class
 function toggleFullscreen() { APP.state.isFullscreen = !APP.state.isFullscreen; document.body.classList.toggle('fullscreen', APP.state.isFullscreen); log('FULLSCREEN'); }
 
 function toggleSystemSlide() {
+    // 1. Toggle the class immediately
     const isSlid = document.body.classList.toggle('system-slide');
     APP.state.systemSlide = isSlid;
 
-    // THE BLACKOUT FIX: Put this here to hide the background scripts instantly
+    // 2. Black out the stage instantly so you don't see the code
     const stage = document.getElementById('stage');
     if (stage) stage.style.backgroundColor = '#000000';
+
+    // 3. Brief "Breath" for the browser (fixes the freezing)
+    setTimeout(() => {
+        if (APP.render) {
+            APP.render._cachedRect = null; // Clear the coordinate cache
+            
+            if (typeof resizeCanvas === 'function') {
+                // Get fresh dimensions
+                APP.render.width = APP.render.canvas.parentElement.clientWidth;
+                APP.render.height = APP.render.canvas.parentElement.clientHeight;
+                resizeCanvas();
+            }
+        }
+    }, 50); // 50ms is the "sweet spot" to prevent freezing
+
+    log(isSlid ? 'SYSTEM: EXPAND_OK' : 'SYSTEM: DOCK_OK');
+}
 
     // 1. Force immediate cache clear so logos don't drift
     if (APP.render) {
