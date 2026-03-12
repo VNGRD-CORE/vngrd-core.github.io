@@ -9683,48 +9683,65 @@ ws://127.0.0.1:8000/ws/transcribe;
 
     /* ── WebSocket lifecycle ──────────────────────────────────────────── */
 
-  ffunction connect() {
-        // 1. WebSocket / Cloud Bridge
-        if (ws && (ws.readyState === WebSocket.OPEN || ws.readyState === WebSocket.CONNECTING)) return;
-        const isLocal = window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1';
-        const API_BASE = isLocal ? 'http://127.0.0.1:8000' : (window.VNGRD_CLOUD_BACKEND || '');
-        if (API_BASE) {
-            ws = new WebSocket(API_BASE.replace('http', 'ws') + '/ws/transcribe');
-            ws.onopen = () => { if (typeof ghostLog === 'function') ghostLog('MCR_WS_CONNECTED', 'ok'); };
-            ws.onmessage = (ev) => { try { const d = JSON.parse(ev.data); if (d.type === 'vngrd_podcast_data') updatePodcastTray(d); } catch (e) {} };
-        }
-
-        // 2. THE P2P ENGINE (Direct transplant from stable file)
+ function connect() {
+        // 1. STANDALONE P2P ENGINE (Always boots, terminal or not)
         if (!peer || peer.destroyed) {
             const peerId = 'vngrd-' + Math.random().toString(36).substr(2, 9);
-            peer = new Peer(peerId, { debug: 2 });
             
-            peer.on('open', (id) => { if (typeof ghostLog === 'function') ghostLog('P2P_ID: ' + id, 'ok'); });
+            // Connects to public PeerJS cloud automatically
+            peer = new Peer(peerId, { 
+                debug: 2,
+                config: {'iceServers': [{ 'urls': 'stun:stun.l.google.com:19302' }]} 
+            });
+            
+            peer.on('open', (id) => { 
+                if (typeof ghostLog === 'function') ghostLog('P2P_ONLINE: ' + id, 'ok'); 
+            });
 
-            // THE GUEST FIX: This specific block makes the camera work
             peer.on('call', async (call) => {
                 try {
-                    // This asks for permissions and fixes the "Black Screen"
                     const stream = await navigator.mediaDevices.getUserMedia({ video: true, audio: true });
                     call.answer(stream); 
                     
                     call.on('stream', (remoteStream) => {
-                        // This connects the guest's face to your screen
                         const remoteVid = document.getElementById('p2p-remote-feed');
                         if (remoteVid) {
                             remoteVid.srcObject = remoteStream;
                             remoteVid.style.display = 'block';
-                            remoteVid.play().catch(e => ghostLog('CLICK_TO_ENABLE_AUDIO', 'ai'));
+                            remoteVid.play().catch(e => {
+                                if (typeof ghostLog === 'function') ghostLog('CLICK_SCREEN_FOR_AUDIO', 'ai');
+                            });
                         }
                     });
                 } catch (err) { console.error("P2P_MEDIA_ERR:", err); }
             });
         }
+
+        // 2. WEBSOCKET BRAIN (Terminal Connection)
+        if (ws && (ws.readyState === WebSocket.OPEN || ws.readyState === WebSocket.CONNECTING)) return;
+        
+        const isLocal = window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1';
+        const API_BASE = isLocal ? 'http://127.0.0.1:8000' : (window.VNGRD_CLOUD_BACKEND || '');
+        
+        // If terminal is running, connect. If not, P2P still works above.
+        if (API_BASE) {
+            try {
+                ws = new WebSocket(API_BASE.replace('http', 'ws') + '/ws/transcribe');
+                ws.onopen = () => { if (typeof ghostLog === 'function') ghostLog('MCR_WS_CONNECTED', 'ok'); };
+                ws.onclose = () => { scheduleReconnect(); };
+                ws.onmessage = (ev) => {
+                    try { 
+                        const data = JSON.parse(ev.data);
+                        if (data.type === 'vngrd_podcast_data') updatePodcastTray(data);
+                    } catch (e) {}
+                };
+            } catch (e) { console.warn("Terminal server not found. Standing by for P2P only."); }
+        }
     }
 
     function scheduleReconnect() {
         clearTimeout(reconnTimer);
-        reconnTimer = setTimeout(connect, 3000); // Standard 3s delay
+        reconnTimer = setTimeout(connect, 5000); 
     }
 
     /* ── ON-AIR toggle ────────────────────────────────────────────────── */
