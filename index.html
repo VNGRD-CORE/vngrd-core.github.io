@@ -5672,74 +5672,45 @@ function toggleCRT() { document.body.classList.toggle('crt'); $('btn-crt').class
 function toggleFullscreen() { APP.state.isFullscreen = !APP.state.isFullscreen; document.body.classList.toggle('fullscreen', APP.state.isFullscreen); log('FULLSCREEN'); }
 
 function toggleSystemSlide() {
-    // 1. Toggle the class immediately
+    // 1. Core State & UI Class Toggle
     const isSlid = document.body.classList.toggle('system-slide');
     APP.state.systemSlide = isSlid;
 
-    // 2. Black out the stage instantly so you don't see the code
+    // 2. THE BLACKOUT: Mask the background instantly to hide scripts/code
     const stage = document.getElementById('stage');
-    if (stage) stage.style.backgroundColor = '#000000';
+    if (stage) {
+        stage.style.background = '#000000';
+    }
 
-    // 3. Brief "Breath" for the browser (fixes the freezing)
+    // 3. Coordinate Sync: Clear cache immediately so logos/HUD don't drift
+    if (APP.render) {
+        APP.render._cachedRect = null;
+    }
+
+    // 4. Resize Execution: Use 50ms to allow the CSS to start moving without freezing
     setTimeout(() => {
-        if (APP.render) {
-            APP.render._cachedRect = null; // Clear the coordinate cache
+        if (typeof resizeCanvas === 'function' && APP.render && APP.render.canvas) {
+            const parent = APP.render.canvas.parentElement;
+            APP.render.width = parent.clientWidth;
+            APP.render.height = parent.clientHeight;
             
-            if (typeof resizeCanvas === 'function') {
-                // Get fresh dimensions
-                APP.render.width = APP.render.canvas.parentElement.clientWidth;
-                APP.render.height = APP.render.canvas.parentElement.clientHeight;
-                resizeCanvas();
-            }
-        }
-    }, 50); // 50ms is the "sweet spot" to prevent freezing
-
-    log(isSlid ? 'SYSTEM: EXPAND_OK' : 'SYSTEM: DOCK_OK');
-}
-
-    // 1. Force immediate cache clear so logos don't drift
-    if (APP.render) {
-        APP.render._cachedRect = null;
-    }
-
-    // 2. Sync resize with the very first frame of the animation
-    requestAnimationFrame(() => {
-        if (typeof resizeCanvas === 'function') {
-            // Measure the parent immediately as the class is added
-            APP.render.width = APP.render.canvas.parentElement.clientWidth;
-            APP.render.height = APP.render.canvas.parentElement.clientHeight;
+            // Execute the system resize
             resizeCanvas();
+            
+            // Optional: Force a single draw call to snap the logos to the new edges
+            if (APP.render.draw) APP.render.draw();
         }
-    });
-    
-    // ... rest of your function
-}
+    }, 50);
 
-    // 1. Force immediate cache clear so logos don't drift
-    if (APP.render) {
-        APP.render._cachedRect = null;
-    }
-
-    // 2. Kill the delay. We use requestAnimationFrame to sync with the CSS start
-    requestAnimationFrame(() => {
-        if (typeof resizeCanvas === 'function') {
-            // Measure the parent immediately as the class is added
-            APP.render.width = APP.render.canvas.parentElement.clientWidth;
-            APP.render.height = APP.render.canvas.parentElement.clientHeight;
-            resizeCanvas();
-        }
-    });
-
-    // Pulse hint
+    // 5. User Feedback: Pulse the KB hint
     const tabHint = document.querySelector('.kb-hint');
     if (tabHint) { 
         tabHint.style.opacity = '0.85'; 
         setTimeout(() => { tabHint.style.opacity = '0.38'; }, 1800); 
     }
 
-    log(isSlid ? 'SYSTEM: WIDE_VIEW' : 'SYSTEM: DOCKED_VIEW');
+    log(isSlid ? 'SYSTEM: FULL_EXPAND' : 'SYSTEM: DOCKED_VIEW');
 }
-
 function morphLogo() { const logo = $('main-logo'); APP.ui.morphs.forEach(m => logo.classList.remove(m)); APP.ui.logoMorph = (APP.ui.logoMorph + 1) % APP.ui.morphs.length; logo.classList.add(APP.ui.morphs[APP.ui.logoMorph]); }
 function updateClock() { $('clock').textContent = new Date().toTimeString().split(' ')[0]; const s = Math.floor((Date.now() - APP.state.startTime) / 1000); $('uptime').textContent = `${String(Math.floor(s/3600)).padStart(2,'0')}:${String(Math.floor((s%3600)/60)).padStart(2,'0')}:${String(s%60).padStart(2,'0')}`; }
 
