@@ -5672,19 +5672,32 @@ function toggleCRT() { document.body.classList.toggle('crt'); $('btn-crt').class
 function toggleFullscreen() { APP.state.isFullscreen = !APP.state.isFullscreen; document.body.classList.toggle('fullscreen', APP.state.isFullscreen); log('FULLSCREEN'); }
 
 function toggleSystemSlide() {
-    var isSlid = document.body.classList.toggle('system-slide');
+    const isSlid = document.body.classList.toggle('system-slide');
     APP.state.systemSlide = isSlid;
-    // Pulse the TAB hint so user knows how to return
-    var tabHint = document.querySelector('.kb-hint');
-    if (tabHint) { tabHint.style.opacity = '0.85'; setTimeout(() => { tabHint.style.opacity = '0.38'; }, 1800); }
-    if (typeof resizeCanvas === 'function') {
-        setTimeout(function() {
+
+    // 1. Force immediate cache clear so logos don't drift
+    if (APP.render) {
+        APP.render._cachedRect = null;
+    }
+
+    // 2. Kill the delay. We use requestAnimationFrame to sync with the CSS start
+    requestAnimationFrame(() => {
+        if (typeof resizeCanvas === 'function') {
+            // Measure the parent immediately as the class is added
             APP.render.width = APP.render.canvas.parentElement.clientWidth;
             APP.render.height = APP.render.canvas.parentElement.clientHeight;
             resizeCanvas();
-        }, 520);
+        }
+    });
+
+    // Pulse hint
+    const tabHint = document.querySelector('.kb-hint');
+    if (tabHint) { 
+        tabHint.style.opacity = '0.85'; 
+        setTimeout(() => { tabHint.style.opacity = '0.38'; }, 1800); 
     }
-    log(isSlid ? 'SYSTEM_SLIDE: PANELS_OUT' : 'SYSTEM_SLIDE: PANELS_IN');
+
+    log(isSlid ? 'SYSTEM: WIDE_VIEW' : 'SYSTEM: DOCKED_VIEW');
 }
 
 function morphLogo() { const logo = $('main-logo'); APP.ui.morphs.forEach(m => logo.classList.remove(m)); APP.ui.logoMorph = (APP.ui.logoMorph + 1) % APP.ui.morphs.length; logo.classList.add(APP.ui.morphs[APP.ui.logoMorph]); }
