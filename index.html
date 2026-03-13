@@ -1425,12 +1425,7 @@ body.fx-nvg #stage::after {
 .hud-new { animation: hud-flash 0.22s ease-out both; }
 
 /* Collapse HUD when in fullscreen VJ mode */
-body.fullscreen #transcription-hud { opacity: 0 !important; pointer-events: none !important; }
-
-/* ── MIX-MINUS P2P VISUAL LAYERING ────────────────────────── */
-#p2p-remote-feed { position: fixed; top: 0; left: 0; width: 100vw; height: 100vh; object-fit: cover; z-index: 1; pointer-events: none; }
-#stage { position: fixed; top: 0; left: 0; width: 100vw; height: 100vh; z-index: 5; pointer-events: none; }
-#mcr-section, #transcription-hud { display: none !important; }</style>
+body.fullscreen #transcription-hud { opacity: 0 !important; pointer-events: none !important; }</style>
 </head>
 <body oncontextmenu="return false;">
     <!-- PORTRAIT ORIENTATION LOCK -->
@@ -1508,7 +1503,6 @@ body.fullscreen #transcription-hud { opacity: 0 !important; pointer-events: none
         </div>
     </header>
 
-    <video id="p2p-remote-feed" autoplay playsinline style="display:none;"></video>
     <main id="stage">
         <canvas id="vj-canvas"></canvas>
         <!-- GIF overlay: DOM-rendered animated GIFs (not captured by captureStream) -->
@@ -4064,41 +4058,41 @@ if ($('btn-upload-2d')) {
 
 if ($('file-2d-logo')) {
     $('file-2d-logo').onchange = e => {
-        if (!e.target.files.length) return;
-        const file = e.target.files[0];
-
-        if (_p2pDataOpen()) {
-            // MIX-MINUS ACTIVE: encode as base64 and send to remote only
-            const reader = new FileReader();
-            reader.onload = () => {
-                APP.peer.dataConn.send(JSON.stringify({
-                    type: 'UI_SYNC',
-                    target: '2D_LOGO',
-                    payload: { action: 'show', dataURI: reader.result }
-                }));
-                _mixMinusPreviewIndicator('2D LOGO');
-                log('MIX-MINUS: 2D_LOGO \u2192 REMOTE');
-            };
-            reader.readAsDataURL(file);
-        } else {
-            // NO CONNECTION: load logo locally to #stage as normal
+        if (e.target.files.length) {
+            const file = e.target.files[0];
             const url = URL.createObjectURL(file);
             const logoLayer = $('user-logo-layer');
+            
             if (logoLayer) {
+                // SCRUB all Chrome GIF-freeze attributes
                 logoLayer.removeAttribute('crossOrigin');
                 logoLayer.removeAttribute('crossorigin');
                 logoLayer.style.display = 'block';
                 logoLayer.style.filter = 'none';
                 logoLayer.style.willChange = 'auto';
+                
+                // CRITICAL FIX: Wait for image to decode before flipping the switch
                 logoLayer.onload = () => {
+                    // Inject default scaling/positioning if it doesn't exist yet
                     if (typeof APP.trinity.logo.scale === 'undefined') APP.trinity.logo.scale = 1.0;
-                    if (typeof APP.trinity.logo.x === 'undefined') APP.trinity.logo.x = 0.05;
-                    if (typeof APP.trinity.logo.y === 'undefined') APP.trinity.logo.y = 0.05;
+                    if (typeof APP.trinity.logo.x === 'undefined') APP.trinity.logo.x = 0.05; // 5% from left
+                    if (typeof APP.trinity.logo.y === 'undefined') APP.trinity.logo.y = 0.05; // 5% from top
+
+                    // NOW tell the render loop to draw it
                     APP.trinity.logo.visible = true;
                     log('2D_LOGO_READY: ' + file.name.toUpperCase());
                 };
+
+                // Trigger the load
                 logoLayer.src = url;
             }
+
+            // Send logo to peer via data channel as base64
+            const reader = new FileReader();
+            reader.onload = () => {
+                sendUISync('2D_LOGO', { action: 'show', dataURI: reader.result });
+            };
+            reader.readAsDataURL(file);
         }
     };
 }
@@ -5683,66 +5677,13 @@ document.addEventListener('DOMContentLoaded', () => {
         $('cycle-slider-wrap').style.display = APP.state.isCycle ? 'block' : 'none';
     };
 
-    // ── MIX-MINUS: Lower Third intercept ────────────────────────
-    // Helper: shows a brief indicator in #cam-preview-float when a
-    // graphic is routed to the remote peer instead of the local stage.
-    function _mixMinusPreviewIndicator(label) {
-        var pf = $('cam-preview-float');
-        if (!pf) return;
-        var ind = document.getElementById('mix-minus-ind');
-        if (!ind) {
-            ind = document.createElement('div');
-            ind.id = 'mix-minus-ind';
-            ind.style.cssText = 'position:absolute;bottom:4px;left:4px;right:4px;' +
-                'background:rgba(0,243,255,0.88);color:#000;font-size:8px;' +
-                'padding:3px 6px;text-align:center;letter-spacing:1.5px;' +
-                'font-family:inherit;border-radius:2px;z-index:10;';
-            pf.appendChild(ind);
-        }
-        ind.textContent = '\u2192 REMOTE: ' + label.toUpperCase();
-        clearTimeout(ind._t);
-        ind._t = setTimeout(function() { if (ind.parentNode) ind.remove(); }, 3000);
-    }
-
-    // Returns true when a live data connection is open
-    function _p2pDataOpen() {
-        return !!(APP.peer && APP.peer.dataConn && APP.peer.dataConn.open);
-    }
-
-    // Mix-Minus handler for Lower Third presets
-    function _mixMinusLT(preset) {
-        var title = $('lt-title').value || '';
-        var subtitle = $('lt-sub').value || '';
-        if (_p2pDataOpen()) {
-            // P2P ACTIVE: send graphic to remote, show indicator locally
-            APP.peer.dataConn.send(JSON.stringify({
-                type: 'UI_SYNC',
-                target: 'LOWER_THIRD',
-                payload: { action: 'show', preset: preset, title: title, subtitle: subtitle }
-            }));
-            _mixMinusPreviewIndicator('LT/' + preset);
-            log('MIX-MINUS: LT/' + preset + ' \u2192 REMOTE');
-        } else {
-            // NO CONNECTION: render locally as normal
-            showLowerThird(preset);
-        }
-    }
-
-    $('btn-lt-guest').onclick = () => _mixMinusLT('guest');
-    $('btn-lt-track').onclick = () => _mixMinusLT('track');
-    $('btn-lt-breaking').onclick = () => _mixMinusLT('breaking');
-    $('btn-lt-neon').onclick = () => _mixMinusLT('neon');
-    $('btn-lt-split').onclick = () => _mixMinusLT('split');
-    $('btn-lt-scan').onclick = () => _mixMinusLT('scan');
-    $('btn-lt-off').onclick = () => {
-        if (_p2pDataOpen()) {
-            APP.peer.dataConn.send(JSON.stringify({ type: 'UI_SYNC', target: 'LOWER_THIRD', payload: { action: 'hide' } }));
-            _mixMinusPreviewIndicator('LT/OFF');
-            log('MIX-MINUS: LT/HIDE \u2192 REMOTE');
-        } else {
-            hideLowerThird();
-        }
-    };
+    $('btn-lt-guest').onclick = () => { showLowerThird('guest'); sendUISync('LOWER_THIRD', { action: 'show', preset: 'guest', title: $('lt-title-text').textContent, subtitle: $('lt-subtitle-text').textContent }); };
+    $('btn-lt-track').onclick = () => { showLowerThird('track'); sendUISync('LOWER_THIRD', { action: 'show', preset: 'track', title: $('lt-title-text').textContent, subtitle: $('lt-subtitle-text').textContent }); };
+    $('btn-lt-breaking').onclick = () => { showLowerThird('breaking'); sendUISync('LOWER_THIRD', { action: 'show', preset: 'breaking', title: $('lt-title-text').textContent, subtitle: $('lt-subtitle-text').textContent }); };
+    $('btn-lt-neon').onclick = () => { showLowerThird('neon'); sendUISync('LOWER_THIRD', { action: 'show', preset: 'neon', title: $('lt-title-text').textContent, subtitle: $('lt-subtitle-text').textContent }); };
+    $('btn-lt-split').onclick = () => { showLowerThird('split'); sendUISync('LOWER_THIRD', { action: 'show', preset: 'split', title: $('lt-title-text').textContent, subtitle: $('lt-subtitle-text').textContent }); };
+    $('btn-lt-scan').onclick = () => { showLowerThird('scan'); sendUISync('LOWER_THIRD', { action: 'show', preset: 'scan', title: $('lt-title-text').textContent, subtitle: $('lt-subtitle-text').textContent }); };
+    $('btn-lt-off').onclick = () => { hideLowerThird(); sendUISync('LOWER_THIRD', { action: 'hide' }); };
     $('lt-title').oninput = e => { if (APP.lowerThird.visible) { $('lt-title-text').textContent = e.target.value; sendUISync('LOWER_THIRD', { action: 'show', preset: APP.lowerThird.preset, title: $('lt-title-text').textContent, subtitle: $('lt-subtitle-text').textContent }); } };
     $('lt-sub').oninput = e => { if (APP.lowerThird.visible) { $('lt-subtitle-text').textContent = e.target.value; sendUISync('LOWER_THIRD', { action: 'show', preset: APP.lowerThird.preset, title: $('lt-title-text').textContent, subtitle: $('lt-subtitle-text').textContent }); } };
     $('btn-audio').onclick = () => { igniteAudio(); $('file-audio').click(); }; $('file-audio').onchange = e => loadAudioFiles(e.target);
@@ -6946,12 +6887,29 @@ $('btn-init-peer').onclick = () => {
         const peerId = 'VNGRD-' + Math.random().toString(36).substr(2, 8).toUpperCase();
         APP.peer = {
             peer: new Peer(peerId, {
+                host: '0.peerjs.com',
+                secure: true,
+                port: 443,
+                path: '/',
                 config: {
                     iceServers: [
                         { urls: 'stun:stun.l.google.com:19302' },
-                        { urls: 'stun:stun1.l.google.com:19302' }
-                    ]
-                }
+                        { urls: 'stun:stun1.l.google.com:19302' },
+                        { urls: 'stun:stun.cloudflare.com:3478' },
+                        // Metered TURN relay — needed for symmetric NAT / iOS cellular
+                        { urls: 'turn:a.relay.metered.ca:80', username: 'e8dd65b92c0b8d40f3386771', credential: 'YxOlRjMTsPnEfMqy' },
+                        { urls: 'turn:a.relay.metered.ca:80?transport=tcp', username: 'e8dd65b92c0b8d40f3386771', credential: 'YxOlRjMTsPnEfMqy' },
+                        { urls: 'turns:a.relay.metered.ca:443', username: 'e8dd65b92c0b8d40f3386771', credential: 'YxOlRjMTsPnEfMqy' },
+                        // OpenRelay TURN backup (free, no signup)
+                        { urls: 'turn:openrelay.metered.ca:80', username: 'openrelayproject', credential: 'openrelayproject' },
+                        { urls: 'turn:openrelay.metered.ca:443', username: 'openrelayproject', credential: 'openrelayproject' },
+                        { urls: 'turn:openrelay.metered.ca:443?transport=tcp', username: 'openrelayproject', credential: 'openrelayproject' }
+                    ],
+                    iceTransportPolicy: 'all',
+                    iceCandidatePoolSize: 4,
+                    sdpSemantics: 'unified-plan'
+                },
+                debug: 0
             }),
             call: null,
             incomingCall: null,
@@ -6973,37 +6931,32 @@ $('btn-init-peer').onclick = () => {
             $('call-status').style.color = 'var(--r)';
         });
         
-        // --- INCOMING CALL HANDLER (Auto-Answer) ---
-        APP.peer.peer.on('call', async (call) => {
-            log('INCOMING_CALL FROM ' + call.peer + ' — AUTO-ANSWERING');
-            $('call-status').textContent = 'CONNECTING... (' + call.peer + ')';
-            $('call-status').style.color = 'var(--y)';
+        // --- INCOMING CALL HANDLER (Non-Blocking) ---
+        APP.peer.peer.on('call', (call) => {
+            log('INCOMING_CALL FROM ' + call.peer);
+            
+            // 1. Store the call object but DO NOT answer yet
+            APP.peer.incomingCall = call;
+            
+            // 2. Update UI to "Ringing" Mode
+            $('call-status').textContent = 'RINGING... (' + call.peer + ')';
+            $('call-status').style.color = 'var(--y)'; // Yellow for caution
+
+            // 2b. Auto-open the P2P panel so user sees incoming call
             $('p2p-modal').style.display = 'block';
             $('p2p-body').style.display = '';
 
-            try {
-                const stream = await navigator.mediaDevices.getUserMedia({ video: true, audio: true });
-                APP.peer.localStream = stream;
+            // 2c. Play ring tone
+            startP2PRing();
 
-                // Build composite: canvas video + mic audio
-                var compositeAnswer = new MediaStream();
-                if (APP.render && APP.render.canvas) {
-                    var cvt = APP.render.canvas.captureStream(30).getVideoTracks()[0];
-                    if (cvt) compositeAnswer.addTrack(cvt);
-                } else {
-                    var rvt = stream.getVideoTracks()[0];
-                    if (rvt) compositeAnswer.addTrack(rvt);
-                }
-                var mat = stream.getAudioTracks()[0];
-                if (mat) compositeAnswer.addTrack(mat);
-
-                call.answer(compositeAnswer);
-                handleCallStream(call);
-                APP.peer.incomingCall = null;
-            } catch (e) {
-                log('AUTO-ANSWER ERROR: ' + e.message);
-                resetP2PButtons();
-            }
+            // 3. Turn the "CALL" button into an "ACCEPT" button
+            const btnCall = $('btn-call-guest');
+            btnCall.textContent = 'ACCEPT CALL';
+            btnCall.style.borderColor = 'var(--g)';
+            btnCall.style.color = 'var(--g)';
+            
+            // 4. Play a ring sound if you have one (optional)
+            // new Audio('assets/ring.mp3').play().catch(e => {});
         });
 
         // --- INCOMING DATA CONNECTION (Guest Side) ---
@@ -7176,18 +7129,26 @@ $('btn-call-guest').onclick = async () => {
 // Shared Logic for both Incoming and Outgoing calls
 function handleCallStream(call) {
     call.on('stream', (remoteStream) => {
-        // Route remote video to the fullscreen #p2p-remote-feed element
-        var remoteFeed = $('p2p-remote-feed');
-        if (remoteFeed) {
-            remoteFeed.srcObject = remoteStream;
-            remoteFeed.style.display = 'block';
-            remoteFeed.play().catch(function(e) { log('REMOTE_FEED_PLAY_ERR: ' + e.message); });
+        // Ensure video element exists — must be in DOM for iOS Safari to play
+        if (!APP.guest.videoElement) {
+            APP.guest.videoElement = document.createElement('video');
+            APP.guest.videoElement.id = 'p2p-remote-video';
+            APP.guest.videoElement.setAttribute('autoplay', '');
+            APP.guest.videoElement.setAttribute('playsinline', '');
+            APP.guest.videoElement.muted = false;
+            // Off-screen but large enough for browser to actually decode
+            APP.guest.videoElement.style.cssText = 'position:fixed;top:-9999px;left:-9999px;width:320px;height:240px;pointer-events:none;z-index:-1;';
+            document.body.appendChild(APP.guest.videoElement);
         }
 
-        // Keep legacy reference for compatibility with compositor/render loop
-        APP.guest.videoElement = remoteFeed || document.getElementById('p2p-remote-feed');
+        // Remote stream plays via HTML5 video element.
+        // DO NOT route into APP.audio.ctx or masterGain — creates echo.
+        APP.guest.videoElement.srcObject = remoteStream;
         APP.guest.stream = remoteStream;
         APP.guest.isActive = true;
+
+        // iOS Safari requires explicit play() after srcObject assignment
+        APP.guest.videoElement.play().catch(function(e) { log('GUEST_PLAY_ERR: ' + e.message); });
 
         stopP2PRing();
         $('call-status').textContent = 'CONNECTED';
@@ -7378,10 +7339,12 @@ function endCallCleanup() {
         APP.peer.dataConn = null;
     }
 
-    // Hide remote feed and clear its source
-    var remoteFeed = $('p2p-remote-feed');
-    if (remoteFeed) { remoteFeed.srcObject = null; remoteFeed.style.display = 'none'; }
-    APP.guest.videoElement = null;
+    // Remove hidden video element from DOM (cleanup for iOS)
+    if (APP.guest.videoElement) {
+        APP.guest.videoElement.srcObject = null;
+        if (APP.guest.videoElement.parentNode) APP.guest.videoElement.parentNode.removeChild(APP.guest.videoElement);
+        APP.guest.videoElement = null;
+    }
 
     APP.guest.isActive = false;
     APP.guest.stream = null;
