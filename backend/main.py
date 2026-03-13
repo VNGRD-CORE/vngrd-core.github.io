@@ -28,11 +28,12 @@ from contextlib import asynccontextmanager
 from pathlib import Path
 
 import fal_client
+import httpx
 import uvicorn
 import websockets
 from deep_translator import GoogleTranslator
 from dotenv import load_dotenv
-from fastapi import FastAPI, WebSocket, WebSocketDisconnect
+from fastapi import FastAPI, Request, WebSocket, WebSocketDisconnect
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 from pydantic import BaseModel
@@ -41,6 +42,7 @@ load_dotenv(dotenv_path=Path(__file__).parent / ".env")
 
 DEEPGRAM_API_KEY = os.environ.get("DEEPGRAM_API_KEY", "")
 FAL_KEY          = os.environ.get("FAL_KEY", "")
+PINATA_JWT       = os.environ.get("PINATA_JWT", "")
 
 os.environ.setdefault("FAL_KEY", FAL_KEY)
 
@@ -64,14 +66,17 @@ _DG_URL = (
 
 @asynccontextmanager
 async def lifespan(app):
-    dg_ok  = "✔  DEEPGRAM_API_KEY set" if DEEPGRAM_API_KEY else "✘  DEEPGRAM_API_KEY missing — /ws/transcribe → 503"
-    fal_ok = "✔  FAL_KEY set"          if FAL_KEY          else "✘  FAL_KEY missing — /generate → 503"
+    port   = int(os.getenv("PORT", 8000))
+    dg_ok  = "✔  DEEPGRAM_API_KEY set"  if DEEPGRAM_API_KEY else "✘  DEEPGRAM_API_KEY missing — /ws/transcribe → 503"
+    fal_ok = "✔  FAL_KEY set"           if FAL_KEY          else "✘  FAL_KEY missing — /generate → 503"
+    pin_ok = "✔  PINATA_JWT set"        if PINATA_JWT        else "✘  PINATA_JWT missing — /export-to-pinata → 503"
     print("\n┌─────────────────────────────────────────────────────┐")
     print("│  DRIS//CORE  —  Podcast Backend  (websockets)       │")
-    print("│  WS : ws://localhost:8000/ws/transcribe             │")
-    print("│  POST: http://localhost:8000/generate               │")
+    print(f"│  WS  : ws://0.0.0.0:{port}/ws/transcribe              │")
+    print(f"│  HTTP: http://0.0.0.0:{port}/generate                 │")
     print(f"│  {dg_ok:<51}│")
     print(f"│  {fal_ok:<51}│")
+    print(f"│  {pin_ok:<51}│")
     print("└─────────────────────────────────────────────────────┘\n")
     yield
 
@@ -269,37 +274,83 @@ class GenerateRequest(BaseModel):
 
 
 @app.post("/generate")
-async def generate_image(req: GenerateRequest):
+async def generate_image(request: GenerateRequest):
     if not FAL_KEY:
         return JSONResponse(
             status_code=503,
-            content={"error": "FAL_KEY not set in backend/.env"},
+            content={"error": "FAL_KEY not set in backend/.env"}
         )
 
     try:
-        loop   = asyncio.get_event_loop()
+        loop = asyncio.get_event_loop()
         result = await loop.run_in_executor(
             None,
             lambda: fal_client.subscribe(
                 "fal-ai/flux-pro",
                 arguments={
-                    "prompt": req.prompt,
-                    "width" : req.width,
-                    "height": req.height,
+                    "prompt": request.prompt,
+                    "width":  request.width,
+                    "height": request.height,
                 },
             ),
         )
+
         images = result.get("images") or []
         if not images:
             return JSONResponse(status_code=502, content={"error": "fal-ai returned no images"})
 
-        return {"url": images[0]["url"], "prompt": req.prompt}
+        return {"url": images[0]["url"], "prompt": request.prompt}
 
     except Exception as exc:
+        print(f"[generate] ERROR: {exc}")
         return JSONResponse(status_code=500, content={"error": str(exc)})
 
+
+# ── POST /export-to-pinata — pin JSON workspace to IPFS ──────────────────────
+
+@app.post("/export-to-pinata")
+async def export_to_pinata(request: Request):
+    """Pin workspace snapshot JSON to IPFS via Pinata and return the CID."""
+    if not PINATA_JWT:
+        return JSONResponse(
+            status_code=503,
+            content={"error": "PINATA_JWT not set — add it to backend/.env or env vars"}
+        )
+
+    try:
+        payload = await request.json()
+        name    = f"VNGRD_WORKSPACE_{int(time.time() * 1000)}"
+
+        async with httpx.AsyncClient(timeout=30) as client:
+            resp = await client.post(
+                "https://api.pinata.cloud/pinning/pinJSONToIPFS",
+                json={
+                    "pinataContent":  payload,
+                    "pinataMetadata": {"name": name},
+                },
+                headers={"Authorization": f"Bearer {PINATA_JWT}"},
+            )
+
+        data = resp.json()
+
+        if resp.status_code == 200 and data.get("IpfsHash"):
+            cid = data["IpfsHash"]
+            return {
+                "cid": cid,
+                "url": f"https://gateway.pinata.cloud/ipfs/{cid}",
+            }
+
+        return JSONResponse(
+            status_code=502,
+            content={"error": "Pinata rejected the request", "details": data},
+        )
+
+    except Exception as exc:
+        print(f"[export-to-pinata] ERROR: {exc}")
+        return JSONResponse(status_code=500, content={"error": str(exc)})
 
 # ── Entrypoint ────────────────────────────────────────────────────────────────
 
 if __name__ == "__main__":
-    uvicorn.run("main:app", host="0.0.0.0", port=8000, reload=False, log_level="error")
+    _port = int(os.getenv("PORT", 8000))
+    uvicorn.run("main:app", host="0.0.0.0", port=_port, reload=False, log_level="info")
