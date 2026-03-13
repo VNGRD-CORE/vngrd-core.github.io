@@ -127,9 +127,14 @@ class Compositor {
         }
 
         // LAYER 1: Camera Texture
-        if (this.layers.camera) {
+        // Guest priority: if a P2P guest is active their video is the primary background;
+        // only fall back to the local camera if no active guest is present.
+        const _guestActive = typeof APP !== 'undefined' &&
+            APP.guest && APP.guest.isActive && APP.guest.videoElement;
+        const _camSource = _guestActive ? APP.guest.videoElement : this.layers.camera;
+        if (_camSource) {
             try {
-                const vid = this.layers.camera;
+                const vid = _camSource;
                 if (vid.readyState >= 2) {
                     const srcW = vid.videoWidth || w;
                     const srcH = vid.videoHeight || h;

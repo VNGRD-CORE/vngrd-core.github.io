@@ -989,6 +989,9 @@ body.shooting-mode #btn-shooting {
         /* P2P modal: fit mobile viewport */
         #p2p-modal { right: 10px !important; left: 10px !important; width: auto !important; }
 
+        /* P2P remote feed element must stay hidden — Compositor handles all drawing */
+        #p2p-remote-feed { display: none !important; }
+
         /* Ghost terminal: rain to mobile viewport + visible close button */
         #ghost-terminal {
             left: 10px !important; right: 10px !important;
@@ -3536,8 +3539,8 @@ function renderLoop(timestamp) {
     
     let source = null;
     if (APP.render.source) source = APP.render.source;
+    else if (APP.guest && APP.guest.isActive && APP.guest.videoElement) source = APP.guest.videoElement;
     else if (APP.state.isLive && APP.camera.stream && APP.camera.videoEl) source = APP.camera.videoEl;
-    else if (APP.guest.stream && APP.guest.isActive && APP.guest.videoElement) source = APP.guest.videoElement;
     else if (APP.media.currentElement) source = APP.media.currentElement;
     
     if (source) {
@@ -6100,12 +6103,31 @@ document.addEventListener('DOMContentLoaded', () => {
 
     ['guest','track','breaking'].forEach(function(m) {
         var el = $('btn-lt-' + m); if (!el) return;
-        el.onclick = function() { showLowerThird(m); sendUISync('LOWER_THIRD', { action:'show', preset: APP.lowerThird.preset, title: $('lt-title-text').textContent, subtitle: $('lt-subtitle-text').textContent }); };
+        el.onclick = function() {
+            // Mix-Minus intercept: if P2P data channel is open, only broadcast to remote;
+            // do NOT render locally on #stage to prevent lower-third doubling.
+            if (APP.peer && APP.peer.dataConn && APP.peer.dataConn.open) {
+                sendUISync('LOWER_THIRD', { action:'show', preset: m, title: $('lt-title').value || 'GUEST NAME', subtitle: $('lt-sub').value || 'TITLE / ROLE' });
+                var pf = $('cam-preview-float');
+                if (pf) { var prevOutline = pf.style.outline; pf.style.outline = '2px solid var(--c)'; setTimeout(function(){ pf.style.outline = prevOutline; }, 800); }
+            } else {
+                showLowerThird(m);
+                sendUISync('LOWER_THIRD', { action:'show', preset: APP.lowerThird.preset, title: $('lt-title-text').textContent, subtitle: $('lt-subtitle-text').textContent });
+            }
+        };
     });
     $('btn-lt-off').onclick = () => { hideLowerThird(); sendUISync('LOWER_THIRD', { action: 'hide' }); };
     if ($('lt-style-select')) $('lt-style-select').onchange = function() {
         APP.lowerThird.ltStyle = this.value;
-        if (APP.lowerThird.visible) { showLowerThird(APP.lowerThird.mode || 'guest'); sendUISync('LOWER_THIRD', { action:'show', preset: APP.lowerThird.preset, title: $('lt-title-text').textContent, subtitle: $('lt-subtitle-text').textContent }); }
+        if (APP.lowerThird.visible) {
+            // Mix-Minus intercept for style changes during P2P call
+            if (APP.peer && APP.peer.dataConn && APP.peer.dataConn.open) {
+                sendUISync('LOWER_THIRD', { action:'show', preset: this.value, title: $('lt-title').value || '', subtitle: $('lt-sub').value || '' });
+            } else {
+                showLowerThird(APP.lowerThird.mode || 'guest');
+                sendUISync('LOWER_THIRD', { action:'show', preset: APP.lowerThird.preset, title: $('lt-title-text').textContent, subtitle: $('lt-subtitle-text').textContent });
+            }
+        }
     };
     if ($('lt-color')) $('lt-color').oninput = function() { APP.lowerThird.ltColor = this.value; var d=$('lt-color-dot'); if(d){d.style.background=this.value;d.style.boxShadow='0 0 5px '+this.value;} };
     if ($('bug-color')) $('bug-color').oninput = function() { APP.bug.color=this.value; var d=$('bug-color-dot'); if(d){d.style.background=this.value;d.style.boxShadow='0 0 5px '+this.value;} };
@@ -7402,22 +7424,7 @@ $('btn-init-peer').onclick = () => {
                 port: 443,
                 path: '/',
                 config: {
-                    iceServers: [
-                        { urls: 'stun:stun.l.google.com:19302' },
-                        { urls: 'stun:stun1.l.google.com:19302' },
-                        { urls: 'stun:stun.cloudflare.com:3478' },
-                        // Metered TURN relay — needed for symmetric NAT / iOS cellular
-                        { urls: 'turn:a.relay.metered.ca:80', username: 'e8dd65b92c0b8d40f3386771', credential: 'YxOlRjMTsPnEfMqy' },
-                        { urls: 'turn:a.relay.metered.ca:80?transport=tcp', username: 'e8dd65b92c0b8d40f3386771', credential: 'YxOlRjMTsPnEfMqy' },
-                        { urls: 'turns:a.relay.metered.ca:443', username: 'e8dd65b92c0b8d40f3386771', credential: 'YxOlRjMTsPnEfMqy' },
-                        // OpenRelay TURN backup (free, no signup)
-                        { urls: 'turn:openrelay.metered.ca:80', username: 'openrelayproject', credential: 'openrelayproject' },
-                        { urls: 'turn:openrelay.metered.ca:443', username: 'openrelayproject', credential: 'openrelayproject' },
-                        { urls: 'turn:openrelay.metered.ca:443?transport=tcp', username: 'openrelayproject', credential: 'openrelayproject' }
-                    ],
-                    iceTransportPolicy: 'all',
-                    iceCandidatePoolSize: 4,
-                    sdpSemantics: 'unified-plan'
+                    iceServers: [{ urls: 'stun:stun.l.google.com:19302' }]
                 },
                 debug: 0
             }),
@@ -7441,32 +7448,32 @@ $('btn-init-peer').onclick = () => {
             $('call-status').style.color = 'var(--r)';
         });
         
-        // --- INCOMING CALL HANDLER (Non-Blocking) ---
-        APP.peer.peer.on('call', (call) => {
+        // --- INCOMING CALL HANDLER (Auto-Answer) ---
+        APP.peer.peer.on('call', async (call) => {
             log('INCOMING_CALL FROM ' + call.peer);
-            
-            // 1. Store the call object but DO NOT answer yet
-            APP.peer.incomingCall = call;
-            
-            // 2. Update UI to "Ringing" Mode
-            $('call-status').textContent = 'RINGING... (' + call.peer + ')';
-            $('call-status').style.color = 'var(--y)'; // Yellow for caution
+            $('call-status').textContent = 'CONNECTING: ' + call.peer;
+            $('call-status').style.color = 'var(--y)';
 
-            // 2b. Auto-open the P2P panel so user sees incoming call
+            // Auto-open panel so the user is aware of the call
             $('p2p-modal').style.display = 'block';
             $('p2p-body').style.display = '';
-
-            // 2c. Play ring tone
             startP2PRing();
 
-            // 3. Turn the "CALL" button into an "ACCEPT" button
-            const btnCall = $('btn-call-guest');
-            btnCall.textContent = 'ACCEPT CALL';
-            btnCall.style.borderColor = 'var(--g)';
-            btnCall.style.color = 'var(--g)';
-            
-            // 4. Play a ring sound if you have one (optional)
-            // new Audio('assets/ring.mp3').play().catch(e => {});
+            try {
+                // Auto-answer with local camera + mic; no user-gesture required
+                // because this handler fires inside the Peer event which is
+                // already triggered by a user action (INIT button).
+                const stream = await navigator.mediaDevices.getUserMedia({ video: true, audio: true });
+                APP.peer.localStream = stream;
+                call.answer(stream);
+                // handleCallStream sets APP.guest.isActive = true when remote stream arrives
+                handleCallStream(call);
+            } catch (e) {
+                log('AUTO_ANSWER_ERR: ' + e.message);
+                $('call-status').textContent = 'ANSWER_FAILED';
+                $('call-status').style.color = 'var(--r)';
+                stopP2PRing();
+            }
         });
 
         // --- INCOMING DATA CONNECTION (Guest Side) ---
