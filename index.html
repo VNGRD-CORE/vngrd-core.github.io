@@ -1527,18 +1527,6 @@ body.fullscreen #transcription-hud { opacity: 0 !important; pointer-events: none
     box-shadow: none !important;
     outline: none !important;
     z-index: 2500;
-}/* Ensure Guest Video sits ABOVE GFX but BELOW sidebars */
-#p2p-remote-feed {
-    position: fixed;
-    top: 60px;
-    right: 220px;
-    width: 320px;
-    aspect-ratio: 16/9;
-    background: #000;
-    border: 1px solid #00f3ff;
-    z-index: 4500; /* Priority layer */
-    display: none;
-    object-fit: cover;
 }</style>
 </head>
 <body oncontextmenu="return false;">
@@ -5333,41 +5321,90 @@ function downloadWorkspaceSnapshot() {
     log('SNAPSHOT: DOWNLOADED');
 }
 
-//// ══════════════════════════════════════════════════════════════════════════
-// DEPLOY SYSTEM — PIN TO IPFS via Desktop Backend
-// ══════════════════════════════════════════════════════════════════════════
-
+// GENERATE_QR: pin to IPFS via Pinata, then show QR modal
 async function executeWorkspaceExport() {
-    log('IPFS: REQUESTING_BACKEND_PIN...');
-
-    // Path to the media file on your Mac Desktop
-    // Note: In a real flow, you could dynamicize this based on the last generated image
-    var localMediaPath = "/Users/andreamerella/Desktop/VANGUARD-CORE/output_media.jpg"; 
-
-    try {
-        // We call the local backend we just updated in main.py
-        var res = await fetch('http://127.0.0.1:8000/export-to-pinata', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ file_path: localMediaPath })
-        });
-        
-        var data = await res.json();
-
-        if (data.success) {
-            var globalUrl = data.ipfs_url;
-            log('IPFS: PINNED GLOBAL LINK=' + globalUrl);
-            
-            // Directly show the modal with the permanent IPFS gateway link
-            _renderQRModal("SUCCESS", globalUrl);
-        } else {
-            log('IPFS: PIN_FAILED ' + data.error, 'crit');
-            alert('Export Error: ' + data.error);
-        }
-    } catch(e) {
-        log('IPFS: BACKEND_OFFLINE - Is Uvicorn running?', 'crit');
-        alert('Could not reach your Desktop Backend. Make sure main.py is running!');
+    var jwt = localStorage.getItem('pinata_jwt');
+    if (!jwt) {
+        var raw = prompt('PINATA JWT TOKEN (stored locally):');
+        if (!raw) { log('IPFS_EXPORT: NO_JWT'); return; }
+        jwt = raw.trim();
+        localStorage.setItem('pinata_jwt', jwt);
     }
+
+    log('IPFS: PINNING_TO_PINATA');
+    var payload = _buildSessionSnapshot();
+    payload._type = 'VNGRD_WORKSPACE';
+    payload._version = 'V34';
+
+    var res, data;
+    try {
+        res = await fetch('https://api.pinata.cloud/pinning/pinJSONToIPFS', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'Authorization': 'Bearer ' + jwt
+            },
+            body: JSON.stringify({
+                pinataContent: payload,
+                pinataMetadata: { name: 'VNGRD_WORKSPACE_' + Date.now() }
+            })
+        });
+        data = await res.json();
+    } catch(e) {
+        log('IPFS: FETCH_ERR ' + e.message);
+        alert('IPFS export failed: ' + e.message);
+        return;
+    }
+
+    if (!res.ok || !data.IpfsHash) {
+        log('IPFS: PIN_FAILED ' + JSON.stringify(data));
+        alert('Pinata error: ' + (data.error && data.error.details ? data.error.details : JSON.stringify(data)));
+        return;
+    }
+
+    var cid = data.IpfsHash;
+    log('IPFS: PINNED CID=' + cid);
+    showQRModal(cid);
+}
+
+// QR MODAL
+function buildWorkspaceURL(cid) {
+    // On localhost, try to substitute the local network IP so mobile devices can reach the server
+    var origin = window.location.origin;
+    if (/^https?:\/\/localhost|^https?:\/\/127\.0\.0\.1/.test(origin)) {
+        // RTCPeerConnection trick: gather a local IP via ICE candidates
+        // Falls back to localhost if WebRTC is unavailable
+        return new Promise(function(resolve) {
+            var resolved = false;
+            function done(ip) {
+                if (resolved) return;
+                resolved = true;
+                var port = window.location.port ? ':' + window.location.port : '';
+                resolve(window.location.protocol + '//' + ip + port + '/?workspace=' + cid);
+            }
+            try {
+                var pc = new RTCPeerConnection({ iceServers: [] });
+                pc.createDataChannel('');
+                pc.createOffer().then(function(offer) { pc.setLocalDescription(offer); });
+                pc.onicecandidate = function(e) {
+                    if (!e || !e.candidate) return;
+                    var m = e.candidate.candidate.match(/(\d+\.\d+\.\d+\.\d+)/);
+                    if (m && !/^(127\.|169\.254\.)/.test(m[1])) {
+                        pc.close();
+                        done(m[1]);
+                    }
+                };
+                setTimeout(function() { done('localhost'); }, 2000);
+            } catch(e) {
+                done('localhost');
+            }
+        });
+    }
+    return Promise.resolve(origin + '/?workspace=' + cid);
+}
+
+function showQRModal(cid) {
+    buildWorkspaceURL(cid).then(function(url) { _renderQRModal(cid, url); });
 }
 
 function _renderQRModal(cid, url) {
@@ -5376,11 +5413,11 @@ function _renderQRModal(cid, url) {
     var cidLabel = $('qr-modal-cid-label');
     var urlDisplay = $('qr-url-display');
 
-    cidLabel.textContent = 'IPFS_READY';
+    cidLabel.textContent = 'CID: ' + cid;
     urlDisplay.textContent = url;
     container.innerHTML = '';
 
-    ghostLog('SYSTEM: GLOBAL_LINK_GENERATED', 'success');
+    ghostLog('SYSTEM: DYNAMIC_LINK_GENERATED_AT_' + window.location.origin, 'success');
 
     if (typeof QRCode !== 'undefined') {
         new QRCode(container, {
@@ -5393,14 +5430,20 @@ function _renderQRModal(cid, url) {
         });
     } else {
         container.textContent = url;
+        container.style.wordBreak = 'break-all';
+        container.style.color = '#000';
+        container.style.fontSize = '8px';
     }
 
     modal.style.display = 'flex';
 
     $('btn-qr-copy').onclick = function() {
         navigator.clipboard.writeText(url).then(function() {
+            log('QR: URL_COPIED');
             $('btn-qr-copy').textContent = 'COPIED!';
             setTimeout(function() { $('btn-qr-copy').textContent = 'COPY_URL'; }, 1500);
+        }).catch(function() {
+            prompt('Copy this URL:', url);
         });
     };
 
@@ -5581,19 +5624,21 @@ function setTheme(theme) { document.body.className = document.body.className.rep
 function toggleVHS() { document.body.classList.toggle('vhs'); $('btn-vhs').classList.toggle('on'); log('VHS'); }
 function toggleCRT() { document.body.classList.toggle('crt'); $('btn-crt').classList.toggle('on'); log('CRT'); }
 function toggleFullscreen() { APP.state.isFullscreen = !APP.state.isFullscreen; document.body.classList.toggle('fullscreen', APP.state.isFullscreen); log('FULLSCREEN'); }
+
 function toggleSystemSlide() {
-    const isSlid = document.body.classList.toggle('system-slide');
+    var isSlid = document.body.classList.toggle('system-slide');
     APP.state.systemSlide = isSlid;
-    if (APP.render) APP.render._cachedRect = null;
-    
-    // THE FIX: Reduce delay to 100ms to hide the "scripts" instantly
-    setTimeout(() => {
-        if (typeof resizeCanvas === 'function') {
+    // Pulse the TAB hint so user knows how to return
+    var tabHint = document.querySelector('.kb-hint');
+    if (tabHint) { tabHint.style.opacity = '0.85'; setTimeout(() => { tabHint.style.opacity = '0.38'; }, 1800); }
+    if (typeof resizeCanvas === 'function') {
+        setTimeout(function() {
             APP.render.width = APP.render.canvas.parentElement.clientWidth;
             APP.render.height = APP.render.canvas.parentElement.clientHeight;
             resizeCanvas();
-        }
-    }, 100); 
+        }, 520);
+    }
+    log(isSlid ? 'SYSTEM_SLIDE: PANELS_OUT' : 'SYSTEM_SLIDE: PANELS_IN');
 }
 
 function morphLogo() { const logo = $('main-logo'); APP.ui.morphs.forEach(m => logo.classList.remove(m)); APP.ui.logoMorph = (APP.ui.logoMorph + 1) % APP.ui.morphs.length; logo.classList.add(APP.ui.morphs[APP.ui.logoMorph]); }
@@ -8469,7 +8514,7 @@ var isVideo = nft.forceVideo || (imageUrl.toLowerCase().match(/\.(mp4|webm|mov|o
 
     // ═══════════════════════════════════════════════════════════════════
     // AI IMAGE GENERATOR v5 — Pollinations.ai only (100% free, no key)
-    // Server backend completely bypassed.
+    // Puter.js removed. All models route through Pollinations.ai API.
     // ═══════════════════════════════════════════════════════════════════
     var _aiGenerating = false;
 
@@ -8490,13 +8535,10 @@ var isVideo = nft.forceVideo || (imageUrl.toLowerCase().match(/\.(mp4|webm|mov|o
         if (preview && previewImg) { previewImg.src = img.src; preview.style.display = 'block'; }
         var host = document.getElementById('gif-host');
         if (host && !img.parentNode) host.appendChild(img);
-        
-        // Pushes the image into your Compositor to render on the canvas
         APP.render.source = null;
         APP.media.queue.push({ type: 'image', url: img.src, element: img, name: label });
         APP.media.currentIndex = APP.media.queue.length - 1;
         APP.media.currentElement = img;
-        
         if (typeof updateQueueDisplay === 'function') updateQueueDisplay();
         if ($('media-dot')) $('media-dot').classList.remove('off');
         var stage = $('stage');
@@ -8508,29 +8550,25 @@ var isVideo = nft.forceVideo || (imageUrl.toLowerCase().match(/\.(mp4|webm|mov|o
         log('AI: INJECTED >> ' + label);
     }
 
-    // Pollinations.ai — direct load bypasses fetch() 403 blocks
+    // Pollinations.ai — free, no API key, blob fetch avoids CORS taint on canvas
     async function _aiPollinations(prompt, btn, polModel) {
         _aiStatus('POLLINATIONS: GENERATING...', 'var(--v)');
         log('AI: [POLLINATIONS] >> ' + prompt);
         try {
             var seed = Math.floor(Math.random() * 99999);
-            // 1920x1080 resolution to fit your hybrid workstation screen natively
             var url = 'https://image.pollinations.ai/prompt/' + encodeURIComponent(prompt)
-                + '?width=1920&height=1080&nologo=true&model=' + (polModel || 'flux') + '&seed=' + seed;
-            
+                + '?width=1024&height=1024&nologo=true&model=' + (polModel || 'flux') + '&seed=' + seed;
+            // fetch() follows redirects and gives raw bytes — no CORS taint on canvas
+            var resp = await fetch(url);
+            if (!resp.ok) throw new Error('HTTP_' + resp.status);
+            var blob = await resp.blob();
+            var objectUrl = URL.createObjectURL(blob);
             var img = new Image();
-            // This is required so the image can be drawn on your WebGL/Canvas layer
-            img.crossOrigin = 'Anonymous'; 
-            
             await new Promise(function(resolve, reject) {
                 img.onload = resolve;
-                img.onerror = function() { 
-                    reject(new Error('BLOCKED_BY_SERVER_OR_FILTER')); 
-                };
-                // Loading directly via src bypasses the fetch() 403 error
-                img.src = url;
+                img.onerror = function() { reject(new Error('IMG_DECODE_FAILED')); };
+                img.src = objectUrl;
             });
-            
             _aiInject(img, prompt);
             _aiDone(btn);
             _aiStatus('DONE [POLLINATIONS]', 'var(--g)');
@@ -8541,7 +8579,15 @@ var isVideo = nft.forceVideo || (imageUrl.toLowerCase().match(/\.(mp4|webm|mov|o
         }
     }
 
-    async function aiGenerate(prompt) {
+    // Pollinations model → style parameter map
+    var _pollinationsStyles = {
+        'pollinations':       { model: 'flux',          style: '' },
+        'pollinations-turbo': { model: 'turbo',         style: 'cinematic, high detail' },
+        'pollinations-3d':    { model: 'flux',          style: '3D render, octane, volumetric lighting' },
+        'pollinations-anime': { model: 'flux',          style: 'anime, cel-shaded, vibrant' },
+    };
+
+  async function aiGenerate(prompt) {
         if (!prompt) { _aiStatus('TYPE A PROMPT', 'var(--y)'); return; }
         if (_aiGenerating) return;
 
@@ -8557,13 +8603,69 @@ var isVideo = nft.forceVideo || (imageUrl.toLowerCase().match(/\.(mp4|webm|mov|o
         _aiStatus(modelKey.toUpperCase() + ': GENERATING...', 'var(--v)');
         log('AI: [' + modelKey.toUpperCase() + '] >> ' + prompt);
 
-        // Tier 1 backend removed. Routing directly to Tier 2 Pollinations.
+        // ── Tier 1: Fal.ai via local backend ─────────────────────────
+        var backendOk = false;
         try {
-            await _aiPollinations(fullPrompt, btn, cfg.model);
+            var backendCtrl = new AbortController();
+            var backendTid = setTimeout(function() { backendCtrl.abort(); }, 90000);
+            
+            var backendRes = await fetch('http://127.0.0.1:8000/generate', {
+                method: 'POST',
+                headers: { 
+                    'Content-Type': 'application/json',
+                    'Accept': 'application/json'
+                },
+                body: JSON.stringify({ 
+                    prompt: fullPrompt,
+                    width: 1024,   
+                    height: 1024   
+                }),
+                signal: backendCtrl.signal
+            });
+
+            clearTimeout(backendTid);
+
+            if (backendRes.ok) {
+                var backendData = await backendRes.json();
+                if (backendData.url) {
+                    var resp = await fetch(backendData.url);
+                    if (!resp.ok) throw new Error('BACKEND_IMG_HTTP_' + resp.status);
+                    
+                    var blob = await resp.blob();
+                    var objectUrl = URL.createObjectURL(blob);
+                    var img = new Image();
+                    
+                    await new Promise(function(resolve, reject) {
+                        img.onload = resolve;
+                        img.onerror = function() { reject(new Error('BACKEND_IMG_DECODE_FAILED')); };
+                        img.src = objectUrl;
+                    });
+
+                    _aiInject(img, prompt);
+                    _aiDone(btn);
+                    
+                    var srcLabel = (backendData.source || 'FAL').toUpperCase().replace(/-/g, '_');
+                    _aiStatus('DONE [' + srcLabel + ']', 'var(--g)');
+                    log('AI: BACKEND_OK');
+                    backendOk = true;
+                }
+            } else {
+                const errDetail = await backendRes.json();
+                log('AI: BACKEND_REJECTED: ' + JSON.stringify(errDetail));
+            }
         } catch(e) {
-            _aiDone(btn);
-            _aiStatus('ALL_SOURCES_FAILED', 'var(--r)');
-            log('AI: ALL_SOURCES_FAILED: ' + e.message);
+            log('AI: BACKEND_OFFLINE/TIMEOUT → FALLBACK');
+        }
+
+        // ── Tier 2: Pollinations direct (Fallback) ───────────────────
+        if (!backendOk) {
+            try {
+                await _aiPollinations(fullPrompt, btn, cfg.model);
+            } catch(e2) {
+                _aiDone(btn);
+                _aiStatus('ALL_SOURCES_FAILED', 'var(--r)');
+                log('AI: ALL_SOURCES_FAILED: ' + e2.message);
+            }
         }
 
         _aiGenerating = false;
@@ -9683,48 +9785,54 @@ ws://127.0.0.1:8000/ws/transcribe;
 
     /* ── WebSocket lifecycle ──────────────────────────────────────────── */
 
-  ffunction connect() {
-        // 1. WebSocket / Cloud Bridge
+    function connect() {
         if (ws && (ws.readyState === WebSocket.OPEN || ws.readyState === WebSocket.CONNECTING)) return;
-        const isLocal = window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1';
-        const API_BASE = isLocal ? 'http://127.0.0.1:8000' : (window.VNGRD_CLOUD_BACKEND || '');
-        if (API_BASE) {
-            ws = new WebSocket(API_BASE.replace('http', 'ws') + '/ws/transcribe');
-            ws.onopen = () => { if (typeof ghostLog === 'function') ghostLog('MCR_WS_CONNECTED', 'ok'); };
-            ws.onmessage = (ev) => { try { const d = JSON.parse(ev.data); if (d.type === 'vngrd_podcast_data') updatePodcastTray(d); } catch (e) {} };
-        }
+        setWsState('connecting');
+        try { ws = new WebSocket(WS_URL); }
+        catch (e) { setWsState('error'); scheduleReconnect(); return; }
 
-        // 2. THE P2P ENGINE (Direct transplant from stable file)
-        if (!peer || peer.destroyed) {
-            const peerId = 'vngrd-' + Math.random().toString(36).substr(2, 9);
-            peer = new Peer(peerId, { debug: 2 });
-            
-            peer.on('open', (id) => { if (typeof ghostLog === 'function') ghostLog('P2P_ID: ' + id, 'ok'); });
+        ws.binaryType = 'arraybuffer';
 
-            // THE GUEST FIX: This specific block makes the camera work
-            peer.on('call', async (call) => {
-                try {
-                    // This asks for permissions and fixes the "Black Screen"
-                    const stream = await navigator.mediaDevices.getUserMedia({ video: true, audio: true });
-                    call.answer(stream); 
-                    
-                    call.on('stream', (remoteStream) => {
-                        // This connects the guest's face to your screen
-                        const remoteVid = document.getElementById('p2p-remote-feed');
-                        if (remoteVid) {
-                            remoteVid.srcObject = remoteStream;
-                            remoteVid.style.display = 'block';
-                            remoteVid.play().catch(e => ghostLog('CLICK_TO_ENABLE_AUDIO', 'ai'));
-                        }
-                    });
-                } catch (err) { console.error("P2P_MEDIA_ERR:", err); }
-            });
-        }
+        ws.onopen = function () {
+            setWsState('connected');
+            clearTimeout(reconnTimer);
+            // Reset if was live when connection dropped
+            if (onAir) { stopMicCapture(); setOnAirUI(false); }
+            if (typeof ghostLog === 'function') ghostLog('GHOST> MCR WS bridge online \u2192 ' + WS_URL, 'ok');
+        };
+
+        ws.onclose = function () {
+            setWsState('off');
+            if (onAir) { stopMicCapture(); setOnAirUI(false); }
+            scheduleReconnect();
+        };
+
+        ws.onerror = function () { setWsState('error'); };
+
+        ws.onmessage = function (ev) {
+            var data;
+            try { data = JSON.parse(ev.data); } catch (e) { return; }
+            switch (data.type) {
+                case 'vngrd_podcast_data':
+                    updatePodcastTray(data);
+                    break;
+                case 'status':
+                    if (mcrStatus && !onAir) mcrStatus.textContent = (data.message || 'READY').substring(0, 36);
+                    if (typeof ghostLog === 'function') ghostLog(data.message, 'ok');
+                    break;
+                case 'error':
+                    var errMsg = (data.message || 'UNKNOWN').substring(0, 40);
+                    if (mcrStatus) mcrStatus.textContent = 'ERR: ' + errMsg;
+                    if (typeof ghostLog === 'function') ghostLog('MCR ERR: ' + errMsg, 'crit');
+                    break;
+            }
+        };
     }
 
     function scheduleReconnect() {
         clearTimeout(reconnTimer);
-        reconnTimer = setTimeout(connect, 3000); // Standard 3s delay
+        setWsState('error');
+        reconnTimer = setTimeout(connect, RECONNECT_DELAY);
     }
 
     /* ── ON-AIR toggle ────────────────────────────────────────────────── */
@@ -9791,6 +9899,5 @@ ws://127.0.0.1:8000/ws/transcribe;
 
 }()); 
 </script>
-<video id="p2p-remote-feed" autoplay playsinline></video>
 </body>
 </html>
