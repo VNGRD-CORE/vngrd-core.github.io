@@ -1425,42 +1425,7 @@ body.fx-nvg #stage::after {
 .hud-new { animation: hud-flash 0.22s ease-out both; }
 
 /* Collapse HUD when in fullscreen VJ mode */
-body.fullscreen #transcription-hud { opacity: 0 !important; pointer-events: none !important; }
-
-/* ── FIX: Constrain uploaded media / GIFs so they never overflow viewport ── */
-.media-upload-container img,
-.media-upload-container video {
-    max-width: 80vw;
-    max-height: 80vh;
-    object-fit: contain;
-    position: absolute;
-    top: 50%; left: 50%;
-    transform: translate(-50%, -50%);
-    pointer-events: none;
-    z-index: 900;
-}
-.fullscreen-media {
-    max-width: 80vw;
-    max-height: 80vh;
-    object-fit: contain;
-    position: absolute;
-    top: 50%; left: 50%;
-    transform: translate(-50%, -50%);
-    pointer-events: none;
-    z-index: 900;
-}
-
-/* ── AI Art Display: fullscreen overlay behind HUD, above canvas ── */
-#ai-art-display {
-    display: none;
-    position: fixed;
-    top: 0; left: 0;
-    width: 100vw; height: 100vh;
-    object-fit: contain;
-    background: #000;
-    z-index: 1000;
-    pointer-events: none;
-}</style>
+body.fullscreen #transcription-hud { opacity: 0 !important; pointer-events: none !important; }</style>
 </head>
 <body oncontextmenu="return false;">
     <!-- PORTRAIT ORIENTATION LOCK -->
@@ -1707,18 +1672,21 @@ body.fullscreen #transcription-hud { opacity: 0 !important; pointer-events: none
 
     <aside class="sidebar" id="right-panel">
 
-        <!-- ── POLYTRANSLATOR // DISABLED — token-gated rebuild pending ──
+        <!-- ── POLYTRANSLATOR // V1.0_SYNC ─────────────────────────── -->
         <div class="section" id="mcr-section">
             <div class="sec-head">
                 <span class="sec-title">POLYTRANSLATOR // V1.0_SYNC</span>
                 <div id="mcr-on-air-dot"></div>
             </div>
             <div class="sec-body">
+                <!-- WS status strip -->
                 <div style="display:flex;align-items:center;gap:6px;margin-bottom:8px;">
                     <span id="mcr-ws-led"></span>
                     <span id="mcr-status">WS: DISCONNECTED</span>
                 </div>
+                <!-- ON-AIR toggle -->
                 <button id="btn-on-air" class="onair-pill">OFF-AIR</button>
+                <!-- Target language selector -->
                 <div class="mcr-lang-row">
                     <button class="mcr-lang-btn sel" data-lang="nl">NL</button>
                     <button class="mcr-lang-btn"     data-lang="fr">FR</button>
@@ -1727,7 +1695,6 @@ body.fullscreen #transcription-hud { opacity: 0 !important; pointer-events: none
                 </div>
             </div>
         </div>
-        ── END POLYTRANSLATOR DISABLED ──>
 
         <div class="section">
             <div class="sec-head"><span class="sec-title">AUDIO_ENGINE</span><div class="sec-dot off" id="audio-dot"></div></div>
@@ -1860,20 +1827,37 @@ body.fullscreen #transcription-hud { opacity: 0 !important; pointer-events: none
         <div class="nft-bar"><div class="nft-fill" id="nft-fill"></div></div>
     </div>
 
-    <!-- TRANSCRIPTION HUD OVERLAY — disabled, token-gated rebuild pending
+    <!-- ══════════════════════════════════════════════════════════
+         TRANSCRIPTION HUD OVERLAY — DRIS//CORE POLYTRANSLATOR V1.0_SYNC
+         Sits above #bottom-bar, between the sidebars.
+         Visibility controlled by JS (.visible class).
+         pointer-events:none so VJ canvas stays fully interactive.
+         ══════════════════════════════════════════════════════════ -->
     <div id="transcription-hud" role="region" aria-label="Live Transcription">
+
+        <!-- Primary English transcription slot -->
         <div id="hud-en">
             <div class="hud-en-label">EN // LIVE TRANSCRIPTION</div>
             <div id="hud-en-text"></div>
         </div>
+
+        <!-- 4 translation sub-slots: NL · FR · IT · ES -->
         <div id="hud-langs">
-            <div class="hud-lang-slot" data-lang="NL"><div class="hud-lang-text" id="hud-nl"></div></div>
-            <div class="hud-lang-slot" data-lang="FR"><div class="hud-lang-text" id="hud-fr"></div></div>
-            <div class="hud-lang-slot" data-lang="IT"><div class="hud-lang-text" id="hud-it"></div></div>
-            <div class="hud-lang-slot" data-lang="ES"><div class="hud-lang-text" id="hud-es"></div></div>
+            <div class="hud-lang-slot" data-lang="NL">
+                <div class="hud-lang-text" id="hud-nl"></div>
+            </div>
+            <div class="hud-lang-slot" data-lang="FR">
+                <div class="hud-lang-text" id="hud-fr"></div>
+            </div>
+            <div class="hud-lang-slot" data-lang="IT">
+                <div class="hud-lang-text" id="hud-it"></div>
+            </div>
+            <div class="hud-lang-slot" data-lang="ES">
+                <div class="hud-lang-text" id="hud-es"></div>
+            </div>
         </div>
+
     </div>
-    END TRANSCRIPTION HUD DISABLED -->
 
     <input type="file" id="file-media" multiple accept="image/*,video/*">
     <input type="file" id="file-audio" multiple accept="audio/*">
@@ -6947,26 +6931,32 @@ $('btn-init-peer').onclick = () => {
             $('call-status').style.color = 'var(--r)';
         });
         
-        // --- INCOMING CALL HANDLER (Auto-Answer — standalone GitHub Pages mode) ---
-        APP.peer.peer.on('call', async (call) => {
-            log('INCOMING_CALL FROM ' + call.peer + ' — AUTO-ANSWERING');
-            $('call-status').textContent = 'CONNECTING...';
-            $('call-status').style.color = 'var(--y)';
+        // --- INCOMING CALL HANDLER (Non-Blocking) ---
+        APP.peer.peer.on('call', (call) => {
+            log('INCOMING_CALL FROM ' + call.peer);
+            
+            // 1. Store the call object but DO NOT answer yet
+            APP.peer.incomingCall = call;
+            
+            // 2. Update UI to "Ringing" Mode
+            $('call-status').textContent = 'RINGING... (' + call.peer + ')';
+            $('call-status').style.color = 'var(--y)'; // Yellow for caution
+
+            // 2b. Auto-open the P2P panel so user sees incoming call
             $('p2p-modal').style.display = 'block';
             $('p2p-body').style.display = '';
 
-            try {
-                const stream = await navigator.mediaDevices.getUserMedia({ video: true, audio: true });
-                APP.peer.localStream = stream;
-                call.answer(stream);
-                handleCallStream(call);
-                APP.peer.call = call;
-                APP.peer.incomingCall = null;
-            } catch (e) {
-                log('AUTO_ANSWER_ERR: ' + e.message);
-                $('call-status').textContent = 'CAM/MIC DENIED';
-                $('call-status').style.color = 'var(--r)';
-            }
+            // 2c. Play ring tone
+            startP2PRing();
+
+            // 3. Turn the "CALL" button into an "ACCEPT" button
+            const btnCall = $('btn-call-guest');
+            btnCall.textContent = 'ACCEPT CALL';
+            btnCall.style.borderColor = 'var(--g)';
+            btnCall.style.color = 'var(--g)';
+            
+            // 4. Play a ring sound if you have one (optional)
+            // new Audio('assets/ring.mp3').play().catch(e => {});
         });
 
         // --- INCOMING DATA CONNECTION (Guest Side) ---
@@ -7159,14 +7149,6 @@ function handleCallStream(call) {
 
         // iOS Safari requires explicit play() after srcObject assignment
         APP.guest.videoElement.play().catch(function(e) { log('GUEST_PLAY_ERR: ' + e.message); });
-
-        // Also display remote feed in the P2P panel
-        var remoteFeed = document.getElementById('p2p-remote-feed');
-        if (remoteFeed) {
-            remoteFeed.srcObject = remoteStream;
-            remoteFeed.style.display = 'block';
-            remoteFeed.play().catch(function() {});
-        }
 
         stopP2PRing();
         $('call-status').textContent = 'CONNECTED';
@@ -8108,27 +8090,55 @@ var isVideo = nft.forceVideo || (imageUrl.toLowerCase().match(/\.(mp4|webm|mov|o
         var cfg       = _pollinationsStyles[modelKey] || _pollinationsStyles['pollinations'];
         var fullPrompt = cfg.style ? prompt + ', ' + cfg.style : prompt;
 
-        _aiStatus('POLLINATIONS: GENERATING...', 'var(--v)');
+        _aiStatus(modelKey.toUpperCase() + ': GENERATING...', 'var(--v)');
         log('AI: [' + modelKey.toUpperCase() + '] >> ' + prompt);
 
-        // ── Direct Pollinations (serverless, no backend required) ─────
-        // Set #ai-art-display src immediately for instant visual feedback
-        var artDisplay = $('ai-art-display');
-        var directUrl = 'https://image.pollinations.ai/prompt/' + encodeURIComponent(fullPrompt)
-            + '?width=1920&height=1080&nologo=true&model=' + (cfg.model || 'flux')
-            + '&seed=' + Math.floor(Math.random() * 99999);
-        if (artDisplay) {
-            artDisplay.src = directUrl;
-            artDisplay.style.display = 'block';
+        // ── Tier 1: Fal.ai via local backend (localhost:8000) ─────────
+        var backendOk = false;
+        try {
+            var backendCtrl = new AbortController();
+            var backendTid = setTimeout(function() { backendCtrl.abort(); }, 90000);
+            var backendRes = await fetch('http://localhost:8000/generate', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ prompt: fullPrompt }),
+                signal: backendCtrl.signal
+            });
+            clearTimeout(backendTid);
+            if (backendRes.ok) {
+                var backendData = await backendRes.json();
+                if (backendData.url) {
+                    var resp = await fetch(backendData.url);
+                    if (!resp.ok) throw new Error('BACKEND_IMG_HTTP_' + resp.status);
+                    var blob = await resp.blob();
+                    var objectUrl = URL.createObjectURL(blob);
+                    var img = new Image();
+                    await new Promise(function(resolve, reject) {
+                        img.onload = resolve;
+                        img.onerror = function() { reject(new Error('BACKEND_IMG_DECODE_FAILED')); };
+                        img.src = objectUrl;
+                    });
+                    _aiInject(img, prompt);
+                    _aiDone(btn);
+                    var srcLabel = (backendData.source || 'FAL').toUpperCase().replace(/-/g, '_');
+                    _aiStatus('DONE [' + srcLabel + ']', 'var(--g)');
+                    log('AI: BACKEND_OK (' + (backendData.source || 'fal') + ')');
+                    backendOk = true;
+                }
+            }
+        } catch(e) {
+            log('AI: BACKEND_OFFLINE → POLLINATIONS_FALLBACK');
         }
 
-        // Also fetch as blob for canvas injection (avoids CORS taint)
-        try {
-            await _aiPollinations(fullPrompt, btn, cfg.model);
-        } catch(e) {
-            _aiDone(btn);
-            _aiStatus('POLLINATIONS FAIL: ' + e.message, 'var(--r)');
-            log('AI: POLLINATIONS_FAIL: ' + e.message);
+        // ── Tier 2: Pollinations direct (if backend unavailable) ─────
+        if (!backendOk) {
+            try {
+                await _aiPollinations(fullPrompt, btn, cfg.model);
+            } catch(e2) {
+                _aiDone(btn);
+                _aiStatus('ALL_SOURCES_FAILED', 'var(--r)');
+                log('AI: ALL_SOURCES_FAILED: ' + e2.message);
+            }
         }
 
         _aiGenerating = false;
@@ -8938,9 +8948,6 @@ if (btn3dX) {
 }
 </script>
 
-    <!-- AI Art Display: fullscreen overlay, z-index 1000, behind HUD, above canvas -->
-    <img id="ai-art-display" alt="AI Art" style="display:none;">
-
     <!-- gif-host: DIRECT child of <body>, NOT inside #stage.
          #stage has transform:translate3d(0,0,0) which creates a containing block for
          position:fixed children, trapping them inside overflow:hidden.
@@ -8973,7 +8980,6 @@ if (btn3dX) {
                 <button class="btn" id="btn-hangup" style="color:var(--r);border-color:var(--r);font-size:8px;padding:4px 0;flex:1;">END</button>
             </div>
             <div id="call-status" style="font-size:8px;color:var(--text-dim);margin-top:6px;text-align:center;">NOT_CONNECTED</div>
-            <video id="p2p-remote-feed" autoplay playsinline style="display:none;width:100%;max-height:130px;margin-top:6px;border-radius:3px;border:1px solid rgba(0,255,255,0.2);background:#000;object-fit:cover;"></video>
             <div class="sec-dot off" id="guest-dot" style="margin-top:4px;"></div>
             <!-- Resize handle -->
             <div id="p2p-resize" style="position:absolute;bottom:0;right:0;width:14px;height:14px;cursor:nwse-resize;opacity:0.4;" title="Resize">
@@ -8985,53 +8991,290 @@ if (btn3dX) {
 
 <script>
 /* ═══════════════════════════════════════════════════════════════════════
-   POLYTRANSLATOR // OFFLINE — WebSocket backend removed for GitHub Pages.
-   Token-gated rebuild pending. P2P calling is fully standalone below.
+   POLYTRANSLATOR // V1.0_SYNC  —  WebSocket Bridge  v2  (local, free, no Puter)
+   -----------------------------------------------------------------------
+   Signal chain:
+     Browser getUserMedia → MediaRecorder (webm/opus, 4-s chunks)
+       → binary WebSocket → main.py (SpeechRecognition + deep-translator)
+         → JSON results → HUD slots
+
+   Client → Server:
+     JSON text : { action:"start", target_lang:"nl", source_lang:"en" }
+                 { action:"stop" }
+     Binary    : Raw webm audio chunks from MediaRecorder.ondataavailable
+
+   Server → Client (JSON):
+     { type:"status",      message:"..." }
+     { type:"transcript",  original:"...", timestamp:0.0 }
+     { type:"translation", text:"...", lang:"nl", start:0.0, end:4.0 }
+     { type:"srt_ready",   filename:"...", content:"..." }
+     { type:"error",       message:"..." }
    ═══════════════════════════════════════════════════════════════════════ */
 (function () {
     'use strict';
 
-    // Stub DOM refs so the rest of the IIFE doesn't throw reference errors
+    var WS_URL     = 'ws://localhost:8000/ws/transcribe';
+    var RECONNECT  = 3500;     // ms between reconnect attempts
+    var CHUNK_MS   = 4000;     // MediaRecorder timeslice — must match CHUNK_SEC in main.py
+
+    var ws         = null;
     var onAir      = false;
     var targetLang = 'nl';
+    var reconnTimer= null;
 
     // Audio capture state
     var micStream    = null;
     var mediaRec     = null;
 
-    /* ── DOM refs (kept as null stubs — translator UI is hidden) ── */
-    var btnOnAir  = null; // hidden
-    var hud       = null; // hidden
-    var hudEN     = null;
-    var hudSlots  = { nl: null, fr: null, it: null, es: null };
-    var wsLed     = null;
-    var mcrStatus = null;
-    var mcrDot    = null;
-    var langBtns  = [];
+    /* ── DOM refs ─────────────────────────────────────────────────────── */
+    var btnOnAir  = document.getElementById('btn-on-air');
+    var hud       = document.getElementById('transcription-hud');
+    var hudEN     = document.getElementById('hud-en-text');
+    var hudSlots  = {
+        nl: document.getElementById('hud-nl'),
+        fr: document.getElementById('hud-fr'),
+        it: document.getElementById('hud-it'),
+        es: document.getElementById('hud-es'),
+    };
+    var wsLed     = document.getElementById('mcr-ws-led');
+    var mcrStatus = document.getElementById('mcr-status');
+    var mcrDot    = document.getElementById('mcr-on-air-dot');
+    var langBtns  = document.querySelectorAll('.mcr-lang-btn');
 
-    /* ── UI helpers (no-ops — translator offline) ── */
-    function setWsState() {}
-    function setOnAirUI(active) { onAir = active; }
-    function clearHUD() {}
-    function flashText() {}
-    function flashSlot() {}
+    /* ── UI helpers ───────────────────────────────────────────────────── */
 
-    /* ── Mic / WebSocket — removed (backend offline) ── */
-    function startMicCapture() {}
-    function stopMicCapture() {
-        if (mediaRec && mediaRec.state !== 'inactive') { try { mediaRec.stop(); } catch (e) {} }
-        if (micStream) { micStream.getTracks().forEach(function (t) { t.stop(); }); micStream = null; }
-        mediaRec = null;
-    }
-
-    /* ── connect() — no-op, WebSocket backend removed for GitHub Pages ── */
-    function connect() {
-        if (typeof ghostLog === 'function') {
-            ghostLog('GHOST> POLYTRANSLATOR OFFLINE — token-gated rebuild pending', 'info');
+    function setWsState(state) {
+        if (!wsLed || !mcrStatus) return;
+        wsLed.className = '';
+        if (state === 'connected') {
+            wsLed.classList.add('connected');
+            mcrStatus.textContent = 'WS: CONNECTED';
+            mcrStatus.classList.remove('hot');
+        } else if (state === 'connecting') {
+            mcrStatus.textContent = 'WS: CONNECTING\u2026';
+            mcrStatus.classList.remove('hot');
+        } else if (state === 'error') {
+            wsLed.classList.add('error');
+            mcrStatus.textContent = 'WS: ERROR \u2014 RETRY IN 3s';
+            mcrStatus.classList.remove('hot');
+        } else {
+            mcrStatus.textContent = 'WS: DISCONNECTED';
+            mcrStatus.classList.remove('hot');
         }
     }
 
-    /* ── Boot (no-op) ── */
+    function setOnAirUI(active) {
+        onAir = active;
+        if (!btnOnAir) return;
+        btnOnAir.textContent = active ? 'ON-AIR' : 'OFF-AIR';
+        btnOnAir.classList.toggle('active', active);
+        if (mcrDot) mcrDot.classList.toggle('hot', active);
+        langBtns.forEach(function (b) { b.disabled = active; });
+        if (active) {
+            if (mcrStatus) { mcrStatus.classList.add('hot'); mcrStatus.textContent = 'MCR: ON-AIR \u25B6 ' + targetLang.toUpperCase(); }
+            if (hud) hud.classList.add('hud-active');
+        } else {
+            if (mcrStatus) { mcrStatus.classList.remove('hot'); mcrStatus.textContent = 'MCR: STANDBY \u25FC'; }
+            if (hud) hud.classList.remove('hud-active');
+        }
+        if (typeof ghostLog === 'function') {
+            ghostLog(active
+                ? 'GHOST> MCR ON-AIR \u2014 mic → ws://localhost:8000 → HUD'
+                : 'GHOST> MCR STANDBY \u2014 signal stopped',
+                active ? 'ok' : 'info');
+        }
+    }
+
+    function clearHUD() {
+        if (hudEN) hudEN.textContent = '';
+        Object.keys(hudSlots).forEach(function (k) {
+            var el = hudSlots[k];
+            if (el) { el.textContent = ''; el.classList.remove('hud-new'); }
+            var slot = el && el.closest('.hud-lang-slot');
+            if (slot) slot.classList.remove('fresh');
+        });
+    }
+
+    function flashText(el, text) {
+        if (!el) return;
+        el.textContent = text;
+        el.classList.remove('hud-new');
+        void el.offsetWidth;
+        el.classList.add('hud-new');
+    }
+
+    function flashSlot(langCode, text) {
+        var el   = hudSlots[langCode];
+        var slot = el && el.closest('.hud-lang-slot');
+        if (!el) return;
+        flashText(el, text);
+        if (slot) { slot.classList.add('fresh'); setTimeout(function () { slot.classList.remove('fresh'); }, 1400); }
+    }
+
+    /* ── Mic capture ──────────────────────────────────────────────────── */
+
+    async function startMicCapture() {
+        if (micStream) return;
+
+        try {
+            micStream = await navigator.mediaDevices.getUserMedia({
+                audio: {
+                    echoCancellation : true,
+                    noiseSuppression : true,
+                    autoGainControl  : true,
+                    channelCount     : 1,
+                    sampleRate       : 16000,
+                },
+                video: false,
+            });
+        } catch (e) {
+            var reason = e.name === 'NotAllowedError' ? 'PERMISSION_DENIED' : (e.message || e.name);
+            if (typeof ghostLog === 'function') ghostLog('MCR MIC: ' + reason, 'crit');
+            if (mcrStatus) mcrStatus.textContent = 'MIC: ' + reason.substring(0, 22);
+            setOnAirUI(false);
+            return;
+        }
+
+        // Pick the best compressed format the browser supports
+        var mimeType = ['audio/webm;codecs=opus', 'audio/webm', 'audio/ogg;codecs=opus', 'audio/ogg']
+            .find(function (t) { return MediaRecorder.isTypeSupported(t); }) || '';
+
+        mediaRec = new MediaRecorder(micStream, mimeType ? { mimeType: mimeType } : {});
+
+        mediaRec.ondataavailable = function (e) {
+            if (!e.data || e.data.size < 100) return;   // skip tiny / empty chunks
+            if (!ws || ws.readyState !== WebSocket.OPEN) return;
+            // Send raw audio blob as binary WebSocket frame
+            e.data.arrayBuffer().then(function (buf) {
+                if (ws && ws.readyState === WebSocket.OPEN) ws.send(buf);
+            }).catch(function () {});
+        };
+
+        mediaRec.onerror = function (e) {
+            if (typeof ghostLog === 'function') ghostLog('MediaRecorder ERR: ' + (e.error || e), 'crit');
+        };
+
+        // Fire ondataavailable every CHUNK_MS (4 s)
+        mediaRec.start(CHUNK_MS);
+
+        if (typeof ghostLog === 'function') {
+            ghostLog('GHOST> mic → webm chunks every ' + (CHUNK_MS / 1000) + 's → WS', 'ok');
+        }
+    }
+
+    function stopMicCapture() {
+        if (mediaRec && mediaRec.state !== 'inactive') {
+            try { mediaRec.stop(); } catch (e) {}
+        }
+        if (micStream) {
+            micStream.getTracks().forEach(function (t) { t.stop(); });
+            micStream = null;
+        }
+        mediaRec = null;
+    }
+
+    /* ── WebSocket lifecycle ──────────────────────────────────────────── */
+
+    function connect() {
+        if (ws && (ws.readyState === WebSocket.OPEN || ws.readyState === WebSocket.CONNECTING)) return;
+        setWsState('connecting');
+        try { ws = new WebSocket(WS_URL); }
+        catch (e) { setWsState('error'); scheduleReconnect(); return; }
+
+        ws.binaryType = 'arraybuffer';
+
+        ws.onopen = function () {
+            setWsState('connected');
+            clearTimeout(reconnTimer);
+            if (onAir) { stopMicCapture(); setOnAirUI(false); }   // reset on reconnect
+            if (typeof ghostLog === 'function') ghostLog('GHOST> MCR WS bridge online \u2192 ' + WS_URL, 'ok');
+        };
+
+        ws.onclose = function () {
+            setWsState('off');
+            if (onAir) { stopMicCapture(); setOnAirUI(false); }
+            scheduleReconnect();
+        };
+
+        ws.onerror = function () { setWsState('error'); };
+
+        ws.onmessage = function (ev) {
+            var data;
+            try { data = JSON.parse(ev.data); } catch (e) { return; }
+            switch (data.type) {
+                case 'status':
+                    if (mcrStatus && !onAir) mcrStatus.textContent = (data.message || 'READY').substring(0, 36);
+                    if (typeof ghostLog === 'function') ghostLog(data.message, 'ok');
+                    break;
+                case 'transcript':
+                    if (hudEN && data.original) flashText(hudEN, data.original);
+                    break;
+                case 'translation':
+                    var lang = data.lang ? data.lang.toLowerCase() : null;
+                    if (lang && hudSlots[lang] && data.text) flashSlot(lang, data.text);
+                    break;
+                case 'srt_ready':
+                    if (data.content && data.filename) {
+                        var blob = new Blob([data.content], { type: 'text/plain;charset=utf-8' });
+                        var a    = document.createElement('a');
+                        a.href     = URL.createObjectURL(blob);
+                        a.download = data.filename;
+                        a.click();
+                        URL.revokeObjectURL(a.href);
+                    }
+                    if (typeof ghostLog === 'function') ghostLog('GHOST> SRT exported: ' + (data.filename || '?'), 'ok');
+                    break;
+                case 'error':
+                    var msg = (data.message || 'UNKNOWN').substring(0, 40);
+                    if (mcrStatus) mcrStatus.textContent = 'ERR: ' + msg;
+                    if (typeof ghostLog === 'function') ghostLog('MCR ERR: ' + msg, 'crit');
+                    break;
+            }
+        };
+    }
+
+    function scheduleReconnect() {
+        clearTimeout(reconnTimer);
+        reconnTimer = setTimeout(connect, RECONNECT);
+    }
+
+    /* ── Language selector ────────────────────────────────────────────── */
+    langBtns.forEach(function (btn) {
+        btn.addEventListener('click', function () {
+            if (onAir) return;
+            targetLang = btn.dataset.lang || 'nl';
+            langBtns.forEach(function (b) { b.classList.remove('sel'); });
+            btn.classList.add('sel');
+        });
+    });
+
+    /* ── ON-AIR toggle ────────────────────────────────────────────────── */
+    if (btnOnAir) {
+        btnOnAir.addEventListener('click', function () {
+            if (!ws || ws.readyState !== WebSocket.OPEN) {
+                setWsState('error');
+                if (typeof ghostLog === 'function') {
+                    ghostLog('MCR: backend offline \u2014 run: python system_init.py', 'crit');
+                }
+                return;
+            }
+
+            if (!onAir) {
+                // ── START: tell server, open mic, begin streaming audio chunks ──
+                clearHUD();
+                ws.send(JSON.stringify({ action: 'start', target_lang: targetLang, source_lang: 'en' }));
+                setOnAirUI(true);
+                startMicCapture();   // browser mic → binary WebSocket frames
+            } else {
+                // ── STOP: drain final chunk, tell server ──
+                stopMicCapture();
+                ws.send(JSON.stringify({ action: 'stop' }));
+                setOnAirUI(false);
+            }
+        });
+    }
+
+    /* ── Boot ─────────────────────────────────────────────────────────── */
     connect();
 
 }());
