@@ -276,6 +276,8 @@
     left: 0;
     z-index: -1;
     pointer-events: none;
+    /* Hide broken-image placeholder before src is loaded */
+    opacity: 0 !important;
 
     /* SURGICAL CLEANUP: NO GLOW, NO BOX, NO FILTERS
        filter: drop-shadow freezes GIF animation in Chromium compositor layers */
@@ -1606,10 +1608,7 @@ body.fullscreen #transcription-hud { opacity: 0 !important; pointer-events: none
 }
 #qr-modal-actions { display: flex; gap: 6px; }
 #logo-gif-overlay {
-    pointer-events: none !important; /* Clicks pass straight through this box */
-    border: none !important;         /* Ensures no ghost borders appear */
-    background: transparent !important;
-}#logo-gif-overlay { pointer-events: none !important; border: none !important; background: transparent !important; }#logo-gif-overlay {
+    display: none !important; /* Never shown as DOM element — canvas drawImage is the sole visual source */
     pointer-events: none !important;
     border: none !important;
     background: transparent !important;
@@ -3761,7 +3760,7 @@ if (T.logo.visible) {
                 gifOvEl.style.transform = `translate(${((T.logo.x || 0) * _cr.width)}px, ${((T.logo.y || 0) * _cr.height)}px)`;
                 gifOvEl.style.width  = _lw + 'px';
                 gifOvEl.style.height = _lh + 'px';
-                gifOvEl.style.display = 'block';
+                // DOM overlay kept hidden — canvas drawImage is the sole visual source
             }
             
             // Draw to canvas for recording
@@ -4453,7 +4452,7 @@ if ($('file-2d-logo')) {
                     if (typeof APP.trinity.logo.x === 'undefined') APP.trinity.logo.x = 0.05;
                     if (typeof APP.trinity.logo.y === 'undefined') APP.trinity.logo.y = 0.05;
                     APP.trinity.logo.visible = true;
-                    gifOverlay.style.display = 'block';
+                    // DOM overlay stays hidden — render loop canvas drawImage handles display
                     log('2D_LOGO_GIF_READY: ' + file.name.toUpperCase());
                 };
                 gifOverlay.src = url;
