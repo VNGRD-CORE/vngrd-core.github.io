@@ -606,9 +606,14 @@
             border-radius: 0 !important;
             border-width: 1px !important;
             background: transparent !important;
+            /* Override the global display:block;width:100% so flex rows work */
+            display: inline-block !important;
+            width: auto !important;
+            margin-bottom: 0 !important;
+            padding: 5px 8px !important;
             transition: color 0.12s, border-color 0.12s, box-shadow 0.12s !important;
         }
-        #p2p-body .btn:hover { box-shadow: 0 0 7px currentColor; background: rgba(0,243,255,0.05) !important; }
+        #p2p-body .btn:hover { box-shadow: 0 0 7px currentColor !important; background: rgba(0,243,255,0.06) !important; }
         /* Monospaced inputs */
         #p2p-body .inp {
             font-family: 'JetBrains Mono', 'Courier New', monospace !important;
@@ -9864,44 +9869,49 @@ if (btn3dX) {
     </div>
 
     <!-- P2P FLOATING PANEL (draggable + minimizable) -->
-    <div id="p2p-modal" style="display:none;position:fixed;top:52px;right:210px;z-index:5000;width:250px;font-family:inherit;">
-        <!-- TITLE BAR (drag handle + controls) -->
-        <div id="p2p-titlebar" style="display:flex;align-items:center;justify-content:space-between;padding:5px 10px;cursor:grab;user-select:none;">
-            <span style="font-size:9px;letter-spacing:2px;text-transform:uppercase;">&#9632; P2P // SIGNAL</span>
+    <div id="p2p-modal" style="display:none;position:fixed;top:52px;right:210px;z-index:5000;width:240px;box-sizing:border-box;">
+        <!-- TITLE BAR -->
+        <div id="p2p-titlebar" style="display:flex;align-items:center;justify-content:space-between;padding:6px 10px;cursor:grab;user-select:none;">
+            <span style="font-size:9px;letter-spacing:2px;">&#9632; P2P // SIGNAL</span>
             <span style="display:flex;gap:8px;align-items:center;">
                 <span id="p2p-dot" class="dot off" style="margin:0;"></span>
-                <button id="btn-min-p2p" style="background:none;border:none;color:rgba(0,243,255,0.4);cursor:pointer;font-size:14px;line-height:1;padding:0;font-family:inherit;" title="Minimize">&#9604;</button>
-                <button id="btn-close-p2p-modal" style="background:none;border:none;color:rgba(0,243,255,0.4);cursor:pointer;font-size:14px;line-height:1;padding:0;font-family:inherit;" title="Close">&times;</button>
+                <button id="btn-min-p2p" style="background:none;border:none;color:rgba(0,243,255,0.45);cursor:pointer;font-size:13px;line-height:1;padding:0;" title="Minimize">&#9604;</button>
+                <button id="btn-close-p2p-modal" style="background:none;border:none;color:rgba(0,243,255,0.45);cursor:pointer;font-size:15px;line-height:1;padding:0;" title="Close">&times;</button>
             </span>
         </div>
-        <!-- BODY (collapsible) -->
-        <div id="p2p-body" style="position:relative;padding:10px 10px 10px;">
-            <!-- YOUR CALLSIGN (editable, persisted to localStorage) -->
-            <div class="lbl" style="font-size:7px;margin-bottom:3px;letter-spacing:2px;">YOUR_CALLSIGN <span style="opacity:0.4;">(click to rename)</span></div>
-            <div style="display:flex;gap:4px;margin-bottom:8px;">
-                <input type="text" class="inp" id="peer-id-display" placeholder="TYPE CALLSIGN..." style="font-size:9px;text-align:center;color:#00ff88;padding:4px 6px;flex:1;" title="Edit your station callsign, then press INIT">
-                <button class="btn" id="btn-copy-id" style="font-size:8px;padding:3px 6px;flex:0 0 auto;">COPY</button>
-                <button class="btn" id="btn-init-peer" style="color:#00ff88;font-size:8px;padding:3px 6px;flex:0 0 auto;">INIT</button>
+        <!-- BODY -->
+        <div id="p2p-body" style="position:relative;padding:10px 10px 12px;box-sizing:border-box;">
+
+            <!-- YOUR CALLSIGN ─────────────────── -->
+            <div class="lbl" style="font-size:7px;letter-spacing:2px;margin-bottom:3px;opacity:0.55;">YOUR_CALLSIGN</div>
+            <input type="text" class="inp" id="peer-id-display" placeholder="TYPE YOUR CALLSIGN..." style="display:block;width:100%;box-sizing:border-box;font-size:9px;text-align:center;color:#00ff88;padding:5px 8px;margin-bottom:4px;" title="Type your callsign then hit INIT">
+            <div style="display:flex;gap:4px;margin-bottom:10px;">
+                <button class="btn" id="btn-copy-id" style="flex:1;text-align:center;color:rgba(0,243,255,0.7);">COPY ID</button>
+                <button class="btn" id="btn-init-peer" style="flex:1;text-align:center;color:#00ff88;">INIT</button>
             </div>
-            <!-- REMOTE ID with contacts anchor -->
-            <div class="lbl" style="font-size:7px;margin-bottom:3px;letter-spacing:2px;">REMOTE_ID</div>
-            <div style="position:relative;margin-bottom:6px;">
-                <input type="text" class="inp" id="remote-peer-id" placeholder="PASTE OR SELECT..." style="font-size:9px;padding:4px 6px;width:100%;box-sizing:border-box;">
-                <!-- Contacts dropdown (anchored below this input) -->
+
+            <!-- REMOTE ID ──────────────────────── -->
+            <div class="lbl" style="font-size:7px;letter-spacing:2px;margin-bottom:3px;opacity:0.55;">REMOTE_ID</div>
+            <div style="position:relative;margin-bottom:8px;">
+                <input type="text" class="inp" id="remote-peer-id" placeholder="PASTE OR SELECT CONTACT..." style="display:block;width:100%;box-sizing:border-box;font-size:9px;padding:5px 8px;">
+                <!-- Contacts dropdown -->
                 <div id="p2p-contacts-overlay">
                     <div class="contacts-empty" id="p2p-contacts-empty">NO CONTACTS YET</div>
                 </div>
             </div>
-            <!-- Action buttons row -->
-            <div style="display:flex;gap:4px;margin-top:4px;">
-                <button class="btn" id="btn-contacts" style="color:rgba(0,243,255,0.55);font-size:8px;padding:5px 0;flex:1;" title="Recent contacts">[ BOOK ]</button>
-                <button class="btn" id="btn-call-guest" style="color:#00f3ff;font-size:8px;padding:5px 0;flex:2;">CALL</button>
-                <button class="btn" id="btn-hangup" style="color:var(--r);border-color:var(--r);font-size:8px;padding:5px 0;flex:1;">END</button>
+
+            <!-- ACTION ROW ─────────────────────── -->
+            <div style="display:flex;gap:4px;margin-bottom:8px;">
+                <button class="btn" id="btn-contacts" style="flex:1;text-align:center;color:rgba(0,243,255,0.6);" title="Recent contacts">BOOK</button>
+                <button class="btn" id="btn-call-guest" style="flex:2;text-align:center;color:#00f3ff;">CALL</button>
+                <button class="btn" id="btn-hangup" style="flex:1;text-align:center;color:#ff4444;border-color:#ff4444;">END</button>
             </div>
-            <div id="call-status" style="font-size:8px;color:rgba(0,243,255,0.4);margin-top:7px;text-align:center;letter-spacing:1.5px;">NOT_CONNECTED</div>
-            <div class="sec-dot off" id="guest-dot" style="margin-top:4px;"></div>
+
+            <div id="call-status" style="font-size:8px;color:rgba(0,243,255,0.4);text-align:center;letter-spacing:1.5px;padding:2px 0;">NOT_CONNECTED</div>
+            <span class="dot off" id="guest-dot" style="display:inline-block;margin-top:5px;"></span>
+
             <!-- Resize handle -->
-            <div id="p2p-resize" style="position:absolute;bottom:0;right:0;width:14px;height:14px;cursor:nwse-resize;opacity:0.4;" title="Resize">
+            <div id="p2p-resize" style="position:absolute;bottom:2px;right:2px;width:14px;height:14px;cursor:nwse-resize;opacity:0.35;" title="Resize">
                 <svg width="14" height="14" viewBox="0 0 14 14"><path d="M12 2L2 12M12 6L6 12M12 10L10 12" stroke="#00f3ff" stroke-width="1" fill="none"/></svg>
             </div>
         </div>
