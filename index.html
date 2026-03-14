@@ -172,7 +172,16 @@
         body.fullscreen #stage { position: fixed; inset: 0; z-index: 9999; border: none; }
         body.fullscreen .sidebar, body.fullscreen #top-bar, body.fullscreen #bottom-bar, body.fullscreen #ghost-terminal { opacity: 0; pointer-events: none; }
 
-        #lower-third { display: none !important; }
+        #lower-third {
+            display: none !important;
+            position: absolute;
+            bottom: 30px;
+            left: 30px;
+            z-index: 2100;
+            pointer-events: none;
+        }
+        /* .visible overrides display:none with higher specificity + !important */
+        #lower-third.visible { display: block !important; }
         .lt-container { 
             display: flex; flex-direction: column; 
             background: linear-gradient(90deg, rgba(0,0,0,0.9) 0%, rgba(0,0,0,0.7) 100%);
@@ -4504,12 +4513,27 @@ if ($('file-2d-logo')) {
             const logoLayer = $('user-logo-layer');
             const gifOverlay = $('logo-gif-overlay');
 
-            // P2P Mix-Minus: during a call only send to guest, don't render locally
+            // P2P Mix-Minus: during a call only send to guest, don't render locally.
+            // Compress the image to fit within WebRTC data-channel limits (~64KB/msg).
             if (APP.peer && APP.peer.call) {
                 const _r = new FileReader();
-                _r.onload = () => { sendUISync('2D_LOGO', { action: 'show', dataURI: _r.result }); };
+                _r.onload = function(ev) {
+                    var _img = new Image();
+                    _img.onload = function() {
+                        // Scale to max 200px on longest side → JPEG ~15-25KB as base64
+                        var _maxDim = 200;
+                        var _s = Math.min(1, _maxDim / Math.max(_img.width || 1, _img.height || 1));
+                        var _c = document.createElement('canvas');
+                        _c.width  = Math.max(1, Math.round(_img.width  * _s));
+                        _c.height = Math.max(1, Math.round(_img.height * _s));
+                        _c.getContext('2d').drawImage(_img, 0, 0, _c.width, _c.height);
+                        var _uri = _c.toDataURL('image/jpeg', 0.82);
+                        sendUISync('2D_LOGO', { action: 'show', dataURI: _uri });
+                        log('2D_LOGO: P2P_SEND ' + Math.round(_uri.length / 1024) + 'KB');
+                    };
+                    _img.src = ev.target.result;
+                };
                 _r.readAsDataURL(file);
-                log('2D_LOGO: P2P_SEND_ONLY');
                 return;
             }
 
@@ -8145,14 +8169,19 @@ function handleUISync(msg) {
         if (msg.payload.action === 'show') {
             // Receive image as base64 data URI from peer
             if (msg.payload.dataURI) {
+                // Always treat received logo as static (compressed JPEG, not animated GIF)
+                APP.layers.logo2dIsGif = false;
+                APP.layers._gifFrames = null;
                 logoLayer.removeAttribute('crossOrigin');
                 logoLayer.removeAttribute('crossorigin');
-                logoLayer.style.display = 'block';
                 logoLayer.style.filter = 'none';
                 logoLayer.style.willChange = 'auto';
                 // Wait for image decode before making visible to compositor
                 logoLayer.onload = () => {
                     APP.trinity.logo.visible = true;
+                    if (!APP.trinity.logo.scale) APP.trinity.logo.scale = 1.0;
+                    if (!APP.trinity.logo.x) APP.trinity.logo.x = 0.05;
+                    if (!APP.trinity.logo.y) APP.trinity.logo.y = 0.05;
                     log('DATA_SYNC_RECV: 2D_LOGO/LOADED');
                 };
                 logoLayer.src = msg.payload.dataURI;
@@ -8295,22 +8324,28 @@ function endCallCleanup() {
             
             APP.inputDevices.stream = stream;
             APP.inputDevices.selectedId = deviceId;
-            
-            // Create high-quality AudioContext at 48kHz
-            if (!APP.audio.ctx || APP.audio.ctx.sampleRate !== 48000) {
-                APP.audio.ctx = new (window.AudioContext || window.webkitAudioContext)({ sampleRate: 48000 });
-            }
-            
-            const source = APP.audio.ctx.createMediaStreamSource(stream);
-            APP.inputDevices.analyzer = APP.audio.ctx.createAnalyser();
-            APP.inputDevices.analyzer.fftSize = 512; // Higher resolution
+
+            // CRITICAL: reuse the MAIN audio chain context, never create a new one.
+            // Creating a separate AudioContext causes "different AudioContext" error
+            // when startNFTRecording() tries to connect nodes across contexts.
+            ensureAudioChain();
+            var _ctx = APP.audio.ctx;
+
+            const source = _ctx.createMediaStreamSource(stream);
+
+            // Level monitoring analyser
+            APP.inputDevices.analyzer = _ctx.createAnalyser();
+            APP.inputDevices.analyzer.fftSize = 512;
             APP.inputDevices.analyzer.smoothingTimeConstant = 0.3;
             source.connect(APP.inputDevices.analyzer);
-            
-            // Start input level monitoring with seismic
+
+            // Mic gain node — feeds into startNFTRecording's freshDest tap
+            APP.audio.micGainNode = _ctx.createGain();
+            APP.audio.micGainNode.gain.value = 1.0;
+            source.connect(APP.audio.micGainNode);
+
             monitorInputLevel();
-            
-            log('PRO_AUDIO: 48KHZ_RAW // ' + deviceId.substring(0, 8));
+            log('PRO_AUDIO: MIC_READY // ' + deviceId.substring(0, 8));
         } catch (e) {
             // Fallback without exact constraints
             try {
@@ -8324,16 +8359,18 @@ function endCallCleanup() {
                 });
                 APP.inputDevices.stream = stream;
                 APP.inputDevices.selectedId = deviceId;
-                
-                if (!APP.audio.ctx) {
-                    APP.audio.ctx = new (window.AudioContext || window.webkitAudioContext)();
-                }
-                
-                const source = APP.audio.ctx.createMediaStreamSource(stream);
-                APP.inputDevices.analyzer = APP.audio.ctx.createAnalyser();
+
+                ensureAudioChain();
+                var _ctx2 = APP.audio.ctx;
+                const source = _ctx2.createMediaStreamSource(stream);
+                APP.inputDevices.analyzer = _ctx2.createAnalyser();
                 APP.inputDevices.analyzer.fftSize = 512;
                 source.connect(APP.inputDevices.analyzer);
-                
+
+                APP.audio.micGainNode = _ctx2.createGain();
+                APP.audio.micGainNode.gain.value = 1.0;
+                source.connect(APP.audio.micGainNode);
+
                 monitorInputLevel();
                 log('INPUT_SWITCHED: ' + deviceId.substring(0, 8));
             } catch (e2) {
