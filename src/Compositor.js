@@ -135,7 +135,11 @@ class Compositor {
         if (_camSource) {
             try {
                 const vid = _camSource;
-                if (vid.readyState >= 2) {
+                // readyState >= 2 (HAVE_CURRENT_DATA) AND videoWidth > 0 guards
+                // against the black-frame flicker during the ICE/stream handoff:
+                // a video can be "ready" but still emit a black frame if the
+                // decoder hasn't produced its first picture yet.
+                if (vid.readyState >= 2 && vid.videoWidth > 0) {
                     const srcW = vid.videoWidth || w;
                     const srcH = vid.videoHeight || h;
                     const scale = Math.max(w / srcW, h / srcH);
