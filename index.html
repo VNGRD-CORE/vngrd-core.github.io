@@ -562,6 +562,53 @@
         .sec-head.collapsible.open .sec-arrow { color: var(--accent); }
         /* Collapsible bodies: collapsed by default; JS restores padding on open */
         #session-lab-body, #p2p-call-body, #midi-host-body, #nft-vault-body, #lexica-nano-body { max-height: 0; overflow: hidden; transition: max-height 0.3s ease; padding: 0 12px; }
+
+        /* ═══ P2P HUD — SOLID BLOCK TERMINAL SKIN ═══════════════════════════ */
+        #p2p-modal {
+            font-family: 'JetBrains Mono', 'Courier New', monospace !important;
+            box-shadow: 0 0 0 1px #00f3ff, 0 0 18px rgba(0,243,255,0.22), 0 4px 24px rgba(0,0,0,0.85) !important;
+        }
+        #p2p-titlebar {
+            background: rgba(0, 12, 18, 0.99) !important;
+            border: 1px solid #00f3ff !important;
+            border-bottom: 1px solid rgba(0,243,255,0.25) !important;
+            border-radius: 0 !important;
+            padding: 6px 10px !important;
+            letter-spacing: 1.5px;
+        }
+        #p2p-body {
+            background: rgba(10, 10, 10, 0.98) !important;
+            border: 1px solid #00f3ff !important;
+            border-top: none !important;
+            border-radius: 0 !important;
+        }
+        /* Terminal-style flat rectangular buttons inside the HUD */
+        #p2p-body .btn {
+            font-family: 'JetBrains Mono', 'Courier New', monospace !important;
+            letter-spacing: 1.5px !important;
+            text-transform: uppercase !important;
+            border-radius: 0 !important;
+            border-width: 1px !important;
+            background: transparent !important;
+            transition: color 0.12s, border-color 0.12s, box-shadow 0.12s !important;
+        }
+        #p2p-body .btn:hover { box-shadow: 0 0 7px currentColor; background: rgba(0,243,255,0.05) !important; }
+        /* Monospaced inputs */
+        #p2p-body .inp {
+            font-family: 'JetBrains Mono', 'Courier New', monospace !important;
+            border-radius: 0 !important;
+            background: rgba(0, 18, 24, 0.85) !important;
+            border: 1px solid rgba(0,243,255,0.28) !important;
+        }
+        /* Labels */
+        #p2p-body .lbl { font-family: 'JetBrains Mono', 'Courier New', monospace !important; letter-spacing: 1.5px !important; }
+        /* Active call — CALL button turns solid green */
+        #btn-call-guest.call-active {
+            color: var(--g) !important;
+            border-color: var(--g) !important;
+            box-shadow: 0 0 8px rgba(0,255,136,0.45) !important;
+        }
+        /* ════════════════════════════════════════════════════════════════════ */
         /* GIF-HOST: near-invisible container that keeps GIF decoding alive.
            RULES FOR ANIMATED GIF SURVIVAL IN CHROMIUM:
            1. opacity > 0 (NOT 0) — Chrome stops GIF frame advance at opacity:0
@@ -4340,6 +4387,21 @@ if ($('btn-set-station')) {
     };
 }
 
+// Station Bug text — live sync guard: during a P2P call send text to guest
+// without rendering it on the host's own canvas.
+if ($('bug-text')) {
+    $('bug-text').oninput = function() {
+        var val = this.value.trim() || 'VNGRD';
+        APP.bug.text = val;
+        if (APP.peer && APP.peer.call) {
+            sendUISync('STATION_LOGO', { text: val });
+            return; // do not touch local DOM during call
+        }
+        var _bug = $('station-bug');
+        if (_bug && APP.trinity.bug.visible) { _bug.textContent = val; }
+    };
+}
+
 // STATION BUG - Toggle [X] (visible -> hidden via Trinity state)
 if ($('btn-bug-toggle')) {
     $('btn-bug-toggle').onclick = () => {
@@ -7398,7 +7460,7 @@ const resetP2PButtons = () => {
     _btn.textContent = 'CALL';
     _btn.style.borderColor = 'var(--text-main)';
     _btn.style.color = 'var(--text-main)';
-    _btn.classList.remove('accepting');
+    _btn.classList.remove('accepting', 'call-active');
 
     $('btn-init-peer').textContent = 'INIT';
     $('btn-init-peer').style.display = 'inline-block';
@@ -7697,6 +7759,7 @@ $('btn-call-guest').onclick = async () => {
             $('btn-open-p2p-modal').classList.remove('lobby');
             $('btn-call-guest').classList.remove('accepting');
             $('btn-call-guest').textContent = 'CALL (ACTIVE)';
+            $('btn-call-guest').classList.add('call-active');
             stopP2PRing();
         } catch (e) {
             log('ANSWER_ERR: ' + e.message);
@@ -7771,6 +7834,7 @@ function handleCallStream(call) {
         $('call-status').textContent = 'CONNECTED';
         $('call-status').style.color = 'var(--g)';
         $('btn-call-guest').textContent = 'CALL (ACTIVE)';
+        $('btn-call-guest').classList.add('call-active');
 
         log('CALL_ESTABLISHED_WITH: ' + call.peer);
     });
