@@ -331,8 +331,8 @@
         #cam-preview-float video {
             width: 100%;
             height: 100%;
-            object-fit: cover;
-            transform: scaleX(-1);
+            object-fit: contain;
+            background: #000;
             display: block;
         }
         #cam-preview-float .preview-label {
@@ -1119,6 +1119,12 @@ body.shooting-mode #btn-shooting {
             50%       { border-color: #fff;    color: #fff;    box-shadow: 0 0 10px rgba(0,255,136,0.7); }
         }
         #btn-open-p2p-modal.lobby { animation: lobby-ring 0.7s ease-in-out infinite; }
+        /* P2P active call: steady low glow on the button so user can see call is on */
+        @keyframes call-active-glow {
+            0%, 100% { box-shadow: 0 0 4px rgba(0,255,136,0.4); border-color: var(--g); color: var(--g); }
+            50%       { box-shadow: 0 0 12px rgba(0,255,136,0.7); border-color: var(--g); color: var(--g); }
+        }
+        #btn-open-p2p-modal.call-active { animation: call-active-glow 2s ease-in-out infinite; cursor: pointer; }
 
         /* ACCEPT button: yellow pulse while a staged incoming call is waiting */
         @keyframes accept-pulse {
@@ -6345,10 +6351,10 @@ document.addEventListener('DOMContentLoaded', () => {
     ['guest','track','breaking'].forEach(function(m) {
         var el = $('btn-lt-' + m); if (!el) return;
         el.onclick = function() {
-            // Mix-Minus intercept: if P2P data channel is open, only broadcast to remote;
-            // do NOT render locally on #stage to prevent lower-third doubling.
-            // The sender sees a preview via drawLTToPreview() on #lt-preview-canvas.
-            if (APP.peer && APP.peer.dataConn && APP.peer.dataConn.open) {
+            // Mix-Minus: guard on APP.peer.call (media call active), NOT dataConn.open.
+            // dataConn may not be open yet at the moment the LT button is pressed —
+            // sendUISync queues the message and flushes it when the channel opens.
+            if (APP.peer && APP.peer.call) {
                 var _ltTitle = $('lt-title').value || 'GUEST NAME';
                 var _ltSub   = $('lt-sub').value   || 'TITLE / ROLE';
                 sendUISync('LOWER_THIRD', { action:'show', preset: m, title: _ltTitle, subtitle: _ltSub });
@@ -6370,7 +6376,7 @@ document.addEventListener('DOMContentLoaded', () => {
         APP.lowerThird.ltStyle = this.value;
         if (APP.lowerThird.visible) {
             // Mix-Minus intercept for style changes during P2P call
-            if (APP.peer && APP.peer.dataConn && APP.peer.dataConn.open) {
+            if (APP.peer && APP.peer.call) {
                 sendUISync('LOWER_THIRD', { action:'show', preset: this.value, title: $('lt-title').value || '', subtitle: $('lt-sub').value || '' });
             } else {
                 showLowerThird(APP.lowerThird.mode || 'guest');
@@ -7583,11 +7589,9 @@ function stopP2PRing() {
 // ═══ P2P FLOATING PANEL: TOGGLE / MINIMIZE / DRAG (mouse + touch) ═══
 $('btn-open-p2p-modal').onclick = () => {
     var p = $('p2p-modal');
-    if (p.style.display === 'none') {
-        // Always open expanded
+    if (p.style.display === 'none' || p.style.display === '') {
+        // Always open expanded with body visible
         $('p2p-body').style.display = '';
-        $('p2p-titlebar').style.borderRadius = '5px 5px 0 0';
-        $('p2p-titlebar').style.borderBottom = 'none';
         p.style.display = 'block';
     } else {
         p.style.display = 'none';
@@ -7603,11 +7607,9 @@ $('btn-close-p2p-modal').onclick = () => {
     $('p2p-modal').style.display = 'none';
 };
 $('btn-min-p2p').onclick = () => {
-    var body = $('p2p-body');
-    var isMin = body.style.display === 'none';
-    body.style.display = isMin ? '' : 'none';
-    $('p2p-titlebar').style.borderRadius = isMin ? '5px 5px 0 0' : '5px';
-    $('p2p-titlebar').style.borderBottom = isMin ? 'none' : '1px solid var(--c,#0ff)';
+    // Snap back to the P2P button — hide the floating HUD.
+    // Pressing the top-bar button re-expands it.
+    $('p2p-modal').style.display = 'none';
 };
 // Drag logic (mouse + touch)
 (function() {
@@ -7736,6 +7738,7 @@ $('btn-init-peer').onclick = () => {
             conn.on('open', () => {
                 APP.peer.dataConn = conn;
                 log('DATA_CHANNEL: OPEN');
+                _flushSyncQueue();
             });
             conn.on('data', (data) => {
                 try {
@@ -7912,6 +7915,7 @@ $('btn-call-guest').onclick = async () => {
         dataConn.on('open', function() {
             APP.peer.dataConn = dataConn;
             log('DATA_CHANNEL: OPEN TO ' + remoteId);
+            _flushSyncQueue();
         });
         dataConn.on('data', function(data) {
             try {
@@ -7963,6 +7967,12 @@ function handleCallStream(call) {
         $('call-status').style.color = 'var(--g)';
         $('btn-call-guest').textContent = 'CALL (ACTIVE)';
         $('btn-call-guest').classList.add('call-active');
+        $('btn-open-p2p-modal').classList.add('call-active');
+
+        // Mix-Minus: hide host's own station bug from their stage —
+        // they will receive guest's bug via handleUISync STATION_LOGO
+        var _lb = $('station-bug');
+        if (_lb) _lb.classList.add('hidden');
 
         log('CALL_ESTABLISHED_WITH: ' + call.peer);
     });
@@ -8064,8 +8074,7 @@ $('btn-hangup').onclick = () => {
 
 // --- P2P DATA SYNC: Send & Receive UI State ---
 function sendUISync(target, payload) {
-    // Sync-loop guard: if we are currently inside handleUISync (processing a packet
-    // received from the remote peer) bail immediately so we never echo data back.
+    // Sync-loop guard: if we are currently inside handleUISync bail to prevent echo-back.
     if (APP.peer && APP.peer.isSyncing) return;
     if (APP.peer && APP.peer.dataConn && APP.peer.dataConn.open) {
         APP.peer.dataConn.send(JSON.stringify({
@@ -8074,9 +8083,25 @@ function sendUISync(target, payload) {
             payload: payload
         }));
         log('DATA_SYNC_SENT: ' + target);
-    } else {
-        log('[ERROR] DATA_CHANNEL_NOT_OPEN');
+    } else if (APP.peer && APP.peer.call) {
+        // Call is active but data channel not open yet (timing race on answerer side).
+        // Queue the message — flushed automatically when the channel opens.
+        if (!APP.peer._syncQueue) APP.peer._syncQueue = [];
+        // Keep only the latest message per target to avoid stale queued data
+        APP.peer._syncQueue = APP.peer._syncQueue.filter(function(q) { return q.target !== target; });
+        APP.peer._syncQueue.push({ target: target, payload: payload });
+        log('DATA_SYNC_QUEUED: ' + target);
     }
+}
+
+function _flushSyncQueue() {
+    if (!APP.peer || !APP.peer.dataConn || !APP.peer.dataConn.open) return;
+    if (!APP.peer._syncQueue || APP.peer._syncQueue.length === 0) return;
+    APP.peer._syncQueue.forEach(function(q) {
+        APP.peer.dataConn.send(JSON.stringify({ type: 'UI_SYNC', target: q.target, payload: q.payload }));
+        log('DATA_SYNC_QUEUE_FLUSH: ' + q.target);
+    });
+    APP.peer._syncQueue = [];
 }
 
 function handleUISync(msg) {
@@ -8196,6 +8221,19 @@ function endCallCleanup() {
     $('call-status').textContent = 'DISCONNECTED';
     $('call-status').style.color = 'var(--text-dim)';
     $('p2p-modal').classList.remove('incoming');
+
+    // Restore host's own station bug text + visibility from APP state
+    var _rb = $('station-bug');
+    if (_rb) {
+        _rb.textContent = APP.bug.text || 'VNGRD';
+        _rb.classList.toggle('hidden', !APP.trinity.bug.visible);
+    }
+
+    // Close the preview float and the HUD panel
+    var _pf = $('cam-preview-float');
+    if (_pf) { _pf.classList.remove('active'); _pf.style.display = 'none'; }
+    $('p2p-modal').style.display = 'none';
+    $('btn-open-p2p-modal').classList.remove('call-active', 'lobby');
 
     resetP2PButtons();
     log('CALL_ENDED_CLEANUP');

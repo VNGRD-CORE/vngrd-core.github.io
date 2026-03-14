@@ -141,7 +141,8 @@ class Compositor {
                 if (vid.readyState >= 2) {
                     const srcW = vid.videoWidth || w;
                     const srcH = vid.videoHeight || h;
-                    const scale = Math.max(w / srcW, h / srcH);
+                    // contain: scale to fit without cropping; black bars fill the rest
+                    const scale = Math.min(w / srcW, h / srcH);
                     const dw = srcW * scale;
                     const dh = srcH * scale;
                     const dx = (w - dw) / 2;
