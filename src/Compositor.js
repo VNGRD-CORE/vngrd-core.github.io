@@ -148,7 +148,9 @@ class Compositor {
             } catch (e) { /* Camera not ready */ }
         }
 
-        // LAYER 2: 2D Overlay (Main VJ canvas)
+        // LAYER 2: 2D Overlay (Main VJ canvas — text, LT, logos, effects)
+        // MUST be drawn LAST: it sits on top of every video/scene layer so that
+        // lower thirds and graphical elements are never occluded by the video feed.
         if (this.layers.overlay) {
             try {
                 ctx.drawImage(this.layers.overlay, 0, 0, w, h);
