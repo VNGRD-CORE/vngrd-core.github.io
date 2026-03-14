@@ -4326,15 +4326,16 @@ function makeDraggable(el) {
 // STATION BUG - Set text
 if ($('btn-set-station')) {
     $('btn-set-station').onclick = () => {
-        const bug = $('station-bug');
         const text = $('bug-text').value || 'VNGRD';
-        if (bug) {
-            bug.textContent = text;
-            bug.style.display = 'block';
-            bug.style.background = 'transparent';
-            APP.bug.text = text;
+        APP.bug.text = text; // always track for toggle
+        if (APP.peer && APP.peer.call) {
+            // P2P: send to guest only — do NOT render on host's own canvas
+            sendUISync('STATION_LOGO', { text: text });
+        } else {
+            const bug = $('station-bug');
+            if (bug) { bug.textContent = text; bug.style.display = 'block'; bug.style.background = 'transparent'; }
+            sendUISync('STATION_LOGO', { text: text });
         }
-        sendUISync('STATION_LOGO', { text: text });
         log('STATION: ' + text.toUpperCase());
     };
 }
@@ -4343,9 +4344,14 @@ if ($('btn-set-station')) {
 if ($('btn-bug-toggle')) {
     $('btn-bug-toggle').onclick = () => {
         APP.trinity.bug.visible = !APP.trinity.bug.visible;
-        var bug = $('station-bug');
-        if (bug) bug.classList.toggle('hidden', !APP.trinity.bug.visible);
-        sendUISync('STATION_LOGO', { text: APP.bug.text || 'VNGRD', visible: APP.trinity.bug.visible });
+        if (APP.peer && APP.peer.call) {
+            // P2P: send visibility state to guest, don't render locally
+            sendUISync('STATION_LOGO', { text: APP.bug.text || 'VNGRD', visible: APP.trinity.bug.visible });
+        } else {
+            var bug = $('station-bug');
+            if (bug) bug.classList.toggle('hidden', !APP.trinity.bug.visible);
+            sendUISync('STATION_LOGO', { text: APP.bug.text || 'VNGRD', visible: APP.trinity.bug.visible });
+        }
         log(APP.trinity.bug.visible ? 'BUG: VISIBLE' : 'BUG: HIDDEN');
     };
 }
@@ -4368,6 +4374,15 @@ if ($('file-2d-logo')) {
             APP.layers.logo2dIsGif = isGif;
             const logoLayer = $('user-logo-layer');
             const gifOverlay = $('logo-gif-overlay');
+
+            // P2P Mix-Minus: during a call only send to guest, don't render locally
+            if (APP.peer && APP.peer.call) {
+                const _r = new FileReader();
+                _r.onload = () => { sendUISync('2D_LOGO', { action: 'show', dataURI: _r.result }); };
+                _r.readAsDataURL(file);
+                log('2D_LOGO: P2P_SEND_ONLY');
+                return;
+            }
 
             if (isGif && gifOverlay) {
                 // GIF: render as DOM element to keep Chrome's GIF decoder alive
@@ -5028,12 +5043,9 @@ function drawLTToPreview(preset, title, subtitle) {
     c.textAlign = 'right';
     c.fillText('\u25ba P2P', W - pad, pad);
 
-    // Auto-clear after 3.5 s so stale previews don't linger
+    // Preview persists until btn-lt-off explicitly clears it.
+    // (Auto-clear removed — host must see their own LT in the float continuously.)
     if (canvas._ltClear) clearTimeout(canvas._ltClear);
-    canvas._ltClear = setTimeout(function () {
-        var c2 = canvas.getContext('2d');
-        if (c2) c2.clearRect(0, 0, canvas.width, canvas.height);
-    }, 3500);
 }
 
 // AUDIO ENGINEER IMPLEMENTATION
@@ -6224,7 +6236,13 @@ document.addEventListener('DOMContentLoaded', () => {
             }
         };
     });
-    $('btn-lt-off').onclick = () => { hideLowerThird(); sendUISync('LOWER_THIRD', { action: 'hide' }); };
+    $('btn-lt-off').onclick = () => {
+        hideLowerThird();
+        sendUISync('LOWER_THIRD', { action: 'hide' });
+        // Clear the 4K preview canvas so host's float goes dark too
+        var _ltPrev = $('lt-preview-canvas');
+        if (_ltPrev) { if (_ltPrev._ltClear) clearTimeout(_ltPrev._ltClear); var _lpc = _ltPrev.getContext('2d'); if (_lpc) _lpc.clearRect(0, 0, _ltPrev.width, _ltPrev.height); }
+    };
     if ($('lt-style-select')) $('lt-style-select').onchange = function() {
         APP.lowerThird.ltStyle = this.value;
         if (APP.lowerThird.visible) {
@@ -7880,13 +7898,28 @@ function handleUISync(msg) {
     try {
     if (msg.target === 'LOWER_THIRD') {
         if (msg.payload.action === 'show') {
-            // Populate the input fields first so showLowerThird() picks up the peer's text
-            if (msg.payload.title    !== undefined) $('lt-title').value = msg.payload.title;
-            if (msg.payload.subtitle !== undefined) $('lt-sub').value   = msg.payload.subtitle;
-            showLowerThird(msg.payload.preset);
-            log('DATA_SYNC_RECV: LT/' + msg.payload.preset + ' "' + msg.payload.title + '"');
+            // Render the peer's LT directly in the DOM.
+            // NEVER touch lt-title/lt-sub input fields — setting those causes
+            // oninput to treat received text as local input and echo it back,
+            // creating an infinite edit loop where both users modify the same LT.
+            // NEVER call showLowerThird() — that sets APP.lowerThird.visible which
+            // enables the oninput sendUISync path on the receiver side.
+            var _lt  = $('lower-third');
+            var _ltc = _lt ? _lt.querySelector('.lt-container') : null;
+            if (_ltc) {
+                var _p = msg.payload.preset || 'guest';
+                _ltc.classList.remove('lt-guest','lt-track','lt-breaking','lt-neon','lt-split','lt-scan');
+                _ltc.classList.add('lt-' + _p);
+            }
+            if (msg.payload.title    !== undefined && $('lt-title-text'))    $('lt-title-text').textContent    = msg.payload.title;
+            if (msg.payload.subtitle !== undefined && $('lt-subtitle-text')) $('lt-subtitle-text').textContent = msg.payload.subtitle;
+            if (_lt) _lt.classList.add('visible');
+            log('DATA_SYNC_RECV: LT/' + (msg.payload.preset || '?') + ' "' + msg.payload.title + '"');
         } else if (msg.payload.action === 'hide') {
-            hideLowerThird();
+            // Remove visible class directly — do NOT call hideLowerThird() which
+            // would reset APP.lowerThird.visible and break local LT state.
+            var _lt2 = $('lower-third');
+            if (_lt2) _lt2.classList.remove('visible');
             log('DATA_SYNC_RECV: LT/HIDE');
         }
     } else if (msg.target === '2D_LOGO') {
@@ -9548,7 +9581,10 @@ if (fileInput3d) {
             _3D.camera.lookAt(0, 0, 0);
             _3D.camera.updateProjectionMatrix();
 
-            window.APP.trinity.logo3d.visible = true;
+            // P2P Mix-Minus: only render locally when not in an active call
+            if (!(window.APP && window.APP.peer && window.APP.peer.call)) {
+                window.APP.trinity.logo3d.visible = true;
+            }
 
             // Force immediate render + verify pixels
             _3D.renderer.render(_3D.scene, _3D.camera);
