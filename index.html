@@ -7641,134 +7641,99 @@ $('btn-copy-id').onclick = () => {
 };
 
 // --- UNIFIED CALL / ANSWER BUTTON ---
+// Strict fork: incoming call → answer only. No active call → dial out.
+// Using localStream directly (no composite canvas stream) eliminates the
+// spurious peer.on('call') re-fire caused by captureStream() side-effects.
 $('btn-call-guest').onclick = async () => {
-    if (!APP.peer || !APP.peer.peer) {
-        alert('CLICK_INIT_FIRST');
+    if (!APP.peer || !APP.peer.peer) { alert('CLICK_INIT_FIRST'); return; }
+
+    // ── Shared media acquisition ──────────────────────────────────────────
+    const audioConstraints = APP.inputDevices && APP.inputDevices.selectedId
+        ? { deviceId: { exact: APP.inputDevices.selectedId }, echoCancellation: false, noiseSuppression: false, autoGainControl: false, channelCount: 2 }
+        : { echoCancellation: false, noiseSuppression: false, autoGainControl: false, channelCount: 2 };
+
+    let localStream;
+    try {
+        localStream = await navigator.mediaDevices.getUserMedia({
+            video: { facingMode: 'user', width: { ideal: 640 }, height: { ideal: 480 }, frameRate: { ideal: 30 } },
+            audio: audioConstraints
+        });
+    } catch (e) {
+        log('MEDIA_ERR: ' + e.message);
+        $('call-status').textContent = 'MEDIA_ERR: ' + e.message;
+        $('call-status').style.color = 'var(--r)';
         return;
     }
 
-    // SCENARIO A: ANSWERING AN INCOMING CALL
+    APP.peer.localStream = localStream;
+
+    // Wake up hardware — ensures no track starts in a disabled/black state
+    localStream.getTracks().forEach(function(t) { t.enabled = true; });
+
+    // Feed the local camera into the 4K monitor float so the host can see themselves
+    var previewVid = $('preview-vid-float');
+    if (previewVid) {
+        previewVid.srcObject = localStream;
+        previewVid.play().catch(function() {});
+        APP.camera.previewEl = previewVid;
+    }
+    var floatEl = $('cam-preview-float');
+    if (floatEl) { floatEl.style.display = ''; floatEl.classList.add('active'); }
+
+    // ── FORK A: answer an incoming call ───────────────────────────────────
     if (APP.peer.incomingCall) {
         try {
-            log('ANSWERING CALL...');
+            log('ANSWERING CALL FROM ' + APP.peer.incomingCall.peer);
             $('call-status').textContent = 'CONNECTING...';
+            $('call-status').style.color = 'var(--y)';
 
-            // 1. Get Local Media — facingMode required for iOS Safari
-            const audioConstraints = APP.inputDevices.selectedId
-                ? { deviceId: { exact: APP.inputDevices.selectedId }, echoCancellation: false, noiseSuppression: false, autoGainControl: false, channelCount: 2 }
-                : { echoCancellation: false, noiseSuppression: false, autoGainControl: false, channelCount: 2 };
+            APP.peer.incomingCall.answer(localStream);
+            handleCallStream(APP.peer.incomingCall);
 
-            const stream = await navigator.mediaDevices.getUserMedia({
-                video: { facingMode: 'user', width: { ideal: 640 }, height: { ideal: 480 }, frameRate: { ideal: 30 } },
-                audio: audioConstraints
-            });
-
-            APP.peer.localStream = stream;
-
-            // 2. Build composite stream: canvas video + mic audio
-            // This makes the guest see your full canvas (graphics, lower thirds, effects)
-            var compositeAnswer = new MediaStream();
-            if (APP.render && APP.render.canvas) {
-                var canvasVidTrack = APP.render.canvas.captureStream(30).getVideoTracks()[0];
-                if (canvasVidTrack) compositeAnswer.addTrack(canvasVidTrack);
-            } else {
-                // Fallback: raw camera if canvas not ready
-                var rawVid = stream.getVideoTracks()[0];
-                if (rawVid) compositeAnswer.addTrack(rawVid);
-            }
-            var micTrackA = stream.getAudioTracks()[0];
-            if (micTrackA) compositeAnswer.addTrack(micTrackA);
-
-            // 3. Answer the staged call with the canvas stream
-            // Ensure every video track is enabled — prevents 'guest sees black' on Firefox/Chrome
-            compositeAnswer.getVideoTracks().forEach(function(t) { t.enabled = true; });
-            const call = APP.peer.incomingCall;
-            call.answer(compositeAnswer);
-            
-            // 3. Handle the stream when it arrives
-            handleCallStream(call);
-
-            // 4. Data channel: the caller already did peer.connect() which
-            // triggers our peer.on('connection') handler — that sets
-            // APP.peer.dataConn for bidirectional send/receive. No reverse
-            // connect needed (creating one causes a race that overwrites
-            // the working connection).
-
-            // 5. Cleanup UI
+            // Clean up lobby state
             APP.peer.incomingCall = null;
-            $('btn-open-p2p-modal').classList.remove('lobby');   // Kill lobby badge flash
-            $('btn-call-guest').classList.remove('accepting');    // Kill button pulse
+            $('btn-open-p2p-modal').classList.remove('lobby');
+            $('btn-call-guest').classList.remove('accepting');
             $('btn-call-guest').textContent = 'CALL (ACTIVE)';
             stopP2PRing();
-            
         } catch (e) {
-            log('ANSWER ERROR: ' + e.message);
+            log('ANSWER_ERR: ' + e.message);
             resetP2PButtons();
         }
         return;
     }
 
-    // SCENARIO B: MAKING A NEW CALL
-    const remoteId = $('remote-peer-id').value.trim();
-    if (!remoteId) {
-        alert('ENTER_GUEST_ID_TO_CALL');
-        return;
-    }
+    // ── FORK B: dial out to a remote peer ────────────────────────────────
+    const remoteId = $('remote-peer-id') ? $('remote-peer-id').value.trim() : '';
+    if (!remoteId) { alert('ENTER_GUEST_ID_TO_CALL'); return; }
 
     try {
-        $('call-status').textContent = 'CALLING...';
+        $('call-status').textContent = 'CALLING ' + remoteId + '...';
         $('call-status').style.color = 'var(--y)';
         startP2PRing();
 
-        const audioConstraints = APP.inputDevices.selectedId
-            ? { deviceId: { exact: APP.inputDevices.selectedId }, echoCancellation: false, noiseSuppression: false, autoGainControl: false, channelCount: 2 }
-            : { echoCancellation: false, noiseSuppression: false, autoGainControl: false, channelCount: 2 };
-
-        const stream = await navigator.mediaDevices.getUserMedia({
-            video: { facingMode: 'user', width: { ideal: 640 }, height: { ideal: 480 }, frameRate: { ideal: 30 } },
-            audio: audioConstraints
-        });
-        APP.peer.localStream = stream;
-
-        // Build composite stream: canvas video + mic audio
-        // Guest will see your full canvas output (graphics, lower thirds, VJ effects)
-        var compositeCall = new MediaStream();
-        if (APP.render && APP.render.canvas) {
-            var canvasVidTrackC = APP.render.canvas.captureStream(30).getVideoTracks()[0];
-            if (canvasVidTrackC) compositeCall.addTrack(canvasVidTrackC);
-        } else {
-            var rawVidC = stream.getVideoTracks()[0];
-            if (rawVidC) compositeCall.addTrack(rawVidC);
-        }
-        var micTrackC = stream.getAudioTracks()[0];
-        if (micTrackC) compositeCall.addTrack(micTrackC);
-
-        // Ensure every video track is enabled before initiating — prevents 'guest sees black'
-        compositeCall.getVideoTracks().forEach(function(t) { t.enabled = true; });
-        const call = APP.peer.peer.call(remoteId, compositeCall);
+        const call = APP.peer.peer.call(remoteId, localStream);
         handleCallStream(call);
 
-        // --- Establish parallel Data Channel for UI sync ---
+        // Parallel data channel for UI sync (LT, logo, bug)
         const dataConn = APP.peer.peer.connect(remoteId);
-        dataConn.on('open', () => {
+        dataConn.on('open', function() {
             APP.peer.dataConn = dataConn;
             log('DATA_CHANNEL: OPEN TO ' + remoteId);
         });
-        dataConn.on('data', (data) => {
+        dataConn.on('data', function(data) {
             try {
                 const msg = typeof data === 'string' ? JSON.parse(data) : data;
                 if (msg.type === 'UI_SYNC') handleUISync(msg);
-            } catch (e) {
-                log('DATA_CHANNEL: PARSE_ERR');
-            }
+            } catch (e) { log('DATA_CHANNEL: PARSE_ERR'); }
         });
-        dataConn.on('close', () => {
+        dataConn.on('close', function() {
             log('DATA_CHANNEL: CLOSED');
             if (APP.peer.dataConn === dataConn) APP.peer.dataConn = null;
         });
 
     } catch (e) {
-        log('CALL_ERROR: ' + e.message);
+        log('CALL_ERR: ' + e.message);
         stopP2PRing();
         $('call-status').textContent = 'FAILED: ' + e.message;
         $('call-status').style.color = 'var(--r)';
