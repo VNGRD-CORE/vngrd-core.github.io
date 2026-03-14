@@ -127,11 +127,14 @@ class Compositor {
         }
 
         // LAYER 1: Camera Texture
-        // Guest priority: if a P2P guest is active their video is the primary background;
-        // only fall back to the local camera if no active guest is present.
-        const _guestActive = typeof APP !== 'undefined' &&
+        // Source selection: the 'S' key toggles APP.state.activeSource between
+        // 'guest' (P2P remote feed) and 'local' (camera).  When no guest is
+        // connected the local camera is always used as the fallback.
+        const _guestReady = typeof APP !== 'undefined' &&
             APP.guest && APP.guest.isActive && APP.guest.videoElement;
-        const _camSource = _guestActive ? APP.guest.videoElement : this.layers.camera;
+        const _wantGuest = typeof APP !== 'undefined' &&
+            APP.state && APP.state.activeSource === 'guest';
+        const _camSource = (_wantGuest && _guestReady) ? APP.guest.videoElement : this.layers.camera;
         if (_camSource) {
             try {
                 const vid = _camSource;
@@ -153,9 +156,14 @@ class Compositor {
         }
 
         // LAYER 2: 2D Overlay (Main VJ canvas — text, LT, logos, effects)
-        // MUST be drawn LAST: it sits on top of every video/scene layer so that
-        // lower thirds and graphical elements are never occluded by the video feed.
-        if (this.layers.overlay) {
+        // MUST be drawn LAST so graphics sit on top of every video layer.
+        // 4K MONITOR ROUTING: when P2P is active the host renders LT only to
+        // #lt-preview-canvas (via drawLTToPreview). The Compositor output is
+        // therefore a clean feed — skip the overlay so local graphics never
+        // double-burn onto the Compositor canvas during a call.
+        const _p2pActive = typeof APP !== 'undefined' &&
+            APP.peer && APP.peer.call;
+        if (this.layers.overlay && !_p2pActive) {
             try {
                 ctx.drawImage(this.layers.overlay, 0, 0, w, h);
             } catch (e) { /* Overlay not ready */ }

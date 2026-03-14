@@ -1009,6 +1009,13 @@ body.shooting-mode #btn-shooting {
         }
         #btn-open-p2p-modal.lobby { animation: lobby-ring 0.7s ease-in-out infinite; }
 
+        /* ACCEPT button: yellow pulse while a staged incoming call is waiting */
+        @keyframes accept-pulse {
+            0%, 100% { border-color: var(--y); color: var(--y); box-shadow: 0 0 0 rgba(255,220,0,0); }
+            50%       { border-color: #fff;    color: #fff;    box-shadow: 0 0 8px rgba(255,220,0,0.8); }
+        }
+        #btn-call-guest.accepting { animation: accept-pulse 0.6s ease-in-out infinite; }
+
         /* P2P remote feed: keep visually invisible but DO NOT use display:none —
            browsers stop delivering frames to the compositor when an element is
            hidden via display:none. opacity:0 + offscreen position keeps the
@@ -2129,7 +2136,7 @@ window.VANGUARD_BUILD = '2026-02-09T' + Date.now();
 console.log('[VNGRD] Version ' + window.VANGUARD_VERSION + ' build ' + window.VANGUARD_BUILD);
 
 const APP = {
-    state: { isLive: false, isRecording: false, isFullscreen: false, isCycle: false, cycleTimer: null, isMobile: false, theme: 'cyan', startTime: Date.now(), psychosis: false, showMediaStrips: true },
+    state: { isLive: false, isRecording: false, isFullscreen: false, isCycle: false, cycleTimer: null, isMobile: false, theme: 'cyan', startTime: Date.now(), psychosis: false, showMediaStrips: true, activeSource: 'local' },
     vj: { 
         brightness: 1.0, contrast: 1.0, saturation: 1.0, hue: 0, trailsEnabled: false, trailAlpha: 0.92, rgbEnabled: false, rgbIntensity: 0, rgbBassLink: false, pixelateEnabled: false, pixelSize: 1, rumbleEnabled: false, invert: false, uiReactivity: false, shakeIntensity: 0, shockwave: 0, lastBassLevel: 0, avgVol: 0, maskMode: false, glitchSnap: 0,
         seismicVelocity: 0, seismicPosition: 0, springConstant: 0.8, damping: 0.9
@@ -2142,7 +2149,7 @@ const APP = {
     broadcast: { recorder: null, chunks: [], isRecording: false },
     loop: { recorder: null, chunks: [], activeUrl: null, timer: null, counter: 10 },
     guest: { peer: null, connection: null, stream: null, videoElement: null, audioSource: null, isActive: false, peerId: null },
-    peer: { peer: null, call: null, localStream: null },
+    peer: { peer: null, call: null, localStream: null, isSyncing: false },
     wallet: { connected: false, address: null, chainId: null, nfts: [] },
     user: { assets: [] },
     nftVault: { thumbnails: [], scrollOffset: 0 },
@@ -6405,6 +6412,11 @@ document.addEventListener('DOMContentLoaded', () => {
         if (e.key === 'Tab') { e.preventDefault(); toggleSystemSlide(); }
         if (e.key === 'Escape') { if ($('img-lightbox').style.display !== 'none') { closeLightbox(); } else { $('btn-panic').click(); } }
         if (e.key === ' ') { e.preventDefault(); rotateMedia(); }
+        // S key — toggle Compositor source between local camera and P2P guest feed
+        if (e.key === 's' || e.key === 'S') {
+            APP.state.activeSource = APP.state.activeSource === 'guest' ? 'local' : 'guest';
+            log('SOURCE_SWITCH: ' + APP.state.activeSource.toUpperCase());
+        }
     });
 
     // Ensure uploaded logos are interactable
@@ -7368,9 +7380,11 @@ document.addEventListener('DOMContentLoaded', () => {
 
 // Helper to reset buttons to default state
 const resetP2PButtons = () => {
-    $('btn-call-guest').textContent = 'CALL';
-    $('btn-call-guest').style.borderColor = 'var(--text-main)';
-    $('btn-call-guest').style.color = 'var(--text-main)';
+    var _btn = $('btn-call-guest');
+    _btn.textContent = 'CALL';
+    _btn.style.borderColor = 'var(--text-main)';
+    _btn.style.color = 'var(--text-main)';
+    _btn.classList.remove('accepting');
 
     $('btn-init-peer').textContent = 'INIT';
     $('btn-init-peer').style.display = 'inline-block';
@@ -7578,11 +7592,12 @@ $('btn-init-peer').onclick = () => {
             // Ring tone
             startP2PRing();
 
-            // Transform CALL button into ACCEPT so the intent is unambiguous
+            // Transform CALL button — pulse yellow so the intent is unmissable
             var btnCall = $('btn-call-guest');
-            btnCall.textContent = 'ACCEPT';
-            btnCall.style.borderColor = 'var(--g)';
-            btnCall.style.color = 'var(--g)';
+            btnCall.textContent = 'INCOMING: ACCEPT?';
+            btnCall.style.borderColor = '';
+            btnCall.style.color = '';
+            btnCall.classList.add('accepting');
         });
 
         // --- INCOMING DATA CONNECTION (Guest Side) ---
@@ -7665,6 +7680,8 @@ $('btn-call-guest').onclick = async () => {
             if (micTrackA) compositeAnswer.addTrack(micTrackA);
 
             // 3. Answer the staged call with the canvas stream
+            // Ensure every video track is enabled — prevents 'guest sees black' on Firefox/Chrome
+            compositeAnswer.getVideoTracks().forEach(function(t) { t.enabled = true; });
             const call = APP.peer.incomingCall;
             call.answer(compositeAnswer);
             
@@ -7679,7 +7696,10 @@ $('btn-call-guest').onclick = async () => {
 
             // 5. Cleanup UI
             APP.peer.incomingCall = null;
-            $('btn-open-p2p-modal').classList.remove('lobby'); // Kill lobby flash
+            $('btn-open-p2p-modal').classList.remove('lobby');   // Kill lobby badge flash
+            $('btn-call-guest').classList.remove('accepting');    // Kill button pulse
+            $('btn-call-guest').textContent = 'CALL (ACTIVE)';
+            stopP2PRing();
             
         } catch (e) {
             log('ANSWER ERROR: ' + e.message);
@@ -7723,6 +7743,8 @@ $('btn-call-guest').onclick = async () => {
         var micTrackC = stream.getAudioTracks()[0];
         if (micTrackC) compositeCall.addTrack(micTrackC);
 
+        // Ensure every video track is enabled before initiating — prevents 'guest sees black'
+        compositeCall.getVideoTracks().forEach(function(t) { t.enabled = true; });
         const call = APP.peer.peer.call(remoteId, compositeCall);
         handleCallStream(call);
 
@@ -7893,6 +7915,9 @@ $('btn-hangup').onclick = () => {
 
 // --- P2P DATA SYNC: Send & Receive UI State ---
 function sendUISync(target, payload) {
+    // Sync-loop guard: if we are currently inside handleUISync (processing a packet
+    // received from the remote peer) bail immediately so we never echo data back.
+    if (APP.peer && APP.peer.isSyncing) return;
     if (APP.peer && APP.peer.dataConn && APP.peer.dataConn.open) {
         APP.peer.dataConn.send(JSON.stringify({
             type: 'UI_SYNC',
@@ -7909,6 +7934,11 @@ function handleUISync(msg) {
     // RECEIVER PATH — NO Mix-Minus check here, ever.
     // The "skip local render" rule applies ONLY to the person clicking the button (sender).
     // This function always renders what it receives so the guest's canvas shows the graphics.
+    //
+    // Sync-loop guard: raise isSyncing flag so sendUISync() is a no-op for any
+    // side-effect calls (e.g. oninput handlers) triggered while we process this packet.
+    if (APP.peer) APP.peer.isSyncing = true;
+    try {
     if (msg.target === 'LOWER_THIRD') {
         if (msg.payload.action === 'show') {
             // Populate the input fields first so showLowerThird() picks up the peer's text
@@ -7967,6 +7997,11 @@ function handleUISync(msg) {
             bug.classList.remove('hidden');
         }
         log('DATA_SYNC_RECV: STATION_LOGO "' + msg.payload.text + '"');
+    }
+    } finally {
+        // Always lower the flag, even if a handler throws, so the next legitimate
+        // sendUISync (from a real user action) is not silently blocked.
+        if (APP.peer) APP.peer.isSyncing = false;
     }
 }
 
