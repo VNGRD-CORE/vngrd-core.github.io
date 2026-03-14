@@ -565,10 +565,22 @@
         /* Collapsible bodies: collapsed by default; JS restores padding on open */
         #session-lab-body, #p2p-call-body, #midi-host-body, #nft-vault-body, #lexica-nano-body { max-height: 0; overflow: hidden; transition: max-height 0.3s ease; padding: 0 12px; }
 
-        /* ═══ P2P HUD — SOLID BLOCK TERMINAL SKIN ═══════════════════════════ */
+        /* ═══ P2P HUD — SOLID TERMINAL SKIN ════════════════════════════════ */
         #p2p-modal {
             font-family: 'JetBrains Mono', 'Courier New', monospace !important;
-            box-shadow: 0 0 0 1px #00f3ff, 0 0 18px rgba(0,243,255,0.22), 0 4px 24px rgba(0,0,0,0.85) !important;
+            background: rgba(10, 10, 10, 0.98) !important;
+            border: 1px solid #00f3ff !important;
+            color: #00f3ff !important;
+            box-shadow: 0 0 15px rgba(0, 243, 255, 0.2), 0 4px 24px rgba(0,0,0,0.85) !important;
+        }
+        /* Incoming call — whole panel border pulses yellow */
+        #p2p-modal.incoming {
+            border-color: #ffcc00 !important;
+            animation: incoming-border-pulse 0.7s ease-in-out infinite;
+        }
+        @keyframes incoming-border-pulse {
+            0%,100% { box-shadow: 0 0 12px rgba(255,204,0,0.3), 0 4px 24px rgba(0,0,0,0.85); }
+            50%      { box-shadow: 0 0 28px rgba(255,204,0,0.65), 0 4px 24px rgba(0,0,0,0.85); }
         }
         #p2p-titlebar {
             background: rgba(0, 12, 18, 0.99) !important;
@@ -578,12 +590,14 @@
             padding: 6px 10px !important;
             letter-spacing: 1.5px;
         }
+        #p2p-modal.incoming #p2p-titlebar { border-color: #ffcc00 !important; }
         #p2p-body {
             background: rgba(10, 10, 10, 0.98) !important;
             border: 1px solid #00f3ff !important;
             border-top: none !important;
             border-radius: 0 !important;
         }
+        #p2p-modal.incoming #p2p-body { border-color: #ffcc00 !important; border-top: none !important; }
         /* Terminal-style flat rectangular buttons inside the HUD */
         #p2p-body .btn {
             font-family: 'JetBrains Mono', 'Courier New', monospace !important;
@@ -601,14 +615,57 @@
             border-radius: 0 !important;
             background: rgba(0, 18, 24, 0.85) !important;
             border: 1px solid rgba(0,243,255,0.28) !important;
+            color: #00f3ff !important;
         }
         /* Labels */
-        #p2p-body .lbl { font-family: 'JetBrains Mono', 'Courier New', monospace !important; letter-spacing: 1.5px !important; }
-        /* Active call — CALL button turns solid green */
+        #p2p-body .lbl {
+            font-family: 'JetBrains Mono', 'Courier New', monospace !important;
+            letter-spacing: 1.5px !important;
+            color: rgba(0,243,255,0.5) !important;
+        }
+        /* Active call — CALL button turns green */
         #btn-call-guest.call-active {
             color: var(--g) !important;
             border-color: var(--g) !important;
             box-shadow: 0 0 8px rgba(0,255,136,0.45) !important;
+        }
+        /* Incoming — ACCEPT button pulses yellow */
+        #btn-call-guest.accepting {
+            color: #ffcc00 !important;
+            border-color: #ffcc00 !important;
+            animation: accept-pulse 0.6s ease-in-out infinite;
+        }
+        /* Contacts overlay */
+        #p2p-contacts-overlay {
+            display: none;
+            position: absolute;
+            top: calc(100% + 2px);
+            left: 0; right: 0;
+            background: rgba(5, 5, 5, 0.99);
+            border: 1px solid rgba(0,243,255,0.4);
+            z-index: 20;
+            padding: 4px;
+        }
+        #p2p-contacts-overlay .contact-item {
+            font-family: 'JetBrains Mono', monospace;
+            font-size: 8px;
+            color: #00f3ff;
+            letter-spacing: 1px;
+            padding: 5px 6px;
+            cursor: pointer;
+            border: 1px solid transparent;
+            text-transform: uppercase;
+        }
+        #p2p-contacts-overlay .contact-item:hover {
+            border-color: rgba(0,243,255,0.35);
+            background: rgba(0,243,255,0.07);
+        }
+        #p2p-contacts-overlay .contacts-empty {
+            font-family: 'JetBrains Mono', monospace;
+            font-size: 8px;
+            color: rgba(0,243,255,0.35);
+            letter-spacing: 1px;
+            padding: 5px 6px;
         }
         /* ════════════════════════════════════════════════════════════════════ */
         /* GIF-HOST: near-invisible container that keeps GIF decoding alive.
@@ -7608,9 +7665,12 @@ $('btn-init-peer').onclick = () => {
         log('PEER: Already initialized');
         return;
     }
-    
+
     try {
-        const peerId = 'VNGRD-' + Math.random().toString(36).substr(2, 8).toUpperCase();
+        // Use custom callsign from field → localStorage → generated fallback
+        var _typed = ($('peer-id-display').value || '').trim().toUpperCase().replace(/[^A-Z0-9\-_]/g,'').slice(0, 24);
+        var _saved = localStorage.getItem('vngrd_station_id') || '';
+        var peerId = _typed || _saved || ('VNGRD-' + Math.random().toString(36).substr(2, 8).toUpperCase());
         APP.peer = {
             peer: new Peer(peerId, {
                 host: '0.peerjs.com',
@@ -7630,6 +7690,7 @@ $('btn-init-peer').onclick = () => {
         
         APP.peer.peer.on('open', (id) => {
             $('peer-id-display').value = id;
+            localStorage.setItem('vngrd_station_id', id);
             if ($('guest-dot')) $('guest-dot').classList.remove('off');
             $('call-status').textContent = 'READY TO CALL';
             $('call-status').style.color = 'var(--g)';
@@ -7650,8 +7711,9 @@ $('btn-init-peer').onclick = () => {
             APP.peer.incomingCall = call;   // ← MUST be set before the button is clicked
 
             $('call-status').textContent = 'IN LOBBY: ' + call.peer;
-            $('call-status').style.color = 'var(--y)';
+            $('call-status').style.color = '#ffcc00';
             $('p2p-modal').style.display = 'block';
+            $('p2p-modal').classList.add('incoming');
             $('p2p-body').style.display = '';
             $('btn-open-p2p-modal').classList.add('lobby');
             startP2PRing();
@@ -7693,6 +7755,12 @@ $('btn-init-peer').onclick = () => {
     }
 };
 
+// Pre-fill callsign from last session
+(function() {
+    var _savedId = localStorage.getItem('vngrd_station_id');
+    if (_savedId && $('peer-id-display')) $('peer-id-display').value = _savedId;
+})();
+
 $('btn-copy-id').onclick = () => {
     const idField = $('peer-id-display');
     if (idField && idField.value) {
@@ -7702,6 +7770,59 @@ $('btn-copy-id').onclick = () => {
         setTimeout(() => $('btn-copy-id').textContent = originalText, 2000);
     }
 };
+
+// ─── CONTACT BOOK ────────────────────────────────────────────────────────────
+function saveP2PContact(id) {
+    if (!id) return;
+    var contacts = JSON.parse(localStorage.getItem('vngrd_contacts') || '[]');
+    contacts = contacts.filter(function(c) { return c !== id; });
+    contacts.unshift(id);
+    contacts = contacts.slice(0, 3);
+    localStorage.setItem('vngrd_contacts', JSON.stringify(contacts));
+}
+
+function renderP2PContacts() {
+    var overlay = $('p2p-contacts-overlay');
+    var empty   = $('p2p-contacts-empty');
+    if (!overlay) return;
+    // Remove old dynamic items
+    overlay.querySelectorAll('.contact-item').forEach(function(el) { el.remove(); });
+    var contacts = JSON.parse(localStorage.getItem('vngrd_contacts') || '[]');
+    if (contacts.length === 0) {
+        if (empty) empty.style.display = '';
+    } else {
+        if (empty) empty.style.display = 'none';
+        contacts.forEach(function(id) {
+            var div = document.createElement('div');
+            div.className = 'contact-item';
+            div.textContent = id;
+            div.onclick = function() {
+                $('remote-peer-id').value = id;
+                overlay.style.display = 'none';
+            };
+            overlay.appendChild(div);
+        });
+    }
+}
+
+$('btn-contacts').onclick = function(e) {
+    e.stopPropagation();
+    var overlay = $('p2p-contacts-overlay');
+    if (!overlay) return;
+    renderP2PContacts();
+    overlay.style.display = overlay.style.display === 'block' ? 'none' : 'block';
+};
+
+// Close contacts overlay when clicking outside it
+document.addEventListener('click', function(e) {
+    var overlay = $('p2p-contacts-overlay');
+    if (overlay && overlay.style.display === 'block') {
+        if (!overlay.contains(e.target) && e.target.id !== 'btn-contacts') {
+            overlay.style.display = 'none';
+        }
+    }
+});
+// ─────────────────────────────────────────────────────────────────────────────
 
 // --- UNIFIED CALL / ANSWER BUTTON ---
 // Strict fork: incoming call → answer only. No active call → dial out.
@@ -7752,9 +7873,11 @@ $('btn-call-guest').onclick = async () => {
 
             APP.peer.incomingCall.answer(localStream);
             handleCallStream(APP.peer.incomingCall);
+            saveP2PContact(APP.peer.incomingCall.peer);
 
             // Clean up lobby state
             APP.peer.incomingCall = null;
+            $('p2p-modal').classList.remove('incoming');
             $('btn-open-p2p-modal').classList.remove('lobby');
             $('btn-call-guest').classList.remove('accepting');
             $('btn-call-guest').textContent = 'CALL (ACTIVE)';
@@ -7830,6 +7953,7 @@ function handleCallStream(call) {
         APP.guest.videoElement.play().catch(function(e) { log('GUEST_PLAY_ERR: ' + e.message); });
 
         stopP2PRing();
+        saveP2PContact(call.peer);
         $('call-status').textContent = 'CONNECTED';
         $('call-status').style.color = 'var(--g)';
         $('btn-call-guest').textContent = 'CALL (ACTIVE)';
@@ -8066,6 +8190,7 @@ function endCallCleanup() {
 
     $('call-status').textContent = 'DISCONNECTED';
     $('call-status').style.color = 'var(--text-dim)';
+    $('p2p-modal').classList.remove('incoming');
 
     resetP2PButtons();
     log('CALL_ENDED_CLEANUP');
@@ -9739,33 +9864,45 @@ if (btn3dX) {
     </div>
 
     <!-- P2P FLOATING PANEL (draggable + minimizable) -->
-    <div id="p2p-modal" style="display:none;position:fixed;top:52px;right:210px;z-index:5000;width:240px;font-family:inherit;">
+    <div id="p2p-modal" style="display:none;position:fixed;top:52px;right:210px;z-index:5000;width:250px;font-family:inherit;">
         <!-- TITLE BAR (drag handle + controls) -->
-        <div id="p2p-titlebar" style="display:flex;align-items:center;justify-content:space-between;background:rgba(20,20,20,0.98);border:1px solid var(--c,#0ff);border-bottom:none;border-radius:5px 5px 0 0;padding:5px 10px;cursor:grab;user-select:none;">
-            <span style="font-size:9px;letter-spacing:1.5px;color:var(--c,#0ff);text-transform:uppercase;">&#9742; P2P CALL</span>
+        <div id="p2p-titlebar" style="display:flex;align-items:center;justify-content:space-between;padding:5px 10px;cursor:grab;user-select:none;">
+            <span style="font-size:9px;letter-spacing:2px;text-transform:uppercase;">&#9632; P2P // SIGNAL</span>
             <span style="display:flex;gap:8px;align-items:center;">
                 <span id="p2p-dot" class="dot off" style="margin:0;"></span>
-                <button id="btn-min-p2p" style="background:none;border:none;color:var(--text-dim,#666);cursor:pointer;font-size:14px;line-height:1;padding:0;font-family:inherit;" title="Minimize">&#9604;</button>
-                <button id="btn-close-p2p-modal" style="background:none;border:none;color:var(--text-dim,#666);cursor:pointer;font-size:14px;line-height:1;padding:0;font-family:inherit;" title="Close">&times;</button>
+                <button id="btn-min-p2p" style="background:none;border:none;color:rgba(0,243,255,0.4);cursor:pointer;font-size:14px;line-height:1;padding:0;font-family:inherit;" title="Minimize">&#9604;</button>
+                <button id="btn-close-p2p-modal" style="background:none;border:none;color:rgba(0,243,255,0.4);cursor:pointer;font-size:14px;line-height:1;padding:0;font-family:inherit;" title="Close">&times;</button>
             </span>
         </div>
         <!-- BODY (collapsible) -->
-        <div id="p2p-body" style="position:relative;background:rgba(10,10,10,0.97);border:1px solid var(--c,#0ff);border-top:1px solid rgba(255,255,255,0.05);border-radius:0 0 5px 5px;padding:12px 12px 10px;">
-            <div class="lbl" style="font-size:8px;margin-bottom:3px;opacity:0.6;">YOUR_ID</div>
-            <input type="text" class="inp" id="peer-id-display" readonly placeholder="CLICK INIT..." style="font-size:9px;text-align:center;color:var(--g);padding:4px 6px;">
-            <button class="btn" id="btn-copy-id" style="font-size:8px;padding:3px 8px;margin-bottom:6px;">COPY</button>
-            <div class="lbl" style="font-size:8px;margin-bottom:3px;opacity:0.6;">REMOTE_ID</div>
-            <input type="text" class="inp" id="remote-peer-id" placeholder="Paste ID..." style="font-size:9px;padding:4px 6px;">
-            <div style="display:flex;gap:4px;margin-top:8px;">
-                <button class="btn" id="btn-init-peer" style="color:var(--g);font-size:8px;padding:4px 0;flex:1;">INIT</button>
-                <button class="btn" id="btn-call-guest" style="color:var(--c);font-size:8px;padding:4px 0;flex:1;">CALL</button>
-                <button class="btn" id="btn-hangup" style="color:var(--r);border-color:var(--r);font-size:8px;padding:4px 0;flex:1;">END</button>
+        <div id="p2p-body" style="position:relative;padding:10px 10px 10px;">
+            <!-- YOUR CALLSIGN (editable, persisted to localStorage) -->
+            <div class="lbl" style="font-size:7px;margin-bottom:3px;letter-spacing:2px;">YOUR_CALLSIGN <span style="opacity:0.4;">(click to rename)</span></div>
+            <div style="display:flex;gap:4px;margin-bottom:8px;">
+                <input type="text" class="inp" id="peer-id-display" placeholder="TYPE CALLSIGN..." style="font-size:9px;text-align:center;color:#00ff88;padding:4px 6px;flex:1;" title="Edit your station callsign, then press INIT">
+                <button class="btn" id="btn-copy-id" style="font-size:8px;padding:3px 6px;flex:0 0 auto;">COPY</button>
+                <button class="btn" id="btn-init-peer" style="color:#00ff88;font-size:8px;padding:3px 6px;flex:0 0 auto;">INIT</button>
             </div>
-            <div id="call-status" style="font-size:8px;color:var(--text-dim);margin-top:6px;text-align:center;">NOT_CONNECTED</div>
+            <!-- REMOTE ID with contacts anchor -->
+            <div class="lbl" style="font-size:7px;margin-bottom:3px;letter-spacing:2px;">REMOTE_ID</div>
+            <div style="position:relative;margin-bottom:6px;">
+                <input type="text" class="inp" id="remote-peer-id" placeholder="PASTE OR SELECT..." style="font-size:9px;padding:4px 6px;width:100%;box-sizing:border-box;">
+                <!-- Contacts dropdown (anchored below this input) -->
+                <div id="p2p-contacts-overlay">
+                    <div class="contacts-empty" id="p2p-contacts-empty">NO CONTACTS YET</div>
+                </div>
+            </div>
+            <!-- Action buttons row -->
+            <div style="display:flex;gap:4px;margin-top:4px;">
+                <button class="btn" id="btn-contacts" style="color:rgba(0,243,255,0.55);font-size:8px;padding:5px 0;flex:1;" title="Recent contacts">[ BOOK ]</button>
+                <button class="btn" id="btn-call-guest" style="color:#00f3ff;font-size:8px;padding:5px 0;flex:2;">CALL</button>
+                <button class="btn" id="btn-hangup" style="color:var(--r);border-color:var(--r);font-size:8px;padding:5px 0;flex:1;">END</button>
+            </div>
+            <div id="call-status" style="font-size:8px;color:rgba(0,243,255,0.4);margin-top:7px;text-align:center;letter-spacing:1.5px;">NOT_CONNECTED</div>
             <div class="sec-dot off" id="guest-dot" style="margin-top:4px;"></div>
             <!-- Resize handle -->
             <div id="p2p-resize" style="position:absolute;bottom:0;right:0;width:14px;height:14px;cursor:nwse-resize;opacity:0.4;" title="Resize">
-                <svg width="14" height="14" viewBox="0 0 14 14"><path d="M12 2L2 12M12 6L6 12M12 10L10 12" stroke="var(--c,#0ff)" stroke-width="1" fill="none"/></svg>
+                <svg width="14" height="14" viewBox="0 0 14 14"><path d="M12 2L2 12M12 6L6 12M12 10L10 12" stroke="#00f3ff" stroke-width="1" fill="none"/></svg>
             </div>
         </div>
     </div>
