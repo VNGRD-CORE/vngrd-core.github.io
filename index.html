@@ -7563,18 +7563,20 @@ $('btn-init-peer').onclick = () => {
             $('call-status').style.color = 'var(--r)';
         });
         
-        // --- INCOMING CALL HANDLER (Auto-Answer) ---
-        APP.peer.peer.on('call', async (call) => {
+        // --- INCOMING CALL HANDLER ---
+        // Store the call object. btn-call-guest FORK A reads it to answer.
+        APP.peer.peer.on('call', (call) => {
             log('INCOMING_CALL FROM ' + call.peer);
-            $('call-status').textContent = 'CONNECTING: ' + call.peer;
-            $('call-status').style.color = 'var(--y)';
 
-            // Auto-open panel so the user is aware of the call
+            APP.peer.incomingCall = call;   // ← MUST be set before the button is clicked
+
+            $('call-status').textContent = 'IN LOBBY: ' + call.peer;
+            $('call-status').style.color = 'var(--y)';
             $('p2p-modal').style.display = 'block';
             $('p2p-body').style.display = '';
+            $('btn-open-p2p-modal').classList.add('lobby');
             startP2PRing();
 
-            // Transform CALL button — pulse yellow so the intent is unmissable
             var btnCall = $('btn-call-guest');
             btnCall.textContent = 'INCOMING: ACCEPT?';
             btnCall.style.borderColor = '';
