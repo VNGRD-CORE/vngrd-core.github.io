@@ -357,6 +357,19 @@
             animation: rec-blink 1s infinite;
         }
         #cam-preview-float .rec-indicator.on { display: block; }
+
+        /* LT preview overlay: shows what the sender is broadcasting via P2P */
+        #lt-preview-canvas {
+            position: absolute;
+            bottom: 0;
+            left: 0;
+            width: 100%;
+            height: auto;
+            pointer-events: none;
+            z-index: 2;
+            display: none;
+        }
+        #cam-preview-float.active #lt-preview-canvas { display: block; }
         
         /* AUTO-INVERT FOR TV LEGIBILITY — merged into primary #station-bug above */
         #ticker-text {
@@ -989,8 +1002,20 @@ body.shooting-mode #btn-shooting {
         /* P2P modal: fit mobile viewport */
         #p2p-modal { right: 10px !important; left: 10px !important; width: auto !important; }
 
-        /* P2P remote feed element must stay hidden — Compositor handles all drawing */
-        #p2p-remote-feed { display: none !important; }
+        /* P2P remote feed: keep visually invisible but DO NOT use display:none —
+           browsers stop delivering frames to the compositor when an element is
+           hidden via display:none. opacity:0 + offscreen position keeps the
+           video pipeline alive so drawImage() can capture frames. */
+        #p2p-remote-feed {
+            opacity: 0;
+            position: fixed;
+            bottom: 0;
+            right: 0;
+            width: 320px;
+            height: 240px;
+            pointer-events: none;
+            z-index: -1;
+        }
 
         /* Ghost terminal: rain to mobile viewport + visible close button */
         #ghost-terminal {
@@ -1661,6 +1686,7 @@ body.fullscreen #transcription-hud { opacity: 0 !important; pointer-events: none
                 <button class="btn" id="btn-init-cam">SENSORS ONLINE [4K]</button>
                 <div id="cam-preview-float">
                     <video id="preview-vid-float" autoplay muted playsinline></video>
+                    <canvas id="lt-preview-canvas"></canvas>
                     <div class="preview-label">PREVIEW</div>
                     <div class="rec-indicator" id="rec-dot-float"></div>
                 </div>
@@ -4930,6 +4956,72 @@ function hideLowerThird() {
     ['guest','track','breaking'].forEach(m => { const el = $(`btn-lt-${m}`); if (el) el.classList.remove('active-mode'); });
 }
 
+// ─────────────────────────────────────────────────────────────────────────────
+// P2P MIX-MINUS LOCAL PREVIEW
+// Draws a miniature LT graphic to #lt-preview-canvas inside #cam-preview-float
+// so the SENDER can see exactly what's being broadcast to the guest,
+// without rendering it on the main broadcast canvas (#vj-canvas / #stage).
+// Called only when APP.peer.dataConn.open is true.
+// ─────────────────────────────────────────────────────────────────────────────
+function drawLTToPreview(preset, title, subtitle) {
+    var canvas = $('lt-preview-canvas');
+    if (!canvas) return;
+    var pf = $('cam-preview-float');
+    var pw = pf ? pf.offsetWidth : 200;
+    canvas.width = pw;
+    canvas.height = Math.round(pw * 0.16); // ~16% height = proportional LT bar
+    var c = canvas.getContext('2d');
+    if (!c) return;
+
+    // Accent colour matches main LT presets
+    var accent = '#00f3ff';
+    if (preset === 'track')    accent = '#00ff88';
+    if (preset === 'breaking') accent = '#ff3333';
+
+    var W = canvas.width, H = canvas.height;
+    var pad = Math.round(H * 0.12);
+    var bar = 3;
+
+    // Background
+    c.fillStyle = 'rgba(8,10,18,0.94)';
+    c.fillRect(0, 0, W, H);
+    // Left accent stripe
+    c.fillStyle = accent;
+    c.fillRect(0, 0, bar, H);
+    // Bottom rule
+    c.fillRect(0, H - 1, W, 1);
+
+    // Title
+    var titleFS = Math.max(7, Math.round(H * 0.36));
+    c.font = '800 ' + titleFS + 'px Orbitron, sans-serif';
+    c.fillStyle = '#ffffff';
+    c.textAlign = 'left';
+    c.textBaseline = 'top';
+    c.fillText(title || 'GUEST NAME', bar + pad, pad);
+
+    // Subtitle
+    if (subtitle) {
+        var subFS = Math.max(5, Math.round(H * 0.24));
+        c.font = '500 ' + subFS + 'px "JetBrains Mono", monospace';
+        c.fillStyle = accent;
+        c.fillText(subtitle, bar + pad, pad + titleFS + 2);
+    }
+
+    // "SENDING" badge top-right
+    var badgeFS = Math.max(5, Math.round(H * 0.2));
+    c.font = '700 ' + badgeFS + 'px Orbitron, sans-serif';
+    c.fillStyle = accent;
+    c.textAlign = 'right';
+    c.fillText('\u25ba P2P', W - pad, pad);
+
+    // Auto-clear after 3.5 s so stale previews don't linger
+    if (canvas._ltClear) clearTimeout(canvas._ltClear);
+    canvas._ltClear = setTimeout(function () {
+        var c2 = canvas.getContext('2d');
+        if (c2) c2.clearRect(0, 0, canvas.width, canvas.height);
+    }, 3500);
+}
+
 // AUDIO ENGINEER IMPLEMENTATION
 APP.audio.element = $('audio-el');
 function loadAudioFiles(input) { Array.from(input.files).forEach(file => { APP.audio.playlist.push({ url: URL.createObjectURL(file), name: file.name.replace(/\.[^.]+$/, '') }); }); $('audio-dot').classList.remove('off'); if (!APP.audio.isPlaying && APP.audio.playlist.length) { playTrack(0); } log(`AUDIO: +${input.files.length}`); }
@@ -6106,10 +6198,12 @@ document.addEventListener('DOMContentLoaded', () => {
         el.onclick = function() {
             // Mix-Minus intercept: if P2P data channel is open, only broadcast to remote;
             // do NOT render locally on #stage to prevent lower-third doubling.
+            // The sender sees a preview via drawLTToPreview() on #lt-preview-canvas.
             if (APP.peer && APP.peer.dataConn && APP.peer.dataConn.open) {
-                sendUISync('LOWER_THIRD', { action:'show', preset: m, title: $('lt-title').value || 'GUEST NAME', subtitle: $('lt-sub').value || 'TITLE / ROLE' });
-                var pf = $('cam-preview-float');
-                if (pf) { var prevOutline = pf.style.outline; pf.style.outline = '2px solid var(--c)'; setTimeout(function(){ pf.style.outline = prevOutline; }, 800); }
+                var _ltTitle = $('lt-title').value || 'GUEST NAME';
+                var _ltSub   = $('lt-sub').value   || 'TITLE / ROLE';
+                sendUISync('LOWER_THIRD', { action:'show', preset: m, title: _ltTitle, subtitle: _ltSub });
+                drawLTToPreview(m, _ltTitle, _ltSub);
             } else {
                 showLowerThird(m);
                 sendUISync('LOWER_THIRD', { action:'show', preset: APP.lowerThird.preset, title: $('lt-title-text').textContent, subtitle: $('lt-subtitle-text').textContent });
@@ -7649,12 +7743,13 @@ function handleCallStream(call) {
         // Ensure video element exists — must be in DOM for iOS Safari to play
         if (!APP.guest.videoElement) {
             APP.guest.videoElement = document.createElement('video');
-            APP.guest.videoElement.id = 'p2p-remote-video';
+            APP.guest.videoElement.id = 'p2p-remote-feed';
             APP.guest.videoElement.setAttribute('autoplay', '');
             APP.guest.videoElement.setAttribute('playsinline', '');
             APP.guest.videoElement.muted = false;
             // Off-screen but large enough for browser to actually decode
-            APP.guest.videoElement.style.cssText = 'position:fixed;top:-9999px;left:-9999px;width:320px;height:240px;pointer-events:none;z-index:-1;';
+            // opacity:0 keeps the video pipeline alive for drawImage(); display:none stops frame delivery
+            APP.guest.videoElement.style.cssText = 'opacity:0;position:fixed;bottom:0;right:0;width:320px;height:240px;pointer-events:none;z-index:-1;';
             document.body.appendChild(APP.guest.videoElement);
         }
 
@@ -7785,11 +7880,14 @@ function sendUISync(target, payload) {
 }
 
 function handleUISync(msg) {
+    // RECEIVER PATH — NO Mix-Minus check here, ever.
+    // The "skip local render" rule applies ONLY to the person clicking the button (sender).
+    // This function always renders what it receives so the guest's canvas shows the graphics.
     if (msg.target === 'LOWER_THIRD') {
         if (msg.payload.action === 'show') {
-            // Set input fields so showLowerThird reads the peer's text
-            $('lt-title').value = msg.payload.title || '';
-            $('lt-sub').value = msg.payload.subtitle || '';
+            // Populate the input fields first so showLowerThird() picks up the peer's text
+            if (msg.payload.title    !== undefined) $('lt-title').value = msg.payload.title;
+            if (msg.payload.subtitle !== undefined) $('lt-sub').value   = msg.payload.subtitle;
             showLowerThird(msg.payload.preset);
             log('DATA_SYNC_RECV: LT/' + msg.payload.preset + ' "' + msg.payload.title + '"');
         } else if (msg.payload.action === 'hide') {
