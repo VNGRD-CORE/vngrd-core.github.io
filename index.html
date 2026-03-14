@@ -6228,13 +6228,9 @@ document.addEventListener('DOMContentLoaded', () => {
     if ($('lt-style-select')) $('lt-style-select').onchange = function() {
         APP.lowerThird.ltStyle = this.value;
         if (APP.lowerThird.visible) {
-            // Mix-Minus: during a P2P call never touch the main #stage.
-            // Preview the style change locally via the float canvas and relay to guest only.
+            // Mix-Minus intercept for style changes during P2P call
             if (APP.peer && APP.peer.dataConn && APP.peer.dataConn.open) {
-                var _sTitle = $('lt-title').value || 'GUEST NAME';
-                var _sSub   = $('lt-sub').value   || 'TITLE / ROLE';
-                sendUISync('LOWER_THIRD', { action:'show', preset: this.value, title: _sTitle, subtitle: _sSub });
-                drawLTToPreview(this.value, _sTitle, _sSub);
+                sendUISync('LOWER_THIRD', { action:'show', preset: this.value, title: $('lt-title').value || '', subtitle: $('lt-sub').value || '' });
             } else {
                 showLowerThird(APP.lowerThird.mode || 'guest');
                 sendUISync('LOWER_THIRD', { action:'show', preset: APP.lowerThird.preset, title: $('lt-title-text').textContent, subtitle: $('lt-subtitle-text').textContent });
@@ -7388,10 +7384,7 @@ const resetP2PButtons = () => {
 
     $('btn-init-peer').textContent = 'INIT';
     $('btn-init-peer').style.display = 'inline-block';
-
-    // Remove lobby flash from the header badge
-    $('btn-open-p2p-modal').classList.remove('lobby');
-
+    
     // Clear the temp incoming call object
     if (APP.peer) APP.peer.incomingCall = null;
 };
@@ -7570,26 +7563,15 @@ $('btn-init-peer').onclick = () => {
             $('call-status').style.color = 'var(--r)';
         });
         
-        // --- INCOMING CALL HANDLER (Manual Accept Gate / Lobby Mode) ---
-        // Do NOT auto-answer. Store the call and let the host decide when to accept.
-        APP.peer.peer.on('call', (call) => {
+        // --- INCOMING CALL HANDLER (Auto-Answer) ---
+        APP.peer.peer.on('call', async (call) => {
             log('INCOMING_CALL FROM ' + call.peer);
-
-            // Stage the call — SCENARIO A in btn-call-guest.onclick will answer it
-            APP.peer.incomingCall = call;
-
-            // Status line
-            $('call-status').textContent = 'IN LOBBY: ' + call.peer;
+            $('call-status').textContent = 'CONNECTING: ' + call.peer;
             $('call-status').style.color = 'var(--y)';
 
-            // Open P2P panel so host sees the incoming call immediately
+            // Auto-open panel so the user is aware of the call
             $('p2p-modal').style.display = 'block';
             $('p2p-body').style.display = '';
-
-            // Flash the header badge so the host knows someone is waiting
-            $('btn-open-p2p-modal').classList.add('lobby');
-
-            // Ring tone
             startP2PRing();
 
             // Transform CALL button — pulse yellow so the intent is unmissable
@@ -7797,18 +7779,8 @@ function handleCallStream(call) {
         APP.guest.stream = remoteStream;
         APP.guest.isActive = true;
 
-        // Explicit play() required on iOS Safari and some Android browsers after
-        // srcObject assignment. Retry once on failure to survive transient blocks.
-        APP.guest.videoElement.play().catch(function(e) {
-            log('GUEST_PLAY_ERR: ' + e.message + ' — retrying in 500ms');
-            setTimeout(function() {
-                if (APP.guest.videoElement) {
-                    APP.guest.videoElement.play().catch(function(e2) {
-                        log('GUEST_PLAY_RETRY_ERR: ' + e2.message);
-                    });
-                }
-            }, 500);
-        });
+        // iOS Safari requires explicit play() after srcObject assignment
+        APP.guest.videoElement.play().catch(function(e) { log('GUEST_PLAY_ERR: ' + e.message); });
 
         stopP2PRing();
         $('call-status').textContent = 'CONNECTED';
