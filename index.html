@@ -5215,7 +5215,11 @@ function showLowerThird(preset) {
     if (mode === 'track') { $('lt-title-text').textContent = APP.audio.currentTrackName || $('lt-title').value || 'TRACK TITLE'; $('lt-subtitle-text').textContent = 'NOW PLAYING'; }
     else if (mode === 'breaking') { $('lt-title-text').textContent = $('lt-title').value || 'BREAKING NEWS'; $('lt-subtitle-text').textContent = $('lt-sub').value || 'LIVE UPDATE'; }
     else { $('lt-title-text').textContent = $('lt-title').value || 'GUEST NAME'; $('lt-subtitle-text').textContent = $('lt-sub').value || 'TITLE / ROLE'; }
-    lt.classList.add('visible');
+    // Canvas is the sole visual renderer — do NOT add 'visible' to the DOM element here.
+    // The DOM #lower-third div is a text data store only; adding .visible would
+    // produce a second (DOM) overlay on top of the canvas-burned lower third.
+    // P2P receiver path (handleUISync) intentionally uses the DOM overlay directly
+    // because it keeps APP.lowerThird.visible=false to avoid sync loops — that path is untouched.
     ['guest','track','breaking'].forEach(m => { const el = $(`btn-lt-${m}`); if (el) el.classList.toggle('active-mode', m === mode); });
 }
 function hideLowerThird() {
