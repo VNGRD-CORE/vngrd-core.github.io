@@ -4262,6 +4262,25 @@ if (T.logo.visible) {
         ctx.filter = 'none';
         ctx.restore();
     }
+
+    // --- BAKE CSS FX INTO CANVAS PIXELS (makes FX visible in captureStream recordings) ---
+    // Skipped during P2P to save GPU + connection bandwidth (CSS FX are also disabled during calls).
+    if (!(APP.peer && APP.peer.call)) {
+        var _fxBakeFilter = _getBakedFXFilter();
+        if (_fxBakeFilter) {
+            var _bw = APP.render.canvas.width, _bh = APP.render.canvas.height;
+            if (!APP.render._fxCanvas) APP.render._fxCanvas = document.createElement('canvas');
+            if (APP.render._fxCanvas.width !== _bw)  APP.render._fxCanvas.width  = _bw;
+            if (APP.render._fxCanvas.height !== _bh) APP.render._fxCanvas.height = _bh;
+            var _fc = APP.render._fxCanvas.getContext('2d');
+            _fc.clearRect(0, 0, _bw, _bh);
+            _fc.filter = _fxBakeFilter;
+            _fc.drawImage(APP.render.canvas, 0, 0);
+            _fc.filter = 'none';
+            ctx.clearRect(0, 0, _bw, _bh);
+            ctx.drawImage(APP.render._fxCanvas, 0, 0);
+        }
+    }
 }
 
 function triggerImpact() { document.body.classList.remove('impact-flash'); void document.body.offsetWidth; document.body.classList.add('impact-flash'); setTimeout(() => document.body.classList.remove('impact-flash'), 200); }
@@ -4966,7 +4985,16 @@ $('btn-inject').onclick = () => {
         else if (MediaRecorder.isTypeSupported('video/webm')) loopMime = 'video/webm';
         else if (MediaRecorder.isTypeSupported('video/mp4')) loopMime = 'video/mp4';
     }
-    APP.loop.recorder = new MediaRecorder(APP.camera.stream, { mimeType: loopMime });
+    // Record from the composited canvas (includes all FX) at 30fps with audio
+    var _loopStream = new MediaStream(APP.render.canvas.captureStream(30).getVideoTracks());
+    ensureAudioChain();
+    if (APP.audio.ctx && APP.audio.outputLimiter) {
+        var _loopDest = APP.audio.ctx.createMediaStreamDestination();
+        try { APP.audio.outputLimiter.connect(_loopDest); } catch(e) {}
+        if (APP.audio.micGainNode) { try { APP.audio.micGainNode.connect(_loopDest); } catch(e) {} }
+        _loopDest.stream.getAudioTracks().forEach(t => _loopStream.addTrack(t));
+    }
+    APP.loop.recorder = new MediaRecorder(_loopStream, { mimeType: loopMime, videoBitsPerSecond: 5000000 });
     APP.loop.recorder.ondataavailable = e => APP.loop.chunks.push(e.data);
     APP.loop.recorder.onstop = () => {
         clearInterval(APP.loop.timer);
@@ -5035,7 +5063,7 @@ $('btn-rec').onclick = () => {
 
             // Always build a fresh audio destination to avoid stale/dead tracks
             // Tap outputLimiter (final mix node) so music + video audio are both captured
-            var bcastStream = new MediaStream(APP.render.canvas.captureStream(60).getVideoTracks());
+            var bcastStream = new MediaStream(APP.render.canvas.captureStream(30).getVideoTracks());
             if (APP.audio.ctx && APP.audio.outputLimiter) {
                 var bcastDest = APP.audio.ctx.createMediaStreamDestination();
                 APP.audio.outputLimiter.connect(bcastDest);
@@ -5047,7 +5075,7 @@ $('btn-rec').onclick = () => {
             }
 
             APP.broadcast.chunks = [];
-            var bcastOpts = { mimeType: 'video/webm;codecs=vp9,opus', videoBitsPerSecond: 15000000, audioBitsPerSecond: 128000 };
+            var bcastOpts = { mimeType: 'video/webm;codecs=vp9,opus', videoBitsPerSecond: 5000000, audioBitsPerSecond: 128000 };
             try { APP.broadcast.recorder = new MediaRecorder(bcastStream, bcastOpts); }
             catch(e) {
                 try { APP.broadcast.recorder = new MediaRecorder(bcastStream, { mimeType: 'video/webm;codecs=vp8,opus' }); }
@@ -5788,7 +5816,7 @@ async function startNFTRecording() {
         }
 
         // 3. Grab video from the composited VJ canvas (all FX are on this canvas)
-        var canvasStream = APP.render.canvas.captureStream(60);
+        var canvasStream = APP.render.canvas.captureStream(30);
         var combinedStream = new MediaStream(canvasStream.getVideoTracks());
 
         // 4. Always build a FRESH audio destination — taps masterGain so music +
@@ -5895,7 +5923,7 @@ function triggerIndustrialSnap(nextImageUrl) {
 if (typeof log === 'function') log('PROJECTOR_SYSTEM_LINKED');
 // UI
 function setTheme(theme) { document.body.className = document.body.className.replace(/theme-\w+/g, '').replace('system-failure', ''); if (theme !== 'cyan') document.body.classList.add(`theme-${theme}`); APP.state.theme = theme; document.querySelectorAll('.pal').forEach(p => p.classList.toggle('on', p.dataset.t === theme)); log(`THEME: ${theme}`); }
-function toggleVHS() { document.body.classList.toggle('vhs'); $('btn-vhs').classList.toggle('on'); log('VHS'); }
+function toggleVHS() { if (APP.peer && APP.peer.call) { log('FX_BLOCKED: P2P active'); return; } document.body.classList.toggle('vhs'); $('btn-vhs').classList.toggle('on'); log('VHS'); }
 function toggleCRT() { document.body.classList.toggle('crt'); $('btn-crt').classList.toggle('on'); log('CRT'); }
 function toggleFullscreen() { APP.state.isFullscreen = !APP.state.isFullscreen; document.body.classList.toggle('fullscreen', APP.state.isFullscreen); log('FULLSCREEN'); }
 
@@ -7763,6 +7791,7 @@ $('btn-init-peer').onclick = () => {
                 APP.peer.dataConn = conn;
                 log('DATA_CHANNEL: OPEN');
                 _flushSyncQueue();
+                _pushCurrentState();
             });
             conn.on('data', (data) => {
                 try {
@@ -7940,6 +7969,7 @@ $('btn-call-guest').onclick = async () => {
             APP.peer.dataConn = dataConn;
             log('DATA_CHANNEL: OPEN TO ' + remoteId);
             _flushSyncQueue();
+            _pushCurrentState();
         });
         dataConn.on('data', function(data) {
             try {
@@ -8115,6 +8145,38 @@ function sendUISync(target, payload) {
         APP.peer._syncQueue = APP.peer._syncQueue.filter(function(q) { return q.target !== target; });
         APP.peer._syncQueue.push({ target: target, payload: payload });
         log('DATA_SYNC_QUEUED: ' + target);
+    }
+}
+
+// Push host's current graphics state to peer the moment the data channel opens.
+// This ensures logos / bug / LT set BEFORE the call are still received by the guest.
+function _pushCurrentState() {
+    // Station bug
+    if (APP.trinity.bug.visible && APP.bug.text) {
+        sendUISync('STATION_LOGO', { text: APP.bug.text, visible: true });
+    }
+    // 2D logo — compress to JPEG before sending (stays within ~64KB data channel limit)
+    var _ll = $('user-logo-layer');
+    if (APP.trinity.logo.visible && _ll && _ll.naturalWidth > 0 &&
+            _ll.src && !_ll.src.startsWith(window.location.href)) {
+        var _maxDim = 200;
+        var _s = Math.min(1, _maxDim / Math.max(_ll.naturalWidth, _ll.naturalHeight));
+        var _tc = document.createElement('canvas');
+        _tc.width  = Math.max(1, Math.round(_ll.naturalWidth  * _s));
+        _tc.height = Math.max(1, Math.round(_ll.naturalHeight * _s));
+        _tc.getContext('2d').drawImage(_ll, 0, 0, _tc.width, _tc.height);
+        var _tUri = _tc.toDataURL('image/jpeg', 0.82);
+        sendUISync('2D_LOGO', { action: 'show', dataURI: _tUri });
+        log('STATE_PUSH: 2D_LOGO ' + Math.round(_tUri.length / 1024) + 'KB');
+    }
+    // Lower third
+    if (APP.lowerThird && APP.lowerThird.visible) {
+        sendUISync('LOWER_THIRD', {
+            action: 'show',
+            title:    APP.lowerThird.title    || '',
+            subtitle: APP.lowerThird.subtitle || '',
+            preset:   APP.lowerThird.preset   || 'guest'
+        });
     }
 }
 
@@ -9417,8 +9479,23 @@ setInterval(updateTickerLive, 600000); // 10 minute poll to save CPU
 // Ducking is called via window.applyAudioDuck() from goLive/endLive/killCamera in main script
 
 // --- TACTICAL FX GLOBAL BRIDGE ---
+// --- CANVAS FX FILTER MAP (mirrors CSS FX for captureStream baking) ---
+function _getBakedFXFilter() {
+    var cl = document.body.classList;
+    if (cl.contains('fx-scan'))  return 'invert(1) contrast(1.5)';
+    if (cl.contains('fx-nvg'))   return 'grayscale(1) brightness(0.7)';
+    if (cl.contains('fx-void'))  return 'grayscale(1) contrast(3) brightness(1.1)';
+    if (cl.contains('fx-lucy'))  return 'hue-rotate(180deg) saturate(2.5)';
+    if (cl.contains('fx-tear'))  return 'hue-rotate(90deg) contrast(1.2)';
+    if (cl.contains('fx-punch')) return 'contrast(1.4) brightness(1.2)';
+    if (cl.contains('vhs'))      return 'contrast(1.1) brightness(0.95) saturate(1.2)';
+    return '';
+}
+
 // --- TACTICAL FX MASTER BRIDGE (v4.1 VOID/LUCY) ---
 window.toggleFX = function(fxName) {
+    // Auto-disable during P2P: FX shaders stress the GPU and inflate WebRTC bandwidth
+    if (APP.peer && APP.peer.call) { log('FX_BLOCKED: P2P active'); return; }
     const target = document.body;
     const className = `fx-${fxName}`;
     const allFX = ['fx-scan', 'fx-tear', 'fx-punch', 'fx-void', 'fx-lucy', 'fx-nvg'];
