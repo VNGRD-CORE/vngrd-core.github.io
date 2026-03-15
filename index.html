@@ -3717,12 +3717,23 @@ function renderLoop(timestamp) {
         ctx.translate(-w * 0.5, -h * 0.5);
     }
     
-    // FILTER STACK - values are decimals (1.0 = 100%), convert to proper CSS
-    // Punch brightness flash is multiplied on top of user brightness so both are visible.
-    // Previously the punch ctx.filter was set inside _hasFX then immediately overwritten here — now fixed.
+    // FILTER STACK — user corrections + active FX equivalent, applied at draw time.
+    // Drawing the source WITH the FX filter writes filtered pixels directly into the canvas,
+    // which captureStream() then captures correctly in recordings.
+    // The previous approach used ctx.filter on an off-screen bake context which silently
+    // fails in some browser/GPU environments, leaving canvas pixels unfiltered.
+    // Draw-time application on the main ctx is the primary intended use of ctx.filter.
+    var _fxCls = document.body.classList;
+    var _fxDrawFilter = '';
+    if      (_fxCls.contains('fx-scan'))  _fxDrawFilter = 'invert(1) contrast(1.5) grayscale(0.2) sepia(1) hue-rotate(135deg) saturate(2)';
+    else if (_fxCls.contains('fx-void'))  _fxDrawFilter = 'grayscale(1) contrast(3) brightness(1.1)';
+    else if (_fxCls.contains('fx-lucy'))  _fxDrawFilter = 'hue-rotate(180deg) saturate(2.5)';
+    else if (_fxCls.contains('fx-nvg'))   _fxDrawFilter = 'grayscale(1) brightness(1.6) contrast(2.2) sepia(0.9) hue-rotate(78deg) saturate(5)';
+    else if (_fxCls.contains('fx-tear'))  _fxDrawFilter = 'hue-rotate(90deg) contrast(1.2)';
+    else if (_fxCls.contains('vhs'))      _fxDrawFilter = 'contrast(1.1) brightness(0.95) saturate(1.3)';
     var _punchBright = (_punch > 0.05) ? (1 + _punch * 0.9) : 1.0;
-    const filterStr = `brightness(${APP.vj.brightness * _punchBright}) contrast(${APP.vj.contrast}) saturate(${APP.vj.saturation}) hue-rotate(${APP.vj.hue}deg)${APP.vj.invert ? ' invert(1)' : ''}`;
-    const isIdentityFilter = _punchBright <= 1.001 && APP.vj.brightness === 1.0 && APP.vj.contrast === 1.0 && APP.vj.saturation === 1.0 && APP.vj.hue === 0 && !APP.vj.invert;
+    const filterStr = 'brightness(' + (APP.vj.brightness * _punchBright) + ') contrast(' + APP.vj.contrast + ') saturate(' + APP.vj.saturation + ') hue-rotate(' + APP.vj.hue + 'deg)' + (APP.vj.invert ? ' invert(1)' : '') + (_fxDrawFilter ? ' ' + _fxDrawFilter : '');
+    const isIdentityFilter = _punchBright <= 1.001 && !_fxDrawFilter && APP.vj.brightness === 1.0 && APP.vj.contrast === 1.0 && APP.vj.saturation === 1.0 && APP.vj.hue === 0 && !APP.vj.invert;
     ctx.filter = isIdentityFilter ? 'none' : filterStr;
     
     let source = null;
@@ -4318,29 +4329,53 @@ if (T.logo.visible) {
         ctx.restore();
     }
 
-    // --- BAKE CSS FX INTO CANVAS PIXELS (makes FX visible in captureStream recordings) ---
-    // Skipped during P2P to save GPU + connection bandwidth (CSS FX are also disabled during calls).
+    // --- CANVAS-NATIVE FX OVERLAYS (geometric primitives, captureStream-visible in all browsers) ---
+    // The FX colour-grade (invert, grayscale, hue-rotate etc.) is applied at draw time above via
+    // _fxDrawFilter incorporated into filterStr. These overlays add the animated geometry that
+    // can't be expressed as a CSS filter: NVG vignette + scan lines, VHS roll, SCAN sweep bar, TEAR bands.
+    // Drawn at identity transform (after punch restore) so they sit on top of all content.
     if (!(APP.peer && APP.peer.call)) {
-        var _fxBakeFilter = _getBakedFXFilter();
-        if (_fxBakeFilter) {
-            var _bw = APP.render.canvas.width, _bh = APP.render.canvas.height;
-            if (!APP.render._fxCanvas) APP.render._fxCanvas = document.createElement('canvas');
-            if (APP.render._fxCanvas.width !== _bw)  APP.render._fxCanvas.width  = _bw;
-            if (APP.render._fxCanvas.height !== _bh) APP.render._fxCanvas.height = _bh;
-            var _fc = APP.render._fxCanvas.getContext('2d');
-            _fc.clearRect(0, 0, _bw, _bh);
-            _fc.filter = _fxBakeFilter;
-            _fc.drawImage(APP.render.canvas, 0, 0);
-            _fc.filter = 'none';
-            // Reset ALL ctx state before blitting fxCanvas back — kills any lingering
-            // VJ filter (set at line ~3697, not always cleaned up when _hasFX = false).
+        var _ow = APP.render.canvas.width, _oh = APP.render.canvas.height;
+        // NVG: circular tube vignette + fine scan lines (green tint already baked via filter above)
+        if (_fxCls.contains('fx-nvg')) {
             ctx.save();
-            ctx.setTransform(1, 0, 0, 1, 0, 0);
-            ctx.filter = 'none';
-            ctx.globalAlpha = 1;
-            ctx.globalCompositeOperation = 'source-over';
-            ctx.clearRect(0, 0, _bw, _bh);
-            ctx.drawImage(APP.render._fxCanvas, 0, 0);
+            ctx.setTransform(1, 0, 0, 1, 0, 0); ctx.filter = 'none'; ctx.globalAlpha = 1; ctx.globalCompositeOperation = 'source-over';
+            var _nvgV = ctx.createRadialGradient(_ow/2, _oh/2, _oh*0.22, _ow/2, _oh/2, _oh*0.75);
+            _nvgV.addColorStop(0, 'rgba(0,0,0,0)'); _nvgV.addColorStop(1, 'rgba(0,0,0,0.92)');
+            ctx.fillStyle = _nvgV; ctx.fillRect(0, 0, _ow, _oh);
+            ctx.fillStyle = 'rgba(0,0,0,0.18)';
+            for (var _nl = 0; _nl < _oh; _nl += 3) ctx.fillRect(0, _nl, _ow, 1);
+            ctx.restore();
+        }
+        // VHS: horizontal scan lines + slow rolling glitch band
+        if (_fxCls.contains('vhs')) {
+            ctx.save();
+            ctx.setTransform(1, 0, 0, 1, 0, 0); ctx.filter = 'none'; ctx.globalAlpha = 1; ctx.globalCompositeOperation = 'source-over';
+            ctx.fillStyle = 'rgba(0,0,0,0.09)';
+            for (var _vl = 0; _vl < _oh; _vl += 2) ctx.fillRect(0, _vl, _ow, 1);
+            var _ry = (timestamp * 0.04) % _oh;
+            var _vb = ctx.createLinearGradient(0, _ry - 8, 0, _ry + 8);
+            _vb.addColorStop(0, 'rgba(255,255,255,0)'); _vb.addColorStop(0.5, 'rgba(255,255,255,0.07)'); _vb.addColorStop(1, 'rgba(255,255,255,0)');
+            ctx.fillStyle = _vb; ctx.fillRect(0, Math.max(0, _ry - 8), _ow, 16);
+            ctx.restore();
+        }
+        // SCAN / X-RAY: animated cyan laser sweep bar
+        if (_fxCls.contains('fx-scan')) {
+            ctx.save();
+            ctx.setTransform(1, 0, 0, 1, 0, 0); ctx.filter = 'none'; ctx.globalAlpha = 1; ctx.globalCompositeOperation = 'source-over';
+            var _sx = ((timestamp * 0.00035) % 1) * _ow;
+            var _sg = ctx.createLinearGradient(_sx - 50, 0, _sx + 50, 0);
+            _sg.addColorStop(0, 'rgba(0,255,255,0)'); _sg.addColorStop(0.5, 'rgba(0,255,255,0.30)'); _sg.addColorStop(1, 'rgba(0,255,255,0)');
+            ctx.fillStyle = _sg; ctx.fillRect(0, 0, _ow, _oh);
+            ctx.restore();
+        }
+        // TEAR / Glitch: two displaced chroma bands
+        if (_fxCls.contains('fx-tear')) {
+            ctx.save();
+            ctx.setTransform(1, 0, 0, 1, 0, 0); ctx.filter = 'none'; ctx.globalCompositeOperation = 'screen';
+            var _ty = (timestamp * 0.05) % _oh;
+            ctx.fillStyle = 'rgba(255,0,120,0.13)'; ctx.fillRect(0, Math.floor(_ty), _ow, 3);
+            ctx.fillStyle = 'rgba(0,255,200,0.11)'; ctx.fillRect(0, Math.floor((_ty + _oh * 0.37) % _oh), _ow, 2);
             ctx.restore();
         }
     }
