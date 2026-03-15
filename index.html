@@ -7955,9 +7955,14 @@ $('btn-call-guest').onclick = async () => {
     if (!APP.peer || !APP.peer.peer) { alert('CLICK_INIT_FIRST'); return; }
 
     // ── Shared media acquisition ──────────────────────────────────────────
+    // CRITICAL: echoCancellation + noiseSuppression MUST be true for any WebRTC voice call.
+    // The remote peer's audio plays through the host's speakers; with AEC off the mic picks
+    // that up and ships it back to the guest — instant echo / runaway feedback loop.
+    // These flags do NOT affect the recording path (which taps outputLimiter + micGainNode
+    // separately via their own getUserMedia capture in switchAudioInput).
     const audioConstraints = APP.inputDevices && APP.inputDevices.selectedId
-        ? { deviceId: { exact: APP.inputDevices.selectedId }, echoCancellation: false, noiseSuppression: false, autoGainControl: false, channelCount: 2 }
-        : { echoCancellation: false, noiseSuppression: false, autoGainControl: false, channelCount: 2 };
+        ? { deviceId: { exact: APP.inputDevices.selectedId }, echoCancellation: true, noiseSuppression: true, autoGainControl: true, channelCount: 2 }
+        : { echoCancellation: true, noiseSuppression: true, autoGainControl: true, channelCount: 2 };
 
     let localStream;
     try {
