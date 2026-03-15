@@ -5040,16 +5040,10 @@ $('btn-inject').onclick = () => {
         else if (MediaRecorder.isTypeSupported('video/webm')) loopMime = 'video/webm';
         else if (MediaRecorder.isTypeSupported('video/mp4')) loopMime = 'video/mp4';
     }
-    // Record from the composited canvas (includes all FX) at 30fps with audio
-    var _loopStream = new MediaStream(APP.render.canvas.captureStream(30).getVideoTracks());
-    ensureAudioChain();
-    if (APP.audio.ctx && APP.audio.outputLimiter) {
-        var _loopDest = APP.audio.ctx.createMediaStreamDestination();
-        try { APP.audio.outputLimiter.connect(_loopDest); } catch(e) {}
-        if (APP.audio.micGainNode) { try { APP.audio.micGainNode.connect(_loopDest); } catch(e) {} }
-        _loopDest.stream.getAudioTracks().forEach(t => _loopStream.addTrack(t));
-    }
-    APP.loop.recorder = new MediaRecorder(_loopStream, { mimeType: loopMime, videoBitsPerSecond: 5000000 });
+    // Record raw camera stream — lightweight, instant decode, no bake needed.
+    // The render loop applies FX on top during playback so they still appear on screen.
+    // Canvas-baked recording is the job of CAPTURE_VNGRD / REC_BROADCAST, not the inject loop.
+    APP.loop.recorder = new MediaRecorder(APP.camera.stream, { mimeType: loopMime });
     APP.loop.recorder.ondataavailable = e => APP.loop.chunks.push(e.data);
     APP.loop.recorder.onstop = () => {
         clearInterval(APP.loop.timer);
