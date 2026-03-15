@@ -3667,7 +3667,10 @@ function renderLoop(timestamp) {
     // --- PUNCH: canvas-level spring scale (captured by captureStream) ---
     // Transient detection: fire on a SUDDEN bass rise (kick drum hit), NOT on sustained loud bass.
     // Delta > 22 from one frame to the next = percussive attack. Sustained bass gives delta ≈ 0.
-    if (typeof APP.vj._punchSpring === 'undefined') APP.vj._punchSpring = 0;
+    // Punch uses a phase-based pulse: (1-t)²(1-2t) shape that peaks instantly at t=0,
+    // snaps back through zero at t=0.5, dips slightly negative (pull-back), then returns to 0 at t=1.
+    // Full cycle ≈ 8 frames (133ms at 60fps) — snappy and musical.
+    if (typeof APP.vj._punchT === 'undefined') { APP.vj._punchT = 1.0; APP.vj._punchAmp = 0; }
     if (typeof APP.vj._lastBassSnapshot === 'undefined') APP.vj._lastBassSnapshot = 0;
     var _bassNow = APP.audio.bassLevel;
     var _bassDelta = _bassNow - APP.vj._lastBassSnapshot;
@@ -3676,18 +3679,18 @@ function renderLoop(timestamp) {
         (APP.audio.isPlaying || APP.audio.videoSource) &&
         _bassNow > 130 && _bassDelta > 22 &&
         !window._punchCooldown) {
-        // Scale spring intensity with how hard the kick hit (delta maps 22–80 → 0.5–1.0)
         var _hitStr = Math.min(1.0, (_bassDelta - 22) / 58 * 0.5 + 0.5);
-        APP.vj._punchSpring = _hitStr;
+        APP.vj._punchT = 0;       // restart pulse clock
+        APP.vj._punchAmp = _hitStr;
         window._punchCooldown = true;
-        setTimeout(() => { window._punchCooldown = false; }, 180); // 180ms cooldown — catches 160BPM
+        setTimeout(() => { window._punchCooldown = false; }, 180);
         if (APP.vj.punchConsoleMode) {
             document.body.style.filter = 'brightness(1.8) contrast(1.2)';
             setTimeout(() => { document.body.style.filter = ''; }, 60);
         }
     }
-    // Spring decay: 0.78/frame gives a ~8-frame visible bounce at 60fps (≈130ms)
-    APP.vj._punchSpring *= 0.78;
+    // Advance phase: 0.12/frame → full cycle in ~8 frames (133ms)
+    APP.vj._punchT = Math.min(1.0, APP.vj._punchT + 0.12);
 
     // --- AUTONOMOUS PARTY MODE (audio-reactive via analyser) ---
     if (APP.vj.uiReactivity && APP.audio.bassLevel > 220 && Math.random() > 0.9) {
@@ -3700,22 +3703,26 @@ function renderLoop(timestamp) {
     ctx.fillRect(0, 0, w, h);
 
     // --- PUNCH / SEISMIC: frame-level transform — wraps ALL drawing (canvas only) ---
-    var _punch = APP.vj._punchSpring || 0;
+    // Pulse shape: peaks at t=0, crosses zero at t=0.5, slight pull-back, resolves at t=1
+    var _punch = (APP.vj._punchT < 1.0)
+        ? APP.vj._punchAmp * Math.pow(1 - APP.vj._punchT, 2) * (1 - 2 * APP.vj._punchT)
+        : 0;
     var _sX = APP.vj._canvasShakeX || 0, _sY = APP.vj._canvasShakeY || 0;
-    var _hasFX = _punch > 0.01 || Math.abs(_sX) > 0.1 || Math.abs(_sY) > 0.1;
+    var _hasFX = Math.abs(_punch) > 0.005 || Math.abs(_sX) > 0.1 || Math.abs(_sY) > 0.1;
     if (_hasFX) {
         ctx.save();
-        var _ps = 1 + _punch * 0.10; // 10% max zoom — visible hit without losing content
+        var _ps = 1 + _punch * 0.12; // 12% max zoom on full hit — punch-in then pull-back
         ctx.translate(w * 0.5 + _sX, h * 0.5 + _sY);
         ctx.scale(_ps, _ps);
         ctx.translate(-w * 0.5, -h * 0.5);
-        if (_punch > 0.05) ctx.filter = 'brightness(' + (1 + _punch * 0.9) + ')';
     }
     
     // FILTER STACK - values are decimals (1.0 = 100%), convert to proper CSS
-    // Skip setting filter at identity to avoid forcing software compositing path (prevents black-frame glitch)
-    const filterStr = `brightness(${APP.vj.brightness}) contrast(${APP.vj.contrast}) saturate(${APP.vj.saturation}) hue-rotate(${APP.vj.hue}deg)${APP.vj.invert ? ' invert(1)' : ''}`;
-    const isIdentityFilter = APP.vj.brightness === 1.0 && APP.vj.contrast === 1.0 && APP.vj.saturation === 1.0 && APP.vj.hue === 0 && !APP.vj.invert;
+    // Punch brightness flash is multiplied on top of user brightness so both are visible.
+    // Previously the punch ctx.filter was set inside _hasFX then immediately overwritten here — now fixed.
+    var _punchBright = (_punch > 0.05) ? (1 + _punch * 0.9) : 1.0;
+    const filterStr = `brightness(${APP.vj.brightness * _punchBright}) contrast(${APP.vj.contrast}) saturate(${APP.vj.saturation}) hue-rotate(${APP.vj.hue}deg)${APP.vj.invert ? ' invert(1)' : ''}`;
+    const isIdentityFilter = _punchBright <= 1.001 && APP.vj.brightness === 1.0 && APP.vj.contrast === 1.0 && APP.vj.saturation === 1.0 && APP.vj.hue === 0 && !APP.vj.invert;
     ctx.filter = isIdentityFilter ? 'none' : filterStr;
     
     let source = null;
@@ -3728,8 +3735,9 @@ function renderLoop(timestamp) {
         const ready = source.tagName === 'VIDEO' ? source.readyState >= 2 : (source.complete && source.naturalWidth > 0);
         if (ready) {
 
-            // --- VIEWPORT-FIT: object-fit:contain logic for canvas ---
-            // Computes centered, aspect-ratio-preserving draw rect (no stretching)
+            // --- VIEWPORT-FIT: object-fit:cover for canvas ---
+            // Fills the canvas completely — crops edges to maintain aspect ratio.
+            // No letterbox, no pillarbox. Standard for live VJ performance.
             // _effectiveWidth/_effectiveHeight = EXIF-corrected (mobile photo orientation)
             var srcW = source.videoWidth || source._effectiveWidth || source.naturalWidth || w;
             var srcH = source.videoHeight || source._effectiveHeight || source.naturalHeight || h;
@@ -3737,13 +3745,13 @@ function renderLoop(timestamp) {
             var canvasAR = w / h;
             var drawW, drawH, drawX, drawY;
             if (srcAR > canvasAR) {
-                // Source is wider — fit to width, letterbox top/bottom
-                drawW = w; drawH = w / srcAR;
-                drawX = 0; drawY = (h - drawH) / 2;
-            } else {
-                // Source is taller — fit to height, pillarbox left/right
+                // Source is wider than canvas — fit height, crop left/right equally
                 drawH = h; drawW = h * srcAR;
                 drawX = (w - drawW) / 2; drawY = 0;
+            } else {
+                // Source is taller than canvas — fit width, crop top/bottom equally
+                drawW = w; drawH = w / srcAR;
+                drawX = 0; drawY = (h - drawH) / 2;
             }
 
             if (APP.vj.pixelateEnabled && APP.vj.pixelSize > 1) {
