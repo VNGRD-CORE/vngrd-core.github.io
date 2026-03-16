@@ -1772,6 +1772,17 @@ body.fx-nvg #stage::after {
                 <button class="btn" id="btn-midi">INIT WEBMIDI</button>
                 <button class="btn" id="btn-midi-learn" style="color:var(--v);border-color:var(--v);">LEARN: OFF</button>
                 <div id="midi-status" style="font-size:8px;color:var(--text-dim);margin-top:4px;">NO MIDI DEVICE</div>
+                <div class="lbl" style="font-size:7px;opacity:0.5;margin-top:6px;margin-bottom:2px;">MIDI ACTION TARGET</div>
+                <select class="inp" id="midi-action-select" style="font-size:8px;padding:4px;background:var(--panel);border:1px solid var(--border);color:var(--text);width:100%;" data-midi-target="stutter" onchange="this.dataset.midiTarget=this.value">
+                    <option value="stutter">FX: Stutter</option>
+                    <option value="invert">FX: Invert</option>
+                    <option value="crush">FX: Crush</option>
+                    <option value="shatter">FX: Shatter</option>
+                    <option value="vst:808_kick">Layer: 808 Kick</option>
+                    <option value="vst:909_snare">Layer: 909 Snare</option>
+                    <option value="sfx:applause">SFX: Applause</option>
+                    <option value="sfx:airhorn">SFX: Airhorn</option>
+                </select>
             </div>
         </div>
         <div class="section">
@@ -4576,6 +4587,243 @@ function ensureAudioChain() {
     log('DAW_CHAIN_READY');
 }
 
+// ═══════════════════════════════════════════════════════════════════
+// VNGRD_VST — AUDIO_STUDIO: Virtual Drum / Bass Synthesizer
+// Kits: 808, 909  |  Routes → APP.audio.masterGain (rec + monitor)
+// ═══════════════════════════════════════════════════════════════════
+const VNGRD_VST = (() => {
+    function _ctx() {
+        if (!APP.audio.ctx) igniteAudio();
+        if (!APP.audio.masterGain) ensureAudioChain();
+        return APP.audio.ctx;
+    }
+    function _dest() {
+        return APP.audio.masterGain || (APP.audio.ctx && APP.audio.ctx.destination);
+    }
+
+    // Instruments / kits dictionary (808 + 909)
+    const kits = {
+        '808': {
+            kick:         { freq: 55,  pitchMult: 3,   pitchDrop: 0.05, decay: 0.80, vol: 1.2 },
+            snare:        { freq: 200, noiseDecay: 0.15, bodyDecay: 0.08, vol: 0.9 },
+            hihat_closed: { freq: 8000, decay: 0.04, vol: 0.6 },
+            hihat_open:   { freq: 7000, decay: 0.30, vol: 0.7 },
+            clap:         { freq: 1200, decay: 0.12, vol: 0.8 }
+        },
+        '909': {
+            kick:         { freq: 60,  pitchMult: 3,   pitchDrop: 0.04, decay: 0.50, vol: 1.0 },
+            snare:        { freq: 250, noiseDecay: 0.10, bodyDecay: 0.06, vol: 0.85 },
+            hihat_closed: { freq: 9000, decay: 0.03, vol: 0.55 },
+            hihat_open:   { freq: 8500, decay: 0.25, vol: 0.65 },
+            clap:         { freq: 1400, decay: 0.10, vol: 0.75 }
+        }
+    };
+
+    function playDrumSound(kit, type, velocity) {
+        kit = kit || '808';
+        const velNorm = (velocity !== undefined) ? velocity / 127 : 1.0;
+        const ctx = _ctx(); if (!ctx) return;
+        const dest = _dest(); if (!dest) return;
+        if (ctx.state === 'suspended') ctx.resume();
+        const p = (kits[kit] || kits['808'])[type];
+        if (!p) return;
+        const now = ctx.currentTime;
+        const v = p.vol * velNorm;
+
+        if (type === 'kick') {
+            // Sub-bass sine with exponential pitch envelope
+            const osc = ctx.createOscillator(), g = ctx.createGain();
+            osc.type = 'sine';
+            osc.frequency.setValueAtTime(p.freq * p.pitchMult, now);
+            osc.frequency.exponentialRampToValueAtTime(p.freq, now + p.pitchDrop);
+            g.gain.setValueAtTime(v, now + 0.001);
+            g.gain.exponentialRampToValueAtTime(0.001, now + p.decay);
+            osc.connect(g); g.connect(dest);
+            osc.start(now); osc.stop(now + p.decay + 0.05);
+
+        } else if (type === 'snare') {
+            // Noise burst
+            const bufN = ctx.createBuffer(1, ctx.sampleRate * 0.1, ctx.sampleRate);
+            const dN = bufN.getChannelData(0);
+            for (let i = 0; i < dN.length; i++) dN[i] = Math.random() * 2 - 1;
+            const nSrc = ctx.createBufferSource(); nSrc.buffer = bufN;
+            const nFilt = ctx.createBiquadFilter(); nFilt.type = 'highpass'; nFilt.frequency.value = 2000;
+            const nGain = ctx.createGain();
+            nGain.gain.setValueAtTime(v * 0.8, now);
+            nGain.gain.exponentialRampToValueAtTime(0.001, now + p.noiseDecay);
+            nSrc.connect(nFilt); nFilt.connect(nGain); nGain.connect(dest);
+            nSrc.start(now);
+            // Body tone
+            const body = ctx.createOscillator(), bGain = ctx.createGain();
+            body.type = 'triangle'; body.frequency.value = p.freq;
+            bGain.gain.setValueAtTime(v * 0.5, now);
+            bGain.gain.exponentialRampToValueAtTime(0.001, now + p.bodyDecay);
+            body.connect(bGain); bGain.connect(dest);
+            body.start(now); body.stop(now + p.bodyDecay + 0.02);
+
+        } else if (type === 'hihat_closed' || type === 'hihat_open') {
+            const bufH = ctx.createBuffer(1, ctx.sampleRate * 0.05, ctx.sampleRate);
+            const dH = bufH.getChannelData(0);
+            for (let i = 0; i < dH.length; i++) dH[i] = Math.random() * 2 - 1;
+            const hSrc = ctx.createBufferSource(); hSrc.buffer = bufH;
+            const hFilt = ctx.createBiquadFilter(); hFilt.type = 'bandpass'; hFilt.frequency.value = p.freq; hFilt.Q.value = 0.8;
+            const hGain = ctx.createGain();
+            hGain.gain.setValueAtTime(v * 0.6, now);
+            hGain.gain.exponentialRampToValueAtTime(0.001, now + p.decay);
+            hSrc.connect(hFilt); hFilt.connect(hGain); hGain.connect(dest);
+            hSrc.start(now);
+
+        } else if (type === 'clap') {
+            for (let c = 0; c < 3; c++) {
+                const off = c * 0.012;
+                const bufC = ctx.createBuffer(1, ctx.sampleRate * 0.05, ctx.sampleRate);
+                const dC = bufC.getChannelData(0);
+                for (let i = 0; i < dC.length; i++) dC[i] = Math.random() * 2 - 1;
+                const cSrc = ctx.createBufferSource(); cSrc.buffer = bufC;
+                const cFilt = ctx.createBiquadFilter(); cFilt.type = 'bandpass'; cFilt.frequency.value = p.freq; cFilt.Q.value = 1.2;
+                const cGain = ctx.createGain();
+                cGain.gain.setValueAtTime(v * 0.7, now + off);
+                cGain.gain.exponentialRampToValueAtTime(0.001, now + off + p.decay);
+                cSrc.connect(cFilt); cFilt.connect(cGain); cGain.connect(dest);
+                cSrc.start(now + off);
+            }
+        }
+    }
+
+    function playBassNote(midiNote, velocity) {
+        const velNorm = (velocity !== undefined) ? velocity / 127 : 1.0;
+        const ctx = _ctx(); if (!ctx) return;
+        const dest = _dest(); if (!dest) return;
+        if (ctx.state === 'suspended') ctx.resume();
+        const freq = 440 * Math.pow(2, (midiNote - 69) / 12);
+        const now = ctx.currentTime;
+        const osc = ctx.createOscillator(), filt = ctx.createBiquadFilter(), g = ctx.createGain();
+        osc.type = 'sawtooth'; osc.frequency.value = freq;
+        filt.type = 'lowpass'; filt.frequency.value = 800; filt.Q.value = 2;
+        g.gain.setValueAtTime(velNorm * 0.9, now + 0.001);
+        g.gain.exponentialRampToValueAtTime(0.001, now + 0.6);
+        osc.connect(filt); filt.connect(g); g.connect(dest);
+        osc.start(now); osc.stop(now + 0.65);
+    }
+
+    // play('808_kick', velocity) or play('909_snare', velocity)
+    function play(target, velocity) {
+        const parts = target.split('_');
+        const kit = parts[0];
+        const type = parts.slice(1).join('_');
+        if (type) playDrumSound(kit, type, velocity || 100);
+        else playBassNote(parseInt(kit) || 60, velocity || 100);
+    }
+
+    return { play, playDrumSound, playBassNote, kits };
+})();
+
+// ═══════════════════════════════════════════════════════════════════
+// VNGRD_SFX — Sound Effects Engine (synthesized, no samples)
+// play(name): 'applause' | 'cheer' | 'airhorn' | 'sub_drop'
+// Routes → APP.audio.masterGain (rec + monitor)
+// ═══════════════════════════════════════════════════════════════════
+const VNGRD_SFX = (() => {
+    function _ctx() {
+        if (!APP.audio.ctx) igniteAudio();
+        if (!APP.audio.masterGain) ensureAudioChain();
+        return APP.audio.ctx;
+    }
+    function _dest() {
+        return APP.audio.masterGain || (APP.audio.ctx && APP.audio.ctx.destination);
+    }
+
+    function play(name) {
+        const ctx = _ctx(); if (!ctx) return;
+        const dest = _dest(); if (!dest) return;
+        if (ctx.state === 'suspended') ctx.resume();
+        const now = ctx.currentTime;
+        switch (name) {
+            case 'applause': _applause(ctx, dest, now); break;
+            case 'cheer':    _cheer(ctx, dest, now);    break;
+            case 'airhorn':  _airhorn(ctx, dest, now);  break;
+            case 'sub_drop': _subDrop(ctx, dest, now);  break;
+        }
+        log('SFX: ' + name.toUpperCase());
+    }
+
+    function _applause(ctx, dest, now) {
+        for (let i = 0; i < 8; i++) {
+            const off = i * 0.08;
+            const buf = ctx.createBuffer(1, ctx.sampleRate * 0.06, ctx.sampleRate);
+            const d = buf.getChannelData(0);
+            for (let j = 0; j < d.length; j++) d[j] = Math.random() * 2 - 1;
+            const src = ctx.createBufferSource(); src.buffer = buf;
+            const filt = ctx.createBiquadFilter(); filt.type = 'bandpass'; filt.frequency.value = 1500 + Math.random() * 500; filt.Q.value = 0.5;
+            const g = ctx.createGain();
+            g.gain.setValueAtTime(0.4, now + off);
+            g.gain.exponentialRampToValueAtTime(0.001, now + off + 0.07);
+            src.connect(filt); filt.connect(g); g.connect(dest);
+            src.start(now + off);
+        }
+    }
+
+    function _cheer(ctx, dest, now) {
+        const dur = 1.5;
+        const buf = ctx.createBuffer(1, ctx.sampleRate * dur, ctx.sampleRate);
+        const d = buf.getChannelData(0);
+        for (let i = 0; i < d.length; i++) d[i] = Math.random() * 2 - 1;
+        const src = ctx.createBufferSource(); src.buffer = buf;
+        const filt = ctx.createBiquadFilter(); filt.type = 'bandpass'; filt.Q.value = 0.4;
+        filt.frequency.setValueAtTime(400, now);
+        filt.frequency.linearRampToValueAtTime(1200, now + dur * 0.4);
+        const g = ctx.createGain();
+        g.gain.setValueAtTime(0.0, now);
+        g.gain.linearRampToValueAtTime(0.7, now + dur * 0.3);
+        g.gain.linearRampToValueAtTime(0.5, now + dur * 0.8);
+        g.gain.exponentialRampToValueAtTime(0.001, now + dur);
+        src.connect(filt); filt.connect(g); g.connect(dest);
+        src.start(now);
+    }
+
+    function _airhorn(ctx, dest, now) {
+        // Classic brass chord: Bb/Eb/F
+        [233.1, 311.1, 349.2].forEach(freq => {
+            const osc = ctx.createOscillator(), g = ctx.createGain(), dist = ctx.createWaveShaper();
+            const curve = new Float32Array(256);
+            for (let i = 0; i < 256; i++) { const x = (i * 2) / 256 - 1; curve[i] = (Math.PI + 400) * x / (Math.PI + 400 * Math.abs(x)); }
+            dist.curve = curve;
+            osc.type = 'sawtooth'; osc.frequency.value = freq;
+            g.gain.setValueAtTime(0.45, now + 0.005);
+            g.gain.setValueAtTime(0.45, now + 1.2);
+            g.gain.exponentialRampToValueAtTime(0.001, now + 1.5);
+            osc.connect(dist); dist.connect(g); g.connect(dest);
+            osc.start(now); osc.stop(now + 1.6);
+        });
+    }
+
+    function _subDrop(ctx, dest, now) {
+        // Sine sweep 80→20 Hz over 2s
+        const osc = ctx.createOscillator(), g = ctx.createGain();
+        osc.type = 'sine';
+        osc.frequency.setValueAtTime(80, now);
+        osc.frequency.exponentialRampToValueAtTime(20, now + 2.0);
+        g.gain.setValueAtTime(1.2, now + 0.01);
+        g.gain.setValueAtTime(1.2, now + 1.8);
+        g.gain.exponentialRampToValueAtTime(0.001, now + 2.2);
+        // Low-frequency texture noise
+        const nBuf = ctx.createBuffer(1, ctx.sampleRate * 2.2, ctx.sampleRate);
+        const nd = nBuf.getChannelData(0);
+        for (let i = 0; i < nd.length; i++) nd[i] = Math.random() * 2 - 1;
+        const nSrc = ctx.createBufferSource(); nSrc.buffer = nBuf;
+        const nFilt = ctx.createBiquadFilter(); nFilt.type = 'lowpass'; nFilt.frequency.value = 80;
+        const nGain = ctx.createGain();
+        nGain.gain.setValueAtTime(0.3, now);
+        nGain.gain.exponentialRampToValueAtTime(0.001, now + 2.2);
+        nSrc.connect(nFilt); nFilt.connect(nGain); nGain.connect(dest);
+        nSrc.start(now);
+        osc.connect(g); g.connect(dest);
+        osc.start(now); osc.stop(now + 2.3);
+    }
+
+    return { play };
+})();
+
 function connectVideoAudio(vid) {
     if (!vid || vid.tagName !== 'VIDEO') return;
     try {
@@ -6711,7 +6959,19 @@ document.addEventListener('DOMContentLoaded', () => {
             case 'shatter': if (typeof createGlassFracture === 'function') createGlassFracture(window.innerWidth/2, window.innerHeight/2); break;
             case 'lens-drip': el.click(); break;
             case 'heat-haze': el.click(); break;
-            default: if (el.click) el.click();
+            // VNGRD_VST — drum/bass layers
+            case 'vst:808_kick':   if (typeof VNGRD_VST !== 'undefined') VNGRD_VST.playDrumSound('808', 'kick',  velocity); break;
+            case 'vst:808_snare':  if (typeof VNGRD_VST !== 'undefined') VNGRD_VST.playDrumSound('808', 'snare', velocity); break;
+            case 'vst:909_kick':   if (typeof VNGRD_VST !== 'undefined') VNGRD_VST.playDrumSound('909', 'kick',  velocity); break;
+            case 'vst:909_snare':  if (typeof VNGRD_VST !== 'undefined') VNGRD_VST.playDrumSound('909', 'snare', velocity); break;
+            case 'vst:808_hihat':  if (typeof VNGRD_VST !== 'undefined') VNGRD_VST.playDrumSound('808', 'hihat_closed', velocity); break;
+            case 'vst:909_hihat':  if (typeof VNGRD_VST !== 'undefined') VNGRD_VST.playDrumSound('909', 'hihat_closed', velocity); break;
+            // VNGRD_SFX — crowd/event sounds
+            case 'sfx:applause':   if (typeof VNGRD_SFX !== 'undefined') VNGRD_SFX.play('applause'); break;
+            case 'sfx:cheer':      if (typeof VNGRD_SFX !== 'undefined') VNGRD_SFX.play('cheer');    break;
+            case 'sfx:airhorn':    if (typeof VNGRD_SFX !== 'undefined') VNGRD_SFX.play('airhorn');  break;
+            case 'sfx:sub_drop':   if (typeof VNGRD_SFX !== 'undefined') VNGRD_SFX.play('sub_drop'); break;
+            default: if (el && el.click) el.click();
         }
     }
     
