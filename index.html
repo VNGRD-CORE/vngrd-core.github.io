@@ -3664,13 +3664,12 @@ function renderLoop(timestamp) {
         if (document.body.style.transform) document.body.style.transform = '';
     }
 
-    // --- PUNCH: canvas-level spring scale (captured by captureStream) ---
-    // Transient detection: fire on a SUDDEN bass rise (kick drum hit), NOT on sustained loud bass.
-    // Delta > 22 from one frame to the next = percussive attack. Sustained bass gives delta ≈ 0.
-    // Punch uses a phase-based pulse: (1-t)²(1-2t) shape that peaks instantly at t=0,
-    // snaps back through zero at t=0.5, dips slightly negative (pull-back), then returns to 0 at t=1.
-    // Full cycle ≈ 8 frames (133ms at 60fps) — snappy and musical.
-    if (typeof APP.vj._punchT === 'undefined') { APP.vj._punchT = 1.0; APP.vj._punchAmp = 0; }
+    // --- PUNCH: damped spring oscillator — speaker membrane physics ---
+    // Each kick drum hit adds to position (additive, not reset) so rapid kicks stack.
+    // Underdamped spring (k=0.20, b=0.15) drives position back past zero (pull-back)
+    // then forward again at lower amplitude — exactly how a speaker cone behaves.
+    // Cooldown 180ms prevents retriggering inside a single kick transient.
+    if (typeof APP.vj._punchPos === 'undefined') { APP.vj._punchPos = 0; APP.vj._punchVel = 0; }
     if (typeof APP.vj._lastBassSnapshot === 'undefined') APP.vj._lastBassSnapshot = 0;
     var _bassNow = APP.audio.bassLevel;
     var _bassDelta = _bassNow - APP.vj._lastBassSnapshot;
@@ -3680,8 +3679,8 @@ function renderLoop(timestamp) {
         _bassNow > 130 && _bassDelta > 22 &&
         !window._punchCooldown) {
         var _hitStr = Math.min(1.0, (_bassDelta - 22) / 58 * 0.5 + 0.5);
-        APP.vj._punchT = 0;       // restart pulse clock
-        APP.vj._punchAmp = _hitStr;
+        // Additive push — stacks so rapid kicks compound like a subwoofer
+        APP.vj._punchPos = Math.min(1.2, APP.vj._punchPos + _hitStr);
         window._punchCooldown = true;
         setTimeout(() => { window._punchCooldown = false; }, 180);
         if (APP.vj.punchConsoleMode) {
@@ -3689,8 +3688,12 @@ function renderLoop(timestamp) {
             setTimeout(() => { document.body.style.filter = ''; }, 60);
         }
     }
-    // Advance phase: 0.12/frame → full cycle in ~8 frames (133ms)
-    APP.vj._punchT = Math.min(1.0, APP.vj._punchT + 0.12);
+    // Per-frame spring: a = -k*x - b*v  (k=0.20 stiff, b=0.15 underdamped → overshoots)
+    // Result: push ~12% → pull back ~7% → smaller echo → settle. ~20 frames total at 60fps.
+    var _pa = -0.20 * APP.vj._punchPos - 0.15 * APP.vj._punchVel;
+    APP.vj._punchVel += _pa;
+    APP.vj._punchPos += APP.vj._punchVel;
+    APP.vj._punchPos = Math.max(-0.65, Math.min(1.2, APP.vj._punchPos));
 
     // --- AUTONOMOUS PARTY MODE (audio-reactive via analyser) ---
     if (APP.vj.uiReactivity && APP.audio.bassLevel > 220 && Math.random() > 0.9) {
@@ -3703,10 +3706,7 @@ function renderLoop(timestamp) {
     ctx.fillRect(0, 0, w, h);
 
     // --- PUNCH / SEISMIC: frame-level transform — wraps ALL drawing (canvas only) ---
-    // Pulse shape: peaks at t=0, crosses zero at t=0.5, slight pull-back, resolves at t=1
-    var _punch = (APP.vj._punchT < 1.0)
-        ? APP.vj._punchAmp * Math.pow(1 - APP.vj._punchT, 2) * (1 - 2 * APP.vj._punchT)
-        : 0;
+    var _punch = APP.vj._punchPos;
     var _sX = APP.vj._canvasShakeX || 0, _sY = APP.vj._canvasShakeY || 0;
     var _hasFX = Math.abs(_punch) > 0.005 || Math.abs(_sX) > 0.1 || Math.abs(_sY) > 0.1;
     if (_hasFX) {
