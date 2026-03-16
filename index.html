@@ -2274,7 +2274,7 @@ const APP = {
     media: { queue: [], currentIndex: -1, currentElement: null },
     fx: { stutter: false, crush: false, invert: false, echo: false, rgbSplit: 0, freezeFrame: null },
     audio: { ctx: null, analyzer: null, source: null, element: null, playlist: [], currentTrack: -1, currentTrackName: '', bassLevel: 0, vuData: new Uint8Array(32), isPlaying: false, isConnected: false, videoSource: null, videoMuted: false, videoGain: null, spatialMode: 'stereo', panner: null, compressor: null, masterGain: null, lowShelf: null, highShelf: null, spatialInterval: null, recorderDest: null },
-    projector: { window: null, stream: null, isOpen: false },
+
     nft: { recorder: null, chunks: [], isRecording: false, startTime: 0, duration: 30000, dnaSnapshot: null, audioDest: null },
     broadcast: { recorder: null, chunks: [], isRecording: false },
     loop: { recorder: null, chunks: [], activeUrl: null, timer: null, counter: 10 },
@@ -2972,7 +2972,7 @@ function processGhostCommand(cmd) {
 
             // ── AI GENERATOR ──
             case 'ai_help':
-                ghostLog('AI_INJECTION sidebar: pick model (DALL-E 3 / SDXL / SD3), type prompt, hit GENERATE. Powered by Pollinations — no API key needed.', 'ai');
+                ghostLog('AI_INJECTION sidebar: pick a Pollinations model (FLUX / TURBO / 3D / ANIME), type a prompt, hit GENERATE. Free, unlimited, no API key.', 'ai');
                 break;
 
             // ── UTILITY ──
@@ -3748,7 +3748,7 @@ function renderLoop(timestamp) {
     }
     else if (_fxCls.contains('fx-nvg'))   _fxDrawFilter = 'grayscale(1) brightness(1.6) contrast(2.2) sepia(0.9) hue-rotate(78deg) saturate(5)';
     else if (_fxCls.contains('fx-tear'))  _fxDrawFilter = 'hue-rotate(90deg) contrast(1.2)';
-    else if (_fxCls.contains('vhs'))      _fxDrawFilter = 'contrast(1.1) brightness(0.95) saturate(1.3)';
+    else if (_fxCls.contains('vhs'))      _fxDrawFilter = 'contrast(1.4) brightness(0.88) saturate(0.72) sepia(0.28)';
     var _punchBright = (_punch > 0.05) ? (1 + _punch * 0.9) : 1.0;
     const filterStr = 'brightness(' + (APP.vj.brightness * _punchBright) + ') contrast(' + APP.vj.contrast + ') saturate(' + APP.vj.saturation + ') hue-rotate(' + APP.vj.hue + 'deg)' + (APP.vj.invert ? ' invert(1)' : '') + (_fxDrawFilter ? ' ' + _fxDrawFilter : '');
     const isIdentityFilter = _punchBright <= 1.001 && !_fxDrawFilter && APP.vj.brightness === 1.0 && APP.vj.contrast === 1.0 && APP.vj.saturation === 1.0 && APP.vj.hue === 0 && !APP.vj.invert;
@@ -4374,12 +4374,25 @@ if (T.logo.visible) {
         if (_fxCls.contains('vhs')) {
             ctx.save();
             ctx.setTransform(1, 0, 0, 1, 0, 0); ctx.filter = 'none'; ctx.globalAlpha = 1; ctx.globalCompositeOperation = 'source-over';
-            ctx.fillStyle = 'rgba(0,0,0,0.09)';
+            // ── Chromatic aberration: snapshot canvas, draw red channel +4px right, cyan -4px left ──
+            if (!window._vhsSnap) window._vhsSnap = document.createElement('canvas');
+            if (window._vhsSnap.width !== _ow || window._vhsSnap.height !== _oh) { window._vhsSnap.width = _ow; window._vhsSnap.height = _oh; }
+            window._vhsSnap.getContext('2d').drawImage(APP.render.canvas, 0, 0, _ow, _oh);
+            ctx.globalCompositeOperation = 'screen';
+            ctx.globalAlpha = 0.28;
+            ctx.filter = 'sepia(1) saturate(10) hue-rotate(315deg)'; // red channel
+            ctx.drawImage(window._vhsSnap, 4, 0, _ow, _oh);
+            ctx.filter = 'sepia(1) saturate(10) hue-rotate(158deg)'; // cyan channel
+            ctx.drawImage(window._vhsSnap, -4, 0, _ow, _oh);
+            ctx.filter = 'none'; ctx.globalCompositeOperation = 'source-over'; ctx.globalAlpha = 1;
+            // ── Scanlines ──
+            ctx.fillStyle = 'rgba(0,0,0,0.22)';
             for (var _vl = 0; _vl < _oh; _vl += 2) ctx.fillRect(0, _vl, _ow, 1);
+            // ── Rolling tracking bar ──
             var _ry = (timestamp * 0.04) % _oh;
-            var _vb = ctx.createLinearGradient(0, _ry - 8, 0, _ry + 8);
-            _vb.addColorStop(0, 'rgba(255,255,255,0)'); _vb.addColorStop(0.5, 'rgba(255,255,255,0.07)'); _vb.addColorStop(1, 'rgba(255,255,255,0)');
-            ctx.fillStyle = _vb; ctx.fillRect(0, Math.max(0, _ry - 8), _ow, 16);
+            var _vb = ctx.createLinearGradient(0, _ry - 12, 0, _ry + 12);
+            _vb.addColorStop(0, 'rgba(255,255,255,0)'); _vb.addColorStop(0.5, 'rgba(255,255,255,0.16)'); _vb.addColorStop(1, 'rgba(255,255,255,0)');
+            ctx.fillStyle = _vb; ctx.fillRect(0, Math.max(0, _ry - 12), _ow, 24);
             ctx.restore();
         }
         // SCAN / X-RAY: animated cyan laser sweep bar
@@ -6056,8 +6069,6 @@ function triggerIndustrialSnap(nextImageUrl) {
     }, 200); 
 }
 
-// THE TRIGGER: This ensures the projector logic and snap logic coexist
-if (typeof log === 'function') log('PROJECTOR_SYSTEM_LINKED');
 // UI
 function setTheme(theme) { document.body.className = document.body.className.replace(/theme-\w+/g, '').replace('system-failure', ''); if (theme !== 'cyan') document.body.classList.add(`theme-${theme}`); APP.state.theme = theme; document.querySelectorAll('.pal').forEach(p => p.classList.toggle('on', p.dataset.t === theme)); log(`THEME: ${theme}`); }
 function toggleVHS() { if (APP.peer && APP.peer.call) { log('FX_BLOCKED: P2P active'); return; } document.body.classList.toggle('vhs'); $('btn-vhs').classList.toggle('on'); log('VHS'); }
@@ -9230,72 +9241,16 @@ var isVideo = nft.forceVideo || (imageUrl.toLowerCase().match(/\.(mp4|webm|mov|o
         var cfg = _pollinationsStyles[modelKey] || _pollinationsStyles['pollinations'];
         var fullPrompt = cfg.style ? prompt + ', ' + cfg.style : prompt;
 
-        _aiStatus(modelKey.toUpperCase() + ': GENERATING...', 'var(--v)');
+        _aiStatus('GENERATING...', 'var(--v)');
         log('AI: [' + modelKey.toUpperCase() + '] >> ' + prompt);
 
-        // ── Tier 1: Fal.ai via local backend ─────────────────────────
-        var backendOk = false;
+        // ── Pollinations (free, no API key, unlimited) ────────────────
         try {
-            var backendCtrl = new AbortController();
-            var backendTid = setTimeout(function() { backendCtrl.abort(); }, 90000);
-            
-            var backendRes = await fetch('http://127.0.0.1:8000/generate', {
-                method: 'POST',
-                headers: { 
-                    'Content-Type': 'application/json',
-                    'Accept': 'application/json'
-                },
-                body: JSON.stringify({ 
-                    prompt: fullPrompt,
-                    width: 1024,   
-                    height: 1024   
-                }),
-                signal: backendCtrl.signal
-            });
-
-            clearTimeout(backendTid);
-
-            if (backendRes.ok) {
-                var backendData = await backendRes.json();
-                if (backendData.url) {
-                    var resp = await fetch(backendData.url);
-                    if (!resp.ok) throw new Error('BACKEND_IMG_HTTP_' + resp.status);
-                    
-                    var blob = await resp.blob();
-                    var objectUrl = URL.createObjectURL(blob);
-                    var img = new Image();
-                    
-                    await new Promise(function(resolve, reject) {
-                        img.onload = resolve;
-                        img.onerror = function() { reject(new Error('BACKEND_IMG_DECODE_FAILED')); };
-                        img.src = objectUrl;
-                    });
-
-                    _aiInject(img, prompt);
-                    _aiDone(btn);
-                    
-                    var srcLabel = (backendData.source || 'FAL').toUpperCase().replace(/-/g, '_');
-                    _aiStatus('DONE [' + srcLabel + ']', 'var(--g)');
-                    log('AI: BACKEND_OK');
-                    backendOk = true;
-                }
-            } else {
-                const errDetail = await backendRes.json();
-                log('AI: BACKEND_REJECTED: ' + JSON.stringify(errDetail));
-            }
+            await _aiPollinations(fullPrompt, btn, cfg.model);
         } catch(e) {
-            log('AI: BACKEND_OFFLINE/TIMEOUT → FALLBACK');
-        }
-
-        // ── Tier 2: Pollinations direct (Fallback) ───────────────────
-        if (!backendOk) {
-            try {
-                await _aiPollinations(fullPrompt, btn, cfg.model);
-            } catch(e2) {
-                _aiDone(btn);
-                _aiStatus('ALL_SOURCES_FAILED', 'var(--r)');
-                log('AI: ALL_SOURCES_FAILED: ' + e2.message);
-            }
+            _aiDone(btn);
+            _aiStatus('GENERATE_FAILED: ' + e.message, 'var(--r)');
+            log('AI: FAILED: ' + e.message);
         }
 
         _aiGenerating = false;
