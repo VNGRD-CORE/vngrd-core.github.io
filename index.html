@@ -1774,11 +1774,11 @@ body.fx-nvg #stage::after {
                 <div id="midi-status" style="font-size:8px;color:var(--text-dim);margin-top:4px;">NO MIDI DEVICE</div>
                 <div class="lbl" style="font-size:7px;opacity:0.5;margin-top:6px;margin-bottom:2px;">BROADCAST SFX</div>
                 <div class="btn-row" style="gap:4px;margin-top:2px;">
-                    <button class="btn sfx-btn" id="sfx-applause" data-sfx="applause" style="flex:1;font-size:8px;letter-spacing:0.04em;background:#050508;border:1px solid var(--c);color:var(--c);">APPLAUSE</button>
-                    <button class="btn sfx-btn" id="sfx-cheer"    data-sfx="cheer"    style="flex:1;font-size:8px;letter-spacing:0.04em;background:#050508;border:1px solid var(--c);color:var(--c);">CHEER</button>
-                    <button class="btn sfx-btn" id="sfx-horn"     data-sfx="airhorn"  style="flex:1;font-size:8px;letter-spacing:0.04em;background:#050508;border:1px solid var(--c);color:var(--c);">HORN</button>
+                    <button class="btn sfx-btn" id="sfx-applause" data-sfx="applause" data-midi-target="sfx:applause" style="flex:1;font-size:8px;letter-spacing:0.04em;background:#050508;border:1px solid var(--c);color:var(--c);">APPLAUSE</button>
+                    <button class="btn sfx-btn" id="sfx-cheer"    data-sfx="cheer"    data-midi-target="sfx:cheer"    style="flex:1;font-size:8px;letter-spacing:0.04em;background:#050508;border:1px solid var(--c);color:var(--c);">CHEER</button>
+                    <button class="btn sfx-btn" id="sfx-horn"     data-sfx="horn"     data-midi-target="sfx:horn"     style="flex:1;font-size:8px;letter-spacing:0.04em;background:#050508;border:1px solid var(--c);color:var(--c);">HORN</button>
                 </div>
-                <div id="sfx-midi-arm" style="font-size:7px;color:var(--text-dim);margin-top:3px;text-align:center;">CLICK TO ARM MIDI</div>
+                <div id="sfx-midi-arm" style="font-size:7px;color:var(--text-dim);margin-top:3px;text-align:center;">LEARN MODE: ARM EACH BUTTON</div>
             </div>
         </div>
         <div class="section">
@@ -4715,218 +4715,63 @@ const VNGRD_VST = (() => {
 })();
 
 // ═══════════════════════════════════════════════════════════════════
-// VNGRD_SFX — Broadcast SFX Engine (synthesized, no samples)
-// play(name): 'applause' | 'cheer' | 'airhorn' | 'sub_drop'
-// Routes → APP.audio.masterGain → recorderDest (P2P/rec) + ctx.destination (monitor)
+// SFX_ENGINE — Professional Sample Player (Broadcast-ready)
+// init(): pre-fetches all 3 OGG files into raw ArrayBuffers
+// play(name): decodes lazily then routes → APP.audio.masterGain
+// Routes → masterGain → recorderDest (P2P/rec) + ctx.destination
 // ═══════════════════════════════════════════════════════════════════
-const VNGRD_SFX = (() => {
-    function _ctx() {
-        if (!APP.audio.ctx) igniteAudio();
-        if (!APP.audio.masterGain) ensureAudioChain();
-        return APP.audio.ctx;
+const SFX_ENGINE = (() => {
+    const URLS = {
+        applause: 'https://upload.wikimedia.org/wikipedia/commons/2/25/Applause_-_des_applaudissements.ogg',
+        cheer:    'https://upload.wikimedia.org/wikipedia/commons/4/44/Crowd_cheer.ogg',
+        horn:     'https://actions.google.com/sounds/v1/emergency/air_horn_blast.ogg'
+    };
+    const _raw = {};     // pre-fetched ArrayBuffer per name
+    const buffers = {};  // decoded AudioBuffer per name
+    const GAIN = 0.5;    // broadcast-safe default volume (50%)
+
+    // Pre-fetch raw bytes at startup — no AudioContext needed
+    function init() {
+        Object.entries(URLS).forEach(([name, url]) => {
+            fetch(url)
+                .then(r => { if (!r.ok) throw new Error(r.status); return r.arrayBuffer(); })
+                .then(ab => { _raw[name] = ab; log('SFX_ENGINE: FETCHED ' + name.toUpperCase()); })
+                .catch(e => log('SFX_ENGINE: FETCH_FAIL ' + name.toUpperCase() + ' — ' + e.message));
+        });
     }
-    function _dest() {
-        // masterGain already splits to recorderDest + outputLimiter→ctx.destination
-        return APP.audio.masterGain || (APP.audio.ctx && APP.audio.ctx.destination);
+
+    // Decode raw bytes via AudioContext (lazy, called on first play)
+    function _decode(name, ctx) {
+        if (buffers[name]) return Promise.resolve(buffers[name]);
+        if (!_raw[name])   return Promise.reject(new Error('not fetched yet'));
+        // slice() clones the buffer since decodeAudioData may detach it
+        return ctx.decodeAudioData(_raw[name].slice(0)).then(buf => {
+            buffers[name] = buf;
+            log('SFX_ENGINE: DECODED ' + name.toUpperCase());
+            return buf;
+        });
     }
 
     function play(name) {
-        const ctx = _ctx(); if (!ctx) return;
-        const dest = _dest(); if (!dest) return;
+        if (!APP.audio.ctx) igniteAudio();
+        if (!APP.audio.masterGain) ensureAudioChain();
+        const ctx = APP.audio.ctx;
+        if (!ctx) return;
         if (ctx.state === 'suspended') ctx.resume();
-        const now = ctx.currentTime;
-        switch (name) {
-            case 'applause': _applause(ctx, dest, now); break;
-            case 'cheer':    _cheer(ctx, dest, now);    break;
-            case 'airhorn':  _airhorn(ctx, dest, now);  break;
-            case 'sub_drop': _subDrop(ctx, dest, now);  break;
-        }
-        log('SFX: ' + name.toUpperCase());
+
+        _decode(name, ctx).then(buf => {
+            const src  = ctx.createBufferSource();
+            src.buffer = buf;
+            const gain = ctx.createGain();
+            gain.gain.value = GAIN;
+            src.connect(gain);
+            gain.connect(APP.audio.masterGain || ctx.destination);
+            src.start();
+            log('SFX_ENGINE: PLAY ' + name.toUpperCase());
+        }).catch(() => log('SFX_ENGINE: NOT_READY — ' + name.toUpperCase()));
     }
 
-    // ── APPLAUSE ─────────────────────────────────────────────────────
-    // Stadium crowd: white-noise burst shaped through a 4-band spectral
-    // spread (body 600 Hz, presence 2 kHz, air 6 kHz, rumble sub) with
-    // exponential decay envelope and short pre-delay reverb tail.
-    function _applause(ctx, dest, now) {
-        const dur = 2.8;
-        // Master envelope gain
-        const master = ctx.createGain();
-        master.gain.setValueAtTime(0.0, now);
-        master.gain.linearRampToValueAtTime(0.9, now + 0.08);   // snap attack
-        master.gain.setValueAtTime(0.9, now + 0.4);             // hold
-        master.gain.exponentialRampToValueAtTime(0.001, now + dur);
-        master.connect(dest);
-
-        // 4 spectral layers of shaped noise
-        const bands = [
-            { f: 600,  Q: 1.2, vol: 0.55 },   // body
-            { f: 2000, Q: 0.9, vol: 0.70 },   // presence
-            { f: 5500, Q: 0.7, vol: 0.45 },   // air / sibilance
-            { f: 120,  Q: 2.0, vol: 0.30 },   // sub rumble (shuffling feet)
-        ];
-        bands.forEach(b => {
-            const buf = ctx.createBuffer(2, ctx.sampleRate * dur, ctx.sampleRate);
-            for (let ch = 0; ch < 2; ch++) {
-                const d = buf.getChannelData(ch);
-                for (let i = 0; i < d.length; i++) d[i] = Math.random() * 2 - 1;
-            }
-            const src = ctx.createBufferSource(); src.buffer = buf;
-            const bp  = ctx.createBiquadFilter(); bp.type = 'bandpass';
-            bp.frequency.value = b.f; bp.Q.value = b.Q;
-            const g = ctx.createGain(); g.gain.value = b.vol;
-            src.connect(bp); bp.connect(g); g.connect(master);
-            src.start(now);
-        });
-
-        // Clap rhythm layer — sparse transients for realism
-        for (let i = 0; i < 14; i++) {
-            const off = Math.random() * dur * 0.85;
-            const cBuf = ctx.createBuffer(1, ctx.sampleRate * 0.04, ctx.sampleRate);
-            const cd = cBuf.getChannelData(0);
-            for (let j = 0; j < cd.length; j++) cd[j] = Math.random() * 2 - 1;
-            const cSrc = ctx.createBufferSource(); cSrc.buffer = cBuf;
-            const cFilt = ctx.createBiquadFilter(); cFilt.type = 'bandpass';
-            cFilt.frequency.value = 1200 + Math.random() * 800; cFilt.Q.value = 1.5;
-            const cGain = ctx.createGain();
-            cGain.gain.setValueAtTime(0.5 + Math.random() * 0.3, now + off);
-            cGain.gain.exponentialRampToValueAtTime(0.001, now + off + 0.035);
-            cSrc.connect(cFilt); cFilt.connect(cGain); cGain.connect(master);
-            cSrc.start(now + off);
-        }
-    }
-
-    // ── CHEER ────────────────────────────────────────────────────────
-    // Rising energy swell: filtered noise with a resonant peak that
-    // sweeps 300 → 1800 Hz over 2.5 s, layered with harmonic excitement.
-    function _cheer(ctx, dest, now) {
-        const dur = 2.5;
-        const master = ctx.createGain();
-        master.gain.setValueAtTime(0.0, now);
-        master.gain.linearRampToValueAtTime(0.85, now + dur * 0.35);
-        master.gain.linearRampToValueAtTime(0.95, now + dur * 0.6);
-        master.gain.exponentialRampToValueAtTime(0.001, now + dur);
-        master.connect(dest);
-
-        // Wide-spectrum crowd noise base
-        const baseBuf = ctx.createBuffer(2, ctx.sampleRate * dur, ctx.sampleRate);
-        for (let ch = 0; ch < 2; ch++) {
-            const d = baseBuf.getChannelData(ch);
-            for (let i = 0; i < d.length; i++) d[i] = Math.random() * 2 - 1;
-        }
-        const baseSrc = ctx.createBufferSource(); baseSrc.buffer = baseBuf;
-        const baseLP  = ctx.createBiquadFilter(); baseLP.type = 'lowpass';
-        baseLP.frequency.setValueAtTime(3500, now);
-        baseLP.frequency.linearRampToValueAtTime(8000, now + dur);
-        const baseG = ctx.createGain(); baseG.gain.value = 0.5;
-        baseSrc.connect(baseLP); baseLP.connect(baseG); baseG.connect(master);
-        baseSrc.start(now);
-
-        // Resonant sweep — the "energy peak" of the cheer
-        const sweepBuf = ctx.createBuffer(1, ctx.sampleRate * dur, ctx.sampleRate);
-        const sd = sweepBuf.getChannelData(0);
-        for (let i = 0; i < sd.length; i++) sd[i] = Math.random() * 2 - 1;
-        const sweepSrc  = ctx.createBufferSource(); sweepSrc.buffer = sweepBuf;
-        const sweepPeak = ctx.createBiquadFilter(); sweepPeak.type = 'peaking';
-        sweepPeak.frequency.setValueAtTime(300, now);
-        sweepPeak.frequency.exponentialRampToValueAtTime(1800, now + dur * 0.7);
-        sweepPeak.Q.value = 4; sweepPeak.gain.value = 18; // sharp resonant lift
-        const sweepG = ctx.createGain(); sweepG.gain.value = 0.7;
-        sweepSrc.connect(sweepPeak); sweepPeak.connect(sweepG); sweepG.connect(master);
-        sweepSrc.start(now);
-
-        // High-frequency excitement (air layer) grows with cheer
-        const airBuf = ctx.createBuffer(1, ctx.sampleRate * dur, ctx.sampleRate);
-        const ad = airBuf.getChannelData(0);
-        for (let i = 0; i < ad.length; i++) ad[i] = Math.random() * 2 - 1;
-        const airSrc  = ctx.createBufferSource(); airSrc.buffer = airBuf;
-        const airHP   = ctx.createBiquadFilter(); airHP.type = 'highpass'; airHP.frequency.value = 5000;
-        const airG    = ctx.createGain();
-        airG.gain.setValueAtTime(0.0, now);
-        airG.gain.linearRampToValueAtTime(0.35, now + dur * 0.5);
-        airSrc.connect(airHP); airHP.connect(airG); airG.connect(master);
-        airSrc.start(now);
-    }
-
-    // ── AIRHORN ──────────────────────────────────────────────────────
-    // Classic Reggae / Stadium air horn: 4 detuned sawtooth oscillators
-    // (root + minor-3rd + 5th + octave), each with its own waveshaper
-    // for buzziness, plus a slow LFO tremolo for the "wah" wobble.
-    function _airhorn(ctx, dest, now) {
-        const rootHz = 116.5;   // Bb2 — classic reggae horn root
-        // Stack: root, minor-3rd (+3 semi), 5th (+7 semi), octave (+12)
-        const semitones  = [0, 3, 7, 12];
-        const detuneAmts = [0, 4, -3, 6]; // cents detune per voice for width
-
-        // Shared LFO for tremolo wobble (3.5 Hz)
-        const lfo     = ctx.createOscillator(); lfo.type = 'sine'; lfo.frequency.value = 3.5;
-        const lfoGain = ctx.createGain(); lfoGain.gain.value = 0.12;
-        lfo.connect(lfoGain); lfo.start(now);
-
-        semitones.forEach((semi, idx) => {
-            const freq = rootHz * Math.pow(2, semi / 12);
-            const osc  = ctx.createOscillator();
-            osc.type   = 'sawtooth';
-            osc.frequency.value = freq;
-            osc.detune.value    = detuneAmts[idx];
-
-            // Hard-clip waveshaper for horn buzz
-            const dist  = ctx.createWaveShaper();
-            const n     = 512;
-            const curve = new Float32Array(n);
-            for (let i = 0; i < n; i++) {
-                const x = (i * 2) / n - 1;
-                curve[i] = x < 0 ? -Math.pow(Math.abs(x), 0.6) : Math.pow(x, 0.6);
-            }
-            dist.curve   = curve;
-            dist.oversample = '4x';
-
-            const voiceGain = ctx.createGain();
-            // Attack: instant, sustain, then tail off
-            voiceGain.gain.setValueAtTime(0.0,  now);
-            voiceGain.gain.linearRampToValueAtTime(0.35, now + 0.012);
-            voiceGain.gain.setValueAtTime(0.35,  now + 1.4);
-            voiceGain.gain.exponentialRampToValueAtTime(0.001, now + 1.9);
-
-            // LFO wobble added to voice gain
-            lfoGain.connect(voiceGain.gain);
-
-            osc.connect(dist); dist.connect(voiceGain); voiceGain.connect(dest);
-            osc.start(now); osc.stop(now + 2.0);
-        });
-
-        // Sub thud on attack — the physical "punch" of a real horn
-        const subOsc  = ctx.createOscillator(); subOsc.type = 'sine'; subOsc.frequency.value = 58;
-        const subGain = ctx.createGain();
-        subGain.gain.setValueAtTime(0.7, now + 0.005);
-        subGain.gain.exponentialRampToValueAtTime(0.001, now + 0.18);
-        subOsc.connect(subGain); subGain.connect(dest);
-        subOsc.start(now); subOsc.stop(now + 0.22);
-    }
-
-    function _subDrop(ctx, dest, now) {
-        const osc = ctx.createOscillator(), g = ctx.createGain();
-        osc.type = 'sine';
-        osc.frequency.setValueAtTime(80, now);
-        osc.frequency.exponentialRampToValueAtTime(20, now + 2.0);
-        g.gain.setValueAtTime(1.2, now + 0.01);
-        g.gain.setValueAtTime(1.2, now + 1.8);
-        g.gain.exponentialRampToValueAtTime(0.001, now + 2.2);
-        const nBuf = ctx.createBuffer(1, ctx.sampleRate * 2.2, ctx.sampleRate);
-        const nd   = nBuf.getChannelData(0);
-        for (let i = 0; i < nd.length; i++) nd[i] = Math.random() * 2 - 1;
-        const nSrc  = ctx.createBufferSource(); nSrc.buffer = nBuf;
-        const nFilt = ctx.createBiquadFilter(); nFilt.type = 'lowpass'; nFilt.frequency.value = 80;
-        const nGain = ctx.createGain();
-        nGain.gain.setValueAtTime(0.3, now);
-        nGain.gain.exponentialRampToValueAtTime(0.001, now + 2.2);
-        nSrc.connect(nFilt); nFilt.connect(nGain); nGain.connect(dest);
-        nSrc.start(now);
-        osc.connect(g); g.connect(dest);
-        osc.start(now); osc.stop(now + 2.3);
-    }
-
-    return { play };
+    return { init, play };
 })();
 
 function connectVideoAudio(vid) {
@@ -6501,6 +6346,9 @@ document.addEventListener('DOMContentLoaded', () => {
     // ── FX CLEANUP: purge stale effect classes from prior session ──
     document.body.classList.remove('fx-void', 'fx-lucy', 'fx-scan', 'fx-tear', 'fx-punch');
 
+    // Pre-fetch SFX audio files so they decode instantly on first play
+    SFX_ENGINE.init();
+
     bootSequence();
 
     // ── PHASE 0: CRITICAL — UI frame must render immediately ──
@@ -6916,29 +6764,30 @@ document.addEventListener('DOMContentLoaded', () => {
     }
     
     // --- BROADCAST SFX BUTTONS ---
-    // Click: preview the sound immediately + arm it as the live MIDI target.
-    // Every incoming MIDI Note-On will fire APP.midi.sfxTarget until changed.
+    // Click: preview the sound immediately via SFX_ENGINE.
+    // MIDI Learn: arm each button individually via data-midi-target.
     (function() {
-        const armStatus = $('sfx-midi-arm');
         document.querySelectorAll('.sfx-btn').forEach(btn => {
             btn.addEventListener('click', () => {
                 const sfxName = btn.dataset.sfx;
                 // Immediate preview
-                if (typeof VNGRD_SFX !== 'undefined') VNGRD_SFX.play(sfxName);
-                // Arm as MIDI target
-                APP.midi.sfxTarget = sfxName;
-                // Visual: clear all, light active
+                SFX_ENGINE.play(sfxName);
+                // Visual flash: active state briefly
                 document.querySelectorAll('.sfx-btn').forEach(b => {
-                    b.style.background    = '#050508';
-                    b.style.color         = 'var(--c)';
-                    b.style.boxShadow     = '';
-                    b.style.borderColor   = 'var(--c)';
+                    b.style.background  = '#050508';
+                    b.style.color       = 'var(--c)';
+                    b.style.boxShadow   = '';
+                    b.style.borderColor = 'var(--c)';
                 });
                 btn.style.background  = 'var(--c)';
                 btn.style.color       = '#000';
                 btn.style.boxShadow   = '0 0 10px var(--c)';
-                if (armStatus) armStatus.textContent = 'MIDI ARMED: ' + sfxName.toUpperCase();
-                log('SFX_ARMED: ' + sfxName.toUpperCase() + ' → MIDI LIVE');
+                setTimeout(() => {
+                    btn.style.background  = '#050508';
+                    btn.style.color       = 'var(--c)';
+                    btn.style.boxShadow   = '';
+                }, 300);
+                log('SFX: ' + sfxName.toUpperCase());
             });
         });
     })();
@@ -6994,11 +6843,6 @@ document.addEventListener('DOMContentLoaded', () => {
                     
                     // Note On (cmd 9) with velocity > 0
                     if (cmd === 9 && velocity > 0) {
-                        // BROADCAST SFX — live armed target fires on every Note-On
-                        if (APP.midi.sfxTarget && typeof VNGRD_SFX !== 'undefined') {
-                            VNGRD_SFX.play(APP.midi.sfxTarget);
-                        }
-
                         // INSTRUMENT PASSTHROUGH
                         if (APP.midi.passthrough) {
                             playSynthNote(note, velocity);
@@ -7104,11 +6948,10 @@ document.addEventListener('DOMContentLoaded', () => {
             case 'vst:909_snare':  if (typeof VNGRD_VST !== 'undefined') VNGRD_VST.playDrumSound('909', 'snare', velocity); break;
             case 'vst:808_hihat':  if (typeof VNGRD_VST !== 'undefined') VNGRD_VST.playDrumSound('808', 'hihat_closed', velocity); break;
             case 'vst:909_hihat':  if (typeof VNGRD_VST !== 'undefined') VNGRD_VST.playDrumSound('909', 'hihat_closed', velocity); break;
-            // VNGRD_SFX — crowd/event sounds
-            case 'sfx:applause':   if (typeof VNGRD_SFX !== 'undefined') VNGRD_SFX.play('applause'); break;
-            case 'sfx:cheer':      if (typeof VNGRD_SFX !== 'undefined') VNGRD_SFX.play('cheer');    break;
-            case 'sfx:airhorn':    if (typeof VNGRD_SFX !== 'undefined') VNGRD_SFX.play('airhorn');  break;
-            case 'sfx:sub_drop':   if (typeof VNGRD_SFX !== 'undefined') VNGRD_SFX.play('sub_drop'); break;
+            // SFX_ENGINE — broadcast sample player
+            case 'sfx:applause':   SFX_ENGINE.play('applause'); break;
+            case 'sfx:cheer':      SFX_ENGINE.play('cheer');    break;
+            case 'sfx:horn':       SFX_ENGINE.play('horn');     break;
             default: if (el && el.click) el.click();
         }
     }
@@ -7180,10 +7023,6 @@ document.addEventListener('DOMContentLoaded', () => {
 
                     // Note On → SEISMIC
                     if (cmd === 9 && velocity > 0) {
-                        // BROADCAST SFX — live armed target fires on every Note-On
-                        if (APP.midi.sfxTarget && typeof VNGRD_SFX !== 'undefined') {
-                            VNGRD_SFX.play(APP.midi.sfxTarget);
-                        }
                         if (APP.midi.passthrough) playSynthNote(note, velocity);
                         const binding = APP.midi.bindings['note' + note];
                         if (binding) triggerMidiBinding(binding, velocity);
