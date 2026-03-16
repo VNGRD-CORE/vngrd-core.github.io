@@ -1251,7 +1251,13 @@ body.fx-scan #stage::after {
 .btn.console-mode::after { content: '●'; position: absolute; top: 2px; right: 3px; font-size: 5px; color: var(--accent); opacity: 0.8; pointer-events: none; }
 .btn.on { color: var(--accent) !important; border-color: var(--accent) !important; background: rgba(0,243,255,0.08) !important; text-shadow: 0 0 8px var(--accent) !important; }
 .btn.active-fx { color: var(--accent) !important; border-color: var(--accent) !important; background: rgba(0,243,255,0.06) !important; }
-#btn-nvg.active-fx { color: #00ff41 !important; border-color: #00ff41 !important; background: rgba(0,255,65,0.18) !important; box-shadow: 0 0 14px rgba(0,255,65,0.55), inset 0 0 6px rgba(0,255,65,0.12) !important; text-shadow: 0 0 8px #00ff41 !important; }
+/* NVG active: surface above the z-9998 vignette overlay, unmissable green glow */
+/* NVG active: the sidebar has transform:translate3d(0,0,0) which creates a stacking context,
+   so child z-index can't compete with body::after at z-9998. Lift the WHOLE sidebar above the
+   vignette overlay so buttons stay visible and interactive. */
+body.fx-nvg .sidebar { z-index: 9999; }
+/* Unmissable green glow on the active NVG button */
+#btn-nvg.active-fx { color: #00ff41 !important; border-color: #00ff41 !important; background: rgba(0,255,65,0.30) !important; filter: drop-shadow(0 0 8px #00ff41) drop-shadow(0 0 18px rgba(0,255,65,0.55)) !important; text-shadow: 0 0 6px #00ff41, 0 0 16px #00ff41 !important; }
 
 /* Ensure no FX overlay blocks clicks */
 .fx-punch::after, .punch-hit::after {
@@ -3656,28 +3662,45 @@ function renderLoop(timestamp) {
         if (document.body.style.transform) document.body.style.transform = '';
     }
 
-    // --- PUNCH: rising-edge (velocity) kick detection ---
-    // Fire on the RISING EDGE of bass — when bass is climbing fast (kick attack).
-    // With smoothingTimeConstant=0.6 a kick produces a clear slope of 15-40+ over 2-3 frames.
-    // Works for any audio source (built-in player, video feed, mic). No isPlaying guard needed.
-    if (typeof APP.vj._punchSpring === 'undefined') APP.vj._punchSpring = 0;
-    if (typeof APP.vj._punchPrevBass === 'undefined') APP.vj._punchPrevBass = 0;
-    var _bassNow = APP.audio.bassLevel;
-    var _bassRise = _bassNow - APP.vj._punchPrevBass; // positive when bass is climbing
+    // --- PUNCH: BPM-linked beat pulser ---
+    // Phase 1 — rising-edge kick detection calibrates a beat-interval model.
+    // Phase 2 — scheduled forward pulses fire at the measured tempo, so the
+    //           flash stays perfectly in rhythm even when kick detection misses.
+    if (typeof APP.vj._punchSpring === 'undefined')    APP.vj._punchSpring = 0;
+    if (typeof APP.vj._punchPrevBass === 'undefined')  APP.vj._punchPrevBass = 0;
+    if (typeof APP.vj._bpm === 'undefined')            APP.vj._bpm = { interval: 0, lastBeat: 0, nextBeat: 0, history: [] };
+    var _bassNow  = APP.audio.bassLevel;
+    var _bassRise = _bassNow - APP.vj._punchPrevBass;
     APP.vj._punchPrevBass = _bassNow;
-    if (document.body.classList.contains('fx-punch') &&
-        _bassRise > 12 && _bassNow > 40 &&
-        !window._punchCooldown) {
-        var _hitStr = Math.min(1.0, _bassRise / 28);
-        APP.vj._punchSpring = _hitStr;
+    var _nowMs = performance.now();
+    var _bpmModel = APP.vj._bpm;
+    var _punchIsOn = document.body.classList.contains('fx-punch');
+
+    // Kick onset: update BPM model on every rising-edge detection
+    if (_bassRise > 12 && _bassNow > 40 && !window._punchCooldown) {
         window._punchCooldown = true;
-        setTimeout(() => { window._punchCooldown = false; }, 160);
-        if (APP.vj.punchConsoleMode) {
-            document.body.style.filter = 'brightness(1.8) contrast(1.2)';
-            setTimeout(() => { document.body.style.filter = ''; }, 55);
+        setTimeout(function() { window._punchCooldown = false; }, 100);
+        if (_bpmModel.lastBeat > 0) {
+            var _dt = _nowMs - _bpmModel.lastBeat;
+            if (_dt > 230 && _dt < 2000) {          // valid: 30–260 BPM
+                _bpmModel.history.push(_dt);
+                if (_bpmModel.history.length > 8) _bpmModel.history.shift();
+                var _s = 0; for (var _bi = 0; _bi < _bpmModel.history.length; _bi++) _s += _bpmModel.history[_bi];
+                _bpmModel.interval = _s / _bpmModel.history.length;
+            }
         }
+        _bpmModel.lastBeat = _nowMs;
+        _bpmModel.nextBeat = _nowMs + (_bpmModel.interval > 0 ? _bpmModel.interval : 500);
+        if (_punchIsOn) APP.vj._punchSpring = Math.min(1.0, _bassRise / 26);
     }
-    APP.vj._punchSpring *= 0.55; // 5 frames to 5% — sharp heartbeat snap
+
+    // BPM-scheduled pulse — keeps the flash locked to tempo between kick detections
+    if (_punchIsOn && _bpmModel.interval > 230 && _nowMs >= _bpmModel.nextBeat) {
+        _bpmModel.nextBeat += _bpmModel.interval;
+        if (APP.vj._punchSpring < 0.25) APP.vj._punchSpring = 0.70;
+    }
+
+    APP.vj._punchSpring *= 0.55; // sharp snap decay (~5 frames to 5%)
 
     // --- AUTONOMOUS PARTY MODE (audio-reactive via analyser) ---
     if (APP.vj.uiReactivity && APP.audio.bassLevel > 220 && Math.random() > 0.9) {
@@ -9652,14 +9675,18 @@ window.toggleFX = function(fxName) {
         // TURN OFF
         target.classList.remove(className);
         if (btn) btn.classList.remove('active-fx');
+        // NVG: restore button to base inline style so it doesn't look broken
+        if (fxName === 'nvg' && btn) { btn.style.background = ''; btn.style.filter = ''; btn.style.textShadow = '0 0 5px #00ff41'; }
         log(`FX_OFF: ${fxName.toUpperCase()}`);
     } else {
         // TURN ON (Clears existing tactical FX first for a clean state)
         target.classList.remove(...allFX);
-        document.querySelectorAll('.btn').forEach(b => b.classList.remove('active-fx'));
+        document.querySelectorAll('.btn').forEach(b => { b.classList.remove('active-fx'); if (b.id === 'btn-nvg') { b.style.background = ''; b.style.filter = ''; } });
 
         target.classList.add(className);
         if (btn) btn.classList.add('active-fx');
+        // NVG: direct inline glow — belt-and-suspenders on top of CSS rule
+        if (fxName === 'nvg' && btn) { btn.style.background = 'rgba(0,255,65,0.30)'; btn.style.filter = 'drop-shadow(0 0 8px #00ff41) drop-shadow(0 0 18px rgba(0,255,65,0.5))'; btn.style.textShadow = '0 0 8px #00ff41, 0 0 18px #00ff41'; }
         log(`FX_ON: ${fxName.toUpperCase()}`);
 
         // Auto-off for one-shot effects
