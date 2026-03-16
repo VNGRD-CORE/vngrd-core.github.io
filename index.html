@@ -3791,6 +3791,9 @@ function renderLoop(timestamp) {
     }
     
     // ═══ IDENTITY TRINITY — three independent actors burned into canvas ═══
+    // Punch/seismic transform MUST be closed here so logos, bug, and lower thirds
+    // are always drawn at identity scale — they must never zoom or shift with the beat.
+    if (_hasFX) { ctx.filter = 'none'; ctx.restore(); }
     ctx.filter = 'none';
     ctx.globalAlpha = 1;
     ctx.globalCompositeOperation = 'source-over';
@@ -4313,12 +4316,6 @@ if (T.logo.visible) {
             ctx.fillRect(0, 0, w, h);
             ctx.restore();
         }
-    }
-
-    // --- Close frame-level punch/seismic transform ---
-    if (_hasFX) {
-        ctx.filter = 'none';
-        ctx.restore();
     }
 
     // --- CANVAS-NATIVE FX OVERLAYS (geometric primitives, captureStream-visible in all browsers) ---
