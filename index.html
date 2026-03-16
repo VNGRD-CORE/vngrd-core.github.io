@@ -3664,19 +3664,21 @@ function renderLoop(timestamp) {
         if (document.body.style.transform) document.body.style.transform = '';
     }
 
-    // --- PUNCH: heartbeat spring — sharp zoom-in on kick, fast clean decay, NO negative phase ---
-    // Strictly >= 0 so canvas never shrinks below 1:1 — logos/overlays are never distorted.
-    // 0.62/frame decay → done in ~7 frames (115ms at 60fps). Crisp heartbeat per kick drum hit.
+    // --- PUNCH: relative-peak kick detection — works with analyser smoothingTimeConstant=0.8 ---
+    // The old frame-to-frame delta check was mutually exclusive: delta is large only when bass
+    // is still LOW (rising), and bass is HIGH only when delta has already shrunk. Result: never fires.
+    // Fix: track a slow-moving average (~17-frame window). A kick drum spikes the smoothed signal
+    // well above that average — _kickExcess > 35 catches it regardless of absolute level.
     if (typeof APP.vj._punchSpring === 'undefined') APP.vj._punchSpring = 0;
-    if (typeof APP.vj._lastBassSnapshot === 'undefined') APP.vj._lastBassSnapshot = 0;
+    if (typeof APP.vj._punchAvgBass === 'undefined') APP.vj._punchAvgBass = 0;
     var _bassNow = APP.audio.bassLevel;
-    var _bassDelta = _bassNow - APP.vj._lastBassSnapshot;
-    APP.vj._lastBassSnapshot = _bassNow;
+    APP.vj._punchAvgBass = APP.vj._punchAvgBass * 0.94 + _bassNow * 0.06;
+    var _kickExcess = _bassNow - APP.vj._punchAvgBass;
     if (document.body.classList.contains('fx-punch') &&
         (APP.audio.isPlaying || APP.audio.videoSource) &&
-        _bassNow > 130 && _bassDelta > 22 &&
+        _kickExcess > 35 && _bassNow > 55 &&
         !window._punchCooldown) {
-        var _hitStr = Math.min(1.0, (_bassDelta - 22) / 58 * 0.5 + 0.5);
+        var _hitStr = Math.min(1.0, _kickExcess / 70);
         APP.vj._punchSpring = _hitStr;
         window._punchCooldown = true;
         setTimeout(() => { window._punchCooldown = false; }, 180);
@@ -4358,13 +4360,29 @@ if (T.logo.visible) {
             ctx.fillStyle = _sg; ctx.fillRect(0, 0, _ow, _oh);
             ctx.restore();
         }
-        // TEAR / Glitch: two displaced chroma bands
+        // TEAR / Glitch: geometric horizontal slice displacement (baked into canvas pixels)
         if (_fxCls.contains('fx-tear')) {
+            // Snapshot current canvas into off-screen buffer
+            if (!window._tearSnap || window._tearSnap.width !== _ow || window._tearSnap.height !== _oh) {
+                window._tearSnap = document.createElement('canvas');
+                window._tearSnap.width = _ow; window._tearSnap.height = _oh;
+                window._tearSnapCtx = window._tearSnap.getContext('2d');
+            }
+            window._tearSnapCtx.drawImage(ctx.canvas, 0, 0);
+            // Draw displaced slices from snapshot back onto main canvas
+            var _sliceCount = 14;
+            var _sliceH = Math.ceil(_oh / _sliceCount);
+            var _tPhase = timestamp * 0.0014;
             ctx.save();
-            ctx.setTransform(1, 0, 0, 1, 0, 0); ctx.filter = 'none'; ctx.globalCompositeOperation = 'screen';
-            var _ty = (timestamp * 0.05) % _oh;
-            ctx.fillStyle = 'rgba(255,0,120,0.13)'; ctx.fillRect(0, Math.floor(_ty), _ow, 3);
-            ctx.fillStyle = 'rgba(0,255,200,0.11)'; ctx.fillRect(0, Math.floor((_ty + _oh * 0.37) % _oh), _ow, 2);
+            ctx.setTransform(1, 0, 0, 1, 0, 0); ctx.filter = 'none'; ctx.globalAlpha = 1; ctx.globalCompositeOperation = 'source-over';
+            for (var _si = 0; _si < _sliceCount; _si++) {
+                var _sy = _si * _sliceH;
+                var _sAmt = Math.sin(_tPhase + _si * 1.17) * 22;
+                // Every ~3rd slice gets a larger glitch jolt
+                if ((_si + Math.floor(_tPhase * 0.5)) % 3 === 0) _sAmt *= 2.4;
+                if (Math.abs(_sAmt) < 1) continue; // skip slices with negligible offset
+                ctx.drawImage(window._tearSnap, 0, _sy, _ow, _sliceH, _sAmt, _sy, _ow, _sliceH);
+            }
             ctx.restore();
         }
     }
@@ -6613,30 +6631,36 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     };
 
-    // SEISMIC TOGGLE — click to arm, double-click to switch canvas-only / console mode
-    APP.vj.seismicConsoleMode = false; // false = canvas-only, true = canvas + console shake
+    // SEISMIC TOGGLE — single-click = canvas-only, double-click = canvas + whole console shake
+    APP.vj.seismicConsoleMode = false;
     (function() {
         var btn = $('btn-rumble');
         var _dct = 0;
         btn.addEventListener('click', function() {
             var now = Date.now();
             if (now - _dct < 320) {
-                // Double-click: toggle console mode
-                APP.vj.seismicConsoleMode = !APP.vj.seismicConsoleMode;
-                btn.classList.toggle('console-mode', APP.vj.seismicConsoleMode);
-                btn.title = 'Click: arm SEISMIC\nDouble-click: toggle canvas-only vs console shake\nMode: ' + (APP.vj.seismicConsoleMode ? 'CANVAS + CONSOLE' : 'CANVAS ONLY');
+                // Double-click: arm CANVAS + CONSOLE shake
                 _dct = 0;
+                APP.vj.seismicConsoleMode = true;
+                APP.vj.rumbleEnabled = true;
+                btn.classList.add('on', 'console-mode');
+                btn.title = 'SEISMIC: CANVAS + CONSOLE';
+                log('SEISMIC: ON [CONSOLE+CANVAS]');
                 return;
             }
             _dct = now;
+            // Single click: toggle arm in canvas-only mode
             APP.vj.rumbleEnabled = !APP.vj.rumbleEnabled;
+            APP.vj.seismicConsoleMode = false;
             btn.classList.toggle('on', APP.vj.rumbleEnabled);
+            btn.classList.remove('console-mode');
             if (!APP.vj.rumbleEnabled) document.body.style.transform = '';
-            log(APP.vj.rumbleEnabled ? 'SEISMIC: ON [' + (APP.vj.seismicConsoleMode ? 'CONSOLE+CANVAS' : 'CANVAS') + ']' : 'SEISMIC: OFF');
+            btn.title = APP.vj.rumbleEnabled ? 'SEISMIC: CANVAS ONLY\nDouble-click: CANVAS + CONSOLE' : 'SEISMIC';
+            log(APP.vj.rumbleEnabled ? 'SEISMIC: ON [CANVAS ONLY]' : 'SEISMIC: OFF');
         });
     })();
 
-    // PUNCH TOGGLE — click to arm, double-click to switch canvas-only / console mode
+    // PUNCH TOGGLE — single-click = canvas-only, double-click = canvas + whole console flash
     APP.vj.punchConsoleMode = false;
     (function() {
         var btn = $('btn-punch');
@@ -6644,16 +6668,23 @@ document.addEventListener('DOMContentLoaded', () => {
         btn.addEventListener('click', function() {
             var now = Date.now();
             if (now - _dct < 320) {
-                APP.vj.punchConsoleMode = !APP.vj.punchConsoleMode;
-                btn.classList.toggle('console-mode', APP.vj.punchConsoleMode);
-                btn.title = 'Click: arm PUNCH\nDouble-click: toggle canvas-only vs console flash\nMode: ' + (APP.vj.punchConsoleMode ? 'CANVAS + CONSOLE' : 'CANVAS ONLY');
+                // Double-click: arm CANVAS + CONSOLE flash
                 _dct = 0;
+                APP.vj.punchConsoleMode = true;
+                document.body.classList.add('fx-punch');
+                btn.classList.add('on', 'console-mode');
+                btn.title = 'PUNCH: CANVAS + CONSOLE';
+                log('PUNCH: ARMED [CONSOLE+CANVAS]');
                 return;
             }
             _dct = now;
+            // Single click: toggle arm in canvas-only mode
+            APP.vj.punchConsoleMode = false;
             var armed = document.body.classList.toggle('fx-punch');
             btn.classList.toggle('on', armed);
-            log(armed ? 'PUNCH: ARMED [' + (APP.vj.punchConsoleMode ? 'CONSOLE+CANVAS' : 'CANVAS') + ']' : 'PUNCH: OFF');
+            btn.classList.remove('console-mode');
+            btn.title = armed ? 'PUNCH: CANVAS ONLY\nDouble-click: CANVAS + CONSOLE' : 'PUNCH';
+            log(armed ? 'PUNCH: ARMED [CANVAS ONLY]' : 'PUNCH: OFF');
         });
     })();
 
