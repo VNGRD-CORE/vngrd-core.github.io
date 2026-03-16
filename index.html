@@ -2717,7 +2717,13 @@ function processGhostCommand(cmd) {
 
             // ── HELP ──
             case 'help':
-                ghostLog('GHOST copilot online. Ask naturally or use: load / shatter / party / seismic / crush / stutter / invert / theme [name] / tip / status', 'ai');
+                ghostLog('── MEDIA ──  load · eject · queue · cycle · next · prev', 'ai');
+                ghostLog('── FX BURST ──  shatter · crush · stutter · invert · failure', 'ai');
+                ghostLog('── FX TOGGLE ──  void · lucy · xray · tear · punch · nvg · vhs', 'ai');
+                ghostLog('── LIVE ──  party · seismic · reset · fullscreen · slide', 'ai');
+                ghostLog('── THEME ──  theme cyan / magenta / green / purple / gold / night', 'ai');
+                ghostLog('── TOOLS ──  status · mint · crypto · time · shortcuts · about · clear', 'ai');
+                ghostLog('Or just ask naturally — "how do I go live?" · "what FX are there?"', 'ai');
                 break;
 
             // ── CONTEXTUAL TIPS ──
@@ -2727,39 +2733,30 @@ function processGhostCommand(cmd) {
 
             // ── MEDIA & AUDIO GUIDANCE ──
             case 'load':
-                ghostLog('LOAD_PROTOCOL: SCANNING...', 'ai');
-                (async function() {
-                    try {
-                        if (!window.showDirectoryPicker) { ghostLog('DIRECTORY_PICKER: NOT_SUPPORTED — use the LOAD_MEDIA button in sidebar instead.', 'crit'); return; }
-                        var dirHandle = await window.showDirectoryPicker();
-                        APP.ghost.directoryHandle = dirHandle;
-                        var mediaCount = 0;
-                        var mediaExt = ['.mp4', '.webm', '.mov', '.jpg', '.jpeg', '.png', '.gif', '.mp3', '.wav'];
-                        for await (var entry of dirHandle.values()) {
-                            if (entry.kind === 'file') {
-                                var name = entry.name.toLowerCase();
-                                if (mediaExt.some(function(ext) { return name.endsWith(ext); })) {
-                                    mediaCount++;
-                                    var file = await entry.getFile();
-                                    var url = URL.createObjectURL(file);
-                                    if (name.match(/\.(mp4|webm|mov)$/i)) {
-                                        var vid = document.createElement('video');
-                                        vid.src = url; vid.loop = true; vid.muted = true;
-                                        APP.media.queue.push({ type: 'video', element: vid, name: entry.name });
-                                    } else if (name.match(/\.(jpg|jpeg|png|gif)$/i)) {
-                                        var img = new Image();
-                                        img.src = url;
-                                        var _gh = document.getElementById('gif-host');
-                                        if (_gh) _gh.appendChild(img);
-                                        APP.media.queue.push({ type: 'image', element: img, name: entry.name });
-                                    }
-                                }
-                            }
+                ghostLog('Opening file picker — select images, videos, or audio...', 'ai');
+                (function() {
+                    var inp = document.createElement('input');
+                    inp.type = 'file'; inp.multiple = true;
+                    inp.accept = 'image/*,video/*,audio/*,audio/mpeg,audio/wav,audio/ogg';
+                    inp.onchange = function(e) {
+                        var files = Array.from(e.target.files || []);
+                        if (!files.length) { ghostLog('LOAD_ABORTED: no files selected.', 'crit'); return; }
+                        var mediaArr = [], audioArr = [];
+                        files.forEach(function(f) {
+                            if (f.type.startsWith('audio/') || /\.(mp3|wav|ogg|aac|flac)$/i.test(f.name)) audioArr.push(f);
+                            else mediaArr.push(f);
+                        });
+                        if (mediaArr.length) {
+                            if (typeof loadMediaFiles === 'function') loadMediaFiles({ files: mediaArr });
+                            ghostLog('LOADED: ' + mediaArr.length + ' VISUAL' + (mediaArr.length > 1 ? 'S' : ''), 'success');
+                            ghostLog('SPACE rotates media · type "cycle" for auto-rotation', 'ai');
                         }
-                        ghostLog('LOADED: ' + mediaCount + ' MEDIA_FILES', 'success');
-                        ghostLog('Press SPACE to rotate through them. Or type "cycle" for auto-rotation.', 'ai');
-                        $('q-info').textContent = APP.media.queue.length;
-                    } catch (e) { ghostLog('LOAD_ABORTED: ' + e.message, 'crit'); }
+                        if (audioArr.length) {
+                            if (typeof loadAudioFiles === 'function') loadAudioFiles({ files: audioArr });
+                            ghostLog('LOADED: ' + audioArr.length + ' AUDIO_FILE' + (audioArr.length > 1 ? 'S' : ''), 'success');
+                        }
+                    };
+                    inp.click();
                 })();
                 break;
 
@@ -2860,7 +2857,7 @@ function processGhostCommand(cmd) {
 
             case 'tear':
                 if (typeof toggleFX === 'function') toggleFX('tear');
-                ghostLog('TEAR — vertical displacement / distortion. Toggle.', 'success');
+                ghostLog('TEAR — horizontal slice displacement / glitch. Toggle.', 'success');
                 break;
 
             case 'punch':
