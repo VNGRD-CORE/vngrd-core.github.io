@@ -795,6 +795,18 @@
         .vu-bar { flex: 1; background: linear-gradient(to top, var(--g) 0%, var(--y) 60%, var(--r) 90%); min-height: 2px; border-radius: 1px; transition: height 0.05s; }
         #track-info { font-family: 'Orbitron', sans-serif; font-size: 9px; color: var(--y); margin-top: 6px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 
+        /* ── 8-PAD HYBRID SAMPLER ── */
+        #sfx-pad-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 4px; margin-top: 4px; }
+        .sfx-pad { font-size: 7px !important; padding: 9px 2px !important; letter-spacing: 0.04em; text-align: center; min-width: 0; cursor: pointer; transition: transform 0.08s, box-shadow 0.08s; }
+        .sfx-sig { background: #050508 !important; border: 1px solid var(--c) !important; color: var(--c) !important; }
+        .sfx-cust { background: rgba(255,140,0,0.06) !important; border: 1px solid #ff8c00 !important; color: #ff8c00 !important; }
+        .sfx-cust.loaded { background: rgba(255,140,0,0.14) !important; }
+        .sfx-pad.sfx-pulse { animation: sfx-pad-pulse 0.3s ease-out; }
+        @keyframes sfx-pad-pulse {
+            0%  { transform: scale(1.08); box-shadow: 0 0 14px currentColor; }
+            100%{ transform: scale(1);    box-shadow: none; }
+        }
+
         .palette-grid { display: flex; gap: 6px; flex-wrap: wrap; }
         .pal { width: 26px; height: 26px; border: 2px solid var(--border); border-radius: 4px; transition: all 0.2s; }
         .pal:hover { transform: scale(1.15); }
@@ -2036,12 +2048,24 @@ body.fullscreen #transcription-hud { opacity: 0 !important; pointer-events: none
                     <button class="btn" id="btn-rumble" style="font-size:8px;" title="Click: arm SEISMIC&#10;Double-click: toggle canvas-only vs console shake">SEISMIC</button>
                     <button class="btn" id="btn-punch" style="font-size:8px;" title="Click: arm PUNCH&#10;Double-click: toggle canvas-only vs console flash">PUNCH</button>
                 </div>
-                <div class="lbl" style="font-size:7px;opacity:0.5;margin-top:7px;margin-bottom:2px;letter-spacing:1px;">SFX TRIGGERS <span style="opacity:0.6;">// MIDI</span></div>
-                <div class="btn-row" style="gap:4px;">
-                    <button class="btn sfx-btn" id="sfx-applause" data-sfx="applause" data-midi-target="sfx:applause" style="flex:1;font-size:8px;letter-spacing:0.04em;background:#050508;border:1px solid var(--c);color:var(--c);" title="Applause — click or MIDI assign">APPLAUSE</button>
-                    <button class="btn sfx-btn" id="sfx-cheer"    data-sfx="cheer"    data-midi-target="sfx:cheer"    style="flex:1;font-size:8px;letter-spacing:0.04em;background:#050508;border:1px solid var(--c);color:var(--c);" title="Cheer — click or MIDI assign">CHEER</button>
-                    <button class="btn sfx-btn" id="sfx-horn"     data-sfx="horn"     data-midi-target="sfx:horn"     style="flex:1;font-size:8px;letter-spacing:0.04em;background:#050508;border:1px solid var(--c);color:var(--c);" title="Air horn — click or MIDI assign">HORN</button>
+                <div class="lbl" style="font-size:7px;opacity:0.5;margin-top:7px;margin-bottom:2px;letter-spacing:1px;">HYBRID SAMPLER <span style="opacity:0.6;">// 8-PAD</span></div>
+                <div id="sfx-pad-grid">
+                    <!-- Row 1: Signature Vanguard Bank (Cyan) -->
+                    <button class="btn sfx-btn sfx-pad sfx-sig" id="sfx-applause" data-sfx="applause" data-midi-target="sfx:applause" title="Applause — click or MIDI assign">APPLAUSE</button>
+                    <button class="btn sfx-btn sfx-pad sfx-sig" id="sfx-cheer"    data-sfx="cheer"    data-midi-target="sfx:cheer"    title="Cheer — click or MIDI assign">CHEER</button>
+                    <button class="btn sfx-btn sfx-pad sfx-sig" id="sfx-horn"     data-sfx="horn"     data-midi-target="sfx:horn"     title="Air Horn — click or MIDI assign">HORN</button>
+                    <button class="btn sfx-btn sfx-pad sfx-sig" id="sfx-boom"     data-sfx="boom"     data-midi-target="sfx:boom"     title="Boom — click or MIDI assign">BOOM</button>
+                    <!-- Row 2: Custom Performance Bank (Amber) -->
+                    <button class="btn sfx-btn sfx-pad sfx-cust" id="sfx-custom1" data-sfx="custom1" data-midi-target="sfx:custom1" title="Custom 1 — click to upload audio">CUSTOM 1</button>
+                    <button class="btn sfx-btn sfx-pad sfx-cust" id="sfx-custom2" data-sfx="custom2" data-midi-target="sfx:custom2" title="Custom 2 — click to upload audio">CUSTOM 2</button>
+                    <button class="btn sfx-btn sfx-pad sfx-cust" id="sfx-custom3" data-sfx="custom3" data-midi-target="sfx:custom3" title="Custom 3 — click to upload audio">CUSTOM 3</button>
+                    <button class="btn sfx-btn sfx-pad sfx-cust" id="sfx-custom4" data-sfx="custom4" data-midi-target="sfx:custom4" title="Custom 4 — click to upload audio">CUSTOM 4</button>
                 </div>
+                <!-- Hidden file inputs for custom pad uploads -->
+                <input type="file" id="sfx-file-1" accept="audio/*" style="display:none;">
+                <input type="file" id="sfx-file-2" accept="audio/*" style="display:none;">
+                <input type="file" id="sfx-file-3" accept="audio/*" style="display:none;">
+                <input type="file" id="sfx-file-4" accept="audio/*" style="display:none;">
                 <div id="sfx-midi-arm" style="font-size:7px;color:var(--text-dim);margin-top:3px;text-align:center;"></div>
             </div>
         </div>
@@ -2070,13 +2094,6 @@ body.fullscreen #transcription-hud { opacity: 0 !important; pointer-events: none
                 <div style="margin-top:8px;">
                     <button class="btn" id="btn-vr" style="width:100%;text-align:center;" title="INTEL: SPATIAL_GATEWAY // WEBXR">ENTER_VR</button>
                 </div>
-            </div>
-        </div>
-
-        <div class="section">
-            <div class="sec-head collapsible"><span class="sec-title">POLY_TRANSLATOR</span><span class="sec-arrow">&#x25B8;</span><div class="sec-dot off"></div></div>
-            <div class="sec-body" id="poly-translator-body">
-                <div style="font-size:8px;color:var(--text-dim);text-align:center;padding:4px 0;letter-spacing:1px;">OFFLINE // COMING SOON</div>
             </div>
         </div>
 
@@ -5043,19 +5060,20 @@ const VNGRD_VST = (() => {
 })();
 
 // ═══════════════════════════════════════════════════════════════════
-// SFX_ENGINE — Professional Sample Player (Broadcast-ready)
-// init(): pre-fetches all 3 OGG files into raw ArrayBuffers
-// play(name): decodes lazily then routes → APP.audio.masterGain
-// Routes → masterGain → recorderDest (P2P/rec) + ctx.destination
+// SFX_ENGINE — 8-Pad Hybrid Sampler (Broadcast-ready)
+// Signature Bank (1-4): pre-fetched local files
+// Custom Bank (5-8):    user-uploaded via FileReader + decodeAudioData
+// All pads route → duckingGain → analyzer → masterGain (u_audioImpact reactive)
 // ═══════════════════════════════════════════════════════════════════
 const SFX_ENGINE = (() => {
     const URLS = {
         applause: './108512__buginthesys__applause_3.wav',
         cheer:    './410868__nobodyyouknowof__crowd_cheering_and_clapping.wav',
-        horn:     './577697__cmudd14__airhorn.mp3'
+        horn:     './577697__cmudd14__airhorn.mp3',
+        boom:     './BOOM.wav'
     };
-    const _raw = {};     // pre-fetched ArrayBuffer per name
-    const buffers = {};  // decoded AudioBuffer per name
+    const _raw = {};     // pre-fetched ArrayBuffer per name (signature bank)
+    const buffers = {};  // decoded AudioBuffer per name (both banks)
     const GAIN = 0.6;    // broadcast volume (60%)
 
     // Pre-fetch raw bytes at startup — no AudioContext needed
@@ -5073,7 +5091,6 @@ const SFX_ENGINE = (() => {
     function _decode(name, ctx) {
         if (buffers[name]) return Promise.resolve(buffers[name]);
         if (!_raw[name])   return Promise.reject(new Error('not fetched yet'));
-        // slice() clones the buffer since decodeAudioData may detach it
         return ctx.decodeAudioData(_raw[name].slice(0)).then(buf => {
             buffers[name] = buf;
             log('SFX_ENGINE: DECODED ' + name.toUpperCase());
@@ -5081,12 +5098,37 @@ const SFX_ENGINE = (() => {
         });
     }
 
-    function play(name) {
-        if (APP.audio.ctx && APP.audio.ctx.state === 'suspended') { APP.audio.ctx.resume(); }
+    // Load a custom pad slot from a File object (FileReader → decodeAudioData)
+    function loadCustom(slot, file) {
+        if (!file) return;
+        const name = 'custom' + slot;
         if (!APP.audio.ctx) igniteAudio();
         if (!APP.audio.masterGain) ensureAudioChain();
         const ctx = APP.audio.ctx;
         if (!ctx) return;
+        if (ctx.state === 'suspended') ctx.resume();
+        const reader = new FileReader();
+        reader.onload = function(e) {
+            ctx.decodeAudioData(e.target.result).then(buf => {
+                buffers[name] = buf;
+                const btn = document.getElementById('sfx-' + name);
+                if (btn) {
+                    const short = file.name.replace(/\.[^.]+$/, '').toUpperCase().substring(0, 8);
+                    btn.textContent = short;
+                    btn.classList.add('loaded');
+                }
+                log('SFX_ENGINE: CUSTOM_LOADED ' + name.toUpperCase() + ' — ' + file.name);
+            }).catch(e => log('SFX_ENGINE: DECODE_FAIL ' + name + ' — ' + e.message));
+        };
+        reader.readAsArrayBuffer(file);
+    }
+
+    function play(name) {
+        if (!APP.audio.ctx) igniteAudio();
+        if (!APP.audio.masterGain) ensureAudioChain();
+        const ctx = APP.audio.ctx;
+        if (!ctx) return;
+        if (ctx.state === 'suspended') ctx.resume();
 
         _decode(name, ctx).then(buf => {
             const src  = ctx.createBufferSource();
@@ -5094,13 +5136,18 @@ const SFX_ENGINE = (() => {
             const gain = ctx.createGain();
             gain.gain.value = GAIN;
             src.connect(gain);
-            gain.connect(APP.audio.masterDest || APP.audio.masterGain || ctx.destination);
+            // Route through duckingGain so the analyser picks up SFX for u_audioImpact
+            const dest = APP.audio.duckingGain || APP.audio.masterGain || ctx.destination;
+            gain.connect(dest);
             src.start();
+            // Signal updateVU to keep running during SFX playback
+            APP.audio.sfxPlaying = true;
+            src.onended = function() { APP.audio.sfxPlaying = false; };
             log('SFX_ENGINE: PLAY ' + name.toUpperCase());
         }).catch(() => log('SFX_ENGINE: NOT_READY — ' + name.toUpperCase()));
     }
 
-    return { init, play };
+    return { init, play, loadCustom };
 })();
 
 function connectVideoAudio(vid) {
@@ -5802,7 +5849,7 @@ function setAudioMode(mode) {
 
 function updateVU() {
     requestAnimationFrame(updateVU);
-    if (!APP.audio.analyzer || !APP.audio.isPlaying && !APP.audio.videoSource) return;
+    if (!APP.audio.analyzer || (!APP.audio.isPlaying && !APP.audio.videoSource && !APP.audio.sfxPlaying)) return;
     APP.audio.analyzer.getByteFrequencyData(APP.audio.vuData);
     const bars = $('vu').children; 
     if(bars.length === 0) { const vu = $('vu'); for (let i = 0; i < 16; i++) { const bar = document.createElement('div'); bar.className = 'vu-bar'; vu.appendChild(bar); } }
@@ -7219,35 +7266,57 @@ document.addEventListener('DOMContentLoaded', () => {
         osc.stop(APP.midi.synthCtx.currentTime + 0.5);
     }
     
-    // --- BROADCAST SFX BUTTONS ---
-    // Click: preview the sound immediately via SFX_ENGINE.
-    // MIDI Learn: arm each button individually via data-midi-target.
+    // --- 8-PAD HYBRID SAMPLER BUTTONS ---
+    // Signature pads (1-4): play immediately on click.
+    // Custom pads (5-8): open file picker if empty; play if loaded.
+    // MIDI Learn: arm button individually via data-midi-target.
     (function() {
+        function _pulsePad(btn) {
+            btn.classList.remove('sfx-pulse');
+            void btn.offsetWidth; // reflow to restart animation
+            btn.classList.add('sfx-pulse');
+            setTimeout(() => btn.classList.remove('sfx-pulse'), 350);
+        }
+
+        // Wire up custom file inputs
+        [1, 2, 3, 4].forEach(function(slot) {
+            var fileInput = document.getElementById('sfx-file-' + slot);
+            if (!fileInput) return;
+            fileInput.addEventListener('change', function() {
+                var file = fileInput.files && fileInput.files[0];
+                if (file) SFX_ENGINE.loadCustom(slot, file);
+                fileInput.value = '';
+            });
+        });
+
         document.querySelectorAll('.sfx-btn').forEach(btn => {
             btn.addEventListener('click', () => {
-                // Skip playback when in MIDI learn arm mode
                 if (APP.midi.learnMode) return;
                 const sfxName = btn.dataset.sfx;
-                // Immediate preview
+                const isCustom = sfxName && sfxName.startsWith('custom');
+
+                if (isCustom) {
+                    const slot = parseInt(sfxName.replace('custom', ''), 10);
+                    const fileInput = document.getElementById('sfx-file-' + slot);
+                    // If no audio loaded yet, open file picker
+                    if (!btn.classList.contains('loaded')) {
+                        if (fileInput) fileInput.click();
+                        return;
+                    }
+                }
+
                 SFX_ENGINE.play(sfxName);
-                // Visual flash: active state briefly
-                document.querySelectorAll('.sfx-btn').forEach(b => {
-                    b.style.background  = '#050508';
-                    b.style.color       = 'var(--c)';
-                    b.style.boxShadow   = '';
-                    b.style.borderColor = 'var(--c)';
-                });
-                btn.style.background  = 'var(--c)';
-                btn.style.color       = '#000';
-                btn.style.boxShadow   = '0 0 10px var(--c)';
-                setTimeout(() => {
-                    btn.style.background  = '#050508';
-                    btn.style.color       = 'var(--c)';
-                    btn.style.boxShadow   = '';
-                }, 300);
+                _pulsePad(btn);
                 log('SFX: ' + sfxName.toUpperCase());
             });
         });
+
+        // Also trigger pulse on MIDI-driven pads
+        window._sfxMidiPulse = function(sfxName) {
+            var id = 'sfx-' + sfxName;
+            var btn = document.getElementById(id);
+            if (btn) _pulsePad(btn);
+        };
     })();
 
     // --- MIDI CONTROLLER (JIT — user gesture gated) ---
@@ -7282,10 +7351,15 @@ document.addEventListener('DOMContentLoaded', () => {
             case 'vst:909_snare':  if (typeof VNGRD_VST !== 'undefined') VNGRD_VST.playDrumSound('909', 'snare', velocity); break;
             case 'vst:808_hihat':  if (typeof VNGRD_VST !== 'undefined') VNGRD_VST.playDrumSound('808', 'hihat_closed', velocity); break;
             case 'vst:909_hihat':  if (typeof VNGRD_VST !== 'undefined') VNGRD_VST.playDrumSound('909', 'hihat_closed', velocity); break;
-            // SFX_ENGINE — broadcast sample player
-            case 'sfx:applause':   SFX_ENGINE.play('applause'); break;
-            case 'sfx:cheer':      SFX_ENGINE.play('cheer');    break;
-            case 'sfx:horn':       SFX_ENGINE.play('horn');     break;
+            // SFX_ENGINE — 8-pad hybrid sampler
+            case 'sfx:applause':   SFX_ENGINE.play('applause'); if(window._sfxMidiPulse) _sfxMidiPulse('applause'); break;
+            case 'sfx:cheer':      SFX_ENGINE.play('cheer');    if(window._sfxMidiPulse) _sfxMidiPulse('cheer');    break;
+            case 'sfx:horn':       SFX_ENGINE.play('horn');     if(window._sfxMidiPulse) _sfxMidiPulse('horn');     break;
+            case 'sfx:boom':       SFX_ENGINE.play('boom');     if(window._sfxMidiPulse) _sfxMidiPulse('boom');     break;
+            case 'sfx:custom1':    SFX_ENGINE.play('custom1');  if(window._sfxMidiPulse) _sfxMidiPulse('custom1'); break;
+            case 'sfx:custom2':    SFX_ENGINE.play('custom2');  if(window._sfxMidiPulse) _sfxMidiPulse('custom2'); break;
+            case 'sfx:custom3':    SFX_ENGINE.play('custom3');  if(window._sfxMidiPulse) _sfxMidiPulse('custom3'); break;
+            case 'sfx:custom4':    SFX_ENGINE.play('custom4');  if(window._sfxMidiPulse) _sfxMidiPulse('custom4'); break;
             default: if (el && el.click) el.click();
         }
     }
@@ -9511,7 +9585,7 @@ var isVideo = nft.forceVideo || (imageUrl.toLowerCase().match(/\.(mp4|webm|mov|o
     })();
 
     // Collapsible sections with arrow indicators
-    ['session-lab-body', 'p2p-call-body', 'midi-host-body', 'nft-vault-body', 'lexica-nano-body', 'poly-translator-body'].forEach(function(id) {
+    ['session-lab-body', 'p2p-call-body', 'midi-host-body', 'nft-vault-body', 'lexica-nano-body'].forEach(function(id) {
         var el = $(id);
         if (!el) return;
         var head = el.previousElementSibling;
