@@ -3454,6 +3454,8 @@ var GHOST = {
             fps: APP.render.fps,
             seismic: APP.vj.rumbleEnabled,
             party: APP.vj.uiReactivity,
+            isShooting: !!(APP.shooting && APP.shooting.active),
+            glassIntegrity: typeof APP.glassIntegrity !== 'undefined' ? APP.glassIntegrity : 100,
             uptime: $('uptime') ? $('uptime').textContent : '00:00:00',
             hour: new Date().getHours(),
             isCycling: APP.state.isCycle
@@ -3566,7 +3568,12 @@ var GHOST = {
             'You can load audio AND video. Video audio feeds the FFT analyzer just like music tracks.',
             'Type "stutter" for a motion-trails burst, "invert" for instant color flip, "crush" for maximum RGB split.',
             'The canvas captures at native resolution. Record at 4K for production-quality output.',
-            'Night theme (type "theme night") is perfect for low-light environments. Minimal UI glow.'
+            'Night theme (type "theme night") is perfect for low-light environments. Minimal UI glow.',
+            'SHOOT mode: click the SHOOT button in Reactivity to arm a machine gun crosshair. Each click fractures the glass.',
+            'Glass Integrity drains as you shoot. Deplete it completely to trigger TERMINAL SHATTER — full screen explosion.',
+            'The SFX pads in the lower panel are fully customisable. Click the gear icon on any pad to change sound + linked FX.',
+            'PUNCH FX now oscillates like a tweeter — the canvas punches toward you then snaps back on every kick drum hit.',
+            'Arm PUNCH, load some music, and watch the canvas physically push and pull with the bass. Zero latency.'
           ]
         }
     ],
@@ -3625,9 +3632,12 @@ var GHOST = {
         if (c.match(/^(punch|hit|impact)$/)) return 'punch';
         if (c.match(/^(nvg|night.?vision|thermal)$/)) return 'nvg';
         if (c.match(/^(vhs|retro|analog|tape)$/)) return 'vhs';
+        if (c.match(/^(shoot|gun|weapon|fire|bullet|machine.?gun|crosshair)$/)) return 'shoot_help';
         if (c.match(/fx|effect|filter|what fx|visual/)) return 'fx_help';
         if (c.match(/^(party|rave|auto.?mode|autonomous)$/)) return 'party';
         if (c.match(/^(seismic|shake|rumble|bass|vibrate)$/)) return 'seismic';
+        if (c.match(/integrity|glass|shatter|fracture|dent|repair/)) return 'integrity_help';
+        if (c.match(/sampler|sfx.?pad|pad.*fx|soundboard|boom|horn|crowd/)) return 'sampler_help';
         if (c.match(/failure|psychosis|chaos|destroy|meltdown/)) return 'failure';
         if (c.match(/reset|panic|emergency|esc|clear fx|stop fx|normal/)) return 'reset';
 
@@ -3696,16 +3706,20 @@ function processGhostCommand(cmd) {
                 ghostLog('FPS:' + ctx.fps + ' | MEDIA:' + ctx.mediaCount + ' | AUDIO:' + (ctx.hasAudio ? 'PLAYING' : 'IDLE') + ' | CAM:' + (ctx.hasCamera ? (ctx.isLive ? 'LIVE' : 'STANDBY') : 'OFF'), 'ai');
                 ghostLog('THEME:' + ctx.theme.toUpperCase() + ' | SEISMIC:' + (ctx.seismic ? 'ARMED' : 'OFF') + ' | PARTY:' + (ctx.party ? 'ON' : 'OFF') + ' | REC:' + (ctx.isRecording ? 'HOT' : 'OFF'), 'ai');
                 ghostLog('MIDI:' + (ctx.hasMidi ? 'CONNECTED' : 'OFF') + ' | WALLET:' + (ctx.hasWallet ? 'LINKED' : 'OFF') + ' | P2P:' + (ctx.hasGuest ? 'ACTIVE' : 'OFF') + ' | UP:' + ctx.uptime, 'ai');
+                ghostLog('SHOOT:' + (ctx.isShooting ? 'ARMED' : 'OFF') + ' | GLASS:' + ctx.glassIntegrity + '%', 'ai');
                 break;
 
             // ── HELP ──
             case 'help':
                 ghostLog('── MEDIA ──  load · eject · queue · cycle · next · prev', 'ai');
                 ghostLog('── FX TOGGLE ──  void · lucy · xray · tear · punch · nvg · vhs', 'ai');
-                ghostLog('── LIVE ──  party · seismic · reset · fullscreen · slide', 'ai');
+                ghostLog('── FX BURST ──  crush · stutter · invert · shatter · failure', 'ai');
+                ghostLog('── TACTICAL ──  shoot (machine gun mode, drains glass integrity)', 'ai');
+                ghostLog('── AUDIO ──  sampler (SFX pads) · seismic · party', 'ai');
+                ghostLog('── LIVE ──  reset · fullscreen · slide', 'ai');
                 ghostLog('── THEME ──  theme cyan / magenta / green / purple / gold / night', 'ai');
                 ghostLog('── TOOLS ──  status · crypto · time · shortcuts · about · clear', 'ai');
-                ghostLog('Or just ask naturally — "how do I go live?" · "what FX are there?"', 'ai');
+                ghostLog('Or just ask naturally — "how do I shoot?" · "what are SFX pads?"', 'ai');
                 break;
 
             // ── CONTEXTUAL TIPS ──
@@ -3859,6 +3873,26 @@ function processGhostCommand(cmd) {
 
             case 'fx_help':
                 ghostLog('Toggles: void lucy xray tear punch nvg vhs | Reactive: party seismic | "reset" clears all.', 'ai');
+                ghostLog('Burst FX: crush · stutter · invert · shatter | Tactical: shoot (machine gun mode)', 'ai');
+                break;
+
+            case 'shoot_help':
+                ghostLog('SHOOT MODE — click SHOOT in the Reactivity panel (or the SFX pad) to arm.', 'ai');
+                ghostLog('Canvas becomes a crosshair target. Click to fire: glass fractures on canvas, metal dents on UI.', 'ai');
+                ghostLog('Each shot drains the GLASS INTEGRITY bar. Deplete it fully to trigger TERMINAL SHATTER.', 'ai');
+                ghostLog('Integrity auto-repairs over time. Shoot fast for maximum chaos.', 'ai');
+                break;
+
+            case 'integrity_help':
+                ghostLog('GLASS INTEGRITY: tracks cumulative damage from SHOOT mode. Shown in the header bar.', 'ai');
+                ghostLog('When integrity hits 0, TERMINAL SHATTER fires — full screen glass explosion.', 'ai');
+                ghostLog('Auto-repairs over ~30 seconds when you stop shooting.', 'ai');
+                break;
+
+            case 'sampler_help':
+                ghostLog('SFX PADS — 8 pads in the lower panel. Click a pad to trigger sounds: BOOM, HORN, CROWD, etc.', 'ai');
+                ghostLog('Each pad has a gear icon — click it to change the sound and link an FX (PUNCH, SEISMIC, VOID, etc.).', 'ai');
+                ghostLog('MIDI-mappable: assign any pad to a MIDI note for live triggering.', 'ai');
                 break;
 
             case 'party':
@@ -4645,11 +4679,11 @@ function renderLoop(timestamp) {
         if (document.body.style.transform) document.body.style.transform = '';
     }
 
-    // --- PUNCH: BPM-linked beat pulser ---
-    // Phase 1 — rising-edge kick detection calibrates a beat-interval model.
-    // Phase 2 — scheduled forward pulses fire at the measured tempo, so the
-    //           flash stays perfectly in rhythm even when kick detection misses.
+    // --- PUNCH: BPM-linked beat pulser — TWEETER SPRING PHYSICS ---
+    // Underdamped spring oscillator: canvas punches FORWARD then snaps BACK past rest
+    // like a speaker tweeter cone — scale > 1 on push, < 1 on pull-back, decays to rest.
     if (typeof APP.vj._punchSpring === 'undefined')    APP.vj._punchSpring = 0;
+    if (typeof APP.vj._punchVel === 'undefined')       APP.vj._punchVel = 0;
     if (typeof APP.vj._punchPrevBass === 'undefined')  APP.vj._punchPrevBass = 0;
     if (typeof APP.vj._bpm === 'undefined')            APP.vj._bpm = { interval: 0, lastBeat: 0, nextBeat: 0, history: [] };
     var _bassNow  = APP.audio.bassLevel;
@@ -4674,26 +4708,38 @@ function renderLoop(timestamp) {
         }
         _bpmModel.lastBeat = _nowMs;
         _bpmModel.nextBeat = _nowMs + (_bpmModel.interval > 0 ? _bpmModel.interval : 500);
-        if (_punchIsOn) APP.vj._punchSpring = Math.min(1.0, _bassRise / 26);
+        // Impulse: kick the velocity forward (tweeter push) — stronger bass = harder kick
+        if (_punchIsOn) APP.vj._punchVel += Math.min(0.85, _bassRise / 22);
     }
 
     // BPM-scheduled pulse — keeps the flash locked to tempo between kick detections
     if (_punchIsOn && _bpmModel.interval > 230 && _nowMs >= _bpmModel.nextBeat) {
         _bpmModel.nextBeat += _bpmModel.interval;
-        if (APP.vj._punchSpring < 0.25) APP.vj._punchSpring = 0.70;
+        if (APP.vj._punchSpring < 0.18) APP.vj._punchVel += 0.55;
     }
 
-    // Punch demo: inject rhythmic spring pulses every 400ms when one-shot active
+    // Punch demo: inject rhythmic spring impulses every 400ms when one-shot active
     if (_nowMs < (APP.vj._punchDemoUntil || 0)) {
         if (!APP.vj._punchDemoBeat || _nowMs >= APP.vj._punchDemoBeat) {
-            APP.vj._punchSpring = Math.max(APP.vj._punchSpring, 0.92);
+            APP.vj._punchVel += 0.72;
             APP.vj._punchDemoBeat = _nowMs + 400;
         }
     }
-    APP.vj._punchSpring *= 0.55; // sharp snap decay (~5 frames to 5%)
 
-    // Trigger body-level punch-hit flash when spring peaks (visible without canvas media)
-    if (APP.vj._punchSpring > 0.42 && !window._punchHitFired) {
+    // Underdamped spring: stiffness=0.28 (oscil ~4Hz), damping=0.16 (bounces ~3x)
+    // This makes the canvas push forward on kick, then snap back past rest (< 1.0 scale),
+    // then oscillate to a stop — exactly like a tweeter cone.
+    var _pk = 0.28, _pc = 0.16;
+    var _pf = -_pk * APP.vj._punchSpring - _pc * APP.vj._punchVel;
+    APP.vj._punchVel += _pf;
+    APP.vj._punchSpring += APP.vj._punchVel;
+    // Settle to exact zero when nearly at rest (prevents FP drift)
+    if (Math.abs(APP.vj._punchSpring) < 0.0008 && Math.abs(APP.vj._punchVel) < 0.0008) {
+        APP.vj._punchSpring = 0; APP.vj._punchVel = 0;
+    }
+
+    // Trigger body-level punch-hit flash on the POSITIVE peak (visible without canvas media)
+    if (APP.vj._punchSpring > 0.35 && APP.vj._punchVel < 0 && !window._punchHitFired) {
         window._punchHitFired = true;
         document.body.classList.add('punch-hit');
         setTimeout(function() { document.body.classList.remove('punch-hit'); window._punchHitFired = false; }, 220);
@@ -4712,10 +4758,10 @@ function renderLoop(timestamp) {
     // --- PUNCH / SEISMIC: frame-level transform — wraps ALL drawing (canvas only) ---
     var _punch = APP.vj._punchSpring || 0;
     var _sX = APP.vj._canvasShakeX || 0, _sY = APP.vj._canvasShakeY || 0;
-    var _hasFX = _punch > 0.005 || Math.abs(_sX) > 0.1 || Math.abs(_sY) > 0.1;
+    var _hasFX = Math.abs(_punch) > 0.003 || Math.abs(_sX) > 0.1 || Math.abs(_sY) > 0.1;
     if (_hasFX) {
         ctx.save();
-        var _ps = 1 + _punch * 0.13; // up to 13% zoom-in — always >= 1.0, canvas never shrinks
+        var _ps = 1 + _punch * 0.14; // tweeter: +14% push on kick, -14% pull-back on snap
         ctx.translate(w * 0.5 + _sX, h * 0.5 + _sY);
         ctx.scale(_ps, _ps);
         ctx.translate(-w * 0.5, -h * 0.5);
