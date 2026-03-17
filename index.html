@@ -773,11 +773,49 @@
         #track-info { font-family: 'Orbitron', sans-serif; font-size: 9px; color: var(--y); margin-top: 6px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 
         /* ── 8-PAD HYBRID SAMPLER ── */
-        #sfx-pad-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 4px; margin-top: 4px; }
-        .sfx-pad { font-size: 7px !important; padding: 9px 2px !important; letter-spacing: 0.04em; text-align: center; min-width: 0; cursor: pointer; transition: transform 0.08s, box-shadow 0.08s; }
+        #sfx-pad-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 5px; margin-top: 4px; }
+        .sfx-bank-label { font-size: 6px; letter-spacing: 2px; opacity: 0.45; margin: 5px 0 2px; text-transform: uppercase; }
+        .sfx-bank-row { display: grid; grid-template-columns: repeat(4, 1fr); gap: 5px; }
+        .sfx-pad {
+            font-size: 7px !important;
+            padding: 0 !important;
+            height: 50px;
+            letter-spacing: 0.04em;
+            text-align: center;
+            min-width: 0;
+            cursor: pointer;
+            transition: transform 0.08s, box-shadow 0.08s;
+            display: flex !important;
+            flex-direction: column !important;
+            align-items: center !important;
+            justify-content: center !important;
+            gap: 3px;
+            position: relative;
+            overflow: hidden;
+        }
+        .sfx-pad .pad-name { font-size: 7px; font-weight: 700; letter-spacing: 0.08em; line-height: 1; }
+        .sfx-pad .pad-hint { font-size: 5.5px; opacity: 0.45; letter-spacing: 0.05em; line-height: 1; }
+        .sfx-pad .pad-timer { font-size: 9px; font-weight: 900; letter-spacing: 0; line-height: 1; font-family: 'Orbitron', sans-serif; display: none; }
         .sfx-sig { background: #050508 !important; border: 1px solid var(--c) !important; color: var(--c) !important; }
-        .sfx-cust { background: rgba(255,140,0,0.06) !important; border: 1px solid #ff8c00 !important; color: #ff8c00 !important; }
-        .sfx-cust.loaded { background: rgba(255,140,0,0.14) !important; }
+        .sfx-cust { background: rgba(255,140,0,0.05) !important; border: 1px solid rgba(255,140,0,0.5) !important; color: rgba(255,140,0,0.7) !important; }
+        .sfx-cust.loaded { background: rgba(255,140,0,0.12) !important; border-color: #ff8c00 !important; color: #ff8c00 !important; }
+        .sfx-cust.armed {
+            background: rgba(255,0,50,0.12) !important;
+            border-color: #ff0032 !important;
+            color: #ff0032 !important;
+            animation: rec-arm-blink 0.7s ease-in-out infinite;
+        }
+        .sfx-cust.recording {
+            background: rgba(255,0,0,0.2) !important;
+            border-color: #ff0000 !important;
+            color: #ff2020 !important;
+        }
+        .sfx-cust.recording .pad-timer { display: block; }
+        .sfx-cust.recording .pad-name, .sfx-cust.recording .pad-hint { display: none; }
+        @keyframes rec-arm-blink {
+            0%, 100% { border-color: #ff0032; box-shadow: 0 0 8px rgba(255,0,50,0.5); }
+            50%       { border-color: rgba(255,0,50,0.3); box-shadow: none; }
+        }
         .sfx-pad.sfx-pulse { animation: sfx-pad-pulse 0.3s ease-out; }
         @keyframes sfx-pad-pulse {
             0%  { transform: scale(1.08); box-shadow: 0 0 14px currentColor; }
@@ -1776,25 +1814,49 @@ body.fx-nvg #stage::after {
                     <button class="btn" id="btn-rumble" style="font-size:8px;" title="Click: arm SEISMIC&#10;Double-click: toggle canvas-only vs console shake">SEISMIC</button>
                     <button class="btn" id="btn-punch" style="font-size:8px;" title="Click: arm PUNCH&#10;Double-click: toggle canvas-only vs console flash">PUNCH</button>
                 </div>
-                <div class="lbl" style="font-size:7px;opacity:0.5;margin-top:7px;margin-bottom:2px;letter-spacing:1px;">HYBRID SAMPLER <span style="opacity:0.6;">// 8-PAD</span></div>
+                <div style="display:flex;align-items:center;justify-content:space-between;margin-top:8px;margin-bottom:3px;">
+                    <div class="lbl" style="font-size:7px;opacity:0.5;letter-spacing:1.5px;margin:0;">HYBRID SAMPLER <span style="opacity:0.6;">// 8-PAD</span></div>
+                </div>
                 <div id="sfx-pad-grid">
-                    <!-- Row 1: Signature Vanguard Bank (Cyan) -->
-                    <button class="btn sfx-btn sfx-pad sfx-sig" id="sfx-applause" data-sfx="applause" data-midi-target="sfx:applause" title="Applause — click or MIDI assign">APPLAUSE</button>
-                    <button class="btn sfx-btn sfx-pad sfx-sig" id="sfx-cheer"    data-sfx="cheer"    data-midi-target="sfx:cheer"    title="Cheer — click or MIDI assign">CHEER</button>
-                    <button class="btn sfx-btn sfx-pad sfx-sig" id="sfx-horn"     data-sfx="horn"     data-midi-target="sfx:horn"     title="Air Horn — click or MIDI assign">HORN</button>
-                    <button class="btn sfx-btn sfx-pad sfx-sig" id="sfx-boom"     data-sfx="boom"     data-midi-target="sfx:boom"     title="Boom — click or MIDI assign">BOOM</button>
-                    <!-- Row 2: Custom Performance Bank (Amber) -->
-                    <button class="btn sfx-btn sfx-pad sfx-cust" id="sfx-custom1" data-sfx="custom1" data-midi-target="sfx:custom1" title="Custom 1 — click to upload audio">CUSTOM 1</button>
-                    <button class="btn sfx-btn sfx-pad sfx-cust" id="sfx-custom2" data-sfx="custom2" data-midi-target="sfx:custom2" title="Custom 2 — click to upload audio">CUSTOM 2</button>
-                    <button class="btn sfx-btn sfx-pad sfx-cust" id="sfx-custom3" data-sfx="custom3" data-midi-target="sfx:custom3" title="Custom 3 — click to upload audio">CUSTOM 3</button>
-                    <button class="btn sfx-btn sfx-pad sfx-cust" id="sfx-custom4" data-sfx="custom4" data-midi-target="sfx:custom4" title="Custom 4 — click to upload audio">CUSTOM 4</button>
+                    <!-- Row 1: Signature Vanguard Bank -->
+                    <div class="sfx-bank-label" style="grid-column:1/-1;">SIG BANK</div>
+                    <button class="btn sfx-btn sfx-pad sfx-sig" id="sfx-applause" data-sfx="applause" data-midi-target="sfx:applause" title="Applause — click or MIDI assign">
+                        <span class="pad-name">APPLAUSE</span><span class="pad-hint">SIG</span>
+                    </button>
+                    <button class="btn sfx-btn sfx-pad sfx-sig" id="sfx-cheer"    data-sfx="cheer"    data-midi-target="sfx:cheer"    title="Cheer — click or MIDI assign">
+                        <span class="pad-name">CHEER</span><span class="pad-hint">SIG</span>
+                    </button>
+                    <button class="btn sfx-btn sfx-pad sfx-sig" id="sfx-horn"     data-sfx="horn"     data-midi-target="sfx:horn"     title="Air Horn — click or MIDI assign">
+                        <span class="pad-name">HORN</span><span class="pad-hint">SIG</span>
+                    </button>
+                    <button class="btn sfx-btn sfx-pad sfx-sig" id="sfx-boom"     data-sfx="boom"     data-midi-target="sfx:boom"     title="Boom — click or MIDI assign">
+                        <span class="pad-name">BOOM</span><span class="pad-hint">SIG</span>
+                    </button>
+                    <!-- Row 2: Custom Performance Bank -->
+                    <div class="sfx-bank-label" style="grid-column:1/-1;">CUSTOM BANK <span style="color:#ff8c00;opacity:0.7;">// R-CLICK: ARM REC</span></div>
+                    <button class="btn sfx-btn sfx-pad sfx-cust" id="sfx-custom1" data-sfx="custom1" data-midi-target="sfx:custom1" title="Custom 1 — click: upload / R-click: arm record">
+                        <span class="pad-name">C-01</span><span class="pad-hint">EMPTY</span>
+                        <span class="pad-timer">10</span>
+                    </button>
+                    <button class="btn sfx-btn sfx-pad sfx-cust" id="sfx-custom2" data-sfx="custom2" data-midi-target="sfx:custom2" title="Custom 2 — click: upload / R-click: arm record">
+                        <span class="pad-name">C-02</span><span class="pad-hint">EMPTY</span>
+                        <span class="pad-timer">10</span>
+                    </button>
+                    <button class="btn sfx-btn sfx-pad sfx-cust" id="sfx-custom3" data-sfx="custom3" data-midi-target="sfx:custom3" title="Custom 3 — click: upload / R-click: arm record">
+                        <span class="pad-name">C-03</span><span class="pad-hint">EMPTY</span>
+                        <span class="pad-timer">10</span>
+                    </button>
+                    <button class="btn sfx-btn sfx-pad sfx-cust" id="sfx-custom4" data-sfx="custom4" data-midi-target="sfx:custom4" title="Custom 4 — click: upload / R-click: arm record">
+                        <span class="pad-name">C-04</span><span class="pad-hint">EMPTY</span>
+                        <span class="pad-timer">10</span>
+                    </button>
                 </div>
                 <!-- Hidden file inputs for custom pad uploads -->
                 <input type="file" id="sfx-file-1" accept="audio/*" style="display:none;">
                 <input type="file" id="sfx-file-2" accept="audio/*" style="display:none;">
                 <input type="file" id="sfx-file-3" accept="audio/*" style="display:none;">
                 <input type="file" id="sfx-file-4" accept="audio/*" style="display:none;">
-                <div id="sfx-midi-arm" style="font-size:7px;color:var(--text-dim);margin-top:3px;text-align:center;"></div>
+                <div id="sfx-midi-arm" style="font-size:7px;color:var(--text-dim);margin-top:4px;text-align:center;letter-spacing:1px;"></div>
             </div>
         </div>
         <div class="section">
@@ -4795,8 +4857,11 @@ const SFX_ENGINE = (() => {
                 buffers[name] = buf;
                 const btn = document.getElementById('sfx-' + name);
                 if (btn) {
-                    const short = file.name.replace(/\.[^.]+$/, '').toUpperCase().substring(0, 8);
-                    btn.textContent = short;
+                    const short = file.name.replace(/\.[^.]+$/, '').toUpperCase().substring(0, 6);
+                    const nm = btn.querySelector('.pad-name');
+                    const hint = btn.querySelector('.pad-hint');
+                    if (nm) nm.textContent = short;
+                    if (hint) hint.textContent = 'PLAY';
                     btn.classList.add('loaded');
                 }
                 log('SFX_ENGINE: CUSTOM_LOADED ' + name.toUpperCase() + ' — ' + file.name);
@@ -4829,7 +4894,8 @@ const SFX_ENGINE = (() => {
         }).catch(() => log('SFX_ENGINE: NOT_READY — ' + name.toUpperCase()));
     }
 
-    return { init, play, loadCustom };
+    function _buffers() { return buffers; }
+    return { init, play, loadCustom, _buffers };
 })();
 
 function connectVideoAudio(vid) {
@@ -6950,14 +7016,113 @@ document.addEventListener('DOMContentLoaded', () => {
     
     // --- 8-PAD HYBRID SAMPLER BUTTONS ---
     // Signature pads (1-4): play immediately on click.
-    // Custom pads (5-8): open file picker if empty; play if loaded.
+    // Custom pads (5-8):
+    //   • Left-click (empty)  → open file picker
+    //   • Left-click (loaded) → play
+    //   • Left-click (armed)  → start recording
+    //   • Right-click         → toggle record-arm
+    //   • Recording           → click to stop early (max 10s)
     // MIDI Learn: arm button individually via data-midi-target.
     (function() {
+        var _recState = {}; // slot → { recorder, chunks, timerInterval, stream }
+
         function _pulsePad(btn) {
             btn.classList.remove('sfx-pulse');
-            void btn.offsetWidth; // reflow to restart animation
+            void btn.offsetWidth;
             btn.classList.add('sfx-pulse');
             setTimeout(() => btn.classList.remove('sfx-pulse'), 350);
+        }
+
+        function _setHint(btn, text) {
+            var hint = btn.querySelector('.pad-hint');
+            if (hint) hint.textContent = text;
+        }
+
+        function _setName(btn, text) {
+            var nm = btn.querySelector('.pad-name');
+            if (nm) nm.textContent = text;
+        }
+
+        function _setTimer(btn, secs) {
+            var t = btn.querySelector('.pad-timer');
+            if (t) t.textContent = secs;
+        }
+
+        function _stopRecording(slot) {
+            var st = _recState[slot];
+            if (!st) return;
+            clearInterval(st.timerInterval);
+            if (st.recorder && st.recorder.state !== 'inactive') st.recorder.stop();
+        }
+
+        function _startRecording(slot, btn) {
+            if (_recState[slot] && _recState[slot].recorder) return; // already recording
+            navigator.mediaDevices.getUserMedia({ audio: true }).then(function(stream) {
+                var chunks = [];
+                var recorder = new MediaRecorder(stream);
+                var elapsed = 0;
+                var MAX_SECS = 10;
+
+                recorder.ondataavailable = function(e) {
+                    if (e.data.size > 0) chunks.push(e.data);
+                };
+                recorder.onstop = function() {
+                    stream.getTracks().forEach(t => t.stop());
+                    btn.classList.remove('recording');
+                    btn.classList.remove('armed');
+                    clearInterval(_recState[slot] && _recState[slot].timerInterval);
+                    _recState[slot] = null;
+
+                    if (!chunks.length) {
+                        _setName(btn, 'C-0' + slot);
+                        _setHint(btn, 'EMPTY');
+                        log('SFX_REC: CANCELLED — custom' + slot);
+                        return;
+                    }
+                    var blob = new Blob(chunks, { type: recorder.mimeType });
+                    var reader = new FileReader();
+                    reader.onload = function(ev) {
+                        if (!APP.audio.ctx) igniteAudio();
+                        if (!APP.audio.masterGain) ensureAudioChain();
+                        var ctx = APP.audio.ctx;
+                        if (!ctx) return;
+                        ctx.decodeAudioData(ev.target.result).then(function(buf) {
+                            SFX_ENGINE._buffers()['custom' + slot] = buf;
+                            btn.classList.add('loaded');
+                            _setName(btn, 'REC-0' + slot);
+                            _setHint(btn, 'LIVE');
+                            log('SFX_REC: CAPTURED — custom' + slot + ' (' + elapsed + 's)');
+                        }).catch(function(e) {
+                            _setName(btn, 'C-0' + slot);
+                            _setHint(btn, 'ERR');
+                            log('SFX_REC: DECODE_FAIL — ' + e.message);
+                        });
+                    };
+                    reader.readAsArrayBuffer(blob);
+                };
+
+                _recState[slot] = {
+                    recorder: recorder,
+                    chunks: chunks,
+                    stream: stream,
+                    timerInterval: setInterval(function() {
+                        elapsed++;
+                        _setTimer(btn, MAX_SECS - elapsed);
+                        if (elapsed >= MAX_SECS) _stopRecording(slot);
+                    }, 1000)
+                };
+
+                btn.classList.remove('armed');
+                btn.classList.add('recording');
+                _setTimer(btn, MAX_SECS);
+                recorder.start();
+                log('SFX_REC: START — custom' + slot + ' (max 10s)');
+            }).catch(function(e) {
+                btn.classList.remove('armed');
+                _setHint(btn, 'NO MIC');
+                log('SFX_REC: MIC_DENIED — ' + e.message);
+                setTimeout(() => _setHint(btn, btn.classList.contains('loaded') ? 'PLAY' : 'EMPTY'), 2000);
+            });
         }
 
         // Wire up custom file inputs
@@ -6966,12 +7131,51 @@ document.addEventListener('DOMContentLoaded', () => {
             if (!fileInput) return;
             fileInput.addEventListener('change', function() {
                 var file = fileInput.files && fileInput.files[0];
-                if (file) SFX_ENGINE.loadCustom(slot, file);
+                if (file) {
+                    SFX_ENGINE.loadCustom(slot, file);
+                    var btn = document.getElementById('sfx-custom' + slot);
+                    if (btn) {
+                        var short = file.name.replace(/\.[^.]+$/, '').toUpperCase().substring(0, 6);
+                        _setName(btn, short);
+                        _setHint(btn, 'PLAY');
+                    }
+                }
                 fileInput.value = '';
             });
         });
 
         document.querySelectorAll('.sfx-btn').forEach(btn => {
+            // Right-click → toggle arm for custom pads
+            btn.addEventListener('contextmenu', function(e) {
+                e.preventDefault();
+                if (APP.midi.learnMode) return;
+                const sfxName = btn.dataset.sfx;
+                if (!sfxName || !sfxName.startsWith('custom')) return;
+                const slot = parseInt(sfxName.replace('custom', ''), 10);
+                if (_recState[slot] && _recState[slot].recorder) {
+                    // already recording — stop
+                    _stopRecording(slot);
+                    return;
+                }
+                const isArmed = btn.classList.contains('armed');
+                if (isArmed) {
+                    btn.classList.remove('armed');
+                    _setHint(btn, btn.classList.contains('loaded') ? 'PLAY' : 'EMPTY');
+                    log('SFX_REC: DISARMED — custom' + slot);
+                } else {
+                    // Disarm any other armed pad first
+                    document.querySelectorAll('.sfx-cust.armed').forEach(b => {
+                        b.classList.remove('armed');
+                        var s = parseInt(b.dataset.sfx.replace('custom',''), 10);
+                        _setHint(b, b.classList.contains('loaded') ? 'PLAY' : 'EMPTY');
+                    });
+                    btn.classList.add('armed');
+                    _setHint(btn, '● ARM');
+                    log('SFX_REC: ARMED — custom' + slot);
+                }
+            });
+
+            // Left-click
             btn.addEventListener('click', () => {
                 if (APP.midi.learnMode) return;
                 const sfxName = btn.dataset.sfx;
@@ -6980,7 +7184,18 @@ document.addEventListener('DOMContentLoaded', () => {
                 if (isCustom) {
                     const slot = parseInt(sfxName.replace('custom', ''), 10);
                     const fileInput = document.getElementById('sfx-file-' + slot);
-                    // If no audio loaded yet, open file picker
+
+                    // If currently recording → stop early
+                    if (btn.classList.contains('recording')) {
+                        _stopRecording(slot);
+                        return;
+                    }
+                    // If armed → start recording
+                    if (btn.classList.contains('armed')) {
+                        _startRecording(slot, btn);
+                        return;
+                    }
+                    // If not loaded → open file picker
                     if (!btn.classList.contains('loaded')) {
                         if (fileInput) fileInput.click();
                         return;
