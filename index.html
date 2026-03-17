@@ -804,6 +804,8 @@
         #sfx-sampler-header:hover .sampler-collapse-arrow { color: var(--accent) !important; }
         #sfx-pad-body { overflow: hidden; transition: max-height 0.3s ease; max-height: 600px; }
         #sfx-pad-body.collapsed { max-height: 0; margin-bottom: 0; }
+        /* Allow gear dropdown to escape the overflow:hidden clip when open */
+        #sfx-pad-body.gear-open { overflow: visible; }
         #sfx-sampler-header .sampler-title {
             font-family: 'Orbitron', sans-serif;
             font-size: 8px;
@@ -8101,16 +8103,19 @@ document.addEventListener('DOMContentLoaded', () => {
         window._padGearToggle = function(iconEl) {
             var gearEl = iconEl.parentElement;
             var isOpen = gearEl.classList.contains('open');
+            var padBody = document.getElementById('sfx-pad-body');
             // Close all open gears + remove z-elevated from all pads
             document.querySelectorAll('.pad-gear.open').forEach(function(g) {
                 g.classList.remove('open');
                 var pad = g.closest('.sfx-pad');
                 if (pad) pad.classList.remove('z-elevated');
             });
+            if (padBody) padBody.classList.remove('gear-open');
             if (!isOpen) {
                 gearEl.classList.add('open');
                 var pad = gearEl.closest('.sfx-pad');
                 if (pad) pad.classList.add('z-elevated');
+                if (padBody) padBody.classList.add('gear-open');
             }
         };
         // Close on outside click
@@ -8120,6 +8125,8 @@ document.addEventListener('DOMContentLoaded', () => {
                 var pad = g.closest('.sfx-pad');
                 if (pad) pad.classList.remove('z-elevated');
             });
+            var padBody = document.getElementById('sfx-pad-body');
+            if (padBody) padBody.classList.remove('gear-open');
         });
 
         // ── SAMPLER COLLAPSE TOGGLE ───────────────────────────────────────
