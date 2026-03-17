@@ -518,20 +518,27 @@
         body.system-slide #stage { box-shadow: inset 0 0 0 1px rgba(0,243,255,0.12), 0 0 40px rgba(0,243,255,0.04); }
         /* Hard divider between module blocks — dark gap above + white hairline below */
         .section {
-            border-top: 3px solid rgba(0,0,0,0.85);
+            border-top: 4px solid rgba(0,0,0,0.9);
             border-bottom: 1px solid rgba(255,255,255,0.04);
         }
         .section:first-child { border-top: none; }
+        /* Intra-section divider utility */
+        .sec-divider {
+            height: 1px;
+            background: rgba(255,255,255,0.06);
+            margin: 10px -12px;
+        }
         /* SCANNING ANIMATION FOR CYCLE MODE */
         .sec-head {
             display: flex; align-items: center; justify-content: space-between;
-            padding: 7px 12px;
-            /* flat engraved label — no gradient so it reads as a discrete panel zone */
-            background: rgba(255,255,255,0.03);
-            border-bottom: 1px solid rgba(255,255,255,0.06);
+            padding: 7px 12px 7px 10px;
+            background: rgba(255,255,255,0.025);
+            border-bottom: 1px solid rgba(255,255,255,0.07);
+            border-left: 2px solid rgba(255,255,255,0.06);
             border-radius: 0;
             position: relative; overflow: hidden;
         }
+        .sec-head:hover { background: rgba(255,255,255,0.04); border-left-color: var(--accent); }
         .sec-head.scanning::after {
             content: ''; position: absolute; bottom: 0; left: -100%; width: 50%; height: 2px; background: var(--y);
             box-shadow: 0 0 10px var(--y); animation: scan-line 2s linear infinite;
@@ -772,19 +779,66 @@
         .vu-bar { flex: 1; background: linear-gradient(to top, var(--g) 0%, var(--y) 60%, var(--r) 90%); min-height: 2px; border-radius: 1px; transition: height 0.05s; }
         #track-info { font-family: 'Orbitron', sans-serif; font-size: 9px; color: var(--y); margin-top: 6px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 
-        /* ── 8-PAD HYBRID SAMPLER ── */
-        #sfx-pad-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 5px; margin-top: 4px; }
-        .sfx-bank-label { font-size: 6px; letter-spacing: 2px; opacity: 0.45; margin: 5px 0 2px; text-transform: uppercase; }
-        .sfx-bank-row { display: grid; grid-template-columns: repeat(4, 1fr); gap: 5px; }
+        /* ══════════════════════════════════════════════════════════════════ */
+        /* ── 8-PAD HYBRID SAMPLER ──────────────────────────────────────── */
+        /* ══════════════════════════════════════════════════════════════════ */
+        #sfx-sampler-wrap {
+            margin-top: 10px;
+            background: rgba(0,0,0,0.5);
+            border: 1px solid rgba(255,255,255,0.07);
+            border-radius: 3px;
+            padding: 10px;
+        }
+        #sfx-sampler-header {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            margin-bottom: 10px;
+            padding-bottom: 6px;
+            border-bottom: 1px solid rgba(255,255,255,0.07);
+        }
+        #sfx-sampler-header .sampler-title {
+            font-family: 'Orbitron', sans-serif;
+            font-size: 8px;
+            font-weight: 700;
+            letter-spacing: 3px;
+            color: var(--accent);
+            text-transform: uppercase;
+        }
+        #sfx-sampler-header .sampler-badge {
+            font-size: 6px;
+            letter-spacing: 2px;
+            color: rgba(255,255,255,0.25);
+            background: rgba(255,255,255,0.04);
+            border: 1px solid rgba(255,255,255,0.08);
+            padding: 2px 5px;
+        }
+        #sfx-pad-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 7px; }
+        .sfx-bank-block { display: contents; }
+        .sfx-bank-label {
+            grid-column: 1 / -1;
+            font-size: 6.5px;
+            letter-spacing: 2.5px;
+            font-family: 'Orbitron', sans-serif;
+            color: rgba(255,255,255,0.25);
+            text-transform: uppercase;
+            padding: 4px 0 2px;
+            border-top: 1px solid rgba(255,255,255,0.06);
+        }
+        .sfx-bank-label:first-child { border-top: none; padding-top: 0; }
+        .sfx-bank-label em {
+            font-style: normal;
+            opacity: 0.7;
+        }
         .sfx-pad {
-            font-size: 7px !important;
+            font-size: 8px !important;
             padding: 0 !important;
-            height: 50px;
+            height: 66px;
             letter-spacing: 0.04em;
             text-align: center;
             min-width: 0;
             cursor: pointer;
-            transition: transform 0.08s, box-shadow 0.08s;
+            transition: transform 0.08s ease, box-shadow 0.12s ease;
             display: flex !important;
             flex-direction: column !important;
             align-items: center !important;
@@ -792,34 +846,137 @@
             gap: 3px;
             position: relative;
             overflow: hidden;
+            border-radius: 2px;
         }
-        .sfx-pad .pad-name { font-size: 7px; font-weight: 700; letter-spacing: 0.08em; line-height: 1; }
-        .sfx-pad .pad-hint { font-size: 5.5px; opacity: 0.45; letter-spacing: 0.05em; line-height: 1; }
-        .sfx-pad .pad-timer { font-size: 9px; font-weight: 900; letter-spacing: 0; line-height: 1; font-family: 'Orbitron', sans-serif; display: none; }
-        .sfx-sig { background: #050508 !important; border: 1px solid var(--c) !important; color: var(--c) !important; }
-        .sfx-cust { background: rgba(255,140,0,0.05) !important; border: 1px solid rgba(255,140,0,0.5) !important; color: rgba(255,140,0,0.7) !important; }
-        .sfx-cust.loaded { background: rgba(255,140,0,0.12) !important; border-color: #ff8c00 !important; color: #ff8c00 !important; }
+        /* Pad index chip — top-left corner */
+        .sfx-pad::before {
+            content: attr(data-pad-num);
+            position: absolute;
+            top: 4px;
+            left: 5px;
+            font-size: 5.5px;
+            font-family: 'Orbitron', sans-serif;
+            opacity: 0.3;
+            letter-spacing: 0;
+            line-height: 1;
+        }
+        .sfx-pad .pad-name  { font-size: 8px; font-weight: 800; letter-spacing: 0.1em; line-height: 1; }
+        .sfx-pad .pad-hint  { font-size: 6px;  opacity: 0.5; letter-spacing: 0.04em; line-height: 1; }
+        .sfx-pad .pad-sub   { font-size: 5px;  opacity: 0.28; letter-spacing: 0.03em; line-height: 1.2; font-style: italic; }
+        .sfx-pad .pad-timer { font-size: 13px; font-weight: 900; letter-spacing: 0; line-height: 1; font-family: 'Orbitron', sans-serif; display: none; }
+
+        /* SIG BANK — cyan theme */
+        .sfx-sig {
+            background: linear-gradient(160deg, #050a10 0%, #020507 100%) !important;
+            border: 1px solid rgba(0,243,255,0.28) !important;
+            color: rgba(0,243,255,0.65) !important;
+            box-shadow: inset 0 1px 0 rgba(0,243,255,0.05) !important;
+        }
+        .sfx-sig:hover {
+            border-color: rgba(0,243,255,0.75) !important;
+            color: var(--c) !important;
+            box-shadow: 0 0 14px rgba(0,243,255,0.28), inset 0 1px 0 rgba(0,243,255,0.1) !important;
+            transform: translateY(-1px);
+        }
+
+        /* CUSTOM BANK — amber theme */
+        .sfx-cust {
+            background: linear-gradient(160deg, #0d0800 0%, #070400 100%) !important;
+            border: 1px solid rgba(255,140,0,0.28) !important;
+            color: rgba(255,140,0,0.45) !important;
+        }
+        .sfx-cust:hover {
+            border-color: rgba(255,140,0,0.7) !important;
+            color: rgba(255,140,0,0.9) !important;
+            box-shadow: 0 0 12px rgba(255,140,0,0.2) !important;
+            transform: translateY(-1px);
+        }
+        .sfx-cust.loaded {
+            background: linear-gradient(160deg, #110900 0%, #0a0600 100%) !important;
+            border-color: #ff8c00 !important;
+            color: #ff8c00 !important;
+            box-shadow: 0 0 8px rgba(255,140,0,0.2), inset 0 1px 0 rgba(255,140,0,0.08) !important;
+        }
+        /* ARMED — red pulsing glow */
         .sfx-cust.armed {
-            background: rgba(255,0,50,0.12) !important;
+            background: linear-gradient(160deg, #1c0008 0%, #0e0005 100%) !important;
             border-color: #ff0032 !important;
-            color: #ff0032 !important;
-            animation: rec-arm-blink 0.7s ease-in-out infinite;
+            color: #ff3355 !important;
+            animation: rec-arm-glow 0.75s ease-in-out infinite;
         }
+        @keyframes rec-arm-glow {
+            0%, 100% {
+                border-color: #ff0032;
+                box-shadow: 0 0 20px rgba(255,0,50,0.6), 0 0 6px rgba(255,0,50,0.4), inset 0 0 18px rgba(255,0,30,0.1);
+            }
+            50% {
+                border-color: rgba(255,0,50,0.22);
+                box-shadow: 0 0 4px rgba(255,0,50,0.15), inset 0 0 4px rgba(255,0,30,0.04);
+            }
+        }
+        /* RECORDING — hard red pulse */
         .sfx-cust.recording {
-            background: rgba(255,0,0,0.2) !important;
+            background: rgba(255,0,0,0.18) !important;
             border-color: #ff0000 !important;
-            color: #ff2020 !important;
+            color: #ff4444 !important;
+            animation: sfx-rec-pulse 0.55s ease-in-out infinite !important;
+        }
+        @keyframes sfx-rec-pulse {
+            0%, 100% { box-shadow: 0 0 22px rgba(255,0,0,0.65), inset 0 0 16px rgba(255,0,0,0.14); border-color: #ff0000; }
+            50%       { box-shadow: 0 0 5px rgba(255,0,0,0.2), inset 0 0 4px rgba(255,0,0,0.05); border-color: rgba(255,0,0,0.35); }
         }
         .sfx-cust.recording .pad-timer { display: block; }
-        .sfx-cust.recording .pad-name, .sfx-cust.recording .pad-hint { display: none; }
-        @keyframes rec-arm-blink {
-            0%, 100% { border-color: #ff0032; box-shadow: 0 0 8px rgba(255,0,50,0.5); }
-            50%       { border-color: rgba(255,0,50,0.3); box-shadow: none; }
-        }
+        .sfx-cust.recording .pad-name,
+        .sfx-cust.recording .pad-hint,
+        .sfx-cust.recording .pad-sub  { display: none; }
+
+        /* Hit flash */
         .sfx-pad.sfx-pulse { animation: sfx-pad-pulse 0.3s ease-out; }
         @keyframes sfx-pad-pulse {
-            0%  { transform: scale(1.08); box-shadow: 0 0 14px currentColor; }
+            0%  { transform: scale(1.07); box-shadow: 0 0 20px currentColor; }
             100%{ transform: scale(1);    box-shadow: none; }
+        }
+
+        /* ── BROADCAST RECORDING CONTROLS ── */
+        .btn.rec {
+            background: linear-gradient(180deg, #1a0000 0%, #0e0000 100%) !important;
+            border-color: var(--r) !important;
+            color: var(--r) !important;
+            text-align: center;
+            font-weight: bold;
+            letter-spacing: 2px;
+        }
+        .btn.rec:hover {
+            background: linear-gradient(180deg, #260000 0%, #1a0000 100%) !important;
+            box-shadow: 0 0 14px rgba(255,51,51,0.35) !important;
+        }
+        /* Recording active — radiate outward */
+        .btn.rec.active {
+            color: #ff5555 !important;
+            border-color: #ff2222 !important;
+            animation: bcast-rec-radiate 1.1s ease-in-out infinite !important;
+        }
+        @keyframes bcast-rec-radiate {
+            0%, 100% {
+                box-shadow: 0 0 8px rgba(255,30,30,0.5), 0 0 24px rgba(255,30,30,0.18);
+                border-color: #ff2222;
+                text-shadow: 0 0 8px rgba(255,80,80,0.6);
+            }
+            50% {
+                box-shadow: 0 0 22px rgba(255,30,30,0.8), 0 0 50px rgba(255,30,30,0.3);
+                border-color: rgba(255,120,120,0.85);
+                text-shadow: 0 0 16px rgba(255,100,100,0.95);
+            }
+        }
+        /* END LIVE — blinks when recording is active (CSS sibling selector) */
+        #btn-rec.active + #btn-end {
+            border-color: var(--r) !important;
+            color: rgba(255,80,80,0.8) !important;
+            animation: btn-end-warning 1.4s ease-in-out infinite !important;
+        }
+        @keyframes btn-end-warning {
+            0%, 100% { opacity: 1; box-shadow: 0 0 8px rgba(255,51,51,0.3); }
+            50%       { opacity: 0.5; box-shadow: none; }
         }
 
         .palette-grid { display: flex; gap: 6px; flex-wrap: wrap; }
@@ -1646,8 +1803,9 @@ body.fx-nvg #stage::after {
                     </div>
                 </div>
                 <div id="live-ctrls" style="display:none">
-                    <button class="btn rec" id="btn-rec">REC_BROADCAST</button>
-                    <button class="btn" id="btn-end">END LIVE</button>
+                    <div class="lbl" style="font-size:6.5px;opacity:0.4;letter-spacing:2px;margin-bottom:4px;">BROADCAST CONTROLS</div>
+                    <button class="btn rec" id="btn-rec">⏺ REC_BROADCAST</button>
+                    <button class="btn" id="btn-end" style="text-align:center;">■ END LIVE</button>
                 </div>
                 <button class="btn" id="btn-kill" style="display:none;color:var(--r)">SHUTDOWN CAM</button>
             </div>
@@ -1790,14 +1948,17 @@ body.fx-nvg #stage::after {
                     <button class="btn btn-compact" id="btn-play-pause"><svg width="10" height="10" viewBox="0 0 12 12" id="icon-play-state"><path fill="currentColor" d="M3 2v8l7-4z"/></svg></button>
                     <button class="btn btn-compact" id="btn-next-track"><svg width="10" height="10" viewBox="0 0 12 12"><path fill="currentColor" d="M2 10l6-4-6-4v8zm6-8v8h2V2H8z"/></svg></button>
                 </div>
-                <button class="btn" id="btn-scan-inputs" style="font-size:8px;margin-top:8px;">SCAN_INPUTS</button>
+                <div class="sec-divider"></div>
+                <div class="lbl" style="font-size:6.5px;opacity:0.4;letter-spacing:2px;margin-bottom:4px;">INPUT</div>
+                <button class="btn" id="btn-scan-inputs" style="font-size:8px;">SCAN_INPUTS</button>
                 <select class="inp" id="audio-input-select" style="width:100%;font-size:9px;padding:5px;background:var(--panel);border:1px solid var(--border);color:var(--text);display:none;margin-top:4px;">
                     <option value="">SELECT_DEVICE...</option>
                 </select>
                 <div id="input-level" style="height:3px;background:var(--border);margin-top:4px;">
                     <div id="input-level-bar" style="height:100%;width:0%;background:var(--g);transition:width 0.05s;"></div>
                 </div>
-                <div class="lbl" style="margin-top:8px;">ENGINEER_MODE</div>
+                <div class="sec-divider"></div>
+                <div class="lbl" style="font-size:6.5px;opacity:0.4;letter-spacing:2px;margin-bottom:4px;">ENGINEER_MODE</div>
                 <div class="btn-grid-3">
                     <button class="btn active-mode" id="btn-stereo">STEREO</button>
                     <button class="btn" id="btn-spatial">3D_SPATIAL</button>
@@ -1809,54 +1970,71 @@ body.fx-nvg #stage::after {
         <div class="section">
             <div class="sec-head"><span class="sec-title">AUDIO_REACTIVE</span><div class="sec-dot on"></div></div>
             <div class="sec-body">
+                <div class="lbl" style="font-size:6.5px;opacity:0.4;margin-bottom:4px;letter-spacing:2px;">BEAT REACT</div>
                 <div class="btn-grid-3">
                     <button class="btn" id="btn-ui-react" style="font-size:8px;" title="Beat-reactive auto-morph">PARTY</button>
                     <button class="btn" id="btn-rumble" style="font-size:8px;" title="Click: arm SEISMIC&#10;Double-click: toggle canvas-only vs console shake">SEISMIC</button>
                     <button class="btn" id="btn-punch" style="font-size:8px;" title="Click: arm PUNCH&#10;Double-click: toggle canvas-only vs console flash">PUNCH</button>
                 </div>
-                <div style="display:flex;align-items:center;justify-content:space-between;margin-top:8px;margin-bottom:3px;">
-                    <div class="lbl" style="font-size:7px;opacity:0.5;letter-spacing:1.5px;margin:0;">HYBRID SAMPLER <span style="opacity:0.6;">// 8-PAD</span></div>
+                <div class="sec-divider"></div>
+                <div id="sfx-sampler-wrap">
+                    <div id="sfx-sampler-header">
+                        <span class="sampler-title">Hybrid Sampler</span>
+                        <span class="sampler-badge">8-PAD</span>
+                    </div>
+                    <div id="sfx-pad-grid">
+                        <!-- Row 1: Signature Vanguard Bank -->
+                        <div class="sfx-bank-label">SIG BANK <em>// CLICK TO FIRE</em></div>
+                        <button class="btn sfx-btn sfx-pad sfx-sig" id="sfx-applause" data-sfx="applause" data-midi-target="sfx:applause" data-pad-num="01" title="Applause — click or MIDI assign">
+                            <span class="pad-name">APPLAUSE</span>
+                            <span class="pad-hint">SIG BANK</span>
+                        </button>
+                        <button class="btn sfx-btn sfx-pad sfx-sig" id="sfx-cheer"    data-sfx="cheer"    data-midi-target="sfx:cheer"    data-pad-num="02" title="Cheer — click or MIDI assign">
+                            <span class="pad-name">CHEER</span>
+                            <span class="pad-hint">SIG BANK</span>
+                        </button>
+                        <button class="btn sfx-btn sfx-pad sfx-sig" id="sfx-horn"     data-sfx="horn"     data-midi-target="sfx:horn"     data-pad-num="03" title="Air Horn — click or MIDI assign">
+                            <span class="pad-name">HORN</span>
+                            <span class="pad-hint">SIG BANK</span>
+                        </button>
+                        <button class="btn sfx-btn sfx-pad sfx-sig" id="sfx-boom"     data-sfx="boom"     data-midi-target="sfx:boom"     data-pad-num="04" title="Boom — click or MIDI assign">
+                            <span class="pad-name">BOOM</span>
+                            <span class="pad-hint">SIG BANK</span>
+                        </button>
+                        <!-- Row 2: Custom Performance Bank -->
+                        <div class="sfx-bank-label" style="color:rgba(255,140,0,0.4);">CUSTOM BANK <em>// CLICK: LOAD &nbsp;·&nbsp; R-CLICK: ARM REC</em></div>
+                        <button class="btn sfx-btn sfx-pad sfx-cust" id="sfx-custom1" data-sfx="custom1" data-midi-target="sfx:custom1" data-pad-num="05" title="Custom 1 — click: load sample / right-click: arm record">
+                            <span class="pad-name">C-01</span>
+                            <span class="pad-hint">LOAD SAMPLE</span>
+                            <span class="pad-sub">R-CLICK: ARM REC</span>
+                            <span class="pad-timer">10</span>
+                        </button>
+                        <button class="btn sfx-btn sfx-pad sfx-cust" id="sfx-custom2" data-sfx="custom2" data-midi-target="sfx:custom2" data-pad-num="06" title="Custom 2 — click: load sample / right-click: arm record">
+                            <span class="pad-name">C-02</span>
+                            <span class="pad-hint">LOAD SAMPLE</span>
+                            <span class="pad-sub">R-CLICK: ARM REC</span>
+                            <span class="pad-timer">10</span>
+                        </button>
+                        <button class="btn sfx-btn sfx-pad sfx-cust" id="sfx-custom3" data-sfx="custom3" data-midi-target="sfx:custom3" data-pad-num="07" title="Custom 3 — click: load sample / right-click: arm record">
+                            <span class="pad-name">C-03</span>
+                            <span class="pad-hint">LOAD SAMPLE</span>
+                            <span class="pad-sub">R-CLICK: ARM REC</span>
+                            <span class="pad-timer">10</span>
+                        </button>
+                        <button class="btn sfx-btn sfx-pad sfx-cust" id="sfx-custom4" data-sfx="custom4" data-midi-target="sfx:custom4" data-pad-num="08" title="Custom 4 — click: load sample / right-click: arm record">
+                            <span class="pad-name">C-04</span>
+                            <span class="pad-hint">LOAD SAMPLE</span>
+                            <span class="pad-sub">R-CLICK: ARM REC</span>
+                            <span class="pad-timer">10</span>
+                        </button>
+                    </div>
+                    <!-- Hidden file inputs for custom pad uploads -->
+                    <input type="file" id="sfx-file-1" accept="audio/*" style="display:none;">
+                    <input type="file" id="sfx-file-2" accept="audio/*" style="display:none;">
+                    <input type="file" id="sfx-file-3" accept="audio/*" style="display:none;">
+                    <input type="file" id="sfx-file-4" accept="audio/*" style="display:none;">
+                    <div id="sfx-midi-arm" style="font-size:7px;color:var(--text-dim);margin-top:6px;text-align:center;letter-spacing:1px;"></div>
                 </div>
-                <div id="sfx-pad-grid">
-                    <!-- Row 1: Signature Vanguard Bank -->
-                    <div class="sfx-bank-label" style="grid-column:1/-1;">SIG BANK</div>
-                    <button class="btn sfx-btn sfx-pad sfx-sig" id="sfx-applause" data-sfx="applause" data-midi-target="sfx:applause" title="Applause — click or MIDI assign">
-                        <span class="pad-name">APPLAUSE</span><span class="pad-hint">SIG</span>
-                    </button>
-                    <button class="btn sfx-btn sfx-pad sfx-sig" id="sfx-cheer"    data-sfx="cheer"    data-midi-target="sfx:cheer"    title="Cheer — click or MIDI assign">
-                        <span class="pad-name">CHEER</span><span class="pad-hint">SIG</span>
-                    </button>
-                    <button class="btn sfx-btn sfx-pad sfx-sig" id="sfx-horn"     data-sfx="horn"     data-midi-target="sfx:horn"     title="Air Horn — click or MIDI assign">
-                        <span class="pad-name">HORN</span><span class="pad-hint">SIG</span>
-                    </button>
-                    <button class="btn sfx-btn sfx-pad sfx-sig" id="sfx-boom"     data-sfx="boom"     data-midi-target="sfx:boom"     title="Boom — click or MIDI assign">
-                        <span class="pad-name">BOOM</span><span class="pad-hint">SIG</span>
-                    </button>
-                    <!-- Row 2: Custom Performance Bank -->
-                    <div class="sfx-bank-label" style="grid-column:1/-1;">CUSTOM BANK <span style="color:#ff8c00;opacity:0.7;">// R-CLICK: ARM REC</span></div>
-                    <button class="btn sfx-btn sfx-pad sfx-cust" id="sfx-custom1" data-sfx="custom1" data-midi-target="sfx:custom1" title="Custom 1 — click: upload / R-click: arm record">
-                        <span class="pad-name">C-01</span><span class="pad-hint">EMPTY</span>
-                        <span class="pad-timer">10</span>
-                    </button>
-                    <button class="btn sfx-btn sfx-pad sfx-cust" id="sfx-custom2" data-sfx="custom2" data-midi-target="sfx:custom2" title="Custom 2 — click: upload / R-click: arm record">
-                        <span class="pad-name">C-02</span><span class="pad-hint">EMPTY</span>
-                        <span class="pad-timer">10</span>
-                    </button>
-                    <button class="btn sfx-btn sfx-pad sfx-cust" id="sfx-custom3" data-sfx="custom3" data-midi-target="sfx:custom3" title="Custom 3 — click: upload / R-click: arm record">
-                        <span class="pad-name">C-03</span><span class="pad-hint">EMPTY</span>
-                        <span class="pad-timer">10</span>
-                    </button>
-                    <button class="btn sfx-btn sfx-pad sfx-cust" id="sfx-custom4" data-sfx="custom4" data-midi-target="sfx:custom4" title="Custom 4 — click: upload / R-click: arm record">
-                        <span class="pad-name">C-04</span><span class="pad-hint">EMPTY</span>
-                        <span class="pad-timer">10</span>
-                    </button>
-                </div>
-                <!-- Hidden file inputs for custom pad uploads -->
-                <input type="file" id="sfx-file-1" accept="audio/*" style="display:none;">
-                <input type="file" id="sfx-file-2" accept="audio/*" style="display:none;">
-                <input type="file" id="sfx-file-3" accept="audio/*" style="display:none;">
-                <input type="file" id="sfx-file-4" accept="audio/*" style="display:none;">
-                <div id="sfx-midi-arm" style="font-size:7px;color:var(--text-dim);margin-top:4px;text-align:center;letter-spacing:1px;"></div>
             </div>
         </div>
         <div class="section">
