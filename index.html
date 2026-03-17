@@ -803,14 +803,16 @@
         #track-info { font-family: 'Orbitron', sans-serif; font-size: 9px; color: var(--y); margin-top: 6px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 
         /* ══════════════════════════════════════════════════════════════════ */
-        /* ── 8-PAD HYBRID SAMPLER ──────────────────────────────────────── */
+        /* ── 8-PAD HYBRID SAMPLER — MPC/MASCHINE STYLE ──────────────────── */
         /* ══════════════════════════════════════════════════════════════════ */
         #sfx-sampler-wrap {
             margin-top: 10px;
-            background: rgba(0,0,0,0.5);
-            border: 1px solid rgba(255,255,255,0.07);
-            border-radius: 3px;
-            padding: 10px;
+            background: linear-gradient(180deg, #0a0a0f 0%, #060608 100%);
+            border: 1px solid rgba(255,255,255,0.08);
+            border-top: 2px solid rgba(0,243,255,0.18);
+            border-radius: 6px;
+            padding: 10px 10px 12px;
+            box-shadow: 0 4px 24px rgba(0,0,0,0.8), inset 0 1px 0 rgba(255,255,255,0.04);
         }
         #sfx-sampler-header {
             display: flex;
@@ -818,7 +820,7 @@
             justify-content: space-between;
             margin-bottom: 10px;
             padding-bottom: 6px;
-            border-bottom: 1px solid rgba(255,255,255,0.07);
+            border-bottom: 1px solid rgba(255,255,255,0.06);
         }
         #sfx-sampler-header .sampler-title {
             font-family: 'Orbitron', sans-serif;
@@ -836,93 +838,191 @@
             border: 1px solid rgba(255,255,255,0.08);
             padding: 2px 5px;
         }
-        #sfx-pad-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 4px; }
+        #sfx-pad-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 6px; }
         .sfx-bank-block { display: contents; }
         .sfx-bank-label {
             grid-column: 1 / -1;
-            font-size: 6.5px;
+            font-size: 6px;
             letter-spacing: 2.5px;
             font-family: 'Orbitron', sans-serif;
-            color: rgba(255,255,255,0.25);
+            color: rgba(255,255,255,0.2);
             text-transform: uppercase;
-            padding: 4px 0 2px;
-            border-top: 1px solid rgba(255,255,255,0.06);
+            padding: 5px 0 3px;
+            border-top: 1px solid rgba(255,255,255,0.05);
         }
         .sfx-bank-label:first-child { border-top: none; padding-top: 0; }
-        .sfx-bank-label em {
-            font-style: normal;
-            opacity: 0.7;
-        }
+        .sfx-bank-label em { font-style: normal; opacity: 0.6; }
+
+        /* ── CORE PAD SHAPE — thick rubber, 3D recessed ── */
         .sfx-pad {
             font-size: 8px !important;
             padding: 0 !important;
-            height: 34px;
+            height: 72px;
             letter-spacing: 0.04em;
             text-align: center;
             min-width: 0;
             cursor: pointer;
-            transition: transform 0.08s ease, box-shadow 0.12s ease;
             display: flex !important;
             flex-direction: column !important;
             align-items: center !important;
             justify-content: center !important;
-            gap: 2px;
+            gap: 1px;
             position: relative;
-            overflow: hidden;
-            border-radius: 2px;
+            overflow: visible;
+            border-radius: 8px;
+            /* Heavy rubber inactive state */
+            background: linear-gradient(145deg, #111118 0%, #0c0c12 50%, #0f0f16 100%) !important;
+            border: 2px solid #1c1c28 !important;
+            /* 3D recessed look: outer shadow + deep inner recession */
+            box-shadow:
+                2px 3px 8px rgba(0,0,0,0.95),
+                0 1px 0 rgba(255,255,255,0.04),
+                inset 0 3px 12px rgba(0,0,0,0.85),
+                inset 0 1px 3px rgba(0,0,0,0.9),
+                inset 0 -2px 6px rgba(255,255,255,0.025) !important;
+            transition: transform 0.06s ease, box-shadow 0.1s ease, border-color 0.15s ease;
+            color: rgba(255,255,255,0.25) !important;
         }
+        .sfx-pad:hover {
+            transform: translateY(-1px);
+            border-color: rgba(255,255,255,0.18) !important;
+            box-shadow:
+                3px 5px 14px rgba(0,0,0,0.95),
+                0 1px 0 rgba(255,255,255,0.06),
+                inset 0 3px 12px rgba(0,0,0,0.75),
+                inset 0 -2px 6px rgba(255,255,255,0.03) !important;
+        }
+        .sfx-pad:active {
+            transform: scale(0.97) translateY(1px);
+        }
+
         /* Pad index chip — top-left corner */
         .sfx-pad::before {
             content: attr(data-pad-num);
             position: absolute;
-            top: 4px;
-            left: 5px;
+            top: 5px;
+            left: 7px;
             font-size: 5.5px;
             font-family: 'Orbitron', sans-serif;
-            opacity: 0.3;
+            opacity: 0.22;
             letter-spacing: 0;
             line-height: 1;
-        }
-        .sfx-pad .pad-name  { font-size: 8px; font-weight: 800; letter-spacing: 0.1em; line-height: 1; }
-        .sfx-pad .pad-hint  { font-size: 6px;  opacity: 0.5; letter-spacing: 0.04em; line-height: 1; }
-        .sfx-pad .pad-sub   { font-size: 5px;  opacity: 0.28; letter-spacing: 0.03em; line-height: 1.2; font-style: italic; }
-        .sfx-pad .pad-timer { font-size: 13px; font-weight: 900; letter-spacing: 0; line-height: 1; font-family: 'Orbitron', sans-serif; display: none; }
-
-        /* SIG BANK — cyan theme */
-        .sfx-sig {
-            background: linear-gradient(160deg, #050a10 0%, #020507 100%) !important;
-            border: 1px solid rgba(0,243,255,0.28) !important;
-            color: rgba(0,243,255,0.65) !important;
-            box-shadow: inset 0 1px 0 rgba(0,243,255,0.05) !important;
-        }
-        .sfx-sig:hover {
-            border-color: rgba(0,243,255,0.75) !important;
-            color: var(--c) !important;
-            box-shadow: 0 0 14px rgba(0,243,255,0.28), inset 0 1px 0 rgba(0,243,255,0.1) !important;
-            transform: translateY(-1px);
+            pointer-events: none;
         }
 
-        /* CUSTOM BANK — amber theme */
-        .sfx-cust {
-            background: linear-gradient(160deg, #0d0800 0%, #070400 100%) !important;
-            border: 1px solid rgba(255,140,0,0.28) !important;
-            color: rgba(255,140,0,0.45) !important;
+        /* ── PAD CONTENT LAYOUT ── */
+        .sfx-pad .pad-id   {
+            font-size: 6px; font-family: 'Orbitron', sans-serif; font-weight: 700;
+            letter-spacing: 0.25em; opacity: 0.35; line-height: 1; text-transform: uppercase;
         }
-        .sfx-cust:hover {
-            border-color: rgba(255,140,0,0.7) !important;
-            color: rgba(255,140,0,0.9) !important;
-            box-shadow: 0 0 12px rgba(255,140,0,0.2) !important;
-            transform: translateY(-1px);
+        .sfx-pad .pad-name {
+            font-size: 9px; font-weight: 800; letter-spacing: 0.08em; line-height: 1;
+            font-family: 'Orbitron', sans-serif;
         }
-        .sfx-cust.loaded {
-            background: linear-gradient(160deg, #110900 0%, #0a0600 100%) !important;
-            border-color: #ff8c00 !important;
-            color: #ff8c00 !important;
-            box-shadow: 0 0 8px rgba(255,140,0,0.2), inset 0 1px 0 rgba(255,140,0,0.08) !important;
+        .sfx-pad .pad-hint  { font-size: 6px; opacity: 0.45; letter-spacing: 0.04em; line-height: 1; display: none; }
+        .sfx-pad .pad-sub   { font-size: 5px; opacity: 0.28; letter-spacing: 0.03em; line-height: 1.2; font-style: italic; display: none; }
+        .sfx-pad .pad-timer { font-size: 14px; font-weight: 900; letter-spacing: 0; line-height: 1; font-family: 'Orbitron', sans-serif; display: none; }
+        /* LCD filename strip at the bottom */
+        .sfx-pad .pad-lcd {
+            position: absolute;
+            bottom: 5px;
+            left: 0; right: 0;
+            font-size: 5.5px;
+            font-family: 'JetBrains Mono', monospace;
+            letter-spacing: 0.05em;
+            opacity: 0.28;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            padding: 0 8px;
+            line-height: 1;
+            pointer-events: none;
+        }
+
+        /* ── GEAR DROPDOWN ── */
+        .pad-gear {
+            position: absolute;
+            top: 4px;
+            right: 4px;
+            z-index: 10;
+        }
+        .pad-gear-icon {
+            display: block;
+            font-size: 7px;
+            opacity: 0.2;
+            cursor: pointer;
+            line-height: 1;
+            padding: 2px;
+            transition: opacity 0.15s;
+            user-select: none;
+        }
+        .pad-gear:hover .pad-gear-icon,
+        .pad-gear.open .pad-gear-icon { opacity: 0.7; }
+        .pad-gear-menu {
+            display: none;
+            position: absolute;
+            top: 14px;
+            right: 0;
+            background: #0c0c14;
+            border: 1px solid rgba(0,243,255,0.25);
+            border-radius: 4px;
+            box-shadow: 0 4px 16px rgba(0,0,0,0.9);
+            min-width: 68px;
+            z-index: 9999;
+            overflow: hidden;
+        }
+        .pad-gear.open .pad-gear-menu { display: block; }
+        .pad-gear-menu [data-fx] {
+            display: block;
+            font-size: 7px;
+            font-family: 'Orbitron', sans-serif;
+            letter-spacing: 0.1em;
+            padding: 4px 8px;
+            cursor: pointer;
+            color: rgba(255,255,255,0.45);
+            transition: background 0.1s, color 0.1s;
+            white-space: nowrap;
+        }
+        .pad-gear-menu [data-fx]:hover { background: rgba(0,243,255,0.1); color: #fff; }
+        .pad-gear-menu [data-fx].active-fx-opt { color: var(--accent); background: rgba(0,243,255,0.07); }
+        /* color tints per FX in menu */
+        .pad-gear-menu [data-fx="nvg"]:hover      { color: #00ff41; background: rgba(0,255,65,0.08); }
+        .pad-gear-menu [data-fx="shoot"]:hover,
+        .pad-gear-menu [data-fx="reset"]:hover    { color: #ff2233; background: rgba(255,34,51,0.08); }
+        .pad-gear-menu [data-fx="void"]:hover,
+        .pad-gear-menu [data-fx="failure"]:hover,
+        .pad-gear-menu [data-fx="lucy"]:hover     { color: #cc00ff; background: rgba(204,0,255,0.08); }
+        .pad-gear-menu [data-fx="seismic"]:hover,
+        .pad-gear-menu [data-fx="punch"]:hover    { color: #ff6600; background: rgba(255,102,0,0.08); }
+        .pad-gear-menu [data-fx="party"]:hover    { color: #ff00ff; background: rgba(255,0,255,0.08); }
+
+        /* ── SIG BANK base — overridden by coupling classes ── */
+        .sfx-sig:not([class*="coupled-"]) {
+            border-color: rgba(0,243,255,0.22) !important;
+            color: rgba(0,243,255,0.55) !important;
+        }
+        .sfx-sig:not([class*="coupled-"]):hover {
+            border-color: rgba(0,243,255,0.55) !important;
+            color: rgba(0,243,255,0.85) !important;
+        }
+
+        /* ── CUSTOM BANK — amber base ── */
+        .sfx-cust:not(.loaded):not(.armed):not(.recording):not([class*="coupled-"]) {
+            border-color: rgba(255,140,0,0.22) !important;
+            color: rgba(255,140,0,0.4) !important;
+        }
+        .sfx-cust.loaded:not([class*="coupled-"]) {
+            border-color: rgba(255,140,0,0.6) !important;
+            color: rgba(255,140,0,0.85) !important;
+            box-shadow:
+                2px 3px 8px rgba(0,0,0,0.95),
+                0 1px 0 rgba(255,255,255,0.04),
+                inset 0 3px 12px rgba(0,0,0,0.7),
+                inset 0 -2px 6px rgba(255,140,0,0.06),
+                0 0 8px rgba(255,140,0,0.12) !important;
         }
         /* ARMED — red pulsing glow */
         .sfx-cust.armed {
-            background: linear-gradient(160deg, #1c0008 0%, #0e0005 100%) !important;
             border-color: #ff0032 !important;
             color: #ff3355 !important;
             animation: rec-arm-glow 0.75s ease-in-out infinite;
@@ -930,51 +1030,135 @@
         @keyframes rec-arm-glow {
             0%, 100% {
                 border-color: #ff0032;
-                box-shadow: 0 0 20px rgba(255,0,50,0.6), 0 0 6px rgba(255,0,50,0.4), inset 0 0 18px rgba(255,0,30,0.1);
+                box-shadow: 2px 3px 8px rgba(0,0,0,0.95), inset 0 3px 12px rgba(0,0,0,0.8),
+                    0 0 20px rgba(255,0,50,0.55), inset 0 0 18px rgba(255,0,30,0.12);
             }
             50% {
                 border-color: rgba(255,0,50,0.22);
-                box-shadow: 0 0 4px rgba(255,0,50,0.15), inset 0 0 4px rgba(255,0,30,0.04);
+                box-shadow: 2px 3px 8px rgba(0,0,0,0.95), inset 0 3px 12px rgba(0,0,0,0.85),
+                    0 0 4px rgba(255,0,50,0.12);
             }
         }
         /* RECORDING — hard red pulse */
         .sfx-cust.recording {
-            background: rgba(255,0,0,0.18) !important;
+            background: linear-gradient(145deg, #1a0808 0%, #0f0404 100%) !important;
             border-color: #ff0000 !important;
             color: #ff4444 !important;
             animation: sfx-rec-pulse 0.55s ease-in-out infinite !important;
         }
         @keyframes sfx-rec-pulse {
-            0%, 100% { box-shadow: 0 0 22px rgba(255,0,0,0.65), inset 0 0 16px rgba(255,0,0,0.14); border-color: #ff0000; }
-            50%       { box-shadow: 0 0 5px rgba(255,0,0,0.2), inset 0 0 4px rgba(255,0,0,0.05); border-color: rgba(255,0,0,0.35); }
+            0%, 100% { box-shadow: 2px 3px 8px rgba(0,0,0,0.95), inset 0 3px 12px rgba(0,0,0,0.7),
+                0 0 22px rgba(255,0,0,0.65), inset 0 0 16px rgba(255,0,0,0.15); border-color: #ff0000; }
+            50%       { box-shadow: 2px 3px 8px rgba(0,0,0,0.95), inset 0 3px 12px rgba(0,0,0,0.85),
+                0 0 5px rgba(255,0,0,0.18); border-color: rgba(255,0,0,0.3); }
         }
         .sfx-cust.recording .pad-timer { display: block; }
+        .sfx-cust.recording .pad-id,
         .sfx-cust.recording .pad-name,
         .sfx-cust.recording .pad-hint,
-        .sfx-cust.recording .pad-sub  { display: none; }
+        .sfx-cust.recording .pad-sub,
+        .sfx-cust.recording .pad-lcd  { display: none; }
 
-        /* Hit flash */
-        .sfx-pad.sfx-pulse { animation: sfx-pad-pulse 0.3s ease-out; }
+        /* ── HIT FLASH — bright internal glow ── */
+        .sfx-pad.sfx-pulse { animation: sfx-pad-pulse 0.28s ease-out forwards; }
         @keyframes sfx-pad-pulse {
-            0%  { transform: scale(1.07); box-shadow: 0 0 20px currentColor; }
-            100%{ transform: scale(1);    box-shadow: none; }
+            0%  {
+                transform: scale(0.96) translateY(1px);
+                box-shadow:
+                    1px 2px 4px rgba(0,0,0,0.9),
+                    inset 0 2px 8px rgba(0,0,0,0.5),
+                    inset 0 0 28px rgba(255,255,255,0.22),
+                    0 0 28px currentColor,
+                    0 0 60px currentColor;
+            }
+            100% {
+                transform: scale(1) translateY(0);
+                box-shadow:
+                    2px 3px 8px rgba(0,0,0,0.95),
+                    inset 0 3px 12px rgba(0,0,0,0.85),
+                    inset 0 -2px 6px rgba(255,255,255,0.025);
+            }
         }
 
-        /* ── COUPLING ENGINE ── */
-        /* Hide secondary text at reduced size — pad-name stays */
-        .sfx-pad .pad-hint { display: none; }
-        .sfx-pad .pad-sub  { display: none; }
-        /* Coupling FX label (bottom of pad, visible only when coupled) */
+        /* ── COUPLING ENGINE — color-coded glow per FX ── */
         .sfx-pad .pad-fx-label {
-            font-size: 5px; letter-spacing: 0.12em; line-height: 1;
-            text-transform: uppercase; opacity: 0.9; display: none;
+            position: absolute;
+            bottom: 14px;
+            left: 0; right: 0;
+            font-size: 5.5px; letter-spacing: 0.14em; line-height: 1;
+            text-transform: uppercase; opacity: 0; display: block;
             font-family: 'Orbitron', sans-serif;
+            pointer-events: none;
+            transition: opacity 0.2s;
         }
-        .sfx-pad.coupled .pad-fx-label { display: block; }
-        /* Glow states per coupled FX */
-        .sfx-pad.coupled-void    { border-color: rgba(139,0,255,0.9) !important; color: rgba(180,80,255,0.9) !important; box-shadow: 0 0 14px rgba(139,0,255,0.65), inset 0 0 8px rgba(139,0,255,0.1) !important; }
-        .sfx-pad.coupled-seismic { border-color: rgba(255,102,0,0.9) !important;  color: rgba(255,140,40,0.9) !important;  box-shadow: 0 0 14px rgba(255,102,0,0.65), inset 0 0 8px rgba(255,102,0,0.1) !important; }
-        .sfx-pad.coupled-glitch  { border-color: rgba(255,0,100,0.9) !important;  color: rgba(255,60,140,0.9) !important;  box-shadow: 0 0 14px rgba(255,0,100,0.65), inset 0 0 8px rgba(255,0,100,0.1) !important; }
+        .sfx-pad.coupled .pad-fx-label { opacity: 0.9; }
+
+        /* NVG — Neon Green underglow */
+        .sfx-pad.coupled-nvg {
+            border-color: rgba(0,255,65,0.8) !important;
+            color: rgba(0,255,65,0.9) !important;
+            box-shadow:
+                2px 3px 8px rgba(0,0,0,0.95),
+                inset 0 3px 12px rgba(0,0,0,0.7),
+                0 0 18px rgba(0,255,65,0.5),
+                0 0 40px rgba(0,255,65,0.2),
+                inset 0 0 12px rgba(0,255,65,0.08) !important;
+        }
+        /* SHOOT / RESET — Sharp Red underglow */
+        .sfx-pad.coupled-shoot,
+        .sfx-pad.coupled-reset {
+            border-color: rgba(255,30,50,0.85) !important;
+            color: rgba(255,60,80,0.9) !important;
+            box-shadow:
+                2px 3px 8px rgba(0,0,0,0.95),
+                inset 0 3px 12px rgba(0,0,0,0.7),
+                0 0 18px rgba(255,30,50,0.5),
+                0 0 40px rgba(255,30,50,0.2),
+                inset 0 0 12px rgba(255,30,50,0.08) !important;
+        }
+        /* VOID / FAILURE / LUCY — Deep Purple/Magenta underglow */
+        .sfx-pad.coupled-void,
+        .sfx-pad.coupled-failure,
+        .sfx-pad.coupled-lucy {
+            border-color: rgba(180,0,255,0.85) !important;
+            color: rgba(200,60,255,0.9) !important;
+            box-shadow:
+                2px 3px 8px rgba(0,0,0,0.95),
+                inset 0 3px 12px rgba(0,0,0,0.7),
+                0 0 18px rgba(180,0,255,0.5),
+                0 0 40px rgba(180,0,255,0.2),
+                inset 0 0 12px rgba(180,0,255,0.08) !important;
+        }
+        /* PUNCH / SEISMIC — Amber/Industrial Orange underglow */
+        .sfx-pad.coupled-punch,
+        .sfx-pad.coupled-seismic {
+            border-color: rgba(255,102,0,0.85) !important;
+            color: rgba(255,140,30,0.9) !important;
+            box-shadow:
+                2px 3px 8px rgba(0,0,0,0.95),
+                inset 0 3px 12px rgba(0,0,0,0.7),
+                0 0 18px rgba(255,102,0,0.5),
+                0 0 40px rgba(255,102,0,0.2),
+                inset 0 0 12px rgba(255,102,0,0.08) !important;
+        }
+        /* PARTY — Magenta/Cyan strobe */
+        .sfx-pad.coupled-party {
+            border-color: rgba(255,0,255,0.8) !important;
+            color: rgba(255,60,255,0.9) !important;
+            box-shadow:
+                2px 3px 8px rgba(0,0,0,0.95),
+                inset 0 3px 12px rgba(0,0,0,0.7),
+                0 0 18px rgba(255,0,255,0.45),
+                0 0 40px rgba(255,0,255,0.18),
+                inset 0 0 12px rgba(255,0,255,0.07) !important;
+        }
+        /* Backward-compat alias */
+        .sfx-pad.coupled-glitch {
+            border-color: rgba(255,0,100,0.85) !important;
+            color: rgba(255,60,140,0.9) !important;
+            box-shadow: 2px 3px 8px rgba(0,0,0,0.95), inset 0 3px 12px rgba(0,0,0,0.7),
+                0 0 18px rgba(255,0,100,0.5), inset 0 0 12px rgba(255,0,100,0.08) !important;
+        }
 
         /* ── BROADCAST RECORDING CONTROLS ── */
         .btn.rec {
@@ -2267,62 +2451,208 @@ body.fullscreen #transcription-hud { opacity: 0 !important; pointer-events: none
                 <div class="sec-divider"></div>
                 <div id="sfx-sampler-wrap">
                     <div id="sfx-sampler-header">
-                        <span class="sampler-title">Hybrid Sampler</span>
-                        <span class="sampler-badge">8-PAD</span>
+                        <span class="sampler-title">VNGRD// Drum Machine</span>
+                        <span class="sampler-badge">MPC · 8-PAD</span>
                     </div>
                     <div id="sfx-pad-grid">
                         <!-- Row 1: Signature Vanguard Bank -->
-                        <div class="sfx-bank-label">SIG BANK <em>// CLICK TO FIRE</em></div>
-                        <button class="btn sfx-btn sfx-pad sfx-sig" id="sfx-applause" data-sfx="applause" data-midi-target="sfx:applause" data-pad-num="01" title="Applause — click or MIDI assign&#10;Double-click to couple FX">
+                        <div class="sfx-bank-label">SIG BANK <em>// TAP TO FIRE</em></div>
+
+                        <button class="btn sfx-btn sfx-pad sfx-sig" id="sfx-applause" data-sfx="applause" data-midi-target="sfx:applause" data-pad-num="01" title="Applause — click or MIDI">
+                            <div class="pad-gear" onclick="event.stopPropagation()">
+                                <span class="pad-gear-icon" onclick="_padGearToggle(this)">⚙</span>
+                                <div class="pad-gear-menu">
+                                    <div data-fx="none">— NONE —</div>
+                                    <div data-fx="nvg">NVG</div>
+                                    <div data-fx="shoot">SHOOT</div>
+                                    <div data-fx="reset">RESET</div>
+                                    <div data-fx="void">VOID</div>
+                                    <div data-fx="failure">FAILURE</div>
+                                    <div data-fx="lucy">LUCY</div>
+                                    <div data-fx="seismic">SEISMIC</div>
+                                    <div data-fx="punch">PUNCH</div>
+                                    <div data-fx="party">PARTY</div>
+                                </div>
+                            </div>
+                            <span class="pad-id">PAD 1</span>
                             <span class="pad-name">APPLAUSE</span>
                             <span class="pad-hint">SIG BANK</span>
                             <span class="pad-fx-label"></span>
+                            <span class="pad-lcd">applause_3.wav</span>
                         </button>
-                        <button class="btn sfx-btn sfx-pad sfx-sig" id="sfx-cheer"    data-sfx="cheer"    data-midi-target="sfx:cheer"    data-pad-num="02" title="Cheer — click or MIDI assign&#10;Double-click to couple FX">
+
+                        <button class="btn sfx-btn sfx-pad sfx-sig" id="sfx-cheer" data-sfx="cheer" data-midi-target="sfx:cheer" data-pad-num="02" title="Cheer — click or MIDI">
+                            <div class="pad-gear" onclick="event.stopPropagation()">
+                                <span class="pad-gear-icon" onclick="_padGearToggle(this)">⚙</span>
+                                <div class="pad-gear-menu">
+                                    <div data-fx="none">— NONE —</div>
+                                    <div data-fx="nvg">NVG</div>
+                                    <div data-fx="shoot">SHOOT</div>
+                                    <div data-fx="reset">RESET</div>
+                                    <div data-fx="void">VOID</div>
+                                    <div data-fx="failure">FAILURE</div>
+                                    <div data-fx="lucy">LUCY</div>
+                                    <div data-fx="seismic">SEISMIC</div>
+                                    <div data-fx="punch">PUNCH</div>
+                                    <div data-fx="party">PARTY</div>
+                                </div>
+                            </div>
+                            <span class="pad-id">PAD 2</span>
                             <span class="pad-name">CHEER</span>
                             <span class="pad-hint">SIG BANK</span>
                             <span class="pad-fx-label"></span>
+                            <span class="pad-lcd">crowd_cheering.wav</span>
                         </button>
-                        <button class="btn sfx-btn sfx-pad sfx-sig" id="sfx-horn"     data-sfx="horn"     data-midi-target="sfx:horn"     data-pad-num="03" title="Air Horn — click or MIDI assign&#10;Double-click to couple FX">
+
+                        <button class="btn sfx-btn sfx-pad sfx-sig" id="sfx-horn" data-sfx="horn" data-midi-target="sfx:horn" data-pad-num="03" title="Air Horn — click or MIDI">
+                            <div class="pad-gear" onclick="event.stopPropagation()">
+                                <span class="pad-gear-icon" onclick="_padGearToggle(this)">⚙</span>
+                                <div class="pad-gear-menu">
+                                    <div data-fx="none">— NONE —</div>
+                                    <div data-fx="nvg">NVG</div>
+                                    <div data-fx="shoot">SHOOT</div>
+                                    <div data-fx="reset">RESET</div>
+                                    <div data-fx="void">VOID</div>
+                                    <div data-fx="failure">FAILURE</div>
+                                    <div data-fx="lucy">LUCY</div>
+                                    <div data-fx="seismic">SEISMIC</div>
+                                    <div data-fx="punch">PUNCH</div>
+                                    <div data-fx="party">PARTY</div>
+                                </div>
+                            </div>
+                            <span class="pad-id">PAD 3</span>
                             <span class="pad-name">HORN</span>
                             <span class="pad-hint">SIG BANK</span>
                             <span class="pad-fx-label"></span>
+                            <span class="pad-lcd">airhorn.mp3</span>
                         </button>
-                        <button class="btn sfx-btn sfx-pad sfx-sig" id="sfx-boom"     data-sfx="boom"     data-midi-target="sfx:boom"     data-pad-num="04" title="Boom — click or MIDI assign&#10;Double-click to couple FX">
+
+                        <button class="btn sfx-btn sfx-pad sfx-sig" id="sfx-boom" data-sfx="boom" data-midi-target="sfx:boom" data-pad-num="04" title="Boom — click or MIDI">
+                            <div class="pad-gear" onclick="event.stopPropagation()">
+                                <span class="pad-gear-icon" onclick="_padGearToggle(this)">⚙</span>
+                                <div class="pad-gear-menu">
+                                    <div data-fx="none">— NONE —</div>
+                                    <div data-fx="nvg">NVG</div>
+                                    <div data-fx="shoot">SHOOT</div>
+                                    <div data-fx="reset">RESET</div>
+                                    <div data-fx="void">VOID</div>
+                                    <div data-fx="failure">FAILURE</div>
+                                    <div data-fx="lucy">LUCY</div>
+                                    <div data-fx="seismic">SEISMIC</div>
+                                    <div data-fx="punch">PUNCH</div>
+                                    <div data-fx="party">PARTY</div>
+                                </div>
+                            </div>
+                            <span class="pad-id">PAD 4</span>
                             <span class="pad-name">BOOM</span>
                             <span class="pad-hint">SIG BANK</span>
                             <span class="pad-fx-label"></span>
+                            <span class="pad-lcd">BOOM.wav</span>
                         </button>
+
                         <!-- Row 2: Custom Performance Bank -->
-                        <div class="sfx-bank-label" style="color:rgba(255,140,0,0.4);">CUSTOM BANK <em>// CLICK: LOAD &nbsp;·&nbsp; R-CLICK: ARM REC</em></div>
-                        <button class="btn sfx-btn sfx-pad sfx-cust" id="sfx-custom1" data-sfx="custom1" data-midi-target="sfx:custom1" data-pad-num="05" title="Custom 1 — click: load sample / right-click: arm record&#10;Double-click to couple FX">
+                        <div class="sfx-bank-label" style="color:rgba(255,140,0,0.35);">CUSTOM BANK <em>// TAP: LOAD · R-CLICK: ARM REC</em></div>
+
+                        <button class="btn sfx-btn sfx-pad sfx-cust" id="sfx-custom1" data-sfx="custom1" data-midi-target="sfx:custom1" data-pad-num="05" title="Custom 1 — click: load / right-click: arm rec">
+                            <div class="pad-gear" onclick="event.stopPropagation()">
+                                <span class="pad-gear-icon" onclick="_padGearToggle(this)">⚙</span>
+                                <div class="pad-gear-menu">
+                                    <div data-fx="none">— NONE —</div>
+                                    <div data-fx="nvg">NVG</div>
+                                    <div data-fx="shoot">SHOOT</div>
+                                    <div data-fx="reset">RESET</div>
+                                    <div data-fx="void">VOID</div>
+                                    <div data-fx="failure">FAILURE</div>
+                                    <div data-fx="lucy">LUCY</div>
+                                    <div data-fx="seismic">SEISMIC</div>
+                                    <div data-fx="punch">PUNCH</div>
+                                    <div data-fx="party">PARTY</div>
+                                </div>
+                            </div>
+                            <span class="pad-id">PAD 5</span>
                             <span class="pad-name">C-01</span>
                             <span class="pad-hint">LOAD SAMPLE</span>
                             <span class="pad-sub">R-CLICK: ARM REC</span>
                             <span class="pad-timer">10</span>
                             <span class="pad-fx-label"></span>
+                            <span class="pad-lcd">— empty —</span>
                         </button>
-                        <button class="btn sfx-btn sfx-pad sfx-cust" id="sfx-custom2" data-sfx="custom2" data-midi-target="sfx:custom2" data-pad-num="06" title="Custom 2 — click: load sample / right-click: arm record&#10;Double-click to couple FX">
+
+                        <button class="btn sfx-btn sfx-pad sfx-cust" id="sfx-custom2" data-sfx="custom2" data-midi-target="sfx:custom2" data-pad-num="06" title="Custom 2 — click: load / right-click: arm rec">
+                            <div class="pad-gear" onclick="event.stopPropagation()">
+                                <span class="pad-gear-icon" onclick="_padGearToggle(this)">⚙</span>
+                                <div class="pad-gear-menu">
+                                    <div data-fx="none">— NONE —</div>
+                                    <div data-fx="nvg">NVG</div>
+                                    <div data-fx="shoot">SHOOT</div>
+                                    <div data-fx="reset">RESET</div>
+                                    <div data-fx="void">VOID</div>
+                                    <div data-fx="failure">FAILURE</div>
+                                    <div data-fx="lucy">LUCY</div>
+                                    <div data-fx="seismic">SEISMIC</div>
+                                    <div data-fx="punch">PUNCH</div>
+                                    <div data-fx="party">PARTY</div>
+                                </div>
+                            </div>
+                            <span class="pad-id">PAD 6</span>
                             <span class="pad-name">C-02</span>
                             <span class="pad-hint">LOAD SAMPLE</span>
                             <span class="pad-sub">R-CLICK: ARM REC</span>
                             <span class="pad-timer">10</span>
                             <span class="pad-fx-label"></span>
+                            <span class="pad-lcd">— empty —</span>
                         </button>
-                        <button class="btn sfx-btn sfx-pad sfx-cust" id="sfx-custom3" data-sfx="custom3" data-midi-target="sfx:custom3" data-pad-num="07" title="Custom 3 — click: load sample / right-click: arm record&#10;Double-click to couple FX">
+
+                        <button class="btn sfx-btn sfx-pad sfx-cust" id="sfx-custom3" data-sfx="custom3" data-midi-target="sfx:custom3" data-pad-num="07" title="Custom 3 — click: load / right-click: arm rec">
+                            <div class="pad-gear" onclick="event.stopPropagation()">
+                                <span class="pad-gear-icon" onclick="_padGearToggle(this)">⚙</span>
+                                <div class="pad-gear-menu">
+                                    <div data-fx="none">— NONE —</div>
+                                    <div data-fx="nvg">NVG</div>
+                                    <div data-fx="shoot">SHOOT</div>
+                                    <div data-fx="reset">RESET</div>
+                                    <div data-fx="void">VOID</div>
+                                    <div data-fx="failure">FAILURE</div>
+                                    <div data-fx="lucy">LUCY</div>
+                                    <div data-fx="seismic">SEISMIC</div>
+                                    <div data-fx="punch">PUNCH</div>
+                                    <div data-fx="party">PARTY</div>
+                                </div>
+                            </div>
+                            <span class="pad-id">PAD 7</span>
                             <span class="pad-name">C-03</span>
                             <span class="pad-hint">LOAD SAMPLE</span>
                             <span class="pad-sub">R-CLICK: ARM REC</span>
                             <span class="pad-timer">10</span>
                             <span class="pad-fx-label"></span>
+                            <span class="pad-lcd">— empty —</span>
                         </button>
-                        <button class="btn sfx-btn sfx-pad sfx-cust" id="sfx-custom4" data-sfx="custom4" data-midi-target="sfx:custom4" data-pad-num="08" title="Custom 4 — click: load sample / right-click: arm record&#10;Double-click to couple FX">
+
+                        <button class="btn sfx-btn sfx-pad sfx-cust" id="sfx-custom4" data-sfx="custom4" data-midi-target="sfx:custom4" data-pad-num="08" title="Custom 4 — click: load / right-click: arm rec">
+                            <div class="pad-gear" onclick="event.stopPropagation()">
+                                <span class="pad-gear-icon" onclick="_padGearToggle(this)">⚙</span>
+                                <div class="pad-gear-menu">
+                                    <div data-fx="none">— NONE —</div>
+                                    <div data-fx="nvg">NVG</div>
+                                    <div data-fx="shoot">SHOOT</div>
+                                    <div data-fx="reset">RESET</div>
+                                    <div data-fx="void">VOID</div>
+                                    <div data-fx="failure">FAILURE</div>
+                                    <div data-fx="lucy">LUCY</div>
+                                    <div data-fx="seismic">SEISMIC</div>
+                                    <div data-fx="punch">PUNCH</div>
+                                    <div data-fx="party">PARTY</div>
+                                </div>
+                            </div>
+                            <span class="pad-id">PAD 8</span>
                             <span class="pad-name">C-04</span>
                             <span class="pad-hint">LOAD SAMPLE</span>
                             <span class="pad-sub">R-CLICK: ARM REC</span>
                             <span class="pad-timer">10</span>
                             <span class="pad-fx-label"></span>
+                            <span class="pad-lcd">— empty —</span>
                         </button>
+
                     </div>
                     <!-- Hidden file inputs for custom pad uploads -->
                     <input type="file" id="sfx-file-1" accept="audio/*" style="display:none;">
@@ -7611,6 +7941,8 @@ document.addEventListener('DOMContentLoaded', () => {
                             btn.classList.add('loaded');
                             _setName(btn, 'REC-0' + slot);
                             _setHint(btn, 'LIVE');
+                            var lcd = btn.querySelector('.pad-lcd');
+                            if (lcd) lcd.textContent = 'rec-0' + slot + '.live (' + elapsed + 's)';
                             log('SFX_REC: CAPTURED — custom' + slot + ' (' + elapsed + 's)');
                         }).catch(function(e) {
                             _setName(btn, 'C-0' + slot);
@@ -7658,6 +7990,9 @@ document.addEventListener('DOMContentLoaded', () => {
                         var short = file.name.replace(/\.[^.]+$/, '').toUpperCase().substring(0, 6);
                         _setName(btn, short);
                         _setHint(btn, 'PLAY');
+                        // Update LCD filename strip
+                        var lcd = btn.querySelector('.pad-lcd');
+                        if (lcd) lcd.textContent = file.name.substring(0, 20);
                     }
                 }
                 fileInput.value = '';
@@ -7737,20 +8072,32 @@ document.addEventListener('DOMContentLoaded', () => {
         };
 
         // ── COUPLING ENGINE ─────────────────────────────────────────────
-        // Double-click a pad to cycle: NONE → VOID → SEISMIC → GLITCH → NONE
+        // Gear dropdown per pad: NONE → NVG / SHOOT / RESET / VOID / FAILURE / LUCY / SEISMIC / PUNCH / PARTY
         // When coupled, hitting the pad also pulses the linked visual FX for 1s.
         var _padCoupling = {};
-        var COUPLING_CYCLE  = ['none', 'void', 'seismic', 'glitch'];
-        var COUPLING_LABELS = { none: '', void: 'VOID', seismic: 'SEISMIC', glitch: 'GLITCH' };
+        var ALL_COUPLING_CLASSES = [
+            'coupled-nvg','coupled-shoot','coupled-reset',
+            'coupled-void','coupled-failure','coupled-lucy',
+            'coupled-seismic','coupled-punch','coupled-party','coupled-glitch'
+        ];
+        var COUPLING_LABELS = {
+            none:'', nvg:'NVG', shoot:'SHOOT', reset:'RESET',
+            void:'VOID', failure:'FAILURE', lucy:'LUCY',
+            seismic:'SEISMIC', punch:'PUNCH', party:'PARTY', glitch:'GLITCH'
+        };
 
-        function _setCoupling(btn, sfxName, nextIdx) {
-            var fx = COUPLING_CYCLE[nextIdx] || 'none';
+        function _setCouplingByName(btn, sfxName, fx) {
+            fx = fx || 'none';
             _padCoupling[sfxName] = fx;
-            btn.classList.remove('coupled', 'coupled-void', 'coupled-seismic', 'coupled-glitch');
+            btn.classList.remove('coupled', ...ALL_COUPLING_CLASSES);
             var fxLabel = btn.querySelector('.pad-fx-label');
+            // Update active state in gear menu
+            btn.querySelectorAll('.pad-gear-menu [data-fx]').forEach(function(opt) {
+                opt.classList.toggle('active-fx-opt', opt.dataset.fx === fx);
+            });
             if (fx !== 'none') {
                 btn.classList.add('coupled', 'coupled-' + fx);
-                if (fxLabel) fxLabel.textContent = COUPLING_LABELS[fx];
+                if (fxLabel) fxLabel.textContent = COUPLING_LABELS[fx] || fx.toUpperCase();
                 log('PAD_COUPLE: ' + sfxName.toUpperCase() + ' → ' + fx.toUpperCase());
             } else {
                 if (fxLabel) fxLabel.textContent = '';
@@ -7761,8 +8108,18 @@ document.addEventListener('DOMContentLoaded', () => {
         function _fireCoupledFX(sfxName) {
             var fx = _padCoupling[sfxName];
             if (!fx || fx === 'none') return;
+
+            // SEISMIC — velocity burst
+            if (fx === 'seismic') {
+                if (typeof APP !== 'undefined' && APP.vj) {
+                    APP.vj._seismicVel = (APP.vj._seismicVel || 0) + 0.85;
+                    document.body.classList.add('seismic-active');
+                    setTimeout(function() { APP.vj._seismicVel = 0; document.body.classList.remove('seismic-active'); }, 1000);
+                }
+                return;
+            }
+            // GLITCH — canvas glitch burst (legacy compat)
             if (fx === 'glitch') {
-                // Drive the canvas glitch engine for 1s
                 if (typeof APP !== 'undefined' && APP.vj) {
                     var prevSnap = APP.vj.glitchSnap || 0;
                     APP.vj.glitchSnap = 10;
@@ -7770,41 +8127,89 @@ document.addEventListener('DOMContentLoaded', () => {
                 }
                 return;
             }
-            if (fx === 'seismic') {
-                // Force a seismic velocity burst for 1s
-                if (typeof APP !== 'undefined' && APP.vj) {
-                    APP.vj._seismicVel = (APP.vj._seismicVel || 0) + 0.85;
-                    document.body.classList.add('seismic-active');
-                    setTimeout(function() {
-                        APP.vj._seismicVel = 0;
-                        document.body.classList.remove('seismic-active');
-                    }, 1000);
+            // PUNCH — arm and fire for 1s
+            if (fx === 'punch') {
+                var punchBtn = document.getElementById('btn-punch');
+                if (punchBtn && !punchBtn.classList.contains('on')) {
+                    punchBtn.click();
+                    setTimeout(function() { if (punchBtn.classList.contains('on')) punchBtn.click(); }, 1000);
                 }
                 return;
             }
-            // CSS FX classes (void, etc.)
+            // PARTY — toggle on for 1s
+            if (fx === 'party') {
+                var partyBtn = document.getElementById('btn-ui-react');
+                if (partyBtn && !partyBtn.classList.contains('on')) {
+                    partyBtn.click();
+                    setTimeout(function() { if (partyBtn.classList.contains('on')) partyBtn.click(); }, 1000);
+                }
+                return;
+            }
+            // FAILURE — trigger chaos sequence (self-timed 5s)
+            if (fx === 'failure') {
+                var failBtn = document.getElementById('btn-psychosis');
+                if (failBtn) failBtn.click();
+                return;
+            }
+            // SHOOT — enable shooting mode for 1s
+            if (fx === 'shoot') {
+                var shootBtn = document.getElementById('btn-shooting');
+                if (shootBtn && !shootBtn.classList.contains('on')) {
+                    shootBtn.click();
+                    setTimeout(function() { if (shootBtn.classList.contains('on')) shootBtn.click(); }, 1000);
+                }
+                return;
+            }
+            // RESET — hard reset (one-shot)
+            if (fx === 'reset') {
+                if (typeof triggerHardReset === 'function') triggerHardReset();
+                return;
+            }
+            // CSS class-based FX: nvg, void, lucy, scan, tear, etc.
             var cls = 'fx-' + fx;
             var wasOn = document.body.classList.contains(cls);
-            document.body.classList.add(cls);
-            setTimeout(function() { if (!wasOn) document.body.classList.remove(cls); }, 1000);
+            if (typeof toggleFX === 'function' && !wasOn) {
+                toggleFX(fx);
+                setTimeout(function() {
+                    if (document.body.classList.contains(cls)) toggleFX(fx);
+                }, 1000);
+            } else {
+                document.body.classList.add(cls);
+                setTimeout(function() { if (!wasOn) document.body.classList.remove(cls); }, 1000);
+            }
         }
 
-        // Attach dblclick & per-click coupling FX to every pad
+        // ── GEAR DROPDOWN — global toggle (closes others) ────────────────
+        window._padGearToggle = function(iconEl) {
+            var gearEl = iconEl.parentElement;
+            var isOpen = gearEl.classList.contains('open');
+            // Close all open gears
+            document.querySelectorAll('.pad-gear.open').forEach(function(g) { g.classList.remove('open'); });
+            if (!isOpen) gearEl.classList.add('open');
+        };
+        // Close on outside click
+        document.addEventListener('click', function() {
+            document.querySelectorAll('.pad-gear.open').forEach(function(g) { g.classList.remove('open'); });
+        });
+
+        // Wire up gear menu items for every pad
         document.querySelectorAll('.sfx-btn').forEach(function(btn) {
             var sfxName = btn.dataset.sfx;
             if (!sfxName) return;
-            _padCoupling[sfxName] = 'none'; // default: sound-only
+            _padCoupling[sfxName] = 'none';
 
-            // Single click → also fire coupled FX (sound is handled by existing listener)
-            btn.addEventListener('click', function() {
-                _fireCoupledFX(sfxName);
+            btn.querySelectorAll('.pad-gear-menu [data-fx]').forEach(function(opt) {
+                opt.addEventListener('click', function(e) {
+                    e.stopPropagation();
+                    _setCouplingByName(btn, sfxName, opt.dataset.fx);
+                    var gearEl = opt.closest('.pad-gear');
+                    if (gearEl) gearEl.classList.remove('open');
+                });
             });
 
-            // Double-click → cycle coupling state
-            btn.addEventListener('dblclick', function(e) {
-                e.preventDefault();
-                var cur = COUPLING_CYCLE.indexOf(_padCoupling[sfxName] || 'none');
-                _setCoupling(btn, sfxName, (cur + 1) % COUPLING_CYCLE.length);
+            // Single click → fire coupled FX (sound handled by existing listener above)
+            btn.addEventListener('click', function() {
+                _fireCoupledFX(sfxName);
             });
         });
     })();
