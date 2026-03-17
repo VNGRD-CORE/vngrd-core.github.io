@@ -813,7 +813,7 @@
             border: 1px solid rgba(255,255,255,0.08);
             padding: 2px 5px;
         }
-        #sfx-pad-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 7px; }
+        #sfx-pad-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 4px; }
         .sfx-bank-block { display: contents; }
         .sfx-bank-label {
             grid-column: 1 / -1;
@@ -833,7 +833,7 @@
         .sfx-pad {
             font-size: 8px !important;
             padding: 0 !important;
-            height: 66px;
+            height: 34px;
             letter-spacing: 0.04em;
             text-align: center;
             min-width: 0;
@@ -843,7 +843,7 @@
             flex-direction: column !important;
             align-items: center !important;
             justify-content: center !important;
-            gap: 3px;
+            gap: 2px;
             position: relative;
             overflow: hidden;
             border-radius: 2px;
@@ -936,6 +936,22 @@
             0%  { transform: scale(1.07); box-shadow: 0 0 20px currentColor; }
             100%{ transform: scale(1);    box-shadow: none; }
         }
+
+        /* ── COUPLING ENGINE ── */
+        /* Hide secondary text at reduced size — pad-name stays */
+        .sfx-pad .pad-hint { display: none; }
+        .sfx-pad .pad-sub  { display: none; }
+        /* Coupling FX label (bottom of pad, visible only when coupled) */
+        .sfx-pad .pad-fx-label {
+            font-size: 5px; letter-spacing: 0.12em; line-height: 1;
+            text-transform: uppercase; opacity: 0.9; display: none;
+            font-family: 'Orbitron', sans-serif;
+        }
+        .sfx-pad.coupled .pad-fx-label { display: block; }
+        /* Glow states per coupled FX */
+        .sfx-pad.coupled-void    { border-color: rgba(139,0,255,0.9) !important; color: rgba(180,80,255,0.9) !important; box-shadow: 0 0 14px rgba(139,0,255,0.65), inset 0 0 8px rgba(139,0,255,0.1) !important; }
+        .sfx-pad.coupled-seismic { border-color: rgba(255,102,0,0.9) !important;  color: rgba(255,140,40,0.9) !important;  box-shadow: 0 0 14px rgba(255,102,0,0.65), inset 0 0 8px rgba(255,102,0,0.1) !important; }
+        .sfx-pad.coupled-glitch  { border-color: rgba(255,0,100,0.9) !important;  color: rgba(255,60,140,0.9) !important;  box-shadow: 0 0 14px rgba(255,0,100,0.65), inset 0 0 8px rgba(255,0,100,0.1) !important; }
 
         /* ── BROADCAST RECORDING CONTROLS ── */
         .btn.rec {
@@ -1985,47 +2001,55 @@ body.fx-nvg #stage::after {
                     <div id="sfx-pad-grid">
                         <!-- Row 1: Signature Vanguard Bank -->
                         <div class="sfx-bank-label">SIG BANK <em>// CLICK TO FIRE</em></div>
-                        <button class="btn sfx-btn sfx-pad sfx-sig" id="sfx-applause" data-sfx="applause" data-midi-target="sfx:applause" data-pad-num="01" title="Applause — click or MIDI assign">
+                        <button class="btn sfx-btn sfx-pad sfx-sig" id="sfx-applause" data-sfx="applause" data-midi-target="sfx:applause" data-pad-num="01" title="Applause — click or MIDI assign&#10;Double-click to couple FX">
                             <span class="pad-name">APPLAUSE</span>
                             <span class="pad-hint">SIG BANK</span>
+                            <span class="pad-fx-label"></span>
                         </button>
-                        <button class="btn sfx-btn sfx-pad sfx-sig" id="sfx-cheer"    data-sfx="cheer"    data-midi-target="sfx:cheer"    data-pad-num="02" title="Cheer — click or MIDI assign">
+                        <button class="btn sfx-btn sfx-pad sfx-sig" id="sfx-cheer"    data-sfx="cheer"    data-midi-target="sfx:cheer"    data-pad-num="02" title="Cheer — click or MIDI assign&#10;Double-click to couple FX">
                             <span class="pad-name">CHEER</span>
                             <span class="pad-hint">SIG BANK</span>
+                            <span class="pad-fx-label"></span>
                         </button>
-                        <button class="btn sfx-btn sfx-pad sfx-sig" id="sfx-horn"     data-sfx="horn"     data-midi-target="sfx:horn"     data-pad-num="03" title="Air Horn — click or MIDI assign">
+                        <button class="btn sfx-btn sfx-pad sfx-sig" id="sfx-horn"     data-sfx="horn"     data-midi-target="sfx:horn"     data-pad-num="03" title="Air Horn — click or MIDI assign&#10;Double-click to couple FX">
                             <span class="pad-name">HORN</span>
                             <span class="pad-hint">SIG BANK</span>
+                            <span class="pad-fx-label"></span>
                         </button>
-                        <button class="btn sfx-btn sfx-pad sfx-sig" id="sfx-boom"     data-sfx="boom"     data-midi-target="sfx:boom"     data-pad-num="04" title="Boom — click or MIDI assign">
+                        <button class="btn sfx-btn sfx-pad sfx-sig" id="sfx-boom"     data-sfx="boom"     data-midi-target="sfx:boom"     data-pad-num="04" title="Boom — click or MIDI assign&#10;Double-click to couple FX">
                             <span class="pad-name">BOOM</span>
                             <span class="pad-hint">SIG BANK</span>
+                            <span class="pad-fx-label"></span>
                         </button>
                         <!-- Row 2: Custom Performance Bank -->
                         <div class="sfx-bank-label" style="color:rgba(255,140,0,0.4);">CUSTOM BANK <em>// CLICK: LOAD &nbsp;·&nbsp; R-CLICK: ARM REC</em></div>
-                        <button class="btn sfx-btn sfx-pad sfx-cust" id="sfx-custom1" data-sfx="custom1" data-midi-target="sfx:custom1" data-pad-num="05" title="Custom 1 — click: load sample / right-click: arm record">
+                        <button class="btn sfx-btn sfx-pad sfx-cust" id="sfx-custom1" data-sfx="custom1" data-midi-target="sfx:custom1" data-pad-num="05" title="Custom 1 — click: load sample / right-click: arm record&#10;Double-click to couple FX">
                             <span class="pad-name">C-01</span>
                             <span class="pad-hint">LOAD SAMPLE</span>
                             <span class="pad-sub">R-CLICK: ARM REC</span>
                             <span class="pad-timer">10</span>
+                            <span class="pad-fx-label"></span>
                         </button>
-                        <button class="btn sfx-btn sfx-pad sfx-cust" id="sfx-custom2" data-sfx="custom2" data-midi-target="sfx:custom2" data-pad-num="06" title="Custom 2 — click: load sample / right-click: arm record">
+                        <button class="btn sfx-btn sfx-pad sfx-cust" id="sfx-custom2" data-sfx="custom2" data-midi-target="sfx:custom2" data-pad-num="06" title="Custom 2 — click: load sample / right-click: arm record&#10;Double-click to couple FX">
                             <span class="pad-name">C-02</span>
                             <span class="pad-hint">LOAD SAMPLE</span>
                             <span class="pad-sub">R-CLICK: ARM REC</span>
                             <span class="pad-timer">10</span>
+                            <span class="pad-fx-label"></span>
                         </button>
-                        <button class="btn sfx-btn sfx-pad sfx-cust" id="sfx-custom3" data-sfx="custom3" data-midi-target="sfx:custom3" data-pad-num="07" title="Custom 3 — click: load sample / right-click: arm record">
+                        <button class="btn sfx-btn sfx-pad sfx-cust" id="sfx-custom3" data-sfx="custom3" data-midi-target="sfx:custom3" data-pad-num="07" title="Custom 3 — click: load sample / right-click: arm record&#10;Double-click to couple FX">
                             <span class="pad-name">C-03</span>
                             <span class="pad-hint">LOAD SAMPLE</span>
                             <span class="pad-sub">R-CLICK: ARM REC</span>
                             <span class="pad-timer">10</span>
+                            <span class="pad-fx-label"></span>
                         </button>
-                        <button class="btn sfx-btn sfx-pad sfx-cust" id="sfx-custom4" data-sfx="custom4" data-midi-target="sfx:custom4" data-pad-num="08" title="Custom 4 — click: load sample / right-click: arm record">
+                        <button class="btn sfx-btn sfx-pad sfx-cust" id="sfx-custom4" data-sfx="custom4" data-midi-target="sfx:custom4" data-pad-num="08" title="Custom 4 — click: load sample / right-click: arm record&#10;Double-click to couple FX">
                             <span class="pad-name">C-04</span>
                             <span class="pad-hint">LOAD SAMPLE</span>
                             <span class="pad-sub">R-CLICK: ARM REC</span>
                             <span class="pad-timer">10</span>
+                            <span class="pad-fx-label"></span>
                         </button>
                     </div>
                     <!-- Hidden file inputs for custom pad uploads -->
@@ -7391,7 +7415,80 @@ document.addEventListener('DOMContentLoaded', () => {
             var id = 'sfx-' + sfxName;
             var btn = document.getElementById(id);
             if (btn) _pulsePad(btn);
+            _fireCoupledFX(sfxName);
         };
+
+        // ── COUPLING ENGINE ─────────────────────────────────────────────
+        // Double-click a pad to cycle: NONE → VOID → SEISMIC → GLITCH → NONE
+        // When coupled, hitting the pad also pulses the linked visual FX for 1s.
+        var _padCoupling = {};
+        var COUPLING_CYCLE  = ['none', 'void', 'seismic', 'glitch'];
+        var COUPLING_LABELS = { none: '', void: 'VOID', seismic: 'SEISMIC', glitch: 'GLITCH' };
+
+        function _setCoupling(btn, sfxName, nextIdx) {
+            var fx = COUPLING_CYCLE[nextIdx] || 'none';
+            _padCoupling[sfxName] = fx;
+            btn.classList.remove('coupled', 'coupled-void', 'coupled-seismic', 'coupled-glitch');
+            var fxLabel = btn.querySelector('.pad-fx-label');
+            if (fx !== 'none') {
+                btn.classList.add('coupled', 'coupled-' + fx);
+                if (fxLabel) fxLabel.textContent = COUPLING_LABELS[fx];
+                log('PAD_COUPLE: ' + sfxName.toUpperCase() + ' → ' + fx.toUpperCase());
+            } else {
+                if (fxLabel) fxLabel.textContent = '';
+                log('PAD_COUPLE: ' + sfxName.toUpperCase() + ' → SOUND_ONLY');
+            }
+        }
+
+        function _fireCoupledFX(sfxName) {
+            var fx = _padCoupling[sfxName];
+            if (!fx || fx === 'none') return;
+            if (fx === 'glitch') {
+                // Drive the canvas glitch engine for 1s
+                if (typeof APP !== 'undefined' && APP.vj) {
+                    var prevSnap = APP.vj.glitchSnap || 0;
+                    APP.vj.glitchSnap = 10;
+                    setTimeout(function() { if (APP.vj.glitchSnap === 10) APP.vj.glitchSnap = prevSnap; }, 1000);
+                }
+                return;
+            }
+            if (fx === 'seismic') {
+                // Force a seismic velocity burst for 1s
+                if (typeof APP !== 'undefined' && APP.vj) {
+                    APP.vj._seismicVel = (APP.vj._seismicVel || 0) + 0.85;
+                    document.body.classList.add('seismic-active');
+                    setTimeout(function() {
+                        APP.vj._seismicVel = 0;
+                        document.body.classList.remove('seismic-active');
+                    }, 1000);
+                }
+                return;
+            }
+            // CSS FX classes (void, etc.)
+            var cls = 'fx-' + fx;
+            var wasOn = document.body.classList.contains(cls);
+            document.body.classList.add(cls);
+            setTimeout(function() { if (!wasOn) document.body.classList.remove(cls); }, 1000);
+        }
+
+        // Attach dblclick & per-click coupling FX to every pad
+        document.querySelectorAll('.sfx-btn').forEach(function(btn) {
+            var sfxName = btn.dataset.sfx;
+            if (!sfxName) return;
+            _padCoupling[sfxName] = 'none'; // default: sound-only
+
+            // Single click → also fire coupled FX (sound is handled by existing listener)
+            btn.addEventListener('click', function() {
+                _fireCoupledFX(sfxName);
+            });
+
+            // Double-click → cycle coupling state
+            btn.addEventListener('dblclick', function(e) {
+                e.preventDefault();
+                var cur = COUPLING_CYCLE.indexOf(_padCoupling[sfxName] || 'none');
+                _setCoupling(btn, sfxName, (cur + 1) % COUPLING_CYCLE.length);
+            });
+        });
     })();
 
     // --- MIDI CONTROLLER (JIT — user gesture gated) ---
