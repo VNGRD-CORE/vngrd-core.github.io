@@ -5030,17 +5030,18 @@ const VNGRD_VST = (() => {
 // ═══════════════════════════════════════════════════════════════════
 const SFX_ENGINE = (() => {
     const URLS = {
-        applause: 'https://upload.wikimedia.org/wikipedia/commons/2/25/Applause_-_des_applaudissements.ogg',
-        cheer:    'https://upload.wikimedia.org/wikipedia/commons/4/44/Crowd_cheer.ogg',
-        horn:     'https://actions.google.com/sounds/v1/emergency/air_horn_blast.ogg'
+        applause: './applause.ogg',
+        cheer:    './cheer.ogg',
+        horn:     './horn.ogg'
     };
     const _raw = {};     // pre-fetched ArrayBuffer per name
     const buffers = {};  // decoded AudioBuffer per name
-    const GAIN = 0.5;    // broadcast-safe default volume (50%)
+    const GAIN = 0.6;    // broadcast volume (60%)
 
     // Pre-fetch raw bytes at startup — no AudioContext needed
     function init() {
         Object.entries(URLS).forEach(([name, url]) => {
+            console.log('LOADING LOCAL SFX:', name);
             fetch(url)
                 .then(r => { if (!r.ok) throw new Error(r.status); return r.arrayBuffer(); })
                 .then(ab => { _raw[name] = ab; log('SFX_ENGINE: FETCHED ' + name.toUpperCase()); })
@@ -5061,11 +5062,11 @@ const SFX_ENGINE = (() => {
     }
 
     function play(name) {
+        if (APP.audio.ctx && APP.audio.ctx.state === 'suspended') { APP.audio.ctx.resume(); }
         if (!APP.audio.ctx) igniteAudio();
         if (!APP.audio.masterGain) ensureAudioChain();
         const ctx = APP.audio.ctx;
         if (!ctx) return;
-        if (ctx.state === 'suspended') ctx.resume();
 
         _decode(name, ctx).then(buf => {
             const src  = ctx.createBufferSource();
@@ -5073,7 +5074,7 @@ const SFX_ENGINE = (() => {
             const gain = ctx.createGain();
             gain.gain.value = GAIN;
             src.connect(gain);
-            gain.connect(APP.audio.masterGain || ctx.destination);
+            gain.connect(APP.audio.masterDest || APP.audio.masterGain || ctx.destination);
             src.start();
             log('SFX_ENGINE: PLAY ' + name.toUpperCase());
         }).catch(() => log('SFX_ENGINE: NOT_READY — ' + name.toUpperCase()));
