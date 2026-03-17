@@ -1885,9 +1885,11 @@ body.fullscreen #transcription-hud { opacity: 0 !important; pointer-events: none
                     <option value="flux-3d">FLUX 3D STYLE</option>
                     <option value="flux-cinematic">FLUX CINEMATIC</option>
                 </select>
-                <div style="margin-bottom:3px;">
-                    <div class="lbl" style="font-size:6px;opacity:0.4;margin-bottom:1px;">API KEY (OPTIONAL — faster + no watermark)</div>
-                    <input type="password" class="inp" id="ai-api-key" placeholder="pk_... or leave blank for free" style="font-size:8px;padding:3px;">
+                <div style="display:flex;align-items:center;gap:4px;margin-bottom:3px;">
+                    <span id="ai-key-toggle" title="API key settings" style="cursor:pointer;font-size:9px;opacity:0.35;user-select:none;">&#x2699;</span>
+                    <div id="ai-key-wrap" style="display:none;flex:1;">
+                        <input type="password" class="inp" id="ai-api-key" placeholder="pk_... (optional)" style="font-size:7px;padding:2px 4px;width:100%;">
+                    </div>
                 </div>
                 <input type="text" class="inp" id="ai-prompt" placeholder="Describe your image..." style="font-size:9px;">
                 <button class="btn" id="btn-generate-ai" style="color:var(--v);border-color:var(--v);">GENERATE</button>
@@ -9397,14 +9399,18 @@ var isVideo = nft.forceVideo || (imageUrl.toLowerCase().match(/\.(mp4|webm|mov|o
     var _aiFallbacks = ['flux', 'dirtberry', 'nanobanana'];
 
     // Generate image via Pollinations Unified API (gen.pollinations.ai)
+    // Free tier: no nologo/enhance (those require auth and cause 401)
+    // With API key: unlock nologo + enhance for premium quality
     async function _aiPollinations(prompt, btn, modelName, apiKey) {
         _aiStatus('GENERATING [' + modelName.toUpperCase() + ']...', 'var(--v)');
         log('AI: [' + modelName.toUpperCase() + '] >> ' + prompt);
         var seed = Math.floor(Math.random() * 99999);
         var url = 'https://gen.pollinations.ai/image/' + encodeURIComponent(prompt)
-            + '?width=1024&height=1024&nologo=true&model=' + encodeURIComponent(modelName)
-            + '&seed=' + seed + '&enhance=true';
-        if (apiKey) url += '&key=' + encodeURIComponent(apiKey);
+            + '?width=1024&height=1024&model=' + encodeURIComponent(modelName)
+            + '&seed=' + seed;
+        if (apiKey) {
+            url += '&key=' + encodeURIComponent(apiKey) + '&nologo=true&enhance=true';
+        }
         var resp = await fetch(url);
         if (!resp.ok) throw new Error('HTTP_' + resp.status + ' (' + modelName + ')');
         var blob = await resp.blob();
@@ -9431,7 +9437,10 @@ var isVideo = nft.forceVideo || (imageUrl.toLowerCase().match(/\.(mp4|webm|mov|o
         var modelKey = document.getElementById('ai-model-select') ? document.getElementById('ai-model-select').value : 'flux';
         var cfg = _aiModels[modelKey] || _aiModels['flux'];
         var fullPrompt = cfg.style ? prompt + ', ' + cfg.style : prompt;
-        var apiKey = document.getElementById('ai-api-key') ? document.getElementById('ai-api-key').value.trim() : '';
+        var apiKey = '';
+        try { apiKey = localStorage.getItem('vngrd_ai_key') || ''; } catch(e) {}
+        var keyInput = document.getElementById('ai-api-key');
+        if (keyInput && keyInput.value.trim()) apiKey = keyInput.value.trim();
 
         _aiStatus('GENERATING...', 'var(--v)');
         log('AI: [' + modelKey.toUpperCase() + '] >> ' + prompt);
@@ -9483,6 +9492,23 @@ var isVideo = nft.forceVideo || (imageUrl.toLowerCase().match(/\.(mp4|webm|mov|o
             }
         });
     }
+
+    // API key gear toggle — hidden by default, persists to localStorage
+    (function() {
+        var toggle = $('ai-key-toggle');
+        var wrap = $('ai-key-wrap');
+        var input = $('ai-api-key');
+        if (!toggle || !wrap || !input) return;
+        try { var saved = localStorage.getItem('vngrd_ai_key'); if (saved) input.value = saved; } catch(e) {}
+        toggle.onclick = function() {
+            var open = wrap.style.display !== 'none';
+            wrap.style.display = open ? 'none' : 'flex';
+            toggle.style.opacity = open ? '0.35' : '0.8';
+        };
+        input.addEventListener('change', function() {
+            try { localStorage.setItem('vngrd_ai_key', input.value.trim()); } catch(e) {}
+        });
+    })();
 
     // Collapsible sections with arrow indicators
     ['session-lab-body', 'p2p-call-body', 'midi-host-body', 'nft-vault-body', 'lexica-nano-body', 'poly-translator-body'].forEach(function(id) {
