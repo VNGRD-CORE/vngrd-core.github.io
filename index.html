@@ -822,7 +822,7 @@
             border: 1px solid rgba(255,255,255,0.08);
             padding: 2px 5px;
         }
-        #sfx-pad-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 6px; }
+        #sfx-pad-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 6px; padding: 4px 2px 2px; }
         .sfx-bank-block { display: contents; }
         .sfx-bank-label {
             grid-column: 1 / -1;
@@ -841,7 +841,7 @@
         .sfx-pad {
             font-size: 8px !important;
             padding: 0 !important;
-            height: 34px;
+            height: 38px;
             letter-spacing: 0.04em;
             text-align: center;
             min-width: 0;
@@ -1700,8 +1700,16 @@ body.shooting-mode #btn-shooting {
             60% { transform: translate(-2px, 3px); }
             80% { transform: translate(2px, -3px); }
         }
-        /* seismic-shake is now canvas-native; CSS kept for reference only */
-        body.seismic-active { }
+        /* seismic-shake: body-level shake for visible feedback even without canvas media */
+        body.seismic-active { animation: seismic-body-shake 0.10s ease-in-out infinite; }
+        @keyframes seismic-body-shake {
+            0%   { transform: translate3d(0,    0,    0); }
+            20%  { transform: translate3d(-2px,  1px,  0); }
+            40%  { transform: translate3d( 2px, -1px,  0); }
+            60%  { transform: translate3d(-1px,  2px,  0); }
+            80%  { transform: translate3d( 2px,  0px,  0); }
+            100% { transform: translate3d(0,    0,    0); }
+        }
         
     /* ═══ MIRROR COCKPIT — MOBILE ═══ */
 
@@ -1921,8 +1929,20 @@ body.fx-scan #stage::after {
     /* armed state — no infinite loop; kick detection drives .punch-hit */
 }
 
-/* punch-hit class kept for legacy compat — punch is now canvas-native */
-.punch-hit { }
+/* punch-hit: brief full-screen brightness flash — visible even without canvas media */
+.punch-hit::before {
+    content: '';
+    position: fixed;
+    inset: 0;
+    background: rgba(255, 210, 60, 0.13);
+    pointer-events: none;
+    z-index: 9998;
+    animation: punch-flash 0.20s ease-out forwards;
+}
+@keyframes punch-flash {
+    0%   { opacity: 1; }
+    100% { opacity: 0; }
+}
 /* Console-mode indicator: subtle dot on top-right of button */
 .btn.console-mode::after { content: '●'; position: absolute; top: 2px; right: 3px; font-size: 5px; color: var(--accent); opacity: 0.8; pointer-events: none; }
 .btn.on { color: var(--accent) !important; border-color: var(--accent) !important; background: rgba(0,243,255,0.08) !important; text-shadow: 0 0 8px var(--accent) !important; }
@@ -4345,12 +4365,21 @@ function renderLoop(timestamp) {
         if (APP.vj._punchSpring < 0.25) APP.vj._punchSpring = 0.70;
     }
 
-    // Punch demo: inject rhythmic spring pulses when one-shot active
-    if (performance.now() < (APP.vj._punchDemoUntil || 0)) {
-        var _pDemoPhase = (performance.now() / 400) % 1;
-        if (_pDemoPhase < 0.1) APP.vj._punchSpring = Math.max(APP.vj._punchSpring, 0.85);
+    // Punch demo: inject rhythmic spring pulses every 400ms when one-shot active
+    if (_nowMs < (APP.vj._punchDemoUntil || 0)) {
+        if (!APP.vj._punchDemoBeat || _nowMs >= APP.vj._punchDemoBeat) {
+            APP.vj._punchSpring = Math.max(APP.vj._punchSpring, 0.92);
+            APP.vj._punchDemoBeat = _nowMs + 400;
+        }
     }
     APP.vj._punchSpring *= 0.55; // sharp snap decay (~5 frames to 5%)
+
+    // Trigger body-level punch-hit flash when spring peaks (visible without canvas media)
+    if (APP.vj._punchSpring > 0.42 && !window._punchHitFired) {
+        window._punchHitFired = true;
+        document.body.classList.add('punch-hit');
+        setTimeout(function() { document.body.classList.remove('punch-hit'); window._punchHitFired = false; }, 220);
+    }
 
     // --- AUTONOMOUS PARTY MODE (audio-reactive via analyser) ---
     if (APP.vj.uiReactivity && APP.audio.bassLevel > 220 && Math.random() > 0.9) {
@@ -8162,7 +8191,7 @@ document.addEventListener('DOMContentLoaded', () => {
                     document.body.classList.add('seismic-active');
                     setTimeout(function() { APP.vj._seismicVel = 0; APP.vj._seismicDemoUntil = 0; document.body.classList.remove('seismic-active'); }, 3000);
                 }
-                _flashFXBtn('btn-seismic', 3000);
+                _flashFXBtn('btn-rumble', 3000);
                 return;
             }
             // GLITCH — canvas glitch burst (legacy compat)
@@ -8174,15 +8203,25 @@ document.addEventListener('DOMContentLoaded', () => {
                 }
                 return;
             }
-            // PUNCH — arm and fire for 3s
+            // PUNCH — direct spring injection + 3s demo (bypass click() to avoid double-click conflicts)
             if (fx === 'punch') {
-                var punchBtn = document.getElementById('btn-punch');
-                if (punchBtn && !punchBtn.classList.contains('on')) {
-                    punchBtn.click();
-                    setTimeout(function() { if (punchBtn.classList.contains('on')) punchBtn.click(); }, 3000);
-                } else {
-                    _flashFXBtn('btn-punch', 3000);
+                if (typeof APP !== 'undefined' && APP.vj) {
+                    APP.vj._punchSpring = 1.0;
+                    APP.vj._punchDemoUntil = performance.now() + 3000;
+                    APP.vj._punchDemoBeat = performance.now(); // fire first beat immediately
                 }
+                document.body.classList.add('fx-punch');
+                _flashFXBtn('btn-punch', 3000);
+                setTimeout(function() {
+                    APP.vj._punchDemoUntil = 0;
+                    APP.vj._punchDemoBeat = 0;
+                    // Only remove fx-punch if not in persistent console mode
+                    if (!APP.vj.punchConsoleMode) {
+                        document.body.classList.remove('fx-punch');
+                        var pb = document.getElementById('btn-punch');
+                        if (pb && !pb.classList.contains('console-mode')) pb.classList.remove('on');
+                    }
+                }, 3000);
                 return;
             }
             // PARTY — toggle on for 3s
