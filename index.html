@@ -1193,6 +1193,53 @@
         .sfx-cust:not(.loaded):not(.armed):not(.recording):hover .pad-sub  { display: block; }
         .sfx-cust:not(.loaded):not(.armed):not(.recording):hover .pad-name { display: none; }
 
+        /* ── ACTIVE FILL — pad lit while sample is playing ── */
+        .sfx-pad.sfx-playing {
+            transition: background 0.05s ease, box-shadow 0.05s ease, border-color 0.05s ease;
+        }
+        /* Signature bank (cyan) */
+        .sfx-sig.sfx-playing:not([class*="coupled-"]) {
+            background: rgba(0,243,255,0.22) !important;
+            border-color: var(--accent) !important;
+            box-shadow: 0 0 14px rgba(0,243,255,0.55), inset 0 0 18px rgba(0,243,255,0.18) !important;
+        }
+        /* Custom bank (amber) */
+        .sfx-cust.sfx-playing:not([class*="coupled-"]) {
+            background: rgba(255,170,0,0.22) !important;
+            border-color: #ffaa00 !important;
+            box-shadow: 0 0 14px rgba(255,170,0,0.55), inset 0 0 18px rgba(255,170,0,0.18) !important;
+        }
+        /* Coupled FX fills use the coupling color */
+        .sfx-pad.coupled-nvg.sfx-playing {
+            background: rgba(0,255,65,0.22) !important;
+            border-color: #00ff41 !important;
+            box-shadow: 0 0 14px rgba(0,255,65,0.6), inset 0 0 18px rgba(0,255,65,0.2) !important;
+        }
+        .sfx-pad.coupled-shoot.sfx-playing,
+        .sfx-pad.coupled-reset.sfx-playing {
+            background: rgba(255,34,51,0.22) !important;
+            border-color: #ff2233 !important;
+            box-shadow: 0 0 14px rgba(255,34,51,0.6), inset 0 0 18px rgba(255,34,51,0.2) !important;
+        }
+        .sfx-pad.coupled-void.sfx-playing,
+        .sfx-pad.coupled-failure.sfx-playing,
+        .sfx-pad.coupled-lucy.sfx-playing {
+            background: rgba(204,0,255,0.22) !important;
+            border-color: #cc00ff !important;
+            box-shadow: 0 0 14px rgba(204,0,255,0.6), inset 0 0 18px rgba(204,0,255,0.2) !important;
+        }
+        .sfx-pad.coupled-seismic.sfx-playing,
+        .sfx-pad.coupled-punch.sfx-playing {
+            background: rgba(255,102,0,0.22) !important;
+            border-color: #ff6600 !important;
+            box-shadow: 0 0 14px rgba(255,102,0,0.6), inset 0 0 18px rgba(255,102,0,0.2) !important;
+        }
+        .sfx-pad.coupled-party.sfx-playing {
+            background: rgba(255,0,255,0.22) !important;
+            border-color: #ff00ff !important;
+            box-shadow: 0 0 14px rgba(255,0,255,0.6), inset 0 0 18px rgba(255,0,255,0.2) !important;
+        }
+
         /* ── HIT FLASH — bright internal glow ── */
         .sfx-pad.sfx-pulse { animation: sfx-pad-pulse 0.28s ease-out forwards; }
         @keyframes sfx-pad-pulse {
@@ -2506,7 +2553,7 @@ body.fx-nvg #stage::after {
                             <span class="pad-name">CHEER</span>
                             <span class="pad-hint">SIG BANK</span>
                             <span class="pad-fx-label"></span>
-                            <span class="pad-lcd">crowd_cheering.wav</span>
+                            <span class="pad-lcd">800men_laugh.wav</span>
                         </button>
 
                         <button class="btn sfx-btn sfx-pad sfx-sig" id="sfx-horn" data-sfx="horn" data-midi-target="sfx:horn" data-pad-num="03" title="Air Horn — click or MIDI">
@@ -5658,13 +5705,14 @@ const VNGRD_VST = (() => {
 const SFX_ENGINE = (() => {
     const URLS = {
         applause: './108512__buginthesys__applause_3.wav',
-        cheer:    './410868__nobodyyouknowof__crowd_cheering_and_clapping.wav',
+        cheer:    './67182__robinhood76__00897-massive-800-men-laugh.wav',
         horn:     './577697__cmudd14__airhorn.mp3',
         boom:     './BOOM.wav'
     };
     const _raw = {};     // pre-fetched ArrayBuffer per name (signature bank)
     const buffers = {};  // decoded AudioBuffer per name (both banks)
     const GAIN = 0.6;    // broadcast volume (60%)
+    const GAINS = { horn: 0.92, boom: 0.92 }; // per-sample volume overrides
 
     // Pre-fetch raw bytes at startup — no AudioContext needed
     function init() {
@@ -5727,15 +5775,21 @@ const SFX_ENGINE = (() => {
             const src  = ctx.createBufferSource();
             src.buffer = buf;
             const gain = ctx.createGain();
-            gain.gain.value = GAIN;
+            gain.gain.value = GAINS[name] !== undefined ? GAINS[name] : GAIN;
             src.connect(gain);
             // Route through duckingGain so the analyser picks up SFX for u_audioImpact
             const dest = APP.audio.duckingGain || APP.audio.masterGain || ctx.destination;
             gain.connect(dest);
+            // Lit the pad button while playing
+            const padBtn = document.getElementById('sfx-' + name);
+            if (padBtn) padBtn.classList.add('sfx-playing');
             src.start();
             // Signal updateVU to keep running during SFX playback
             APP.audio.sfxPlaying = true;
-            src.onended = function() { APP.audio.sfxPlaying = false; };
+            src.onended = function() {
+                APP.audio.sfxPlaying = false;
+                if (padBtn) padBtn.classList.remove('sfx-playing');
+            };
             log('SFX_ENGINE: PLAY ' + name.toUpperCase());
         }).catch(() => log('SFX_ENGINE: NOT_READY — ' + name.toUpperCase()));
     }
@@ -8119,6 +8173,14 @@ document.addEventListener('DOMContentLoaded', () => {
             }
         }
 
+        // Flash an FX button with active-fx for a given duration
+        function _flashFXBtn(btnId, durationMs) {
+            var b = document.getElementById(btnId);
+            if (!b) return;
+            b.classList.add('active-fx');
+            setTimeout(function() { b.classList.remove('active-fx'); }, durationMs || 3000);
+        }
+
         function _fireCoupledFX(sfxName) {
             var fx = _padCoupling[sfxName];
             if (!fx || fx === 'none') return;
@@ -8131,6 +8193,7 @@ document.addEventListener('DOMContentLoaded', () => {
                     document.body.classList.add('seismic-active');
                     setTimeout(function() { APP.vj._seismicVel = 0; APP.vj._seismicDemoUntil = 0; document.body.classList.remove('seismic-active'); }, 3000);
                 }
+                _flashFXBtn('btn-seismic', 3000);
                 return;
             }
             // GLITCH — canvas glitch burst (legacy compat)
@@ -8148,6 +8211,8 @@ document.addEventListener('DOMContentLoaded', () => {
                 if (punchBtn && !punchBtn.classList.contains('on')) {
                     punchBtn.click();
                     setTimeout(function() { if (punchBtn.classList.contains('on')) punchBtn.click(); }, 3000);
+                } else {
+                    _flashFXBtn('btn-punch', 3000);
                 }
                 return;
             }
@@ -8157,6 +8222,8 @@ document.addEventListener('DOMContentLoaded', () => {
                 if (partyBtn && !partyBtn.classList.contains('on')) {
                     partyBtn.click();
                     setTimeout(function() { if (partyBtn.classList.contains('on')) partyBtn.click(); }, 3000);
+                } else {
+                    _flashFXBtn('btn-ui-react', 3000);
                 }
                 return;
             }
@@ -8164,6 +8231,7 @@ document.addEventListener('DOMContentLoaded', () => {
             if (fx === 'failure') {
                 var failBtn = document.getElementById('btn-psychosis');
                 if (failBtn) failBtn.click();
+                _flashFXBtn('btn-psychosis', 5000);
                 return;
             }
             // SHOOT — enable shooting mode for 3s
@@ -8172,12 +8240,15 @@ document.addEventListener('DOMContentLoaded', () => {
                 if (shootBtn && !shootBtn.classList.contains('on')) {
                     shootBtn.click();
                     setTimeout(function() { if (shootBtn.classList.contains('on')) shootBtn.click(); }, 3000);
+                } else {
+                    _flashFXBtn('btn-shooting', 3000);
                 }
                 return;
             }
             // RESET — hard reset (one-shot)
             if (fx === 'reset') {
                 if (typeof triggerHardReset === 'function') triggerHardReset();
+                _flashFXBtn('btn-reset', 1000);
                 return;
             }
             // CSS class-based FX: nvg, void, lucy, scan, tear, etc. — 3s one-shot
@@ -8212,7 +8283,8 @@ document.addEventListener('DOMContentLoaded', () => {
             _closeAllGearMenus();
             if (!isOpen) {
                 var menu = gearEl.querySelector('.pad-gear-menu');
-                // Smart-position using fixed viewport coords — escapes overflow:auto sidebar
+                // Smart-position: sidebar has transform which makes position:fixed
+                // children relative to the sidebar, not viewport. Convert coords accordingly.
                 if (menu) {
                     // Measure off-screen (visibility:hidden) to get real dims before showing
                     var prev = menu.getAttribute('style') || '';
@@ -8220,13 +8292,19 @@ document.addEventListener('DOMContentLoaded', () => {
                     var mH = menu.offsetHeight, mW = menu.offsetWidth;
                     menu.setAttribute('style', prev);
                     var ir = iconEl.getBoundingClientRect();
-                    // Prefer opening above the icon; flip below if not enough room
-                    var top = ir.top - mH - 4;
-                    if (top < 8) top = ir.bottom + 4;
-                    // Align right edge to icon right, clamp to viewport
-                    var left = ir.right - mW;
+                    // Find containing block (sidebar with transform)
+                    var sidebar = iconEl.closest('.sidebar');
+                    var sbRect = sidebar ? sidebar.getBoundingClientRect() : {left: 0, top: 0};
+                    var sbW = sidebar ? sidebar.offsetWidth : window.innerWidth;
+                    var sbH = sidebar ? sidebar.offsetHeight : window.innerHeight;
+                    // Convert to sidebar-local coords (since transform makes fixed relative to sidebar)
+                    var top = (ir.top - sbRect.top) - mH - 4;
+                    if (top < 4) top = (ir.bottom - sbRect.top) + 4;
+                    if (top + mH > sbH - 4) top = sbH - mH - 4;
+                    // Align right edge to icon right, clamp within sidebar width
+                    var left = (ir.right - sbRect.left) - mW;
                     if (left < 4) left = 4;
-                    if (left + mW > window.innerWidth - 4) left = window.innerWidth - mW - 4;
+                    if (left + mW > sbW - 4) left = sbW - mW - 4;
                     menu.style.top  = top  + 'px';
                     menu.style.left = left + 'px';
                 }
