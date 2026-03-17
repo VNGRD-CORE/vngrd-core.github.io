@@ -1876,11 +1876,19 @@ body.fullscreen #transcription-hud { opacity: 0 !important; pointer-events: none
             <div class="sec-body" id="lexica-nano-body">
                 <div class="lbl" style="font-size:7px;opacity:0.5;margin-bottom:2px;">MODEL</div>
                 <select class="inp" id="ai-model-select" style="font-size:8px;padding:4px;background:var(--panel);border:1px solid var(--border);color:var(--text);margin-bottom:4px;">
-                    <option value="pollinations" selected>POLLINATIONS [FREE]</option>
-                    <option value="pollinations-turbo">POLLINATIONS TURBO</option>
-                    <option value="pollinations-3d">POLLINATIONS 3D</option>
-                    <option value="pollinations-anime">POLLINATIONS ANIME</option>
+                    <option value="flux" selected>FLUX [FREE/DEFAULT]</option>
+                    <option value="gptimage">GPT IMAGE</option>
+                    <option value="seedream">SEEDREAM</option>
+                    <option value="dirtberry">DIRTBERRY [REALISTIC]</option>
+                    <option value="nanobanana">NANOBANANA</option>
+                    <option value="flux-anime">FLUX ANIME STYLE</option>
+                    <option value="flux-3d">FLUX 3D STYLE</option>
+                    <option value="flux-cinematic">FLUX CINEMATIC</option>
                 </select>
+                <div style="margin-bottom:3px;">
+                    <div class="lbl" style="font-size:6px;opacity:0.4;margin-bottom:1px;">API KEY (OPTIONAL — faster + no watermark)</div>
+                    <input type="password" class="inp" id="ai-api-key" placeholder="pk_... or leave blank for free" style="font-size:8px;padding:3px;">
+                </div>
                 <input type="text" class="inp" id="ai-prompt" placeholder="Describe your image..." style="font-size:9px;">
                 <button class="btn" id="btn-generate-ai" style="color:var(--v);border-color:var(--v);">GENERATE</button>
                 <div id="ai-status" style="font-size:8px;color:var(--text-dim);margin-top:4px;">READY</div>
@@ -9336,8 +9344,8 @@ var isVideo = nft.forceVideo || (imageUrl.toLowerCase().match(/\.(mp4|webm|mov|o
     };
 
     // ═══════════════════════════════════════════════════════════════════
-    // AI IMAGE GENERATOR v5 — Pollinations.ai only (100% free, no key)
-    // Puter.js removed. All models route through Pollinations.ai API.
+    // AI IMAGE GENERATOR v6 — Pollinations.ai Unified API (gen.pollinations.ai)
+    // Free unlimited generation, optional API key for faster/premium access.
     // ═══════════════════════════════════════════════════════════════════
     var _aiGenerating = false;
 
@@ -9373,44 +9381,45 @@ var isVideo = nft.forceVideo || (imageUrl.toLowerCase().match(/\.(mp4|webm|mov|o
         log('AI: INJECTED >> ' + label);
     }
 
-    // Pollinations.ai — free, no API key, blob fetch avoids CORS taint on canvas
-    async function _aiPollinations(prompt, btn, polModel) {
-        _aiStatus('POLLINATIONS: GENERATING...', 'var(--v)');
-        log('AI: [POLLINATIONS] >> ' + prompt);
-        try {
-            var seed = Math.floor(Math.random() * 99999);
-            var url = 'https://image.pollinations.ai/prompt/' + encodeURIComponent(prompt)
-                + '?width=1024&height=1024&nologo=true&model=' + (polModel || 'flux') + '&seed=' + seed;
-            // fetch() follows redirects and gives raw bytes — no CORS taint on canvas
-            var resp = await fetch(url);
-            if (!resp.ok) throw new Error('HTTP_' + resp.status);
-            var blob = await resp.blob();
-            var objectUrl = URL.createObjectURL(blob);
-            var img = new Image();
-            await new Promise(function(resolve, reject) {
-                img.onload = resolve;
-                img.onerror = function() { reject(new Error('IMG_DECODE_FAILED')); };
-                img.src = objectUrl;
-            });
-            _aiInject(img, prompt);
-            _aiDone(btn);
-            _aiStatus('DONE [POLLINATIONS]', 'var(--g)');
-        } catch (e) {
-            _aiDone(btn);
-            _aiStatus('POLLINATIONS FAIL: ' + e.message, 'var(--r)');
-            log('AI: POLLINATIONS FAIL: ' + e.message);
-        }
-    }
-
-    // Pollinations model → style parameter map
-    var _pollinationsStyles = {
-        'pollinations':       { model: 'flux',          style: '' },
-        'pollinations-turbo': { model: 'turbo',         style: 'cinematic, high detail' },
-        'pollinations-3d':    { model: 'flux',          style: '3D render, octane, volumetric lighting' },
-        'pollinations-anime': { model: 'flux',          style: 'anime, cel-shaded, vibrant' },
+    // Model config: model name sent to API + optional style suffix
+    var _aiModels = {
+        'flux':           { model: 'flux',       style: '' },
+        'gptimage':       { model: 'gptimage',   style: '' },
+        'seedream':       { model: 'seedream',    style: '' },
+        'dirtberry':      { model: 'dirtberry',   style: '' },
+        'nanobanana':     { model: 'nanobanana',  style: '' },
+        'flux-anime':     { model: 'flux',        style: 'anime, cel-shaded, vibrant colors' },
+        'flux-3d':        { model: 'flux',        style: '3D render, octane, volumetric lighting' },
+        'flux-cinematic': { model: 'flux',        style: 'cinematic, high detail, dramatic lighting' },
     };
 
-  async function aiGenerate(prompt) {
+    // Fallback model order if primary model fails
+    var _aiFallbacks = ['flux', 'dirtberry', 'nanobanana'];
+
+    // Generate image via Pollinations Unified API (gen.pollinations.ai)
+    async function _aiPollinations(prompt, btn, modelName, apiKey) {
+        _aiStatus('GENERATING [' + modelName.toUpperCase() + ']...', 'var(--v)');
+        log('AI: [' + modelName.toUpperCase() + '] >> ' + prompt);
+        var seed = Math.floor(Math.random() * 99999);
+        var url = 'https://gen.pollinations.ai/image/' + encodeURIComponent(prompt)
+            + '?width=1024&height=1024&nologo=true&model=' + encodeURIComponent(modelName)
+            + '&seed=' + seed + '&enhance=true';
+        if (apiKey) url += '&key=' + encodeURIComponent(apiKey);
+        var resp = await fetch(url);
+        if (!resp.ok) throw new Error('HTTP_' + resp.status + ' (' + modelName + ')');
+        var blob = await resp.blob();
+        if (!blob.type || !blob.type.startsWith('image')) throw new Error('NOT_IMAGE (' + modelName + ')');
+        var objectUrl = URL.createObjectURL(blob);
+        var img = new Image();
+        await new Promise(function(resolve, reject) {
+            img.onload = resolve;
+            img.onerror = function() { reject(new Error('IMG_DECODE_FAILED')); };
+            img.src = objectUrl;
+        });
+        return img;
+    }
+
+    async function aiGenerate(prompt) {
         if (!prompt) { _aiStatus('TYPE A PROMPT', 'var(--y)'); return; }
         if (_aiGenerating) return;
 
@@ -9419,23 +9428,41 @@ var isVideo = nft.forceVideo || (imageUrl.toLowerCase().match(/\.(mp4|webm|mov|o
         if (btn) { btn.classList.add('on'); btn.textContent = 'GENERATING...'; }
         if (document.getElementById('neural-dot')) document.getElementById('neural-dot').classList.remove('off');
 
-        var modelKey = document.getElementById('ai-model-select') ? document.getElementById('ai-model-select').value : 'pollinations';
-        var cfg = _pollinationsStyles[modelKey] || _pollinationsStyles['pollinations'];
+        var modelKey = document.getElementById('ai-model-select') ? document.getElementById('ai-model-select').value : 'flux';
+        var cfg = _aiModels[modelKey] || _aiModels['flux'];
         var fullPrompt = cfg.style ? prompt + ', ' + cfg.style : prompt;
+        var apiKey = document.getElementById('ai-api-key') ? document.getElementById('ai-api-key').value.trim() : '';
 
         _aiStatus('GENERATING...', 'var(--v)');
         log('AI: [' + modelKey.toUpperCase() + '] >> ' + prompt);
 
-        // ── Pollinations (free, no API key, unlimited) ────────────────
-        try {
-            await _aiPollinations(fullPrompt, btn, cfg.model);
-        } catch(e) {
-            _aiDone(btn);
-            _aiStatus('GENERATE_FAILED: ' + e.message, 'var(--r)');
-            log('AI: FAILED: ' + e.message);
+        // Try primary model, then fallbacks
+        var modelsToTry = [cfg.model];
+        _aiFallbacks.forEach(function(fb) { if (fb !== cfg.model) modelsToTry.push(fb); });
+
+        var lastError = null;
+        for (var i = 0; i < modelsToTry.length; i++) {
+            try {
+                var img = await _aiPollinations(fullPrompt, btn, modelsToTry[i], apiKey);
+                _aiInject(img, prompt);
+                _aiDone(btn);
+                var src = modelsToTry[i].toUpperCase();
+                if (i > 0) src += ' (FALLBACK)';
+                _aiStatus('DONE [' + src + ']', 'var(--g)');
+                return;
+            } catch (e) {
+                lastError = e;
+                log('AI: ' + modelsToTry[i].toUpperCase() + ' FAIL: ' + e.message);
+                if (i < modelsToTry.length - 1) {
+                    _aiStatus('RETRYING [' + modelsToTry[i + 1].toUpperCase() + ']...', 'var(--y)');
+                }
+            }
         }
 
-        _aiGenerating = false;
+        // All models failed
+        _aiDone(btn);
+        _aiStatus('ALL MODELS FAILED: ' + (lastError ? lastError.message : 'UNKNOWN'), 'var(--r)');
+        log('AI: ALL MODELS FAILED');
     }
 
     window.aiGenerate = aiGenerate;
