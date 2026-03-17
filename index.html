@@ -872,6 +872,7 @@
         .sfx-pad.z-elevated { z-index: 200; position: relative; }
         .sfx-pad:hover {
             transform: translateY(-1px);
+            z-index: 2;
             border-color: rgba(255,255,255,0.18) !important;
             box-shadow:
                 3px 5px 14px rgba(0,0,0,0.95),
@@ -900,19 +901,32 @@
         /* ── PAD CONTENT LAYOUT ── */
         .sfx-pad .pad-id   { display: none; }
         .sfx-pad .pad-name {
-            font-size: 9px; font-weight: 900; letter-spacing: 0.05em; line-height: 1;
+            font-size: 7px; font-weight: 900; letter-spacing: 0.02em; line-height: 1;
             font-family: 'Orbitron', sans-serif;
             overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
-            max-width: 100%; padding: 0 14px; box-sizing: border-box;
+            max-width: 100%; padding: 0 8px; box-sizing: border-box;
+        }
+        /* Hover: slide the name left to reveal full text */
+        @keyframes pad-name-slide {
+            0%, 20%   { transform: translateX(0); }
+            80%, 100% { transform: translateX(-28px); }
+        }
+        .sfx-pad:hover:not(.z-elevated) .pad-name {
+            overflow: visible; text-overflow: clip;
+            animation: pad-name-slide 3s ease-in-out 0.5s infinite alternate;
         }
         .sfx-pad .pad-hint  { font-size: 5.5px; opacity: 0.45; letter-spacing: 0.02em; line-height: 1; display: none; }
         .sfx-pad .pad-sub   { font-size: 5px; opacity: 0.28; letter-spacing: 0.03em; line-height: 1.2; font-style: italic; display: none; }
         .sfx-pad .pad-timer { font-size: 14px; font-weight: 900; letter-spacing: 0; line-height: 1; font-family: 'Orbitron', sans-serif; display: none; }
         /* LCD filename strip at the bottom */
+        @keyframes lcd-pan {
+            0%, 20%   { left: 5px; }
+            80%, 100% { left: -65px; }
+        }
         .sfx-pad .pad-lcd {
             position: absolute;
             bottom: 4px;
-            left: 0; right: 0;
+            left: 5px; right: 5px;
             font-size: 5px;
             font-family: 'JetBrains Mono', monospace;
             letter-spacing: 0.05em;
@@ -920,9 +934,17 @@
             white-space: nowrap;
             overflow: hidden;
             text-overflow: ellipsis;
-            padding: 0 8px;
+            padding: 0;
             line-height: 1;
             pointer-events: none;
+            transition: opacity 0.2s;
+        }
+        /* Hover: reveal full filename by panning left */
+        .sfx-pad:hover:not(.z-elevated) .pad-lcd {
+            opacity: 0.65;
+            overflow: visible; text-overflow: clip;
+            right: auto; /* unpin right so element can scroll left freely */
+            animation: lcd-pan 4s ease-in-out 0.3s infinite alternate;
         }
 
         /* ── GEAR DROPDOWN ── */
@@ -932,47 +954,94 @@
             right: 4px;
             z-index: 10;
         }
+        /* Discoverable pulse — subtle cyan breathe, draws the eye */
+        @keyframes gear-discover-pulse {
+            0%, 100% { opacity: 0.18; filter: drop-shadow(0 0 0px transparent); }
+            50%       { opacity: 0.55; filter: drop-shadow(0 0 3px rgba(0,243,255,0.6)); }
+        }
         .pad-gear-icon {
             display: block;
             font-size: 7px;
-            opacity: 0.2;
+            opacity: 0.18;
             cursor: pointer;
             line-height: 1;
             padding: 2px;
-            transition: opacity 0.15s;
+            transition: opacity 0.12s, color 0.12s, text-shadow 0.12s;
             user-select: none;
+            animation: gear-discover-pulse 2s ease-in-out infinite;
         }
         .pad-gear:hover .pad-gear-icon,
-        .pad-gear.open .pad-gear-icon { opacity: 0.7; }
+        .pad-gear.open .pad-gear-icon {
+            opacity: 1 !important;
+            animation: none;
+            color: var(--accent);
+            text-shadow: 0 0 8px rgba(0,243,255,0.9), 0 0 18px rgba(0,243,255,0.4);
+        }
+        /* Coupled: gear icon stays lit in its FX color — "Armed" indicator */
+        .sfx-pad.coupled-nvg .pad-gear-icon                                  { opacity: 0.85 !important; animation: none; color: #00ff41; text-shadow: 0 0 6px rgba(0,255,65,0.85); }
+        .sfx-pad.coupled-shoot .pad-gear-icon,
+        .sfx-pad.coupled-reset .pad-gear-icon                                { opacity: 0.85 !important; animation: none; color: #ff2233; text-shadow: 0 0 6px rgba(255,34,51,0.85); }
+        .sfx-pad.coupled-void .pad-gear-icon,
+        .sfx-pad.coupled-failure .pad-gear-icon,
+        .sfx-pad.coupled-lucy .pad-gear-icon                                 { opacity: 0.85 !important; animation: none; color: #cc00ff; text-shadow: 0 0 6px rgba(204,0,255,0.85); }
+        .sfx-pad.coupled-seismic .pad-gear-icon,
+        .sfx-pad.coupled-punch .pad-gear-icon                                { opacity: 0.85 !important; animation: none; color: #ff6600; text-shadow: 0 0 6px rgba(255,102,0,0.85); }
+        .sfx-pad.coupled-party .pad-gear-icon                                { opacity: 0.85 !important; animation: none; color: #ff00ff; text-shadow: 0 0 6px rgba(255,0,255,0.85); }
+        /* Hover on armed pad: snap to max brightness */
+        .sfx-pad.coupled .pad-gear:hover .pad-gear-icon,
+        .sfx-pad.coupled .pad-gear.open .pad-gear-icon { opacity: 1 !important; filter: brightness(1.4); }
+        /* ── FLOATING GLASS MENU — position:fixed escapes overflow:auto sidebar ── */
         .pad-gear-menu {
             display: none;
-            position: absolute;
-            bottom: 100%;
-            top: auto;
-            right: 0;
-            margin-bottom: 6px;
-            background: #0c0c14;
-            border: 1px solid rgba(0,243,255,0.25);
-            border-radius: 4px;
-            box-shadow: 0 -4px 16px rgba(0,0,0,0.9), 0 0 0 1px rgba(0,243,255,0.08);
-            min-width: 76px;
-            z-index: 9999;
+            position: fixed; /* KEY: escapes overflow:auto sidebar clipping */
+            /* top/left set dynamically by JS smart-positioner */
+            background: rgba(6,6,16,0.92);
+            backdrop-filter: blur(16px) saturate(1.5);
+            -webkit-backdrop-filter: blur(16px) saturate(1.5);
+            border: 1px solid rgba(0,243,255,0.32);
+            border-radius: 5px;
+            box-shadow:
+                0 8px 32px rgba(0,0,0,0.95),
+                0 0 0 1px rgba(0,243,255,0.1),
+                inset 0 1px 0 rgba(0,243,255,0.1),
+                inset 0 0 20px rgba(0,243,255,0.03);
+            min-width: 104px;
+            z-index: 99999;
             overflow: hidden;
         }
         .pad-gear.open .pad-gear-menu { display: block; }
         .pad-gear-menu [data-fx] {
-            display: block;
+            display: flex;
+            align-items: center;
+            gap: 7px;
             font-size: 7px;
             font-family: 'Orbitron', sans-serif;
             letter-spacing: 0.1em;
-            padding: 4px 8px;
+            padding: 5px 10px;
             cursor: pointer;
             color: rgba(255,255,255,0.45);
-            transition: background 0.1s, color 0.1s;
+            transition: background 0.08s, color 0.08s;
             white-space: nowrap;
         }
-        .pad-gear-menu [data-fx]:hover { background: rgba(0,243,255,0.1); color: #fff; }
+        .pad-gear-menu [data-fx]:hover { background: rgba(0,243,255,0.08); color: #fff; }
         .pad-gear-menu [data-fx].active-fx-opt { color: var(--accent); background: rgba(0,243,255,0.07); }
+        /* Color dot per FX — visual "armed" indicator in menu */
+        .pad-gear-menu [data-fx]::before {
+            content: '';
+            display: inline-block;
+            width: 5px; height: 5px;
+            border-radius: 50%;
+            flex-shrink: 0;
+        }
+        .pad-gear-menu [data-fx="none"]::before    { background: rgba(255,255,255,0.15); }
+        .pad-gear-menu [data-fx="nvg"]::before     { background: #00ff41; box-shadow: 0 0 5px rgba(0,255,65,0.8); }
+        .pad-gear-menu [data-fx="shoot"]::before   { background: #ff2233; box-shadow: 0 0 5px rgba(255,34,51,0.8); }
+        .pad-gear-menu [data-fx="void"]::before,
+        .pad-gear-menu [data-fx="failure"]::before,
+        .pad-gear-menu [data-fx="lucy"]::before    { background: #cc00ff; box-shadow: 0 0 5px rgba(204,0,255,0.8); }
+        .pad-gear-menu [data-fx="seismic"]::before,
+        .pad-gear-menu [data-fx="punch"]::before   { background: #ff6600; box-shadow: 0 0 5px rgba(255,102,0,0.8); }
+        .pad-gear-menu [data-fx="party"]::before   { background: #ff00ff; box-shadow: 0 0 5px rgba(255,0,255,0.8); }
         /* color tints per FX in menu */
         .pad-gear-menu [data-fx="nvg"]:hover      { color: #00ff41; background: rgba(0,255,65,0.08); }
         .pad-gear-menu [data-fx="shoot"]:hover    { color: #ff2233; background: rgba(255,34,51,0.08); }
@@ -1102,6 +1171,27 @@
         .sfx-cust.recording .pad-hint,
         .sfx-cust.recording .pad-sub,
         .sfx-cust.recording .pad-lcd  { display: none; }
+        /* Blinking red REC dot — top-left corner while recording */
+        @keyframes rec-dot-blink {
+            0%, 49% { opacity: 1; }
+            50%, 100% { opacity: 0; }
+        }
+        .sfx-cust.recording::after {
+            content: '●';
+            position: absolute;
+            top: 5px; left: 6px;
+            font-size: 6px;
+            color: #ff2233;
+            text-shadow: 0 0 6px rgba(255,0,0,0.9);
+            animation: rec-dot-blink 0.5s step-end infinite;
+            pointer-events: none;
+            line-height: 1;
+        }
+        /* Show LOAD SAMPLE hint on unloaded custom pads so the action is obvious */
+        .sfx-cust:not(.loaded):not(.armed):not(.recording) .pad-hint { display: block; }
+        /* On hover reveal the R-CLICK instruction, hide name */
+        .sfx-cust:not(.loaded):not(.armed):not(.recording):hover .pad-sub  { display: block; }
+        .sfx-cust:not(.loaded):not(.armed):not(.recording):hover .pad-name { display: none; }
 
         /* ── HIT FLASH — bright internal glow ── */
         .sfx-pad.sfx-pulse { animation: sfx-pad-pulse 0.28s ease-out forwards; }
@@ -1205,6 +1295,10 @@
         }
 
         /* ── SAMPLER HELP BUTTON & MODAL ── */
+        @keyframes help-discover-pulse {
+            0%, 100% { border-color: rgba(0,243,255,0.14); color: rgba(0,243,255,0.32); box-shadow: none; }
+            50%       { border-color: rgba(0,243,255,0.42); color: rgba(0,243,255,0.68); box-shadow: 0 0 8px rgba(0,243,255,0.28); }
+        }
         .sampler-help-btn {
             background: transparent;
             border: 1px solid rgba(0,243,255,0.2);
@@ -1216,13 +1310,14 @@
             cursor: pointer;
             display: flex; align-items: center; justify-content: center;
             flex-shrink: 0;
-            transition: border-color 0.15s, color 0.15s, box-shadow 0.15s;
             line-height: 1; padding: 0;
+            animation: help-discover-pulse 2.5s ease-in-out infinite;
         }
         .sampler-help-btn:hover {
+            animation: none;
             border-color: var(--accent);
             color: var(--accent);
-            box-shadow: 0 0 8px rgba(0,243,255,0.3);
+            box-shadow: 0 0 10px rgba(0,243,255,0.45);
         }
         #sampler-help-modal {
             display: none;
@@ -2459,7 +2554,7 @@ body.fx-nvg #stage::after {
                         </button>
 
                         <!-- Row 2: Custom Performance Bank -->
-                        <div class="sfx-bank-label" style="color:rgba(255,140,0,0.35);">CUSTOM BANK <em>// TAP: LOAD · R-CLICK: ARM REC</em></div>
+                        <div class="sfx-bank-label" style="color:rgba(255,140,0,0.6);">CUSTOM BANK <em>// TAP: LOAD · R-CLICK: ARM REC</em></div>
 
                         <button class="btn sfx-btn sfx-pad sfx-cust" id="sfx-custom1" data-sfx="custom1" data-midi-target="sfx:custom1" data-pad-num="05" title="Custom 1 — click: load / right-click: arm rec">
                             <div class="pad-gear" onclick="event.stopPropagation()">
@@ -8100,34 +8195,50 @@ document.addEventListener('DOMContentLoaded', () => {
         }
 
         // ── GEAR DROPDOWN — global toggle (closes others) ────────────────
-        window._padGearToggle = function(iconEl) {
-            var gearEl = iconEl.parentElement;
-            var isOpen = gearEl.classList.contains('open');
-            var padBody = document.getElementById('sfx-pad-body');
-            // Close all open gears + remove z-elevated from all pads
+        function _closeAllGearMenus() {
             document.querySelectorAll('.pad-gear.open').forEach(function(g) {
                 g.classList.remove('open');
                 var pad = g.closest('.sfx-pad');
                 if (pad) pad.classList.remove('z-elevated');
+                var m = g.querySelector('.pad-gear-menu');
+                if (m) { m.style.top = ''; m.style.left = ''; }
             });
+            var padBody = document.getElementById('sfx-pad-body');
             if (padBody) padBody.classList.remove('gear-open');
+        }
+        window._padGearToggle = function(iconEl) {
+            var gearEl = iconEl.parentElement;
+            var isOpen = gearEl.classList.contains('open');
+            _closeAllGearMenus();
             if (!isOpen) {
+                var menu = gearEl.querySelector('.pad-gear-menu');
+                // Smart-position using fixed viewport coords — escapes overflow:auto sidebar
+                if (menu) {
+                    // Measure off-screen (visibility:hidden) to get real dims before showing
+                    var prev = menu.getAttribute('style') || '';
+                    menu.setAttribute('style', 'display:block !important;visibility:hidden !important;position:fixed !important;top:0;left:0;');
+                    var mH = menu.offsetHeight, mW = menu.offsetWidth;
+                    menu.setAttribute('style', prev);
+                    var ir = iconEl.getBoundingClientRect();
+                    // Prefer opening above the icon; flip below if not enough room
+                    var top = ir.top - mH - 4;
+                    if (top < 8) top = ir.bottom + 4;
+                    // Align right edge to icon right, clamp to viewport
+                    var left = ir.right - mW;
+                    if (left < 4) left = 4;
+                    if (left + mW > window.innerWidth - 4) left = window.innerWidth - mW - 4;
+                    menu.style.top  = top  + 'px';
+                    menu.style.left = left + 'px';
+                }
                 gearEl.classList.add('open');
                 var pad = gearEl.closest('.sfx-pad');
                 if (pad) pad.classList.add('z-elevated');
+                var padBody = document.getElementById('sfx-pad-body');
                 if (padBody) padBody.classList.add('gear-open');
             }
         };
         // Close on outside click
-        document.addEventListener('click', function() {
-            document.querySelectorAll('.pad-gear.open').forEach(function(g) {
-                g.classList.remove('open');
-                var pad = g.closest('.sfx-pad');
-                if (pad) pad.classList.remove('z-elevated');
-            });
-            var padBody = document.getElementById('sfx-pad-body');
-            if (padBody) padBody.classList.remove('gear-open');
-        });
+        document.addEventListener('click', function() { _closeAllGearMenus(); });
 
         // ── SAMPLER COLLAPSE TOGGLE ───────────────────────────────────────
         window._toggleSamplerBody = function() {
