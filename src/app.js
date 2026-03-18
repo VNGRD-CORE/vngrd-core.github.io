@@ -581,6 +581,69 @@ function renderLoop(timestamp) {
 }
 
 // ═══════════════════════════════════════════════════════════════════════════
+// RECORD CANVAS — subtitle-composited output for all recording streams
+// A dedicated off-screen canvas that runs its own 60fps loop:
+//   1. Copies APP.render.canvas (VJ output) each frame
+//   2. Burns subtitle text on top in a clean, isolated ctx state
+// Both captureStream recording paths capture this canvas instead of the raw
+// render canvas, guaranteeing subtitles always appear in every recording.
+// ═══════════════════════════════════════════════════════════════════════════
+function initRecordCanvas() {
+    const rc = document.createElement('canvas');
+    rc.width  = APP.render.width;
+    rc.height = APP.render.height;
+    const rCtx = rc.getContext('2d', { alpha: false, desynchronized: true });
+    APP.render.recordCanvas = rc;
+    APP.render.recordCtx    = rCtx;
+
+    function recordComposite() {
+        requestAnimationFrame(recordComposite);
+        const w = APP.render.width;
+        const h = APP.render.height;
+
+        // Layer 0: copy main VJ canvas
+        try { rCtx.drawImage(APP.render.canvas, 0, 0, w, h); } catch (_) {}
+
+        // Layer 1: subtitle burn-in with fully isolated context state
+        const subs = window._vngrdSubtitleLines;
+        if (!subs || !subs.length) return;
+        try {
+            rCtx.save();
+            rCtx.globalAlpha              = 1;
+            rCtx.globalCompositeOperation = 'source-over';
+            rCtx.filter                   = 'none';
+            rCtx.shadowBlur               = 0;
+            rCtx.textAlign                = 'center';
+            rCtx.textBaseline             = 'middle';
+
+            const count    = subs.length;
+            const lineH    = Math.round(h * 0.058);
+            const fsPx     = Math.round(h * 0.032);
+            const padX     = 18;
+            const blockH   = lineH * count;
+            const blockTop = Math.round(h * 0.78) - Math.round(blockH / 2);
+
+            rCtx.font = `700 ${fsPx}px "Courier New",monospace`;
+
+            subs.forEach((sub, i) => {
+                const lineTop = blockTop + i * lineH;
+                const cy      = lineTop + Math.round(lineH / 2);
+                const label   = `[${sub.lang}] ${sub.text}`;
+                const tw      = rCtx.measureText(label).width;
+                const bgA     = typeof sub.bgAlpha === 'number' ? sub.bgAlpha : 0.8;
+                rCtx.fillStyle = `rgba(0,0,0,${bgA})`;
+                rCtx.fillRect((w - tw) / 2 - padX, lineTop, tw + padX * 2, lineH);
+                rCtx.fillStyle = '#00f3ff';
+                rCtx.fillText(label, w / 2, cy);
+            });
+            rCtx.restore();
+        } catch (_) {}
+    }
+    recordComposite();
+    log('RECORD_CANVAS: ARMED');
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
 // IMPACT FX (Musical Performance)
 // ═══════════════════════════════════════════════════════════════════════════
 function triggerImpact() {
@@ -1645,7 +1708,9 @@ function initTimeMachine() {
     }
 
     // Legacy Time Machine fallback (runs alongside Compositor)
-    const canvasStream = APP.render.canvas.captureStream(60);
+    // Use recordCanvas (render + subtitles) so subtitles appear in the buffer.
+    const _tmCanvas    = APP.render.recordCanvas || APP.render.canvas;
+    const canvasStream = _tmCanvas.captureStream(60);
 
     // PRO-AUDIO TAP: Connect directly from masterGain (post Spatial/Dolby/Compressor)
     if (APP.audio.ctx && APP.audio.masterGain) {
@@ -2821,7 +2886,8 @@ document.addEventListener('DOMContentLoaded', () => {
     
     APP.render.lastFpsUpdate = performance.now();
     requestAnimationFrame(renderLoop);
-    
+    initRecordCanvas();
+
     updateClock();
     setInterval(updateClock, 1000);
     morphLogo(); 

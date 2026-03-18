@@ -2839,10 +2839,10 @@ body.fullscreen #transcription-hud { opacity: 0 !important; pointer-events: none
                 <button id="btn-on-air" class="onair-pill">OFF-AIR</button>
                 <button id="btn-slots-toggle" class="btn" style="margin-top:5px;width:100%;font-size:8px;letter-spacing:1.5px;opacity:0.65;" onclick="var g=this.nextElementSibling;var o=g.classList.toggle('open');this.style.opacity=o?'1':'0.65';this.textContent=o?'SLOTS \u25B4':'SLOTS \u25BE';">SLOTS &#x25BE;</button>
                 <div class="slot-grid">
-                    <div class="slot-row"><span class="slot-lbl">SLOT 1</span><select class="slot-select" id="slot-1"><option value="OFF">OFF</option><option value="EN" selected>EN</option><option value="NL">NL</option><option value="ES">ES</option><option value="FR">FR</option><option value="ZH">ZH</option><option value="JA">JA</option><option value="AR">AR</option><option value="SCOUSE">SCOUSE</option></select></div>
-                    <div class="slot-row"><span class="slot-lbl">SLOT 2</span><select class="slot-select" id="slot-2"><option value="OFF" selected>OFF</option><option value="EN">EN</option><option value="NL">NL</option><option value="ES">ES</option><option value="FR">FR</option><option value="ZH">ZH</option><option value="JA">JA</option><option value="AR">AR</option><option value="SCOUSE">SCOUSE</option></select></div>
-                    <div class="slot-row"><span class="slot-lbl">SLOT 3</span><select class="slot-select" id="slot-3"><option value="OFF" selected>OFF</option><option value="EN">EN</option><option value="NL">NL</option><option value="ES">ES</option><option value="FR">FR</option><option value="ZH">ZH</option><option value="JA">JA</option><option value="AR">AR</option><option value="SCOUSE">SCOUSE</option></select></div>
-                    <div class="slot-row"><span class="slot-lbl">SLOT 4</span><select class="slot-select" id="slot-4"><option value="OFF" selected>OFF</option><option value="EN">EN</option><option value="NL">NL</option><option value="ES">ES</option><option value="FR">FR</option><option value="ZH">ZH</option><option value="JA">JA</option><option value="AR">AR</option><option value="SCOUSE">SCOUSE</option></select></div>
+                    <div class="slot-row"><span class="slot-lbl">SLOT 1</span><select class="slot-select" id="slot-1"><option value="OFF">OFF</option><option value="EN" selected>EN</option><option value="NL">NL</option><option value="ES">ES</option><option value="FR">FR</option><option value="ZH">ZH</option><option value="JA">JA</option><option value="AR">AR</option><option value="SCOUSE">SCOUSE</option><option value="NAP">NAP</option><option value="GEN">GEN</option></select></div>
+                    <div class="slot-row"><span class="slot-lbl">SLOT 2</span><select class="slot-select" id="slot-2"><option value="OFF" selected>OFF</option><option value="EN">EN</option><option value="NL">NL</option><option value="ES">ES</option><option value="FR">FR</option><option value="ZH">ZH</option><option value="JA">JA</option><option value="AR">AR</option><option value="SCOUSE">SCOUSE</option><option value="NAP">NAP</option><option value="GEN">GEN</option></select></div>
+                    <div class="slot-row"><span class="slot-lbl">SLOT 3</span><select class="slot-select" id="slot-3"><option value="OFF" selected>OFF</option><option value="EN">EN</option><option value="NL">NL</option><option value="ES">ES</option><option value="FR">FR</option><option value="ZH">ZH</option><option value="JA">JA</option><option value="AR">AR</option><option value="SCOUSE">SCOUSE</option><option value="NAP">NAP</option><option value="GEN">GEN</option></select></div>
+                    <div class="slot-row"><span class="slot-lbl">SLOT 4</span><select class="slot-select" id="slot-4"><option value="OFF" selected>OFF</option><option value="EN">EN</option><option value="NL">NL</option><option value="ES">ES</option><option value="FR">FR</option><option value="ZH">ZH</option><option value="JA">JA</option><option value="AR">AR</option><option value="SCOUSE">SCOUSE</option><option value="NAP">NAP</option><option value="GEN">GEN</option></select></div>
                 </div>
                 <div class="btn-grid-2" style="margin-top:6px;">
                     <button id="btn-sub-opacity" class="btn sfx-pad sfx-sig" title="Cycle subtitle background opacity">SUB_BG<br><small style="font-size:7px;opacity:.7;">67%</small></button>
@@ -6621,7 +6621,9 @@ $('btn-rec').onclick = () => {
 
             // Always build a fresh audio destination to avoid stale/dead tracks
             // Tap outputLimiter (final mix node) so music + video audio are both captured
-            var bcastStream = new MediaStream(APP.render.canvas.captureStream(30).getVideoTracks());
+            // Use recordCanvas (render + subtitle burn-in) for video tracks.
+            var _bcastCanvas = (APP.render && APP.render.recordCanvas) ? APP.render.recordCanvas : APP.render.canvas;
+            var bcastStream = new MediaStream(_bcastCanvas.captureStream(30).getVideoTracks());
             if (APP.audio.ctx && APP.audio.outputLimiter) {
                 var bcastDest = APP.audio.ctx.createMediaStreamDestination();
                 APP.audio.outputLimiter.connect(bcastDest);
@@ -12222,39 +12224,167 @@ if (btn3dX) {
 
     /* ── Scouse dictionary ────────────────────────────────────────────── */
     var SCOUSE_DICT = {
-        'FRIEND':'LAD','FRIENDS':'LADS','MATE':'LAD','BUDDY':'LAD',
-        'GOOD':'BOSS','GREAT':'SOUND','COOL':'SOUND','NICE':'SOUND',
-        'POLICE':'BIZZIES','COP':'BIZZY','COPS':'BIZZIES',
-        'DRUNK':'BLADDERED','HOUSE':'GAFF','HOME':'GAFF',
-        'HELLO':'ALRIGHT','HI':'ALRIGHT','HEY':'ALRIGHT',
-        'MAN':'FELLA','GUY':'FELLA','WOMAN':'BIRD','GIRL':'BIRD',
-        'FOOD':'SCRAN','EAT':'HAVE SCRAN','EATING':'HAVING SCRAN',
-        'TIRED':'KNACKERED','EXHAUSTED':'KNACKERED',
-        'HAPPY':'MADE UP','EXCITED':'MADE UP','PLEASED':'MADE UP',
-        'ANGRY':'FUMING','MAD':'FUMING','ANNOYED':'FUMING',
-        'MONEY':'DOSH','CASH':'DOSH',
-        'CHILD':'KIDDA','KID':'KIDDA','CHILDREN':'KIDDAS','KIDS':'KIDDAS',
-        'VERY':'WELL','REALLY':'DEAD','ABSOLUTELY':'DEAD',
+        /* ── Greetings & responses ── */
+        'HELLO':'ALRIGHT LA','HI':'ALRIGHT LA','HEY':'ALRIGHT LA',
+        'GOODBYE':'TARRAH LA','BYE':'TARRAH','CHEERS':'TA LA',
+        'THANKS':'TA VERY MUCH','THANK':'TA',
+        'PLEASE':'GO ON THEN','SORRY':'SORRY LA',
         'YES':'YEAH LAD','NO':'NAH LAD','SURE':'GO ED',
-        'WHAT':'WHA','NOTHING':'NOWT','SOMETHING':'SUMMAT',
-        'HEAD':'ED','FACE':'GRID',
-        'LOOK':'AV A GANDER','LOOKING':'AVIN A GANDER',
-        'STUPID':'DIVVY','IDIOT':'DIVVY','FOOL':'DIVVY',
-        'FIGHT':'SCRAP','FIGHTING':'SCRAPPING',
+        'OK':'BOSS LA','FINE':'SOUND','DEAL':'SORTED LA','DONE':'SORTED',
+        /* ── People ── */
+        'FRIEND':'LAD','FRIENDS':'LADS','MATE':'LAD','BUDDY':'LAD','PAL':'LAD',
+        'MAN':'FELLA','GUY':'FELLA','BLOKE':'FELLA','LADS':'LADS',
+        'WOMAN':'BIRD','GIRL':'BIRD','LADY':'BIRD',
+        'BOYFRIEND':'ME FELLA','GIRLFRIEND':'ME BIRD',
+        'WIFE':'THE MISSUS','HUSBAND':'THE FELLA',
+        'MUM':'ME MAM','MOM':'ME MAM','MOTHER':'ME MAM',
+        'DAD':'ME DAD','FATHER':'ME DAD',
+        'BABY':'BABA','CHILD':'KIDDA','KID':'KIDDA','CHILDREN':'KIDDAS','KIDS':'KIDDAS',
         'BROTHER':'OUR KID','SISTER':'OUR KID',
-        'TALKING':'GOBBING OFF','TALK':'GOB OFF',
-        'UNDERSTAND':'GET ME','UNDERSTOOD':'GOT ME',
+        'GRANDMOTHER':'NANA','GRANDFATHER':'GRANDAD',
+        'BOSS':'GAFFER','TEACHER':'SIR',
+        /* ── Emotions & states ── */
+        'GOOD':'BOSS','GREAT':'BOSS','COOL':'SOUND','NICE':'SOUND',
+        'PERFECT':'BOSS','EXCELLENT':'BELTER','AMAZING':'BELTER',
+        'BRILLIANT':'BELTER','FANTASTIC':'CLASS','WONDERFUL':'CLASS',
+        'BEAUTIFUL':'GORGEOUS LA','HANDSOME':'BOSS LOOKING',
+        'HAPPY':'MADE UP','EXCITED':'BUZZING','PLEASED':'MADE UP',
+        'SURPRISED':'MADE UP',
+        'ANGRY':'FUMING','MAD':'FUMING','ANNOYED':'FUMING',
+        'UPSET':'IN BITS','SAD':'IN BITS','CRYING':'BLARTIN',
+        'NERVOUS':'BRICKIN IT','SCARED':'BRICKIN IT','WORRIED':'BRICKIN IT',
         'EMBARRASSED':'SHOWING MESELF UP',
+        'TIRED':'KNACKERED','EXHAUSTED':'CREAM CRACKERED',
+        'DRUNK':'RATARSED','VERY':'WELL','REALLY':'DEAD','ABSOLUTELY':'DEAD',
+        'SICK':'MINGING','ILL':'PROPER ILL',
+        'BAD':'MINGING','AWFUL':'MINGING','TERRIBLE':'MINGING',
+        'UGLY':'MINGING','DISGUSTING':'MINGING','WRONG':'MINGING',
+        'CRAZY':'BARMEY','WEIRD':'BARMEY',
+        'BORING':'DEAD BORING','FUNNY':'DEAD FUNNY',
+        'SMART':'CLEVER CLOGS','FAST':'PROPER QUICK','SLOW':'DEAD SLOW',
+        'HOT':'PROPER HOT','COLD':'FREEZING LA',
+        /* ── Actions ── */
+        'RUN':'LEG IT','RUNNING':'LEGGING IT',
+        'LEAVE':'DO ONE','ESCAPE':'DO ONE',
+        'THROW':'LOB','HIT':'LAMP','PUNCH':'LAMP',
+        'CRY':'HAVE A BLART','LAUGH':'HAVE THE CRACK',
+        'FIGHT':'SCRAP','FIGHTING':'SCRAPPING',
+        'STEAL':'BLAG','STOLE':'BLAGGED',
+        'TALK':'GOB OFF','TALKING':'GOBBING OFF',
+        'EAT':'HAVE SCRAN','EATING':'HAVING SCRAN',
+        'DRINK':'HAVIN A BEVVY','WAIT':'HANG ON LA',
+        'HURRY':'GET A MOVE ON','STOP':'PACK IT IN',
+        'LOOK':'AV A GANDER','LOOKING':'AVIN A GANDER',
+        'UNDERSTAND':'GET ME','UNDERSTOOD':'GOT ME',
+        /* ── Things & places ── */
+        'FOOD':'SCRAN','MEAL':'SCRAN',
+        'COFFEE':'BREW','TEA':'BREW','CUP':'CUPPA',
+        'BEER':'BEVVY','PUB':'BOOZER','BAR':'BOOZER',
+        'SANDWICH':'BUTTY','ROLL':'BUTTY',
+        'MONEY':'DOSH','CASH':'DOSH',
+        'HOUSE':'GAFF','HOME':'GAFF',
+        'POLICE':'BIZZIES','COP':'BIZZY','COPS':'BIZZIES',
+        'TELEVISION':'TELLY','PHONE':'BLOWER',
+        'CAR':'JAM JAR','BUS':'BUSSY','TAXI':'HACKY',
+        'ROAD':'JIGGER','ALLEY':'JIGGER',
+        'CLOTHES':'CLOBBER','JACKET':'CLOBBER',
+        'TROUSERS':'KECKS','SHOES':'TRABS','TRAINERS':'TRABS',
+        'SUPERMARKET':'THE MESSAGES','SHOPPING':'THE MESSAGES',
+        /* ── Words & expressions ── */
+        'WHAT':'WHA','NOTHING':'NOWT','SOMETHING':'SUMMAT',
+        'HEAD':'ED','FACE':'GRID','MOUTH':'GOB','NOSE':'CONK',
+        'STUPID':'DIVVY','IDIOT':'DIVVY','FOOL':'DIVVY',
         'BROKEN':'BRASSIC','POOR':'BRASSIC',
         'PROBLEM':'MARE','TROUBLE':'MARE',
-        'EXCELLENT':'BELTER','AMAZING':'BELTER','BRILLIANT':'BELTER',
-        'STEAL':'BLAG','STOLE':'BLAGGED',
-        'SHOES':'TRABS','TRAINERS':'TRABS'
+        'QUICK':'SWIFTY','EXACTLY':'DEAD RIGHT LA'
     };
 
     function toScouse(text) {
         if (!text) return '';
         return text.split(/\s+/).map(function(w) { return SCOUSE_DICT[w] || w; }).join(' ');
+    }
+
+    /* ── Napoletano (Neapolitan dialect) dictionary ───────────────────── */
+    var NAP_DICT = {
+        /* Greetings */
+        'HELLO':'AJÒ','HI':'AJÒ','BYE':'AJÒ','GOODBYE':'AJÒ',
+        'GOOD MORNING':'BUONGIORNO','GOOD EVENING':'BONASERA',
+        'THANK':'GRAZIE','THANKS':'GRAZIE','PLEASE':'PE PIACERE',
+        'SORRY':'SCUSAME','YES':'SÌ','NO':'NÒ',
+        /* People */
+        'BOY':'GUAGLIONE','GIRL':'GUAGLIUNCELLA','CHILD':'PICCERILLO',
+        'MAN':'OMO','WOMAN':'FEMMENA',
+        'MOTHER':'MAMMETA','FATHER':'TATÀ','BROTHER':'FRATEMO','SISTER':'SIEREMA',
+        'FRIEND':'AMICO MIO','BOSS':'PADRONE',
+        /* Emotions */
+        'GOOD':'BUONO','BEAUTIFUL':'BELLO','GREAT':'ASSAJE BUONO',
+        'HAPPY':'CUNTENTO','SAD':'MALANCUNICO',
+        'ANGRY':'ARRABIATO','VERY':'ASSAJE',
+        'CRAZY':'PAZZO','LOVE':'AMMORE',
+        /* Actions */
+        'EAT':'MAGNÀ','DRINK':'BEVÌ','COME':'VENE','GO':'JÀ',
+        'SPEAK':'PARLA','WAIT':'ASPETTA','LOOK':'GUARDA',
+        'RUN':'SCAPPA','STOP':'FERMATE','WORK':'FATICÀ',
+        'KNOW':'SACCIO','WANT':'VOGLIO',
+        /* Things */
+        'FOOD':'ROBA DA MAGNÀ','PIZZA':'PIZZA',
+        'WATER':'ACQUA','WINE':'VINO','COFFEE':'CAFÈ',
+        'MONEY':'SOLDE','HOUSE':'CASA',
+        'STREET':'STRÀ','SEA':'MARE','SUN':'SOLE',
+        'DAY':'JUORNO','NIGHT':'NOTTE',
+        'HEART':'CORE','GOD':'MANNAGGIA',
+        'POLICE':'GUARDIE','STUPID':'CIUCCIO','IDIOT':'FESSO',
+        'PROBLEM':'GUAIO','TROUBLE':'GUAIO',
+        'DRUNK':'MBRIACO','TIRED':'STANCO MORTO',
+        'BEAUTIFUL (F)':'BELLISSIMA','WOW':'UAGLIÒ'
+    };
+
+    function toNapoletano(text) {
+        if (!text) return '';
+        return text.split(/\s+/).map(function(w) { return NAP_DICT[w] || w; }).join(' ');
+    }
+
+    /* ── Genovese/Zeneize dialect dictionary ──────────────────────────── */
+    var GEN_DICT = {
+        /* Greetings — Ciao originates from Genoa's "s-ciau" */
+        'HELLO':'CIAU','HI':'CIAU','BYE':'CIAU','GOODBYE':'CIAU',
+        'GOOD MORNING':'BONGIORNO','GOOD EVENING':'BONASEIA',
+        'THANKS':'GRÂSCIE','THANK':'GRÂSCIE','PLEASE':'PER PIAXEI',
+        'SORRY':'SCÛSEME','YES':'SÌ','NO':'NÒ',
+        /* People */
+        'BOY':'TOSO','GIRL':'TOSA','CHILD':'FIOLETTO',
+        'MAN':'OMO','WOMAN':'DONNA',
+        'MOTHER':'MOÆ','FATHER':'PÂ',
+        'FRIEND':'AMIGO','FAMILY':'FAMIGGIA',
+        /* Emotions & descriptors */
+        'GOOD':'BEN','BEAUTIFUL':'BELL-A','GREAT':'ASSÆ BEN',
+        'VERY':'ASSÆ','HAPPY':'CONTENTO','SAD':'TRIST',
+        'CRAZY':'MATO','LOVE':'AMÔ',
+        'BIG':'GRANDO','SMALL':'PICCIN',
+        'OLD':'ANTICO','NEW':'NEUVO',
+        /* Actions */
+        'EAT':'MANGIÂ','DRINK':'BEVVE','COME':'VEGNÎ','GO':'ANDÂ',
+        'SPEAK':'PARLÂ','WORK':'TRAVAGGIÂ','LOOK':'GARDÂ',
+        'RUN':'CÛRRE','WAIT':'ASPETÂ',
+        /* Things & places — Ligurian classics */
+        'FOOD':'MANGIÂ','PESTO':'PESTO',
+        'WATER':'ÆGUA','WINE':'VIÑN','BREAD':'PAN',
+        'FISH':'PEXE','CHEESE':'FROMAGGIO',
+        'MONEY':'SCHÈI','HOUSE':'CAZA',
+        'SEA':'MÂ','PORT':'PORTO','BOAT':'BARCA',
+        'STREET':'CARROGGIO','MARKET':'MERCAO','CHURCH':'ÇEXA',
+        'CITY':'ÇITTÆ',
+        'DAY':'GIORNO','NIGHT':'NÖTTE','SUN':'SOÔ','RAIN':'PIOEUVA',
+        'HEART':'CHEU',
+        /* Most famous Genovese word — used for emphasis, surprise, punctuation */
+        'WOW':'BELIN','DAMN':'BELIN','REALLY':'BELIN','STUPID':'BELIN',
+        'PROBLEM':'PIÑA','TROUBLE':'PIÑA',
+        'POLICE':'GUARDIE','DRUNK':'BRILLO','TIRED':'STANCO'
+    };
+
+    function toGenovese(text) {
+        if (!text) return '';
+        return text.split(/\s+/).map(function(w) { return GEN_DICT[w] || w; }).join(' ');
     }
 
     /* ── Language pair map for MyMemory translation ───────────────────── */
@@ -12468,6 +12598,12 @@ if (btn3dX) {
             } else if (s.lang === 'SCOUSE') {
                 slotTexts[s.idx] = toScouse(enText);
                 p2pData['SCOUSE'] = slotTexts[s.idx];
+            } else if (s.lang === 'NAP') {
+                slotTexts[s.idx] = toNapoletano(enText);
+                p2pData['NAP'] = slotTexts[s.idx];
+            } else if (s.lang === 'GEN') {
+                slotTexts[s.idx] = toGenovese(enText);
+                p2pData['GEN'] = slotTexts[s.idx];
             } else {
                 // API-translated languages — async, updates renderSubtitles on arrival
                 translateSlot(enText, s.lang, s.idx);
@@ -12491,6 +12627,8 @@ if (btn3dX) {
         active.forEach(function(s) {
             if (s.lang === 'EN') slotTexts[s.idx] = text;
             else if (s.lang === 'SCOUSE') slotTexts[s.idx] = toScouse(text);
+            else if (s.lang === 'NAP') slotTexts[s.idx] = toNapoletano(text);
+            else if (s.lang === 'GEN') slotTexts[s.idx] = toGenovese(text);
             // Other langs: keep previous translated text, don't fetch on interim
         });
         renderSubtitles();
