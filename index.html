@@ -7182,7 +7182,22 @@ function downloadWorkspaceSnapshot() {
     log('SNAPSHOT: DOWNLOADED');
 }
 
-// GENERATE_QR: pin to IPFS via Pinata, then show QR modal
+// Upload a single binary file to Pinata, return its IPFS CID
+async function _pinFile(blob, name, jwt) {
+    var form = new FormData();
+    form.append('file', blob, name);
+    form.append('pinataMetadata', JSON.stringify({ name: 'VNGRD_' + name }));
+    var res = await fetch('https://api.pinata.cloud/pinning/pinFileToIPFS', {
+        method: 'POST',
+        headers: { 'Authorization': 'Bearer ' + jwt },
+        body: form
+    });
+    var data = await res.json();
+    if (!res.ok || !data.IpfsHash) throw new Error('PIN_FAIL: ' + (data.error ? JSON.stringify(data.error) : res.status));
+    return data.IpfsHash;
+}
+
+// SHARE_QR: build portfolio (settings + media + audio) → pin to IPFS → QR code
 async function executeWorkspaceExport() {
     var jwt = localStorage.getItem('pinata_jwt');
     if (!jwt) {
@@ -7192,11 +7207,64 @@ async function executeWorkspaceExport() {
         localStorage.setItem('pinata_jwt', jwt);
     }
 
-    log('IPFS: PINNING_TO_PINATA');
-    var payload = _buildSessionSnapshot();
-    payload._type = 'VNGRD_WORKSPACE';
-    payload._version = 'V34';
+    log('IPFS: BUILDING_PORTFOLIO\u2026');
+    if (typeof ghostLog === 'function') ghostLog('GHOST> PORTFOLIO EXPORT STARTED', 'ai');
 
+    var snap = _buildSessionSnapshot();
+    snap._type    = 'VNGRD_WORKSPACE';
+    snap._version = 'V35_PORTFOLIO';
+    snap.media       = [];
+    snap.audioTracks = [];
+
+    var total = (APP.media && APP.media.queue ? APP.media.queue.length : 0)
+              + (APP.audio && APP.audio.playlist ? APP.audio.playlist.length : 0);
+    var done = 0;
+
+    // ── Upload media files (images + videos) ────────────────────────
+    if (APP.media && APP.media.queue && APP.media.queue.length) {
+        for (var i = 0; i < APP.media.queue.length; i++) {
+            var item = APP.media.queue[i];
+            try {
+                var blob;
+                if (item.type === 'image' && item.element && item.element.naturalWidth) {
+                    var c = document.createElement('canvas');
+                    c.width = item.element.naturalWidth;
+                    c.height = item.element.naturalHeight;
+                    c.getContext('2d').drawImage(item.element, 0, 0);
+                    blob = await new Promise(function(r) { c.toBlob(r, 'image/jpeg', 0.9); });
+                } else if (item.url) {
+                    var resp = await fetch(item.url);
+                    blob = await resp.blob();
+                }
+                if (blob) {
+                    var cid = await _pinFile(blob, item.name || ('media_' + i), jwt);
+                    snap.media.push({ type: item.type, name: item.name, cid: cid });
+                    log('IPFS: PINNED_MEDIA ' + (++done) + '/' + total + ' ' + (item.name || ''));
+                }
+            } catch(e) {
+                log('IPFS: MEDIA_SKIP ' + (item.name || i) + ' \u2014 ' + e.message);
+            }
+        }
+    }
+
+    // ── Upload audio tracks ─────────────────────────────────────────
+    if (APP.audio && APP.audio.playlist && APP.audio.playlist.length) {
+        for (var i = 0; i < APP.audio.playlist.length; i++) {
+            var track = APP.audio.playlist[i];
+            try {
+                var resp = await fetch(track.url);
+                var blob = await resp.blob();
+                var cid  = await _pinFile(blob, (track.name || 'track_' + i), jwt);
+                snap.audioTracks.push({ name: track.name, cid: cid });
+                log('IPFS: PINNED_AUDIO ' + (++done) + '/' + total + ' ' + (track.name || ''));
+            } catch(e) {
+                log('IPFS: AUDIO_SKIP ' + (track.name || i) + ' \u2014 ' + e.message);
+            }
+        }
+    }
+
+    // ── Pin the manifest JSON ───────────────────────────────────────
+    log('IPFS: PINNING_MANIFEST (' + snap.media.length + ' media, ' + snap.audioTracks.length + ' tracks)');
     var res, data;
     try {
         res = await fetch('https://api.pinata.cloud/pinning/pinJSONToIPFS', {
@@ -7206,8 +7274,8 @@ async function executeWorkspaceExport() {
                 'Authorization': 'Bearer ' + jwt
             },
             body: JSON.stringify({
-                pinataContent: payload,
-                pinataMetadata: { name: 'VNGRD_WORKSPACE_' + Date.now() }
+                pinataContent: snap,
+                pinataMetadata: { name: 'VNGRD_PORTFOLIO_' + Date.now() }
             })
         });
         data = await res.json();
@@ -7224,7 +7292,8 @@ async function executeWorkspaceExport() {
     }
 
     var cid = data.IpfsHash;
-    log('IPFS: PINNED CID=' + cid);
+    log('IPFS: PORTFOLIO_PINNED CID=' + cid);
+    if (typeof ghostLog === 'function') ghostLog('GHOST> PORTFOLIO EXPORTED \u2192 IPFS CID=' + cid, 'ok');
     showQRModal(cid);
 }
 
@@ -7311,6 +7380,111 @@ function _renderQRModal(cid, url) {
     $('btn-qr-close').onclick = function() {
         modal.style.display = 'none';
     };
+}
+
+// ── IPFS PORTFOLIO IMPORT ────────────────────────────────────────────
+// Fetch a VNGRD portfolio manifest from IPFS and restore everything:
+// settings, VJ state, layers, logo, lower third, media queue, audio playlist
+async function importFromIPFS(cid) {
+    var gateways = [
+        'https://gateway.pinata.cloud/ipfs/',
+        'https://ipfs.io/ipfs/',
+        'https://cloudflare-ipfs.com/ipfs/'
+    ];
+    log('IPFS: IMPORTING_PORTFOLIO CID=' + cid);
+    if (typeof ghostLog === 'function') ghostLog('GHOST> LOADING PORTFOLIO FROM IPFS\u2026', 'ai');
+
+    // Try gateways in order until one works
+    var snap = null;
+    for (var g = 0; g < gateways.length; g++) {
+        try {
+            var res = await fetch(gateways[g] + cid);
+            if (res.ok) { snap = await res.json(); break; }
+        } catch(e) { continue; }
+    }
+    if (!snap) { log('IPFS: ALL_GATEWAYS_FAILED'); return; }
+    if (snap._type !== 'VNGRD_WORKSPACE') { log('IPFS: INVALID_WORKSPACE_TYPE'); return; }
+
+    // 1. Restore base session (theme, VJ, layers, logo, lower third)
+    _applySessionSnapshot(snap);
+    log('IPFS: SESSION_RESTORED');
+
+    // 2. Determine working gateway for file fetches
+    var gateway = gateways[0]; // default
+    for (var g = 0; g < gateways.length; g++) {
+        try {
+            if (snap.media && snap.media[0] && snap.media[0].cid) {
+                var test = await fetch(gateways[g] + snap.media[0].cid, { method: 'HEAD' });
+                if (test.ok) { gateway = gateways[g]; break; }
+            } else if (snap.audioTracks && snap.audioTracks[0] && snap.audioTracks[0].cid) {
+                var test = await fetch(gateways[g] + snap.audioTracks[0].cid, { method: 'HEAD' });
+                if (test.ok) { gateway = gateways[g]; break; }
+            } else { break; }
+        } catch(e) { continue; }
+    }
+
+    // 3. Load media files from IPFS → APP.media.queue
+    if (snap.media && snap.media.length) {
+        for (var i = 0; i < snap.media.length; i++) {
+            var m = snap.media[i];
+            if (!m.cid) continue;
+            try {
+                var resp = await fetch(gateway + m.cid);
+                var blob = await resp.blob();
+                var url  = URL.createObjectURL(blob);
+                var item = { type: m.type, url: url, element: null, name: m.name };
+
+                if (m.type === 'video') {
+                    var vid = document.createElement('video');
+                    vid.src = url; vid.muted = true; vid.loop = true; vid.playsInline = true; vid.preload = 'auto';
+                    item.element = vid;
+                    if ($('media-container')) $('media-container').appendChild(vid);
+                } else {
+                    var img = new Image();
+                    img.src = url;
+                    item.element = img;
+                }
+                APP.media.queue.push(item);
+                log('IPFS: LOADED_MEDIA ' + (i + 1) + '/' + snap.media.length + ' ' + m.name);
+            } catch(e) {
+                log('IPFS: MEDIA_ERR ' + m.name + ' \u2014 ' + e.message);
+            }
+        }
+        // Show first media item
+        if (APP.media.queue.length && APP.media.currentIndex === -1) {
+            if (typeof rotateMedia === 'function') rotateMedia();
+        }
+        if (typeof updateQueueDisplay === 'function') updateQueueDisplay();
+        var mediaDot = $('media-dot');
+        if (mediaDot) mediaDot.classList.remove('off');
+    }
+
+    // 4. Load audio tracks from IPFS → APP.audio.playlist
+    if (snap.audioTracks && snap.audioTracks.length) {
+        for (var i = 0; i < snap.audioTracks.length; i++) {
+            var t = snap.audioTracks[i];
+            if (!t.cid) continue;
+            try {
+                var resp = await fetch(gateway + t.cid);
+                var blob = await resp.blob();
+                APP.audio.playlist.push({ url: URL.createObjectURL(blob), name: t.name });
+                log('IPFS: LOADED_AUDIO ' + (i + 1) + '/' + snap.audioTracks.length + ' ' + t.name);
+            } catch(e) {
+                log('IPFS: AUDIO_ERR ' + t.name + ' \u2014 ' + e.message);
+            }
+        }
+        var audioDot = $('audio-dot');
+        if (audioDot) audioDot.classList.remove('off');
+        // Start playing the first track
+        if (APP.audio.playlist.length && !APP.audio.isPlaying) {
+            if (typeof playTrack === 'function') playTrack();
+        }
+    }
+
+    var mCount = snap.media ? snap.media.length : 0;
+    var aCount = snap.audioTracks ? snap.audioTracks.length : 0;
+    log('PORTFOLIO_IMPORTED: ' + mCount + ' media, ' + aCount + ' tracks');
+    if (typeof ghostLog === 'function') ghostLog('GHOST> PORTFOLIO LOADED \u2014 ' + mCount + ' MEDIA, ' + aCount + ' TRACKS', 'ok');
 }
 
 function isValidDataURI(str) {
@@ -7872,6 +8046,15 @@ document.addEventListener('DOMContentLoaded', () => {
 
     // ── PHASE 0: CRITICAL — UI frame must render immediately ──
     checkMobile(); initCanvas(); ghostInit(); loadFromMemory();
+
+    // ── IPFS PORTFOLIO IMPORT: auto-load if ?workspace=CID is in URL ──
+    var _urlParams = new URLSearchParams(window.location.search);
+    var _workspaceCID = _urlParams.get('workspace');
+    if (_workspaceCID && _workspaceCID.length > 10) {
+        log('BOOT: WORKSPACE_CID_DETECTED \u2192 ' + _workspaceCID);
+        // Delay import until compositor + audio chain are ready
+        setTimeout(function() { importFromIPFS(_workspaceCID); }, 2500);
+    }
     // ── CRYPTO: one-shot chain — next poll only after current fetch resolves ──
     (function scheduleCrypto() { fetchCrypto().finally(() => setTimeout(scheduleCrypto, 600000)); })();
 
