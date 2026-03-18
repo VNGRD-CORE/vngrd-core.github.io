@@ -535,6 +535,50 @@ function renderLoop(timestamp) {
         ctx.restore();
     }
 
+    // ── Subtitle burn-in ──────────────────────────────────────────────────
+    // Draws window._vngrdSubtitleLines onto APP.render.canvas so subtitles
+    // appear in ALL recordings (broadcast, time machine, compositor).
+    const _subs = window._vngrdSubtitleLines;
+    if (_subs && _subs.length > 0) {
+        const count    = _subs.length;
+        const domSizes = [18, 16, 14, 12];
+        const domPx    = domSizes[Math.min(count, 4) - 1] || 16;
+        // Scale relative to canvas height (DOM reference ~900px)
+        const scale    = h / 900;
+        const fsPx     = Math.max(10, Math.round(domPx * scale));
+        const lineH    = fsPx * 1.55;
+        // Mirror the DOM bottom anchor (128px viewport → scaled canvas units)
+        const bottomAnchor = Math.round(128 * scale);
+        const startY   = h - bottomAnchor - (lineH * count);
+
+        ctx.save();
+        ctx.font         = `700 ${fsPx}px "JetBrains Mono","Courier New",monospace`;
+        ctx.textAlign    = 'center';
+        ctx.textBaseline = 'top';
+
+        _subs.forEach(function (sub, i) {
+            const y       = startY + i * lineH;
+            const label   = sub.lang + '  ' + sub.text;
+            const textW   = ctx.measureText(label).width;
+            const padX    = Math.round(24 * scale);
+            const padY    = Math.round(4  * scale);
+            const bgAlpha = (typeof sub.bgAlpha === 'number') ? sub.bgAlpha : 0.67;
+
+            // Background pill
+            ctx.fillStyle = 'rgba(0,0,0,' + bgAlpha + ')';
+            ctx.fillRect((w - textW) / 2 - padX, y - padY, textW + padX * 2, lineH);
+
+            // Glow + text
+            ctx.shadowColor = 'rgba(0,243,255,0.55)';
+            ctx.shadowBlur  = Math.round(14 * scale);
+            ctx.fillStyle   = '#00f3ff';
+            ctx.fillText(label, w / 2, y);
+        });
+
+        ctx.shadowBlur = 0;
+        ctx.restore();
+    }
+
     APP.render.lastTime = timestamp;
 }
 
