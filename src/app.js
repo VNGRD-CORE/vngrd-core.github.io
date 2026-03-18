@@ -2211,14 +2211,17 @@ function initGuest(peerId) {
         call.on('stream', remoteStream => {
             APP.guest.stream = remoteStream;
             APP.guest.isActive = true;
-            
+
+            // Expose for P2P STT routing in POLYTRANSLATOR engine
+            window._p2pAudioStream = remoteStream;
+
             // Pipe remote audio into -18dB compressor chain
             if (APP.audio.ctx && APP.audio.compressor) {
                 APP.guest.audioSource = APP.audio.ctx.createMediaStreamSource(remoteStream);
                 APP.guest.audioSource.connect(APP.audio.compressor);
                 log('GUEST_AUDIO_LINKED_18dB');
             }
-            
+
             log('GUEST_STREAM_ACTIVE');
         });
         
@@ -2248,14 +2251,17 @@ function connectToGuest(remotePeerId) {
             call.on('stream', remoteStream => {
                 APP.guest.stream = remoteStream;
                 APP.guest.isActive = true;
-                
+
+                // Expose for P2P STT routing in POLYTRANSLATOR engine
+                window._p2pAudioStream = remoteStream;
+
                 // Pipe remote audio into -18dB compressor chain
                 if (APP.audio.ctx && APP.audio.compressor) {
                     APP.guest.audioSource = APP.audio.ctx.createMediaStreamSource(remoteStream);
                     APP.guest.audioSource.connect(APP.audio.compressor);
                     log('GUEST_AUDIO_LINKED_18dB');
                 }
-                
+
                 log('GUEST_CONNECTED');
             });
         })
@@ -2280,6 +2286,7 @@ function disconnectGuest() {
         APP.guest.connection = null;
     }
     APP.guest.isActive = false;
+    window._p2pAudioStream = null;
     log('GUEST_DISCONNECTED');
 }
 

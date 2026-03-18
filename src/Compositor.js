@@ -165,6 +165,56 @@ class Compositor {
                 ctx.drawImage(this.layers.overlay, 0, 0, w, h);
             } catch (e) { /* Overlay not ready */ }
         }
+
+        // LAYER 3: Subtitle burn-in — always drawn so text appears in recordings
+        // Reads from window._vngrdSubtitleLines set by the POLYTRANSLATOR engine.
+        const _subs = (typeof window !== 'undefined') ? window._vngrdSubtitleLines : null;
+        if (_subs && _subs.length > 0) {
+            const count  = _subs.length;
+            // Match DOM font scaling: 1→18 2→16 3→14 4→12 (scaled to 1080p)
+            const domSizes = [18, 16, 14, 12];
+            const domPx  = domSizes[Math.min(count, 4) - 1] || 16;
+            // Scale from 1080p reference height (viewport ~900px) to canvas height
+            const scale  = h / 900;
+            const fsPx   = Math.round(domPx * scale);
+            const lineH  = fsPx * 1.55;
+            // Bottom anchor: 128px above the viewport bottom, scaled to canvas
+            const bottomAnchor = Math.round(128 * scale);
+            const blockH = lineH * count;
+            const startY = h - bottomAnchor - blockH;
+
+            ctx.save();
+            ctx.font      = `700 ${fsPx}px "Courier New", monospace`;
+            ctx.textAlign = 'center';
+            ctx.textBaseline = 'top';
+
+            _subs.forEach(function (sub, i) {
+                const y      = startY + i * lineH;
+                const label  = sub.lang + '  ' + sub.text;
+                const textW  = ctx.measureText(label).width;
+                const padX   = 24 * scale;
+                const padY   = 4  * scale;
+                const bgAlpha = (typeof sub.bgAlpha === 'number') ? sub.bgAlpha : 0.67;
+
+                // Background pill
+                ctx.fillStyle = 'rgba(0,0,0,' + bgAlpha + ')';
+                ctx.fillRect(
+                    (w - textW) / 2 - padX,
+                    y - padY,
+                    textW + padX * 2,
+                    lineH
+                );
+
+                // Glow + text
+                ctx.shadowColor = 'rgba(0,243,255,0.55)';
+                ctx.shadowBlur  = 14;
+                ctx.fillStyle   = '#00f3ff';
+                ctx.fillText(label, w / 2, y);
+                ctx.shadowBlur  = 0;
+            });
+
+            ctx.restore();
+        }
     }
 
     // ─────────────────────────────────────────────────────────────

@@ -2332,7 +2332,7 @@ body.fullscreen #transcription-hud { opacity: 0 !important; pointer-events: none
 /* ── #vanguard-subtitles — pro-broadcast subtitle bar ─────────── */
 #vanguard-subtitles {
     position: fixed;
-    bottom: 58px;           /* above #bottom-bar (55px) + breathing room */
+    bottom: 128px;          /* above #transcription-hud (62px base + ~60px height) */
     left: 0;
     width: 100%;
     z-index: 4900;          /* below #bottom-bar (5000), above sidebars */
@@ -2843,6 +2843,10 @@ body.fullscreen #transcription-hud { opacity: 0 !important; pointer-events: none
                     <div class="slot-row"><span class="slot-lbl">SLOT 2</span><select class="slot-select" id="slot-2"><option value="OFF" selected>OFF</option><option value="EN">EN</option><option value="NL">NL</option><option value="ES">ES</option><option value="FR">FR</option><option value="ZH">ZH</option><option value="JA">JA</option><option value="AR">AR</option><option value="SCOUSE">SCOUSE</option></select></div>
                     <div class="slot-row"><span class="slot-lbl">SLOT 3</span><select class="slot-select" id="slot-3"><option value="OFF" selected>OFF</option><option value="EN">EN</option><option value="NL">NL</option><option value="ES">ES</option><option value="FR">FR</option><option value="ZH">ZH</option><option value="JA">JA</option><option value="AR">AR</option><option value="SCOUSE">SCOUSE</option></select></div>
                     <div class="slot-row"><span class="slot-lbl">SLOT 4</span><select class="slot-select" id="slot-4"><option value="OFF" selected>OFF</option><option value="EN">EN</option><option value="NL">NL</option><option value="ES">ES</option><option value="FR">FR</option><option value="ZH">ZH</option><option value="JA">JA</option><option value="AR">AR</option><option value="SCOUSE">SCOUSE</option></select></div>
+                </div>
+                <div style="display:flex;gap:4px;margin-top:6px;">
+                    <button id="btn-sub-opacity" class="btn" style="flex:1;font-size:7px;letter-spacing:1px;" title="Cycle subtitle background opacity">SUB_BG: 67%</button>
+                    <button id="btn-p2p-stt" class="btn" style="flex:1;font-size:7px;letter-spacing:1px;" title="Toggle STT audio source: local mic or P2P guest">STT: MIC</button>
                 </div>
             </div>
         </div>
@@ -12274,12 +12278,23 @@ if (btn3dX) {
         document.getElementById('slot-4')
     ];
     // Tray box refs (dedicated labeled boxes)
-    var traySlots  = [0,1,2,3].map(function(i) { return document.getElementById('tray-slot-' + i); });
-    var trayLabels = [0,1,2,3].map(function(i) { return document.getElementById('tray-label-' + i); });
-    var trayTexts  = [0,1,2,3].map(function(i) { return document.getElementById('tray-text-' + i); });
+    var traySlots    = [0,1,2,3].map(function(i) { return document.getElementById('tray-slot-' + i); });
+    var trayLabels   = [0,1,2,3].map(function(i) { return document.getElementById('tray-label-' + i); });
+    var trayTexts    = [0,1,2,3].map(function(i) { return document.getElementById('tray-text-' + i); });
+    var btnSubOpacity = document.getElementById('btn-sub-opacity');
+    var btnP2pStt     = document.getElementById('btn-p2p-stt');
 
     /* ── Slot state: cached translated text per slot ─────────────────── */
     var slotTexts = ['', '', '', ''];
+
+    /* ── Subtitle background opacity cycle ────────────────────────────── */
+    var subBgLevels = [0.67, 0.33, 0];
+    var subBgIdx = 0;
+    var subBgOpacity = subBgLevels[0];
+
+    /* ── P2P STT routing ──────────────────────────────────────────────── */
+    var p2pSTTMode = false;
+    var p2pSTTCtx  = null;
 
     function getActiveSlots() {
         var active = [];
@@ -12327,12 +12342,21 @@ if (btn3dX) {
         // 2. Update broadcast overlay (#vanguard-subtitles)
         if (subOverlay) {
             subOverlay.innerHTML = '';
+            // Font scale: shrink as more slots fill the overlay
+            var fontSizes = [18, 16, 14, 12];
+            var fontSize = fontSizes[Math.min(active.length, 4) - 1] || 16;
+            // Compositor burn-in data
+            window._vngrdSubtitleLines = [];
             active.forEach(function(s) {
                 var text = slotTexts[s.idx];
                 if (!text) return;
                 var line = document.createElement('div');
                 line.className = 'sub-line';
                 if (s.lang === 'AR') line.setAttribute('dir', 'rtl');
+                line.style.fontSize = fontSize + 'px';
+                // Apply current background opacity
+                var alpha = typeof subBgOpacity !== 'undefined' ? subBgOpacity : 0.67;
+                line.style.background = 'rgba(0,0,0,' + alpha + ')';
                 var langTag = document.createElement('span');
                 langTag.className = 'sub-lang';
                 langTag.textContent = s.lang;
@@ -12342,7 +12366,9 @@ if (btn3dX) {
                 line.appendChild(langTag);
                 line.appendChild(body);
                 subOverlay.appendChild(line);
+                window._vngrdSubtitleLines.push({ lang: s.lang, text: text, bgAlpha: alpha });
             });
+            if (active.length === 0) window._vngrdSubtitleLines = [];
         }
     }
 
@@ -12504,6 +12530,53 @@ if (btn3dX) {
             } else {
                 setOnAirUI(false);
                 if (recognition) { try { recognition.stop(); } catch(ex) {} recognition = null; }
+            }
+        });
+    }
+
+    /* ── SUB_BG opacity cycle ─────────────────────────────────────────── */
+    if (btnSubOpacity) {
+        btnSubOpacity.addEventListener('click', function () {
+            subBgIdx = (subBgIdx + 1) % subBgLevels.length;
+            subBgOpacity = subBgLevels[subBgIdx];
+            var pct = Math.round(subBgOpacity * 100);
+            btnSubOpacity.textContent = 'SUB_BG: ' + pct + '%';
+            renderSubtitles(); // re-apply to live lines
+        });
+    }
+
+    /* ── P2P STT source toggle ────────────────────────────────────────── */
+    if (btnP2pStt) {
+        btnP2pStt.addEventListener('click', function () {
+            p2pSTTMode = !p2pSTTMode;
+            btnP2pStt.textContent  = p2pSTTMode ? 'STT: P2P' : 'STT: MIC';
+            btnP2pStt.classList.toggle('active', p2pSTTMode);
+
+            if (p2pSTTMode && window._p2pAudioStream) {
+                // Route P2P remote audio through its own AudioContext path
+                // and expose the destination stream for STT consumption.
+                try {
+                    if (p2pSTTCtx) { p2pSTTCtx.close().catch(function(){}); }
+                    p2pSTTCtx = new AudioContext();
+                    var src  = p2pSTTCtx.createMediaStreamSource(window._p2pAudioStream);
+                    var dest = p2pSTTCtx.createMediaStreamDestination();
+                    src.connect(dest);
+                    window._p2pSTTStream = dest.stream;
+                    if (typeof ghostLog === 'function') {
+                        ghostLog('GHOST> P2P AUDIO \u2192 STT PIPELINE ACTIVE', 'ok');
+                    }
+                } catch (e) {
+                    if (typeof ghostLog === 'function') {
+                        ghostLog('GHOST> P2P STT ROUTE ERR: ' + e.message, 'crit');
+                    }
+                }
+            } else {
+                // Tear down P2P audio context
+                if (p2pSTTCtx) { p2pSTTCtx.close().catch(function(){}); p2pSTTCtx = null; }
+                window._p2pSTTStream = null;
+                if (typeof ghostLog === 'function') {
+                    ghostLog('GHOST> STT SOURCE \u2192 LOCAL MIC', 'ai');
+                }
             }
         });
     }
