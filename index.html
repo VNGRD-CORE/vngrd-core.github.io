@@ -6148,9 +6148,17 @@ const SFX_ENGINE = (() => {
             src.start();
             // Signal updateVU to keep running during SFX playback
             APP.audio.sfxPlaying = true;
+            // Mute mic recording feed while pad plays — prevents phase-doubled capture
+            if (APP.audio.micRecGain) {
+                APP.audio.micRecGain.gain.setTargetAtTime(0, ctx.currentTime, 0.01);
+            }
             src.onended = function() {
                 APP.audio.sfxPlaying = false;
                 if (padBtn) padBtn.classList.remove('sfx-playing');
+                // Restore mic recording feed after pad finishes
+                if (APP.audio.micRecGain) {
+                    APP.audio.micRecGain.gain.setTargetAtTime(1.0, ctx.currentTime, 0.05);
+                }
             };
             log('SFX_ENGINE: PLAY ' + name.toUpperCase());
         }).catch(() => log('SFX_ENGINE: NOT_READY — ' + name.toUpperCase()));
@@ -7252,8 +7260,8 @@ async function startNFTRecording() {
             var freshDest = APP.audio.ctx.createMediaStreamDestination();
             var tapNode = APP.audio.outputLimiter || APP.audio.masterGain;
             if (tapNode) tapNode.connect(freshDest);
-            if (APP.audio.micGainNode) {
-                try { APP.audio.micGainNode.connect(freshDest); } catch(e) {}
+            if (APP.audio.micRecGain) {
+                try { APP.audio.micRecGain.connect(freshDest); } catch(e) {}
             }
             freshDest.stream.getAudioTracks().forEach(function(t) { combinedStream.addTrack(t); });
         }
@@ -7721,7 +7729,7 @@ function initCompositor() {
         const vid = $('preview-vid') || APP.camera.videoEl;
         if (vid) APP.compositor.setLayer('camera', vid);
     }
-    APP.compositor.initRecorder(APP.audio.ctx, APP.audio.outputLimiter || APP.audio.masterGain, APP.audio.micGainNode);
+    APP.compositor.initRecorder(APP.audio.ctx, APP.audio.outputLimiter || APP.audio.masterGain, APP.audio.micRecGain || APP.audio.micGainNode);
     APP.compositor.onWorkerMessage((type, payload) => {
         if (type === 'STATUS') log('COMPOSITOR: ' + payload);
     });
@@ -7773,6 +7781,7 @@ document.addEventListener('DOMContentLoaded', () => {
             APP.camera.micStream.getTracks().forEach(t => t.stop());
             APP.camera.micStream = null;
             APP.audio.duckingActive = false;
+            if (APP.audio.micRecGain) { APP.audio.micRecGain.disconnect(); APP.audio.micRecGain = null; }
             if (APP.audio.micGainNode) { APP.audio.micGainNode.disconnect(); APP.audio.micGainNode = null; }
             btnCam.classList.remove('on'); btnCam.textContent = 'MIC';
             btnEng.classList.remove('on'); btnEng.title = 'Mic on/off';
@@ -7786,8 +7795,12 @@ document.addEventListener('DOMContentLoaded', () => {
             APP.audio.micGainNode = APP.audio.ctx.createGain();
             APP.audio.micGainNode.gain.value = 1.0;
             micSource.connect(APP.audio.micGainNode);
-            // Route mic → recorderDest (recording) — NOT ctx.destination (prevents feedback)
-            if (APP.audio.recorderDest) APP.audio.micGainNode.connect(APP.audio.recorderDest);
+            // Gate node: muted during sampler playback to prevent phase-doubled recordings
+            APP.audio.micRecGain = APP.audio.ctx.createGain();
+            APP.audio.micRecGain.gain.setValueAtTime(1.0, APP.audio.ctx.currentTime);
+            APP.audio.micGainNode.connect(APP.audio.micRecGain);
+            // Route mic → micRecGain → recorderDest (recording) — NOT ctx.destination (prevents feedback)
+            if (APP.audio.recorderDest) APP.audio.micRecGain.connect(APP.audio.recorderDest);
             // Arm ducking (connects micSource → micAnalyzer for side-chain detection)
             initMicDucking(APP.camera.micStream);
             btnCam.classList.add('on'); btnCam.textContent = 'MIC [ON]';
