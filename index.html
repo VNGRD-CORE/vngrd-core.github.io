@@ -2326,6 +2326,47 @@ body.fullscreen #transcription-hud { opacity: 0 !important; pointer-events: none
 }
 .podcast-slot-text.flash { animation: hud-flash 0.22s ease-out both; }
 
+/* ── #vanguard-subtitles — pro-broadcast subtitle bar ─────────── */
+#vanguard-subtitles {
+    position: fixed;
+    bottom: 0;
+    left: 0;
+    width: 100%;
+    z-index: 9000;
+    pointer-events: none;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    padding: 10px 24px 14px;
+    box-sizing: border-box;
+    opacity: 0;
+    transform: translateY(16px);
+    transition: opacity 0.3s ease, transform 0.3s ease;
+}
+#vanguard-subtitles.visible {
+    opacity: 1;
+    transform: translateY(0);
+}
+#vanguard-subtitles #sub-text {
+    display: inline-block;
+    max-width: 900px;
+    width: 100%;
+    background: #000000aa;
+    color: #00f3ff;
+    font-family: 'JetBrains Mono', 'Courier New', monospace;
+    font-size: 18px;
+    font-weight: 600;
+    letter-spacing: 2px;
+    text-align: center;
+    text-transform: uppercase;
+    line-height: 1.5;
+    padding: 8px 20px;
+    box-sizing: border-box;
+    text-shadow: 0 0 12px rgba(0,243,255,0.6);
+    min-height: 40px;
+    border-top: 1px solid rgba(0,243,255,0.2);
+}
+
 /* ── SYNC LED ── */
 #sync-led {
     width: 4px; height: 4px; border-radius: 50%;
@@ -2702,20 +2743,21 @@ body.fullscreen #transcription-hud { opacity: 0 !important; pointer-events: none
 
     <aside class="sidebar" id="right-panel">
 
-        <!-- ── POLYTRANSLATOR // V1.0_SYNC ─────────────────────────── -->
+        <!-- ── POLYTRANSLATOR // V2.0_NATIVE ─────────────────────── -->
         <div class="section" id="mcr-section">
             <div class="sec-head">
-                <span class="sec-title">POLYTRANSLATOR // V1.0_SYNC</span>
+                <span class="sec-title">POLYTRANSLATOR // V2.0_NATIVE</span>
                 <div id="mcr-on-air-dot"></div>
             </div>
             <div class="sec-body">
-                <!-- WS status strip -->
+                <!-- STT status strip -->
                 <div style="display:flex;align-items:center;gap:6px;margin-bottom:8px;">
-                    <span id="mcr-ws-led"></span>
-                    <span id="mcr-status">WS: DISCONNECTED</span>
+                    <span id="mcr-status">STT: STANDBY</span>
                 </div>
                 <!-- ON-AIR toggle -->
                 <button id="btn-on-air" class="onair-pill">OFF-AIR</button>
+                <!-- TRANS_MODE toggle -->
+                <button id="btn-trans-mode" class="btn" style="margin-top:6px;width:100%;font-size:9px;">TRANS: OFF</button>
             </div>
         </div>
 
@@ -3164,16 +3206,9 @@ body.fullscreen #transcription-hud { opacity: 0 !important; pointer-events: none
         </div>
     </div>
 
-    <!-- ── PODCAST TRAY — subtitle slots, slides up on ON-AIR ── -->
-    <div id="podcast-tray">
-        <div class="podcast-slot">
-            <div class="slot-lang">EN // LIVE</div>
-            <div class="slot-text" id="hud-en-text">WAITING_FOR_SIGNAL...</div>
-        </div>
-        <div class="podcast-slot">
-            <div class="slot-lang">ES // TRANS</div>
-            <div class="slot-text" id="hud-es">WAITING_FOR_SIGNAL...</div>
-        </div>
+    <!-- ── VANGUARD SUBTITLES — pro-broadcast overlay ── -->
+    <div id="vanguard-subtitles" role="region" aria-label="Live Subtitles">
+        <span id="sub-text"></span>
     </div>
     <input type="file" id="file-media" multiple accept="image/*,video/*">
     <input type="file" id="file-audio" multiple accept="audio/*">
@@ -11826,16 +11861,6 @@ if (btn3dX) {
         };
     }
 
-    if (selInput) {
-        selInput.onchange = function() {
-            const deviceId = selInput.value;
-            if (deviceId && typeof startMicCapture === 'function') {
-                if (typeof ghostLog === 'function') ghostLog('AUDIO: SWITCHING_TO_HARDWARE', 'ai');
-                // Triggers the workstation mic engine with the specific Mac/AudioCard ID
-                startMicCapture(deviceId); 
-            }
-        };
-    }
 })();</script>
 
     <!-- gif-host: DIRECT child of <body>, NOT inside #stage.
@@ -11898,72 +11923,44 @@ if (btn3dX) {
 
 <script>
 /* ═══════════════════════════════════════════════════════════════════════
-   MCR // SIGNAL_CENTRAL  —  WebSocket Bridge  v4  (Podcast Plug-in)
+   MCR // SIGNAL_CENTRAL  —  Native Speech Engine  v5  (Web Speech API)
    -----------------------------------------------------------------------
    Signal chain:
-     Browser getUserMedia → MediaRecorder (webm/opus, 4-s chunks)
-       → binary WebSocket → main.py (Deepgram via raw websockets)
-         → vngrd_podcast_data {en, es, fr} → #podcast-tray
+     Browser SpeechRecognition (continuous + interimResults)
+       → interim text → #vanguard-subtitles (real-time)
+       → final text   → #podcast-tray EN slot
+       → TRANS_MODE ON → MyMemory fetch → ES / FR slots
 
-   Client → Server:
-     JSON text : { action:"start", source_lang:"en" }
-                 { action:"stop" }
-     Binary    : Raw webm audio chunks from MediaRecorder.ondataavailable
-
-   Server → Client (JSON):
-     { type:"vngrd_podcast_data", en:"...", es:"...", fr:"..." }
-     { type:"status",             message:"..." }
-     { type:"error",              message:"..." }
-
-   #podcast-tray is closed by default; shown only when onAir AND data arrives.
-   Reconnect uses a fixed 3-second backoff to keep the HUD stable.
+   ON-AIR button starts / stops recognition.
+   TRANS_MODE toggle enables / disables auto-translation (MyMemory, free).
+   No WebSocket, no Python backend, no localhost dependency.
    ═══════════════════════════════════════════════════════════════════════ */
 (function () {
     'use strict';
-ws://127.0.0.1:8000/ws/transcribe;
-    var CHUNK_MS = 4000;   // MediaRecorder timeslice
-    var RECONNECT_DELAY = 3000;   // fixed 3-second backoff
-
-    var ws         = null;
-    var onAir      = false;
-    var reconnTimer= null;
-
-    // Audio capture state
-    var micStream = null;
-    var mediaRec  = null;
+    var TRANS_MODE  = false;
+    var onAir       = false;
+    var recognition = null;
 
     /* ── DOM refs ─────────────────────────────────────────────────────── */
     var btnOnAir    = document.getElementById('btn-on-air');
-    var hud         = document.getElementById('transcription-hud');
-    var hudEN       = document.getElementById('hud-en-text');
+    var btnTrans    = document.getElementById('btn-trans-mode');
+    var mcrStatus   = document.getElementById('mcr-status');
+    var mcrDot      = document.getElementById('mcr-on-air-dot');
+    var subOverlay  = document.getElementById('vanguard-subtitles');
+    var subText     = document.getElementById('sub-text');
     var podcastTray = document.getElementById('podcast-tray');
     var podEN       = document.getElementById('podcast-en');
     var podES       = document.getElementById('podcast-es');
     var podFR       = document.getElementById('podcast-fr');
-    var wsLed       = document.getElementById('mcr-ws-led');
-    var mcrStatus   = document.getElementById('mcr-status');
-    var mcrDot      = document.getElementById('mcr-on-air-dot');
+    var hud         = document.getElementById('transcription-hud');
+    var hudEN       = document.getElementById('hud-en-text');
 
     /* ── UI helpers ───────────────────────────────────────────────────── */
 
-    function setWsState(state) {
-        if (!wsLed || !mcrStatus) return;
-        wsLed.className = '';
-        if (state === 'connected') {
-            wsLed.classList.add('connected');
-            mcrStatus.textContent = 'WS: CONNECTED';
-            mcrStatus.classList.remove('hot');
-        } else if (state === 'connecting') {
-            mcrStatus.textContent = 'WS: CONNECTING\u2026';
-            mcrStatus.classList.remove('hot');
-        } else if (state === 'error') {
-            wsLed.classList.add('error');
-            mcrStatus.textContent = 'WS: RETRY IN 3s\u2026';
-            mcrStatus.classList.remove('hot');
-        } else {
-            mcrStatus.textContent = 'WS: DISCONNECTED';
-            mcrStatus.classList.remove('hot');
-        }
+    function setStatus(text, hot) {
+        if (!mcrStatus) return;
+        mcrStatus.textContent = text;
+        mcrStatus.classList.toggle('hot', !!hot);
     }
 
     function setOnAirUI(active) {
@@ -11972,261 +11969,153 @@ ws://127.0.0.1:8000/ws/transcribe;
         btnOnAir.textContent = active ? 'ON-AIR' : 'OFF-AIR';
         btnOnAir.classList.toggle('active', active);
         if (mcrDot) mcrDot.classList.toggle('hot', active);
-        langBtns.forEach(function (b) { b.disabled = active; });
-        var deck = document.getElementById('hud-langs');
-        var podcastTray = document.getElementById('podcast-tray');
-        if (active) {
-            if (mcrStatus) { mcrStatus.classList.add('hot'); mcrStatus.textContent = 'MCR: ON-AIR \u25B6 ' + targetLang.toUpperCase(); }
-            if (hud)  hud.classList.add('visible');
-            if (deck) deck.classList.add('active');
-            if (podcastTray) podcastTray.classList.add('on-air');
-        } else {
-            if (mcrStatus) { mcrStatus.classList.remove('hot'); mcrStatus.textContent = 'MCR: STANDBY \u25FC'; }
-            if (hud)  hud.classList.remove('visible');
-            if (deck) deck.classList.remove('active');
-            if (podcastTray) podcastTray.classList.remove('on-air');
+        if (subOverlay) subOverlay.classList.toggle('visible', active);
+        if (hud) hud.classList.toggle('hud-active', active);
+        if (podcastTray) podcastTray.classList.toggle('on-air', active);
+        if (!active) {
+            if (subText) subText.textContent = '';
+            if (hudEN) hudEN.textContent = '';
+            setStatus('STT: STANDBY');
         }
         if (typeof ghostLog === 'function') {
-            ghostLog(active
-                ? 'GHOST> MCR ON-AIR \u2014 mic \u2192 ws://localhost:8000 \u2192 TRAY'
-                : 'GHOST> MCR STANDBY \u2014 signal stopped',
-                active ? 'ok' : 'info');
+            ghostLog(active ? 'GHOST> STT ENGINE ON-AIR' : 'GHOST> STT ENGINE OFFLINE', active ? 'ok' : 'ai');
         }
     }
 
-    function clearHUD() {
-        if (hudEN) hudEN.textContent = '';
-        if (podEN) podEN.textContent = '';
-        if (podES) podES.textContent = '';
-        if (podFR) podFR.textContent = '';
-        if (podcastTray) podcastTray.classList.remove('visible');
-    }
+    /* ── Speech Recognition Engine ────────────────────────────────────── */
 
-    function flashPodcastSlot(el, text) {
-        if (!el || !text) return;
-        el.textContent = text;
-        el.classList.remove('flash');
-        void el.offsetWidth;
-        el.classList.add('flash');
-    }
-
-    function updatePodcastTray(data) {
-        if (!onAir) return;
-        flashPodcastSlot(podEN, data.en);
-        flashPodcastSlot(podES, data.es);
-        flashPodcastSlot(podFR, data.fr);
-        // Also keep the existing HUD EN slot in sync
-        if (hudEN && data.en) {
-            hudEN.textContent = data.en;
-            hudEN.classList.remove('hud-new');
-            void hudEN.offsetWidth;
-            hudEN.classList.add('hud-new');
+    function buildRecognition() {
+        var SpeechAPI = window.SpeechRecognition || window.webkitSpeechRecognition;
+        if (!SpeechAPI) {
+            setStatus('STT: UNSUPPORTED');
+            if (typeof ghostLog === 'function') ghostLog('STT: webkitSpeechRecognition not available in this browser', 'crit');
+            return null;
         }
-        // Show tray on first data packet
-        if (podcastTray) podcastTray.classList.add('visible');
-    }
+        var r = new SpeechAPI();
+        r.continuous      = true;
+        r.interimResults  = true;
+        r.lang            = 'en-US';
+        r.maxAlternatives = 1;
 
-    /* ── Mic capture ──────────────────────────────────────────────────── */
-
-   async function startMicCapture(deviceId = null) {
-        // If we are already capturing and no new device is requested, exit
-        if (micStream && !deviceId) return;
-
-        // 1. Hardware Cleanup: Stop existing tracks before switching to new hardware
-        if (micStream) {
-            micStream.getTracks().forEach(function(t) { t.stop(); });
-            micStream = null;
-        }
-
-        // 2. Set Constraints: Lock to specific hardware ID if provided
-        var constraints = {
-            audio: deviceId ? { 
-                deviceId: { exact: deviceId },
-                echoCancellation: true,
-                noiseSuppression: true,
-                autoGainControl : true
-            } : {
-                echoCancellation: true,
-                noiseSuppression: true,
-                autoGainControl : true,
-                channelCount    : 1,
-                sampleRate      : 16000,
-            },
-            video: false
+        r.onstart = function () {
+            setStatus('STT: LIVE \u25B6', true);
+            if (typeof ghostLog === 'function') ghostLog('GHOST> STT listening\u2026', 'ok');
         };
 
-        try {
-            micStream = await navigator.mediaDevices.getUserMedia(constraints);
-            
-            // Link to the Workstation Analyzer (for the visualizers)
-            if (window.APP && window.APP.audio && window.APP.audio.ctx) {
-                var source = window.APP.audio.ctx.createMediaStreamSource(micStream);
-                if (window.APP.audio.micAnalyzer) source.connect(window.APP.audio.micAnalyzer);
+        r.onresult = function (e) {
+            var interim = '';
+            var finalText = '';
+            for (var i = e.resultIndex; i < e.results.length; i++) {
+                var transcript = e.results[i][0].transcript.trim().toUpperCase();
+                if (e.results[i].isFinal) { finalText += transcript + ' '; }
+                else                       { interim    += transcript;       }
             }
-
-        } catch (e) {
-            var reason = e.name === 'NotAllowedError' ? 'PERMISSION_DENIED' : (e.message || e.name);
-            if (typeof ghostLog === 'function') ghostLog('HARDWARE ERR: ' + reason, 'crit');
-            if (mcrStatus) mcrStatus.textContent = 'MIC: ' + reason.substring(0, 22);
-            setOnAirUI(false);
-            return;
-        }
-
-        // 3. MediaRecorder Setup (MCR Backend)
-        var mimeType = ['audio/webm;codecs=opus', 'audio/webm', 'audio/ogg;codecs=opus', 'audio/ogg']
-            .find(function (t) { return MediaRecorder.isTypeSupported(t); }) || '';
-
-        mediaRec = new MediaRecorder(micStream, mimeType ? { mimeType: mimeType } : {});
-
-      mediaRec.ondataavailable = function (e) {
-        // FIX: No more size < 100 filter. We need every byte for Deepgram.
-        if (!e.data || e.data.size === 0) return; 
-
-        // Send the raw binary chunk to your updated main.py
-        if (ws && ws.readyState === WebSocket.OPEN) {
-            ws.send(e.data); 
-        }
-    };
-
-    mediaRec.onerror = function (e) {
-        if (typeof ghostLog === 'function') ghostLog('MediaRecorder ERR: ' + (e.error || e), 'crit');
-    };
-
-    // This triggers the data chunks every 250ms (or your CHUNK_MS value)
-    mediaRec.start(CHUNK_MS);
-
-        if (typeof ghostLog === 'function') {
-            var label = deviceId ? 'EXTERNAL_CARD' : 'DEFAULT_MIC';
-            ghostLog('GHOST> hardware locked [' + label + '] \u2192 webm chunks \u2192 WS', 'ok');
-        }
-    }
-
-    function stopMicCapture() {
-        if (mediaRec && mediaRec.state !== 'inactive') {
-            try { mediaRec.stop(); } catch (e) {}
-        }
-        if (micStream) {
-            micStream.getTracks().forEach(function (t) { t.stop(); });
-            micStream = null;
-        }
-        mediaRec = null;
-    }
-
-    /* ── WebSocket lifecycle ──────────────────────────────────────────── */
-
-    function connect() {
-        if (ws && (ws.readyState === WebSocket.OPEN || ws.readyState === WebSocket.CONNECTING)) return;
-        setWsState('connecting');
-        try { ws = new WebSocket(WS_URL); }
-        catch (e) { setWsState('error'); scheduleReconnect(); return; }
-
-        ws.binaryType = 'arraybuffer';
-
-        ws.onopen = function () {
-            setWsState('connected');
-            clearTimeout(reconnTimer);
-            // Reset if was live when connection dropped
-            if (onAir) { stopMicCapture(); setOnAirUI(false); }
-            if (typeof ghostLog === 'function') ghostLog('GHOST> MCR WS bridge online \u2192 ' + WS_URL, 'ok');
-        };
-
-        ws.onclose = function () {
-            setWsState('off');
-            if (onAir) { stopMicCapture(); setOnAirUI(false); }
-            scheduleReconnect();
-        };
-
-        ws.onerror = function () { setWsState('error'); };
-
-        ws.onmessage = function (ev) {
-            var data;
-            try { data = JSON.parse(ev.data); } catch (e) { return; }
-            switch (data.type) {
-                case 'vngrd_podcast_data':
-                    updatePodcastTray(data);
-                    break;
-                case 'status':
-                    if (mcrStatus && !onAir) mcrStatus.textContent = (data.message || 'READY').substring(0, 36);
-                    if (typeof ghostLog === 'function') ghostLog(data.message, 'ok');
-                    break;
-                case 'error':
-                    var errMsg = (data.message || 'UNKNOWN').substring(0, 40);
-                    if (mcrStatus) mcrStatus.textContent = 'ERR: ' + errMsg;
-                    if (typeof ghostLog === 'function') ghostLog('MCR ERR: ' + errMsg, 'crit');
-                    break;
+            var display = (finalText || interim).trim();
+            // Real-time subtitle overlay
+            if (subText) subText.textContent = display;
+            if (hudEN)   hudEN.textContent   = display;
+            // On final: update EN podcast slot + translate
+            if (finalText.trim()) {
+                if (podEN) { podEN.textContent = finalText.trim(); podcastTray && podcastTray.classList.add('visible'); }
+                if (TRANS_MODE) translate(finalText.trim());
             }
         };
+
+        r.onerror = function (e) {
+            if (e.error === 'no-speech') return; // benign
+            setStatus('STT_ERR: ' + e.error.toUpperCase());
+            if (typeof ghostLog === 'function') ghostLog('STT ERR: ' + e.error, 'crit');
+        };
+
+        r.onend = function () {
+            // Auto-restart while on-air (browser may stop after silence)
+            if (onAir) { try { r.start(); } catch(ex) {} }
+            else        { setStatus('STT: STANDBY'); }
+        };
+
+        return r;
     }
 
-    function scheduleReconnect() {
-        clearTimeout(reconnTimer);
-        setWsState('error');
-        reconnTimer = setTimeout(connect, RECONNECT_DELAY);
+    /* ── Translation via MyMemory (free, no API key) ─────────────────── */
+
+    function translate(text) {
+        if (!text) return;
+        var langs = { es: 'en|es', fr: 'en|fr' };
+        Object.keys(langs).forEach(function (lang) {
+            fetch('https://api.mymemory.translated.net/get?q=' + encodeURIComponent(text) + '&langpair=' + langs[lang])
+                .then(function (res) { return res.json(); })
+                .then(function (data) {
+                    var t = (data.responseData && data.responseData.translatedText || '').toUpperCase();
+                    if (!t) return;
+                    var el = lang === 'es' ? podES : podFR;
+                    if (el) el.textContent = t;
+                    if (podcastTray) podcastTray.classList.add('visible');
+                })
+                .catch(function () {});
+        });
+    }
+
+    /* ── TRANS_MODE toggle ────────────────────────────────────────────── */
+    if (btnTrans) {
+        btnTrans.addEventListener('click', function () {
+            TRANS_MODE = !TRANS_MODE;
+            btnTrans.classList.toggle('active', TRANS_MODE);
+            btnTrans.textContent = TRANS_MODE ? 'TRANS: ON' : 'TRANS: OFF';
+            if (typeof ghostLog === 'function') ghostLog('TRANS_MODE: ' + (TRANS_MODE ? 'ENABLED \u2192 ES+FR' : 'DISABLED'), 'ai');
+        });
     }
 
     /* ── ON-AIR toggle ────────────────────────────────────────────────── */
     if (btnOnAir) {
         btnOnAir.addEventListener('click', function () {
             if (!onAir) {
-                // Always show tray + UI. Only start WS ops if connected.
-                setOnAirUI(true);
-                if (ws && ws.readyState === WebSocket.OPEN) {
-                    clearHUD();
-                    ws.send(JSON.stringify({ action: 'start', target_lang: targetLang, source_lang: 'en' }));
-                    startMicCapture();
-                } else {
-                    if (typeof ghostLog === 'function') ghostLog('PODCAST TRAY: ON-AIR (offline mode — no MCR backend)', 'ai');
+                recognition = buildRecognition();
+                if (!recognition) return;
+                try {
+                    recognition.start();
+                    setOnAirUI(true);
+                } catch (e) {
+                    setStatus('STT_ERR: START_FAIL');
+                    if (typeof ghostLog === 'function') ghostLog('STT START ERR: ' + e.message, 'crit');
                 }
             } else {
                 setOnAirUI(false);
-                if (ws && ws.readyState === WebSocket.OPEN) {
-                    stopMicCapture();
-                    ws.send(JSON.stringify({ action: 'stop' }));
-                }
+                if (recognition) { try { recognition.stop(); } catch(ex) {} recognition = null; }
             }
         });
     }
 
-/* ── HARDWARE SCANNER (Surgical Fix) ──────────────────────────────── */
     /* ── HARDWARE SCANNER ────────────────────────────────────────────── */
-    const scanBtn = document.getElementById('btn-scan-inputs');
-    const inputSelect = document.getElementById('audio-input-select');
+    var scanBtn    = document.getElementById('btn-scan-inputs');
+    var inputSelect = document.getElementById('audio-input-select');
 
     if (scanBtn) {
         scanBtn.onclick = async function() {
             try {
-                // Prime the browser to unlock labels
-                const tempStream = await navigator.mediaDevices.getUserMedia({ audio: true });
-                await new Promise(r => setTimeout(r, 600)); 
-                const devices = await navigator.mediaDevices.enumerateDevices();
-                const audioInputs = devices.filter(d => d.kind === 'audioinput');
-                
+                var tempStream = await navigator.mediaDevices.getUserMedia({ audio: true });
+                await new Promise(function(r) { setTimeout(r, 600); });
+                var devices    = await navigator.mediaDevices.enumerateDevices();
+                var audioInputs = devices.filter(function(d) { return d.kind === 'audioinput'; });
                 if (inputSelect) {
                     inputSelect.innerHTML = '<option value="">SELECT_HARDWARE...</option>';
-                    audioInputs.forEach(d => {
-                        const opt = document.createElement('option');
+                    audioInputs.forEach(function(d) {
+                        var opt = document.createElement('option');
                         opt.value = d.deviceId;
-                        opt.text = d.label || 'EXTERNAL_INPUT_' + (inputSelect.length);
+                        opt.text  = d.label || 'EXTERNAL_INPUT_' + inputSelect.length;
                         inputSelect.appendChild(opt);
                     });
-                    inputSelect.style.display = 'block'; 
-                    tempStream.getTracks().forEach(t => t.stop());
+                    inputSelect.style.display = 'block';
+                    tempStream.getTracks().forEach(function(t) { t.stop(); });
                 }
             } catch (e) { if (typeof ghostLog === 'function') ghostLog('SCAN_ERR: ' + e.message, 'crit'); }
         };
     }
 
-    if (inputSelect) {
-        inputSelect.onchange = function() {
-            if (this.value) startMicCapture(this.value);
-        };
-    }
-
     /* ── Boot ─────────────────────────────────────────────────────────── */
-    window.addEventListener('resize', () => { APP.render._cachedRect = null; });
-    connect();
+    window.addEventListener('resize', function() { if (window.APP && APP.render) APP.render._cachedRect = null; });
+    setStatus('STT: STANDBY');
 
-}()); 
+}());
 </script>
 </body>
 </html>
