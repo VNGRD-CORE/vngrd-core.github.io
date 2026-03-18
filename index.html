@@ -5611,13 +5611,15 @@ if (T.logo.visible) {
         }
     }
 
-    // ─── IDM COLLISION CORE — draw physics bodies directly onto broadcast canvas ─
-    // IDMPhysics.draw() iterates engine.world.bodies and renders each one via
-    // canvas 2D — no hidden canvas, no Matter.Render RAF — composited every frame
-    // so bodies appear in captureStream(), Compositor VP9, and P2P streams.
+    // ─── IDM COLLISION CORE — engine tick + draw (absolute end of broadcast frame) ─
+    // Engine.update() drives physics from within the broadcast RAF so simulation
+    // and rendering are always in sync. draw() paints on top of every other layer.
     try {
-        if (window.IDMPhysics && IDMPhysics._active) IDMPhysics.draw(ctx, w, h);
-    } catch (_idmE) { /* physics draw failed silently */ }
+        if (window.IDMPhysics && IDMPhysics._active && IDMPhysics.engine) {
+            Matter.Engine.update(IDMPhysics.engine, 16.666); // step 1 frame at 60fps
+            IDMPhysics.draw(ctx, w, h);                      // paint over all layers
+        }
+    } catch (_idmE) { /* IDM frame failed silently */ }
 }
 
 function triggerImpact() { document.body.classList.remove('impact-flash'); void document.body.offsetWidth; document.body.classList.add('impact-flash'); setTimeout(() => document.body.classList.remove('impact-flash'), 200); }
@@ -12898,18 +12900,18 @@ window.IDMSynth = {
 // No Matter.Render — draw() is called directly by renderLoop each frame.
 // This guarantees physics visuals appear in captureStream() + Compositor VP9.
 window.IDMPhysics = {
-    engine:    null,
-    runner:    null,
-    _active:   false,
-    _W:        1920, // logical world width  (matches broadcast canvas)
-    _H:        1080, // logical world height
+    engine:  null,
+    _active: false,
+    _W:      1920, // logical world width  (matches broadcast canvas)
+    _H:      1080, // logical world height
 
     init: function() {
         if (this._active) return;
         if (typeof Matter === 'undefined') { console.warn('[IDM] Matter.js not loaded'); return; }
 
         this.engine = Matter.Engine.create({ gravity: { y: 1.6 } });
-        this.runner = Matter.Runner.create();
+        // No Matter.Runner — engine is ticked by renderLoop via Matter.Engine.update()
+        // so physics and drawing are always in the same RAF frame.
         this._buildWorld();
 
         // Collision → audio + visual FX
@@ -12948,7 +12950,6 @@ window.IDMPhysics = {
             });
         });
 
-        Matter.Runner.run(this.runner, this.engine);
         this._active = true;
         var s = document.getElementById('idm-status');
         if (s) s.textContent = 'ONLINE · 0 NODES';
@@ -12962,9 +12963,10 @@ window.IDMPhysics = {
         var r   = 12 + Math.random() * 20;
         var hue = Math.floor(Math.random() * 360);
         var ball = Matter.Bodies.circle(x, 20, r, {
-            label: 'idm-ball', restitution: 0.72, friction: 0.01, density: 0.0025,
-            _color: 'hsl(' + hue + ',100%,62%)'
+            label: 'idm-ball', restitution: 0.72, friction: 0.01, density: 0.0025
         });
+        // Matter ignores unknown option keys — assign _color directly on the body object
+        ball._color = 'hsl(' + hue + ',100%,62%)';
         Matter.Body.setVelocity(ball, { x: (Math.random()-0.5)*10, y: 2+Math.random()*5 });
         Matter.World.add(this.engine.world, ball);
         var count = this.engine.world.bodies.filter(function(b){ return b.label==='idm-ball'; }).length;
@@ -12972,40 +12974,41 @@ window.IDMPhysics = {
         if (s) s.textContent = 'ONLINE · ' + count + ' NODE' + (count!==1?'S':'');
     },
 
-    // Called every frame by renderLoop — draws directly onto broadcast canvas
+    // Called every frame by renderLoop — paints directly onto broadcast canvas.
+    // Uses Matter.Composite.allBodies() for the authoritative body list,
+    // ctx.arc() on body.position + circleRadius for crisp circles,
+    // and high-contrast colors so balls read over any glitch background.
     draw: function(ctx, w, h) {
         if (!this._active || !this.engine) return;
         var scX = w / this._W, scY = h / this._H;
+        var bodies = Matter.Composite.allBodies(this.engine.world);
         ctx.save();
         ctx.globalCompositeOperation = 'screen';
-        ctx.globalAlpha = 0.88;
+        ctx.globalAlpha = 1;
 
-        this.engine.world.bodies.forEach(function(b) {
-            if (!b.vertices || b.vertices.length < 2) return;
-            var verts = b.vertices;
-            ctx.beginPath();
-            ctx.moveTo(verts[0].x * scX, verts[0].y * scY);
-            for (var i = 1; i < verts.length; i++) ctx.lineTo(verts[i].x * scX, verts[i].y * scY);
-            ctx.closePath();
-
+        for (var i = 0; i < bodies.length; i++) {
+            var b = bodies[i];
             if (b.label === 'idm-ball') {
-                ctx.fillStyle   = b._color || '#00f3ff';
-                ctx.strokeStyle = 'rgba(255,255,255,0.7)';
-                ctx.lineWidth   = 1.5;
+                var r = (b.circleRadius || 14) * Math.min(scX, scY);
+                ctx.beginPath();
+                ctx.arc(b.position.x * scX, b.position.y * scY, r, 0, Math.PI * 2);
+                ctx.fillStyle   = b._color || '#00FFCC';
                 ctx.fill();
+                ctx.strokeStyle = '#ffffff';
+                ctx.lineWidth   = 2;
                 ctx.stroke();
             } else if (b.label === 'idm-bumper') {
+                var br = (b.circleRadius || 28) * Math.min(scX, scY);
+                ctx.beginPath();
+                ctx.arc(b.position.x * scX, b.position.y * scY, br, 0, Math.PI * 2);
                 ctx.strokeStyle = '#ff6600';
-                ctx.lineWidth   = 2;
-                ctx.globalAlpha = 0.6;
+                ctx.lineWidth   = 2.5;
+                ctx.globalAlpha = 0.55;
                 ctx.stroke();
-                ctx.globalAlpha = 0.88;
-            } else if (b.label === 'idm-floor') {
-                ctx.strokeStyle = 'rgba(0,243,255,0.35)';
-                ctx.lineWidth   = 1;
-                ctx.stroke();
+                ctx.globalAlpha = 1;
             }
-        });
+            // floor / walls / ceiling: no visual — collision boundary only
+        }
 
         ctx.restore();
     },
@@ -13033,6 +13036,11 @@ window.IDMPhysics = {
         }, this);
     }
 };
+
+// Explicit global rebind — guarantees window.IDMPhysics is reachable from
+// renderLoop, onclick attributes, and any other execution context.
+window.IDMPhysics = window.IDMPhysics;
+window.IDMSynth   = window.IDMSynth;
 </script>
 </body>
 </html>
