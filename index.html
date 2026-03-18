@@ -2394,14 +2394,28 @@ body.fullscreen #transcription-hud { opacity: 0 !important; pointer-events: none
 }
 /* ── Slot select dropdowns (POLYTRANSLATOR panel) ── */
 .slot-grid {
-    margin-top: 8px;
     background: linear-gradient(180deg, #0a0a0f 0%, #060608 100%);
     border: 1px solid rgba(255,255,255,0.08);
     border-top: 2px solid rgba(0,243,255,0.18);
     border-radius: 6px;
-    padding: 8px 8px 10px;
     box-shadow: 0 4px 24px rgba(0,0,0,0.8), inset 0 1px 0 rgba(255,255,255,0.04);
     display: flex; flex-direction: column; gap: 5px;
+    /* collapsed by default */
+    max-height: 0;
+    overflow: hidden;
+    opacity: 0;
+    margin-top: 0;
+    padding: 0 8px;
+    transition: max-height 0.28s cubic-bezier(0.22,1,0.36,1),
+                opacity 0.2s ease,
+                margin-top 0.2s ease,
+                padding 0.2s ease;
+}
+.slot-grid.open {
+    max-height: 200px;
+    opacity: 1;
+    margin-top: 6px;
+    padding: 8px 8px 10px;
 }
 .slot-row { display: flex; align-items: center; gap: 6px; }
 .slot-lbl {
@@ -2823,6 +2837,7 @@ body.fullscreen #transcription-hud { opacity: 0 !important; pointer-events: none
                     <span id="mcr-status">STT: STANDBY</span>
                 </div>
                 <button id="btn-on-air" class="onair-pill">OFF-AIR</button>
+                <button id="btn-slots-toggle" class="btn" style="margin-top:5px;width:100%;font-size:8px;letter-spacing:1.5px;opacity:0.65;" onclick="var g=this.nextElementSibling;var o=g.classList.toggle('open');this.style.opacity=o?'1':'0.65';this.textContent=o?'SLOTS \u25B4':'SLOTS \u25BE';">SLOTS &#x25BE;</button>
                 <div class="slot-grid">
                     <div class="slot-row"><span class="slot-lbl">SLOT 1</span><select class="slot-select" id="slot-1"><option value="OFF">OFF</option><option value="EN" selected>EN</option><option value="NL">NL</option><option value="ES">ES</option><option value="FR">FR</option><option value="ZH">ZH</option><option value="JA">JA</option><option value="AR">AR</option><option value="SCOUSE">SCOUSE</option></select></div>
                     <div class="slot-row"><span class="slot-lbl">SLOT 2</span><select class="slot-select" id="slot-2"><option value="OFF" selected>OFF</option><option value="EN">EN</option><option value="NL">NL</option><option value="ES">ES</option><option value="FR">FR</option><option value="ZH">ZH</option><option value="JA">JA</option><option value="AR">AR</option><option value="SCOUSE">SCOUSE</option></select></div>
