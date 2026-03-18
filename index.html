@@ -2844,9 +2844,9 @@ body.fullscreen #transcription-hud { opacity: 0 !important; pointer-events: none
                     <div class="slot-row"><span class="slot-lbl">SLOT 3</span><select class="slot-select" id="slot-3"><option value="OFF" selected>OFF</option><option value="EN">EN</option><option value="NL">NL</option><option value="ES">ES</option><option value="FR">FR</option><option value="ZH">ZH</option><option value="JA">JA</option><option value="AR">AR</option><option value="SCOUSE">SCOUSE</option></select></div>
                     <div class="slot-row"><span class="slot-lbl">SLOT 4</span><select class="slot-select" id="slot-4"><option value="OFF" selected>OFF</option><option value="EN">EN</option><option value="NL">NL</option><option value="ES">ES</option><option value="FR">FR</option><option value="ZH">ZH</option><option value="JA">JA</option><option value="AR">AR</option><option value="SCOUSE">SCOUSE</option></select></div>
                 </div>
-                <div style="display:flex;gap:4px;margin-top:6px;">
-                    <button id="btn-sub-opacity" class="btn" style="flex:1;font-size:7px;letter-spacing:1px;" title="Cycle subtitle background opacity">SUB_BG: 67%</button>
-                    <button id="btn-p2p-stt" class="btn" style="flex:1;font-size:7px;letter-spacing:1px;" title="Toggle STT audio source: local mic or P2P guest">STT: MIC</button>
+                <div class="btn-grid-2" style="margin-top:6px;">
+                    <button id="btn-sub-opacity" class="btn sfx-pad sfx-sig" title="Cycle subtitle background opacity">SUB_BG<br><small style="font-size:7px;opacity:.7;">67%</small></button>
+                    <button id="btn-p2p-stt" class="btn sfx-pad sfx-sig" title="Toggle STT source: local mic or P2P guest audio">STT<br><small id="p2p-stt-sub" style="font-size:7px;opacity:.7;">MIC</small></button>
                 </div>
             </div>
         </div>
@@ -12304,6 +12304,45 @@ if (btn3dX) {
         return active;
     }
 
+    /* ── Direct canvas bake (belt-and-suspenders for all recording paths) ── */
+    // Called whenever subtitle data changes so captureStream always gets a
+    // fresh frame with subtitle text, independent of the renderLoop cycle.
+    function _bakeSubtitlesToCanvas() {
+        if (!window.APP || !APP.render || !APP.render.ctx) return;
+        var ctx = APP.render.ctx;
+        var w   = APP.render.width;
+        var h   = APP.render.height;
+        var lines = window._vngrdSubtitleLines;
+        if (!lines || !lines.length) return;
+        try {
+            ctx.save();
+            ctx.globalAlpha              = 1;
+            ctx.globalCompositeOperation = 'source-over';
+            ctx.filter                   = 'none';
+            ctx.shadowBlur               = 0;
+            ctx.textAlign                = 'center';
+            ctx.textBaseline             = 'middle';
+            var lineH    = Math.round(h * 0.058);
+            var fsPx     = Math.round(h * 0.032);
+            var padX     = 18;
+            var blockH   = lineH * lines.length;
+            var blockTop = Math.round(h * 0.78) - Math.round(blockH / 2);
+            ctx.font = '700 ' + fsPx + 'px "Courier New",monospace';
+            lines.forEach(function(sub, i) {
+                var lineTop = blockTop + i * lineH;
+                var cy      = lineTop + Math.round(lineH / 2);
+                var label   = '[' + sub.lang + '] ' + sub.text;
+                var tw      = ctx.measureText(label).width;
+                var bgA     = (typeof sub.bgAlpha === 'number') ? sub.bgAlpha : 0.8;
+                ctx.fillStyle = 'rgba(0,0,0,' + bgA + ')';
+                ctx.fillRect((w - tw) / 2 - padX, lineTop, tw + padX * 2, lineH);
+                ctx.fillStyle = '#00f3ff';
+                ctx.fillText(label, w / 2, cy);
+            });
+            ctx.restore();
+        } catch (_) {}
+    }
+
     /* ── UI helpers ───────────────────────────────────────────────────── */
 
     function setStatus(text, hot) {
@@ -12370,10 +12409,14 @@ if (btn3dX) {
             });
             if (active.length === 0) window._vngrdSubtitleLines = [];
         }
+        // Belt-and-suspenders: bake immediately onto the broadcast canvas so
+        // captureStream captures a frame with subtitles on every text update.
+        _bakeSubtitlesToCanvas();
     }
 
     function clearSubtitles() {
         slotTexts = ['', '', '', ''];
+        window._vngrdSubtitleLines = [];   // clear canvas burn-in data
         if (subOverlay) subOverlay.innerHTML = '';
         if (podcastTray) podcastTray.classList.remove('visible');
         for (var i = 0; i < 4; i++) {
@@ -12535,22 +12578,25 @@ if (btn3dX) {
     }
 
     /* ── SUB_BG opacity cycle ─────────────────────────────────────────── */
+    var _subOpacitySmall = document.querySelector('#btn-sub-opacity small');
     if (btnSubOpacity) {
         btnSubOpacity.addEventListener('click', function () {
             subBgIdx = (subBgIdx + 1) % subBgLevels.length;
             subBgOpacity = subBgLevels[subBgIdx];
             var pct = Math.round(subBgOpacity * 100);
-            btnSubOpacity.textContent = 'SUB_BG: ' + pct + '%';
+            if (_subOpacitySmall) _subOpacitySmall.textContent = pct + '%';
+            btnSubOpacity.classList.toggle('active-mode', subBgOpacity > 0);
             renderSubtitles(); // re-apply to live lines
         });
     }
 
     /* ── P2P STT source toggle ────────────────────────────────────────── */
+    var _p2pSttSmall = document.getElementById('p2p-stt-sub');
     if (btnP2pStt) {
         btnP2pStt.addEventListener('click', function () {
             p2pSTTMode = !p2pSTTMode;
-            btnP2pStt.textContent  = p2pSTTMode ? 'STT: P2P' : 'STT: MIC';
-            btnP2pStt.classList.toggle('active', p2pSTTMode);
+            if (_p2pSttSmall) _p2pSttSmall.textContent = p2pSTTMode ? 'P2P' : 'MIC';
+            btnP2pStt.classList.toggle('active-mode', p2pSTTMode);
 
             if (p2pSTTMode && window._p2pAudioStream) {
                 // Route P2P remote audio through its own AudioContext path
