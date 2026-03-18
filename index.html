@@ -2337,7 +2337,7 @@ body.fullscreen #transcription-hud { opacity: 0 !important; pointer-events: none
     display: flex;
     flex-direction: column;
     align-items: center;
-    padding: 10px 24px 14px;
+    padding: 6px 24px 10px;
     box-sizing: border-box;
     opacity: 0;
     transform: translateY(16px);
@@ -2347,25 +2347,58 @@ body.fullscreen #transcription-hud { opacity: 0 !important; pointer-events: none
     opacity: 1;
     transform: translateY(0);
 }
-#vanguard-subtitles #sub-text {
-    display: inline-block;
+#vanguard-subtitles .sub-line {
+    display: flex;
+    align-items: baseline;
+    gap: 10px;
     max-width: 900px;
     width: 100%;
     background: #000000aa;
     color: #00f3ff;
     font-family: 'JetBrains Mono', 'Courier New', monospace;
-    font-size: 18px;
+    font-size: 16px;
     font-weight: 600;
-    letter-spacing: 2px;
+    letter-spacing: 1.5px;
     text-align: center;
     text-transform: uppercase;
-    line-height: 1.5;
-    padding: 8px 20px;
+    line-height: 1.45;
+    padding: 5px 16px;
     box-sizing: border-box;
     text-shadow: 0 0 12px rgba(0,243,255,0.6);
-    min-height: 40px;
-    border-top: 1px solid rgba(0,243,255,0.2);
+    min-height: 28px;
 }
+#vanguard-subtitles .sub-line:first-child {
+    border-top: 1px solid rgba(0,243,255,0.2);
+    padding-top: 7px;
+}
+#vanguard-subtitles .sub-line:last-child {
+    padding-bottom: 7px;
+}
+#vanguard-subtitles .sub-line[dir="rtl"] {
+    direction: rtl;
+    text-align: right;
+}
+#vanguard-subtitles .sub-lang {
+    font-size: 8px;
+    letter-spacing: 2px;
+    opacity: 0.5;
+    flex-shrink: 0;
+    min-width: 28px;
+    font-family: 'Orbitron', monospace;
+}
+#vanguard-subtitles .sub-body {
+    flex: 1;
+}
+/* ── Slot select dropdowns (POLYTRANSLATOR panel) ── */
+.slot-grid { margin-top: 8px; display: flex; flex-direction: column; gap: 4px; }
+.slot-row { display: flex; align-items: center; gap: 6px; }
+.slot-lbl { font-size: 7px; letter-spacing: 2px; opacity: 0.5; min-width: 36px; font-family: 'Orbitron', monospace; }
+.slot-select {
+    flex: 1; background: #0a0a0f; color: #00f3ff; border: 1px solid rgba(0,243,255,0.25);
+    font-family: 'JetBrains Mono', monospace; font-size: 9px; padding: 3px 4px;
+    outline: none; cursor: pointer;
+}
+.slot-select:focus { border-color: #00f3ff; }
 
 /* ── SYNC LED ── */
 #sync-led {
@@ -2743,21 +2776,23 @@ body.fullscreen #transcription-hud { opacity: 0 !important; pointer-events: none
 
     <aside class="sidebar" id="right-panel">
 
-        <!-- ── POLYTRANSLATOR // V2.0_NATIVE ─────────────────────── -->
+        <!-- ── POLYTRANSLATOR // V3.0_MODULAR ─────────────────────── -->
         <div class="section" id="mcr-section">
             <div class="sec-head">
-                <span class="sec-title">POLYTRANSLATOR // V2.0_NATIVE</span>
+                <span class="sec-title">POLYTRANSLATOR // V3.0_MODULAR</span>
                 <div id="mcr-on-air-dot"></div>
             </div>
             <div class="sec-body">
-                <!-- STT status strip -->
                 <div style="display:flex;align-items:center;gap:6px;margin-bottom:8px;">
                     <span id="mcr-status">STT: STANDBY</span>
                 </div>
-                <!-- ON-AIR toggle -->
                 <button id="btn-on-air" class="onair-pill">OFF-AIR</button>
-                <!-- TRANS_MODE toggle -->
-                <button id="btn-trans-mode" class="btn" style="margin-top:6px;width:100%;font-size:9px;">TRANS: OFF</button>
+                <div class="slot-grid">
+                    <div class="slot-row"><span class="slot-lbl">SLOT 1</span><select class="slot-select" id="slot-1"><option value="OFF">OFF</option><option value="EN" selected>EN</option><option value="NL">NL</option><option value="ES">ES</option><option value="FR">FR</option><option value="ZH">ZH</option><option value="JA">JA</option><option value="AR">AR</option><option value="SCOUSE">SCOUSE</option></select></div>
+                    <div class="slot-row"><span class="slot-lbl">SLOT 2</span><select class="slot-select" id="slot-2"><option value="OFF" selected>OFF</option><option value="EN">EN</option><option value="NL">NL</option><option value="ES">ES</option><option value="FR">FR</option><option value="ZH">ZH</option><option value="JA">JA</option><option value="AR">AR</option><option value="SCOUSE">SCOUSE</option></select></div>
+                    <div class="slot-row"><span class="slot-lbl">SLOT 3</span><select class="slot-select" id="slot-3"><option value="OFF" selected>OFF</option><option value="EN">EN</option><option value="NL">NL</option><option value="ES">ES</option><option value="FR">FR</option><option value="ZH">ZH</option><option value="JA">JA</option><option value="AR">AR</option><option value="SCOUSE">SCOUSE</option></select></div>
+                    <div class="slot-row"><span class="slot-lbl">SLOT 4</span><select class="slot-select" id="slot-4"><option value="OFF" selected>OFF</option><option value="EN">EN</option><option value="NL">NL</option><option value="ES">ES</option><option value="FR">FR</option><option value="ZH">ZH</option><option value="JA">JA</option><option value="AR">AR</option><option value="SCOUSE">SCOUSE</option></select></div>
+                </div>
             </div>
         </div>
 
@@ -3206,9 +3241,9 @@ body.fullscreen #transcription-hud { opacity: 0 !important; pointer-events: none
         </div>
     </div>
 
-    <!-- ── VANGUARD SUBTITLES — pro-broadcast overlay ── -->
+    <!-- ── VANGUARD SUBTITLES — 4-slot broadcast overlay ── -->
     <div id="vanguard-subtitles" role="region" aria-label="Live Subtitles">
-        <span id="sub-text"></span>
+        <!-- Lines injected dynamically by POLYTRANSLATOR engine -->
     </div>
     <input type="file" id="file-media" multiple accept="image/*,video/*">
     <input type="file" id="file-audio" multiple accept="audio/*">
@@ -11923,37 +11958,93 @@ if (btn3dX) {
 
 <script>
 /* ═══════════════════════════════════════════════════════════════════════
-   MCR // SIGNAL_CENTRAL  —  Native Speech Engine  v5  (Web Speech API)
+   MCR // SIGNAL_CENTRAL  —  Native Speech Engine  v6  (4-Slot Modular)
    -----------------------------------------------------------------------
    Signal chain:
      Browser SpeechRecognition (continuous + interimResults)
-       → interim text → #vanguard-subtitles (real-time)
-       → final text   → #podcast-tray EN slot
-       → TRANS_MODE ON → MyMemory fetch → ES / FR slots
+       → EN transcript (primary ear)
+       → 4 configurable SLOTS: OFF / EN / NL / ES / FR / ZH / JA / AR / SCOUSE
+       → Active slots rendered as stacked lines in #vanguard-subtitles
+       → Final results synced to P2P peers via sendUISync
 
-   ON-AIR button starts / stops recognition.
-   TRANS_MODE toggle enables / disables auto-translation (MyMemory, free).
+   SCOUSE uses a local dictionary (zero latency, no fetch).
+   AR triggers direction:rtl on its subtitle line.
    No WebSocket, no Python backend, no localhost dependency.
    ═══════════════════════════════════════════════════════════════════════ */
 (function () {
     'use strict';
-    var TRANS_MODE  = false;
+
     var onAir       = false;
     var recognition = null;
+    var lastFinal   = '';
+
+    /* ── Scouse dictionary ────────────────────────────────────────────── */
+    var SCOUSE_DICT = {
+        'FRIEND':'LAD','FRIENDS':'LADS','MATE':'LAD','BUDDY':'LAD',
+        'GOOD':'BOSS','GREAT':'SOUND','COOL':'SOUND','NICE':'SOUND',
+        'POLICE':'BIZZIES','COP':'BIZZY','COPS':'BIZZIES',
+        'DRUNK':'BLADDERED','HOUSE':'GAFF','HOME':'GAFF',
+        'HELLO':'ALRIGHT','HI':'ALRIGHT','HEY':'ALRIGHT',
+        'MAN':'FELLA','GUY':'FELLA','WOMAN':'BIRD','GIRL':'BIRD',
+        'FOOD':'SCRAN','EAT':'HAVE SCRAN','EATING':'HAVING SCRAN',
+        'TIRED':'KNACKERED','EXHAUSTED':'KNACKERED',
+        'HAPPY':'MADE UP','EXCITED':'MADE UP','PLEASED':'MADE UP',
+        'ANGRY':'FUMING','MAD':'FUMING','ANNOYED':'FUMING',
+        'MONEY':'DOSH','CASH':'DOSH',
+        'CHILD':'KIDDA','KID':'KIDDA','CHILDREN':'KIDDAS','KIDS':'KIDDAS',
+        'VERY':'WELL','REALLY':'DEAD','ABSOLUTELY':'DEAD',
+        'YES':'YEAH LAD','NO':'NAH LAD','SURE':'GO ED',
+        'WHAT':'WHA','NOTHING':'NOWT','SOMETHING':'SUMMAT',
+        'HEAD':'ED','FACE':'GRID',
+        'LOOK':'AV A GANDER','LOOKING':'AVIN A GANDER',
+        'STUPID':'DIVVY','IDIOT':'DIVVY','FOOL':'DIVVY',
+        'FIGHT':'SCRAP','FIGHTING':'SCRAPPING',
+        'BROTHER':'OUR KID','SISTER':'OUR KID',
+        'TALKING':'GOBBING OFF','TALK':'GOB OFF',
+        'UNDERSTAND':'GET ME','UNDERSTOOD':'GOT ME',
+        'EMBARRASSED':'SHOWING MESELF UP',
+        'BROKEN':'BRASSIC','POOR':'BRASSIC',
+        'PROBLEM':'MARE','TROUBLE':'MARE',
+        'EXCELLENT':'BELTER','AMAZING':'BELTER','BRILLIANT':'BELTER',
+        'STEAL':'BLAG','STOLE':'BLAGGED',
+        'SHOES':'TRABS','TRAINERS':'TRABS'
+    };
+
+    function toScouse(text) {
+        if (!text) return '';
+        return text.split(/\s+/).map(function(w) { return SCOUSE_DICT[w] || w; }).join(' ');
+    }
+
+    /* ── Language pair map for MyMemory translation ───────────────────── */
+    var LANG_PAIRS = {
+        NL: 'en|nl', ES: 'en|es', FR: 'en|fr',
+        ZH: 'en|zh-CN', JA: 'en|ja', AR: 'en|ar'
+    };
 
     /* ── DOM refs ─────────────────────────────────────────────────────── */
     var btnOnAir    = document.getElementById('btn-on-air');
-    var btnTrans    = document.getElementById('btn-trans-mode');
     var mcrStatus   = document.getElementById('mcr-status');
     var mcrDot      = document.getElementById('mcr-on-air-dot');
     var subOverlay  = document.getElementById('vanguard-subtitles');
-    var subText     = document.getElementById('sub-text');
-    var podcastTray = document.getElementById('podcast-tray');
-    var podEN       = document.getElementById('podcast-en');
-    var podES       = document.getElementById('podcast-es');
-    var podFR       = document.getElementById('podcast-fr');
     var hud         = document.getElementById('transcription-hud');
     var hudEN       = document.getElementById('hud-en-text');
+    var slots       = [
+        document.getElementById('slot-1'),
+        document.getElementById('slot-2'),
+        document.getElementById('slot-3'),
+        document.getElementById('slot-4')
+    ];
+
+    /* ── Slot state: cached translated text per slot ─────────────────── */
+    var slotTexts = ['', '', '', ''];
+
+    function getActiveSlots() {
+        var active = [];
+        slots.forEach(function(sel, i) {
+            if (sel && sel.value !== 'OFF') active.push({ idx: i, lang: sel.value });
+        });
+        return active;
+    }
 
     /* ── UI helpers ───────────────────────────────────────────────────── */
 
@@ -11961,6 +12052,34 @@ if (btn3dX) {
         if (!mcrStatus) return;
         mcrStatus.textContent = text;
         mcrStatus.classList.toggle('hot', !!hot);
+    }
+
+    function renderSubtitles() {
+        if (!subOverlay) return;
+        var active = getActiveSlots();
+        subOverlay.innerHTML = '';
+        active.forEach(function(s) {
+            var text = slotTexts[s.idx];
+            if (!text) return;
+            var line = document.createElement('div');
+            line.className = 'sub-line';
+            if (s.lang === 'AR') line.setAttribute('dir', 'rtl');
+            var langTag = document.createElement('span');
+            langTag.className = 'sub-lang';
+            langTag.textContent = s.lang;
+            var body = document.createElement('span');
+            body.className = 'sub-body';
+            body.textContent = text;
+            line.appendChild(langTag);
+            line.appendChild(body);
+            subOverlay.appendChild(line);
+        });
+    }
+
+    function clearSubtitles() {
+        slotTexts = ['', '', '', ''];
+        if (subOverlay) subOverlay.innerHTML = '';
+        if (hudEN) hudEN.textContent = '';
     }
 
     function setOnAirUI(active) {
@@ -11971,15 +12090,65 @@ if (btn3dX) {
         if (mcrDot) mcrDot.classList.toggle('hot', active);
         if (subOverlay) subOverlay.classList.toggle('visible', active);
         if (hud) hud.classList.toggle('hud-active', active);
-        if (podcastTray) podcastTray.classList.toggle('on-air', active);
-        if (!active) {
-            if (subText) subText.textContent = '';
-            if (hudEN) hudEN.textContent = '';
-            setStatus('STT: STANDBY');
-        }
+        if (!active) clearSubtitles();
+        setStatus(active ? 'STT: LIVE \u25B6' : 'STT: STANDBY', active);
         if (typeof ghostLog === 'function') {
-            ghostLog(active ? 'GHOST> STT ENGINE ON-AIR' : 'GHOST> STT ENGINE OFFLINE', active ? 'ok' : 'ai');
+            ghostLog(active ? 'GHOST> STT ENGINE ON-AIR (4-SLOT)' : 'GHOST> STT ENGINE OFFLINE', active ? 'ok' : 'ai');
         }
+    }
+
+    /* ── Translation via MyMemory (free, no API key) ─────────────────── */
+
+    function translateSlot(text, lang, slotIdx) {
+        if (!text || !LANG_PAIRS[lang]) return;
+        fetch('https://api.mymemory.translated.net/get?q=' + encodeURIComponent(text) + '&langpair=' + LANG_PAIRS[lang])
+            .then(function(res) { return res.json(); })
+            .then(function(data) {
+                var t = (data.responseData && data.responseData.translatedText || '').toUpperCase();
+                if (t) { slotTexts[slotIdx] = t; renderSubtitles(); }
+            })
+            .catch(function() {});
+    }
+
+    /* ── Process finalized text through all active slots ──────────────── */
+
+    function processSlots(enText) {
+        if (!enText) return;
+        var active = getActiveSlots();
+        var p2pData = { en: enText };
+
+        active.forEach(function(s) {
+            if (s.lang === 'EN') {
+                slotTexts[s.idx] = enText;
+            } else if (s.lang === 'SCOUSE') {
+                slotTexts[s.idx] = toScouse(enText);
+                p2pData['SCOUSE'] = slotTexts[s.idx];
+            } else {
+                // API-translated languages — async, updates renderSubtitles on arrival
+                translateSlot(enText, s.lang, s.idx);
+                p2pData[s.lang] = '...';
+            }
+        });
+
+        renderSubtitles();
+
+        // Send to P2P peers via existing data channel
+        if (typeof sendUISync === 'function') {
+            sendUISync('POLYTRANSLATOR', p2pData);
+        }
+    }
+
+    /* ── Process interim text (EN-only, real-time) ────────────────────── */
+
+    function processInterim(text) {
+        if (!text) return;
+        var active = getActiveSlots();
+        active.forEach(function(s) {
+            if (s.lang === 'EN') slotTexts[s.idx] = text;
+            else if (s.lang === 'SCOUSE') slotTexts[s.idx] = toScouse(text);
+            // Other langs: keep previous translated text, don't fetch on interim
+        });
+        renderSubtitles();
     }
 
     /* ── Speech Recognition Engine ────────────────────────────────────── */
@@ -12008,61 +12177,39 @@ if (btn3dX) {
             for (var i = e.resultIndex; i < e.results.length; i++) {
                 var transcript = e.results[i][0].transcript.trim().toUpperCase();
                 if (e.results[i].isFinal) { finalText += transcript + ' '; }
-                else                       { interim    += transcript;       }
+                else                       { interim   += transcript;       }
             }
+            // HUD always shows English live text
             var display = (finalText || interim).trim();
-            // Real-time subtitle overlay
-            if (subText) subText.textContent = display;
-            if (hudEN)   hudEN.textContent   = display;
-            // On final: update EN podcast slot + translate
+            if (hudEN) hudEN.textContent = display;
+
             if (finalText.trim()) {
-                if (podEN) { podEN.textContent = finalText.trim(); podcastTray && podcastTray.classList.add('visible'); }
-                if (TRANS_MODE) translate(finalText.trim());
+                lastFinal = finalText.trim();
+                processSlots(lastFinal);
+            } else if (interim) {
+                processInterim(interim);
             }
         };
 
         r.onerror = function (e) {
-            if (e.error === 'no-speech') return; // benign
+            if (e.error === 'no-speech') return;
+            if (e.error === 'aborted') return;
             setStatus('STT_ERR: ' + e.error.toUpperCase());
             if (typeof ghostLog === 'function') ghostLog('STT ERR: ' + e.error, 'crit');
         };
 
         r.onend = function () {
-            // Auto-restart while on-air (browser may stop after silence)
-            if (onAir) { try { r.start(); } catch(ex) {} }
-            else        { setStatus('STT: STANDBY'); }
+            // Auto-restart while on-air (handles browser silence timeout)
+            if (onAir) {
+                setTimeout(function() {
+                    if (onAir) { try { r.start(); } catch(ex) {} }
+                }, 250);
+            } else {
+                setStatus('STT: STANDBY');
+            }
         };
 
         return r;
-    }
-
-    /* ── Translation via MyMemory (free, no API key) ─────────────────── */
-
-    function translate(text) {
-        if (!text) return;
-        var langs = { es: 'en|es', fr: 'en|fr' };
-        Object.keys(langs).forEach(function (lang) {
-            fetch('https://api.mymemory.translated.net/get?q=' + encodeURIComponent(text) + '&langpair=' + langs[lang])
-                .then(function (res) { return res.json(); })
-                .then(function (data) {
-                    var t = (data.responseData && data.responseData.translatedText || '').toUpperCase();
-                    if (!t) return;
-                    var el = lang === 'es' ? podES : podFR;
-                    if (el) el.textContent = t;
-                    if (podcastTray) podcastTray.classList.add('visible');
-                })
-                .catch(function () {});
-        });
-    }
-
-    /* ── TRANS_MODE toggle ────────────────────────────────────────────── */
-    if (btnTrans) {
-        btnTrans.addEventListener('click', function () {
-            TRANS_MODE = !TRANS_MODE;
-            btnTrans.classList.toggle('active', TRANS_MODE);
-            btnTrans.textContent = TRANS_MODE ? 'TRANS: ON' : 'TRANS: OFF';
-            if (typeof ghostLog === 'function') ghostLog('TRANS_MODE: ' + (TRANS_MODE ? 'ENABLED \u2192 ES+FR' : 'DISABLED'), 'ai');
-        });
     }
 
     /* ── ON-AIR toggle ────────────────────────────────────────────────── */
