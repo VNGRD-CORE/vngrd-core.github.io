@@ -2623,7 +2623,6 @@ body.fullscreen #transcription-hud { opacity: 0 !important; pointer-events: none
 
     <main id="stage">
         <canvas id="vj-canvas"></canvas>
-        <canvas id="idm-physics-layer" style="display:none;position:absolute;top:0;left:0;pointer-events:none;z-index:0;"></canvas>
         <!-- GIF overlay: DOM-rendered animated GIFs (not captured by captureStream) -->
         <div id="gif-overlay" style="position:absolute; top:0; left:0; width:100%; height:100%; pointer-events:none; z-index: 1100;"></div>
         <!-- 2D logo GIF overlay: positioned by rAF to match canvas logo coords -->
@@ -2897,7 +2896,7 @@ body.fullscreen #transcription-hud { opacity: 0 !important; pointer-events: none
                 <div class="sec-divider"></div>
                 <div id="idm-collision-core-panel" style="border:1px solid rgba(0,243,255,0.25);padding:6px 5px 5px;margin-top:2px;background:rgba(0,243,255,0.03);">
                     <div class="lbl" style="font-size:6px;opacity:0.55;letter-spacing:3px;margin-bottom:4px;color:var(--accent);">[ IDM_COLLISION_CORE ]</div>
-                    <button class="btn cyber-btn" id="btn-spawn-idm" style="width:100%;font-size:8px;letter-spacing:1.5px;" title="Drop a physics glitch node into the collision engine">SPAWN GLITCH NODE</button>
+                    <button class="btn cyber-btn" id="btn-spawn-idm" style="width:100%;font-size:8px;letter-spacing:1.5px;" title="Drop a physics glitch node into the collision engine" onclick="window.IDMPhysics && IDMPhysics.spawnBall()">SPAWN GLITCH NODE</button>
                     <div id="idm-status" style="font-size:6px;opacity:0.4;letter-spacing:1px;margin-top:4px;text-align:center;">OFFLINE — ARM TO INIT</div>
                 </div>
                 <div class="sec-divider"></div>
@@ -5612,22 +5611,13 @@ if (T.logo.visible) {
         }
     }
 
-    // ─── IDM COLLISION CORE — burn physics layer into broadcast canvas ────────
-    // This drawImage call composites the Matter.js physics canvas (falling balls,
-    // bumpers, geometry) directly onto vj-canvas every frame so the collision
-    // visuals are physically present in captureStream(), Compositor recordings,
-    // and the P2P WebRTC stream — not just a DOM overlay.
+    // ─── IDM COLLISION CORE — draw physics bodies directly onto broadcast canvas ─
+    // IDMPhysics.draw() iterates engine.world.bodies and renders each one via
+    // canvas 2D — no hidden canvas, no Matter.Render RAF — composited every frame
+    // so bodies appear in captureStream(), Compositor VP9, and P2P streams.
     try {
-        if (window.IDMPhysics && IDMPhysics._active && IDMPhysics.canvas &&
-            IDMPhysics.canvas.width > 0 && IDMPhysics.canvas.height > 0) {
-            ctx.save();
-            ctx.globalCompositeOperation = 'screen'; // blend mode: additive for glitch look
-            ctx.globalAlpha = 0.82;
-            ctx.imageSmoothingEnabled = false;
-            ctx.drawImage(IDMPhysics.canvas, 0, 0, w, h);
-            ctx.restore();
-        }
-    } catch (_idmE) { /* physics layer composite failed silently */ }
+        if (window.IDMPhysics && IDMPhysics._active) IDMPhysics.draw(ctx, w, h);
+    } catch (_idmE) { /* physics draw failed silently */ }
 }
 
 function triggerImpact() { document.body.classList.remove('impact-flash'); void document.body.offsetWidth; document.body.classList.add('impact-flash'); setTimeout(() => document.body.classList.remove('impact-flash'), 200); }
@@ -12688,13 +12678,11 @@ if (btn3dX) {
 <!-- ═══════════════════════════════════════════════════════════════════════
      IDM COLLISION CORE — Generative Physics Audio Sequencer
      Audio routes → APP.audio.masterGain (captured by MediaRecorder + Compositor)
-     Video routes → idm-physics-layer canvas (composited into renderLoop)
+     Video rendered directly onto broadcast canvas via IDMPhysics.draw(ctx,w,h)
+     called each frame inside renderLoop — no Matter.Render, no hidden canvas.
      ═══════════════════════════════════════════════════════════════════════ -->
 <script>
-(function() {
-'use strict';
-
-// ─── Distortion curve helper ────────────────────────────────────────────────
+// ─── Distortion curve helper ─────────────────────────────────────────────────
 function _idmDistortionCurve(amount) {
     var n = 512, curve = new Float32Array(n);
     for (var i = 0; i < n; i++) {
@@ -12705,344 +12693,208 @@ function _idmDistortionCurve(amount) {
 }
 
 // ─── IDMSynth ────────────────────────────────────────────────────────────────
-// All nodes connect to APP.audio.masterGain so they are captured by:
-//   • APP.audio.recorderDest (Time Machine WebM)
-//   • Compositor.audioDest   (15Mbps VP9 pipeline)
-//   • P2P broadcast stream   (tapped from masterGain)
+// Nodes connect to APP.audio.masterGain → captured by recorderDest + Compositor
 window.IDMSynth = {
-    _ready: false,
-
-    _ensureReady: function() {
-        if (this._ready) return true;
-        if (!window.APP || !APP.audio || !APP.audio.ctx || !APP.audio.masterGain) return false;
-        this._ready = true;
-        return true;
+    _getCtx: function() {
+        return (window.APP && APP.audio && APP.audio.ctx && APP.audio.masterGain) ? APP.audio.ctx : null;
     },
-
-    // Heavy overdrive kick: sine 200→30 Hz through WaveShaperNode distortion
+    // Heavy overdrive kick: sine 200→30 Hz, WaveShaperNode distortion
     playOverdriveKick: function() {
-        if (!this._ensureReady()) return;
-        var ctx  = APP.audio.ctx;
-        var dest = APP.audio.masterGain;
-        var t    = ctx.currentTime;
-
-        var osc    = ctx.createOscillator();
-        osc.type   = 'sine';
+        var ctx = this._getCtx(); if (!ctx) return;
+        var dest = APP.audio.masterGain, t = ctx.currentTime;
+        var osc = ctx.createOscillator();
+        osc.type = 'sine';
         osc.frequency.setValueAtTime(200, t);
         osc.frequency.exponentialRampToValueAtTime(30, t + 0.45);
-
-        var shaper       = ctx.createWaveShaper();
-        shaper.curve     = _idmDistortionCurve(380);
-        shaper.oversample = '4x';
-
+        var shaper = ctx.createWaveShaper();
+        shaper.curve = _idmDistortionCurve(380); shaper.oversample = '4x';
         var gain = ctx.createGain();
         gain.gain.setValueAtTime(0.9, t);
         gain.gain.exponentialRampToValueAtTime(0.001, t + 0.5);
-
-        osc.connect(shaper);
-        shaper.connect(gain);
-        gain.connect(dest);
-        osc.start(t);
-        osc.stop(t + 0.52);
+        osc.connect(shaper); shaper.connect(gain); gain.connect(dest);
+        osc.start(t); osc.stop(t + 0.52);
     },
-
-    // FM stutter glitch: square modulating sine, looped 3-6 times rapidly
+    // FM stutter glitch: square modulating sine, 3–6 rapid bursts
     playStutterGlitch: function(velocity) {
-        if (!this._ensureReady()) return;
-        var ctx  = APP.audio.ctx;
+        var ctx = this._getCtx(); if (!ctx) return;
         var dest = APP.audio.masterGain;
-        var vel  = (typeof velocity === 'number') ? velocity : 0.65;
-        var reps = 3 + Math.floor(Math.random() * 4); // 3–6 bursts
-
+        var vel = (typeof velocity === 'number') ? velocity : 0.65;
+        var reps = 3 + Math.floor(Math.random() * 4);
         for (var i = 0; i < reps; i++) {
-            (function(offset) {
-                var t = ctx.currentTime + offset;
-
-                var mod      = ctx.createOscillator();
-                mod.type     = 'square';
+            (function(off) {
+                var t = ctx.currentTime + off;
+                var mod = ctx.createOscillator(); mod.type = 'square';
                 mod.frequency.setValueAtTime(110 + Math.random() * 220, t);
-
-                var modGain       = ctx.createGain();
-                modGain.gain.setValueAtTime(350 + Math.random() * 200, t);
-
-                var carrier      = ctx.createOscillator();
-                carrier.type     = 'sine';
-                carrier.frequency.setValueAtTime(70 + Math.random() * 120, t);
-
+                var modG = ctx.createGain(); modG.gain.setValueAtTime(350 + Math.random() * 200, t);
+                var car = ctx.createOscillator(); car.type = 'sine';
+                car.frequency.setValueAtTime(70 + Math.random() * 120, t);
                 var env = ctx.createGain();
                 env.gain.setValueAtTime(vel * 0.45, t);
                 env.gain.exponentialRampToValueAtTime(0.0001, t + 0.032);
-
-                mod.connect(modGain);
-                modGain.connect(carrier.frequency);
-                carrier.connect(env);
-                env.connect(dest);
-
-                mod.start(t);     mod.stop(t + 0.035);
-                carrier.start(t); carrier.stop(t + 0.035);
+                mod.connect(modG); modG.connect(car.frequency);
+                car.connect(env); env.connect(dest);
+                mod.start(t); mod.stop(t + 0.035);
+                car.start(t); car.stop(t + 0.035);
             })(i * 0.038);
         }
     },
-
-    // Ambient drone: triangle, long attack/release, lowpass filtered
+    // Ambient drone: triangle, lowpass filtered, long envelope
     playAmbientDrone: function() {
-        if (!this._ensureReady()) return;
-        var ctx  = APP.audio.ctx;
-        var dest = APP.audio.masterGain;
-        var t    = ctx.currentTime;
-
-        var osc      = ctx.createOscillator();
-        osc.type     = 'triangle';
+        var ctx = this._getCtx(); if (!ctx) return;
+        var dest = APP.audio.masterGain, t = ctx.currentTime;
+        var osc = ctx.createOscillator(); osc.type = 'triangle';
         osc.frequency.setValueAtTime(45 + Math.random() * 35, t);
-
-        var filt        = ctx.createBiquadFilter();
-        filt.type       = 'lowpass';
-        filt.frequency.setValueAtTime(700, t);
-        filt.Q.setValueAtTime(2.5, t);
-
+        var filt = ctx.createBiquadFilter(); filt.type = 'lowpass';
+        filt.frequency.setValueAtTime(700, t); filt.Q.setValueAtTime(2.5, t);
         var gain = ctx.createGain();
         gain.gain.setValueAtTime(0, t);
         gain.gain.linearRampToValueAtTime(0.28, t + 0.9);
         gain.gain.setValueAtTime(0.28, t + 2.0);
         gain.gain.linearRampToValueAtTime(0.0001, t + 3.2);
-
-        osc.connect(filt);
-        filt.connect(gain);
-        gain.connect(dest);
-        osc.start(t);
-        osc.stop(t + 3.4);
+        osc.connect(filt); filt.connect(gain); gain.connect(dest);
+        osc.start(t); osc.stop(t + 3.4);
     }
 };
 
 // ─── IDMPhysics ───────────────────────────────────────────────────────────────
+// No Matter.Render — draw() is called directly by renderLoop each frame.
+// This guarantees physics visuals appear in captureStream() + Compositor VP9.
 window.IDMPhysics = {
-    engine:   null,
-    render:   null,
-    runner:   null,
-    canvas:   null,
-    _active:  false,
-    _statusEl: null,
+    engine:    null,
+    runner:    null,
+    _active:   false,
+    _W:        1920, // logical world width  (matches broadcast canvas)
+    _H:        1080, // logical world height
 
     init: function() {
         if (this._active) return;
-        if (typeof Matter === 'undefined') {
-            console.warn('[IDM] Matter.js not loaded yet');
-            return;
-        }
+        if (typeof Matter === 'undefined') { console.warn('[IDM] Matter.js not loaded'); return; }
 
-        this.canvas    = document.getElementById('idm-physics-layer');
-        this._statusEl = document.getElementById('idm-status');
-        if (!this.canvas) return;
+        this.engine = Matter.Engine.create({ gravity: { y: 1.6 } });
+        this.runner = Matter.Runner.create();
+        this._buildWorld();
 
-        this._resize();
+        // Collision → audio + visual FX
+        var _kickCD = false, _glitchCD = false, _droneCD = false;
+        Matter.Events.on(this.engine, 'collisionStart', function(ev) {
+            ev.pairs.forEach(function(p) {
+                var a = p.bodyA, b = p.bodyB;
+                var ball   = function(bd) { return bd.label === 'idm-ball'; };
+                var floor  = function(bd) { return bd.label === 'idm-floor'; };
+                var wall   = function(bd) { return bd.label === 'idm-wallL' || bd.label === 'idm-wallR'; };
+                var bumper = function(bd) { return bd.label === 'idm-bumper'; };
 
-        var Engine  = Matter.Engine;
-        var Render  = Matter.Render;
-        var Runner  = Matter.Runner;
-        var Bodies  = Matter.Bodies;
-        var World   = Matter.World;
-        var Events  = Matter.Events;
-        var Body    = Matter.Body;
-
-        this.engine = Engine.create({ gravity: { y: 1.6 } });
-        var world   = this.engine.world;
-
-        // Off-screen renderer draws to the hidden canvas
-        this.render = Render.create({
-            canvas:  this.canvas,
-            engine:  this.engine,
-            options: {
-                width:      this.canvas.width,
-                height:     this.canvas.height,
-                background: 'transparent',
-                wireframes: false,
-                pixelRatio: 1
-            }
-        });
-
-        this.runner = Runner.create();
-        this._buildWalls();
-        this._buildBumpers();
-
-        // Collision coupling → audio + visual effects
-        var self = this;
-        var _kickCooldown   = false;
-        var _glitchCooldown = false;
-        var _droneCooldown  = false;
-
-        Events.on(this.engine, 'collisionStart', function(event) {
-            event.pairs.forEach(function(pair) {
-                var a = pair.bodyA, b = pair.bodyB;
-                var isBall   = function(bd) { return bd.label === 'idm-ball'; };
-                var isFloor  = function(bd) { return bd.label === 'idm-floor'; };
-                var isWall   = function(bd) { return bd.label === 'idm-wallL' || bd.label === 'idm-wallR'; };
-                var isBumper = function(bd) { return bd.label === 'idm-bumper'; };
-
-                // FLOOR HIT — overdrive kick + canvas punch shake
-                if (!_kickCooldown && (isFloor(a) || isFloor(b)) && (isBall(a) || isBall(b))) {
-                    _kickCooldown = true;
-                    setTimeout(function() { _kickCooldown = false; }, 60);
+                if (!_kickCD && (floor(a)||floor(b)) && (ball(a)||ball(b))) {
+                    _kickCD = true; setTimeout(function(){ _kickCD = false; }, 60);
                     IDMSynth.playOverdriveKick();
-                    // Kinetic punch: impulse into the punch spring oscillator
                     if (window.APP && APP.vj) {
-                        APP.vj._punchVel = (APP.vj._punchVel || 0) + 0.7;
+                        APP.vj._punchVel   = (APP.vj._punchVel   || 0) + 0.7;
                         APP.vj._seismicVel = Math.min(1, (APP.vj._seismicVel || 0) + 0.55);
                     }
-                    // Canvas impact flash (captured by captureStream)
                     if (typeof triggerImpact === 'function') triggerImpact();
                 }
-
-                // WALL HIT — FM stutter + chromatic aberration VOID burst
-                if (!_glitchCooldown && (isWall(a) || isWall(b)) && (isBall(a) || isBall(b))) {
-                    _glitchCooldown = true;
-                    setTimeout(function() { _glitchCooldown = false; }, 50);
+                if (!_glitchCD && (wall(a)||wall(b)) && (ball(a)||ball(b))) {
+                    _glitchCD = true; setTimeout(function(){ _glitchCD = false; }, 50);
                     IDMSynth.playStutterGlitch(0.5 + Math.random() * 0.5);
-                    // VOID-style: chromatic aberration + RGB crush burst
                     if (typeof triggerChromaticAberration === 'function') triggerChromaticAberration();
                     if (window.APP && APP.vj) {
-                        var _oRGB = APP.vj.rgbEnabled, _oInt = APP.vj.rgbIntensity;
-                        APP.vj.rgbEnabled = true;
-                        APP.vj.rgbIntensity = 18;
-                        setTimeout(function() { APP.vj.rgbEnabled = _oRGB; APP.vj.rgbIntensity = _oInt; }, 180);
+                        var oE = APP.vj.rgbEnabled, oI = APP.vj.rgbIntensity;
+                        APP.vj.rgbEnabled = true; APP.vj.rgbIntensity = 18;
+                        setTimeout(function(){ APP.vj.rgbEnabled = oE; APP.vj.rgbIntensity = oI; }, 180);
                     }
                 }
-
-                // BUMPER HIT — ambient drone
-                if (!_droneCooldown && (isBumper(a) || isBumper(b)) && (isBall(a) || isBall(b))) {
-                    _droneCooldown = true;
-                    setTimeout(function() { _droneCooldown = false; }, 1200);
+                if (!_droneCD && (bumper(a)||bumper(b)) && (ball(a)||ball(b))) {
+                    _droneCD = true; setTimeout(function(){ _droneCD = false; }, 1200);
                     IDMSynth.playAmbientDrone();
                 }
             });
         });
 
-        Render.run(this.render);
-        Runner.run(this.runner, this.engine);
-
+        Matter.Runner.run(this.runner, this.engine);
         this._active = true;
-        if (this._statusEl) this._statusEl.textContent = 'ONLINE · 0 NODES';
+        var s = document.getElementById('idm-status');
+        if (s) s.textContent = 'ONLINE · 0 NODES';
     },
 
     spawnBall: function() {
         if (!this._active) this.init();
-        if (!this._active) return; // init may fail if Matter not ready
-        var w = this.canvas.width;
-        var x = w * 0.2 + Math.random() * w * 0.6;
-        var r = 10 + Math.random() * 18;
+        if (!this._active) return;
+        var W = this._W, H = this._H;
+        var x   = W * 0.2 + Math.random() * W * 0.6;
+        var r   = 12 + Math.random() * 20;
         var hue = Math.floor(Math.random() * 360);
+        var ball = Matter.Bodies.circle(x, 20, r, {
+            label: 'idm-ball', restitution: 0.72, friction: 0.01, density: 0.0025,
+            _color: 'hsl(' + hue + ',100%,62%)'
+        });
+        Matter.Body.setVelocity(ball, { x: (Math.random()-0.5)*10, y: 2+Math.random()*5 });
+        Matter.World.add(this.engine.world, ball);
+        var count = this.engine.world.bodies.filter(function(b){ return b.label==='idm-ball'; }).length;
+        var s = document.getElementById('idm-status');
+        if (s) s.textContent = 'ONLINE · ' + count + ' NODE' + (count!==1?'S':'');
+    },
 
-        var ball = Matter.Bodies.circle(x, 15, r, {
-            label:       'idm-ball',
-            restitution: 0.72,
-            friction:    0.01,
-            density:     0.0025,
-            render: {
-                fillStyle:   'hsl(' + hue + ',100%,62%)',
-                strokeStyle: '#ffffff',
-                lineWidth:   1
+    // Called every frame by renderLoop — draws directly onto broadcast canvas
+    draw: function(ctx, w, h) {
+        if (!this._active || !this.engine) return;
+        var scX = w / this._W, scY = h / this._H;
+        ctx.save();
+        ctx.globalCompositeOperation = 'screen';
+        ctx.globalAlpha = 0.88;
+
+        this.engine.world.bodies.forEach(function(b) {
+            if (!b.vertices || b.vertices.length < 2) return;
+            var verts = b.vertices;
+            ctx.beginPath();
+            ctx.moveTo(verts[0].x * scX, verts[0].y * scY);
+            for (var i = 1; i < verts.length; i++) ctx.lineTo(verts[i].x * scX, verts[i].y * scY);
+            ctx.closePath();
+
+            if (b.label === 'idm-ball') {
+                ctx.fillStyle   = b._color || '#00f3ff';
+                ctx.strokeStyle = 'rgba(255,255,255,0.7)';
+                ctx.lineWidth   = 1.5;
+                ctx.fill();
+                ctx.stroke();
+            } else if (b.label === 'idm-bumper') {
+                ctx.strokeStyle = '#ff6600';
+                ctx.lineWidth   = 2;
+                ctx.globalAlpha = 0.6;
+                ctx.stroke();
+                ctx.globalAlpha = 0.88;
+            } else if (b.label === 'idm-floor') {
+                ctx.strokeStyle = 'rgba(0,243,255,0.35)';
+                ctx.lineWidth   = 1;
+                ctx.stroke();
             }
         });
-        Matter.Body.setVelocity(ball, {
-            x: (Math.random() - 0.5) * 9,
-            y: 2 + Math.random() * 4
-        });
-        Matter.World.add(this.engine.world, ball);
 
-        // Update node count
-        if (this._statusEl) {
-            var balls = this.engine.world.bodies.filter(function(b) { return b.label === 'idm-ball'; });
-            this._statusEl.textContent = 'ONLINE · ' + balls.length + ' NODE' + (balls.length !== 1 ? 'S' : '');
-        }
+        ctx.restore();
     },
 
-    _buildWalls: function() {
-        var w = this.canvas.width, h = this.canvas.height, t = 22;
-        var Bodies = Matter.Bodies, World = Matter.World;
-        var wallStyle = function(col) { return { isStatic: true, restitution: 0.85, friction: 0.02, render: { fillStyle: col, strokeStyle: col } }; };
+    _buildWorld: function() {
+        var W = this._W, H = this._H, t = 30;
+        var B = Matter.Bodies, Wr = Matter.World;
+        var wall = function(opts) { return Object.assign({ isStatic:true, restitution:0.85, friction:0.02 }, opts); };
 
-        var floor   = Bodies.rectangle(w/2, h + t/2, w + t*2, t, Object.assign(wallStyle('rgba(0,243,255,0.18)'),   { label: 'idm-floor' }));
-        var wallL   = Bodies.rectangle(-t/2, h/2,    t, h + t*2, Object.assign(wallStyle('rgba(255,0,255,0.18)'),   { label: 'idm-wallL' }));
-        var wallR   = Bodies.rectangle(w + t/2, h/2, t, h + t*2, Object.assign(wallStyle('rgba(255,0,255,0.18)'),   { label: 'idm-wallR' }));
-        var ceiling = Bodies.rectangle(w/2, -t/2, w + t*2, t,     Object.assign(wallStyle('rgba(255,255,255,0.04)'), { label: 'idm-ceiling' }));
+        Wr.add(this.engine.world, [
+            B.rectangle(W/2,   H+t/2,   W+t*2, t, wall({ label:'idm-floor'   })),
+            B.rectangle(-t/2,  H/2,     t, H+t*2, wall({ label:'idm-wallL'  })),
+            B.rectangle(W+t/2, H/2,     t, H+t*2, wall({ label:'idm-wallR'  })),
+            B.rectangle(W/2,   -t/2,    W+t*2, t, wall({ label:'idm-ceiling'}))
+        ]);
 
-        World.add(this.engine.world, [floor, wallL, wallR, ceiling]);
-    },
-
-    _buildBumpers: function() {
-        var w = this.canvas.width, h = this.canvas.height;
-        var Bodies = Matter.Bodies, World = Matter.World;
-        var positions = [
-            [w * 0.22, h * 0.38], [w * 0.5,  h * 0.5],
-            [w * 0.78, h * 0.38], [w * 0.34, h * 0.68],
-            [w * 0.66, h * 0.68]
+        var bumperPos = [
+            [W*0.22, H*0.38], [W*0.5, H*0.5], [W*0.78, H*0.38],
+            [W*0.34, H*0.68], [W*0.66, H*0.68]
         ];
-        positions.forEach(function(pos) {
-            var bumper = Bodies.circle(pos[0], pos[1], 22, {
-                isStatic:    true,
-                label:       'idm-bumper',
-                restitution: 1.3,
-                render: { fillStyle: '#ff6600', strokeStyle: '#ff9900', lineWidth: 2 }
-            });
-            World.add(this.engine.world, bumper);
-        });
-    },
-
-    _resize: function() {
-        if (!this.canvas) return;
-        // Scale physics world proportionally to screen, mapped to broadcast 1920×1080 ratio
-        var scale = Math.min(window.innerWidth / 1920, window.innerHeight / 1080);
-        scale = Math.max(scale, 0.3); // floor at 30%
-        this.canvas.width  = Math.round(1920 * scale);
-        this.canvas.height = Math.round(1080 * scale);
+        bumperPos.forEach(function(p) {
+            Wr.add(this.engine.world, B.circle(p[0], p[1], 28, {
+                isStatic: true, label: 'idm-bumper', restitution: 1.35, friction: 0
+            }));
+        }, this);
     }
 };
-
-// ─── Resize listener — update Matter render dimensions on window resize ───────
-window.addEventListener('resize', function() {
-    if (!IDMPhysics._active || !IDMPhysics.render) return;
-    IDMPhysics._resize();
-    // Rebuild static bodies with new dimensions
-    var world = IDMPhysics.engine.world;
-    Matter.World.clear(world, false /* keepStatic = false */);
-    Matter.Engine.clear(IDMPhysics.engine);
-    IDMPhysics._buildWalls();
-    IDMPhysics._buildBumpers();
-    IDMPhysics.render.options.width  = IDMPhysics.canvas.width;
-    IDMPhysics.render.options.height = IDMPhysics.canvas.height;
-    Matter.Render.lookAt(IDMPhysics.render, {
-        min: { x: 0, y: 0 },
-        max: { x: IDMPhysics.canvas.width, y: IDMPhysics.canvas.height }
-    });
-});
-
-// ─── Spawn button wiring (deferred until DOM ready) ───────────────────────────
-document.addEventListener('DOMContentLoaded', function() {
-    var btn = document.getElementById('btn-spawn-idm');
-    if (!btn) return;
-    btn.addEventListener('click', function() {
-        // Ensure audio context is unlocked on this gesture
-        if (window.APP && APP.audio && APP.audio.ctx && APP.audio.ctx.state === 'suspended') {
-            APP.audio.ctx.resume().catch(function(){});
-        }
-        IDMPhysics.spawnBall();
-    });
-});
-
-// Fallback wiring (in case DOMContentLoaded already fired)
-(function tryWire() {
-    var btn = document.getElementById('btn-spawn-idm');
-    if (btn && !btn._idmWired) {
-        btn._idmWired = true;
-        btn.addEventListener('click', function() {
-            if (window.APP && APP.audio && APP.audio.ctx && APP.audio.ctx.state === 'suspended') {
-                APP.audio.ctx.resume().catch(function(){});
-            }
-            IDMPhysics.spawnBall();
-        });
-    }
-})();
-
-})(); // end IIFE
 </script>
 </body>
 </html>
