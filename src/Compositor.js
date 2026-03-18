@@ -165,6 +165,55 @@ class Compositor {
                 ctx.drawImage(this.layers.overlay, 0, 0, w, h);
             } catch (e) { /* Overlay not ready */ }
         }
+
+        // LAYER 3: Subtitles burn-in (from window._subtitleState)
+        // Reads global state set by POLYTRANSLATOR renderSubtitles()
+        if (typeof window !== 'undefined' && window._subtitleState && window._subtitleState.length > 0) {
+            const subs = window._subtitleState;
+            const count = subs.length;
+            // Scale font size based on active subtitle count
+            const fontSize = count <= 1 ? 36 : count === 2 ? 30 : count === 3 ? 26 : 22;
+            const lineH = fontSize * 1.6;
+            const bgAlpha = (typeof window._subtitleBgAlpha === 'number') ? window._subtitleBgAlpha : 0.67;
+            const totalH = count * lineH;
+            const startY = h - 80 - totalH; // 80px from bottom (above ticker)
+
+            ctx.save();
+            ctx.textBaseline = 'middle';
+            ctx.font = '600 ' + fontSize + 'px "JetBrains Mono", "Courier New", monospace';
+
+            for (let si = 0; si < count; si++) {
+                const sub = subs[si];
+                const y = startY + si * lineH;
+                const textW = ctx.measureText(sub.text).width;
+                const langW = ctx.measureText(sub.lang).width;
+                const padX = 24;
+                const boxW = Math.min(textW + langW + padX * 3 + 20, w * 0.85);
+                const boxX = (w - boxW) / 2;
+
+                // Background box
+                if (bgAlpha > 0) {
+                    ctx.fillStyle = 'rgba(0,0,0,' + bgAlpha + ')';
+                    ctx.fillRect(boxX, y, boxW, lineH);
+                }
+
+                // Lang tag (small)
+                ctx.fillStyle = 'rgba(0,243,255,0.5)';
+                ctx.font = '600 ' + Math.round(fontSize * 0.45) + 'px "Orbitron", monospace';
+                const langX = sub.rtl ? (boxX + boxW - padX - langW) : (boxX + padX);
+                ctx.fillText(sub.lang, langX, y + lineH / 2);
+
+                // Subtitle text
+                ctx.fillStyle = '#00f3ff';
+                ctx.font = '600 ' + fontSize + 'px "JetBrains Mono", "Courier New", monospace';
+                ctx.shadowColor = 'rgba(0,243,255,0.6)';
+                ctx.shadowBlur = 12;
+                const textX = sub.rtl ? (boxX + boxW - padX - langW - 20 - textW) : (boxX + padX + langW + 20);
+                ctx.fillText(sub.text, textX, y + lineH / 2);
+                ctx.shadowBlur = 0;
+            }
+            ctx.restore();
+        }
     }
 
     // ─────────────────────────────────────────────────────────────

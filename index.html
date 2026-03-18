@@ -2281,6 +2281,8 @@ body.fx-nvg #stage::after {
 
 /* Collapse HUD when in fullscreen VJ mode */
 body.fullscreen #transcription-hud { opacity: 0 !important; pointer-events: none !important; }
+/* Push transcript HUD above subtitles when both are active */
+#transcription-hud.hud-subs-offset { bottom: 140px; }
 
 /* ── PODCAST TRAY — fixed bottom bar ─────────────────────────── */
 #podcast-tray {
@@ -2392,6 +2394,15 @@ body.fullscreen #transcription-hud { opacity: 0 !important; pointer-events: none
 #vanguard-subtitles .sub-body {
     flex: 1;
 }
+/* ── Dynamic font scaling: fewer slots = bigger text ── */
+#vanguard-subtitles.sub-count-1 .sub-line { font-size: 18px; padding: 6px 18px; }
+#vanguard-subtitles.sub-count-2 .sub-line { font-size: 15px; padding: 5px 16px; }
+#vanguard-subtitles.sub-count-3 .sub-line { font-size: 13px; padding: 4px 14px; letter-spacing: 1px; }
+#vanguard-subtitles.sub-count-4 .sub-line { font-size: 11px; padding: 3px 12px; letter-spacing: 0.8px; min-height: 22px; }
+/* ── Subtitle background opacity levels (cycled by BG button) ── */
+#vanguard-subtitles.sub-bg-med .sub-line  { background: #00000066; }
+#vanguard-subtitles.sub-bg-low .sub-line  { background: #00000033; }
+#vanguard-subtitles.sub-bg-none .sub-line { background: transparent; }
 /* ── Slot select dropdowns (POLYTRANSLATOR panel) ── */
 .slot-grid {
     background: linear-gradient(180deg, #0a0a0f 0%, #060608 100%);
@@ -2836,7 +2847,10 @@ body.fullscreen #transcription-hud { opacity: 0 !important; pointer-events: none
                 <div style="display:flex;align-items:center;gap:6px;margin-bottom:8px;">
                     <span id="mcr-status">STT: STANDBY</span>
                 </div>
-                <button id="btn-on-air" class="onair-pill">OFF-AIR</button>
+                <div style="display:flex;gap:4px;align-items:center;">
+                    <button id="btn-on-air" class="onair-pill" style="flex:1;">OFF-AIR</button>
+                    <button id="btn-sub-opacity" class="btn" style="width:28px;font-size:8px;padding:2px 0;letter-spacing:1px;opacity:0.6;" title="Subtitle background opacity">BG</button>
+                </div>
                 <button id="btn-slots-toggle" class="btn" style="margin-top:5px;width:100%;font-size:8px;letter-spacing:1.5px;opacity:0.65;" onclick="var g=this.nextElementSibling;var o=g.classList.toggle('open');this.style.opacity=o?'1':'0.65';this.textContent=o?'SLOTS \u25B4':'SLOTS \u25BE';">SLOTS &#x25BE;</button>
                 <div class="slot-grid">
                     <div class="slot-row"><span class="slot-lbl">SLOT 1</span><select class="slot-select" id="slot-1"><option value="OFF">OFF</option><option value="EN" selected>EN</option><option value="NL">NL</option><option value="ES">ES</option><option value="FR">FR</option><option value="ZH">ZH</option><option value="JA">JA</option><option value="AR">AR</option><option value="SCOUSE">SCOUSE</option></select></div>
@@ -10420,6 +10434,49 @@ function handleUISync(msg) {
             bug.classList.remove('hidden');
         }
         log('DATA_SYNC_RECV: STATION_LOGO "' + msg.payload.text + '"');
+    } else if (msg.target === 'POLYTRANSLATOR') {
+        // Guest sent their STT results — display as guest subtitles
+        // payload: { en: 'TEXT', NL: 'TEXT', ES: 'TEXT', ... }
+        var guestSubs = [];
+        if (msg.payload.en) guestSubs.push({ lang: 'GUEST', text: msg.payload.en, rtl: false });
+        Object.keys(msg.payload).forEach(function(k) {
+            if (k !== 'en' && msg.payload[k] && msg.payload[k] !== '...') {
+                guestSubs.push({ lang: 'G:' + k, text: msg.payload[k], rtl: k === 'AR' });
+            }
+        });
+        // Merge guest subtitles into the global state for compositor + overlay
+        if (!window._guestSubtitleState) window._guestSubtitleState = [];
+        window._guestSubtitleState = guestSubs;
+        // Render guest subtitles in #vanguard-subtitles (append after local subs)
+        var _subOvr = document.getElementById('vanguard-subtitles');
+        if (_subOvr) {
+            // Remove old guest lines
+            var _oldGuest = _subOvr.querySelectorAll('.sub-line-guest');
+            for (var gi = 0; gi < _oldGuest.length; gi++) _oldGuest[gi].remove();
+            guestSubs.forEach(function(gs) {
+                var line = document.createElement('div');
+                line.className = 'sub-line sub-line-guest';
+                line.style.borderLeft = '3px solid #ff6600';
+                if (gs.rtl) line.setAttribute('dir', 'rtl');
+                var langTag = document.createElement('span');
+                langTag.className = 'sub-lang';
+                langTag.textContent = gs.lang;
+                langTag.style.color = '#ff6600';
+                var body = document.createElement('span');
+                body.className = 'sub-body';
+                body.textContent = gs.text;
+                body.style.color = '#ffcc00';
+                line.appendChild(langTag);
+                line.appendChild(body);
+                _subOvr.appendChild(line);
+            });
+        }
+        // Also update compositor state
+        if (window._subtitleState) {
+            window._subtitleState = window._subtitleState.filter(function(s) { return s.lang.indexOf('G:') !== 0 && s.lang !== 'GUEST'; });
+            window._subtitleState = window._subtitleState.concat(guestSubs);
+        }
+        log('DATA_SYNC_RECV: POLYTRANSLATOR (' + guestSubs.length + ' lines)');
     }
     } finally {
         // Always lower the flag, even if a handler throws, so the next legitimate
@@ -12299,6 +12356,7 @@ if (btn3dX) {
 
     function renderSubtitles() {
         var active = getActiveSlots();
+        var activeWithText = 0;
 
         // 1. Update podcast-tray dedicated boxes
         for (var i = 0; i < 4; i++) {
@@ -12307,6 +12365,7 @@ if (btn3dX) {
                 if (active[j].idx === i) { found = active[j]; break; }
             }
             if (found && slotTexts[i]) {
+                activeWithText++;
                 if (traySlots[i])  traySlots[i].classList.remove('off');
                 if (trayLabels[i]) trayLabels[i].textContent = found.lang;
                 if (trayTexts[i]) {
@@ -12327,6 +12386,10 @@ if (btn3dX) {
         // 2. Update broadcast overlay (#vanguard-subtitles)
         if (subOverlay) {
             subOverlay.innerHTML = '';
+            // Apply slot-count class for dynamic font scaling
+            subOverlay.className = subOverlay.className.replace(/sub-count-\d/g, '').trim();
+            if (active.length > 0) subOverlay.classList.add('sub-count-' + Math.min(active.length, 4));
+
             active.forEach(function(s) {
                 var text = slotTexts[s.idx];
                 if (!text) return;
@@ -12344,6 +12407,21 @@ if (btn3dX) {
                 subOverlay.appendChild(line);
             });
         }
+
+        // 3. Push transcript HUD above subtitles to avoid overlap
+        if (hud) hud.classList.toggle('hud-subs-offset', activeWithText > 0 && onAir);
+
+        // 4. Store global subtitle state for Compositor canvas burn-in
+        window._subtitleState = [];
+        active.forEach(function(s) {
+            if (slotTexts[s.idx]) {
+                window._subtitleState.push({
+                    lang: s.lang,
+                    text: slotTexts[s.idx],
+                    rtl: s.lang === 'AR'
+                });
+            }
+        });
     }
 
     function clearSubtitles() {
@@ -12356,6 +12434,8 @@ if (btn3dX) {
             if (trayTexts[i])  { trayTexts[i].textContent = ''; trayTexts[i].removeAttribute('dir'); }
         }
         if (hudEN) hudEN.textContent = '';
+        if (hud) hud.classList.remove('hud-subs-offset');
+        window._subtitleState = [];
     }
 
     function setOnAirUI(active) {
@@ -12506,6 +12586,23 @@ if (btn3dX) {
                 if (recognition) { try { recognition.stop(); } catch(ex) {} recognition = null; }
             }
         });
+    }
+
+    /* ── Subtitle BG opacity toggle (cycles: full → med → low → none → full) ── */
+    var _subBgLevels = ['', 'sub-bg-med', 'sub-bg-low', 'sub-bg-none'];
+    var _subBgIdx = 0;
+    var btnSubOpacity = document.getElementById('btn-sub-opacity');
+    if (btnSubOpacity && subOverlay) {
+        btnSubOpacity.addEventListener('click', function () {
+            subOverlay.classList.remove(_subBgLevels[_subBgIdx] || '__none__');
+            _subBgIdx = (_subBgIdx + 1) % _subBgLevels.length;
+            if (_subBgLevels[_subBgIdx]) subOverlay.classList.add(_subBgLevels[_subBgIdx]);
+            var labels = ['FULL', 'MED', 'LOW', 'OFF'];
+            btnSubOpacity.textContent = 'BG:' + labels[_subBgIdx];
+            // Store for compositor
+            window._subtitleBgAlpha = [0.67, 0.4, 0.2, 0][_subBgIdx];
+        });
+        window._subtitleBgAlpha = 0.67; // default
     }
 
     /* ── HARDWARE SCANNER ────────────────────────────────────────────── */
