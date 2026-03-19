@@ -2844,18 +2844,12 @@ body.fullscreen #transcription-hud { opacity: 0 !important; pointer-events: none
                     <div class="slot-row"><span class="slot-lbl">SLOT 3</span><select class="slot-select" id="slot-3"><option value="OFF" selected>OFF</option><option value="EN">EN</option><option value="NL">NL</option><option value="ES">ES</option><option value="FR">FR</option><option value="ZH">ZH</option><option value="JA">JA</option><option value="AR">AR</option><option value="SCOUSE">SCOUSE</option><option value="NAP">NAP</option><option value="GEN">GEN</option></select></div>
                     <div class="slot-row"><span class="slot-lbl">SLOT 4</span><select class="slot-select" id="slot-4"><option value="OFF" selected>OFF</option><option value="EN">EN</option><option value="NL">NL</option><option value="ES">ES</option><option value="FR">FR</option><option value="ZH">ZH</option><option value="JA">JA</option><option value="AR">AR</option><option value="SCOUSE">SCOUSE</option><option value="NAP">NAP</option><option value="GEN">GEN</option></select></div>
                 </div>
-               <div class="btn-grid-3" style="margin-top:6px;">
-    <button id="btn-sub-opacity" class="btn sfx-pad sfx-sig" title="Cycle subtitle background opacity">SUB_BG<br><small style="font-size:7px;opacity:.7;">67%</small></button>
-    
-    <button id="btn-p2p-stt" class="btn sfx-pad sfx-sig" title="Toggle STT source: local mic or P2P guest audio">STT<br><small id="p2p-stt-sub" style="font-size:7px;opacity:.7;">MIC</small></button>
-    
-    <select id="vngrd-lang-select" class="btn sfx-pad sfx-sig" style="appearance:none; text-align:center; outline:none; border:none; padding-top:8px;">
-        <option value="en-US">EAR: EN</option>
-        <option value="it-IT">EAR: IT</option>
-        <option value="es-ES">EAR: ES</option>
-        <option value="fr-FR">EAR: FR</option>
-    </select>
-</div>
+                <div class="btn-grid-2" style="margin-top:6px;">
+                    <button id="btn-sub-opacity" class="btn sfx-pad sfx-sig" title="Cycle subtitle background opacity">SUB_BG<br><small style="font-size:7px;opacity:.7;">67%</small></button>
+                    <button id="btn-p2p-stt" class="btn sfx-pad sfx-sig" title="Toggle STT source: local mic or P2P guest audio">STT<br><small id="p2p-stt-sub" style="font-size:7px;opacity:.7;">MIC</small></button>
+                </div>
+            </div>
+        </div>
 
         <div class="section">
             <div class="sec-head"><span class="sec-title">AUDIO_ENGINE</span><div class="sec-dot off" id="audio-dot"></div></div>
@@ -11199,7 +11193,8 @@ var isVideo = nft.forceVideo || (imageUrl.toLowerCase().match(/\.(mp4|webm|mov|o
             + '?width=1024&height=1024&model=' + encodeURIComponent(modelName)
             + '&seed=' + seed;
         if (apiKey) {
-url += '&key=' + encodeURIComponent(apiKey);        }
+            url += '&key=' + encodeURIComponent(apiKey) + '&nologo=true&enhance=true';
+        }
         var resp = await fetch(url);
         if (!resp.ok) throw new Error('HTTP_' + resp.status + ' (' + modelName + ')');
         var blob = await resp.blob();
@@ -12641,98 +12636,65 @@ if (btn3dX) {
 
     /* ── Speech Recognition Engine ────────────────────────────────────── */
 
-   function buildRecognition() {
-    var SpeechAPI = window.SpeechRecognition || window.webkitSpeechRecognition;
-    if (!SpeechAPI) return null;
-
-    var r = new SpeechAPI();
-    r.continuous      = true;
-    r.interimResults  = true;
-    r.maxAlternatives = 1;
-
-    // 1. DYNAMIC LANGUAGE PICKER
-    var langElem = document.getElementById('vngrd-lang-select');
-    r.lang = (langElem && langElem.value) ? langElem.value : 'en-US';
-
-    r.onstart = function () {
-        setStatus('STT: LIVE \u25B6', true);
-        if (typeof ghostLog === 'function') ghostLog('MIC_OPEN: ' + r.lang, 'ok');
-    };
-
-    r.onresult = function (e) {
-        var interim = '';
-        var finalText = '';
-        for (var i = e.resultIndex; i < e.results.length; i++) {
-            var transcript = e.results[i].transcript.trim().toUpperCase();
-            if (e.results[i].isFinal) { finalText += transcript + ' '; }
-            else                      { interim   += transcript;       }
+    function buildRecognition() {
+        var SpeechAPI = window.SpeechRecognition || window.webkitSpeechRecognition;
+        if (!SpeechAPI) {
+            setStatus('STT: UNSUPPORTED');
+            if (typeof ghostLog === 'function') ghostLog('STT: webkitSpeechRecognition not available in this browser', 'crit');
+            return null;
         }
-        
-        var display = (finalText || interim).trim();
-        
-        // 2. SAFE HUD UPDATE (Checks if hudEN exists first)
-        if (typeof hudEN !== 'undefined' && hudEN) {
-            hudEN.textContent = display;
-        }
+        var r = new SpeechAPI();
+        r.continuous      = true;
+        r.interimResults  = true;
+        r.lang            = 'en-US';
+        r.maxAlternatives = 1;
 
-        if (finalText.trim()) {
-            // 3. SEND TO SLOTS
-            if (typeof processSlots === 'function') processSlots(finalText.trim());
-        }
-    };
+        r.onstart = function () {
+            setStatus('STT: LIVE \u25B6', true);
+            if (typeof ghostLog === 'function') ghostLog('GHOST> STT listening\u2026', 'ok');
+        };
 
-    r.onend = function () {
-        // Auto-restart if we are still "ON AIR"
-        if (typeof onAir !== 'undefined' && onAir) {
-            setTimeout(function() {
-                try { r.start(); } catch(ex) {}
-            }, 300);
-        } else {
-            setStatus('STT: STANDBY');
-        }
-    };
+        r.onresult = function (e) {
+            var interim = '';
+            var finalText = '';
+            for (var i = e.resultIndex; i < e.results.length; i++) {
+                var transcript = e.results[i][0].transcript.trim().toUpperCase();
+                if (e.results[i].isFinal) { finalText += transcript + ' '; }
+                else                       { interim   += transcript;       }
+            }
+            // HUD always shows English live text
+            var display = (finalText || interim).trim();
+            if (hudEN) hudEN.textContent = display;
 
-    return r;
-}// Add this listener to make the dropdown actually DO something instantly
-document.getElementById('vngrd-lang-select').addEventListener('change', function() {
-    if (typeof onAir !== 'undefined' && onAir) {
-        ghostLog("RESTARTING_MIC_FOR_LANG_CHANGE...", "sys");
-        stopTranscriptor(); // This should be your existing stop function
-        startTranscriptor(); // This should be your existing start function
+            if (finalText.trim()) {
+                lastFinal = finalText.trim();
+                processSlots(lastFinal);
+            } else if (interim) {
+                processInterim(interim);
+            }
+        };
+
+        r.onerror = function (e) {
+            if (e.error === 'no-speech') return;
+            if (e.error === 'aborted') return;
+            setStatus('STT_ERR: ' + e.error.toUpperCase());
+            if (typeof ghostLog === 'function') ghostLog('STT ERR: ' + e.error, 'crit');
+        };
+
+        r.onend = function () {
+            // Auto-restart while on-air (handles browser silence timeout)
+            if (onAir) {
+                setTimeout(function() {
+                    if (onAir) { try { r.start(); } catch(ex) {} }
+                }, 250);
+            } else {
+                setStatus('STT: STANDBY');
+            }
+        };
+
+        return r;
     }
-});
-        // HUD shows the live text
-        var display = (finalText || interim).trim();
-        if (hudEN) hudEN.textContent = display;
 
-        if (finalText.trim()) {
-            lastFinal = finalText.trim();
-            processSlots(lastFinal);
-        } else if (interim) {
-            processInterim(interim);
-        }
-    };
-
-    r.onerror = function (e) {
-        if (e.error === 'no-speech') return;
-        if (e.error === 'aborted') return;
-        setStatus('STT_ERR: ' + e.error.toUpperCase());
-        if (typeof ghostLog === 'function') ghostLog('STT ERR: ' + e.error, 'crit');
-    };
-
-    r.onend = function () {
-        // Auto-restart while on-air (handles browser silence timeout)
-        if (onAir) {
-            setTimeout(function() {
-                if (onAir) { try { r.start(); } catch(ex) {} }
-            }, 250);
-        } else {
-            setStatus('STT: STANDBY');
-        }
-    };
-
-    return r;
-}
     /* ── ON-AIR toggle ────────────────────────────────────────────────── */
     if (btnOnAir) {
         btnOnAir.addEventListener('click', function () {
