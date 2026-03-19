@@ -4759,40 +4759,14 @@ function _decodeGIF(buf) {
 let _lastFrameTime = 0;
 function renderLoop(timestamp) {
     APP.render.rafId = requestAnimationFrame(renderLoop);
-
-    // ── 60 FPS TARGET ──
+    // ── 60 FPS TARGET: skip only if <16ms since last frame ──
     if (timestamp - _lastFrameTime < 16) return;
     _lastFrameTime = timestamp;
-
-    // ── FPS COUNTER ──
     APP.render.frameCount++;
-    if (timestamp - APP.render.lastFpsUpdate >= 1000) {
-        APP.render.fps = APP.render.frameCount;
-        APP.render.frameCount = 0;
-        APP.render.lastFpsUpdate = timestamp;
-        var fpsDisplay = document.getElementById('fps-val');
-        if (fpsDisplay) fpsDisplay.textContent = APP.render.fps;
-    }
-
-    const ctx = APP.render.ctx;
-    const w = APP.render.width;
-    const h = APP.render.height;
-
-    if (ctx) {
-        ctx.imageSmoothingEnabled = false;
-
-        // ── TIKTOK FX WRAPPER ──
-        // This wraps the actual rendering call in a zoom/glitch lens
-        if (window.FX) {
-            window.FX.apply(ctx, w, h, function() {
-                if (APP.render.render) APP.render.render();
-            });
-        } else {
-            // Fallback if FX isn't loaded yet
-            if (APP.render.render) APP.render.render();
-        }
-    }
-};
+    if (timestamp - APP.render.lastFpsUpdate >= 1000) { APP.render.fps = APP.render.frameCount; APP.render.frameCount = 0; APP.render.lastFpsUpdate = timestamp; $('fps-val').textContent = APP.render.fps; }
+    
+    const ctx = APP.render.ctx; const w = APP.render.width; const h = APP.render.height;
+    ctx.imageSmoothingEnabled = false;
     
     // --- SEISMIC ENGINE (Random shake on bass - OFF by default) ---
     // _fxActive gates expensive ops (RGB shift) — seismic runs independently
@@ -11526,27 +11500,7 @@ var isVideo = nft.forceVideo || (imageUrl.toLowerCase().match(/\.(mp4|webm|mov|o
 
 }); // THIS IS THE END of the startup block. Do not put code after this line.
 // --- TACTICAL FX ELITE BRIDGE ---
-window.FX = {
-    timer: 0, duration: 15, type: 'zoom',
-    trigger: function(t, d) { this.type = t || 'zoom'; this.duration = d || 15; this.timer = this.duration; },
-    update: function() { if (this.timer > 0) this.timer--; },
-    apply: function(ctx, w, h, drawFunc) {
-        this.update();
-        if (this.timer <= 0) { drawFunc(); return; }
-        let p = 1 - (this.timer / this.duration);
-        ctx.save();
-        if (this.type === 'zoom') {
-            let s = 1 + (p * 0.15);
-            ctx.translate(w/2, h/2); ctx.scale(s, s); ctx.translate(-w/2, -h/2);
-            if (p < 0.3) ctx.filter = `brightness(${1+(0.3-p)*2})`;
-        } else if (this.type === 'glitch') {
-            ctx.translate(Math.sin(p*20)*15, 0);
-            if (Math.random()>0.8) ctx.filter = 'hue-rotate(90deg) invert(100%)';
-        }
-        drawFunc();
-        ctx.restore();
-    }
-};</script>
+</script>
 <script type="module">
 // --- AUDIO ROTATION SYSTEM ---
 const V_PLAYLIST = {
@@ -12843,12 +12797,5 @@ if (btn3dX) {
 
 }());
 </script>
-<div id="vfx-bar" style="position:fixed; bottom:100px; left:50%; transform:translateX(-50%); display:flex; gap:10px; z-index:10000;">
-    <button onclick="window.FX.trigger('zoom', 12)" style="background:#000; color:#0f0; border:1px solid #0f0; padding:10px; font-family:monospace; cursor:pointer;">[ ZOOM_HIT ]</button>
-    <button onclick="window.FX.trigger('glitch', 10)" style="background:#000; color:#0f0; border:1px solid #0f0; padding:10px; font-family:monospace; cursor:pointer;">[ GLITCH_CUT ]</button>
-</div>
-
-<style>
-    #vfx-bar button:active { background: #0f0; color: #000; }
-</style></body>
+</body>
 </html>
