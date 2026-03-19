@@ -12918,161 +12918,184 @@ function playIDMDrone() {
 // ─── IDMPhysics ───────────────────────────────────────────────────────────────
 // Matter.Engine only — no Matter.Render, no hidden canvas, no drawImage.
 // renderLoop steps the engine and calls draw(ctx,w,h) each broadcast frame.
+// Guarantee global scope — reachable from renderLoop, onclick, any context
 window.IDMPhysics = {
-    engine:  null,
-    _active: false,
-    _W: 1920,
-    _H: 1080,
-
+    _active: true,
+    engine: null,
+    
     init: function () {
-        if (this._active) return;
-        if (typeof Matter === 'undefined') {
-            console.warn('[IDM] Matter.js not available');
-            return;
-        }
-        this.engine = Matter.Engine.create({ gravity: { y: 1.6 } });
-        this._buildWorld();
-        this._wireCollisions();
-        this._active = true;
-        var el = document.getElementById('idm-status');
-        if (el) el.textContent = 'ONLINE · 0 NODES';
-    },
+        if (this.engine) return;
+        this.engine = Matter.Engine.create({ gravity: { x: 0, y: 1 } });
+        
+        // 1. The Walls (Pachinko Bounds)
+        var w = window.innerWidth, h = window.innerHeight;
+        var ground = Matter.Bodies.rectangle(w / 2, h + 25, w, 50, { isStatic: true, _idmType: 'floor' });
+        var left = Matter.Bodies.rectangle(-25, h / 2, 50, h, { isStatic: true, _idmType: 'wall' });
+        var right = Matter.Bodies.rectangle(w + 25, h / 2, 50, h, { isStatic: true, _idmType: 'wall' });
+        var ceil = Matter.Bodies.rectangle(w / 2, -50, w, 50, { isStatic: true, _idmType: 'bumper' });
+        Matter.Composite.add(this.engine.world, [ground, left, right, ceil]);
 
-    spawnBall: function () {
-        if (typeof igniteAudio === 'function') igniteAudio();
-        if (typeof ensureAudioChain === 'function') ensureAudioChain();
-        if (!this._active) this.init();
-        if (!this._active) return;
-        var x = this._W * 0.2 + Math.random() * this._W * 0.6;
-        var r = 10 + Math.random() * 22;
-        var hue = Math.floor(Math.random() * 360);
-        var ball = Matter.Bodies.circle(x, 10, r, {
-            label: 'idm-ball',
-            restitution: 0.72,
-            friction: 0.008,
-            density: 0.003
-        });
-        // Assign colour directly — Matter.Bodies silently drops unknown option keys
-        ball._idmColor = 'hsl(' + hue + ',100%,60%)';
-        Matter.Body.setVelocity(ball, {
-            x: (Math.random() - 0.5) * 10,
-            y: 3 + Math.random() * 4
-        });
-        Matter.World.add(this.engine.world, ball);
-        var n = Matter.Composite.allBodies(this.engine.world)
-                    .filter(function (b) { return b.label === 'idm-ball'; }).length;
-        var el = document.getElementById('idm-status');
-        if (el) el.textContent = 'ONLINE · ' + n + ' NODE' + (n !== 1 ? 'S' : '');
-    },
-
-    // Called by renderLoop AFTER Matter.Engine.update(), at absolute end of frame.
-    // Vertex walk: ctx.beginPath → moveTo → lineTo — zero drawImage, zero TypeError.
-    draw: function (ctx, w, h) {
-        if (!this._active || !this.engine) return;
-        var scX = w / this._W, scY = h / this._H;
-        var bodies = Matter.Composite.allBodies(this.engine.world);
-        ctx.save();
-        ctx.globalCompositeOperation = 'screen';
-        ctx.globalAlpha = 1;
-
-        for (var i = 0; i < bodies.length; i++) {
-            var b = bodies[i];
-            if (b.label !== 'idm-ball' && b.label !== 'idm-bumper') continue;
-            var verts = b.vertices;
-            if (!verts || verts.length < 2) continue;
-
-            ctx.beginPath();
-            ctx.moveTo(verts[0].x * scX, verts[0].y * scY);
-            for (var j = 1; j < verts.length; j++) {
-                ctx.lineTo(verts[j].x * scX, verts[j].y * scY);
+        // 2. The "Greedy" Audio Routers (Fixes the Mute Issue)
+        function getAudioCtx() {
+            var ctx = (window.APP && APP.audio && APP.audio.ctx) ? APP.audio.ctx : (window.audioCtx || null);
+            if (!ctx && window.AudioContext) {
+                window.audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+                ctx = window.audioCtx;
             }
-            ctx.closePath();
-
-            if (b.label === 'idm-ball') {
-                ctx.fillStyle   = b._idmColor || '#00FFCC';
-                ctx.shadowColor = '#00FFCC';
-                ctx.shadowBlur  = 18;
-                ctx.fill();
-                ctx.shadowBlur  = 0;
-                ctx.strokeStyle = '#00FFCC';
-                ctx.lineWidth   = 1.5;
-                ctx.stroke();
-            } else {
-                // bumper ring
-                ctx.strokeStyle = '#FF6600';
-                ctx.shadowColor = '#FF6600';
-                ctx.shadowBlur  = 10;
-                ctx.lineWidth   = 2;
-                ctx.stroke();
-                ctx.shadowBlur  = 0;
-            }
+            if (ctx && ctx.state === 'suspended') ctx.resume();
+            return ctx;
         }
-        ctx.restore();
-    },
+        function getAudioDest(actx) {
+            return (window.APP && APP.audio && APP.audio.masterGain) ? APP.audio.masterGain : 
+                   (window.APP && APP.masterGain ? APP.masterGain : (actx ? actx.destination : null));
+        }
 
-    _buildWorld: function () {
-        var W = this._W, H = this._H, t = 40;
-        var B = Matter.Bodies, Wo = Matter.World;
-        var wall = function (lbl) {
-            return { isStatic: true, label: lbl, restitution: 0.8, friction: 0.01 };
-        };
-        Wo.add(this.engine.world, [
-            B.rectangle(W / 2, H + t / 2,  W + t * 2, t,      wall('idm-floor')),
-            B.rectangle(-t / 2, H / 2,     t, H + t * 2,       wall('idm-wallL')),
-            B.rectangle(W + t / 2, H / 2,  t, H + t * 2,       wall('idm-wallR')),
-            B.rectangle(W / 2, -t / 2,     W + t * 2, t,       wall('idm-ceiling'))
-        ]);
-        [[W*0.2,H*0.35],[W*0.5,H*0.48],[W*0.8,H*0.35],[W*0.33,H*0.65],[W*0.67,H*0.65]]
-            .forEach(function (p) {
-                Wo.add(this.engine.world, B.circle(p[0], p[1], 26, {
-                    isStatic: true, label: 'idm-bumper',
-                    restitution: 1.3, friction: 0
-                }));
-            }, this);
-    },
+        var glitchCD = false, droneCD = false;
 
-    _wireCollisions: function () {
-        var kickCD = false, glitchCD = false, droneCD = false;
-        Matter.Events.on(this.engine, 'collisionStart', function (ev) {
-            ev.pairs.forEach(function (pair) {
+        // 3. The Heavy Synths
+        function playIDMKick() {
+            var actx = getAudioCtx(); var dest = getAudioDest(actx);
+            if (!actx || !dest) return;
+            var t = actx.currentTime;
+            var osc = actx.createOscillator();
+            var env = actx.createGain();
+            var shp = actx.createWaveShaper();
+            
+            // Extreme Overdrive Curve
+            var curve = new Float32Array(4096);
+            for (var i = 0; i < 4096; i++) {
+                var x = i * 2 / 4096 - 1;
+                curve[i] = (Math.PI + 50) * x / (Math.PI + 50 * Math.abs(x));
+            }
+            shp.curve = curve; shp.oversample = '4x';
+            
+            osc.type = 'sine';
+            osc.frequency.setValueAtTime(60, t);
+            osc.frequency.exponentialRampToValueAtTime(20, t + 0.2);
+            env.gain.setValueAtTime(1, t);
+            env.gain.exponentialRampToValueAtTime(0.01, t + 0.3);
+            
+            osc.connect(shp); shp.connect(env); env.connect(dest);
+            osc.start(t); osc.stop(t + 0.3);
+        }
+
+        function playGlitchStutter() {
+            var actx = getAudioCtx(); var dest = getAudioDest(actx);
+            if (!actx || !dest) return;
+            var count = 0;
+            var intv = setInterval(function() {
+                if (count++ > 4) { clearInterval(intv); return; }
+                var t = actx.currentTime;
+                var osc = actx.createOscillator();
+                var env = actx.createGain();
+                osc.type = 'square';
+                osc.frequency.setValueAtTime(Math.random() * 400 + 100, t);
+                env.gain.setValueAtTime(0.5, t);
+                env.gain.exponentialRampToValueAtTime(0.01, t + 0.05);
+                osc.connect(env); env.connect(dest);
+                osc.start(t); osc.stop(t + 0.05);
+            }, 20);
+        }
+
+        function playIDMDrone() {
+            var actx = getAudioCtx(); var dest = getAudioDest(actx);
+            if (!actx || !dest) return;
+            var t = actx.currentTime;
+            var osc = actx.createOscillator();
+            var env = actx.createGain();
+            osc.type = 'triangle';
+            osc.frequency.setValueAtTime(40, t);
+            env.gain.setValueAtTime(0, t);
+            env.gain.linearRampToValueAtTime(0.3, t + 0.5);
+            env.gain.linearRampToValueAtTime(0, t + 2.0);
+            osc.connect(env); env.connect(dest);
+            osc.start(t); osc.stop(t + 2.0);
+        }
+
+        // 4. The Collision Math
+        Matter.Events.on(this.engine, 'collisionStart', function(event) {
+            event.pairs.forEach(function(pair) {
                 var a = pair.bodyA, b = pair.bodyB;
-                var is  = function (bd, l) { return bd.label === l; };
-                var ball   = function (bd) { return is(bd, 'idm-ball'); };
-                var floor  = function (bd) { return is(bd, 'idm-floor'); };
-                var wall   = function (bd) { return is(bd,'idm-wallL') || is(bd,'idm-wallR'); };
-                var bumper = function (bd) { return is(bd, 'idm-bumper'); };
+                var isFloor = (a._idmType === 'floor' || b._idmType === 'floor');
+                var isWall = (a._idmType === 'wall' || b._idmType === 'wall');
+                var isBumper = (a._idmType === 'bumper' || b._idmType === 'bumper');
+                var hasBall = (!a.isStatic || !b.isStatic);
 
-                if (!kickCD && (floor(a)||floor(b)) && (ball(a)||ball(b))) {
-                    kickCD = true;
-                    setTimeout(function () { kickCD = false; }, 80);
+                if (isFloor && hasBall) {
                     playIDMKick();
                     if (window.APP && APP.vj) {
-                        APP.vj._punchVel   = (APP.vj._punchVel   || 0) + 0.7;
+                        APP.vj._punchVel = (APP.vj._punchVel || 0) + 0.7;
                         APP.vj._seismicVel = Math.min(1, (APP.vj._seismicVel || 0) + 0.5);
                     }
-                    if (typeof triggerImpact === 'function') triggerImpact();
                 }
-
-                if (!glitchCD && (wall(a)||wall(b)) && (ball(a)||ball(b))) {
-                    glitchCD = true;
-                    setTimeout(function () { glitchCD = false; }, 60);
+                if (isWall && hasBall && !glitchCD) {
+                    glitchCD = true; setTimeout(function() { glitchCD = false; }, 60);
                     playGlitchStutter();
-                    if (typeof triggerChromaticAberration === 'function') triggerChromaticAberration();
-                    if (window.APP && APP.vj) {
-                        var oE = APP.vj.rgbEnabled, oI = APP.vj.rgbIntensity;
-                        APP.vj.rgbEnabled = true; APP.vj.rgbIntensity = 20;
-                        setTimeout(function () {
-                            APP.vj.rgbEnabled = oE; APP.vj.rgbIntensity = oI;
-                        }, 200);
-                    }
                 }
-
-                if (!droneCD && (bumper(a)||bumper(b)) && (ball(a)||ball(b))) {
-                    droneCD = true;
-                    setTimeout(function () { droneCD = false; }, 1500);
+                if (isBumper && hasBall && !droneCD) {
+                    droneCD = true; setTimeout(function() { droneCD = false; }, 1500);
                     playIDMDrone();
                 }
             });
+        });
+    },
+    
+    // 5. The Spawner & Audio Igniter
+    spawnBall: function () {
+        this.init();
+        
+        // Force Audio Awake on Click
+        if (typeof igniteAudio === 'function') igniteAudio();
+        var actx = (window.APP && APP.audio && APP.audio.ctx) ? APP.audio.ctx : (window.audioCtx || null);
+        if (!actx && window.AudioContext) {
+            window.audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+            actx = window.audioCtx;
+        }
+        if (actx && actx.state === 'suspended') actx.resume();
+
+        var w = window.innerWidth, h = window.innerHeight;
+        var rad = Math.random() * 15 + 10;
+        var ball = Matter.Bodies.circle(w / 2 + (Math.random() * 100 - 50), 50, rad, {
+            restitution: 0.9,
+            friction: 0.005,
+            density: 0.04
+        });
+        ball._idmColor = "#00FFCC";
+        ball.life = 600; // Lives for 600 frames (approx 10 seconds)
+        Matter.Composite.add(this.engine.world, ball);
+    },
+    
+    // 6. The Canvas Cleanup & Geometry Drawer (Zero drawImage errors)
+    draw: function (ctx, w, h) {
+        if (!this.engine) return;
+        var bodies = Matter.Composite.allBodies(this.engine.world);
+        
+        bodies.forEach(function (body) {
+            if (body.isStatic) return;
+
+            // Age the ball and kill it when time is up
+            body.life = (body.life === undefined) ? 600 : body.life - 1;
+            if (body.life <= 0) {
+                Matter.Composite.remove(window.IDMPhysics.engine.world, body);
+                return;
+            }
+
+            // Draw the heavy geometry directly
+            ctx.save();
+            ctx.globalAlpha = body.life < 100 ? body.life / 100 : 1; // Fades out before dying
+            ctx.beginPath();
+            var verts = body.vertices;
+            ctx.moveTo(verts.x, verts.y);
+            for (var j = 1; j < verts.length; j++) {
+                ctx.lineTo(verts[j].x, verts[j].y);
+            }
+            ctx.closePath();
+            ctx.fillStyle = body._idmColor || "#00FFCC";
+            ctx.fill();
+            ctx.strokeStyle = "#FFFFFF";
+            ctx.lineWidth = 2;
+            ctx.stroke();
+            ctx.restore();
         });
     }
 };
