@@ -12939,6 +12939,12 @@ window.IDMPhysics = {
     },
 
     spawnBall: function () {
+        // Force the audio context to wake up on user click
+if (window.APP && APP.audio && APP.audio.ctx) {
+    if (APP.audio.ctx.state === 'suspended') APP.audio.ctx.resume();
+}
+// Ensure the internal audio chain is ignited
+if (typeof igniteAudio === 'function') igniteAudio();
         if (typeof igniteAudio === 'function') igniteAudio();
         if (typeof ensureAudioChain === 'function') ensureAudioChain();
         if (!this._active) this.init();
