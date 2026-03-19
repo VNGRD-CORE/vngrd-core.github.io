@@ -12650,13 +12650,13 @@ if (btn3dX) {
     r.interimResults  = true;
     r.maxAlternatives = 1;
 
-    // Pull the active language from the new dropdown
+    // 1. DYNAMIC LANGUAGE PICKER
     var langElem = document.getElementById('vngrd-lang-select');
     r.lang = (langElem && langElem.value) ? langElem.value : 'en-US';
 
     r.onstart = function () {
         setStatus('STT: LIVE \u25B6', true);
-        if (typeof ghostLog === 'function') ghostLog('GHOST> STT listening (' + r.lang + ')\u2026', 'ok');
+        if (typeof ghostLog === 'function') ghostLog('MIC_OPEN: ' + r.lang, 'ok');
     };
 
     r.onresult = function (e) {
@@ -12669,28 +12669,38 @@ if (btn3dX) {
         }
         
         var display = (finalText || interim).trim();
-        if (hudEN) hudEN.textContent = display;
+        
+        // 2. SAFE HUD UPDATE (Checks if hudEN exists first)
+        if (typeof hudEN !== 'undefined' && hudEN) {
+            hudEN.textContent = display;
+        }
 
         if (finalText.trim()) {
-            lastFinal = finalText.trim();
-            processSlots(lastFinal); // Translates based on your slot settings
-        } else if (interim) {
-            processInterim(interim);
+            // 3. SEND TO SLOTS
+            if (typeof processSlots === 'function') processSlots(finalText.trim());
         }
     };
 
     r.onend = function () {
-        if (onAir) {
+        // Auto-restart if we are still "ON AIR"
+        if (typeof onAir !== 'undefined' && onAir) {
             setTimeout(function() {
-                if (onAir) { try { r.start(); } catch(ex) {} }
-            }, 250);
+                try { r.start(); } catch(ex) {}
+            }, 300);
         } else {
             setStatus('STT: STANDBY');
         }
     };
 
     return r;
-}
+}// Add this listener to make the dropdown actually DO something instantly
+document.getElementById('vngrd-lang-select').addEventListener('change', function() {
+    if (typeof onAir !== 'undefined' && onAir) {
+        ghostLog("RESTARTING_MIC_FOR_LANG_CHANGE...", "sys");
+        stopTranscriptor(); // This should be your existing stop function
+        startTranscriptor(); // This should be your existing start function
+    }
+});
         // HUD shows the live text
         var display = (finalText || interim).trim();
         if (hudEN) hudEN.textContent = display;
