@@ -11,12 +11,11 @@
     <link rel="manifest" href="manifest.json">
 
    <title>DRIS//CORE VNGRD</title>
-<script>if('serviceWorker' in navigator){navigator.serviceWorker.register('sw.js').catch(function(){});}
-<script src="https://unpkg.com/peerjs@1.5.2/dist/peerjs.min.js">
-<script src="https://cdnjs.cloudflare.com/ajax/libs/matter-js/0.19.0/matter.min.js">
-<script src="https://cdnjs.cloudflare.com/ajax/libs/ethers/5.7.2/ethers.umd.min.js">
+<script>if('serviceWorker' in navigator){navigator.serviceWorker.register('sw.js').catch(function(){});}</script>
+<script src="https://unpkg.com/peerjs@1.5.2/dist/peerjs.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/ethers/5.7.2/ethers.umd.min.js"></script>
 <!-- Puter.js removed — cloud session now uses localStorage; AI uses Pollinations (free) -->
-<script src="src/Compositor.js">
+<script src="src/Compositor.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
 <script type="importmap">{"imports":{"three":"https://unpkg.com/three@0.160.0/build/three.module.js","three/addons/":"https://unpkg.com/three@0.160.0/examples/jsm/"}}</script>
     <style>
@@ -2894,12 +2893,6 @@ body.fullscreen #transcription-hud { opacity: 0 !important; pointer-events: none
                     <button class="btn" id="btn-punch" style="font-size:8px;" title="Click: arm PUNCH&#10;Double-click: toggle canvas-only vs console flash">PUNCH</button>
                 </div>
                 <div class="sec-divider"></div>
-                <div id="idm-collision-core-panel" style="border:1px solid rgba(0,243,255,0.25);padding:6px 5px 5px;margin-top:2px;background:rgba(0,243,255,0.03);">
-                    <div class="lbl" style="font-size:6px;opacity:0.55;letter-spacing:3px;margin-bottom:4px;color:var(--accent);">[ IDM_COLLISION_CORE ]</div>
-                    <button class="btn cyber-btn" id="btn-spawn-idm" style="width:100%;font-size:8px;letter-spacing:1.5px;" title="Drop a physics glitch node into the collision engine" onclick="window.IDMPhysics && window.IDMPhysics.spawnBall()">SPAWN GLITCH NODE</button>
-                    <div id="idm-status" style="font-size:6px;opacity:0.4;letter-spacing:1px;margin-top:4px;text-align:center;">OFFLINE — ARM TO INIT</div>
-                </div>
-                <div class="sec-divider"></div>
                 <div id="sfx-sampler-wrap">
                     <div id="sfx-sampler-header" onclick="_toggleSamplerBody()" style="cursor:pointer;">
                         <span class="sampler-title">Sampler SFX</span>
@@ -5610,16 +5603,6 @@ if (T.logo.visible) {
             ctx.restore();
         }
     }
-
-    // ─── IDM COLLISION CORE — engine tick + draw (absolute end of broadcast frame) ─
-    // Engine.update() drives physics from within the broadcast RAF so simulation
-    // and rendering are always in sync. draw() paints on top of every other layer.
-    try {
-        if (window.IDMPhysics && window.IDMPhysics._active && window.IDMPhysics.engine) {
-            Matter.Engine.update(window.IDMPhysics.engine, 16.666);
-            window.IDMPhysics.draw(ctx, w, h);
-        }
-    } catch (_idmE) { console.error('IDM_ERR:', _idmE); }
 }
 
 function triggerImpact() { document.body.classList.remove('impact-flash'); void document.body.offsetWidth; document.body.classList.add('impact-flash'); setTimeout(() => document.body.classList.remove('impact-flash'), 200); }
@@ -11517,21 +11500,7 @@ var isVideo = nft.forceVideo || (imageUrl.toLowerCase().match(/\.(mp4|webm|mov|o
 
 }); // THIS IS THE END of the startup block. Do not put code after this line.
 // --- TACTICAL FX ELITE BRIDGE ---
-// --- INTERACTION BRIDGE ---
-document.addEventListener('mousedown', function(e) {
-    // Only spawn if clicking on the main stage/canvas area
-    if (e.target.id === 'stage' || e.target.tagName === 'CANVAS') {
-        if (window.IDMPhysics && window.IDMPhysics.spawnBall) {
-            window.IDMPhysics.spawnBall(e.clientX, e.clientY);
-        }
-    }
-});
-
-// Create a global mouse tracker for the flipper
-window.addEventListener('mousemove', function(e) {
-    window.mouseX = e.clientX;
-    window.mouseY = e.clientY;
-});</script>
+</script>
 <script type="module">
 // --- AUDIO ROTATION SYSTEM ---
 const V_PLAYLIST = {
@@ -11735,7 +11704,7 @@ window.triggerHardReset = function() {
     setTimeout(() => target.classList.remove('anim-hard-reset'), 600);
 
     if (typeof ghostLog === 'function') ghostLog('SYSTEM_HARD_RESET_EXECUTED', 'crit');
-};
+};</script>
 <script>
 // --- BASS REACTIVE VJ ENGINE ---
 window.initAudioReactor = function() {
@@ -11765,18 +11734,7 @@ window.initAudioReactor = function() {
 
     function renderLoop() {
         if (!window.audioReactorActive) return;
-        // --- SURGICAL IDM INJECTION ---
-if (window.IDMPhysics && window.IDMPhysics.engine) {
-    // 1. Update the physics math
-    Matter.Engine.update(window.IDMPhysics.engine, 1000 / 60);
-    
-    // 2. Draw the balls/bumpers on top of everything
-    // Use the main app canvas 'ctx'
-    if (typeof window.IDMPhysics.draw === 'function') {
-        window.IDMPhysics.draw(ctx, canvas.width, canvas.height);
-    }
-}
-// ------------------------------requestAnimationFrame(renderLoop);
+        requestAnimationFrame(renderLoop);
 
         analyzer.getByteFrequencyData(dataArray);
 
@@ -11810,7 +11768,7 @@ if (window.IDMPhysics && window.IDMPhysics.engine) {
 
 // Auto-init the bass reactor engine when audio is ready
 setTimeout(() => { if (!window.audioReactorActive) window.initAudioReactor(); }, 3000);
-
+</script>
 
 <!-- 3D LOGO: offscreen WebGL canvas for Three.js rendering -->
 <canvas id="three-canvas" width="512" height="512" style="position:fixed;left:-9999px;top:-9999px;width:512px;height:512px;pointer-events:none;z-index:-1;"></canvas>
@@ -12182,7 +12140,7 @@ if (btn3dX) {
         };
     }
 
-})();
+})();</script>
 
     <!-- gif-host: DIRECT child of <body>, NOT inside #stage.
          #stage has transform:translate3d(0,0,0) which creates a containing block for
@@ -12838,232 +12796,6 @@ if (btn3dX) {
     setStatus('STT: STANDBY');
 
 }());
-
-
-<!-- ═══════════════════════════════════════════════════════════════════════
-     IDM COLLISION CORE — Generative Physics + Audio Sequencer
-     Interlocking layer only — no existing code modified.
-     Audio → APP.audio.masterGain (MediaRecorder + Compositor + WebRTC)
-     Video → renderLoop calls IDMPhysics.draw(ctx,w,h) each frame (no drawImage)
-     ═══════════════════════════════════════════════════════════════════════ -->
-<script>
-(function () {
-'use strict';
-
-// ─── Audio helpers ────────────────────────────────────────────────────────────
-function _idmDest() {
-    // Works whether project uses APP.audio.masterGain or APP.masterGain
-    return (window.APP && APP.audio && APP.audio.masterGain)
-        ? APP.audio.masterGain
-        : (window.APP && APP.masterGain ? APP.masterGain : null);
-}
-function _idmCtx() {
-    return (window.APP && APP.audio && APP.audio.ctx) ? APP.audio.ctx : null;
-}
-function _idmCurve(amount) {
-    var n = 256, c = new Float32Array(n);
-    for (var i = 0; i < n; i++) {
-        var x = (i * 2) / n - 1;
-        c[i] = ((Math.PI + amount) * x) / (Math.PI + amount * Math.abs(x));
-    }
-    return c;
-}
-
-// ─── playIDMKick ──────────────────────────────────────────────────────────────
-// 60 Hz sine, fast pitch drop, WaveShaperNode hard clip.
-// Blown-out floor thump → APP.audio.masterGain → recorder + stream.
-function playIDMKick() {
-    var actx = _idmCtx(), dest = _idmDest();
-    if (!actx || !dest) return;
-    var t = actx.currentTime;
-    var osc = actx.createOscillator();
-    osc.type = 'sine';
-    osc.frequency.setValueAtTime(60, t);
-    osc.frequency.exponentialRampToValueAtTime(20, t + 0.3);
-    var shaper = actx.createWaveShaper();
-    shaper.curve = _idmCurve(500);
-    shaper.oversample = '4x';
-    var env = actx.createGain();
-    env.gain.setValueAtTime(1.0, t);
-    env.gain.exponentialRampToValueAtTime(0.001, t + 0.4);
-    osc.connect(shaper); shaper.connect(env); env.connect(dest);
-    osc.start(t); osc.stop(t + 0.45);
-}
-
-// ─── playGlitchStutter ────────────────────────────────────────────────────────
-// setInterval fires 4–6 FM micro-bursts across 100 ms.
-// square modulator → sine carrier → APP.audio.masterGain.
-function playGlitchStutter() {
-    var actx = _idmCtx(), dest = _idmDest();
-    if (!actx || !dest) return;
-    var count = 4 + Math.floor(Math.random() * 3);
-    var fired = 0;
-    var ivl = setInterval(function () {
-        if (fired >= count) { clearInterval(ivl); return; }
-        fired++;
-        var t = actx.currentTime;
-        var mod = actx.createOscillator();
-        mod.type = 'square';
-        mod.frequency.setValueAtTime(80 + Math.random() * 340, t);
-        var modG = actx.createGain();
-        modG.gain.setValueAtTime(250 + Math.random() * 400, t);
-        var car = actx.createOscillator();
-        car.type = 'sine';
-        car.frequency.setValueAtTime(40 + Math.random() * 180, t);
-        var env = actx.createGain();
-        env.gain.setValueAtTime(0.6, t);
-        env.gain.exponentialRampToValueAtTime(0.0001, t + 0.022);
-        mod.connect(modG); modG.connect(car.frequency);
-        car.connect(env); env.connect(dest);
-        mod.start(t); mod.stop(t + 0.025);
-        car.start(t); car.stop(t + 0.025);
-    }, Math.floor(100 / count));
-}
-
-// ─── playIDMDrone ─────────────────────────────────────────────────────────────
-// Bumper hit: low triangle wave, slow attack, 3 s fade.
-function playIDMDrone() {
-    var actx = _idmCtx(), dest = _idmDest();
-    if (!actx || !dest) return;
-    var t = actx.currentTime;
-    var osc = actx.createOscillator();
-    osc.type = 'triangle';
-    osc.frequency.setValueAtTime(42 + Math.random() * 36, t);
-    var filt = actx.createBiquadFilter();
-    filt.type = 'lowpass'; filt.frequency.value = 600; filt.Q.value = 3;
-    var env = actx.createGain();
-    env.gain.setValueAtTime(0, t);
-    env.gain.linearRampToValueAtTime(0.25, t + 1.0);
-    env.gain.setValueAtTime(0.25, t + 2.0);
-    env.gain.linearRampToValueAtTime(0.0001, t + 3.2);
-    osc.connect(filt); filt.connect(env); env.connect(dest);
-    osc.start(t); osc.stop(t + 3.4);
-}
-
-// ─── IDMPhysics ───────────────────────────────────────────────────────────────
-// Matter.Engine only — no Matter.Render, no hidden canvas, no drawImage.
-// renderLoop steps the engine and calls draw(ctx,w,h) each broadcast frame.
-// Guarantee global scope — reachable from renderLoop, onclick, any context
-window.IDMPhysics = {
-    _active: true,
-    engine: null,
-    scale:, // C Minor Pentatonic MIDI notes
-    
-    init: function () {
-        if (this.engine) return;
-        this.engine = Matter.Engine.create({ gravity: { x: 0, y: 1.2 } });
-        
-        var w = window.innerWidth, h = window.innerHeight;
-        
-        // 1. THE FLIpper (Follows Mouse)
-        this.paddle = Matter.Bodies.rectangle(w/2, h-100, 150, 20, { 
-            isStatic: true, label: 'idm-paddle', chamfer: { radius: 10 } 
-        });
-
-        // 2. The World
-        var ground = Matter.Bodies.rectangle(w/2, h+25, w, 50, { isStatic: true, label: 'idm-floor' });
-        var left = Matter.Bodies.rectangle(-25, h/2, 50, h, { isStatic: true, label: 'idm-wall' });
-        var right = Matter.Bodies.rectangle(w+25, h/2, 50, h, { isStatic: true, label: 'idm-wall' });
-        
-        Matter.Composite.add(this.engine.world, [this.paddle, ground, left, right]);
-
-        // 3. Melodic Bumpers (The Pachinko Pegs)
-        var rows = 4, cols = 6;
-        for(var r=0; r<rows; r++) {
-            for(var c=0; c<cols; c++) {
-                var px = (w / (cols + 1)) * (c + 1) + (r % 2 ? 30 : -30);
-                var py = 200 + (r * 120);
-                var peg = Matter.Bodies.circle(px, py, 15, { isStatic: true, label: 'idm-peg' });
-                peg._note = this.scale[(r + c) % this.scale.length];
-                Matter.Composite.add(this.engine.world, peg);
-            }
-        }
-
-        this._wireCollisions();
-    },
-
-    _wireCollisions: function() {
-        var self = this;
-        Matter.Events.on(this.engine, 'collisionStart', function(event) {
-            event.pairs.forEach(function(pair) {
-                var a = pair.bodyA, b = pair.bodyB;
-                var target = a.isStatic ? a : b;
-
-                if (target.label === 'idm-peg') {
-                    self.playSynthNote(target._note, 'triangle', 0.2);
-                    target.render.fillStyle = "#FFFFFF"; // Flash on hit
-                } else if (target.label === 'idm-floor') {
-                    self.playSynthNote(36, 'sine', 0.5); // Deep Bass Kick
-                } else if (target.label === 'idm-paddle') {
-                    self.playSynthNote(72, 'sawtooth', 0.1); // Sharp "Ping"
-                }
-            });
-        });
-    },
-
-    // Musical Synth Engine
-    playSynthNote: function(midi, type, decay) {
-        var actx = (window.APP && APP.audio && APP.audio.ctx) ? APP.audio.ctx : window.audioCtx;
-        var dest = (window.APP && APP.audio && APP.audio.masterGain) ? APP.audio.masterGain : actx.destination;
-        if (!actx) return;
-
-        var freq = 440 * Math.pow(2, (midi - 69) / 12);
-        var t = actx.currentTime;
-        var osc = actx.createOscillator();
-        var env = actx.createGain();
-
-        osc.type = type;
-        osc.frequency.setValueAtTime(freq, t);
-        
-        env.gain.setValueAtTime(0.3, t);
-        env.gain.exponentialRampToValueAtTime(0.001, t + decay);
-
-        osc.connect(env);
-        env.connect(dest);
-        osc.start(t);
-        osc.stop(t + decay);
-    },
-
-    spawnBall: function () {
-        this.init();
-        var ball = Matter.Bodies.circle(window.innerWidth/2, 50, 12, {
-            restitution: 0.8, friction: 0.001, label: 'idm-ball'
-        });
-        ball.life = 800;
-        Matter.Composite.add(this.engine.world, ball);
-    },
-
-   draw: function (ctx, w, h) {
-    if (!this.engine || !this.paddle) return;
-
-    // MOVE FLIPPER TO MOUSE
-    if (window.mouseX) {
-        Matter.Body.setPosition(this.paddle, { 
-            x: window.mouseX - (window.innerWidth - w)/2, 
-            y: h - 60 
-        });
-    }
-    
-    // ... rest of your drawing code ...
-        var bodies = Matter.Composite.allBodies(this.engine.world);
-        bodies.forEach(function (body) {
-            if (body.label === 'idm-ball') {
-                body.life--;
-                if (body.life <= 0) Matter.Composite.remove(window.IDMPhysics.engine.world, body);
-            }
-            
-            ctx.beginPath();
-            body.vertices.forEach(function(v, i) {
-                if(i===0) ctx.moveTo(v.x, v.y); else ctx.lineTo(v.x, v.y);
-            });
-            ctx.closePath();
-            ctx.fillStyle = body.isStatic ? (body.label === 'idm-peg' ? "#444" : "#222") : "#00FFCC";
-            ctx.fill();
-            ctx.strokeStyle = "#fff";
-            ctx.stroke();
-        });
-    }
-}; // end IIFE
-
+</script>
 </body>
 </html>
