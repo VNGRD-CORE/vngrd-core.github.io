@@ -12922,188 +12922,119 @@ function playIDMDrone() {
 window.IDMPhysics = {
     _active: true,
     engine: null,
+    scale:, // C Minor Pentatonic MIDI notes
     
     init: function () {
         if (this.engine) return;
-        this.engine = Matter.Engine.create({ gravity: { x: 0, y: 1 } });
+        this.engine = Matter.Engine.create({ gravity: { x: 0, y: 1.2 } });
         
-        // 1. The Walls (Pachinko Bounds)
         var w = window.innerWidth, h = window.innerHeight;
-        var ground = Matter.Bodies.rectangle(w / 2, h + 25, w, 50, { isStatic: true, _idmType: 'floor' });
-        var left = Matter.Bodies.rectangle(-25, h / 2, 50, h, { isStatic: true, _idmType: 'wall' });
-        var right = Matter.Bodies.rectangle(w + 25, h / 2, 50, h, { isStatic: true, _idmType: 'wall' });
-        var ceil = Matter.Bodies.rectangle(w / 2, -50, w, 50, { isStatic: true, _idmType: 'bumper' });
-        Matter.Composite.add(this.engine.world, [ground, left, right, ceil]);
+        
+        // 1. THE FLIpper (Follows Mouse)
+        this.paddle = Matter.Bodies.rectangle(w/2, h-100, 150, 20, { 
+            isStatic: true, label: 'idm-paddle', chamfer: { radius: 10 } 
+        });
 
-        // 2. The "Greedy" Audio Routers (Fixes the Mute Issue)
-        function getAudioCtx() {
-            var ctx = (window.APP && APP.audio && APP.audio.ctx) ? APP.audio.ctx : (window.audioCtx || null);
-            if (!ctx && window.AudioContext) {
-                window.audioCtx = new (window.AudioContext || window.webkitAudioContext)();
-                ctx = window.audioCtx;
+        // 2. The World
+        var ground = Matter.Bodies.rectangle(w/2, h+25, w, 50, { isStatic: true, label: 'idm-floor' });
+        var left = Matter.Bodies.rectangle(-25, h/2, 50, h, { isStatic: true, label: 'idm-wall' });
+        var right = Matter.Bodies.rectangle(w+25, h/2, 50, h, { isStatic: true, label: 'idm-wall' });
+        
+        Matter.Composite.add(this.engine.world, [this.paddle, ground, left, right]);
+
+        // 3. Melodic Bumpers (The Pachinko Pegs)
+        var rows = 4, cols = 6;
+        for(var r=0; r<rows; r++) {
+            for(var c=0; c<cols; c++) {
+                var px = (w / (cols + 1)) * (c + 1) + (r % 2 ? 30 : -30);
+                var py = 200 + (r * 120);
+                var peg = Matter.Bodies.circle(px, py, 15, { isStatic: true, label: 'idm-peg' });
+                peg._note = this.scale[(r + c) % this.scale.length];
+                Matter.Composite.add(this.engine.world, peg);
             }
-            if (ctx && ctx.state === 'suspended') ctx.resume();
-            return ctx;
-        }
-        function getAudioDest(actx) {
-            return (window.APP && APP.audio && APP.audio.masterGain) ? APP.audio.masterGain : 
-                   (window.APP && APP.masterGain ? APP.masterGain : (actx ? actx.destination : null));
         }
 
-        var glitchCD = false, droneCD = false;
+        this._wireCollisions();
+    },
 
-        // 3. The Heavy Synths
-        function playIDMKick() {
-            var actx = getAudioCtx(); var dest = getAudioDest(actx);
-            if (!actx || !dest) return;
-            var t = actx.currentTime;
-            var osc = actx.createOscillator();
-            var env = actx.createGain();
-            var shp = actx.createWaveShaper();
-            
-            // Extreme Overdrive Curve
-            var curve = new Float32Array(4096);
-            for (var i = 0; i < 4096; i++) {
-                var x = i * 2 / 4096 - 1;
-                curve[i] = (Math.PI + 50) * x / (Math.PI + 50 * Math.abs(x));
-            }
-            shp.curve = curve; shp.oversample = '4x';
-            
-            osc.type = 'sine';
-            osc.frequency.setValueAtTime(60, t);
-            osc.frequency.exponentialRampToValueAtTime(20, t + 0.2);
-            env.gain.setValueAtTime(1, t);
-            env.gain.exponentialRampToValueAtTime(0.01, t + 0.3);
-            
-            osc.connect(shp); shp.connect(env); env.connect(dest);
-            osc.start(t); osc.stop(t + 0.3);
-        }
-
-        function playGlitchStutter() {
-            var actx = getAudioCtx(); var dest = getAudioDest(actx);
-            if (!actx || !dest) return;
-            var count = 0;
-            var intv = setInterval(function() {
-                if (count++ > 4) { clearInterval(intv); return; }
-                var t = actx.currentTime;
-                var osc = actx.createOscillator();
-                var env = actx.createGain();
-                osc.type = 'square';
-                osc.frequency.setValueAtTime(Math.random() * 400 + 100, t);
-                env.gain.setValueAtTime(0.5, t);
-                env.gain.exponentialRampToValueAtTime(0.01, t + 0.05);
-                osc.connect(env); env.connect(dest);
-                osc.start(t); osc.stop(t + 0.05);
-            }, 20);
-        }
-
-        function playIDMDrone() {
-            var actx = getAudioCtx(); var dest = getAudioDest(actx);
-            if (!actx || !dest) return;
-            var t = actx.currentTime;
-            var osc = actx.createOscillator();
-            var env = actx.createGain();
-            osc.type = 'triangle';
-            osc.frequency.setValueAtTime(40, t);
-            env.gain.setValueAtTime(0, t);
-            env.gain.linearRampToValueAtTime(0.3, t + 0.5);
-            env.gain.linearRampToValueAtTime(0, t + 2.0);
-            osc.connect(env); env.connect(dest);
-            osc.start(t); osc.stop(t + 2.0);
-        }
-
-        // 4. The Collision Math
+    _wireCollisions: function() {
+        var self = this;
         Matter.Events.on(this.engine, 'collisionStart', function(event) {
             event.pairs.forEach(function(pair) {
                 var a = pair.bodyA, b = pair.bodyB;
-                var isFloor = (a._idmType === 'floor' || b._idmType === 'floor');
-                var isWall = (a._idmType === 'wall' || b._idmType === 'wall');
-                var isBumper = (a._idmType === 'bumper' || b._idmType === 'bumper');
-                var hasBall = (!a.isStatic || !b.isStatic);
+                var target = a.isStatic ? a : b;
 
-                if (isFloor && hasBall) {
-                    playIDMKick();
-                    if (window.APP && APP.vj) {
-                        APP.vj._punchVel = (APP.vj._punchVel || 0) + 0.7;
-                        APP.vj._seismicVel = Math.min(1, (APP.vj._seismicVel || 0) + 0.5);
-                    }
-                }
-                if (isWall && hasBall && !glitchCD) {
-                    glitchCD = true; setTimeout(function() { glitchCD = false; }, 60);
-                    playGlitchStutter();
-                }
-                if (isBumper && hasBall && !droneCD) {
-                    droneCD = true; setTimeout(function() { droneCD = false; }, 1500);
-                    playIDMDrone();
+                if (target.label === 'idm-peg') {
+                    self.playSynthNote(target._note, 'triangle', 0.2);
+                    target.render.fillStyle = "#FFFFFF"; // Flash on hit
+                } else if (target.label === 'idm-floor') {
+                    self.playSynthNote(36, 'sine', 0.5); // Deep Bass Kick
+                } else if (target.label === 'idm-paddle') {
+                    self.playSynthNote(72, 'sawtooth', 0.1); // Sharp "Ping"
                 }
             });
         });
     },
-    
-    // 5. The Spawner & Audio Igniter
+
+    // Musical Synth Engine
+    playSynthNote: function(midi, type, decay) {
+        var actx = (window.APP && APP.audio && APP.audio.ctx) ? APP.audio.ctx : window.audioCtx;
+        var dest = (window.APP && APP.audio && APP.audio.masterGain) ? APP.audio.masterGain : actx.destination;
+        if (!actx) return;
+
+        var freq = 440 * Math.pow(2, (midi - 69) / 12);
+        var t = actx.currentTime;
+        var osc = actx.createOscillator();
+        var env = actx.createGain();
+
+        osc.type = type;
+        osc.frequency.setValueAtTime(freq, t);
+        
+        env.gain.setValueAtTime(0.3, t);
+        env.gain.exponentialRampToValueAtTime(0.001, t + decay);
+
+        osc.connect(env);
+        env.connect(dest);
+        osc.start(t);
+        osc.stop(t + decay);
+    },
+
     spawnBall: function () {
         this.init();
-        
-        // Force Audio Awake on Click
-        if (typeof igniteAudio === 'function') igniteAudio();
-        var actx = (window.APP && APP.audio && APP.audio.ctx) ? APP.audio.ctx : (window.audioCtx || null);
-        if (!actx && window.AudioContext) {
-            window.audioCtx = new (window.AudioContext || window.webkitAudioContext)();
-            actx = window.audioCtx;
-        }
-        if (actx && actx.state === 'suspended') actx.resume();
-
-        var w = window.innerWidth, h = window.innerHeight;
-        var rad = Math.random() * 15 + 10;
-        var ball = Matter.Bodies.circle(w / 2 + (Math.random() * 100 - 50), 50, rad, {
-            restitution: 0.9,
-            friction: 0.005,
-            density: 0.04
+        var ball = Matter.Bodies.circle(window.innerWidth/2, 50, 12, {
+            restitution: 0.8, friction: 0.001, label: 'idm-ball'
         });
-        ball._idmColor = "#00FFCC";
-        ball.life = 600; // Lives for 600 frames (approx 10 seconds)
+        ball.life = 800;
         Matter.Composite.add(this.engine.world, ball);
     },
-    
-    // 6. The Canvas Cleanup & Geometry Drawer (Zero drawImage errors)
+
     draw: function (ctx, w, h) {
         if (!this.engine) return;
-        var bodies = Matter.Composite.allBodies(this.engine.world);
         
+        // Move paddle to mouse/touch
+        if (window.mouseX) {
+            Matter.Body.setPosition(this.paddle, { x: window.mouseX, y: h - 100 });
+        }
+
+        var bodies = Matter.Composite.allBodies(this.engine.world);
         bodies.forEach(function (body) {
-            if (body.isStatic) return;
-
-            // Age the ball and kill it when time is up
-            body.life = (body.life === undefined) ? 600 : body.life - 1;
-            if (body.life <= 0) {
-                Matter.Composite.remove(window.IDMPhysics.engine.world, body);
-                return;
+            if (body.label === 'idm-ball') {
+                body.life--;
+                if (body.life <= 0) Matter.Composite.remove(window.IDMPhysics.engine.world, body);
             }
-
-            // Draw the heavy geometry directly
-            ctx.save();
-            ctx.globalAlpha = body.life < 100 ? body.life / 100 : 1; // Fades out before dying
+            
             ctx.beginPath();
-            var verts = body.vertices;
-            ctx.moveTo(verts.x, verts.y);
-            for (var j = 1; j < verts.length; j++) {
-                ctx.lineTo(verts[j].x, verts[j].y);
-            }
+            body.vertices.forEach(function(v, i) {
+                if(i===0) ctx.moveTo(v.x, v.y); else ctx.lineTo(v.x, v.y);
+            });
             ctx.closePath();
-            ctx.fillStyle = body._idmColor || "#00FFCC";
+            ctx.fillStyle = body.isStatic ? (body.label === 'idm-peg' ? "#444" : "#222") : "#00FFCC";
             ctx.fill();
-            ctx.strokeStyle = "#FFFFFF";
-            ctx.lineWidth = 2;
+            ctx.strokeStyle = "#fff";
             ctx.stroke();
-            ctx.restore();
         });
     }
-};
-
-// Guarantee global scope — reachable from renderLoop, onclick, any context
-window.IDMPhysics = window.IDMPhysics;
-
-}()); // end IIFE
+}; // end IIFE
 </script>
 </body>
 </html>
