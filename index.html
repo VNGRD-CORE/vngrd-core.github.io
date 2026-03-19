@@ -2896,7 +2896,7 @@ body.fullscreen #transcription-hud { opacity: 0 !important; pointer-events: none
                 <div class="sec-divider"></div>
                 <div id="idm-collision-core-panel" style="border:1px solid rgba(0,243,255,0.25);padding:6px 5px 5px;margin-top:2px;background:rgba(0,243,255,0.03);">
                     <div class="lbl" style="font-size:6px;opacity:0.55;letter-spacing:3px;margin-bottom:4px;color:var(--accent);">[ IDM_COLLISION_CORE ]</div>
-                    <button class="btn cyber-btn" id="btn-spawn-idm" style="width:100%;font-size:8px;letter-spacing:1.5px;" title="Drop a physics glitch node into the collision engine" onclick="window.IDMPhysics && IDMPhysics.spawnBall()">SPAWN GLITCH NODE</button>
+                    <button class="btn cyber-btn" id="btn-spawn-idm" style="width:100%;font-size:8px;letter-spacing:1.5px;" title="Drop a physics glitch node into the collision engine" onclick="window.IDMPhysics && window.IDMPhysics.spawnBall()">SPAWN GLITCH NODE</button>
                     <div id="idm-status" style="font-size:6px;opacity:0.4;letter-spacing:1px;margin-top:4px;text-align:center;">OFFLINE — ARM TO INIT</div>
                 </div>
                 <div class="sec-divider"></div>
@@ -5615,11 +5615,11 @@ if (T.logo.visible) {
     // Engine.update() drives physics from within the broadcast RAF so simulation
     // and rendering are always in sync. draw() paints on top of every other layer.
     try {
-        if (window.IDMPhysics && IDMPhysics._active && IDMPhysics.engine) {
-            Matter.Engine.update(IDMPhysics.engine, 16.666); // step 1 frame at 60fps
-            IDMPhysics.draw(ctx, w, h);                      // paint over all layers
+        if (window.IDMPhysics && window.IDMPhysics._active && window.IDMPhysics.engine) {
+            Matter.Engine.update(window.IDMPhysics.engine, 16.666);
+            window.IDMPhysics.draw(ctx, w, h);
         }
-    } catch (_idmE) { /* IDM frame failed silently */ }
+    } catch (_idmE) { console.error('IDM_ERR:', _idmE); }
 }
 
 function triggerImpact() { document.body.classList.remove('impact-flash'); void document.body.offsetWidth; document.body.classList.add('impact-flash'); setTimeout(() => document.body.classList.remove('impact-flash'), 200); }
@@ -12801,6 +12801,8 @@ window.IDMPhysics = {
     },
 
     spawnBall: function () {
+        if (typeof igniteAudio === 'function') igniteAudio();
+        if (typeof ensureAudioChain === 'function') ensureAudioChain();
         if (!this._active) this.init();
         if (!this._active) return;
         var x = this._W * 0.2 + Math.random() * this._W * 0.6;
