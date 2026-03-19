@@ -11,12 +11,12 @@
     <link rel="manifest" href="manifest.json">
 
    <title>DRIS//CORE VNGRD</title>
-<script>if('serviceWorker' in navigator){navigator.serviceWorker.register('sw.js').catch(function(){});}</script>
-<script src="https://unpkg.com/peerjs@1.5.2/dist/peerjs.min.js"></script>
-<script src="https://cdnjs.cloudflare.com/ajax/libs/matter-js/0.19.0/matter.min.js"></script>
-<script src="https://cdnjs.cloudflare.com/ajax/libs/ethers/5.7.2/ethers.umd.min.js"></script>
+<script>if('serviceWorker' in navigator){navigator.serviceWorker.register('sw.js').catch(function(){});}
+<script src="https://unpkg.com/peerjs@1.5.2/dist/peerjs.min.js">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/matter-js/0.19.0/matter.min.js">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/ethers/5.7.2/ethers.umd.min.js">
 <!-- Puter.js removed — cloud session now uses localStorage; AI uses Pollinations (free) -->
-<script src="src/Compositor.js"></script>
+<script src="src/Compositor.js">
 <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
 <script type="importmap">{"imports":{"three":"https://unpkg.com/three@0.160.0/build/three.module.js","three/addons/":"https://unpkg.com/three@0.160.0/examples/jsm/"}}</script>
     <style>
@@ -11517,7 +11517,21 @@ var isVideo = nft.forceVideo || (imageUrl.toLowerCase().match(/\.(mp4|webm|mov|o
 
 }); // THIS IS THE END of the startup block. Do not put code after this line.
 // --- TACTICAL FX ELITE BRIDGE ---
-</script>
+// --- INTERACTION BRIDGE ---
+document.addEventListener('mousedown', function(e) {
+    // Only spawn if clicking on the main stage/canvas area
+    if (e.target.id === 'stage' || e.target.tagName === 'CANVAS') {
+        if (window.IDMPhysics && window.IDMPhysics.spawnBall) {
+            window.IDMPhysics.spawnBall(e.clientX, e.clientY);
+        }
+    }
+});
+
+// Create a global mouse tracker for the flipper
+window.addEventListener('mousemove', function(e) {
+    window.mouseX = e.clientX;
+    window.mouseY = e.clientY;
+});</script>
 <script type="module">
 // --- AUDIO ROTATION SYSTEM ---
 const V_PLAYLIST = {
@@ -11721,7 +11735,7 @@ window.triggerHardReset = function() {
     setTimeout(() => target.classList.remove('anim-hard-reset'), 600);
 
     if (typeof ghostLog === 'function') ghostLog('SYSTEM_HARD_RESET_EXECUTED', 'crit');
-};</script>
+};
 <script>
 // --- BASS REACTIVE VJ ENGINE ---
 window.initAudioReactor = function() {
@@ -11751,7 +11765,18 @@ window.initAudioReactor = function() {
 
     function renderLoop() {
         if (!window.audioReactorActive) return;
-        requestAnimationFrame(renderLoop);
+        // --- SURGICAL IDM INJECTION ---
+if (window.IDMPhysics && window.IDMPhysics.engine) {
+    // 1. Update the physics math
+    Matter.Engine.update(window.IDMPhysics.engine, 1000 / 60);
+    
+    // 2. Draw the balls/bumpers on top of everything
+    // Use the main app canvas 'ctx'
+    if (typeof window.IDMPhysics.draw === 'function') {
+        window.IDMPhysics.draw(ctx, canvas.width, canvas.height);
+    }
+}
+// ------------------------------requestAnimationFrame(renderLoop);
 
         analyzer.getByteFrequencyData(dataArray);
 
@@ -11785,7 +11810,7 @@ window.initAudioReactor = function() {
 
 // Auto-init the bass reactor engine when audio is ready
 setTimeout(() => { if (!window.audioReactorActive) window.initAudioReactor(); }, 3000);
-</script>
+
 
 <!-- 3D LOGO: offscreen WebGL canvas for Three.js rendering -->
 <canvas id="three-canvas" width="512" height="512" style="position:fixed;left:-9999px;top:-9999px;width:512px;height:512px;pointer-events:none;z-index:-1;"></canvas>
@@ -12157,7 +12182,7 @@ if (btn3dX) {
         };
     }
 
-})();</script>
+})();
 
     <!-- gif-host: DIRECT child of <body>, NOT inside #stage.
          #stage has transform:translate3d(0,0,0) which creates a containing block for
@@ -12813,7 +12838,7 @@ if (btn3dX) {
     setStatus('STT: STANDBY');
 
 }());
-</script>
+
 
 <!-- ═══════════════════════════════════════════════════════════════════════
      IDM COLLISION CORE — Generative Physics + Audio Sequencer
@@ -13008,14 +13033,18 @@ window.IDMPhysics = {
         Matter.Composite.add(this.engine.world, ball);
     },
 
-    draw: function (ctx, w, h) {
-        if (!this.engine) return;
-        
-        // Move paddle to mouse/touch
-        if (window.mouseX) {
-            Matter.Body.setPosition(this.paddle, { x: window.mouseX, y: h - 100 });
-        }
+   draw: function (ctx, w, h) {
+    if (!this.engine || !this.paddle) return;
 
+    // MOVE FLIPPER TO MOUSE
+    if (window.mouseX) {
+        Matter.Body.setPosition(this.paddle, { 
+            x: window.mouseX - (window.innerWidth - w)/2, 
+            y: h - 60 
+        });
+    }
+    
+    // ... rest of your drawing code ...
         var bodies = Matter.Composite.allBodies(this.engine.world);
         bodies.forEach(function (body) {
             if (body.label === 'idm-ball') {
@@ -13035,6 +13064,6 @@ window.IDMPhysics = {
         });
     }
 }; // end IIFE
-</script>
+
 </body>
 </html>
