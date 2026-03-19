@@ -12848,10 +12848,24 @@ function _idmCurve(amount) {
 // 60 Hz sine, fast pitch drop, WaveShaperNode hard clip.
 // Blown-out floor thump → APP.audio.masterGain → recorder + stream.
 function playIDMKick() {
-    var actx = _idmCtx(), dest = _idmDest();
-    if (!actx || !dest) return;
-    var t = actx.currentTime;
-    var osc = actx.createOscillator();
+   // Force-find or Create Audio Context
+var actx = (window.APP && APP.audio && APP.audio.ctx) ? APP.audio.ctx : (window.audioCtx || null);
+if (!actx && window.AudioContext) {
+    window.audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+    actx = window.audioCtx;
+}
+
+// Force-find Destination (Master Gain or Speakers)
+var dest = (window.APP && APP.audio && APP.audio.masterGain) ? APP.audio.masterGain : 
+           (window.APP && APP.masterGain ? APP.masterGain : (actx ? actx.destination : null));
+
+// Resume if suspended (Fixes the "Muted" browser block)
+if (actx && actx.state === 'suspended') actx.resume();
+
+if (!actx || !dest) return; 
+
+var t = actx.currentTime;
+var osc = actx.createOscillator();
     osc.type = 'sine';
     osc.frequency.setValueAtTime(60, t);
     osc.frequency.exponentialRampToValueAtTime(20, t + 0.3);
@@ -12869,11 +12883,24 @@ function playIDMKick() {
 // setInterval fires 4–6 FM micro-bursts across 100 ms.
 // square modulator → sine carrier → APP.audio.masterGain.
 function playGlitchStutter() {
-    var actx = _idmCtx(), dest = _idmDest();
-    if (!actx || !dest) return;
-    var count = 4 + Math.floor(Math.random() * 3);
-    var fired = 0;
-    var ivl = setInterval(function () {
+    // Force-find or Create Audio Context
+var actx = (window.APP && APP.audio && APP.audio.ctx) ? APP.audio.ctx : (window.audioCtx || null);
+if (!actx && window.AudioContext) {
+    window.audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+    actx = window.audioCtx;
+}
+
+// Force-find Destination (Master Gain or Speakers)
+var dest = (window.APP && APP.audio && APP.audio.masterGain) ? APP.audio.masterGain : 
+           (window.APP && APP.masterGain ? APP.masterGain : (actx ? actx.destination : null));
+
+// Resume if suspended (Fixes the "Muted" browser block)
+if (actx && actx.state === 'suspended') actx.resume();
+
+if (!actx || !dest) return; 
+
+var t = actx.currentTime;
+var osc = actx.createOscillator();
         if (fired >= count) { clearInterval(ivl); return; }
         fired++;
         var t = actx.currentTime;
@@ -12898,10 +12925,24 @@ function playGlitchStutter() {
 // ─── playIDMDrone ─────────────────────────────────────────────────────────────
 // Bumper hit: low triangle wave, slow attack, 3 s fade.
 function playIDMDrone() {
-    var actx = _idmCtx(), dest = _idmDest();
-    if (!actx || !dest) return;
-    var t = actx.currentTime;
-    var osc = actx.createOscillator();
+   // Force-find or Create Audio Context
+var actx = (window.APP && APP.audio && APP.audio.ctx) ? APP.audio.ctx : (window.audioCtx || null);
+if (!actx && window.AudioContext) {
+    window.audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+    actx = window.audioCtx;
+}
+
+// Force-find Destination (Master Gain or Speakers)
+var dest = (window.APP && APP.audio && APP.audio.masterGain) ? APP.audio.masterGain : 
+           (window.APP && APP.masterGain ? APP.masterGain : (actx ? actx.destination : null));
+
+// Resume if suspended (Fixes the "Muted" browser block)
+if (actx && actx.state === 'suspended') actx.resume();
+
+if (!actx || !dest) return; 
+
+var t = actx.currentTime;
+var osc = actx.createOscillator();
     osc.type = 'triangle';
     osc.frequency.setValueAtTime(42 + Math.random() * 36, t);
     var filt = actx.createBiquadFilter();
