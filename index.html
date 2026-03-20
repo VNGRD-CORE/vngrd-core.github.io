@@ -1050,6 +1050,62 @@
         .pad-gear-menu [data-fx="punch"]:hover    { color: #ff6600; background: rgba(255,102,0,0.08); }
         .pad-gear-menu [data-fx="party"]:hover    { color: #ff00ff; background: rgba(255,0,255,0.08); }
 
+        /* ── INPUT LANG SELECT — visually identical to adjacent sfx-pad sfx-sig buttons ── */
+        #vngrd-input-lang {
+            -webkit-appearance: none;
+            appearance: none;
+            height: 38px;
+            background: linear-gradient(145deg, #111118 0%, #0c0c12 50%, #0f0f16 100%);
+            background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='8' height='5' viewBox='0 0 8 5'%3E%3Cpath d='M0 0l4 5 4-5z' fill='%2300f3ff' opacity='0.5'/%3E%3C/svg%3E");
+            background-repeat: no-repeat;
+            background-position: right 6px center;
+            background-size: 7px 5px;
+            border: 2px solid rgba(0,243,255,0.35) !important;
+            border-radius: 3px;
+            color: rgba(0,243,255,0.8) !important;
+            font-family: 'Orbitron', sans-serif !important;
+            font-size: 7px !important;
+            font-weight: 600;
+            letter-spacing: 0.06em;
+            padding: 0 20px 0 6px !important;
+            cursor: pointer;
+            text-align: center;
+            box-shadow:
+                2px 3px 8px rgba(0,0,0,0.95),
+                0 1px 0 rgba(255,255,255,0.04),
+                inset 0 3px 12px rgba(0,0,0,0.7),
+                inset 0 -2px 6px rgba(0,243,255,0.05),
+                0 0 8px rgba(0,243,255,0.15) !important;
+            text-shadow: 0 0 8px rgba(0,243,255,0.6) !important;
+            transition: transform 0.06s ease, box-shadow 0.1s ease, border-color 0.15s ease;
+        }
+        #vngrd-input-lang:hover {
+            border-color: rgba(0,243,255,0.7) !important;
+            color: rgba(0,243,255,1.0) !important;
+            transform: translateY(-1px);
+            box-shadow:
+                2px 3px 8px rgba(0,0,0,0.95),
+                0 1px 0 rgba(255,255,255,0.06),
+                inset 0 3px 12px rgba(0,0,0,0.6),
+                inset 0 -2px 6px rgba(0,243,255,0.1),
+                0 0 16px rgba(0,243,255,0.35),
+                0 0 32px rgba(0,243,255,0.15) !important;
+        }
+        #vngrd-input-lang option {
+            background: #0c0c14;
+            color: rgba(0,243,255,0.9);
+            font-family: 'Orbitron', sans-serif;
+            font-size: 7px;
+        }
+
+        /* ── SLOT BLINK — subtle pulse to show interactivity ────────────── */
+        @keyframes slot-beacon {
+            0%, 75%, 100% { border-color: #1c1c28; box-shadow: 2px 3px 8px rgba(0,0,0,0.95), 0 1px 0 rgba(255,255,255,0.04), inset 0 3px 12px rgba(0,0,0,0.85), inset 0 -2px 6px rgba(255,255,255,0.025); }
+            85% { border-color: rgba(0,243,255,0.45); box-shadow: 2px 3px 8px rgba(0,0,0,0.95), 0 0 8px rgba(0,243,255,0.18), inset 0 3px 12px rgba(0,0,0,0.85); }
+        }
+        .slot-select { animation: slot-beacon 5s ease-in-out infinite; }
+        .slot-select:hover, .slot-select:focus { animation: none; }
+
         /* ── VNGRD UNIFIED SELECT / DROPDOWN STYLE — matches sampler gear menu ── */
         select.inp, #ai-model-select, #bug-style-select, #lt-style-select,
         #audio-input-select, #audio-output {
@@ -2280,7 +2336,7 @@ body.fx-nvg #stage::after {
 .hud-new { animation: hud-flash 0.22s ease-out both; }
 
 /* Collapse HUD when in fullscreen VJ mode */
-body.fullscreen #transcription-hud { opacity: 0 !important; pointer-events: none !important; }
+body.fullscreen #transcription-hud { pointer-events: none !important; } /* keep visible — subtitles must show in broadcast */
 
 /* ── PODCAST TRAY — fixed bottom bar ─────────────────────────── */
 #podcast-tray {
@@ -2829,7 +2885,7 @@ body.fullscreen #transcription-hud { opacity: 0 !important; pointer-events: none
         <!-- ── POLYTRANSLATOR // V3.0_MODULAR ─────────────────────── -->
         <div class="section" id="mcr-section">
             <div class="sec-head">
-                <span class="sec-title">POLYTRANSLATOR // V3.0_MODULAR</span>
+                <span class="sec-title">TRANSLATION SLOTS</span>
                 <div id="mcr-on-air-dot"></div>
             </div>
             <div class="sec-body">
@@ -2847,7 +2903,7 @@ body.fullscreen #transcription-hud { opacity: 0 !important; pointer-events: none
                 <div class="btn-grid-3" style="margin-top:6px;">
                     <button id="btn-sub-opacity" class="btn sfx-pad sfx-sig" title="Cycle subtitle background opacity">SUB_BG<br><small style="font-size:7px;opacity:.7;">67%</small></button>
                     <button id="btn-p2p-stt" class="btn sfx-pad sfx-sig" title="Toggle STT source: local mic or P2P guest audio">STT<br><small id="p2p-stt-sub" style="font-size:7px;opacity:.7;">MIC</small></button>
-                    <select id="vngrd-input-lang" class="btn" style="font-size:8px;padding:4px 2px;cursor:pointer;" title="Input language for speech recognition">
+                    <select id="vngrd-input-lang" title="Input language for speech recognition">
                         <option value="en-US">EN</option>
                         <option value="it-IT">IT</option>
                         <option value="nl-NL">NL</option>
@@ -3282,7 +3338,7 @@ body.fullscreen #transcription-hud { opacity: 0 !important; pointer-events: none
 
         <!-- Primary English transcription slot -->
         <div id="hud-en">
-            <div class="hud-en-label">EN // LIVE TRANSCRIPTION</div>
+            <div class="hud-en-label" id="live-transcription-label">EN // LIVE TRANSCRIPTION</div>
             <div id="hud-en-text"></div>
         </div>
 
@@ -5613,6 +5669,12 @@ if (T.logo.visible) {
             }
             ctx.restore();
         }
+    }
+
+    // Burn translation subtitles + live transcription HUD onto canvas every frame
+    // so captureStream() always captures them in VNGRD CAPTURE and Broadcast REC
+    if (typeof window._bakeSubtitlesToCanvas === 'function') {
+        window._bakeSubtitlesToCanvas();
     }
 }
 
@@ -12471,36 +12533,69 @@ if (btn3dX) {
         var ctx = APP.render.ctx;
         var w   = APP.render.width;
         var h   = APP.render.height;
+
+        // ── 1. Translation slots (multi-language subtitle rows) ───────────
         var lines = window._vngrdSubtitleLines;
-        if (!lines || !lines.length) return;
-        try {
-            ctx.save();
-            ctx.globalAlpha              = 1;
-            ctx.globalCompositeOperation = 'source-over';
-            ctx.filter                   = 'none';
-            ctx.shadowBlur               = 0;
-            ctx.textAlign                = 'center';
-            ctx.textBaseline             = 'middle';
-            var lineH    = Math.round(h * 0.058);
-            var fsPx     = Math.round(h * 0.032);
-            var padX     = 18;
-            var blockH   = lineH * lines.length;
-            var blockTop = Math.round(h * 0.78) - Math.round(blockH / 2);
-            ctx.font = '700 ' + fsPx + 'px "Courier New",monospace';
-            lines.forEach(function(sub, i) {
-                var lineTop = blockTop + i * lineH;
-                var cy      = lineTop + Math.round(lineH / 2);
-                var label   = '[' + sub.lang + '] ' + sub.text;
-                var tw      = ctx.measureText(label).width;
-                var bgA     = (typeof sub.bgAlpha === 'number') ? sub.bgAlpha : 0.8;
-                ctx.fillStyle = 'rgba(0,0,0,' + bgA + ')';
-                ctx.fillRect((w - tw) / 2 - padX, lineTop, tw + padX * 2, lineH);
-                ctx.fillStyle = '#00f3ff';
-                ctx.fillText(label, w / 2, cy);
-            });
-            ctx.restore();
-        } catch (_) {}
+        if (lines && lines.length) {
+            try {
+                ctx.save();
+                ctx.globalAlpha              = 1;
+                ctx.globalCompositeOperation = 'source-over';
+                ctx.filter                   = 'none';
+                ctx.shadowBlur               = 0;
+                ctx.textAlign                = 'center';
+                ctx.textBaseline             = 'middle';
+                var lineH    = Math.round(h * 0.058);
+                var fsPx     = Math.round(h * 0.032);
+                var padX     = 18;
+                var blockH   = lineH * lines.length;
+                var blockTop = Math.round(h * 0.78) - Math.round(blockH / 2);
+                ctx.font = '700 ' + fsPx + 'px "Courier New",monospace';
+                lines.forEach(function(sub, i) {
+                    var lineTop = blockTop + i * lineH;
+                    var cy      = lineTop + Math.round(lineH / 2);
+                    var label   = '[' + sub.lang + '] ' + sub.text;
+                    var tw      = ctx.measureText(label).width;
+                    var bgA     = (typeof sub.bgAlpha === 'number') ? sub.bgAlpha : 0.8;
+                    ctx.fillStyle = 'rgba(0,0,0,' + bgA + ')';
+                    ctx.fillRect((w - tw) / 2 - padX, lineTop, tw + padX * 2, lineH);
+                    ctx.fillStyle = '#00f3ff';
+                    ctx.fillText(label, w / 2, cy);
+                });
+                ctx.restore();
+            } catch (_) {}
+        }
+
+        // ── 2. Live transcription HUD (raw speech input line at bottom) ──
+        var hudText = (hudEN ? hudEN.textContent : '').trim();
+        if (hudText && onAir) {
+            try {
+                ctx.save();
+                ctx.globalAlpha              = 1;
+                ctx.globalCompositeOperation = 'source-over';
+                ctx.filter                   = 'none';
+                ctx.shadowBlur               = 0;
+                ctx.textAlign                = 'center';
+                ctx.textBaseline             = 'middle';
+                var hudFsPx  = Math.round(h * 0.022);
+                var hudLineH = Math.round(h * 0.038);
+                var hudY     = Math.round(h * 0.955);
+                var hudPadX  = 24;
+                ctx.font = '400 ' + hudFsPx + 'px "Courier New",monospace';
+                var srcCode  = getSourceLangCode().toUpperCase();
+                var hudLabel = srcCode + ' // ' + hudText;
+                var hudTw    = ctx.measureText(hudLabel).width;
+                ctx.fillStyle = 'rgba(0,0,0,0.82)';
+                ctx.fillRect((w - hudTw) / 2 - hudPadX, hudY - Math.round(hudLineH / 2), hudTw + hudPadX * 2, hudLineH);
+                ctx.fillStyle = 'rgba(255,255,255,0.9)';
+                ctx.fillText(hudLabel, w / 2, hudY);
+                ctx.restore();
+            } catch (_) {}
+        }
     }
+
+    // Expose for renderLoop — called every frame to keep canvas always up-to-date
+    window._bakeSubtitlesToCanvas = _bakeSubtitlesToCanvas;
 
     /* ── UI helpers ───────────────────────────────────────────────────── */
 
