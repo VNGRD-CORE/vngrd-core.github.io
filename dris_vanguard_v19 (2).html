@@ -341,19 +341,6 @@
         
         .btn-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
         .btn-grid .btn { text-align: center; }
-        .btn-grid-3 { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 10px; margin-bottom: 10px; }
-        .btn-grid-3 .btn { text-align: center; margin-bottom: 0; }
-        .btn-grid-3 select { margin-bottom: 0; }
-        .btn-sub-opacity { opacity: 0.85; transition: opacity 0.2s; }
-        .btn-sub-opacity:hover { opacity: 1; }
-        #stt-output {
-            min-height: 60px; padding: 10px;
-            background: #000; border: 1px solid var(--border);
-            color: var(--g); font-size: 13px; line-height: 1.6;
-            margin-bottom: 10px; word-break: break-word;
-            font-family: 'Share Tech Mono', monospace;
-        }
-        #stt-output.active { border-color: var(--r); box-shadow: 0 0 10px rgba(255,51,51,0.2); }
         
         /* Inputs */
         .inp {
@@ -824,49 +811,6 @@
             </div>
         </div>
         
-        <!-- STT -->
-        <div class="p-section">
-            <div class="p-header">
-                <span class="p-title">STT // SPEECH</span>
-                <div class="p-ind off" id="stt-ind"></div>
-            </div>
-            <div class="p-body">
-                <div class="btn-grid-3">
-                    <button class="btn btn-sub-opacity" id="btn-onair">● ON AIR</button>
-                    <button class="btn btn-sub-opacity" id="btn-stt-clear">CLEAR</button>
-                    <select id="vngrd-input-lang">
-                        <option value="en-US">English</option>
-                        <option value="it-IT">Italian</option>
-                        <option value="es-ES">Spanish</option>
-                        <option value="fr-FR">French</option>
-                        <option value="de-DE">German</option>
-                        <option value="ja-JP">Japanese</option>
-                        <option value="pt-PT">Portuguese</option>
-                        <option value="ru-RU">Russian</option>
-                        <option value="zh-CN">Chinese</option>
-                        <option value="ko-KR">Korean</option>
-                        <option value="ar-SA">Arabic</option>
-                        <option value="nl-NL">Dutch</option>
-                        <option value="pl-PL">Polish</option>
-                        <option value="tr-TR">Turkish</option>
-                        <option value="sv-SE">Swedish</option>
-                        <option value="da-DK">Danish</option>
-                        <option value="fi-FI">Finnish</option>
-                        <option value="nb-NO">Norwegian</option>
-                        <option value="cs-CZ">Czech</option>
-                        <option value="hu-HU">Hungarian</option>
-                        <option value="ro-RO">Romanian</option>
-                        <option value="uk-UA">Ukrainian</option>
-                        <option value="hi-IN">Hindi</option>
-                        <option value="th-TH">Thai</option>
-                        <option value="id-ID">Indonesian</option>
-                        <option value="vi-VN">Vietnamese</option>
-                    </select>
-                </div>
-                <div id="stt-output">AWAITING SIGNAL...</div>
-            </div>
-        </div>
-
         <!-- SESSION -->
         <div class="p-section">
             <div class="p-header">
@@ -1366,7 +1310,7 @@ async function generateAI() {
     const t = setInterval(() => { p = Math.min(p + 5, 90); fill.style.width = p + '%'; }, 100);
     
     try {
-        const url = `https://image.pollinations.ai/prompt/${encodeURIComponent(prompt)}?model=flux&width=1920&height=1080&seed=${Math.floor(Math.random() * 1e9)}`;
+        const url = `https://image.pollinations.ai/prompt/${encodeURIComponent(prompt)}?model=flux&width=1920&height=1080&nologo=true&seed=${Math.floor(Math.random() * 1e9)}`;
         const res = await fetch(url);
         const blob = await res.blob();
         
@@ -1704,91 +1648,6 @@ function loadFromURL() {
 }
 
 // ═══════════════════════════════════════════════════════════════
-// STT // SPEECH RECOGNITION
-// ═══════════════════════════════════════════════════════════════
-
-let recognition = null;
-let onAir = false;
-
-function buildRecognition() {
-    const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
-    if (!SpeechRecognition) {
-        log('ERROR: STT_NOT_SUPPORTED');
-        addChatMsg('sys', 'GHOST > Speech recognition not supported in this browser.');
-        return null;
-    }
-    const r = new SpeechRecognition();
-    r.continuous = true;
-    r.interimResults = true;
-    r.lang = document.getElementById('vngrd-input-lang').value;
-
-    r.onresult = (e) => {
-        let interim = '';
-        let final = '';
-        for (let i = e.resultIndex; i < e.results.length; i++) {
-            const transcript = e.results[i][0].transcript;
-            if (e.results[i].isFinal) final += transcript;
-            else interim += transcript;
-        }
-        document.getElementById('stt-output').textContent = final || interim || 'AWAITING SIGNAL...';
-    };
-
-    r.onerror = (e) => {
-        if (e.error === 'aborted') return;
-        log(`STT_ERROR: ${e.error}`);
-        if (e.error === 'not-allowed') {
-            addChatMsg('sys', 'GHOST > Microphone access denied. Check browser permissions.');
-            stopSTT();
-        }
-    };
-
-    r.onend = () => {
-        if (onAir) {
-            try { r.start(); } catch(err) {}
-        }
-    };
-
-    return r;
-}
-
-function startSTT() {
-    recognition = buildRecognition();
-    if (!recognition) return;
-    try {
-        recognition.start();
-        onAir = true;
-        const btn = document.getElementById('btn-onair');
-        btn.textContent = '■ OFF AIR';
-        btn.classList.add('on');
-        document.getElementById('stt-ind').classList.remove('off');
-        document.getElementById('stt-output').classList.add('active');
-        log('STT_ON_AIR');
-    } catch(e) {
-        log('ERROR: STT_START_FAILED');
-        recognition = null;
-    }
-}
-
-function stopSTT() {
-    onAir = false;
-    if (recognition) {
-        try { recognition.stop(); } catch(e) {}
-        recognition = null;
-    }
-    const btn = document.getElementById('btn-onair');
-    btn.textContent = '● ON AIR';
-    btn.classList.remove('on');
-    document.getElementById('stt-ind').classList.add('off');
-    document.getElementById('stt-output').classList.remove('active');
-    log('STT_OFF_AIR');
-}
-
-function toggleOnAir() {
-    if (onAir) stopSTT();
-    else startSTT();
-}
-
-// ═══════════════════════════════════════════════════════════════
 // INITIALIZATION
 // ═══════════════════════════════════════════════════════════════
 
@@ -1859,36 +1718,6 @@ document.addEventListener('DOMContentLoaded', () => {
     document.getElementById('btn-share-url').onclick = shareURL;
     document.getElementById('file-session').onchange = (e) => importSession(e.target);
     
-    // STT
-    document.getElementById('btn-onair').onclick = toggleOnAir;
-    document.getElementById('btn-stt-clear').onclick = () => {
-        document.getElementById('stt-output').textContent = 'AWAITING SIGNAL...';
-    };
-    document.getElementById('vngrd-input-lang').addEventListener('change', () => {
-        const lang = document.getElementById('vngrd-input-lang').value;
-        log(`STT_LANG: ${lang}`);
-        if (onAir) {
-            // Stop current recognition, destroy it, rebuild with new lang and restart
-            if (recognition) {
-                try { recognition.stop(); } catch(e) {}
-                recognition = null;
-            }
-            recognition = buildRecognition();
-            if (recognition) {
-                try {
-                    recognition.start();
-                } catch(e) {
-                    log('ERROR: STT_LANG_SWITCH_FAILED');
-                    onAir = false;
-                    document.getElementById('btn-onair').textContent = '● ON AIR';
-                    document.getElementById('btn-onair').classList.remove('on');
-                    document.getElementById('stt-ind').classList.add('off');
-                    document.getElementById('stt-output').classList.remove('active');
-                }
-            }
-        }
-    });
-
     // Ghost Chat
     document.getElementById('btn-ghost').onclick = toggleChat;
     document.getElementById('btn-close-chat').onclick = toggleChat;
