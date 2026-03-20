@@ -1105,6 +1105,15 @@
         }
         .slot-select { animation: slot-beacon 5s ease-in-out infinite; }
         .slot-select:hover, .slot-select:focus { animation: none; }
+        /* ── LANG label glow — pulses softly when slot-grid is open ─────── */
+        @keyframes lbl-glow {
+            0%, 60%, 100% { opacity: 0.45; text-shadow: none; }
+            80% { opacity: 0.85; text-shadow: 0 0 6px rgba(0,243,255,0.55), 0 0 12px rgba(0,243,255,0.25); }
+        }
+        .slot-grid.open .slot-lbl { animation: lbl-glow 3.5s ease-in-out infinite; }
+        .slot-grid.open .slot-row:nth-child(2) .slot-lbl { animation-delay: 0.6s; }
+        .slot-grid.open .slot-row:nth-child(3) .slot-lbl { animation-delay: 1.2s; }
+        .slot-grid.open .slot-row:nth-child(4) .slot-lbl { animation-delay: 1.8s; }
 
         /* ── VNGRD UNIFIED SELECT / DROPDOWN STYLE — matches sampler gear menu ── */
         select.inp, #ai-model-select, #bug-style-select, #lt-style-select,
@@ -2885,7 +2894,7 @@ body.fullscreen #transcription-hud { pointer-events: none !important; } /* keep 
         <!-- ── POLYTRANSLATOR // V3.0_MODULAR ─────────────────────── -->
         <div class="section" id="mcr-section">
             <div class="sec-head">
-                <span class="sec-title">TRANSLATION SLOTS</span>
+                <span class="sec-title">POLYTRANSLATOR // V3.0_MODULAR</span>
                 <div id="mcr-on-air-dot"></div>
             </div>
             <div class="sec-body">
@@ -2895,10 +2904,10 @@ body.fullscreen #transcription-hud { pointer-events: none !important; } /* keep 
                 <button id="btn-on-air" class="onair-pill">OFF-AIR</button>
                 <button id="btn-slots-toggle" class="btn" style="margin-top:5px;width:100%;font-size:8px;letter-spacing:1.5px;opacity:0.65;" onclick="var g=this.nextElementSibling;var o=g.classList.toggle('open');this.style.opacity=o?'1':'0.65';this.textContent=o?'SLOTS \u25B4':'SLOTS \u25BE';">SLOTS &#x25BE;</button>
                 <div class="slot-grid">
-                    <div class="slot-row"><span class="slot-lbl">SLOT 1</span><select class="slot-select" id="slot-1"><option value="OFF">OFF</option><option value="EN" selected>EN</option><option value="NL">NL</option><option value="ES">ES</option><option value="FR">FR</option><option value="ZH">ZH</option><option value="JA">JA</option><option value="AR">AR</option><option value="IT">IT</option><option value="DE">DE</option><option value="SCOUSE">SCOUSE</option></select></div>
-                    <div class="slot-row"><span class="slot-lbl">SLOT 2</span><select class="slot-select" id="slot-2"><option value="OFF" selected>OFF</option><option value="EN">EN</option><option value="NL">NL</option><option value="ES">ES</option><option value="FR">FR</option><option value="ZH">ZH</option><option value="JA">JA</option><option value="AR">AR</option><option value="IT">IT</option><option value="DE">DE</option><option value="SCOUSE">SCOUSE</option></select></div>
-                    <div class="slot-row"><span class="slot-lbl">SLOT 3</span><select class="slot-select" id="slot-3"><option value="OFF" selected>OFF</option><option value="EN">EN</option><option value="NL">NL</option><option value="ES">ES</option><option value="FR">FR</option><option value="ZH">ZH</option><option value="JA">JA</option><option value="AR">AR</option><option value="IT">IT</option><option value="DE">DE</option><option value="SCOUSE">SCOUSE</option></select></div>
-                    <div class="slot-row"><span class="slot-lbl">SLOT 4</span><select class="slot-select" id="slot-4"><option value="OFF" selected>OFF</option><option value="EN">EN</option><option value="NL">NL</option><option value="ES">ES</option><option value="FR">FR</option><option value="ZH">ZH</option><option value="JA">JA</option><option value="AR">AR</option><option value="IT">IT</option><option value="DE">DE</option><option value="SCOUSE">SCOUSE</option></select></div>
+                    <div class="slot-row"><span class="slot-lbl">LANG 1</span><select class="slot-select" id="slot-1"><option value="OFF">OFF</option><option value="EN" selected>EN</option><option value="NL">NL</option><option value="ES">ES</option><option value="FR">FR</option><option value="ZH">ZH</option><option value="JA">JA</option><option value="AR">AR</option><option value="IT">IT</option><option value="DE">DE</option><option value="SCOUSE">SCOUSE</option></select></div>
+                    <div class="slot-row"><span class="slot-lbl">LANG 2</span><select class="slot-select" id="slot-2"><option value="OFF" selected>OFF</option><option value="EN">EN</option><option value="NL">NL</option><option value="ES">ES</option><option value="FR">FR</option><option value="ZH">ZH</option><option value="JA">JA</option><option value="AR">AR</option><option value="IT">IT</option><option value="DE">DE</option><option value="SCOUSE">SCOUSE</option></select></div>
+                    <div class="slot-row"><span class="slot-lbl">LANG 3</span><select class="slot-select" id="slot-3"><option value="OFF" selected>OFF</option><option value="EN">EN</option><option value="NL">NL</option><option value="ES">ES</option><option value="FR">FR</option><option value="ZH">ZH</option><option value="JA">JA</option><option value="AR">AR</option><option value="IT">IT</option><option value="DE">DE</option><option value="SCOUSE">SCOUSE</option></select></div>
+                    <div class="slot-row"><span class="slot-lbl">LANG 4</span><select class="slot-select" id="slot-4"><option value="OFF" selected>OFF</option><option value="EN">EN</option><option value="NL">NL</option><option value="ES">ES</option><option value="FR">FR</option><option value="ZH">ZH</option><option value="JA">JA</option><option value="AR">AR</option><option value="IT">IT</option><option value="DE">DE</option><option value="SCOUSE">SCOUSE</option></select></div>
                 </div>
                 <div class="btn-grid-3" style="margin-top:6px;">
                     <button id="btn-sub-opacity" class="btn sfx-pad sfx-sig" title="Cycle subtitle background opacity">SUB_BG<br><small style="font-size:7px;opacity:.7;">67%</small></button>
