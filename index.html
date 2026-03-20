@@ -5680,11 +5680,78 @@ if (T.logo.visible) {
         }
     }
 
-    // Burn translation subtitles + live transcription HUD onto canvas every frame
-    // so captureStream() always captures them in VNGRD CAPTURE and Broadcast REC
-    if (typeof window._bakeSubtitlesToCanvas === 'function') {
-        window._bakeSubtitlesToCanvas();
-    }
+    // ── SUBTITLE / TRANSCRIPTION BURN-IN — runs every frame ──
+    // Reads directly from globals + DOM so no IIFE closure can block it.
+    // Uses canvas.width/height (not APP.render.width) and setTransform to
+    // guarantee identity state regardless of what the FX pipeline left behind.
+    (function _subtitleBurn() {
+        var _ctx = APP.render.ctx;
+        var _w = APP.render.canvas.width;
+        var _h = APP.render.canvas.height;
+        if (!_ctx || !_w || !_h) return;
+
+        // 1. Translation slot subtitles
+        var _lines = window._vngrdSubtitleLines;
+        if (_lines && _lines.length) {
+            _ctx.save();
+            _ctx.setTransform(1, 0, 0, 1, 0, 0);
+            _ctx.globalAlpha = 1;
+            _ctx.globalCompositeOperation = 'source-over';
+            _ctx.filter = 'none';
+            _ctx.shadowBlur = 0;
+            _ctx.textAlign = 'center';
+            _ctx.textBaseline = 'middle';
+            var _lineH = Math.round(_h * 0.058);
+            var _fsPx  = Math.round(_h * 0.032);
+            var _padX  = 18;
+            var _blockH   = _lineH * _lines.length;
+            var _blockTop = Math.round(_h * 0.78) - Math.round(_blockH / 2);
+            _ctx.font = '700 ' + _fsPx + 'px "Courier New",monospace';
+            for (var _li = 0; _li < _lines.length; _li++) {
+                var _sub     = _lines[_li];
+                var _lineTop = _blockTop + _li * _lineH;
+                var _cy      = _lineTop + Math.round(_lineH / 2);
+                var _label   = '[' + _sub.lang + '] ' + _sub.text;
+                var _tw      = _ctx.measureText(_label).width;
+                var _bgA     = (typeof _sub.bgAlpha === 'number') ? _sub.bgAlpha : 0.8;
+                _ctx.fillStyle = 'rgba(0,0,0,' + _bgA + ')';
+                _ctx.fillRect((_w - _tw) / 2 - _padX, _lineTop, _tw + _padX * 2, _lineH);
+                _ctx.fillStyle = '#00f3ff';
+                _ctx.fillText(_label, _w / 2, _cy);
+            }
+            _ctx.restore();
+        }
+
+        // 2. Live transcription HUD line (only when STT is on-air)
+        var _hudEl  = document.getElementById('hud-en-text');
+        var _hudTxt = (_hudEl ? _hudEl.textContent : '').trim();
+        var _onAirEl = document.getElementById('btn-on-air');
+        var _sttLive = _onAirEl && _onAirEl.classList.contains('active');
+        if (_hudTxt && _sttLive) {
+            _ctx.save();
+            _ctx.setTransform(1, 0, 0, 1, 0, 0);
+            _ctx.globalAlpha = 1;
+            _ctx.globalCompositeOperation = 'source-over';
+            _ctx.filter = 'none';
+            _ctx.shadowBlur = 0;
+            _ctx.textAlign = 'center';
+            _ctx.textBaseline = 'middle';
+            var _hudFsPx  = Math.round(_h * 0.022);
+            var _hudLineH = Math.round(_h * 0.038);
+            var _hudY     = Math.round(_h * 0.955);
+            var _hudPadX  = 24;
+            _ctx.font = '400 ' + _hudFsPx + 'px "Courier New",monospace';
+            var _langEl  = document.getElementById('vngrd-input-lang');
+            var _srcCode = (_langEl && _langEl.value) ? _langEl.value.split('-')[0].toUpperCase() : 'EN';
+            var _hudLabel = _srcCode + ' // ' + _hudTxt;
+            var _hudTw   = _ctx.measureText(_hudLabel).width;
+            _ctx.fillStyle = 'rgba(0,0,0,0.82)';
+            _ctx.fillRect((_w - _hudTw) / 2 - _hudPadX, _hudY - Math.round(_hudLineH / 2), _hudTw + _hudPadX * 2, _hudLineH);
+            _ctx.fillStyle = 'rgba(255,255,255,0.9)';
+            _ctx.fillText(_hudLabel, _w / 2, _hudY);
+            _ctx.restore();
+        }
+    })();
 }
 
 function triggerImpact() { document.body.classList.remove('impact-flash'); void document.body.offsetWidth; document.body.classList.add('impact-flash'); setTimeout(() => document.body.classList.remove('impact-flash'), 200); }
