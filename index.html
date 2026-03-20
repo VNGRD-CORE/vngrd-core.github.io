@@ -2735,7 +2735,7 @@ body.fullscreen #transcription-hud { pointer-events: none !important; } /* keep 
         <div class="section">
             <div class="sec-head"><span class="sec-title">CAMERA_4K</span><div class="sec-dot off" id="cam-dot"></div></div>
             <div class="sec-body">
-                <button class="btn" id="btn-init-cam">SENSORS ONLINE [4K]</button>
+                <button class="btn" id="btn-init-cam">CAM CAPTURE [4K]</button>
                 <div id="cam-preview-float">
                     <video id="preview-vid-float" autoplay muted playsinline></video>
                     <canvas id="lt-preview-canvas"></canvas>
@@ -2934,7 +2934,7 @@ body.fullscreen #transcription-hud { pointer-events: none !important; } /* keep 
                     <div id="vu"></div>
                     <div id="track-info">NO_TRACK</div>
                 </div>
-                <div class="btn-row"><button class="btn" id="btn-audio" style="flex:1;">LOAD_AUDIO</button><button class="btn" id="btn-mute-vid" style="width:32px;font-size:12px;padding:2px;" title="Toggle video audio">&#x1F50A;</button><button class="btn" id="btn-mic-engine" style="width:32px;font-size:11px;padding:2px;" title="Mic on/off">&#x1F3A4;</button></div>
+                <div class="btn-row"><button class="btn" id="btn-audio" style="flex:1;">LOAD AUDIO</button><button class="btn" id="btn-mute-vid" style="width:32px;font-size:12px;padding:2px;" title="Toggle video audio">&#x1F50A;</button><button class="btn" id="btn-mic-engine" style="width:32px;font-size:11px;padding:2px;" title="Mic on/off">&#x1F3A4;</button></div>
                 <div class="audio-ctrl-row">
                     <button class="btn btn-compact" id="btn-prev-track"><svg width="10" height="10" viewBox="0 0 12 12"><path fill="currentColor" d="M2 2h2v8H2zm2 4l6 4V2z"/></svg></button>
                     <button class="btn btn-compact" id="btn-play-pause"><svg width="10" height="10" viewBox="0 0 12 12" id="icon-play-state"><path fill="currentColor" d="M3 2v8l7-4z"/></svg></button>
@@ -3962,7 +3962,7 @@ function processGhostCommand(cmd) {
                 break;
 
             case 'audio_help':
-                ghostLog('Load MP3/WAV via LOAD_AUDIO. Audio drives beat-reactive FX. Modes: STEREO / 3D_SPATIAL / DOLBY.', 'ai');
+                ghostLog('Load MP3/WAV via LOAD AUDIO. Audio drives beat-reactive FX. Modes: STEREO / 3D_SPATIAL / DOLBY.', 'ai');
                 if (!ctx.hasAudio) ghostLog('No audio loaded yet.', 'cmd');
                 break;
 
