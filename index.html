@@ -2857,7 +2857,6 @@ body.fullscreen #transcription-hud { opacity: 0 !important; pointer-events: none
                         <option value="zh-CN">ZH</option>
                         <option value="ja-JP">JA</option>
                         <option value="ar-SA">AR</option>
-                        <option value="en-GB">SCOUSE</option>
                     </select>
                 </div>
             </div>
@@ -12230,9 +12229,10 @@ if (btn3dX) {
 (function () {
     'use strict';
 
-    var onAir       = false;
-    var recognition = null;
-    var lastFinal   = '';
+    var onAir          = false;
+    var recognition    = null;
+    var lastFinal      = '';
+    var _langSwitching = false;   // prevents onend auto-restart during language swap
 
     /* ── Scouse dictionary ────────────────────────────────────────────── */
     var SCOUSE_DICT = {
@@ -12399,11 +12399,28 @@ if (btn3dX) {
         return text.split(/\s+/).map(function(w) { return GEN_DICT[w] || w; }).join(' ');
     }
 
-    /* ── Language pair map for MyMemory translation ───────────────────── */
-    var LANG_PAIRS = {
-        IT: 'en|it', NL: 'en|nl', ES: 'en|es', FR: 'en|fr',
-        DE: 'en|de', ZH: 'en|zh-CN', JA: 'en|ja', AR: 'en|ar'
+    /* ── Target language codes for MyMemory (source is dynamic) ─────────── */
+    // Keys match slot option values; values are the MyMemory target-side codes.
+    var LANG_TARGETS = {
+        EN: 'en', IT: 'it', NL: 'nl', ES: 'es', FR: 'fr',
+        DE: 'de', ZH: 'zh', JA: 'ja', AR: 'ar'
     };
+
+    /* ── Get 2-char source language from #vngrd-input-lang ──────────────── */
+    function getSourceLangCode() {
+        var sel = document.getElementById('vngrd-input-lang');
+        if (!sel || !sel.value) return 'en';
+        return sel.value.split('-')[0].toLowerCase(); // 'it-IT' → 'it', 'zh-CN' → 'zh'
+    }
+
+    /* ── Update the live-transcription HUD label ─────────────────────────── */
+    function updateTranscriptionLabel() {
+        var sel = document.getElementById('vngrd-input-lang');
+        var lbl = document.getElementById('live-transcription-label');
+        if (!lbl || !sel) return;
+        var code = sel.value.split('-')[0].toUpperCase(); // 'it-IT' → 'IT'
+        lbl.textContent = code + ' // LIVE TRANSCRIPTION';
+    }
 
     /* ── DOM refs ─────────────────────────────────────────────────────── */
     var btnOnAir    = document.getElementById('btn-on-air');
@@ -12585,10 +12602,12 @@ if (btn3dX) {
     }
 
     /* ── Translation via MyMemory (free, no API key) ─────────────────── */
-
-    function translateSlot(text, lang, slotIdx) {
-        if (!text || !LANG_PAIRS[lang]) return;
-        fetch('https://api.mymemory.translated.net/get?q=' + encodeURIComponent(text) + '&langpair=' + LANG_PAIRS[lang])
+    // srcLang: 2-char code ('en', 'it', 'zh' …)
+    // tgtCode: MyMemory target code ('nl', 'zh', 'ja' …)
+    function translateSlot(text, srcLang, tgtCode, slotIdx) {
+        if (!text || !srcLang || !tgtCode) return;
+        var pair = srcLang + '|' + tgtCode;
+        fetch('https://api.mymemory.translated.net/get?q=' + encodeURIComponent(text) + '&langpair=' + pair)
             .then(function(res) { return res.json(); })
             .then(function(data) {
                 var t = (data.responseData && data.responseData.translatedText || '').toUpperCase();
@@ -12599,41 +12618,58 @@ if (btn3dX) {
 
     /* ── Process finalized text through all active slots ──────────────── */
 
-    function processSlots(enText) {
-        if (!enText) return;
-        var active = getActiveSlots();
-        var p2pData = { en: enText };
+    function processSlots(rawText) {
+        if (!rawText) return;
+        var srcCode = getSourceLangCode();          // 'en', 'it', 'zh', etc.
+        var active  = getActiveSlots();
+        var p2pData = {};
+        p2pData[srcCode.toUpperCase()] = rawText;
 
         active.forEach(function(s) {
-            if (s.lang === 'EN') {
-                slotTexts[s.idx] = enText;
-            } else if (s.lang === 'SCOUSE') {
-                slotTexts[s.idx] = toScouse(enText);
+            // SCOUSE is a phonetic transform — only meaningful from English source
+            if (s.lang === 'SCOUSE') {
+                slotTexts[s.idx] = (srcCode === 'en') ? toScouse(rawText) : rawText;
                 p2pData['SCOUSE'] = slotTexts[s.idx];
+                return;
+            }
+
+            var tgtCode = LANG_TARGETS[s.lang];
+            if (!tgtCode) return;                   // unknown slot lang, skip
+
+            if (srcCode === tgtCode) {
+                // Source and target are the same language — echo directly
+                slotTexts[s.idx] = rawText;
+                p2pData[s.lang]   = rawText;
             } else {
-                // API-translated languages — async, updates renderSubtitles on arrival
-                translateSlot(enText, s.lang, s.idx);
+                // Different language — send to MyMemory with correct src|tgt pair
+                translateSlot(rawText, srcCode, tgtCode, s.idx);
                 p2pData[s.lang] = '...';
             }
         });
 
         renderSubtitles();
 
-        // Send to P2P peers via existing data channel
         if (typeof sendUISync === 'function') {
             sendUISync('POLYTRANSLATOR', p2pData);
         }
     }
 
-    /* ── Process interim text (EN-only, real-time) ────────────────────── */
+    /* ── Process interim text (real-time, no API calls) ──────────────── */
 
     function processInterim(text) {
         if (!text) return;
-        var active = getActiveSlots();
+        var srcCode = getSourceLangCode();
+        var active  = getActiveSlots();
         active.forEach(function(s) {
-            if (s.lang === 'EN') slotTexts[s.idx] = text;
-            else if (s.lang === 'SCOUSE') slotTexts[s.idx] = toScouse(text);
-            // Other langs: keep previous translated text, don't fetch on interim
+            if (s.lang === 'SCOUSE') {
+                if (srcCode === 'en') slotTexts[s.idx] = toScouse(text);
+                return;
+            }
+            var tgtCode = LANG_TARGETS[s.lang];
+            if (!tgtCode) return;
+            // Only update slots whose language matches the source (no API on interim)
+            if (srcCode === tgtCode) slotTexts[s.idx] = text;
+            // Other langs: keep the last fully-translated text — no fetch on interim
         });
         renderSubtitles();
     }
@@ -12686,14 +12722,16 @@ if (btn3dX) {
         };
 
         r.onend = function () {
-            // Auto-restart while on-air (handles browser silence timeout)
-            if (onAir) {
+            // _langSwitching = true means the change listener is rebuilding a fresh
+            // instance — do NOT attempt to restart this dead one.
+            if (onAir && !_langSwitching) {
                 setTimeout(function() {
-                    if (onAir) { try { r.start(); } catch(ex) {} }
+                    if (onAir && !_langSwitching) { try { r.start(); } catch(ex) {} }
                 }, 250);
-            } else {
+            } else if (!onAir) {
                 setStatus('STT: STANDBY');
             }
+            // else: _langSwitching is true — stay silent, let the change listener handle it
         };
 
         return r;
@@ -12723,20 +12761,43 @@ if (btn3dX) {
     var _inputLangSel = document.getElementById('vngrd-input-lang');
     if (_inputLangSel) {
         _inputLangSel.addEventListener('change', function () {
+            // Always update the HUD label, even when not live
+            updateTranscriptionLabel();
+
             if (!onAir) return;
-            // Kill current recognition, rebuild with new lang, restart immediately
-            if (recognition) { try { recognition.stop(); } catch(ex) {} recognition = null; }
-            recognition = buildRecognition();
-            if (!recognition) return;
-            try {
-                recognition.start();
-                setStatus('STT: LANG \u25B6 ' + _inputLangSel.value);
-                if (typeof ghostLog === 'function') ghostLog('STT LANG: ' + _inputLangSel.value, 'ok');
-            } catch(e) {
-                setOnAirUI(false);
+
+            // 1. Raise the flag BEFORE calling stop() so that r.onend will not
+            //    attempt to auto-restart the old (dying) instance.
+            _langSwitching = true;
+
+            if (recognition) {
+                try { recognition.stop(); } catch(ex) {}
                 recognition = null;
-                setStatus('STT_ERR: RESTART_FAIL');
             }
+
+            // 2. Give the browser ~350 ms to fully tear down the old audio session,
+            //    then spawn a completely fresh instance.
+            setTimeout(function () {
+                _langSwitching = false;
+
+                if (!onAir) return;   // user toggled OFF during the wait — do nothing
+
+                recognition = buildRecognition();
+                if (!recognition) { setOnAirUI(false); return; }
+
+                try {
+                    recognition.start();
+                    updateTranscriptionLabel();
+                    var newVal = (document.getElementById('vngrd-input-lang') || {}).value || '?';
+                    setStatus('STT: LIVE \u25B6 [' + newVal + ']');
+                    if (typeof ghostLog === 'function') ghostLog('STT LANG SWITCH \u2192 ' + newVal, 'ok');
+                } catch (e) {
+                    setOnAirUI(false);
+                    recognition = null;
+                    setStatus('STT_ERR: RESTART_FAIL');
+                    if (typeof ghostLog === 'function') ghostLog('STT RESTART ERR: ' + e.message, 'crit');
+                }
+            }, 350);
         });
     }
 
