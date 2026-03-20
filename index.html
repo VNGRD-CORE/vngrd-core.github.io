@@ -2344,8 +2344,11 @@ body.fx-nvg #stage::after {
 }
 .hud-new { animation: hud-flash 0.22s ease-out both; }
 
-/* Collapse HUD when in fullscreen VJ mode */
-body.fullscreen #transcription-hud { pointer-events: none !important; } /* keep visible — subtitles must show in broadcast */
+/* DOM subtitle/HUD elements hidden — canvas burn-in is the single display source
+   (visible on screen via canvas, captured in recordings via captureStream) */
+#vanguard-subtitles  { opacity: 0 !important; pointer-events: none !important; }
+#transcription-hud   { opacity: 0 !important; pointer-events: none !important; }
+body.fullscreen #transcription-hud { opacity: 0 !important; pointer-events: none !important; }
 
 /* ── PODCAST TRAY — fixed bottom bar ─────────────────────────── */
 #podcast-tray {
@@ -5681,16 +5684,19 @@ if (T.logo.visible) {
     }
 
     // ── SUBTITLE / TRANSCRIPTION BURN-IN — runs every frame ──
-    // Reads directly from globals + DOM so no IIFE closure can block it.
-    // Uses canvas.width/height (not APP.render.width) and setTransform to
-    // guarantee identity state regardless of what the FX pipeline left behind.
+    // Single source of truth for both on-screen display and captureStream recordings.
+    // DOM #vanguard-subtitles and #transcription-hud are hidden via CSS — this replaces them.
+    // Styled to match the DOM originals: dark boxes, cyan accents, JetBrains Mono text.
     (function _subtitleBurn() {
         var _ctx = APP.render.ctx;
         var _w = APP.render.canvas.width;
         var _h = APP.render.canvas.height;
         if (!_ctx || !_w || !_h) return;
 
-        // 1. Translation slot subtitles
+        var _onAirEl = document.getElementById('btn-on-air');
+        var _sttLive = _onAirEl && _onAirEl.classList.contains('active');
+
+        // ── 1. Translation subtitle lines (matches #vanguard-subtitles .sub-line style) ──
         var _lines = window._vngrdSubtitleLines;
         if (_lines && _lines.length) {
             _ctx.save();
@@ -5698,57 +5704,102 @@ if (T.logo.visible) {
             _ctx.globalAlpha = 1;
             _ctx.globalCompositeOperation = 'source-over';
             _ctx.filter = 'none';
-            _ctx.shadowBlur = 0;
-            _ctx.textAlign = 'center';
-            _ctx.textBaseline = 'middle';
-            var _lineH = Math.round(_h * 0.058);
-            var _fsPx  = Math.round(_h * 0.032);
-            var _padX  = 18;
-            var _blockH   = _lineH * _lines.length;
-            var _blockTop = Math.round(_h * 0.78) - Math.round(_blockH / 2);
-            _ctx.font = '700 ' + _fsPx + 'px "Courier New",monospace';
+
+            var _lineH   = Math.round(_h * 0.052);   // row height
+            var _fsPx    = Math.round(_h * 0.028);   // main text font size
+            var _langPx  = Math.round(_h * 0.016);   // lang tag font size (Orbitron)
+            var _lineW   = Math.round(_w * 0.52);     // max 900px equiv at 1920
+            var _lineX   = Math.round((_w - _lineW) / 2);
+            var _padX    = 24;
+            var _padY    = Math.round(_lineH * 0.28);
+            // Stack from bottom up, above the HUD area
+            var _stackBottom = Math.round(_h * 0.865);
+            var _totalH  = _lineH * _lines.length;
+            var _startY  = _stackBottom - _totalH;
+
             for (var _li = 0; _li < _lines.length; _li++) {
-                var _sub     = _lines[_li];
-                var _lineTop = _blockTop + _li * _lineH;
-                var _cy      = _lineTop + Math.round(_lineH / 2);
-                var _label   = '[' + _sub.lang + '] ' + _sub.text;
-                var _tw      = _ctx.measureText(_label).width;
-                var _bgA     = (typeof _sub.bgAlpha === 'number') ? _sub.bgAlpha : 0.8;
+                var _sub  = _lines[_li];
+                var _ly   = _startY + _li * _lineH;
+                var _bgA  = (typeof _sub.bgAlpha === 'number') ? _sub.bgAlpha : 0.67;
+
+                // Row background (matches #000000aa)
                 _ctx.fillStyle = 'rgba(0,0,0,' + _bgA + ')';
-                _ctx.fillRect((_w - _tw) / 2 - _padX, _lineTop, _tw + _padX * 2, _lineH);
+                _ctx.fillRect(_lineX, _ly, _lineW, _lineH);
+
+                // Top border on first line (matches sub-line:first-child border-top)
+                if (_li === 0) {
+                    _ctx.fillStyle = 'rgba(0,243,255,0.2)';
+                    _ctx.fillRect(_lineX, _ly, _lineW, 1);
+                }
+
+                // Lang tag — Orbitron, small, 50% opacity (matches .sub-lang)
+                _ctx.font = '700 ' + _langPx + 'px Orbitron, sans-serif';
+                _ctx.fillStyle = 'rgba(0,243,255,0.5)';
+                _ctx.shadowBlur = 0;
+                _ctx.textAlign = 'left';
+                _ctx.textBaseline = 'middle';
+                _ctx.fillText(_sub.lang, _lineX + _padX, _ly + _lineH / 2);
+
+                var _langW = _ctx.measureText(_sub.lang).width + _padX + 14;
+
+                // Subtitle text — JetBrains Mono, cyan with glow (matches .sub-body)
+                _ctx.font = '600 ' + _fsPx + 'px "JetBrains Mono","Courier New",monospace';
                 _ctx.fillStyle = '#00f3ff';
-                _ctx.fillText(_label, _w / 2, _cy);
+                _ctx.shadowColor = 'rgba(0,243,255,0.6)';
+                _ctx.shadowBlur = 12;
+                _ctx.textBaseline = 'middle';
+                _ctx.fillText(_sub.text.toUpperCase(), _lineX + _langW, _ly + _lineH / 2);
             }
             _ctx.restore();
         }
 
-        // 2. Live transcription HUD line (only when STT is on-air)
-        var _hudEl  = document.getElementById('hud-en-text');
-        var _hudTxt = (_hudEl ? _hudEl.textContent : '').trim();
-        var _onAirEl = document.getElementById('btn-on-air');
-        var _sttLive = _onAirEl && _onAirEl.classList.contains('active');
-        if (_hudTxt && _sttLive) {
+        // ── 2. Transcription HUD (matches #hud-en box style) ──
+        // Uses window._vngrdFinalText (final results only — no interim crawl)
+        var _finalTxt = (window._vngrdFinalText || '').trim();
+        if (_finalTxt && _sttLive) {
             _ctx.save();
             _ctx.setTransform(1, 0, 0, 1, 0, 0);
             _ctx.globalAlpha = 1;
             _ctx.globalCompositeOperation = 'source-over';
             _ctx.filter = 'none';
+
+            var _langEl   = document.getElementById('vngrd-input-lang');
+            var _srcCode  = (_langEl && _langEl.value) ? _langEl.value.split('-')[0].toUpperCase() : 'EN';
+
+            var _labelPx  = Math.round(_h * 0.012);   // "EN // LIVE TRANSCRIPTION" label
+            var _mainPx   = Math.round(_h * 0.024);   // main transcription text
+            var _boxW     = Math.round(_w * 0.42);     // ~700px equiv
+            var _boxPadX  = 20;
+            var _boxPadY  = 10;
+            var _boxH     = _labelPx + _mainPx + _boxPadY * 3;
+            var _boxX     = Math.round((_w - _boxW) / 2);
+            var _boxY     = Math.round(_h * 0.875);
+
+            // Background (matches rgba(0,0,0,0.75))
+            _ctx.fillStyle = 'rgba(0,0,0,0.75)';
+            _ctx.fillRect(_boxX, _boxY, _boxW, _boxH);
+
+            // Left border accent — 3px cyan (matches border-left: 2px solid var(--accent))
+            _ctx.fillStyle = '#00f3ff';
             _ctx.shadowBlur = 0;
-            _ctx.textAlign = 'center';
-            _ctx.textBaseline = 'middle';
-            var _hudFsPx  = Math.round(_h * 0.022);
-            var _hudLineH = Math.round(_h * 0.038);
-            var _hudY     = Math.round(_h * 0.955);
-            var _hudPadX  = 24;
-            _ctx.font = '400 ' + _hudFsPx + 'px "Courier New",monospace';
-            var _langEl  = document.getElementById('vngrd-input-lang');
-            var _srcCode = (_langEl && _langEl.value) ? _langEl.value.split('-')[0].toUpperCase() : 'EN';
-            var _hudLabel = _srcCode + ' // ' + _hudTxt;
-            var _hudTw   = _ctx.measureText(_hudLabel).width;
-            _ctx.fillStyle = 'rgba(0,0,0,0.82)';
-            _ctx.fillRect((_w - _hudTw) / 2 - _hudPadX, _hudY - Math.round(_hudLineH / 2), _hudTw + _hudPadX * 2, _hudLineH);
-            _ctx.fillStyle = 'rgba(255,255,255,0.9)';
-            _ctx.fillText(_hudLabel, _w / 2, _hudY);
+            _ctx.fillRect(_boxX, _boxY, 3, _boxH);
+
+            // Label: "EN // LIVE TRANSCRIPTION" (matches .hud-en-label)
+            _ctx.font = '600 ' + _labelPx + 'px Orbitron, sans-serif';
+            _ctx.fillStyle = 'rgba(0,243,255,0.55)';
+            _ctx.textAlign = 'left';
+            _ctx.textBaseline = 'top';
+            _ctx.shadowBlur = 0;
+            _ctx.fillText(_srcCode + ' // LIVE TRANSCRIPTION', _boxX + _boxPadX + 3, _boxY + _boxPadY);
+
+            // Main transcription text (matches #hud-en-text: color #e8e8ec, text-shadow)
+            _ctx.font = '400 ' + _mainPx + 'px "JetBrains Mono","Courier New",monospace';
+            _ctx.fillStyle = '#e8e8ec';
+            _ctx.shadowColor = 'rgba(0,0,0,0.95)';
+            _ctx.shadowBlur = 10;
+            _ctx.textBaseline = 'top';
+            _ctx.fillText(_finalTxt, _boxX + _boxPadX + 3, _boxY + _boxPadY + _labelPx + _boxPadY * 0.6);
+
             _ctx.restore();
         }
     })();
@@ -12747,6 +12798,7 @@ if (btn3dX) {
     function clearSubtitles() {
         slotTexts = ['', '', '', ''];
         window._vngrdSubtitleLines = [];   // clear canvas burn-in data
+        window._vngrdFinalText = '';       // clear canvas HUD burn-in
         if (subOverlay) subOverlay.innerHTML = '';
         if (podcastTray) podcastTray.classList.remove('visible');
         for (var i = 0; i < 4; i++) {
@@ -12879,6 +12931,7 @@ if (btn3dX) {
 
             if (finalText.trim()) {
                 lastFinal = finalText.trim();
+                window._vngrdFinalText = lastFinal;   // canvas burn-in uses final only — no crawl
                 processSlots(lastFinal);
             } else if (interim) {
                 processInterim(interim);
