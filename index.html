@@ -2395,14 +2395,15 @@ body.fullscreen #transcription-hud { pointer-events: none !important; } /* keep 
 .podcast-slot-text[dir="rtl"] { direction: rtl; text-align: right; }
 
 /* ── #vanguard-subtitles — pro-broadcast subtitle bar ─────────── */
+/* HTML duplicate hidden: canvas burn-in is the sole visual source */
 #vanguard-subtitles {
+    display: none !important;
     position: fixed;
     bottom: 128px;          /* above #transcription-hud (62px base + ~60px height) */
     left: 0;
     width: 100%;
     z-index: 4900;          /* below #bottom-bar (5000), above sidebars */
     pointer-events: none;
-    display: flex;
     flex-direction: column;
     align-items: center;
     padding: 6px 24px 8px;
@@ -4366,19 +4367,27 @@ function checkMobile() { APP.state.isMobile = /Android|iPhone|iPad|iPod|webOS|Bl
 // RENDER
 function initCanvas() {
     APP.render.canvas = $('vj-canvas');
-    APP.render.ctx = APP.render.canvas.getContext('2d', { alpha: false }); // Removed desynchronized to prevent grey flickering
-    // ── RESOLUTION CAP: 1080p max — 4K canvas chokes the render loop ──
-    APP.render.width  = Math.min(APP.render.width,  1920);
-    APP.render.height = Math.min(APP.render.height, 1080);
-    resizeCanvas();
-    window.addEventListener('resize', () => { resizeCanvas(); checkMobile(); });
+    APP.render.ctx = APP.render.canvas.getContext('2d', { alpha: false });
+    // ── HQ RESOLUTION BRIDGE: fixed 1280×720 logical canvas, DPR-scaled physical pixels ──
+    // This ensures canvas text is as sharp as HTML text on all display densities.
+    var _dpr = window.devicePixelRatio || 1;
+    APP.render.dpr    = _dpr;
+    APP.render.width  = 1280;
+    APP.render.height = 720;
+    APP.render.canvas.width  = 1280 * _dpr;
+    APP.render.canvas.height = 720  * _dpr;
+    APP.render.canvas.style.width  = '1280px';
+    APP.render.canvas.style.height = '720px';
+    APP.render.ctx.scale(_dpr, _dpr);
+    window.addEventListener('resize', () => { checkMobile(); });
     // Off-screen canvas for proper pixelation
     APP.render.pixelCanvas = document.createElement('canvas');
-    APP.render.pixelCanvas.width = 384; APP.render.pixelCanvas.height = 216; // Start small
+    APP.render.pixelCanvas.width = 384; APP.render.pixelCanvas.height = 216;
     APP.render.pixelCtx = APP.render.pixelCanvas.getContext('2d', { alpha: false });
     APP.render.pixelCtx.imageSmoothingEnabled = false;
+    log('CANVAS_INIT: DPR=' + _dpr + ' PHYSICAL=' + APP.render.canvas.width + 'x' + APP.render.canvas.height);
 }
-function resizeCanvas() { APP.render.canvas.width = APP.render.width; APP.render.canvas.height = APP.render.height; $('res').textContent = `${APP.render.width}x${APP.render.height}`; }
+function resizeCanvas() { $('res').textContent = `${APP.render.width}x${APP.render.height}`; }
 
 // ═══════════════════════════════════════════════════════════════════════════
 // MEDIA STRIP TOGGLE TAB — always-visible collapse handle at canvas bottom
@@ -4959,6 +4968,11 @@ function renderLoop(timestamp) {
     ctx.clearRect(0, 0, w, h);
     ctx.fillStyle = '#000';
     ctx.fillRect(0, 0, w, h);
+
+    // --- AI BACKGROUND GUARD — safe drawImage for AI-generated backgrounds ──
+    if (typeof aiImage !== 'undefined' && aiImage && aiImage.complete && aiImage.naturalWidth > 0) {
+        ctx.drawImage(aiImage, 0, 0, w, h);
+    }
 
     // --- PUNCH / SEISMIC: frame-level transform — wraps ALL drawing (canvas only) ---
     var _punch = APP.vj._punchSpring || 0;
@@ -5680,75 +5694,115 @@ if (T.logo.visible) {
         }
     }
 
-    // ── SUBTITLE / TRANSCRIPTION BURN-IN — runs every frame ──
-    // Reads directly from globals + DOM so no IIFE closure can block it.
-    // Uses canvas.width/height (not APP.render.width) and setTransform to
-    // guarantee identity state regardless of what the FX pipeline left behind.
+    // ── THE AESTHETIC BURN-IN — HQ canvas subtitles (Share Tech Mono, neon glow) ──
+    // Uses DPR-scaled logical coordinate system (1280×720 space).
+    // Typography matches the HTML look without the Double Sub clutter.
     (function _subtitleBurn() {
         var _ctx = APP.render.ctx;
-        var _w = APP.render.canvas.width;
-        var _h = APP.render.canvas.height;
-        if (!_ctx || !_w || !_h) return;
+        if (!_ctx) return;
+        var _dpr = APP.render.dpr || window.devicePixelRatio || 1;
 
-        // 1. Translation slot subtitles
+        // ── 1. Translation slot subtitles (HQ burn-in) ──
         var _lines = window._vngrdSubtitleLines;
         if (_lines && _lines.length) {
             _ctx.save();
-            _ctx.setTransform(1, 0, 0, 1, 0, 0);
+            // Restore the DPR-scaled logical coordinate system (1280×720)
+            _ctx.setTransform(_dpr, 0, 0, _dpr, 0, 0);
             _ctx.globalAlpha = 1;
             _ctx.globalCompositeOperation = 'source-over';
             _ctx.filter = 'none';
-            _ctx.shadowBlur = 0;
             _ctx.textAlign = 'center';
             _ctx.textBaseline = 'middle';
-            var _lineH = Math.round(_h * 0.058);
-            var _fsPx  = Math.round(_h * 0.032);
-            var _padX  = 18;
-            var _blockH   = _lineH * _lines.length;
-            var _blockTop = Math.round(_h * 0.78) - Math.round(_blockH / 2);
-            _ctx.font = '700 ' + _fsPx + 'px "Courier New",monospace';
-            for (var _li = 0; _li < _lines.length; _li++) {
-                var _sub     = _lines[_li];
-                var _lineTop = _blockTop + _li * _lineH;
-                var _cy      = _lineTop + Math.round(_lineH / 2);
-                var _label   = '[' + _sub.lang + '] ' + _sub.text;
-                var _tw      = _ctx.measureText(_label).width;
-                var _bgA     = (typeof _sub.bgAlpha === 'number') ? _sub.bgAlpha : 0.8;
-                _ctx.fillStyle = 'rgba(0,0,0,' + _bgA + ')';
-                _ctx.fillRect((_w - _tw) / 2 - _padX, _lineTop, _tw + _padX * 2, _lineH);
-                _ctx.fillStyle = '#00f3ff';
-                _ctx.fillText(_label, _w / 2, _cy);
-            }
+
+            var _centerX   = 640;  // center of 1280px logical canvas
+            var _baseY     = 620;  // bottom-area anchor
+            var _slotGap   = 90;   // vertical gap between multi-slot entries
+            var _totalH    = (_lines.length - 1) * _slotGap;
+            var _startY    = _baseY - _totalH / 2;
+
+            _lines.forEach(function(_sub, _li) {
+                var _text   = _sub.text || '';
+                var _lang   = _sub.lang || 'EN';
+                var _slotY  = _startY + _li * _slotGap;
+
+                // ── INDICATOR: [ LANG // LIVE ] — 18px, above main text ──
+                _ctx.font = "18px 'Share Tech Mono', monospace";
+                _ctx.shadowBlur   = 0;
+                _ctx.shadowColor  = 'transparent';
+                _ctx.fillStyle    = 'rgba(0, 255, 255, 0.65)';
+                _ctx.fillText('[ ' + _lang + ' // LIVE ]', _centerX, _slotY - 30);
+
+                // ── MAIN TEXT: 32px Share Tech Mono, max 1000px wide ──
+                _ctx.font = "32px 'Share Tech Mono', monospace";
+
+                // Word-wrap to 1000px logical max-width
+                var _words = _text.split(' ');
+                var _wraps = [], _cur = '';
+                for (var _wi = 0; _wi < _words.length; _wi++) {
+                    var _t = _cur ? _cur + ' ' + _words[_wi] : _words[_wi];
+                    if (_ctx.measureText(_t).width > 1000 && _cur) { _wraps.push(_cur); _cur = _words[_wi]; }
+                    else _cur = _t;
+                }
+                if (_cur) _wraps.push(_cur);
+
+                var _lineH = 40, _padX = 24, _padY = 10;
+                var _maxTw = 0;
+                _wraps.forEach(function(wl) { var tw = _ctx.measureText(wl).width; if (tw > _maxTw) _maxTw = tw; });
+                var _boxW = Math.min(_maxTw + _padX * 2, 1000 + _padX * 2);
+                var _boxH = _wraps.length * _lineH + _padY * 2;
+                var _boxX = _centerX - _boxW / 2;
+                var _boxY = _slotY - _boxH / 2;
+
+                // HUD Box: semi-transparent dark background
+                _ctx.shadowBlur  = 0;
+                _ctx.fillStyle   = 'rgba(0, 10, 10, 0.6)';
+                _ctx.fillRect(_boxX, _boxY, _boxW, _boxH);
+
+                // HUD Box: 1px neon cyan stroke
+                _ctx.strokeStyle = '#00FFFF';
+                _ctx.lineWidth   = 1;
+                _ctx.strokeRect(_boxX, _boxY, _boxW, _boxH);
+
+                // Glow + text
+                _ctx.shadowBlur  = 10;
+                _ctx.shadowColor = '#00FFFF';
+                _ctx.fillStyle   = '#00FFFF';
+                _wraps.forEach(function(wl, wli) {
+                    var _wy = _slotY - ((_wraps.length - 1) * _lineH) / 2 + wli * _lineH;
+                    _ctx.fillText(wl, _centerX, _wy);
+                });
+                _ctx.shadowBlur = 0;
+            });
+
             _ctx.restore();
         }
 
-        // 2. Live transcription HUD line (only when STT is on-air)
-        var _hudEl  = document.getElementById('hud-en-text');
-        var _hudTxt = (_hudEl ? _hudEl.textContent : '').trim();
+        // ── 2. Live transcription HUD line (only when STT is on-air) ──
+        var _hudEl   = document.getElementById('hud-en-text');
+        var _hudTxt  = (_hudEl ? _hudEl.textContent : '').trim();
         var _onAirEl = document.getElementById('btn-on-air');
         var _sttLive = _onAirEl && _onAirEl.classList.contains('active');
         if (_hudTxt && _sttLive) {
             _ctx.save();
-            _ctx.setTransform(1, 0, 0, 1, 0, 0);
+            _ctx.setTransform(_dpr, 0, 0, _dpr, 0, 0);
             _ctx.globalAlpha = 1;
             _ctx.globalCompositeOperation = 'source-over';
-            _ctx.filter = 'none';
-            _ctx.shadowBlur = 0;
-            _ctx.textAlign = 'center';
+            _ctx.filter   = 'none';
+            _ctx.textAlign    = 'center';
             _ctx.textBaseline = 'middle';
-            var _hudFsPx  = Math.round(_h * 0.022);
-            var _hudLineH = Math.round(_h * 0.038);
-            var _hudY     = Math.round(_h * 0.955);
-            var _hudPadX  = 24;
-            _ctx.font = '400 ' + _hudFsPx + 'px "Courier New",monospace';
+            _ctx.font = "16px 'Share Tech Mono', monospace";
             var _langEl  = document.getElementById('vngrd-input-lang');
             var _srcCode = (_langEl && _langEl.value) ? _langEl.value.split('-')[0].toUpperCase() : 'EN';
             var _hudLabel = _srcCode + ' // ' + _hudTxt;
             var _hudTw   = _ctx.measureText(_hudLabel).width;
+            var _hudPadX = 20, _hudPadY = 6;
+            var _hudBoxW = _hudTw + _hudPadX * 2;
+            var _hudBoxH = 28;
+            var _hudY    = 700;  // near bottom of 720px logical canvas
             _ctx.fillStyle = 'rgba(0,0,0,0.82)';
-            _ctx.fillRect((_w - _hudTw) / 2 - _hudPadX, _hudY - Math.round(_hudLineH / 2), _hudTw + _hudPadX * 2, _hudLineH);
-            _ctx.fillStyle = 'rgba(255,255,255,0.9)';
-            _ctx.fillText(_hudLabel, _w / 2, _hudY);
+            _ctx.fillRect(640 - _hudBoxW / 2, _hudY - _hudBoxH / 2, _hudBoxW, _hudBoxH);
+            _ctx.fillStyle = 'rgba(255,255,255,0.85)';
+            _ctx.fillText(_hudLabel, 640, _hudY);
             _ctx.restore();
         }
     })();
@@ -12772,19 +12826,56 @@ if (btn3dX) {
         }
     }
 
-    /* ── Translation via MyMemory (free, no API key) ─────────────────── */
-    // srcLang: 2-char code ('en', 'it', 'zh' …)
-    // tgtCode: MyMemory target code ('nl', 'zh', 'ja' …)
-    function translateSlot(text, srcLang, tgtCode, slotIdx) {
-        if (!text || !srcLang || !tgtCode) return;
-        var pair = srcLang + '|' + tgtCode;
-        fetch('https://api.mymemory.translated.net/get?q=' + encodeURIComponent(text) + '&langpair=' + pair)
-            .then(function(res) { return res.json(); })
-            .then(function(data) {
-                var t = (data.responseData && data.responseData.translatedText || '').toUpperCase();
-                if (t) { slotTexts[slotIdx] = t; renderSubtitles(); }
-            })
-            .catch(function() {});
+    /* ── THE UNLIMITED ENGINE: GTX Bypass translation with debounce + cache ── */
+    // Uses the Google Translate GTX endpoint (no API key required).
+    // 200ms debounce prevents UI lag from rapid speech recognition updates.
+    // window.transCache provides instant retrieval for repeated phrases.
+    var _translateTimers = {};
+    function translateText(text, src, target, slotIdx) {
+        if (!text || !src || !target) return;
+        var cacheKey = src + '|' + target + '|' + text;
+
+        // 1. Cache hit: instant retrieval, no network call
+        if (window.transCache && window.transCache[cacheKey]) {
+            slotTexts[slotIdx] = window.transCache[cacheKey];
+            renderSubtitles();
+            if (typeof sendUISync === 'function') {
+                var _p2p = {}; _p2p[target.toUpperCase()] = window.transCache[cacheKey];
+                sendUISync('POLYTRANSLATOR', _p2p);
+            }
+            return;
+        }
+
+        // 2. Debounce 200ms to prevent rapid-fire fetches
+        if (_translateTimers[slotIdx]) clearTimeout(_translateTimers[slotIdx]);
+        _translateTimers[slotIdx] = setTimeout(function() {
+            var url = 'https://translate.googleapis.com/translate_a/single?client=gtx&sl=' +
+                src + '&tl=' + target + '&dt=t&q=' + encodeURIComponent(text);
+            fetch(url)
+                .then(function(res) { return res.json(); })
+                .then(function(data) {
+                    // GTX response: [[["translated","original",...],...],...]
+                    var t = '';
+                    if (data && data[0]) {
+                        for (var i = 0; i < data[0].length; i++) {
+                            if (data[0][i] && data[0][i][0]) t += data[0][i][0];
+                        }
+                    }
+                    t = t.toUpperCase();
+                    if (t) {
+                        if (!window.transCache) window.transCache = {};
+                        window.transCache[cacheKey] = t;
+                        slotTexts[slotIdx] = t;
+                        renderSubtitles();
+                        // Push to P2P guests via dataChannel
+                        if (typeof sendUISync === 'function') {
+                            var _p2p = {}; _p2p[target.toUpperCase()] = t;
+                            sendUISync('POLYTRANSLATOR', _p2p);
+                        }
+                    }
+                })
+                .catch(function() {});
+        }, 200);
     }
 
     /* ── Process finalized text through all active slots ──────────────── */
@@ -12812,8 +12903,8 @@ if (btn3dX) {
                 slotTexts[s.idx] = rawText;
                 p2pData[s.lang]   = rawText;
             } else {
-                // Different language — send to MyMemory with correct src|tgt pair
-                translateSlot(rawText, srcCode, tgtCode, s.idx);
+                // Different language — send via GTX Bypass with debounce + cache
+                translateText(rawText, srcCode, tgtCode, s.idx);
                 p2pData[s.lang] = '...';
             }
         });
