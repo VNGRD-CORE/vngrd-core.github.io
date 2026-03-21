@@ -1573,76 +1573,146 @@
             color: rgba(140,90,255,0.6); opacity: 1;
             line-height: 1; pointer-events: none; letter-spacing: 0;
         }
-        /* Groovebox armed pulse */
-        @keyframes gb-arm-pulse {
-            0%, 100% { border-color: rgba(255,200,0,0.6); box-shadow: 2px 3px 8px rgba(0,0,0,0.9), inset 0 3px 12px rgba(0,0,0,0.7), 0 0 14px rgba(255,200,0,0.5); }
-            50%       { border-color: rgba(255,200,0,0.18); box-shadow: 2px 3px 8px rgba(0,0,0,0.9), inset 0 3px 12px rgba(0,0,0,0.85), 0 0 4px rgba(255,200,0,0.1); }
-        }
-        .sfx-pad.gb-armed {
-            border-color: rgba(255,200,0,0.6) !important;
-            color: rgba(255,210,0,0.9) !important;
-            animation: gb-arm-pulse 0.7s ease-in-out infinite !important;
-        }
         /* MODE TOGGLE button */
         #mode-toggle {
-            background: transparent;
-            border: 1px solid rgba(0,243,255,0.25);
-            border-radius: 3px;
-            color: rgba(0,243,255,0.55);
-            font-family: 'Orbitron', sans-serif;
-            font-size: 5.5px; font-weight: 700;
-            letter-spacing: 1.5px;
-            padding: 2px 5px;
-            cursor: pointer;
-            flex-shrink: 0;
+            background: transparent; border: 1px solid rgba(0,243,255,0.25); border-radius: 3px;
+            color: rgba(0,243,255,0.55); font-family: 'Orbitron', sans-serif;
+            font-size: 5.5px; font-weight: 700; letter-spacing: 1.5px;
+            padding: 2px 5px; cursor: pointer; flex-shrink: 0;
             transition: border-color 0.15s, color 0.15s, box-shadow 0.15s;
         }
         #mode-toggle:hover { border-color: var(--accent); color: var(--accent); box-shadow: 0 0 8px rgba(0,243,255,0.3); }
-        #mode-toggle.groovebox-mode { border-color: rgba(255,200,0,0.55); color: rgba(255,210,0,0.9); box-shadow: 0 0 8px rgba(255,200,0,0.25); }
-        /* Groovebox transport bar */
-        #groovebox-transport {
-            display: none; align-items: center; gap: 6px;
-            padding: 6px 2px 2px;
-            border-top: 1px solid rgba(255,200,0,0.14); margin-top: 4px;
+        #mode-toggle.groovebox-mode { border-color: rgba(255,200,0,0.55); color: rgba(255,210,0,0.9); box-shadow: 0 0 8px rgba(255,200,0,0.25); animation: gb-mode-pulse 1.4s ease-in-out infinite; }
+        @keyframes gb-mode-pulse { 0%,100%{box-shadow:0 0 8px rgba(255,200,0,0.25);} 50%{box-shadow:0 0 14px rgba(255,200,0,0.55);} }
+
+        /* ═══════════════════════════════════════════════════════
+           GROOVEBOX SEQUENCER PANEL — DAW-style step sequencer
+           ═══════════════════════════════════════════════════════ */
+        #gb-seq-panel {
+            display: none;
+            flex-direction: column;
+            background: linear-gradient(180deg, #06080f 0%, #040509 100%);
+            border: 1px solid rgba(255,200,0,0.2);
+            border-top: 2px solid rgba(255,200,0,0.4);
+            border-radius: 4px;
+            margin-top: 5px;
+            overflow: hidden;
+            box-shadow: 0 4px 20px rgba(0,0,0,0.8), inset 0 1px 0 rgba(255,200,0,0.06);
         }
-        #groovebox-transport.visible { display: flex; }
-        #gb-bpm-label { font-family: 'Orbitron', sans-serif; font-size: 6px; color: rgba(255,200,0,0.45); letter-spacing: 1px; flex-shrink: 0; }
+        #gb-seq-panel.visible { display: flex; }
+
+        /* Transport header */
+        #gb-seq-header {
+            display: flex; align-items: center; gap: 5px;
+            padding: 5px 7px 4px;
+            border-bottom: 1px solid rgba(255,200,0,0.12);
+            background: rgba(255,200,0,0.03);
+        }
+        .gb-seq-title {
+            font-family: 'Orbitron', sans-serif; font-size: 6px; font-weight: 700;
+            letter-spacing: 2px; color: rgba(255,200,0,0.7); flex-shrink: 0;
+        }
+        .gb-bpm-lbl { font-family: 'Orbitron', sans-serif; font-size: 5.5px; color: rgba(255,200,0,0.4); flex-shrink: 0; }
         #gb-bpm {
-            width: 42px;
-            background: #0c0c14; border: 1px solid rgba(255,200,0,0.38) !important;
-            border-radius: 3px; color: rgba(255,210,0,0.9) !important;
-            font-family: 'Orbitron', sans-serif; font-size: 9px; font-weight: 700;
-            text-align: center; padding: 3px 4px;
+            width: 36px; background: rgba(0,0,0,0.6);
+            border: 1px solid rgba(255,200,0,0.3) !important; border-radius: 2px;
+            color: rgba(255,220,0,0.95) !important; font-family: 'Orbitron', sans-serif;
+            font-size: 8px; font-weight: 700; text-align: center; padding: 2px 3px;
             -moz-appearance: textfield;
-            box-shadow: inset 0 2px 6px rgba(0,0,0,0.7), 0 0 6px rgba(255,200,0,0.1);
         }
-        #gb-bpm::-webkit-inner-spin-button,
-        #gb-bpm::-webkit-outer-spin-button { -webkit-appearance: none; margin: 0; }
+        #gb-bpm::-webkit-inner-spin-button, #gb-bpm::-webkit-outer-spin-button { -webkit-appearance: none; }
+        #gb-kit-select {
+            flex: 1; -webkit-appearance: none; appearance: none;
+            background: rgba(0,0,0,0.6); border: 1px solid rgba(255,200,0,0.25);
+            border-radius: 2px; color: rgba(255,200,0,0.7);
+            font-family: 'Orbitron', sans-serif; font-size: 5px; letter-spacing: 0.5px;
+            padding: 2px 4px; cursor: pointer;
+        }
         #gb-transport-btn {
-            flex: 1;
-            background: transparent; border: 1px solid rgba(255,200,0,0.38); border-radius: 3px;
-            color: rgba(255,210,0,0.8); font-family: 'Orbitron', sans-serif;
-            font-size: 7px; font-weight: 700; letter-spacing: 1.5px;
-            padding: 4px 8px; cursor: pointer;
-            transition: border-color 0.15s, color 0.15s, box-shadow 0.15s;
+            background: transparent; border: 1px solid rgba(255,200,0,0.45); border-radius: 2px;
+            color: rgba(255,210,0,0.9); font-family: 'Orbitron', sans-serif;
+            font-size: 6px; font-weight: 700; letter-spacing: 1px;
+            padding: 3px 7px; cursor: pointer; white-space: nowrap; flex-shrink: 0;
+            transition: border-color 0.12s, color 0.12s, box-shadow 0.12s;
         }
-        #gb-transport-btn:hover { border-color: rgba(255,200,0,0.75); color: rgba(255,210,0,1.0); box-shadow: 0 0 10px rgba(255,200,0,0.38); }
-        #gb-transport-btn.playing { border-color: rgba(255,60,60,0.7); color: #ff4444; box-shadow: 0 0 8px rgba(255,50,50,0.45); }
-        /* ── STEP SEQUENCER GRID ── */
-        #gb-seq-grid { display: none; flex-direction: column; gap: 3px; padding: 5px 2px 3px; border-top: 1px solid rgba(255,200,0,0.1); margin-top: 4px; }
-        #gb-seq-grid.visible { display: flex; }
+        #gb-transport-btn:hover { border-color: rgba(255,200,0,0.8); color: #ffd700; box-shadow: 0 0 10px rgba(255,200,0,0.4); }
+        #gb-transport-btn.playing { border-color: rgba(255,60,60,0.8); color: #ff4444; box-shadow: 0 0 10px rgba(255,50,50,0.5); animation: gb-play-pulse 0.6s ease-in-out infinite; }
+        @keyframes gb-play-pulse { 0%,100%{box-shadow:0 0 6px rgba(255,50,50,0.4);} 50%{box-shadow:0 0 14px rgba(255,50,50,0.8);} }
+
+        /* ── STEP GRID ── */
+        #gb-seq-grid { display: flex; flex-direction: column; padding: 5px 6px 6px; gap: 2px; }
+
+        /* Beat number header row */
+        .gb-beat-header { display: flex; align-items: center; gap: 0; margin-bottom: 1px; padding-left: 32px; padding-right: 32px; }
+        .gb-beat-num {
+            flex: 0 0 calc((100% - 0px) / 16); text-align: center;
+            font-family: 'Orbitron', sans-serif; font-size: 4.5px; color: rgba(255,200,0,0.25);
+        }
+        .gb-beat-num.gb-bar-start { color: rgba(255,200,0,0.6); font-weight: 700; }
+
+        /* Sequencer rows */
         .gb-seq-row { display: flex; align-items: center; gap: 3px; }
-        .gb-seq-lbl { font-family: 'Orbitron', sans-serif; font-size: 5px; color: rgba(255,200,0,0.45); min-width: 26px; letter-spacing: 0.5px; flex-shrink: 0; }
-        .gb-step {
-            width: 13px; height: 13px; padding: 0;
-            background: rgba(255,200,0,0.05); border: 1px solid rgba(255,200,0,0.18);
-            border-radius: 2px; cursor: pointer; flex-shrink: 0;
-            transition: background 0.08s, border-color 0.08s, box-shadow 0.08s;
+        .gb-seq-row.gb-row-muted { opacity: 0.35; }
+        .gb-seq-row.gb-row-separator { border-top: 1px solid rgba(255,200,0,0.08); margin-top: 3px; padding-top: 3px; }
+        .gb-seq-lbl {
+            font-family: 'Orbitron', sans-serif; font-size: 5px; font-weight: 700;
+            color: rgba(255,200,0,0.5); min-width: 28px; max-width: 28px;
+            letter-spacing: 0.3px; flex-shrink: 0; overflow: hidden; text-overflow: ellipsis;
+            white-space: nowrap;
         }
-        .gb-step:hover { border-color: rgba(255,200,0,0.5); background: rgba(255,200,0,0.12); }
-        .gb-step.gb-step-on { background: rgba(255,200,0,0.55); border-color: rgba(255,210,0,0.9); box-shadow: 0 0 5px rgba(255,200,0,0.45); }
-        .gb-step.gb-step-cur { border-color: rgba(0,243,255,0.9) !important; box-shadow: 0 0 5px rgba(0,243,255,0.6) !important; }
-        .gb-step.gb-step-on.gb-step-cur { background: rgba(255,240,80,0.85) !important; border-color: #fff !important; box-shadow: 0 0 7px rgba(255,230,0,0.9) !important; }
+
+        /* Steps container */
+        .gb-steps { display: flex; flex: 1; gap: 1px; }
+        /* Group of 4 steps separated by slightly larger gap */
+        .gb-step-group { display: flex; gap: 1px; flex: 1; }
+        .gb-step-group + .gb-step-group { margin-left: 3px; }
+
+        /* Individual step buttons */
+        .gb-step {
+            flex: 1; height: 16px; padding: 0; border-radius: 2px; cursor: pointer;
+            background: rgba(20,16,8,0.9);
+            border: 1px solid rgba(255,200,0,0.12);
+            transition: background 0.06s, border-color 0.06s, box-shadow 0.06s;
+            position: relative;
+        }
+        .gb-step:hover { background: rgba(255,200,0,0.1); border-color: rgba(255,200,0,0.4); }
+        .gb-step.gb-step-on {
+            background: rgba(255,185,0,0.55);
+            border-color: rgba(255,210,0,0.85);
+            box-shadow: 0 0 5px rgba(255,185,0,0.5), inset 0 1px 0 rgba(255,255,200,0.3);
+        }
+        .gb-step.gb-step-accent {
+            background: rgba(255,220,0,0.9) !important;
+            border-color: #fff !important;
+            box-shadow: 0 0 8px rgba(255,220,0,0.8), inset 0 1px 0 rgba(255,255,255,0.5) !important;
+        }
+        /* Playhead cursor */
+        .gb-step.gb-step-cur::after {
+            content: '';
+            position: absolute; bottom: -3px; left: 50%; transform: translateX(-50%);
+            width: 4px; height: 4px; border-radius: 50%;
+            background: var(--accent);
+            box-shadow: 0 0 5px rgba(0,243,255,0.9);
+        }
+        .gb-step.gb-step-cur { border-color: rgba(0,243,255,0.7) !important; }
+        .gb-step.gb-step-on.gb-step-cur {
+            background: rgba(255,240,80,0.95) !important;
+            border-color: rgba(0,243,255,0.9) !important;
+            box-shadow: 0 0 10px rgba(255,230,0,0.9), 0 0 5px rgba(0,243,255,0.6) !important;
+        }
+
+        /* Row controls: mute + clear */
+        .gb-row-controls { display: flex; gap: 2px; flex-shrink: 0; }
+        .gb-row-mute, .gb-row-clear {
+            width: 14px; height: 16px; padding: 0; border-radius: 2px; cursor: pointer;
+            font-family: 'Orbitron', sans-serif; font-size: 5px; font-weight: 700;
+            background: transparent; transition: background 0.1s, color 0.1s;
+        }
+        .gb-row-mute { border: 1px solid rgba(255,200,0,0.2); color: rgba(255,200,0,0.4); }
+        .gb-row-mute:hover { background: rgba(255,200,0,0.12); color: rgba(255,200,0,0.9); }
+        .gb-row-mute.muted { background: rgba(255,200,0,0.2); color: rgba(255,200,0,0.9); border-color: rgba(255,200,0,0.5); }
+        .gb-row-clear { border: 1px solid rgba(255,80,80,0.18); color: rgba(255,80,80,0.35); }
+        .gb-row-clear:hover { background: rgba(255,80,80,0.12); color: rgba(255,100,100,0.9); }
         /* Liquid library select */
         #liq-lib-select {
             -webkit-appearance: none; appearance: none;
@@ -3241,7 +3311,7 @@ body.fullscreen #transcription-hud { pointer-events: none !important; } /* keep 
                             <span class="pad-lcd">airhorn.mp3</span>
                         </button>
 
-                        <button class="btn sfx-btn sfx-pad sfx-sig sfx-wide" id="sfx-boom" data-sfx="boom" data-midi-target="sfx:boom" data-pad-num="04" title="Boom — click or MIDI">
+                        <button class="btn sfx-btn sfx-pad sfx-sig" id="sfx-boom" data-sfx="boom" data-midi-target="sfx:boom" data-pad-num="04" title="Boom — click or MIDI">
                             <div class="pad-gear" onclick="event.stopPropagation()">
                                 <span class="pad-gear-icon" onclick="_padGearToggle(this)">⚙</span>
                                 <div class="pad-gear-menu">
@@ -3263,6 +3333,8 @@ body.fullscreen #transcription-hud { pointer-events: none !important; } /* keep 
                             <span class="pad-lcd">BOOM.wav</span>
                         </button>
 
+                        <!-- Row 2+3: Custom + Liquid — hidden in GROOVEBOX mode, replaced by sequencer -->
+                        <div id="sfx-cust-liq-section" style="display:contents">
                         <!-- Row 2: Custom Performance Bank -->
                         <div class="sfx-bank-label" style="color:rgba(255,140,0,0.6);">CUSTOM BANK <em>// TAP: LOAD · R-CLICK: ARM REC</em></div>
 
@@ -3429,7 +3501,7 @@ body.fullscreen #transcription-hud { pointer-events: none !important; } /* keep 
                             <span class="pad-rate">0.75×</span>
                         </button>
 
-                        <button class="btn sfx-btn sfx-pad sfx-liq sfx-wide" id="sfx-liq4" data-sfx="liq4" data-midi-target="sfx:liq4" data-pad-num="12" title="Liquid 4 — wide heavy drag pad">
+                        <button class="btn sfx-btn sfx-pad sfx-liq" id="sfx-liq4" data-sfx="liq4" data-midi-target="sfx:liq4" data-pad-num="12" title="Liquid 4">
                             <div class="pad-gear" onclick="event.stopPropagation()">
                                 <span class="pad-gear-icon" onclick="_padGearToggle(this)">⚙</span>
                                 <div class="pad-gear-menu">
@@ -3449,24 +3521,32 @@ body.fullscreen #transcription-hud { pointer-events: none !important; } /* keep 
                             <span class="pad-rate">0.75×</span>
                         </button>
 
+                        </div><!-- /sfx-cust-liq-section -->
                     </div><!-- /sfx-pad-grid -->
 
-                    <!-- Liquid Library pack selector -->
+                    <!-- Kit selector (performance mode) -->
                     <select id="liq-lib-select">
-                        <option value="0">▶ DEEP IMPACT — Sub 808 Thumps</option>
-                        <option value="1">▶ VAPOR BASS — Drifting Chords</option>
-                        <option value="2">▶ PUNCH CORE — Hard Kick Stabs</option>
-                        <option value="3">▶ LIQUID DROP — Slow Wave Subs</option>
+                        <option value="0">▶ IMPACT CORE — Brutal Force Hits</option>
+                        <option value="1">▶ DYSTOPIA — Cyberpunk Corrupt</option>
+                        <option value="2">▶ WARZONE — Military Explosive</option>
+                        <option value="3">▶ VOID MACHINES — Dark Industrial</option>
                     </select>
 
-                    <!-- Step sequencer grid (hidden until GROOVEBOX mode) -->
-                    <div id="gb-seq-grid"></div>
-
-                    <!-- Groovebox transport (hidden until GROOVEBOX mode) -->
-                    <div id="groovebox-transport">
-                        <span id="gb-bpm-label">BPM</span>
-                        <input type="number" id="gb-bpm" value="120" min="60" max="220">
-                        <button id="gb-transport-btn" onclick="_toggleGrooveboxTransport()">&#x25B6; START</button>
+                    <!-- GROOVEBOX sequencer panel (replaces custom+liquid in GROOVEBOX mode) -->
+                    <div id="gb-seq-panel">
+                        <div id="gb-seq-header">
+                            <span class="gb-seq-title">STEP SEQ</span>
+                            <span class="gb-bpm-lbl">BPM</span>
+                            <input type="number" id="gb-bpm" value="120" min="40" max="240">
+                            <select id="gb-kit-select">
+                                <option value="0">IMPACT CORE</option>
+                                <option value="1">DYSTOPIA</option>
+                                <option value="2">WARZONE</option>
+                                <option value="3">VOID MACHINES</option>
+                            </select>
+                            <button id="gb-transport-btn" onclick="_toggleGrooveboxTransport()">&#x25B6; PLAY</button>
+                        </div>
+                        <div id="gb-seq-grid"></div>
                     </div>
 
                     <!-- Hidden file inputs for custom pad uploads -->
@@ -6721,65 +6801,185 @@ function _vjHeavySync() {
 }
 
 // ═══════════════════════════════════════════════════════════════
-//  VANGUARD LIQUID LIBRARY — 4 synthesized bass packs × 4 pads
-//  All sounds generated client-side via OfflineAudioContext.
+//  VANGUARD LIQUID LIBRARY — 4 cinematic kits × 4 pads
+//  Heavy, dissonant, cinematic FX. All synthesized client-side.
 // ═══════════════════════════════════════════════════════════════
 var VANGUARD_LIQUID_LIB = [
-    { name: 'DEEP IMPACT', pads: [
-        { label: 'THUMP',    p: { freq:60,  type:'sine',     atk:0.003, dec:0.35, sus:0.05, dur:1.4, sub:30  } },
-        { label: '808',      p: { freq:80,  type:'sine',     atk:0.002, dec:0.55, sus:0.02, dur:1.8, sub:40  } },
-        { label: 'SLAM',     p: { freq:55,  type:'triangle', atk:0.001, dec:0.25, sus:0.08, dur:1.0, sub:28  } },
-        { label: 'GRAVITY',  p: { freq:45,  type:'sine',     atk:0.005, dec:0.70, sus:0.01, dur:2.2, sub:22  } }
+    // Kit 0: IMPACT CORE — pure brutal physical force
+    { name: 'IMPACT CORE', rate: 1.0, pads: [
+        { label: 'CANNON',   p: { mode:'sweep',    oscType:'sine',     freq:185, freqEnd:22, sub:18, dist:0.08, atk:0.001, dec:0.65, sus:0.0,   dur:2.0 } },
+        { label: 'SHRAPNEL', p: { mode:'noise',    filter:'bandpass',  filterFreq:3800, filterQ:2.5,            atk:0.001, dec:0.10, sus:0.001, dur:0.22 } },
+        { label: 'TREMOR',   p: { mode:'cluster',  oscType:'sine',     freqs:[19,22,26], dist:0.05,             atk:0.012, dec:1.3,  sus:0.06,  dur:3.2 } },
+        { label: 'SLAM',     p: { mode:'metal',    freq:170, freqEnd:40, ring:720,                              atk:0.001, dec:0.30, sus:0.005, dur:1.1 } }
     ]},
-    { name: 'VAPOR BASS', pads: [
-        { label: 'WAVE',     p: { freq:110, type:'sine',     atk:0.02,  dec:0.4,  sus:0.15, dur:1.6, det:-8  } },
-        { label: 'CHROMA',   p: { freq:88,  type:'triangle', atk:0.015, dec:0.5,  sus:0.12, dur:2.0, det:12  } },
-        { label: 'DRIFT',    p: { freq:73,  type:'sine',     atk:0.03,  dec:0.6,  sus:0.18, dur:2.4, det:-20 } },
-        { label: 'HAUNT',    p: { freq:55,  type:'triangle', atk:0.05,  dec:0.8,  sus:0.10, dur:3.0, det:5   } }
+    // Kit 1: DYSTOPIA — cyberpunk corrupt glitch signal
+    { name: 'DYSTOPIA', rate: 1.0, pads: [
+        { label: 'CORRUPT',  p: { mode:'noise',    filter:'bandpass',  filterFreq:550,  filterQ:1.8, dist:0.75, atk:0.001, dec:0.09, sus:0.001, dur:0.18 } },
+        { label: 'VOLTAGE',  p: { mode:'sweep',    oscType:'sawtooth', freq:1600, freqEnd:55, dist:0.6,          atk:0.001, dec:0.16, sus:0.0,   dur:0.38 } },
+        { label: 'CODEC',    p: { mode:'noise',    filter:'bandpass',  filterFreq:380,  filterQ:3.5, dist:0.9,  atk:0.001, dec:0.22, sus:0.001, dur:0.38 } },
+        { label: 'COLLAPSE', p: { mode:'cluster',  oscType:'sawtooth', freqs:[55,73.4,82.4,146.8], dist:0.5,   atk:0.002, dec:0.55, sus:0.015, dur:2.1 } }
     ]},
-    { name: 'PUNCH CORE', pads: [
-        { label: 'KICK',     p: { freq:120, type:'sine',     atk:0.001, dec:0.15, sus:0.001,dur:0.6, sub:60 } },
-        { label: 'STOMP',    p: { freq:90,  type:'triangle', atk:0.002, dec:0.18, sus:0.002,dur:0.7, sub:45 } },
-        { label: 'SPIKE',    p: { freq:75,  type:'sawtooth', atk:0.001, dec:0.12, sus:0.001,dur:0.5, sub:38 } },
-        { label: 'DETONATE', p: { freq:55,  type:'sine',     atk:0.001, dec:0.28, sus:0.001,dur:0.9, sub:28 } }
+    // Kit 2: WARZONE — military explosive cinematic
+    { name: 'WARZONE', rate: 1.0, pads: [
+        { label: 'ARTILLERY',  p: { mode:'boom',   sub:26, filter:'lowpass', filterFreq:320, filterQ:0.7,       atk:0.001, dec:1.1,  sus:0.05,  dur:3.2 } },
+        { label: 'BREACH',     p: { mode:'metal',  freq:165, freqEnd:42, ring:840,                              atk:0.001, dec:0.28, sus:0.018, dur:0.9 } },
+        { label: 'SNIPER',     p: { mode:'noise',  filter:'bandpass',  filterFreq:2900, filterQ:2.2,            atk:0.001, dec:0.045,sus:0.0,   dur:0.14 } },
+        { label: 'DETONATN',   p: { mode:'boom',   sub:20, filter:'lowpass', filterFreq:180, filterQ:0.5,       atk:0.004, dec:1.6,  sus:0.07,  dur:4.2 } }
     ]},
-    { name: 'LIQUID DROP', pads: [
-        { label: 'FLOW',     p: { freq:100, type:'sine',     atk:0.08,  dec:0.5,  sus:0.30, dur:2.5, sub:50 } },
-        { label: 'RIPPLE',   p: { freq:82,  type:'sine',     atk:0.12,  dec:0.7,  sus:0.25, dur:3.0, sub:41 } },
-        { label: 'SURGE',    p: { freq:65,  type:'triangle', atk:0.06,  dec:0.55, sus:0.20, dur:2.0, sub:33 } },
-        { label: 'ABYSSAL',  p: { freq:45,  type:'sine',     atk:0.10,  dec:0.9,  sus:0.15, dur:4.0, sub:22 } }
+    // Kit 3: VOID MACHINES — dark industrial experimental
+    { name: 'VOID MACHINES', rate: 1.0, pads: [
+        { label: 'SINGULAR',   p: { mode:'resonant', freq:85, freqEnd:16, res:20,                               atk:0.07,  dec:2.0,  sus:0.12,  dur:4.8 } },
+        { label: 'WORMHOLE',   p: { mode:'sweep',    oscType:'sawtooth', freq:380, freqEnd:8, dist:0.4,         atk:0.008, dec:2.2,  sus:0.025, dur:3.6 } },
+        { label: 'EROSION',    p: { mode:'noise',    filter:'lowpass',   filterFreq:190, filterQ:9, dist:0.8,   atk:0.003, dec:0.85, sus:0.08,  dur:2.3 } },
+        { label: 'DARK PLS',   p: { mode:'am',       freq:32, lfoRate:6,                                        atk:0.01,  dec:0.7,  sus:0.22,  dur:2.8 } }
     ]}
 ];
 
-// Synthesize a bass pad buffer using OfflineAudioContext
-function _synthLiqBuf(p) {
+// ── CINEMATIC SYNTHESIS ENGINE ─────────────────────────────────
+function _synthCinematicBuf(p) {
     var sr = 44100;
-    var dur = p.dur || 1.2;
-    var numCh = 1;
+    var dur = Math.max(p.dur || 1.0, 0.05);
+    var frames = Math.ceil(sr * dur);
     try {
-        var oct = new OfflineAudioContext(numCh, Math.ceil(sr * dur), sr);
-        var osc = oct.createOscillator();
-        osc.type = p.type || 'sine';
-        osc.frequency.value = p.freq || 80;
-        if (p.det) osc.detune.value = p.det;
-        var env = oct.createGain();
-        env.gain.setValueAtTime(0, 0);
-        env.gain.linearRampToValueAtTime(0.88, p.atk || 0.005);
-        env.gain.exponentialRampToValueAtTime(Math.max(p.sus || 0.05, 0.001), (p.atk || 0.005) + (p.dec || 0.3));
-        env.gain.exponentialRampToValueAtTime(0.001, dur - 0.02);
-        osc.connect(env); env.connect(oct.destination);
-        osc.start(0); osc.stop(dur);
-        if (p.sub) {
-            var sub = oct.createOscillator();
-            sub.type = 'sine';
-            sub.frequency.value = p.sub;
-            var subEnv = oct.createGain();
-            subEnv.gain.setValueAtTime(0, 0);
-            subEnv.gain.linearRampToValueAtTime(0.65, 0.003);
-            subEnv.gain.exponentialRampToValueAtTime(0.001, dur - 0.02);
-            sub.connect(subEnv); subEnv.connect(oct.destination);
-            sub.start(0); sub.stop(dur);
+        var oct = new OfflineAudioContext(1, frames, sr);
+        var atk = p.atk || 0.005;
+        var dec = p.dec || 0.3;
+        var sus = Math.max(p.sus || 0.0001, 0.0001);
+
+        // Master amplitude envelope
+        var master = oct.createGain();
+        master.gain.setValueAtTime(0.0001, 0);
+        master.gain.linearRampToValueAtTime(1.0, atk);
+        master.gain.exponentialRampToValueAtTime(sus, atk + dec);
+        master.gain.exponentialRampToValueAtTime(0.0001, Math.max(dur - 0.025, atk + dec + 0.01));
+        master.connect(oct.destination);
+
+        // Optional waveshaper distortion (inserted between source and master)
+        var out = master;
+        if (p.dist && p.dist > 0) {
+            var ws = oct.createWaveShaper();
+            var n = 512; var k = p.dist * 280;
+            var cv = new Float32Array(n);
+            for (var i = 0; i < n; i++) {
+                var x = (i * 2 / (n - 1)) - 1;
+                cv[i] = (Math.PI + k) * x / (Math.PI + k * Math.abs(x));
+            }
+            ws.curve = cv; ws.oversample = '2x';
+            ws.connect(master); out = ws;
         }
+
+        var mode = p.mode || 'sweep';
+
+        // ── SWEEP / KICK: pitch-drop oscillator ──────────────────
+        if (mode === 'sweep') {
+            var osc = oct.createOscillator();
+            osc.type = p.oscType || 'sine';
+            osc.frequency.setValueAtTime(p.freq || 100, 0);
+            osc.frequency.exponentialRampToValueAtTime(Math.max(p.freqEnd || 30, 0.5), atk + dec * 0.85);
+            osc.connect(out); osc.start(0); osc.stop(dur);
+            if (p.sub) { // optional sub layer
+                var sO = oct.createOscillator(); sO.type = 'sine'; sO.frequency.value = p.sub;
+                var sG = oct.createGain();
+                sG.gain.setValueAtTime(0.0001,0); sG.gain.linearRampToValueAtTime(0.72, 0.003);
+                sG.gain.exponentialRampToValueAtTime(0.0001, dur * 0.72);
+                sO.connect(sG); sG.connect(master); sO.start(0); sO.stop(dur);
+            }
+        }
+
+        // ── NOISE: filtered white noise ──────────────────────────
+        if (mode === 'noise') {
+            var nBuf = oct.createBuffer(1, frames, sr);
+            var nd = nBuf.getChannelData(0);
+            for (var i = 0; i < frames; i++) nd[i] = Math.random() * 2 - 1;
+            var nSrc = oct.createBufferSource(); nSrc.buffer = nBuf;
+            if (p.filter) {
+                var flt = oct.createBiquadFilter();
+                flt.type = p.filter; flt.frequency.value = p.filterFreq || 800; flt.Q.value = p.filterQ || 1;
+                nSrc.connect(flt); flt.connect(out);
+            } else { nSrc.connect(out); }
+            nSrc.start(0); nSrc.stop(dur);
+        }
+
+        // ── BOOM: sub oscillator + noise explosion ───────────────
+        if (mode === 'boom') {
+            var bBuf = oct.createBuffer(1, frames, sr);
+            var bd = bBuf.getChannelData(0);
+            for (var i = 0; i < frames; i++) bd[i] = Math.random() * 2 - 1;
+            var bSrc = oct.createBufferSource(); bSrc.buffer = bBuf;
+            if (p.filter) {
+                var bFlt = oct.createBiquadFilter();
+                bFlt.type = p.filter; bFlt.frequency.value = p.filterFreq || 300; bFlt.Q.value = p.filterQ || 0.7;
+                bSrc.connect(bFlt); bFlt.connect(out);
+            } else { bSrc.connect(out); }
+            bSrc.start(0); bSrc.stop(dur);
+            if (p.sub) {
+                var bSubO = oct.createOscillator(); bSubO.type = 'sine';
+                bSubO.frequency.setValueAtTime(p.sub * 2.2, 0);
+                bSubO.frequency.exponentialRampToValueAtTime(p.sub, 0.08);
+                var bSubG = oct.createGain();
+                bSubG.gain.setValueAtTime(0.0001,0); bSubG.gain.linearRampToValueAtTime(0.85, 0.003);
+                bSubG.gain.exponentialRampToValueAtTime(0.0001, dur * 0.78);
+                bSubO.connect(bSubG); bSubG.connect(master); bSubO.start(0); bSubO.stop(dur);
+            }
+        }
+
+        // ── CLUSTER: dissonant multi-oscillator ──────────────────
+        if (mode === 'cluster') {
+            var freqs = p.freqs || [p.freq || 60];
+            freqs.forEach(function(f, fi) {
+                var cO = oct.createOscillator(); cO.type = p.oscType || 'sawtooth'; cO.frequency.value = f;
+                if (p.det) cO.detune.value = (fi % 2 === 0 ? 1 : -1) * p.det * 0.4;
+                var cG = oct.createGain(); cG.gain.value = 0.9 / freqs.length;
+                cO.connect(cG); cG.connect(out); cO.start(0); cO.stop(dur);
+            });
+        }
+
+        // ── METAL: thud + metallic ring + noise burst ────────────
+        if (mode === 'metal') {
+            var mO = oct.createOscillator(); mO.type = 'triangle';
+            mO.frequency.setValueAtTime(p.freq || 200, 0);
+            mO.frequency.exponentialRampToValueAtTime(Math.max(p.freqEnd || 50, 1), 0.18);
+            mO.connect(out); mO.start(0); mO.stop(dur);
+            if (p.ring) {
+                var rO = oct.createOscillator(); rO.type = 'sine'; rO.frequency.value = p.ring;
+                var rG = oct.createGain();
+                rG.gain.setValueAtTime(0.0001,0); rG.gain.linearRampToValueAtTime(0.38, 0.001);
+                rG.gain.exponentialRampToValueAtTime(0.0001, dur * 0.55);
+                rO.connect(rG); rG.connect(master); rO.start(0); rO.stop(dur);
+            }
+            // Transient noise burst
+            var tFrames = Math.ceil(sr * 0.08);
+            var tBuf = oct.createBuffer(1, tFrames, sr); var tD = tBuf.getChannelData(0);
+            for (var i = 0; i < tFrames; i++) tD[i] = Math.random() * 2 - 1;
+            var tSrc = oct.createBufferSource(); tSrc.buffer = tBuf;
+            var tFlt = oct.createBiquadFilter(); tFlt.type = 'highpass'; tFlt.frequency.value = 2200;
+            var tG = oct.createGain(); tG.gain.value = 0.5;
+            tSrc.connect(tFlt); tFlt.connect(tG); tG.connect(master); tSrc.start(0);
+        }
+
+        // ── RESONANT: very high-Q bandpass sweep on noise ────────
+        if (mode === 'resonant') {
+            var rBuf = oct.createBuffer(1, frames, sr); var rDat = rBuf.getChannelData(0);
+            for (var i = 0; i < frames; i++) rDat[i] = Math.random() * 2 - 1;
+            var rSrc = oct.createBufferSource(); rSrc.buffer = rBuf;
+            var rF = oct.createBiquadFilter(); rF.type = 'bandpass';
+            rF.frequency.setValueAtTime(p.freq || 80, 0);
+            rF.frequency.exponentialRampToValueAtTime(Math.max(p.freqEnd || 18, 1), dur * 0.88);
+            rF.Q.value = p.res || 14;
+            rSrc.connect(rF); rF.connect(out); rSrc.start(0); rSrc.stop(dur);
+        }
+
+        // ── AM: amplitude-modulated sub pulse ────────────────────
+        if (mode === 'am') {
+            var amCar = oct.createOscillator(); amCar.type = 'sine'; amCar.frequency.value = p.freq || 35;
+            var amGain = oct.createGain(); amGain.gain.value = 0.5;
+            var amLfo = oct.createOscillator(); amLfo.type = 'sine'; amLfo.frequency.value = p.lfoRate || 6;
+            var amMod = oct.createGain(); amMod.gain.value = 0.5;
+            amLfo.connect(amMod); amMod.connect(amGain.gain);
+            amCar.connect(amGain); amGain.connect(out);
+            amCar.start(0); amCar.stop(dur); amLfo.start(0); amLfo.stop(dur);
+        }
+
         return oct.startRendering();
     } catch(e) { return Promise.reject(e); }
 }
@@ -6793,9 +6993,8 @@ function _getLiqBuf(packIdx, padIdx) {
     if (_liqBufCache[key]) return Promise.resolve(_liqBufCache[key]);
     var pack = VANGUARD_LIQUID_LIB[packIdx];
     if (!pack || !pack.pads[padIdx]) return Promise.reject('no-pack');
-    return _synthLiqBuf(pack.pads[padIdx].p).then(function(buf) {
-        _liqBufCache[key] = buf;
-        return buf;
+    return _synthCinematicBuf(pack.pads[padIdx].p).then(function(buf) {
+        _liqBufCache[key] = buf; return buf;
     });
 }
 
@@ -6810,7 +7009,7 @@ function _fireLiqPad(padIdx, schedTime, sfxName) {
     _getLiqBuf(packIdx, padIdx).then(function(buf) {
         var src = ctx.createBufferSource();
         src.buffer = buf;
-        src.playbackRate.value = 0.75;
+        src.playbackRate.value = (VANGUARD_LIQUID_LIB[packIdx] && VANGUARD_LIQUID_LIB[packIdx].rate) || 1.0;
         var gain = ctx.createGain();
         gain.gain.value = 0.88;
         src.connect(gain);
@@ -6850,91 +7049,174 @@ function _updateLiqPadLabels(packIdx) {
 }
 
 // ═══════════════════════════════════════════════════════════════
-//  GROOVEBOX ENGINE — 8-step sequencer / drum machine
+//  GROOVEBOX ENGINE — 16-step DAW-style sequencer
+//  Ableton/Logic-inspired: per-row mute, accent velocity, cursor
 // ═══════════════════════════════════════════════════════════════
 var _groovebox = {
-    mode: 'performance',   // 'performance' | 'groovebox'
+    mode: 'performance',  // 'performance' | 'groovebox'
     bpm: 120,
     isPlaying: false,
-    pattern: {},           // { sfxName: [bool x 8] }
+    pattern: {},          // { sfxName: Array[16] — 0=off, 1=on, 2=accent }
+    muted:   {},          // { sfxName: bool }
     currentStep: 0,
-    stepsPerBar: 8,
+    stepsPerBar: 16,
     nextBeatTime: 0,
     _intervalId: null
 };
 
-// Pads included in the step sequencer (in display order)
+// Sequencer rows — custom pads + liquid kits only (not sig bank)
 var _GB_PADS = [
-    { name: 'applause', label: 'APPL' },
-    { name: 'cheer',    label: 'CHEER' },
-    { name: 'horn',     label: 'HORN' },
-    { name: 'boom',     label: 'BOOM' },
-    { name: 'custom1',  label: 'C-01' },
-    { name: 'custom2',  label: 'C-02' },
-    { name: 'custom3',  label: 'C-03' },
-    { name: 'custom4',  label: 'C-04' }
+    { name: 'custom1', label: 'C-01', sep: false },
+    { name: 'custom2', label: 'C-02', sep: false },
+    { name: 'custom3', label: 'C-03', sep: false },
+    { name: 'custom4', label: 'C-04', sep: false },
+    { name: 'liq1',    label: 'K-1',  sep: true  },
+    { name: 'liq2',    label: 'K-2',  sep: false },
+    { name: 'liq3',    label: 'K-3',  sep: false },
+    { name: 'liq4',    label: 'K-4',  sep: false }
 ];
 
 function _buildSeqGrid() {
     var grid = document.getElementById('gb-seq-grid');
     if (!grid) return;
     grid.innerHTML = '';
+
+    // Beat number header
+    var hdr = document.createElement('div');
+    hdr.className = 'gb-beat-header';
+    for (var h = 0; h < 16; h++) {
+        var hSpan = document.createElement('span');
+        hSpan.className = 'gb-beat-num' + (h % 4 === 0 ? ' gb-bar-start' : '');
+        hSpan.textContent = h % 4 === 0 ? (h / 4 + 1) : '·';
+        hdr.appendChild(hSpan);
+    }
+    grid.appendChild(hdr);
+
     _GB_PADS.forEach(function(pad) {
-        if (!_groovebox.pattern[pad.name]) {
-            _groovebox.pattern[pad.name] = [false,false,false,false,false,false,false,false];
-        }
+        if (!_groovebox.pattern[pad.name]) _groovebox.pattern[pad.name] = new Array(16).fill(0);
+        if (_groovebox.muted[pad.name] === undefined) _groovebox.muted[pad.name] = false;
+
         var row = document.createElement('div');
-        row.className = 'gb-seq-row';
+        row.className = 'gb-seq-row' + (pad.sep ? ' gb-row-separator' : '') + (_groovebox.muted[pad.name] ? ' gb-row-muted' : '');
         row.dataset.gbPad = pad.name;
 
+        // Row label (shows custom pad name if loaded)
         var lbl = document.createElement('span');
         lbl.className = 'gb-seq-lbl';
-        lbl.textContent = pad.label;
+        if (pad.name.startsWith('custom')) {
+            var padEl = document.getElementById('sfx-' + pad.name);
+            var nm = padEl && padEl.querySelector('.pad-name');
+            lbl.textContent = (nm && nm.textContent !== pad.label && padEl.classList.contains('loaded'))
+                ? nm.textContent.substring(0,5) : pad.label;
+        } else {
+            lbl.textContent = pad.label;
+        }
         row.appendChild(lbl);
 
-        for (var i = 0; i < _groovebox.stepsPerBar; i++) {
-            (function(stepIdx) {
-                var s = document.createElement('button');
-                s.className = 'gb-step' + (_groovebox.pattern[pad.name][stepIdx] ? ' gb-step-on' : '');
-                s.dataset.gbSfx = pad.name;
-                s.dataset.gbStep = stepIdx;
-                s.addEventListener('click', function(e) {
-                    e.stopPropagation();
-                    _groovebox.pattern[pad.name][stepIdx] = !_groovebox.pattern[pad.name][stepIdx];
-                    this.classList.toggle('gb-step-on', _groovebox.pattern[pad.name][stepIdx]);
-                });
-                row.appendChild(s);
-            })(i);
+        // Step buttons — grouped in sets of 4
+        var stepsWrap = document.createElement('div');
+        stepsWrap.className = 'gb-steps';
+        for (var g = 0; g < 4; g++) {
+            var grp = document.createElement('div');
+            grp.className = 'gb-step-group';
+            for (var s = 0; s < 4; s++) {
+                (function(stepIdx) {
+                    var btn = document.createElement('button');
+                    var val = _groovebox.pattern[pad.name][stepIdx];
+                    btn.className = 'gb-step' + (val === 1 ? ' gb-step-on' : '') + (val === 2 ? ' gb-step-on gb-step-accent' : '');
+                    btn.dataset.gbSfx = pad.name;
+                    btn.dataset.gbStep = stepIdx;
+                    btn.addEventListener('click', function(e) {
+                        e.stopPropagation();
+                        var cur = _groovebox.pattern[pad.name][stepIdx];
+                        var nxt = cur === 0 ? 1 : 0;
+                        _groovebox.pattern[pad.name][stepIdx] = nxt;
+                        btn.classList.remove('gb-step-on','gb-step-accent');
+                        if (nxt >= 1) btn.classList.add('gb-step-on');
+                        if (nxt === 2) btn.classList.add('gb-step-accent');
+                    });
+                    btn.addEventListener('contextmenu', function(e) {
+                        e.preventDefault(); e.stopPropagation();
+                        var cur = _groovebox.pattern[pad.name][stepIdx];
+                        var nxt = cur === 0 ? 1 : cur === 1 ? 2 : 0; // off→on→accent→off
+                        _groovebox.pattern[pad.name][stepIdx] = nxt;
+                        btn.classList.remove('gb-step-on','gb-step-accent');
+                        if (nxt >= 1) btn.classList.add('gb-step-on');
+                        if (nxt === 2) btn.classList.add('gb-step-accent');
+                    });
+                    grp.appendChild(btn);
+                })(g * 4 + s);
+            }
+            stepsWrap.appendChild(grp);
         }
+        row.appendChild(stepsWrap);
+
+        // Row controls: [M] mute, [✕] clear
+        var ctrl = document.createElement('div');
+        ctrl.className = 'gb-row-controls';
+
+        var muteBtn = document.createElement('button');
+        muteBtn.className = 'gb-row-mute' + (_groovebox.muted[pad.name] ? ' muted' : '');
+        muteBtn.textContent = 'M';
+        muteBtn.title = 'Mute / unmute row';
+        (function(pName, rRow, mBtn) {
+            mBtn.addEventListener('click', function(e) {
+                e.stopPropagation();
+                _groovebox.muted[pName] = !_groovebox.muted[pName];
+                mBtn.classList.toggle('muted', _groovebox.muted[pName]);
+                rRow.classList.toggle('gb-row-muted', _groovebox.muted[pName]);
+            });
+        })(pad.name, row, muteBtn);
+        ctrl.appendChild(muteBtn);
+
+        var clrBtn = document.createElement('button');
+        clrBtn.className = 'gb-row-clear';
+        clrBtn.textContent = '✕';
+        clrBtn.title = 'Clear all steps in row';
+        (function(pName, rRow) {
+            clrBtn.addEventListener('click', function(e) {
+                e.stopPropagation();
+                _groovebox.pattern[pName].fill(0);
+                rRow.querySelectorAll('.gb-step').forEach(function(s) {
+                    s.classList.remove('gb-step-on','gb-step-accent','gb-step-cur');
+                });
+            });
+        })(pad.name, row);
+        ctrl.appendChild(clrBtn);
+
+        row.appendChild(ctrl);
         grid.appendChild(row);
     });
 }
 
 function _updateSeqCursor(step) {
-    document.querySelectorAll('.gb-step.gb-step-cur').forEach(function(el) {
-        el.classList.remove('gb-step-cur');
-    });
-    document.querySelectorAll('.gb-step[data-gb-step="' + step + '"]').forEach(function(el) {
-        el.classList.add('gb-step-cur');
-    });
+    document.querySelectorAll('.gb-step.gb-step-cur').forEach(function(el) { el.classList.remove('gb-step-cur'); });
+    if (step < 0) return;
+    document.querySelectorAll('.gb-step[data-gb-step="' + step + '"]').forEach(function(el) { el.classList.add('gb-step-cur'); });
 }
 
 window._toggleGrooveboxMode = function() {
-    var btn = document.getElementById('mode-toggle');
-    var transport = document.getElementById('groovebox-transport');
-    var seqGrid = document.getElementById('gb-seq-grid');
+    var modeBtn = document.getElementById('mode-toggle');
+    var seqPanel = document.getElementById('gb-seq-panel');
+    var custLiq  = document.getElementById('sfx-cust-liq-section');
+    var liqSel   = document.getElementById('liq-lib-select');
     if (_groovebox.mode === 'performance') {
         _groovebox.mode = 'groovebox';
-        if (btn) { btn.textContent = 'GRVBX'; btn.classList.add('groovebox-mode'); }
-        if (transport) transport.classList.add('visible');
-        if (seqGrid) seqGrid.classList.add('visible');
+        if (modeBtn) { modeBtn.textContent = 'SEQ'; modeBtn.classList.add('groovebox-mode'); }
+        if (custLiq)  custLiq.style.display  = 'none';
+        if (liqSel)   liqSel.style.display   = 'none';
+        if (seqPanel) seqPanel.classList.add('visible');
         _buildSeqGrid();
+        // Sync kit selector to current pack
+        var kitSel = document.getElementById('gb-kit-select');
+        if (kitSel) kitSel.value = _liqCurrentPack;
     } else {
         _groovebox.mode = 'performance';
-        if (btn) { btn.textContent = 'PERF'; btn.classList.remove('groovebox-mode'); }
-        if (transport) transport.classList.remove('visible');
-        if (seqGrid) seqGrid.classList.remove('visible');
+        if (modeBtn) { modeBtn.textContent = 'PERF'; modeBtn.classList.remove('groovebox-mode'); }
         _stopGroovebox();
+        if (seqPanel) seqPanel.classList.remove('visible');
+        if (custLiq)  custLiq.style.display  = 'contents';
+        if (liqSel)   liqSel.style.display   = '';
     }
 };
 
@@ -6954,7 +7236,7 @@ function _startGroovebox() {
     _groovebox.isPlaying = true;
     var btn = document.getElementById('gb-transport-btn');
     if (btn) { btn.innerHTML = '&#x25A0; STOP'; btn.classList.add('playing'); }
-    _groovebox._intervalId = setInterval(_grooveboxScheduler, 25);
+    _groovebox._intervalId = setInterval(_grooveboxScheduler, 16);
 }
 
 function _stopGroovebox() {
@@ -6962,32 +7244,31 @@ function _stopGroovebox() {
     clearInterval(_groovebox._intervalId);
     _groovebox._intervalId = null;
     _groovebox.currentStep = 0;
-    _updateSeqCursor(-1); // clear cursor
+    _updateSeqCursor(-1);
     var btn = document.getElementById('gb-transport-btn');
-    if (btn) { btn.innerHTML = '&#x25B6; START'; btn.classList.remove('playing'); }
+    if (btn) { btn.innerHTML = '&#x25B6; PLAY'; btn.classList.remove('playing'); }
 }
 
 function _grooveboxScheduler() {
     if (!_groovebox.isPlaying || !APP.audio.ctx) return;
     var ctx = APP.audio.ctx;
-    var stepDuration = (60 / _groovebox.bpm) / 2; // 8th notes
+    var stepDur = (60 / _groovebox.bpm) / 4; // 16th notes
     if (_groovebox.nextBeatTime < ctx.currentTime + 0.1) {
         var step = _groovebox.currentStep;
-        // Fire pads that have this step active
         Object.keys(_groovebox.pattern).forEach(function(sfxName) {
-            if (_groovebox.pattern[sfxName][step]) {
-                if (sfxName.startsWith('liq')) {
-                    _fireLiqPad(parseInt(sfxName.replace('liq',''),10) - 1, _groovebox.nextBeatTime, sfxName);
-                } else {
-                    SFX_ENGINE.play(sfxName);
-                }
-                // Coupled FX fires only if this pad has an explicit coupling
-                if (typeof _fireCoupledFX === 'function') _fireCoupledFX(sfxName);
+            if (_groovebox.muted[sfxName]) return;
+            var val = _groovebox.pattern[sfxName][step];
+            if (!val) return;
+            if (sfxName.startsWith('liq')) {
+                _fireLiqPad(parseInt(sfxName.replace('liq',''), 10) - 1, _groovebox.nextBeatTime, sfxName);
+            } else {
+                SFX_ENGINE.play(sfxName);
             }
+            if (typeof _fireCoupledFX === 'function') _fireCoupledFX(sfxName);
         });
         _updateSeqCursor(step);
         _groovebox.currentStep = (step + 1) % _groovebox.stepsPerBar;
-        _groovebox.nextBeatTime += stepDuration;
+        _groovebox.nextBeatTime += stepDur;
     }
 }
 
@@ -9541,16 +9822,26 @@ document.addEventListener('DOMContentLoaded', () => {
             _fireCoupledFX(sfxName);
         };
 
-        // ── LIQUID LIBRARY PACK SELECT ───────────────────────
+        // ── LIQUID LIBRARY / KIT SELECTOR ────────────────────
         (function() {
-            var sel = document.getElementById('liq-lib-select');
-            if (sel) {
-                sel.addEventListener('change', function() {
-                    _liqCurrentPack = parseInt(sel.value, 10) || 0;
-                    _updateLiqPadLabels(_liqCurrentPack);
+            function _switchKit(packIdx) {
+                _liqCurrentPack = packIdx;
+                // Invalidate buffer cache for old kit so new synth fires fresh
+                Object.keys(_liqBufCache).forEach(function(k) {
+                    if (k.startsWith(packIdx + '_')) delete _liqBufCache[k];
                 });
+                _updateLiqPadLabels(packIdx);
+                // Sync both selectors
+                var ls = document.getElementById('liq-lib-select');
+                var gs = document.getElementById('gb-kit-select');
+                if (ls) ls.value = packIdx;
+                if (gs) gs.value = packIdx;
+                log('KIT: ' + (VANGUARD_LIQUID_LIB[packIdx] ? VANGUARD_LIQUID_LIB[packIdx].name : packIdx));
             }
-            // Set initial pack labels
+            var liqSel = document.getElementById('liq-lib-select');
+            if (liqSel) liqSel.addEventListener('change', function() { _switchKit(parseInt(this.value, 10) || 0); });
+            var kitSel = document.getElementById('gb-kit-select');
+            if (kitSel) kitSel.addEventListener('change', function() { _switchKit(parseInt(this.value, 10) || 0); });
             if (typeof _updateLiqPadLabels === 'function') _updateLiqPadLabels(0);
         })();
 
