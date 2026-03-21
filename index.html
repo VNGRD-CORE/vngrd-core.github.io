@@ -162,7 +162,7 @@
         @keyframes vngrd-shine { 0%, 85%, 100% { left: -100%; opacity: 0; } 90%, 95% { opacity: 1; } 92% { left: 150%; } }
         .version { font-size: 10px; color: var(--accent); padding: 3px 8px; background: var(--accent-dim); border: 1px solid var(--accent); margin-left: 10px; }
 
-        #stage { position: fixed; top: 45px; left: 320px; right: 320px; bottom: 55px; background: #000; border: 1px solid var(--border); overflow: hidden; }
+        #stage { position: fixed; top: 45px; left: 200px; right: 200px; bottom: 55px; background: #000; border: 1px solid var(--border); overflow: hidden; }
         #vj-canvas { position: absolute; top: 0; left: 0; width: 100%; height: 100%; z-index: 1000; pointer-events: none !important; }
         #overlay-layer { position: absolute; inset: 0; z-index: 2000; pointer-events: none; }
         
@@ -526,7 +526,7 @@
         #cycle-badge.on { display: flex; }
 
         /* Sidebar: neutral borders — no theme color bleed, party mode animates border-color via console-breathe */
-        .sidebar { position: fixed; top: 45px; bottom: 55px; width: 320px; background: rgba(6,6,10,0.94); backdrop-filter: blur(20px) saturate(110%); -webkit-backdrop-filter: blur(20px) saturate(110%); border: 1px solid rgba(255,255,255,0.06); box-shadow: inset 0 0 20px rgba(0,0,0,0.65); overflow-y: auto; z-index: 4000; scrollbar-width: none; transition: transform 0.45s cubic-bezier(0.4, 0, 0.2, 1), opacity 0.35s ease, border-color 0.4s ease, box-shadow 0.4s ease; will-change: transform, opacity; box-sizing: border-box !important; }
+        .sidebar { position: fixed; top: 45px; bottom: 55px; width: 200px; background: rgba(6,6,10,0.94); backdrop-filter: blur(20px) saturate(110%); -webkit-backdrop-filter: blur(20px) saturate(110%); border: 1px solid rgba(255,255,255,0.06); box-shadow: inset 0 0 20px rgba(0,0,0,0.65); overflow-y: auto; z-index: 4000; scrollbar-width: none; transition: transform 0.45s cubic-bezier(0.4, 0, 0.2, 1), opacity 0.35s ease, border-color 0.4s ease, box-shadow 0.4s ease; will-change: transform, opacity; }
         #left-panel { left: 0; border-left: none; border-right: 1px solid rgba(255,255,255,0.07); transform: translateX(0); }
         #right-panel { right: 0; border-right: none; border-left: 1px solid rgba(255,255,255,0.07); transform: translateX(0); }
 
@@ -549,13 +549,12 @@
         .sec-divider {
             height: 1px;
             background: rgba(255,255,255,0.06);
-            margin: 10px -8px;
+            margin: 10px -12px;
         }
         /* SCANNING ANIMATION FOR CYCLE MODE */
         .sec-head {
             display: flex; align-items: center; justify-content: space-between;
-            padding: 3px 8px 3px 6px;
-            box-sizing: border-box !important;
+            padding: 7px 12px 7px 10px;
             background: rgba(255,255,255,0.025);
             border-bottom: 1px solid rgba(255,255,255,0.07);
             border-left: 2px solid rgba(255,255,255,0.06);
@@ -573,14 +572,14 @@
         .sec-dot { width: 5px; height: 5px; background: var(--g); border-radius: 50%; box-shadow: 0 0 4px var(--g); }
         .sec-dot.off { background: var(--text-dim); box-shadow: none; }
         .sec-dot.gold { background: var(--y); box-shadow: 0 0 6px var(--y); }
-        .sec-body { padding: 6px 8px; box-sizing: border-box !important; }
+        .sec-body { padding: 10px 12px; }
         .sec-body > :last-child { margin-bottom: 0; }
         .sec-head.collapsible { cursor: pointer; }
         /* Arrow hugs title; dot is pushed to far right */
         .sec-arrow { font-size: 8px; color: var(--text-dim); margin-left: 5px; margin-right: auto; transition: color 0.2s; }
         .sec-head.collapsible.open .sec-arrow { color: var(--accent); }
         /* Collapsible bodies: collapsed by default; JS restores padding on open */
-        #session-lab-body, #p2p-call-body, #midi-host-body, #nft-vault-body, #lexica-nano-body { max-height: 0; overflow: hidden; transition: max-height 0.3s ease; padding: 0 8px; box-sizing: border-box !important; }
+        #session-lab-body, #p2p-call-body, #midi-host-body, #nft-vault-body, #lexica-nano-body { max-height: 0; overflow: hidden; transition: max-height 0.3s ease; padding: 0 12px; }
 
         /* ═══ P2P HUD — SOLID TERMINAL SKIN ════════════════════════════════ */
         #p2p-modal {
@@ -2651,124 +2650,7 @@ body.fullscreen #transcription-hud { pointer-events: none !important; } /* keep 
     box-shadow: none !important;
     outline: none !important;
     z-index: 2500;
-}
-
-/* ══ D1: BOX MODEL GUARD — prevent border-width from breaking grid ══════ */
-.sidebar, .section, .sec-body, .sec-head, .btn, .vngrd-button, .sfx-pad,
-#left-panel, #right-panel, #sfx-sampler-wrap, #sfx-pad-body {
-    box-sizing: border-box !important;
-}
-
-/* ══ D2: VNGRD BREATHING PULSE — subtle breath-like CTA animation ═══════ */
-@keyframes vngrd-pulse {
-    0%, 100% {
-        border-top-color:  rgba(0, 255, 255, 0.15);
-        border-left-color: rgba(0, 255, 255, 0.1);
-        box-shadow: 0 0 4px rgba(0,255,255,0.08), inset 0 0 4px rgba(0,255,255,0.04);
-    }
-    50% {
-        border-top-color:  rgba(0, 255, 255, 0.55);
-        border-left-color: rgba(0, 255, 255, 0.4);
-        box-shadow: 0 0 14px rgba(0,255,255,0.28), inset 0 0 8px rgba(0,255,255,0.1);
-    }
-}
-@keyframes vngrd-pulse-red {
-    0%, 100% {
-        border-top-color:  rgba(255, 40, 40, 0.2);
-        border-left-color: rgba(255, 40, 40, 0.14);
-        box-shadow: 0 0 4px rgba(255,40,40,0.1);
-    }
-    50% {
-        border-top-color:  rgba(255, 40, 40, 0.6);
-        border-left-color: rgba(255, 40, 40, 0.45);
-        box-shadow: 0 0 14px rgba(255,40,40,0.3), inset 0 0 8px rgba(255,40,40,0.1);
-    }
-}
-/* Cyan pulse: idle + media-loaded + hardware-not-found CTA */
-.guide-pulse {
-    animation: vngrd-pulse 3s ease-in-out infinite !important;
-}
-/* Muted red pulse: recording-active STOP CTA */
-.guide-pulse-red {
-    animation: vngrd-pulse-red 3s ease-in-out infinite !important;
-}
-
-/* ══ D3: BANK/VAULT TYPOGRAPHY — all interactive buttons (not pads) ═════ */
-/* Overrides the previous 10px tactile values with 11px Bank/Vault spec   */
-.btn:not(.sfx-pad), .vngrd-button:not(.sfx-pad) {
-    font-family: 'Share Tech Mono', monospace !important;
-    font-size: 11px !important;
-    letter-spacing: 1.5px !important;
-    text-transform: uppercase !important;
-    color: rgba(0, 255, 255, 0.6) !important;
-    background: rgba(0, 12, 12, 0.95) !important;
-    text-shadow: none;
-}
-.btn:not(.sfx-pad):hover, .vngrd-button:not(.sfx-pad):hover {
-    color: #00FFFF !important;
-    text-shadow: 0 0 8px #00FFFF !important;
-    border-top-color: #00FFFF !important;
-    border-left-color: #00FFFF !important;
-    background: rgba(0, 20, 20, 0.95) !important;
-}
-/* State overrides stay on top — color-coded variants keep their identities */
-.btn.panic { color: rgba(255, 60, 60, 0.75) !important; background: rgba(20,0,0,0.95) !important; }
-.btn.panic:hover { color: #000 !important; text-shadow: none !important; }
-.btn.warn  { color: rgba(255, 153, 0, 0.75) !important; background: rgba(20,10,0,0.95) !important; }
-.btn.warn:hover { color: #000 !important; text-shadow: none !important; }
-.btn.donate { color: rgba(0,255,136,0.7) !important; background: rgba(0,18,6,0.95) !important; }
-
-/* ══ D3: (?) SECTION HELP MARKER — discreet header tooltip ══════════════ */
-.sec-help {
-    display: inline-flex;
-    align-items: center;
-    justify-content: center;
-    width: 14px; height: 14px;
-    border-radius: 50%;
-    border: 1px solid rgba(0,255,255,0.18);
-    font-family: 'Share Tech Mono', monospace;
-    font-size: 8px;
-    letter-spacing: 0;
-    color: rgba(0,255,255,0.25);
-    cursor: pointer;
-    flex-shrink: 0;
-    margin-left: 4px;
-    position: relative;
-    transition: color 0.2s, border-color 0.2s, box-shadow 0.2s;
-    user-select: none;
-}
-.sec-help:hover {
-    color: #00FFFF;
-    border-color: rgba(0,255,255,0.6);
-    box-shadow: 0 0 8px rgba(0,255,255,0.3);
-}
-/* Tooltip via ::after — appears on hover, no JS needed */
-.sec-help::after {
-    content: attr(data-tip);
-    position: absolute;
-    bottom: calc(100% + 6px);
-    left: 50%;
-    transform: translateX(-50%);
-    background: rgba(0, 12, 12, 0.97);
-    border: 1px solid rgba(0,255,255,0.35);
-    color: rgba(0,255,255,0.85);
-    font-family: 'Share Tech Mono', monospace;
-    font-size: 8px;
-    letter-spacing: 1px;
-    text-transform: uppercase;
-    white-space: nowrap;
-    padding: 4px 8px;
-    border-radius: 2px;
-    pointer-events: none;
-    opacity: 0;
-    transition: opacity 0.2s ease;
-    z-index: 9999;
-    box-shadow: 0 0 10px rgba(0,255,255,0.15);
-}
-.sec-help:hover::after {
-    opacity: 1;
-}
-</style>
+}</style>
 </head>
 <body oncontextmenu="return false;">
     <!-- PORTRAIT ORIENTATION LOCK -->
@@ -2894,7 +2776,7 @@ body.fullscreen #transcription-hud { pointer-events: none !important; } /* keep 
 
     <aside class="sidebar" id="left-panel">
         <div class="section">
-            <div class="sec-head"><span class="sec-title">CAMERA_4K</span><span class="sec-help" data-tip="Capture 4K camera feed. Requires browser permission.">?</span><div class="sec-dot off" id="cam-dot"></div></div>
+            <div class="sec-head"><span class="sec-title">CAMERA_4K</span><div class="sec-dot off" id="cam-dot"></div></div>
             <div class="sec-body">
                 <button class="btn" id="btn-init-cam">CAM CAPTURE [4K]</button>
                 <div id="cam-preview-float">
@@ -2942,7 +2824,7 @@ body.fullscreen #transcription-hud { pointer-events: none !important; } /* keep 
             </div>
         </div>
          <div class="section">
-            <div class="sec-head collapsible"><span class="sec-title">AI_INJECTION</span><span class="sec-arrow">&#x25B8;</span><span class="sec-help" data-tip="Generate AI visuals via text prompt. Free models available.">?</span><div class="sec-dot off" id="neural-dot"></div></div>
+            <div class="sec-head collapsible"><span class="sec-title">AI_INJECTION</span><span class="sec-arrow">&#x25B8;</span><div class="sec-dot off" id="neural-dot"></div></div>
             <div class="sec-body" id="lexica-nano-body">
                 <div class="lbl" style="font-size:7px;opacity:0.5;margin-bottom:2px;">MODEL</div>
                 <select class="inp" id="ai-model-select" style="font-size:8px;padding:4px;background:var(--panel);border:1px solid var(--border);color:var(--text);margin-bottom:4px;">
@@ -2993,7 +2875,7 @@ body.fullscreen #transcription-hud { pointer-events: none !important; } /* keep 
      
         
         <div class="section">
-            <div class="sec-head"><span class="sec-title">IDENTITY</span><span class="sec-help" data-tip="Station bug, logo overlay, and branding controls.">?</span><div class="sec-dot"></div></div>
+            <div class="sec-head"><span class="sec-title">IDENTITY</span><div class="sec-dot"></div></div>
             <div class="sec-body">
                 <input type="text" class="inp" id="bug-text" placeholder="STATION_NAME..." value="VNGRD">
                 <div class="btn-row" style="gap:4px;">
@@ -3372,7 +3254,7 @@ body.fullscreen #transcription-hud { pointer-events: none !important; } /* keep 
             </div>
         </div>
         <div class="section">
-            <div class="sec-head collapsible open"><span class="sec-title">MIDI_HOST</span><span class="sec-arrow">&#x25BE;</span><span class="sec-help" data-tip="Connect MIDI controllers. Click MIDI INIT to scan hardware.">?</span><div class="sec-dot off" id="midi-dot"></div></div>
+            <div class="sec-head collapsible open"><span class="sec-title">MIDI_HOST</span><span class="sec-arrow">&#x25BE;</span><div class="sec-dot off" id="midi-dot"></div></div>
             <div class="sec-body" id="midi-host-body" style="max-height:200px;padding:8px 12px;">
                 <div class="btn-row" style="gap:4px;">
                     <button class="btn" id="btn-midi" style="flex:1;font-size:8px;">MIDI INIT</button>
@@ -13179,100 +13061,6 @@ if (btn3dX) {
     window.addEventListener('resize', function() { if (window.APP && APP.render) APP.render._cachedRect = null; });
     setStatus('STT: STANDBY');
 
-}());
-</script>
-
-<script>
-/* ══════════════════════════════════════════════════════════════════════════
-   VNGRD GUIDANCE MANAGER — Intelligent breathing CTA based on console state
-   Polls every 2.5s and applies .guide-pulse / .guide-pulse-red to the most
-   relevant action button, giving users a gentle hint on what to do next.
-   ══════════════════════════════════════════════════════════════════════════ */
-(function GuidanceManager() {
-    'use strict';
-
-    var POLL_MS = 2500;
-
-    /* ── Clear all pulse classes from any element that has them ── */
-    function clearPulses() {
-        var els = document.querySelectorAll('.guide-pulse, .guide-pulse-red');
-        for (var i = 0; i < els.length; i++) {
-            els[i].classList.remove('guide-pulse', 'guide-pulse-red');
-        }
-    }
-
-    /* ── Derive current console state from APP flags ── */
-    function resolveState() {
-        var app = window.APP;
-        if (!app) return 'IDLE';
-
-        var isRecording = !!(app.state && app.state.isRecording) ||
-                          !!(app.broadcast && app.broadcast.isRecording) ||
-                          !!(app.camera && app.camera.isRecording);
-
-        var hasMedia = (app.media && app.media.queue && app.media.queue.length > 0) ||
-                       !!(app.state && app.state.isLive) ||
-                       !!(app.render && app.render.source);
-
-        var midiFound = !!(app.status && app.status.isMidiActive) ||
-                        !!(app.midi && app.midi.access);
-
-        if (isRecording) return 'RECORDING';
-        if (hasMedia)    return 'MEDIA_LOADED';
-        if (!midiFound)  return 'NO_HARDWARE';
-        return 'IDLE';
-    }
-
-    /* ── Apply pulse to the correct button for each state ── */
-    function applyGuidance() {
-        clearPulses();
-        var state = resolveState();
-        var el;
-
-        switch (state) {
-            case 'IDLE':
-                /* Nothing loaded — nudge toward media */
-                el = document.getElementById('btn-load-media');
-                if (el) el.classList.add('guide-pulse');
-                break;
-
-            case 'MEDIA_LOADED':
-                /* Media ready, not live — nudge toward broadcast */
-                el = document.getElementById('btn-rec');
-                if (!el || el.offsetParent === null) {
-                    /* btn-rec hidden (not in live-ctrls) — fall back to ON-AIR */
-                    el = document.getElementById('btn-on-air');
-                }
-                if (el) el.classList.add('guide-pulse');
-                break;
-
-            case 'RECORDING':
-                /* Live / recording — muted-red pulse on stop/end */
-                el = document.getElementById('btn-end');
-                if (!el || el.offsetParent === null) {
-                    el = document.getElementById('btn-rec');
-                }
-                if (el) el.classList.add('guide-pulse-red');
-                break;
-
-            case 'NO_HARDWARE':
-                /* No MIDI found — guide toward hardware scan */
-                el = document.getElementById('btn-scan-inputs');
-                if (el) el.classList.add('guide-pulse');
-                el = document.getElementById('btn-midi');
-                if (el) el.classList.add('guide-pulse');
-                break;
-        }
-    }
-
-    /* ── Start polling after boot settles ── */
-    setTimeout(function() {
-        applyGuidance();
-        setInterval(applyGuidance, POLL_MS);
-    }, 2000);
-
-    /* ── Expose for manual re-trigger (e.g. after media load events) ── */
-    window.vngrdGuidance = { update: applyGuidance };
 }());
 </script>
 </body>
