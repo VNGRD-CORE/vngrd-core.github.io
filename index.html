@@ -552,54 +552,54 @@
            ═══════════════════════════════════════════════════ */
         @keyframes sho-fadein { from { opacity: 0; } to { opacity: 1; } }
         .section-help-overlay {
-            position: absolute; top: 0; left: 0;
-            width: 100%; height: 100%; min-height: 100px;
-            background: rgba(0, 10, 10, 0.97);
-            border: 1px solid #00ffff;
-            padding: 12px 14px 14px;
-            box-sizing: border-box;
+            position: absolute; inset: 0;
             z-index: 200;
+            background: rgba(2,4,10,0.97);
+            border: 1px solid rgba(0,243,255,0.25);
+            border-radius: 6px;
+            flex-direction: column;
+            padding: 12px;
+            box-shadow: 0 0 24px rgba(0,243,255,0.12), inset 0 0 40px rgba(0,0,0,0.8);
             display: none;
-            font-family: 'Share Tech Mono', monospace;
-            font-size: 10px;
-            color: #00ffff;
-            overflow-y: auto;
-            scrollbar-width: none;
         }
         .section-help-overlay.visible {
-            display: block;
+            display: flex;
             animation: sho-fadein 0.2s ease forwards;
         }
-        .section-help-overlay .sho-header {
-            display: flex; justify-content: space-between; align-items: center;
-            border-bottom: 1px solid rgba(0,255,255,0.25);
-            padding-bottom: 7px; margin-bottom: 9px;
-            font-size: 7.5px; letter-spacing: 2px;
+        .sho-header {
+            display: flex; align-items: center; justify-content: space-between;
+            margin-bottom: 10px; padding-bottom: 7px;
+            border-bottom: 1px solid rgba(0,243,255,0.12);
         }
-        .section-help-overlay .sho-title { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-        .section-help-overlay .sho-close {
-            background: transparent; border: 1px solid rgba(0,255,255,0.35);
-            color: #00ffff; cursor: pointer; font-size: 9px;
-            padding: 1px 6px; font-family: 'Share Tech Mono', monospace;
-            flex-shrink: 0; margin-left: 8px;
-            transition: background 0.15s, border-color 0.15s;
+        .sho-header > span {
+            font-family: 'Orbitron', sans-serif; font-size: 8px; font-weight: 700;
+            letter-spacing: 2.5px; color: var(--accent); text-transform: uppercase;
         }
-        .section-help-overlay .sho-close:hover { background: rgba(0,255,255,0.12); border-color: #00ffff; }
-        .section-help-overlay .sho-row {
-            display: flex; gap: 8px; margin-bottom: 7px; align-items: flex-start; line-height: 1.3;
+        .sho-close {
+            background: transparent; border: none; color: rgba(0,243,255,0.45);
+            font-size: 10px; cursor: pointer; line-height: 1; padding: 1px 3px;
+            transition: color 0.15s;
         }
-        .section-help-overlay .sho-key {
-            background: rgba(0,255,255,0.08); border: 1px solid rgba(0,255,255,0.35);
-            padding: 1px 5px; white-space: nowrap; font-size: 7.5px; letter-spacing: 1px;
-            min-width: 76px; text-align: center; flex-shrink: 0;
+        .sho-close:hover { color: var(--accent); }
+        .sho-rows { display: flex; flex-direction: column; gap: 7px; flex: 1; overflow-y: auto; scrollbar-width: none; }
+        .sho-row { display: flex; gap: 8px; align-items: flex-start; }
+        .sho-key {
+            font-family: 'Orbitron', sans-serif; font-size: 6px; font-weight: 700;
+            letter-spacing: 1px; color: var(--accent); opacity: 0.75;
+            border: 1px solid rgba(0,243,255,0.2);
+            padding: 2px 5px; border-radius: 3px;
+            flex-shrink: 0; white-space: nowrap; line-height: 1.4;
         }
-        .section-help-overlay .sho-val {
-            font-size: 8.5px; opacity: 0.82; line-height: 1.4; color: rgba(0,255,255,0.88);
+        .sho-desc {
+            font-size: 7px; color: rgba(255,255,255,0.55); line-height: 1.5;
+            letter-spacing: 0.02em;
         }
-        .section-help-overlay .sho-footer {
-            border-top: 1px solid rgba(0,255,255,0.15);
-            padding-top: 6px; margin-top: 6px;
-            font-size: 6.5px; opacity: 0.45; letter-spacing: 2px; text-align: center;
+        .sho-footer {
+            margin-top: 10px; padding-top: 7px;
+            border-top: 1px solid rgba(255,255,255,0.05);
+            font-size: 6px; color: rgba(255,255,255,0.45);
+            letter-spacing: 1.5px; font-family: 'Orbitron', sans-serif;
+            text-align: center;
         }
         /* Intra-section divider utility */
         .sec-divider {
@@ -9171,146 +9171,149 @@ document.addEventListener('DOMContentLoaded', () => {
             'camera': {
                 title: 'CAMERA_4K',
                 rows: [
-                    ['CAM INIT',  'Click CAM CAPTURE to request camera access and start the live 4K feed.'],
-                    ['SNAPSHOT',  'Hit SNAPSHOT to grab a still frame from the live camera preview.'],
-                    ['LOAD IMG',  'Use the file picker to load any image or GIF from disk as canvas media.'],
-                    ['ZOOM',      'ZOOM IMAGE button opens the current frame in a full-screen lightbox.'],
-                    ['PREVIEW',   'The inline panel preview shows the live camera — drag to reposition.']
+                    ['CAM CAPTURE', 'Requests camera access and starts the live 4K preview feed.'],
+                    ['GO LIVE',     '3-2-1 countdown, then broadcasts the live camera to the canvas.'],
+                    ['INJECT LOOP', 'Records a 10-second loop from the camera and injects it as media.'],
+                    ['MIC',         'Arms microphone input alongside the camera capture.'],
+                    ['REC BCAST',   'Records the live canvas output. Tap again to stop and save.']
                 ],
-                footer: 'VNGRD // CAMERA_4K · 4K CAPTURE'
+                footer: 'VNGRD // CAMERA_4K · LIVE CAPTURE'
             },
             'ai': {
                 title: 'AI_INJECTION',
                 rows: [
-                    ['MODEL',     'Choose FLUX (free default) or configure a custom API endpoint.'],
-                    ['PROMPT',    'Type a scene description. Be specific — "neon cityscape, cyberpunk rain".'],
-                    ['GENERATE',  'Hit GENERATE to send the prompt. Result composites live over the canvas.'],
-                    ['OPACITY',   'Use the blend slider to control how strongly the AI layer covers media.'],
-                    ['CLEAR',     'Remove the current AI injection layer with the CLEAR button.']
+                    ['MODEL',    'Choose a generation engine: FLUX (free), GPT IMAGE, SEEDREAM, and more.'],
+                    ['⚙',        'Gear icon reveals an optional API key field for premium model access.'],
+                    ['PROMPT',   'Type your scene description, then press GENERATE.'],
+                    ['GENERATE', 'Sends the prompt. Result composites live over the canvas automatically.'],
+                    ['STATUS',   'Shows READY or PROCESSING — wait for READY before re-generating.']
                 ],
                 footer: 'VNGRD // AI_INJECTION · GENERATIVE LAYER'
             },
             'identity': {
                 title: 'IDENTITY',
                 rows: [
-                    ['STATION',   'Set your broadcast name — renders as a bug/watermark on the canvas.'],
-                    ['2D LOGO',   'Upload a PNG or SVG; it renders as a corner logo overlay in real-time.'],
-                    ['3D MODEL',  'Load a .GLB file — the model spins live on the canvas as a 3D overlay.'],
-                    ['DRAG',      'Drag logo and bug positions directly on the live canvas preview.'],
-                    ['STYLE',     'Toggle bug display style: plain, bold, outlined, or image mode.']
+                    ['SET BUG',  'Commits the station name as a live watermark overlay on the canvas.'],
+                    ['PL/PU/GL', 'Style selector — PLAIN, PULSE (animated), or GLITCH mode.'],
+                    ['● COLOR',  'Color picker sets the bug and watermark tint in real-time.'],
+                    ['[X]',      'Toggle the station name bug visible or hidden on the canvas.'],
+                    ['2D LOGO',  'Load a PNG/JPG/GIF as a corner logo overlay on the canvas.'],
+                    ['3D LOGO',  'Load a .OBJ/.FBX model — renders and spins live on the canvas.']
                 ],
                 footer: 'VNGRD // IDENTITY · STATION BRAND'
             },
             'lower-third': {
                 title: 'LOWER_THIRD',
                 rows: [
-                    ['NAME',      'Enter the guest or subject name — appears as the primary lower-third text.'],
-                    ['TITLE',     'Enter the role, title, or secondary caption line beneath the name.'],
-                    ['PRESET',    'Pick a graphic style: CLEAN, BOLD, CYBER, MINIMAL, or VNGRD.'],
-                    ['SHOW',      'Overlay the lower-third graphic on the canvas. Updates live on edit.'],
-                    ['HIDE',      'Remove the graphic. Fire SHOW again to re-display with new text.']
+                    ['NAME',   'Enter the subject name — renders as the primary lower-third line.'],
+                    ['ROLE',   'Enter the title or role — renders as the secondary subtitle line.'],
+                    ['GUEST',  'Fires the lower-third in name/role format. Stays on canvas.'],
+                    ['TRACK',  'Swaps to track-title mode (green tint). Updates live.'],
+                    ['BREAK',  'Fires a BREAKING NEWS style lower-third (red tint).'],
+                    ['[X]',    'Instantly removes the lower-third from the canvas.'],
+                    ['STYLE',  'Pick a graphic preset: DEFAULT, NEON, SPLIT, or SCAN.']
                 ],
                 footer: 'VNGRD // LOWER_THIRD · BROADCAST GRAPHIC'
             },
             'midi': {
                 title: 'MIDI_HOST',
                 rows: [
-                    ['MIDI INIT', 'Click to request browser MIDI access — allow the browser permission popup.'],
-                    ['LEARN: ON', 'Arms MIDI learn mode — the next UI button you click waits for a MIDI note.'],
-                    ['BIND',      'Press a key on your MIDI controller to permanently bind it to that button.'],
-                    ['TRIGGER',   'Once bound, your MIDI controller fires buttons in real-time performance.'],
-                    ['DBL-CLICK', 'Double-click LEARN: ON to clear all existing MIDI bindings and start fresh.']
+                    ['MIDI INIT',  'Request browser MIDI access — allow the popup when prompted.'],
+                    ['LEARN: OFF', 'Click to arm learn mode — the next button you click waits for MIDI.'],
+                    ['BIND',       'Press a key on your controller to bind it to the armed button.'],
+                    ['STATUS',     'Shows connected device name or NO DEVICE if none detected.'],
+                    ['BINDINGS',   'Cyan list of active MIDI → button mappings. Auto-saved on bind.']
                 ],
                 footer: 'VNGRD // MIDI_HOST · CONTROLLER BRIDGE'
             },
             'reactivity': {
                 title: 'REACTIVITY',
                 rows: [
-                    ['X-RAY',     'Inverts canvas luminance on beats for a forensic scan effect.'],
-                    ['TEAR',      'Horizontal tear glitch — slices the canvas on transient hits.'],
-                    ['VOID',      'Full grayscale crunch + color collapse. Extreme mode.'],
-                    ['FAILURE',   'System-failure cascade: RGB split, flicker, and screen chaos.'],
-                    ['SHOOT',     'Arms a machine-gun crosshair — each canvas click fractures glass.'],
-                    ['LUCY',      'Chromatic hallucination mode — trails + hue drift on bass.']
+                    ['X-RAY',   'Toggles a luminance-invert scan effect on the canvas.'],
+                    ['TEAR',    'Horizontal tear glitch — slices the canvas frame on beat.'],
+                    ['FAILURE', 'System-failure cascade: flicker, RGB split, screen chaos.'],
+                    ['SHOOT',   'Arms a crosshair — each canvas click shatters the glass.'],
+                    ['VOID',    'Full grayscale crunch and color collapse. Extreme mode.'],
+                    ['LUCY',    'Chromatic hallucination — trails and hue drift on bass.'],
+                    ['VHS_OVR', 'Overlays a VHS scanline and tape-degradation effect.'],
+                    ['NVG',     'Night-vision green filter. Click to toggle on or off.'],
+                    ['RESET',   'Hard reset — clears all active FX and restores canvas.']
                 ],
                 footer: 'VNGRD // REACTIVITY · VISUAL FX ENGINE'
             },
             'audio-engine': {
                 title: 'AUDIO_ENGINE',
                 rows: [
-                    ['LOAD',      'Drag an audio file onto the player, or use the file picker button.'],
-                    ['BPM',       'BPM is auto-detected from kick-drum transients in real time.'],
-                    ['EQ',        'Bass / treble shelving filters affect all bass-coupled FX intensity.'],
-                    ['STEREO',    'STEREO mode: flat, unprocessed. Best for direct monitoring.'],
-                    ['3D SPATIAL','HRTF spatial audio — positions sound in a virtual 3D room.'],
-                    ['VU METER',  'FFT bars react to bass, mids, highs — drives all reactive FX.']
+                    ['LOAD AUDIO',  'Load an audio or video file to play through the engine.'],
+                    ['▶ / ❚❚',      'Play or pause the loaded track or video source.'],
+                    ['SCAN INPUTS', 'Detect and list available audio input devices.'],
+                    ['STEREO',      'Flat stereo playback — direct, unprocessed output.'],
+                    ['3D_SPATIAL',  'HRTF spatial mode — positions audio in a virtual 3D room.'],
+                    ['DOLBY_DSP',   'Enhanced DSP with expanded stereo width and depth.']
                 ],
                 footer: 'VNGRD // AUDIO_ENGINE · DAW CORE'
             },
             'audio-reactive': {
                 title: 'AUDIO_REACTIVE',
                 rows: [
-                    ['PARTY',     'Beat-reactive auto-mode: logos morph + themes shift on bass hits.'],
-                    ['SEISMIC',   'Arm screen shake — kick drums shake the viewport. Dbl-click to lock.'],
-                    ['PUNCH',     'Elastic spring punch on beats. Single-click = 3s demo. Dbl-click = lock.'],
-                    ['SAMPLER',   '8-pad sampler below — tap pads to fire, load customs, bind to MIDI.'],
-                    ['BASS LINK', 'All locked FX scale with (bassLevel ÷ 255) — silent = still, kick = snap.']
+                    ['PARTY',   'Beat-reactive mode — UI themes and canvas morph on bass hits.'],
+                    ['SEISMIC', 'Arms viewport shake on kick. Single tap = 3s demo. Dbl-click = lock.'],
+                    ['PUNCH',   'Spring-elastic canvas punch on beats. Dbl-click to lock permanently.'],
+                    ['SAMPLER', 'Tap the (?) on Sampler SFX header for pad-specific controls.']
                 ],
                 footer: 'VNGRD // AUDIO_REACTIVE · BEAT ENGINE'
             },
             'polytranslator': {
                 title: 'POLYTRANSLATOR',
                 rows: [
-                    ['ON-AIR',    'Toggle ON-AIR tally to activate the live subtitle translator.'],
-                    ['LANG SLOTS','Assign up to 3 language channels (EN, NL, ES, FR, ZH, JA, AR...).'],
-                    ['SLOTS ▾',   'Expand the slot grid to set language priority order.'],
-                    ['LIVE SUB',  'Subtitles overlay on canvas in real-time via Web Speech API.'],
-                    ['STATUS',    'STT indicator shows recognition engine state (STANDBY / LIVE).']
+                    ['OFF-AIR',    'Click to toggle ON-AIR and start live subtitle translation.'],
+                    ['SLOTS',      'Expand to configure up to 4 output language channels.'],
+                    ['LANG 1–4',   'Each slot outputs live subtitles in the selected language.'],
+                    ['SUB_BG',     'Cycles subtitle background opacity: 0% → 33% → 67%.'],
+                    ['STT',        'Switch speech-to-text source between local mic and P2P guest.'],
+                    ['INPUT LANG', 'Set the language you will speak into the microphone.']
                 ],
                 footer: 'VNGRD // POLYTRANSLATOR · V3.0_MODULAR'
             },
             'session-lab': {
                 title: 'SESSION_LAB',
                 rows: [
-                    ['SAVE',      'Snapshot all settings, media queue, and FX state to browser storage.'],
-                    ['LOAD',      'Restore a saved session — completely replaces the current state.'],
-                    ['EXPORT',    'Download session as a .vgd file to share or archive offline.'],
-                    ['IMPORT',    'Load any .vgd file from disk to instantly restore a full session.'],
-                    ['CLOUD',     'Connect your wallet to sync sessions to a cloud key-value store.']
+                    ['CAPTURE CLIP', 'Records and saves a VNGRD-branded clip from the canvas output.'],
+                    ['SAVE',         'Saves all current settings and state to browser local storage.'],
+                    ['IMPORT',       'Load a saved session from a .VGD or .JSON file from disk.'],
+                    ['SHARE_QR',     'Exports the session and generates a shareable QR code link.'],
+                    ['ENTER_VR',     'Launches the spatial WebXR gateway — requires a VR headset.']
                 ],
                 footer: 'VNGRD // SESSION_LAB · STATE PERSISTENCE'
             },
             'nft-vault': {
                 title: 'NFT_VAULT',
                 rows: [
-                    ['ETH ADDR',  'Enter an ETH address or ENS name (e.g. vitalik.eth) to fetch NFTs.'],
-                    ['TEZ ADDR',  'Enter a Tezos address or TezDomains name (e.g. alice.tez).'],
-                    ['FETCH',     'Pull your NFT collection from OpenSea and Tezos APIs.'],
-                    ['LOAD NFT',  'Click any NFT thumbnail to set it as live canvas media.'],
-                    ['WALLET',    'Connect your wallet (top-right badge) to auto-populate your address.']
+                    ['ETH ADDR',     'Enter an ETH address or ENS name (e.g. vitalik.eth) to scan.'],
+                    ['TEZ ADDR',     'Enter a Tezos address or TezDomains name (e.g. alice.tez).'],
+                    ['SCAN WALLET',  'Fetches and displays all NFTs linked to the entered addresses.'],
+                    ['NFT GRID',     'Click any NFT thumbnail to load it as live canvas media.'],
+                    ['ASSETS: N',    'Shows the total count of discovered assets across all wallets.']
                 ],
                 footer: 'VNGRD // NFT_VAULT · ON-CHAIN MEDIA'
             },
             'sampler': {
                 title: 'SAMPLER SFX',
                 rows: [
-                    ['TAP',       'Fire the sound. Works with mouse, touch, or a bound MIDI key.'],
-                    ['⚙ FX',      'Gear icon on any pad couples a visual FX that fires with the sound.'],
-                    ['LOAD',      'Tap any Custom pad (C-01 – C-04) to load an audio file from disk.'],
-                    ['REC',       'Right-click a Custom pad to arm mic recording — 10s count begins on tap.'],
-                    ['MIDI',      'Use MIDI LEARN in MIDI_HOST to bind any pad to your controller.'],
-                    ['HEAVY',     'Pad audio routes through the main analyser — Seismic + Punch react to pads.']
+                    ['TAP',   'Fire the sound. Works with mouse, touch, or MIDI keyboard.'],
+                    ['⚙ FX',  'Gear icon on any pad couples a visual effect that fires with the sound.'],
+                    ['LOAD',  'Tap a Custom pad (C-01 – C-04) to load any audio file from your device.'],
+                    ['REC',   'Right-click a Custom pad to arm mic recording. A 10-second count begins on tap.'],
+                    ['MIDI',  'Use MIDI LEARN in the MIDI_HOST section to bind any pad to your controller.']
                 ],
-                footer: 'VNGRD // SAMPLER SFX · 8-PAD PERFORMANCE'
+                footer: 'VNGRD // SAMPLER SFX · 8-PAD'
             }
         };
 
         window._toggleSectionHelp = function(btn, sectionId) {
-            // Find the nearest .section ancestor (or sfx-sampler-wrap for the sampler button)
             var section = btn.closest('.section');
             if (!section) return;
 
-            // Find or create the overlay inside this section
             var overlay = section.querySelector('.section-help-overlay');
             if (!overlay) {
                 overlay = document.createElement('div');
@@ -9318,28 +9321,29 @@ document.addEventListener('DOMContentLoaded', () => {
                 section.appendChild(overlay);
             }
 
-            // Toggle off if already showing this same section's content
+            // Toggle off if already showing this section's content
             if (overlay.classList.contains('visible') && overlay.dataset.shoId === sectionId) {
                 overlay.classList.remove('visible');
                 return;
             }
 
-            // Inject content
             var d = _SECTION_HELP[sectionId];
             if (!d) { overlay.classList.remove('visible'); return; }
             overlay.dataset.shoId = sectionId;
             overlay.innerHTML =
                 '<div class="sho-header">' +
-                    '<span class="sho-title">HOW TO USE // ' + d.title + '</span>' +
+                    '<span>HOW TO USE</span>' +
                     '<button class="sho-close" onclick="event.stopPropagation();' +
                         'this.closest(\'.section-help-overlay\').classList.remove(\'visible\')">&#x2715;</button>' +
                 '</div>' +
+                '<div class="sho-rows">' +
                 d.rows.map(function(r) {
                     return '<div class="sho-row">' +
                         '<span class="sho-key">' + r[0] + '</span>' +
-                        '<span class="sho-val">' + r[1] + '</span>' +
+                        '<span class="sho-desc">' + r[1] + '</span>' +
                     '</div>';
                 }).join('') +
+                '</div>' +
                 '<div class="sho-footer">' + d.footer + '</div>';
 
             overlay.classList.add('visible');
