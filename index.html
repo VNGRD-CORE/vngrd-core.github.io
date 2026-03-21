@@ -1725,11 +1725,7 @@
         .gb-row-clear:hover { background: rgba(255,80,80,0.12); color: rgba(255,100,100,0.9); }
 
         /* ── EXPANDED / DRAGGABLE sequencer overlay ── */
-        #gb-seq-backdrop {
-            display: none; position: fixed; inset: 0; background: rgba(0,0,0,0.55);
-            z-index: 9998; backdrop-filter: blur(2px);
-        }
-        #gb-seq-backdrop.visible { display: block; }
+        #gb-seq-backdrop { display: none; } /* backdrop removed — console must stay interactive */
         #gb-seq-panel.expanded {
             position: fixed !important;
             z-index: 9999;
@@ -6852,54 +6848,54 @@ function _vjHeavySync() {
 //  Heavy, dissonant, cinematic FX. All synthesized client-side.
 // ═══════════════════════════════════════════════════════════════
 var VANGUARD_LIQUID_LIB = [
-    // Kit 0: IMPACT CORE — calibrated brutal physical impacts
+    // Kit 0: IMPACT CORE — deep cinematic single hits, long natural tails
     { name: 'IMPACT CORE', rate: 1.0, pads: [
-        { label: 'CANNON',   p: { mode:'sweep',   oscType:'sine',     freq:240, freqEnd:32, sub:60, dist:0.10, atk:0.001, dec:0.72, sus:0.0,   dur:2.2 } },
-        { label: 'SHRAPNEL', p: { mode:'noise',   filter:'bandpass',  filterFreq:4800, filterQ:3.0, dist:0.12, atk:0.001, dec:0.09, sus:0.001, dur:0.20 } },
-        { label: 'TREMOR',   p: { mode:'cluster', oscType:'sine',     freqs:[52,65,78], dist:0.08,             atk:0.008, dec:1.6,  sus:0.08,  dur:3.6 } },
-        { label: 'SLAM',     p: { mode:'metal',   freq:220, freqEnd:60, ring:780, dist:0.08,                   atk:0.001, dec:0.32, sus:0.006, dur:1.3 } }
+        { label: 'KICK',     p: { mode:'sweep',   oscType:'sine',     freq:160, freqEnd:28, sub:48, dist:0.06, atk:0.001, dec:0.60, sus:0.0,   dur:1.50 } },
+        { label: 'CLAP',     p: { mode:'noise',   filter:'bandpass',  filterFreq:1000, filterQ:1.0, dist:0.08, atk:0.001, dec:0.28, sus:0.001, dur:0.60 } },
+        { label: 'RUMBLE',   p: { mode:'noise',   filter:'lowpass',   filterFreq:160,  filterQ:0.4,            atk:0.05,  dec:2.8,  sus:0.06,  dur:5.00 } },
+        { label: 'SLAM',     p: { mode:'metal',   freq:200, freqEnd:55, ring:850,                              atk:0.001, dec:0.55, sus:0.004, dur:1.60 } }
     ]},
-    // Kit 1: ATMOSPHERIC — deep ambient textures, long evolving tails
+    // Kit 1: ATMOSPHERIC — long ambient textures, slow evolving, no distortion
     { name: 'ATMOSPHERIC', rate: 1.0, pads: [
-        { label: 'BREATH',   p: { mode:'noise',   filter:'lowpass',   filterFreq:500, filterQ:0.4,             atk:1.2,   dec:4.5,  sus:0.35,  dur:9.0 } },
-        { label: 'VOID BELL',p: { mode:'resonant',freq:68, freqEnd:52, res:32,                                 atk:0.4,   dec:5.2,  sus:0.28,  dur:8.5 } },
-        { label: 'ETHER',    p: { mode:'am',      freq:120, lfoRate:0.6,                                       atk:0.6,   dec:3.8,  sus:0.50,  dur:7.5 } },
-        { label: 'DRONE',    p: { mode:'sweep',   oscType:'sine',     freq:55, freqEnd:44, sub:50,             atk:0.3,   dec:4.2,  sus:0.30,  dur:8.0 } }
+        { label: 'TIDE',     p: { mode:'noise',   filter:'lowpass',   filterFreq:380,  filterQ:0.3,            atk:1.80,  dec:5.5,  sus:0.22,  dur:10.0 } },
+        { label: 'BELL',     p: { mode:'resonant',freq:72,  freqEnd:65, res:38,                                atk:0.30,  dec:7.0,  sus:0.12,  dur: 9.0 } },
+        { label: 'HAZE',     p: { mode:'am',      freq:92,  lfoRate:0.4,                                       atk:0.90,  dec:5.0,  sus:0.30,  dur: 8.5 } },
+        { label: 'DEEP',     p: { mode:'sweep',   oscType:'sine',     freq:50, freqEnd:42, sub:46,             atk:0.25,  dec:4.5,  sus:0.18,  dur: 7.5 } }
     ]},
-    // Kit 2: INDUSTRIAL — mechanical, riveted, metallic machinery
+    // Kit 2: INDUSTRIAL — mechanical single hits, long metallic ring, clean
     { name: 'INDUSTRIAL', rate: 1.0, pads: [
-        { label: 'RIVET',    p: { mode:'metal',   freq:300, freqEnd:90, ring:1400, dist:0.15,                  atk:0.001, dec:0.20, sus:0.005, dur:0.60 } },
-        { label: 'GRIND',    p: { mode:'noise',   filter:'bandpass',  filterFreq:900, filterQ:5.0, dist:0.30,  atk:0.002, dec:0.48, sus:0.04,  dur:1.1  } },
-        { label: 'PRESS',    p: { mode:'boom',    sub:58,  filter:'lowpass', filterFreq:380, filterQ:0.7, dist:0.10, atk:0.001, dec:0.92, sus:0.05, dur:2.5 } },
-        { label: 'STEAM',    p: { mode:'noise',   filter:'bandpass',  filterFreq:3800, filterQ:1.0, dist:0.08, atk:0.012, dec:0.32, sus:0.03,  dur:0.70 } }
+        { label: 'CLANG',    p: { mode:'metal',   freq:380, freqEnd:120, ring:1620,                            atk:0.001, dec:0.90, sus:0.005, dur:2.20 } },
+        { label: 'RIVET',    p: { mode:'noise',   filter:'bandpass',  filterFreq:1800, filterQ:4.0, dist:0.10, atk:0.001, dec:0.22, sus:0.001, dur:0.45 } },
+        { label: 'PRESS',    p: { mode:'boom',    sub:55,  filter:'lowpass', filterFreq:300, filterQ:0.6,      atk:0.001, dec:1.20, sus:0.04,  dur:2.80 } },
+        { label: 'HISS',     p: { mode:'noise',   filter:'bandpass',  filterFreq:5500, filterQ:0.7, dist:0.04, atk:0.015, dec:0.55, sus:0.02,  dur:1.00 } }
     ]},
-    // Kit 3: 909 TECHNO — calibrated Roland 909-style drum machine
+    // Kit 3: 909 TECHNO — classic Roland 909-style, punchy and musical
     { name: '909 TECHNO', rate: 1.0, pads: [
-        { label: 'KICK',     p: { mode:'sweep',   oscType:'sine',     freq:220, freqEnd:38, sub:55, dist:0.08, atk:0.001, dec:0.36, sus:0.0,   dur:0.85 } },
-        { label: 'SNARE',    p: { mode:'noise',   filter:'bandpass',  filterFreq:1200, filterQ:1.5, dist:0.12, atk:0.001, dec:0.18, sus:0.001, dur:0.35 } },
-        { label: 'HH-CL',   p: { mode:'noise',   filter:'bandpass',  filterFreq:8500, filterQ:3.5, dist:0.05, atk:0.001, dec:0.030,sus:0.0,   dur:0.065} },
-        { label: 'HH-OP',   p: { mode:'noise',   filter:'bandpass',  filterFreq:7000, filterQ:2.2, dist:0.04, atk:0.001, dec:0.28, sus:0.001, dur:0.52 } }
+        { label: 'KICK',     p: { mode:'sweep',   oscType:'sine',     freq:200, freqEnd:32, sub:52, dist:0.06, atk:0.001, dec:0.40, sus:0.0,   dur:0.90 } },
+        { label: 'SNARE',    p: { mode:'noise',   filter:'bandpass',  filterFreq:1100, filterQ:1.2, dist:0.10, atk:0.001, dec:0.22, sus:0.001, dur:0.45 } },
+        { label: 'HH-CL',   p: { mode:'noise',   filter:'bandpass',  filterFreq:9000, filterQ:4.5, dist:0.04, atk:0.001, dec:0.025,sus:0.0,   dur:0.06 } },
+        { label: 'HH-OP',   p: { mode:'noise',   filter:'bandpass',  filterFreq:7500, filterQ:2.0, dist:0.04, atk:0.001, dec:0.35, sus:0.002, dur:0.65 } }
     ]},
-    // Kit 4: IDM BREAKCORE — asymmetric, complex, hyper-transient
+    // Kit 4: IDM BRKCORE — precise, short, hyper-transient single hits
     { name: 'IDM BRKCORE', rate: 1.0, pads: [
-        { label: 'FRACTURE', p: { mode:'cluster', oscType:'sawtooth', freqs:[82,110,164,220], dist:0.28,        atk:0.001, dec:0.10, sus:0.002, dur:0.24 } },
-        { label: 'CRUSH',    p: { mode:'noise',   filter:'bandpass',  filterFreq:2000, filterQ:3.8, dist:0.38, atk:0.001, dec:0.075,sus:0.001, dur:0.16 } },
-        { label: 'STUTTER',  p: { mode:'sweep',   oscType:'square',   freq:340, freqEnd:65, dist:0.32,         atk:0.001, dec:0.065,sus:0.001, dur:0.14 } },
-        { label: 'SPASM',    p: { mode:'am',      freq:96, lfoRate:32, dist:0.20,                              atk:0.001, dec:0.18, sus:0.005, dur:0.36 } }
+        { label: 'CLICK',    p: { mode:'noise',   filter:'bandpass',  filterFreq:5000, filterQ:6.0,            atk:0.001, dec:0.035,sus:0.0,   dur:0.08 } },
+        { label: 'BURST',    p: { mode:'cluster', oscType:'sawtooth', freqs:[87,130,174], dist:0.22,           atk:0.001, dec:0.15, sus:0.001, dur:0.32 } },
+        { label: 'SHIFT',    p: { mode:'sweep',   oscType:'square',   freq:440, freqEnd:88, dist:0.20,         atk:0.001, dec:0.12, sus:0.001, dur:0.26 } },
+        { label: 'FLAM',     p: { mode:'metal',   freq:280, freqEnd:140, ring:1120, dist:0.08,                 atk:0.001, dec:0.20, sus:0.002, dur:0.45 } }
     ]},
-    // Kit 5: GLITCH CORE — digital artifacts, harsh noise, bit-crushed
+    // Kit 5: GLITCH CORE — digital artifacts, bit noise, sharp single hits
     { name: 'GLITCH CORE', rate: 1.0, pads: [
-        { label: 'DATABEND', p: { mode:'noise',   filter:'bandpass',  filterFreq:2600, filterQ:6.5, dist:0.42, atk:0.001, dec:0.12, sus:0.001, dur:0.25 } },
-        { label: 'ZERO',     p: { mode:'cluster', oscType:'square',   freqs:[220,330,440], dist:0.45,          atk:0.001, dec:0.055,sus:0.001, dur:0.11 } },
-        { label: 'SKIP',     p: { mode:'metal',   freq:480, freqEnd:240, ring:1920, dist:0.18,                 atk:0.001, dec:0.09, sus:0.002, dur:0.22 } },
-        { label: 'FRAGMENT', p: { mode:'sweep',   oscType:'sawtooth', freq:2400, freqEnd:120, dist:0.35,       atk:0.001, dec:0.095,sus:0.0,   dur:0.20 } }
+        { label: 'DATABEND', p: { mode:'noise',   filter:'bandpass',  filterFreq:3000, filterQ:7.0, dist:0.35, atk:0.001, dec:0.14, sus:0.001, dur:0.28 } },
+        { label: 'SKIP',     p: { mode:'metal',   freq:520, freqEnd:260, ring:2080, dist:0.15,                 atk:0.001, dec:0.10, sus:0.001, dur:0.22 } },
+        { label: 'ZAP',      p: { mode:'sweep',   oscType:'sawtooth', freq:1600, freqEnd:80, dist:0.28,        atk:0.001, dec:0.12, sus:0.0,   dur:0.25 } },
+        { label: 'CRUNCH',   p: { mode:'noise',   filter:'bandpass',  filterFreq:900,  filterQ:4.5, dist:0.35, atk:0.001, dec:0.18, sus:0.001, dur:0.35 } }
     ]},
-    // Kit 6: VOID MACHINES — dark industrial experimental (original)
+    // Kit 6: VOID MACHINES — dark, long evolving, experimental
     { name: 'VOID MACHINES', rate: 1.0, pads: [
-        { label: 'SINGULAR', p: { mode:'resonant',freq:100, freqEnd:24, res:22, dist:0.10,                     atk:0.06,  dec:2.4,  sus:0.14,  dur:5.2 } },
-        { label: 'WORMHOLE', p: { mode:'sweep',   oscType:'sawtooth', freq:460, freqEnd:14, dist:0.28,         atk:0.007, dec:2.6,  sus:0.03,  dur:4.0 } },
-        { label: 'EROSION',  p: { mode:'noise',   filter:'lowpass',   filterFreq:240, filterQ:9, dist:0.22,    atk:0.003, dec:1.0,  sus:0.10,  dur:2.8 } },
-        { label: 'DARK PLS', p: { mode:'am',      freq:48, lfoRate:7, dist:0.12,                               atk:0.01,  dec:0.85, sus:0.26,  dur:3.2 } }
+        { label: 'SINGULAR', p: { mode:'resonant',freq:95,  freqEnd:22, res:24,                                atk:0.06,  dec:2.50, sus:0.12,  dur:5.50 } },
+        { label: 'WORMHOLE', p: { mode:'sweep',   oscType:'sawtooth', freq:440, freqEnd:14, dist:0.22,         atk:0.007, dec:2.80, sus:0.025, dur:4.50 } },
+        { label: 'EROSION',  p: { mode:'noise',   filter:'lowpass',   filterFreq:220,  filterQ:9,  dist:0.18,  atk:0.003, dec:1.10, sus:0.08,  dur:3.00 } },
+        { label: 'PULSE',    p: { mode:'am',      freq:52,  lfoRate:6, dist:0.10,                              atk:0.01,  dec:0.95, sus:0.22,  dur:3.20 } }
     ]}
 ];
 
@@ -7276,6 +7272,10 @@ window._toggleGrooveboxMode = function() {
         // Sync kit selector to current pack
         var kitSel = document.getElementById('gb-kit-select');
         if (kitSel) kitSel.value = _liqCurrentPack;
+        // Auto-pop sequencer so user doesn't need to scroll to find it
+        if (seqPanel && !seqPanel.classList.contains('expanded') && typeof window._toggleSeqExpand === 'function') {
+            window._toggleSeqExpand();
+        }
     } else {
         _groovebox.mode = 'performance';
         if (modeBtn) { modeBtn.textContent = 'PERF'; modeBtn.classList.remove('groovebox-mode'); }
@@ -7397,7 +7397,7 @@ function _startGroovebox() {
     _groovebox.isPlaying = true;
     var btn = document.getElementById('gb-transport-btn');
     if (btn) { btn.innerHTML = '&#x25A0; STOP'; btn.classList.add('playing'); }
-    _groovebox._intervalId = setInterval(_grooveboxScheduler, 16);
+    _groovebox._intervalId = setInterval(_grooveboxScheduler, 25);
 }
 
 function _stopGroovebox() {
@@ -7414,20 +7414,26 @@ function _grooveboxScheduler() {
     if (!_groovebox.isPlaying || !APP.audio.ctx) return;
     var ctx = APP.audio.ctx;
     var stepDur = (60 / _groovebox.bpm) / 4; // 16th notes
-    if (_groovebox.nextBeatTime < ctx.currentTime + 0.1) {
+    // Schedule up to 200ms ahead — large enough to survive browser timer jitter
+    while (_groovebox.nextBeatTime < ctx.currentTime + 0.20) {
         var step = _groovebox.currentStep;
+        var fireAt = _groovebox.nextBeatTime;
         Object.keys(_groovebox.pattern).forEach(function(sfxName) {
             if (_groovebox.muted[sfxName]) return;
             var val = _groovebox.pattern[sfxName][step];
             if (!val) return;
             if (sfxName.startsWith('liq')) {
-                _fireLiqPad(parseInt(sfxName.replace('liq',''), 10) - 1, _groovebox.nextBeatTime, sfxName);
+                _fireLiqPad(parseInt(sfxName.replace('liq',''), 10) - 1, fireAt, sfxName);
             } else {
                 SFX_ENGINE.play(sfxName);
             }
             if (typeof _fireCoupledFX === 'function') _fireCoupledFX(sfxName);
         });
-        _updateSeqCursor(step);
+        // Delay visual cursor update to match actual audio playback time
+        (function(s, t) {
+            var delay = Math.max(0, (t - ctx.currentTime) * 1000);
+            setTimeout(function() { _updateSeqCursor(s); }, delay);
+        })(step, fireAt);
         _groovebox.currentStep = (step + 1) % _groovebox.stepsPerBar;
         _groovebox.nextBeatTime += stepDur;
     }
