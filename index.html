@@ -4365,39 +4365,18 @@ function checkMobile() { APP.state.isMobile = /Android|iPhone|iPad|iPod|webOS|Bl
 
 // RENDER
 function initCanvas() {
-    var canvas = $('vj-canvas');
-    APP.render.canvas = canvas;
-    // ── HQ Resolution Bridge — fixed 1280×720 logical viewport, HiDPI physical buffer ──
-    // canvas.style.width/height locks the display footprint; canvas.width/height is the
-    // physical pixel buffer (dpr× larger for crisp Retina/4K capture).
-    var dpr = window.devicePixelRatio || 1;
-    canvas.width  = Math.round(1280 * dpr);
-    canvas.height = Math.round(720  * dpr);
-    canvas.style.width  = '1280px';
-    canvas.style.height = '720px';
-    APP.render.width  = 1280;   // logical coords used by all draw calls
-    APP.render.height = 720;
-    APP.render._dpr   = dpr;
-    APP.render.ctx    = canvas.getContext('2d', { alpha: false });
-    // Single scale call — maps every logical pixel to dpr physical pixels
-    APP.render.ctx.scale(dpr, dpr);
-    // Update resolution readout
-    var _resEl = document.getElementById('res');
-    if (_resEl) _resEl.textContent = '1280x720 @' + dpr + 'x';
-    // ── Font preload: block subtitle draw until 'Share Tech Mono' is ready ──
-    APP.render._fontsReady = false;
-    document.fonts.ready.then(function() { APP.render._fontsReady = true; });
-    // Canvas is fixed-size — resize listener only updates mobile state
-    window.addEventListener('resize', function() { checkMobile(); });
-    // Off-screen canvas for pixelation effect
+    APP.render.canvas = $('vj-canvas');
+    APP.render.ctx = APP.render.canvas.getContext('2d', { alpha: false }); // Removed desynchronized to prevent grey flickering
+    // ── RESOLUTION CAP: 1080p max — 4K canvas chokes the render loop ──
+    APP.render.width  = Math.min(APP.render.width,  1920);
+    APP.render.height = Math.min(APP.render.height, 1080);
+    resizeCanvas();
+    window.addEventListener('resize', () => { resizeCanvas(); checkMobile(); });
+    // Off-screen canvas for proper pixelation
     APP.render.pixelCanvas = document.createElement('canvas');
-    APP.render.pixelCanvas.width  = 384;
-    APP.render.pixelCanvas.height = 216;
+    APP.render.pixelCanvas.width = 384; APP.render.pixelCanvas.height = 216; // Start small
     APP.render.pixelCtx = APP.render.pixelCanvas.getContext('2d', { alpha: false });
     APP.render.pixelCtx.imageSmoothingEnabled = false;
-    // ── Surgical Strike: hide HTML subtitle overlay — all subs burn to canvas ──
-    var _subOverlay = document.getElementById('vanguard-subtitles');
-    if (_subOverlay) _subOverlay.style.display = 'none';
 }
 function resizeCanvas() { APP.render.canvas.width = APP.render.width; APP.render.canvas.height = APP.render.height; $('res').textContent = `${APP.render.width}x${APP.render.height}`; }
 
@@ -4980,11 +4959,6 @@ function renderLoop(timestamp) {
     ctx.clearRect(0, 0, w, h);
     ctx.fillStyle = '#000';
     ctx.fillRect(0, 0, w, h);
-
-    // ── AI background safety guard (line 5105): only draw if fully decoded ──
-    if (window.aiImage && window.aiImage.complete && window.aiImage.naturalWidth > 0) {
-        ctx.drawImage(window.aiImage, 0, 0, w, h);
-    }
 
     // --- PUNCH / SEISMIC: frame-level transform — wraps ALL drawing (canvas only) ---
     var _punch = APP.vj._punchSpring || 0;
@@ -5706,91 +5680,76 @@ if (T.logo.visible) {
         }
     }
 
-    // ── GOLDEN FRAME SUBTITLE BURN-IN (WYSIWYG) — all subs drawn to canvas ──
-    // Works in logical 1280×720 coords — ctx.scale(dpr,dpr) from initCanvas
-    // maps every logical pixel to crisp physical pixels for recording.
-    // HTML #vanguard-subtitles is hidden; this is the sole renderer.
+    // ── SUBTITLE / TRANSCRIPTION BURN-IN — runs every frame ──
+    // Reads directly from globals + DOM so no IIFE closure can block it.
+    // Uses canvas.width/height (not APP.render.width) and setTransform to
+    // guarantee identity state regardless of what the FX pipeline left behind.
     (function _subtitleBurn() {
-        if (!APP.render._fontsReady) return;  // wait for 'Share Tech Mono' to load
         var _ctx = APP.render.ctx;
-        if (!_ctx) return;
+        var _w = APP.render.canvas.width;
+        var _h = APP.render.canvas.height;
+        if (!_ctx || !_w || !_h) return;
 
-        var _onAirEl = document.getElementById('btn-on-air');
-        var _sttLive = _onAirEl && _onAirEl.classList.contains('active');
-        if (!_sttLive) return;
-
-        var _langEl  = document.getElementById('vngrd-input-lang');
-        var _srcCode = (_langEl && _langEl.value) ? _langEl.value.split('-')[0].toUpperCase() : 'EN';
-
-        // Logical layout constants (1280×720 space)
-        var _cx   = 640;   // horizontal centre
-        var _cy   = 620;   // primary vertical anchor
-        var _maxW = 1000;  // max text box width
-
-        // ── Shared: rounded-rectangle path helper ──
-        function _rr(x, y, rw, rh, r) {
-            _ctx.beginPath();
-            _ctx.moveTo(x + r, y);
-            _ctx.lineTo(x + rw - r, y);
-            _ctx.quadraticCurveTo(x + rw, y, x + rw, y + r);
-            _ctx.lineTo(x + rw, y + rh - r);
-            _ctx.quadraticCurveTo(x + rw, y + rh, x + rw - r, y + rh);
-            _ctx.lineTo(x + r, y + rh);
-            _ctx.quadraticCurveTo(x, y + rh, x, y + rh - r);
-            _ctx.lineTo(x, y + r);
-            _ctx.quadraticCurveTo(x, y, x + r, y);
-            _ctx.closePath();
-        }
-
-        // ── Shared: draw a neon-cyan HUD box then fill text centred at (tx, ty) ──
-        function _neonBox(tx, ty, boxW, boxH, fontSize, label) {
+        // 1. Translation slot subtitles
+        var _lines = window._vngrdSubtitleLines;
+        if (_lines && _lines.length) {
             _ctx.save();
-            _ctx.globalAlpha              = 1;
+            _ctx.setTransform(1, 0, 0, 1, 0, 0);
+            _ctx.globalAlpha = 1;
             _ctx.globalCompositeOperation = 'source-over';
-            _ctx.filter                   = 'none';
-            _ctx.textAlign                = 'center';
-            _ctx.textBaseline             = 'middle';
-            _ctx.font                     = 'bold ' + fontSize + 'px "Share Tech Mono", monospace';
-            // Background: semi-transparent deep-teal rounded rect
+            _ctx.filter = 'none';
             _ctx.shadowBlur = 0;
-            _ctx.fillStyle  = 'rgba(0,20,20,0.7)';
-            _rr(tx - boxW / 2, ty - boxH / 2, boxW, boxH, 6);
-            _ctx.fill();
-            // Border: 1px neon cyan
-            _ctx.strokeStyle = '#00FFFF';
-            _ctx.lineWidth   = 1;
-            _rr(tx - boxW / 2, ty - boxH / 2, boxW, boxH, 6);
-            _ctx.stroke();
-            // Text: neon cyan with glow
-            _ctx.fillStyle   = '#00FFFF';
-            _ctx.shadowBlur  = 12;
-            _ctx.shadowColor = '#00FFFF';
-            _ctx.fillText(label, tx, ty, _maxW);
+            _ctx.textAlign = 'center';
+            _ctx.textBaseline = 'middle';
+            var _lineH = Math.round(_h * 0.058);
+            var _fsPx  = Math.round(_h * 0.032);
+            var _padX  = 18;
+            var _blockH   = _lineH * _lines.length;
+            var _blockTop = Math.round(_h * 0.78) - Math.round(_blockH / 2);
+            _ctx.font = '700 ' + _fsPx + 'px "Courier New",monospace';
+            for (var _li = 0; _li < _lines.length; _li++) {
+                var _sub     = _lines[_li];
+                var _lineTop = _blockTop + _li * _lineH;
+                var _cy      = _lineTop + Math.round(_lineH / 2);
+                var _label   = '[' + _sub.lang + '] ' + _sub.text;
+                var _tw      = _ctx.measureText(_label).width;
+                var _bgA     = (typeof _sub.bgAlpha === 'number') ? _sub.bgAlpha : 0.8;
+                _ctx.fillStyle = 'rgba(0,0,0,' + _bgA + ')';
+                _ctx.fillRect((_w - _tw) / 2 - _padX, _lineTop, _tw + _padX * 2, _lineH);
+                _ctx.fillStyle = '#00f3ff';
+                _ctx.fillText(_label, _w / 2, _cy);
+            }
             _ctx.restore();
         }
 
-        // ── 1. Language indicator: [ EN // LIVE ] ──
-        var _indicator = '[ ' + _srcCode + ' // LIVE ]';
-        _neonBox(_cx, _cy - 72, 340, 30, 16, _indicator);
-
-        // ── 2. Main live-transcription HUD line ──
+        // 2. Live transcription HUD line (only when STT is on-air)
         var _hudEl  = document.getElementById('hud-en-text');
         var _hudTxt = (_hudEl ? _hudEl.textContent : '').trim();
-        if (_hudTxt) {
-            _neonBox(_cx, _cy, _maxW, 64, 42, _hudTxt);
-        }
-
-        // ── 3. Translation slot rows (stacked above HUD, Golden Frame style) ──
-        var _lines = window._vngrdSubtitleLines;
-        if (_lines && _lines.length) {
-            var _slotLineH = 56;
-            var _slotsBaseY = _cy - 100 - (_lines.length - 1) * _slotLineH;
-            for (var _li = 0; _li < _lines.length; _li++) {
-                var _sub   = _lines[_li];
-                var _label = '[' + _sub.lang + '] ' + _sub.text;
-                var _sy    = _slotsBaseY + _li * _slotLineH;
-                _neonBox(_cx, _sy, _maxW, _slotLineH, 38, _label);
-            }
+        var _onAirEl = document.getElementById('btn-on-air');
+        var _sttLive = _onAirEl && _onAirEl.classList.contains('active');
+        if (_hudTxt && _sttLive) {
+            _ctx.save();
+            _ctx.setTransform(1, 0, 0, 1, 0, 0);
+            _ctx.globalAlpha = 1;
+            _ctx.globalCompositeOperation = 'source-over';
+            _ctx.filter = 'none';
+            _ctx.shadowBlur = 0;
+            _ctx.textAlign = 'center';
+            _ctx.textBaseline = 'middle';
+            var _hudFsPx  = Math.round(_h * 0.022);
+            var _hudLineH = Math.round(_h * 0.038);
+            var _hudY     = Math.round(_h * 0.955);
+            var _hudPadX  = 24;
+            _ctx.font = '400 ' + _hudFsPx + 'px "Courier New",monospace';
+            var _langEl  = document.getElementById('vngrd-input-lang');
+            var _srcCode = (_langEl && _langEl.value) ? _langEl.value.split('-')[0].toUpperCase() : 'EN';
+            var _hudLabel = _srcCode + ' // ' + _hudTxt;
+            var _hudTw   = _ctx.measureText(_hudLabel).width;
+            _ctx.fillStyle = 'rgba(0,0,0,0.82)';
+            _ctx.fillRect((_w - _hudTw) / 2 - _hudPadX, _hudY - Math.round(_hudLineH / 2), _hudTw + _hudPadX * 2, _hudLineH);
+            _ctx.fillStyle = 'rgba(255,255,255,0.9)';
+            _ctx.fillText(_hudLabel, _w / 2, _hudY);
+            _ctx.restore();
         }
     })();
 }
@@ -12813,52 +12772,19 @@ if (btn3dX) {
         }
     }
 
-    /* ── GTX Translation Engine — Unlimited bypass, local cache, 200ms debounce ── */
-    // Uses the Google Translate GTX client endpoint (no API key required).
-    // window.transCache prevents redundant network hits for repeated phrases.
-    // Per-slot debounce timer gives buttery-smooth UI without flooding the network.
-    window.transCache = window.transCache || {};
-    var _transDebounceTimers = {};
-
-    function translateText(text, srcLang, tgtCode, slotIdx) {
+    /* ── Translation via MyMemory (free, no API key) ─────────────────── */
+    // srcLang: 2-char code ('en', 'it', 'zh' …)
+    // tgtCode: MyMemory target code ('nl', 'zh', 'ja' …)
+    function translateSlot(text, srcLang, tgtCode, slotIdx) {
         if (!text || !srcLang || !tgtCode) return;
-        var cacheKey = srcLang + '>' + tgtCode + ':' + text;
-        // Instant cache hit — no network round-trip
-        if (window.transCache[cacheKey]) {
-            slotTexts[slotIdx] = window.transCache[cacheKey];
-            renderSubtitles();
-            return;
-        }
-        // 200ms debounce: cancel the pending call for this slot, reschedule
-        var timerKey = slotIdx + ':' + tgtCode;
-        if (_transDebounceTimers[timerKey]) clearTimeout(_transDebounceTimers[timerKey]);
-        _transDebounceTimers[timerKey] = setTimeout(function() {
-            var url = 'https://translate.googleapis.com/translate_a/single?client=gtx&sl=' +
-                      srcLang + '&tl=' + tgtCode + '&dt=t&q=' + encodeURIComponent(text);
-            fetch(url)
-                .then(function(res) { return res.json(); })
-                .then(function(data) {
-                    // GTX response: data[0] is an array of [translated_chunk, source_chunk, ...]
-                    var t = '';
-                    if (data && data[0]) {
-                        for (var i = 0; i < data[0].length; i++) {
-                            if (data[0][i] && data[0][i][0]) t += data[0][i][0];
-                        }
-                    }
-                    t = t.trim().toUpperCase();
-                    if (t) {
-                        window.transCache[cacheKey] = t;   // store for future cache hits
-                        slotTexts[slotIdx] = t;
-                        renderSubtitles();
-                        // P2P: broadcast translation to guests via dataChannel
-                        if (typeof sendUISync === 'function') {
-                            var _p2p = {}; _p2p[tgtCode.toUpperCase()] = t;
-                            sendUISync('POLYTRANSLATOR', _p2p);
-                        }
-                    }
-                })
-                .catch(function() {});
-        }, 200);
+        var pair = srcLang + '|' + tgtCode;
+        fetch('https://api.mymemory.translated.net/get?q=' + encodeURIComponent(text) + '&langpair=' + pair)
+            .then(function(res) { return res.json(); })
+            .then(function(data) {
+                var t = (data.responseData && data.responseData.translatedText || '').toUpperCase();
+                if (t) { slotTexts[slotIdx] = t; renderSubtitles(); }
+            })
+            .catch(function() {});
     }
 
     /* ── Process finalized text through all active slots ──────────────── */
@@ -12887,7 +12813,7 @@ if (btn3dX) {
                 p2pData[s.lang]   = rawText;
             } else {
                 // Different language — send to MyMemory with correct src|tgt pair
-                translateText(rawText, srcCode, tgtCode, s.idx);
+                translateSlot(rawText, srcCode, tgtCode, s.idx);
                 p2pData[s.lang] = '...';
             }
         });
@@ -12956,8 +12882,6 @@ if (btn3dX) {
                 processSlots(lastFinal);
             } else if (interim) {
                 processInterim(interim);
-                // Instant Flow: trigger translation on every new word — debounce in translateText handles throttle
-                processSlots(interim);
             }
         };
 
