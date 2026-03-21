@@ -541,10 +541,66 @@
         body.system-slide #stage { box-shadow: inset 0 0 0 1px rgba(0,243,255,0.12), 0 0 40px rgba(0,243,255,0.04); }
         /* Hard divider between module blocks — dark gap above + white hairline below */
         .section {
+            position: relative; /* anchor for .section-help-overlay */
             border-top: 4px solid rgba(0,0,0,0.9);
             border-bottom: 1px solid rgba(255,255,255,0.04);
         }
         .section:first-child { border-top: none; }
+
+        /* ═══════════════════════════════════════════════════
+           SECTION HELP OVERLAY — integrated HUD "How to Use"
+           ═══════════════════════════════════════════════════ */
+        @keyframes sho-fadein { from { opacity: 0; } to { opacity: 1; } }
+        .section-help-overlay {
+            position: absolute; top: 0; left: 0;
+            width: 100%; height: 100%; min-height: 100px;
+            background: rgba(0, 10, 10, 0.97);
+            border: 1px solid #00ffff;
+            padding: 12px 14px 14px;
+            box-sizing: border-box;
+            z-index: 200;
+            display: none;
+            font-family: 'Share Tech Mono', monospace;
+            font-size: 10px;
+            color: #00ffff;
+            overflow-y: auto;
+            scrollbar-width: none;
+        }
+        .section-help-overlay.visible {
+            display: block;
+            animation: sho-fadein 0.2s ease forwards;
+        }
+        .section-help-overlay .sho-header {
+            display: flex; justify-content: space-between; align-items: center;
+            border-bottom: 1px solid rgba(0,255,255,0.25);
+            padding-bottom: 7px; margin-bottom: 9px;
+            font-size: 7.5px; letter-spacing: 2px;
+        }
+        .section-help-overlay .sho-title { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+        .section-help-overlay .sho-close {
+            background: transparent; border: 1px solid rgba(0,255,255,0.35);
+            color: #00ffff; cursor: pointer; font-size: 9px;
+            padding: 1px 6px; font-family: 'Share Tech Mono', monospace;
+            flex-shrink: 0; margin-left: 8px;
+            transition: background 0.15s, border-color 0.15s;
+        }
+        .section-help-overlay .sho-close:hover { background: rgba(0,255,255,0.12); border-color: #00ffff; }
+        .section-help-overlay .sho-row {
+            display: flex; gap: 8px; margin-bottom: 7px; align-items: flex-start; line-height: 1.3;
+        }
+        .section-help-overlay .sho-key {
+            background: rgba(0,255,255,0.08); border: 1px solid rgba(0,255,255,0.35);
+            padding: 1px 5px; white-space: nowrap; font-size: 7.5px; letter-spacing: 1px;
+            min-width: 76px; text-align: center; flex-shrink: 0;
+        }
+        .section-help-overlay .sho-val {
+            font-size: 8.5px; opacity: 0.82; line-height: 1.4; color: rgba(0,255,255,0.88);
+        }
+        .section-help-overlay .sho-footer {
+            border-top: 1px solid rgba(0,255,255,0.15);
+            padding-top: 6px; margin-top: 6px;
+            font-size: 6.5px; opacity: 0.45; letter-spacing: 2px; text-align: center;
+        }
         /* Intra-section divider utility */
         .sec-divider {
             height: 1px;
@@ -2739,7 +2795,7 @@ body.fullscreen #transcription-hud { pointer-events: none !important; } /* keep 
 
     <aside class="sidebar" id="left-panel">
         <div class="section">
-            <div class="sec-head"><span class="sec-title">CAMERA_4K</span><button class="sampler-help-btn" onclick="event.stopPropagation();log('CAMERA: Capture 4K still frames. Click CAM CAPTURE to init. Preview shows live feed.')" title="Camera capture: grab 4K stills from camera or load image/GIF files for compositing.">?</button><div class="sec-dot off" id="cam-dot"></div></div>
+            <div class="sec-head"><span class="sec-title">CAMERA_4K</span><button class="sampler-help-btn" onclick="event.stopPropagation();_toggleSectionHelp(this,'camera')">?</button><div class="sec-dot off" id="cam-dot"></div></div>
             <div class="sec-body">
                 <button class="btn" id="btn-init-cam">CAM CAPTURE [4K]</button>
                 <div id="cam-preview-float">
@@ -2787,7 +2843,7 @@ body.fullscreen #transcription-hud { pointer-events: none !important; } /* keep 
             </div>
         </div>
          <div class="section">
-            <div class="sec-head collapsible"><span class="sec-title">AI_INJECTION</span><span class="sec-arrow">&#x25B8;</span><button class="sampler-help-btn" onclick="event.stopPropagation();log('AI INJECTION: Generate images via FLUX/Stable Diffusion. Prompt → generate → composited live.')" title="AI Injection: enter a text prompt to generate and overlay an AI image onto the canvas in real time.">?</button><div class="sec-dot off" id="neural-dot"></div></div>
+            <div class="sec-head collapsible"><span class="sec-title">AI_INJECTION</span><span class="sec-arrow">&#x25B8;</span><button class="sampler-help-btn" onclick="event.stopPropagation();_toggleSectionHelp(this,'ai')">?</button><div class="sec-dot off" id="neural-dot"></div></div>
             <div class="sec-body" id="lexica-nano-body">
                 <div class="lbl" style="font-size:7px;opacity:0.5;margin-bottom:2px;">MODEL</div>
                 <select class="inp" id="ai-model-select" style="font-size:8px;padding:4px;background:var(--panel);border:1px solid var(--border);color:var(--text);margin-bottom:4px;">
@@ -2815,7 +2871,7 @@ body.fullscreen #transcription-hud { pointer-events: none !important; } /* keep 
             </div>
         </div>
         <div class="section">
-            <div class="sec-head"><span class="sec-title">REACTIVITY</span><div class="sec-dot"></div></div>
+            <div class="sec-head"><span class="sec-title">REACTIVITY</span><button class="sampler-help-btn" onclick="event.stopPropagation();_toggleSectionHelp(this,'reactivity')">?</button><div class="sec-dot"></div></div>
             <div class="sec-body">
                 <div class="btn-grid-3" style="margin-bottom:4px;">
                     <button class="btn" onclick="toggleFX('scan')" style="font-size:8px;">X-RAY</button>
@@ -2838,7 +2894,7 @@ body.fullscreen #transcription-hud { pointer-events: none !important; } /* keep 
      
         
         <div class="section">
-            <div class="sec-head"><span class="sec-title">IDENTITY</span><button class="sampler-help-btn" onclick="event.stopPropagation();log('IDENTITY: Set station name/bug, upload 2D logo or 3D GLB model. Positions draggable on canvas.')" title="Identity: configure your station name, upload a 2D logo or 3D model for on-canvas branding.">?</button><div class="sec-dot"></div></div>
+            <div class="sec-head"><span class="sec-title">IDENTITY</span><button class="sampler-help-btn" onclick="event.stopPropagation();_toggleSectionHelp(this,'identity')">?</button><div class="sec-dot"></div></div>
             <div class="sec-body">
                 <input type="text" class="inp" id="bug-text" placeholder="STATION_NAME..." value="VNGRD">
                 <div class="btn-row" style="gap:4px;">
@@ -2868,7 +2924,7 @@ body.fullscreen #transcription-hud { pointer-events: none !important; } /* keep 
         </div>
 
         <div class="section">
-            <div class="sec-head"><span class="sec-title">LOWER_THIRD</span><button class="sampler-help-btn" onclick="event.stopPropagation();log('LOWER THIRD: Enter name + title, choose preset, then SHOW to overlay broadcast lower-third graphic.')" title="Lower Third: broadcast name/title graphic. Enter text, pick a preset, then tap SHOW.">?</button><div class="sec-dot"></div></div>
+            <div class="sec-head"><span class="sec-title">LOWER_THIRD</span><button class="sampler-help-btn" onclick="event.stopPropagation();_toggleSectionHelp(this,'lower-third')">?</button><div class="sec-dot"></div></div>
             <div class="sec-body">
                 <input type="text" class="inp" id="lt-title" placeholder="Name..." value="GUEST NAME">
                 <input type="text" class="inp" id="lt-sub" placeholder="Role..." value="TITLE / ROLE" style="margin-top:4px;">
@@ -2901,6 +2957,7 @@ body.fullscreen #transcription-hud { pointer-events: none !important; } /* keep 
         <div class="section" id="mcr-section">
             <div class="sec-head">
                 <span class="sec-title">POLYTRANSLATOR // V3.0_MODULAR</span>
+                <button class="sampler-help-btn" onclick="event.stopPropagation();_toggleSectionHelp(this,'polytranslator')">?</button>
                 <div id="mcr-on-air-dot"></div>
             </div>
             <div class="sec-body">
@@ -2934,7 +2991,7 @@ body.fullscreen #transcription-hud { pointer-events: none !important; } /* keep 
         </div>
 
         <div class="section">
-            <div class="sec-head"><span class="sec-title">AUDIO_ENGINE</span><div class="sec-dot off" id="audio-dot"></div></div>
+            <div class="sec-head"><span class="sec-title">AUDIO_ENGINE</span><button class="sampler-help-btn" onclick="event.stopPropagation();_toggleSectionHelp(this,'audio-engine')">?</button><div class="sec-dot off" id="audio-dot"></div></div>
             <div class="sec-body">
                 <div id="audio-box">
                     <div id="vu"></div>
@@ -2966,7 +3023,7 @@ body.fullscreen #transcription-hud { pointer-events: none !important; } /* keep 
         </div>
 
         <div class="section">
-            <div class="sec-head"><span class="sec-title">AUDIO_REACTIVE</span><div class="sec-dot on"></div></div>
+            <div class="sec-head"><span class="sec-title">AUDIO_REACTIVE</span><button class="sampler-help-btn" onclick="event.stopPropagation();_toggleSectionHelp(this,'audio-reactive')">?</button><div class="sec-dot on"></div></div>
             <div class="sec-body">
                 <div class="lbl" style="font-size:6.5px;opacity:0.4;margin-bottom:4px;letter-spacing:2px;">BEAT REACT</div>
                 <div class="btn-grid-3">
@@ -2979,7 +3036,7 @@ body.fullscreen #transcription-hud { pointer-events: none !important; } /* keep 
                     <div id="sfx-sampler-header" onclick="_toggleSamplerBody()" style="cursor:pointer;">
                         <span class="sampler-title">Sampler SFX</span>
                         <span class="sampler-collapse-arrow" id="sfx-collapse-arrow" style="font-size:8px;color:var(--accent);margin-left:4px;margin-right:auto;transition:color 0.2s;line-height:1;">&#x25BE;</span>
-                        <button class="sampler-help-btn" onclick="event.stopPropagation();_toggleSamplerHelp()" title="How to use Sampler SFX">?</button>
+                        <button class="sampler-help-btn" onclick="event.stopPropagation();_toggleSectionHelp(this,'sampler')">?</button>
                         <span class="sampler-badge">SFX · 8-PAD</span>
                     </div>
                     <div id="sfx-pad-body">
@@ -3217,7 +3274,7 @@ body.fullscreen #transcription-hud { pointer-events: none !important; } /* keep 
             </div>
         </div>
         <div class="section">
-            <div class="sec-head collapsible open"><span class="sec-title">MIDI_HOST</span><span class="sec-arrow">&#x25BE;</span><button class="sampler-help-btn" onclick="event.stopPropagation();log('MIDI HOST: Click MIDI INIT then LEARN: ON, then click any button and hit a MIDI key to bind it.')" title="MIDI Host: init MIDI, enable LEARN mode, then click a button and press a MIDI key to map it.">?</button><div class="sec-dot off" id="midi-dot"></div></div>
+            <div class="sec-head collapsible open"><span class="sec-title">MIDI_HOST</span><span class="sec-arrow">&#x25BE;</span><button class="sampler-help-btn" onclick="event.stopPropagation();_toggleSectionHelp(this,'midi')">?</button><div class="sec-dot off" id="midi-dot"></div></div>
             <div class="sec-body" id="midi-host-body" style="max-height:200px;padding:8px 12px;">
                 <div class="btn-row" style="gap:4px;">
                     <button class="btn" id="btn-midi" style="flex:1;font-size:8px;">MIDI INIT</button>
@@ -3228,7 +3285,7 @@ body.fullscreen #transcription-hud { pointer-events: none !important; } /* keep 
             </div>
         </div>
         <div class="section">
-            <div class="sec-head collapsible open" style="display:flex;align-items:center;gap:6px;"><span class="sec-title">SESSION_LAB</span><span class="sec-arrow">&#x25BE;</span><div class="sec-dot"></div><div id="sync-led" title="INTEL: AUTO_SAVE // 60s PULSE"></div></div>
+            <div class="sec-head collapsible open" style="display:flex;align-items:center;gap:6px;"><span class="sec-title">SESSION_LAB</span><span class="sec-arrow">&#x25BE;</span><button class="sampler-help-btn" onclick="event.stopPropagation();_toggleSectionHelp(this,'session-lab')">?</button><div class="sec-dot"></div><div id="sync-led" title="INTEL: AUTO_SAVE // 60s PULSE"></div></div>
             <div class="sec-body" id="session-lab-body" style="max-height:500px;padding:10px 12px;">
                 <div class="btn-row">
                     <button class="btn" id="btn-nft-30" style="flex:1;font-size:8px;color:var(--o);border-color:var(--o);">CAPTURE_VNGRD_CLIP</button>
@@ -3245,7 +3302,7 @@ body.fullscreen #transcription-hud { pointer-events: none !important; } /* keep 
         </div>
 
         <div class="section">
-            <div class="sec-head collapsible"><span class="sec-title">NFT_VAULT</span><span class="sec-arrow">&#x25B8;</span><div class="sec-dot off" id="vault-dot"></div></div>
+            <div class="sec-head collapsible"><span class="sec-title">NFT_VAULT</span><span class="sec-arrow">&#x25B8;</span><button class="sampler-help-btn" onclick="event.stopPropagation();_toggleSectionHelp(this,'nft-vault')">?</button><div class="sec-dot off" id="vault-dot"></div></div>
             <div class="sec-body" id="nft-vault-body">
                 <input type="text" class="inp" id="eth-addr-manual" placeholder="0x... or name.eth (OPTIONAL)" style="font-size:7px;margin-bottom:4px;padding:3px 4px;" title="Override ETH address or enter an ENS name like vitalik.eth">
                 <input type="text" class="inp" id="tezos-addr" placeholder="tz1... or name.tez (OPTIONAL)" style="font-size:7px;margin-bottom:4px;padding:3px 4px;" title="Enter a Tezos address or TezDomains name like alice.tez">
@@ -9101,10 +9158,191 @@ document.addEventListener('DOMContentLoaded', () => {
             if (arrow) arrow.textContent = isOpen ? '\u25B8' : '\u25BE';
         };
 
-        // ── SAMPLER HELP MODAL ────────────────────────────────────────────
+        // ── SAMPLER HELP MODAL (legacy — kept for compat) ────────────────
         window._toggleSamplerHelp = function() {
             var modal = document.getElementById('sampler-help-modal');
-            modal.classList.toggle('visible');
+            if (modal) modal.classList.toggle('visible');
+        };
+
+        // ═══════════════════════════════════════════════════════════════
+        // SECTION HELP OVERLAY — unified HUD "How to Use" for all panels
+        // ═══════════════════════════════════════════════════════════════
+        var _SECTION_HELP = {
+            'camera': {
+                title: 'CAMERA_4K',
+                rows: [
+                    ['CAM INIT',  'Click CAM CAPTURE to request camera access and start the live 4K feed.'],
+                    ['SNAPSHOT',  'Hit SNAPSHOT to grab a still frame from the live camera preview.'],
+                    ['LOAD IMG',  'Use the file picker to load any image or GIF from disk as canvas media.'],
+                    ['ZOOM',      'ZOOM IMAGE button opens the current frame in a full-screen lightbox.'],
+                    ['PREVIEW',   'The inline panel preview shows the live camera — drag to reposition.']
+                ],
+                footer: 'VNGRD // CAMERA_4K · 4K CAPTURE'
+            },
+            'ai': {
+                title: 'AI_INJECTION',
+                rows: [
+                    ['MODEL',     'Choose FLUX (free default) or configure a custom API endpoint.'],
+                    ['PROMPT',    'Type a scene description. Be specific — "neon cityscape, cyberpunk rain".'],
+                    ['GENERATE',  'Hit GENERATE to send the prompt. Result composites live over the canvas.'],
+                    ['OPACITY',   'Use the blend slider to control how strongly the AI layer covers media.'],
+                    ['CLEAR',     'Remove the current AI injection layer with the CLEAR button.']
+                ],
+                footer: 'VNGRD // AI_INJECTION · GENERATIVE LAYER'
+            },
+            'identity': {
+                title: 'IDENTITY',
+                rows: [
+                    ['STATION',   'Set your broadcast name — renders as a bug/watermark on the canvas.'],
+                    ['2D LOGO',   'Upload a PNG or SVG; it renders as a corner logo overlay in real-time.'],
+                    ['3D MODEL',  'Load a .GLB file — the model spins live on the canvas as a 3D overlay.'],
+                    ['DRAG',      'Drag logo and bug positions directly on the live canvas preview.'],
+                    ['STYLE',     'Toggle bug display style: plain, bold, outlined, or image mode.']
+                ],
+                footer: 'VNGRD // IDENTITY · STATION BRAND'
+            },
+            'lower-third': {
+                title: 'LOWER_THIRD',
+                rows: [
+                    ['NAME',      'Enter the guest or subject name — appears as the primary lower-third text.'],
+                    ['TITLE',     'Enter the role, title, or secondary caption line beneath the name.'],
+                    ['PRESET',    'Pick a graphic style: CLEAN, BOLD, CYBER, MINIMAL, or VNGRD.'],
+                    ['SHOW',      'Overlay the lower-third graphic on the canvas. Updates live on edit.'],
+                    ['HIDE',      'Remove the graphic. Fire SHOW again to re-display with new text.']
+                ],
+                footer: 'VNGRD // LOWER_THIRD · BROADCAST GRAPHIC'
+            },
+            'midi': {
+                title: 'MIDI_HOST',
+                rows: [
+                    ['MIDI INIT', 'Click to request browser MIDI access — allow the browser permission popup.'],
+                    ['LEARN: ON', 'Arms MIDI learn mode — the next UI button you click waits for a MIDI note.'],
+                    ['BIND',      'Press a key on your MIDI controller to permanently bind it to that button.'],
+                    ['TRIGGER',   'Once bound, your MIDI controller fires buttons in real-time performance.'],
+                    ['DBL-CLICK', 'Double-click LEARN: ON to clear all existing MIDI bindings and start fresh.']
+                ],
+                footer: 'VNGRD // MIDI_HOST · CONTROLLER BRIDGE'
+            },
+            'reactivity': {
+                title: 'REACTIVITY',
+                rows: [
+                    ['X-RAY',     'Inverts canvas luminance on beats for a forensic scan effect.'],
+                    ['TEAR',      'Horizontal tear glitch — slices the canvas on transient hits.'],
+                    ['VOID',      'Full grayscale crunch + color collapse. Extreme mode.'],
+                    ['FAILURE',   'System-failure cascade: RGB split, flicker, and screen chaos.'],
+                    ['SHOOT',     'Arms a machine-gun crosshair — each canvas click fractures glass.'],
+                    ['LUCY',      'Chromatic hallucination mode — trails + hue drift on bass.']
+                ],
+                footer: 'VNGRD // REACTIVITY · VISUAL FX ENGINE'
+            },
+            'audio-engine': {
+                title: 'AUDIO_ENGINE',
+                rows: [
+                    ['LOAD',      'Drag an audio file onto the player, or use the file picker button.'],
+                    ['BPM',       'BPM is auto-detected from kick-drum transients in real time.'],
+                    ['EQ',        'Bass / treble shelving filters affect all bass-coupled FX intensity.'],
+                    ['STEREO',    'STEREO mode: flat, unprocessed. Best for direct monitoring.'],
+                    ['3D SPATIAL','HRTF spatial audio — positions sound in a virtual 3D room.'],
+                    ['VU METER',  'FFT bars react to bass, mids, highs — drives all reactive FX.']
+                ],
+                footer: 'VNGRD // AUDIO_ENGINE · DAW CORE'
+            },
+            'audio-reactive': {
+                title: 'AUDIO_REACTIVE',
+                rows: [
+                    ['PARTY',     'Beat-reactive auto-mode: logos morph + themes shift on bass hits.'],
+                    ['SEISMIC',   'Arm screen shake — kick drums shake the viewport. Dbl-click to lock.'],
+                    ['PUNCH',     'Elastic spring punch on beats. Single-click = 3s demo. Dbl-click = lock.'],
+                    ['SAMPLER',   '8-pad sampler below — tap pads to fire, load customs, bind to MIDI.'],
+                    ['BASS LINK', 'All locked FX scale with (bassLevel ÷ 255) — silent = still, kick = snap.']
+                ],
+                footer: 'VNGRD // AUDIO_REACTIVE · BEAT ENGINE'
+            },
+            'polytranslator': {
+                title: 'POLYTRANSLATOR',
+                rows: [
+                    ['ON-AIR',    'Toggle ON-AIR tally to activate the live subtitle translator.'],
+                    ['LANG SLOTS','Assign up to 3 language channels (EN, NL, ES, FR, ZH, JA, AR...).'],
+                    ['SLOTS ▾',   'Expand the slot grid to set language priority order.'],
+                    ['LIVE SUB',  'Subtitles overlay on canvas in real-time via Web Speech API.'],
+                    ['STATUS',    'STT indicator shows recognition engine state (STANDBY / LIVE).']
+                ],
+                footer: 'VNGRD // POLYTRANSLATOR · V3.0_MODULAR'
+            },
+            'session-lab': {
+                title: 'SESSION_LAB',
+                rows: [
+                    ['SAVE',      'Snapshot all settings, media queue, and FX state to browser storage.'],
+                    ['LOAD',      'Restore a saved session — completely replaces the current state.'],
+                    ['EXPORT',    'Download session as a .vgd file to share or archive offline.'],
+                    ['IMPORT',    'Load any .vgd file from disk to instantly restore a full session.'],
+                    ['CLOUD',     'Connect your wallet to sync sessions to a cloud key-value store.']
+                ],
+                footer: 'VNGRD // SESSION_LAB · STATE PERSISTENCE'
+            },
+            'nft-vault': {
+                title: 'NFT_VAULT',
+                rows: [
+                    ['ETH ADDR',  'Enter an ETH address or ENS name (e.g. vitalik.eth) to fetch NFTs.'],
+                    ['TEZ ADDR',  'Enter a Tezos address or TezDomains name (e.g. alice.tez).'],
+                    ['FETCH',     'Pull your NFT collection from OpenSea and Tezos APIs.'],
+                    ['LOAD NFT',  'Click any NFT thumbnail to set it as live canvas media.'],
+                    ['WALLET',    'Connect your wallet (top-right badge) to auto-populate your address.']
+                ],
+                footer: 'VNGRD // NFT_VAULT · ON-CHAIN MEDIA'
+            },
+            'sampler': {
+                title: 'SAMPLER SFX',
+                rows: [
+                    ['TAP',       'Fire the sound. Works with mouse, touch, or a bound MIDI key.'],
+                    ['⚙ FX',      'Gear icon on any pad couples a visual FX that fires with the sound.'],
+                    ['LOAD',      'Tap any Custom pad (C-01 – C-04) to load an audio file from disk.'],
+                    ['REC',       'Right-click a Custom pad to arm mic recording — 10s count begins on tap.'],
+                    ['MIDI',      'Use MIDI LEARN in MIDI_HOST to bind any pad to your controller.'],
+                    ['HEAVY',     'Pad audio routes through the main analyser — Seismic + Punch react to pads.']
+                ],
+                footer: 'VNGRD // SAMPLER SFX · 8-PAD PERFORMANCE'
+            }
+        };
+
+        window._toggleSectionHelp = function(btn, sectionId) {
+            // Find the nearest .section ancestor (or sfx-sampler-wrap for the sampler button)
+            var section = btn.closest('.section');
+            if (!section) return;
+
+            // Find or create the overlay inside this section
+            var overlay = section.querySelector('.section-help-overlay');
+            if (!overlay) {
+                overlay = document.createElement('div');
+                overlay.className = 'section-help-overlay';
+                section.appendChild(overlay);
+            }
+
+            // Toggle off if already showing this same section's content
+            if (overlay.classList.contains('visible') && overlay.dataset.shoId === sectionId) {
+                overlay.classList.remove('visible');
+                return;
+            }
+
+            // Inject content
+            var d = _SECTION_HELP[sectionId];
+            if (!d) { overlay.classList.remove('visible'); return; }
+            overlay.dataset.shoId = sectionId;
+            overlay.innerHTML =
+                '<div class="sho-header">' +
+                    '<span class="sho-title">HOW TO USE // ' + d.title + '</span>' +
+                    '<button class="sho-close" onclick="event.stopPropagation();' +
+                        'this.closest(\'.section-help-overlay\').classList.remove(\'visible\')">&#x2715;</button>' +
+                '</div>' +
+                d.rows.map(function(r) {
+                    return '<div class="sho-row">' +
+                        '<span class="sho-key">' + r[0] + '</span>' +
+                        '<span class="sho-val">' + r[1] + '</span>' +
+                    '</div>';
+                }).join('') +
+                '<div class="sho-footer">' + d.footer + '</div>';
+
+            overlay.classList.add('visible');
         };
 
         // Wire up gear menu items for every pad
