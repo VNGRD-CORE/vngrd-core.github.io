@@ -9327,6 +9327,19 @@ document.addEventListener('DOMContentLoaded', () => {
                 return;
             }
 
+            // Auto-expand collapsed sections so the overlay has room to render
+            var colHead = section.querySelector('.sec-head.collapsible');
+            if (colHead && !colHead.classList.contains('open')) {
+                colHead.classList.add('open');
+                var colBody = colHead.nextElementSibling;
+                if (colBody) {
+                    colBody.style.maxHeight = '500px';
+                    colBody.style.padding = '10px 12px';
+                }
+                var colArrow = colHead.querySelector('.sec-arrow');
+                if (colArrow) colArrow.textContent = '\u25BE';
+            }
+
             var d = _SECTION_HELP[sectionId];
             if (!d) { overlay.classList.remove('visible'); return; }
             overlay.dataset.shoId = sectionId;
