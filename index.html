@@ -1628,6 +1628,21 @@
         }
         #gb-transport-btn:hover { border-color: rgba(255,200,0,0.75); color: rgba(255,210,0,1.0); box-shadow: 0 0 10px rgba(255,200,0,0.38); }
         #gb-transport-btn.playing { border-color: rgba(255,60,60,0.7); color: #ff4444; box-shadow: 0 0 8px rgba(255,50,50,0.45); }
+        /* ── STEP SEQUENCER GRID ── */
+        #gb-seq-grid { display: none; flex-direction: column; gap: 3px; padding: 5px 2px 3px; border-top: 1px solid rgba(255,200,0,0.1); margin-top: 4px; }
+        #gb-seq-grid.visible { display: flex; }
+        .gb-seq-row { display: flex; align-items: center; gap: 3px; }
+        .gb-seq-lbl { font-family: 'Orbitron', sans-serif; font-size: 5px; color: rgba(255,200,0,0.45); min-width: 26px; letter-spacing: 0.5px; flex-shrink: 0; }
+        .gb-step {
+            width: 13px; height: 13px; padding: 0;
+            background: rgba(255,200,0,0.05); border: 1px solid rgba(255,200,0,0.18);
+            border-radius: 2px; cursor: pointer; flex-shrink: 0;
+            transition: background 0.08s, border-color 0.08s, box-shadow 0.08s;
+        }
+        .gb-step:hover { border-color: rgba(255,200,0,0.5); background: rgba(255,200,0,0.12); }
+        .gb-step.gb-step-on { background: rgba(255,200,0,0.55); border-color: rgba(255,210,0,0.9); box-shadow: 0 0 5px rgba(255,200,0,0.45); }
+        .gb-step.gb-step-cur { border-color: rgba(0,243,255,0.9) !important; box-shadow: 0 0 5px rgba(0,243,255,0.6) !important; }
+        .gb-step.gb-step-on.gb-step-cur { background: rgba(255,240,80,0.85) !important; border-color: #fff !important; box-shadow: 0 0 7px rgba(255,230,0,0.9) !important; }
         /* Liquid library select */
         #liq-lib-select {
             -webkit-appearance: none; appearance: none;
@@ -3264,6 +3279,7 @@ body.fullscreen #transcription-hud { pointer-events: none !important; } /* keep 
                                     <div data-fx="seismic">SEISMIC</div>
                                     <div data-fx="punch">PUNCH</div>
                                     <div data-fx="party">PARTY</div>
+                                    <div data-fx="clear" style="border-top:1px solid rgba(255,255,255,0.07);margin-top:2px;padding-top:4px;color:rgba(255,80,80,0.7);">✕ CLEAR</div>
                                 </div>
                             </div>
                             <span class="pad-id">PAD 5</span>
@@ -3288,6 +3304,7 @@ body.fullscreen #transcription-hud { pointer-events: none !important; } /* keep 
                                     <div data-fx="seismic">SEISMIC</div>
                                     <div data-fx="punch">PUNCH</div>
                                     <div data-fx="party">PARTY</div>
+                                    <div data-fx="clear" style="border-top:1px solid rgba(255,255,255,0.07);margin-top:2px;padding-top:4px;color:rgba(255,80,80,0.7);">✕ CLEAR</div>
                                 </div>
                             </div>
                             <span class="pad-id">PAD 6</span>
@@ -3312,6 +3329,7 @@ body.fullscreen #transcription-hud { pointer-events: none !important; } /* keep 
                                     <div data-fx="seismic">SEISMIC</div>
                                     <div data-fx="punch">PUNCH</div>
                                     <div data-fx="party">PARTY</div>
+                                    <div data-fx="clear" style="border-top:1px solid rgba(255,255,255,0.07);margin-top:2px;padding-top:4px;color:rgba(255,80,80,0.7);">✕ CLEAR</div>
                                 </div>
                             </div>
                             <span class="pad-id">PAD 7</span>
@@ -3323,7 +3341,7 @@ body.fullscreen #transcription-hud { pointer-events: none !important; } /* keep 
                             <span class="pad-lcd">— empty —</span>
                         </button>
 
-                        <button class="btn sfx-btn sfx-pad sfx-cust sfx-wide" id="sfx-custom4" data-sfx="custom4" data-midi-target="sfx:custom4" data-pad-num="08" title="Custom 4 — click: load / right-click: arm rec">
+                        <button class="btn sfx-btn sfx-pad sfx-cust" id="sfx-custom4" data-sfx="custom4" data-midi-target="sfx:custom4" data-pad-num="08" title="Custom 4 — click: load / right-click: arm rec">
                             <div class="pad-gear" onclick="event.stopPropagation()">
                                 <span class="pad-gear-icon" onclick="_padGearToggle(this)">⚙</span>
                                 <div class="pad-gear-menu">
@@ -3336,6 +3354,7 @@ body.fullscreen #transcription-hud { pointer-events: none !important; } /* keep 
                                     <div data-fx="seismic">SEISMIC</div>
                                     <div data-fx="punch">PUNCH</div>
                                     <div data-fx="party">PARTY</div>
+                                    <div data-fx="clear" style="border-top:1px solid rgba(255,255,255,0.07);margin-top:2px;padding-top:4px;color:rgba(255,80,80,0.7);">✕ CLEAR</div>
                                 </div>
                             </div>
                             <span class="pad-id">PAD 8</span>
@@ -3439,6 +3458,9 @@ body.fullscreen #transcription-hud { pointer-events: none !important; } /* keep 
                         <option value="2">▶ PUNCH CORE — Hard Kick Stabs</option>
                         <option value="3">▶ LIQUID DROP — Slow Wave Subs</option>
                     </select>
+
+                    <!-- Step sequencer grid (hidden until GROOVEBOX mode) -->
+                    <div id="gb-seq-grid"></div>
 
                     <!-- Groovebox transport (hidden until GROOVEBOX mode) -->
                     <div id="groovebox-transport">
@@ -6828,35 +6850,91 @@ function _updateLiqPadLabels(packIdx) {
 }
 
 // ═══════════════════════════════════════════════════════════════
-//  GROOVEBOX ENGINE — quantized Web Audio scheduler
+//  GROOVEBOX ENGINE — 8-step sequencer / drum machine
 // ═══════════════════════════════════════════════════════════════
 var _groovebox = {
     mode: 'performance',   // 'performance' | 'groovebox'
     bpm: 120,
     isPlaying: false,
-    armedPads: new Set(),
+    pattern: {},           // { sfxName: [bool x 8] }
+    currentStep: 0,
+    stepsPerBar: 8,
     nextBeatTime: 0,
     _intervalId: null
 };
 
+// Pads included in the step sequencer (in display order)
+var _GB_PADS = [
+    { name: 'applause', label: 'APPL' },
+    { name: 'cheer',    label: 'CHEER' },
+    { name: 'horn',     label: 'HORN' },
+    { name: 'boom',     label: 'BOOM' },
+    { name: 'custom1',  label: 'C-01' },
+    { name: 'custom2',  label: 'C-02' },
+    { name: 'custom3',  label: 'C-03' },
+    { name: 'custom4',  label: 'C-04' }
+];
+
+function _buildSeqGrid() {
+    var grid = document.getElementById('gb-seq-grid');
+    if (!grid) return;
+    grid.innerHTML = '';
+    _GB_PADS.forEach(function(pad) {
+        if (!_groovebox.pattern[pad.name]) {
+            _groovebox.pattern[pad.name] = [false,false,false,false,false,false,false,false];
+        }
+        var row = document.createElement('div');
+        row.className = 'gb-seq-row';
+        row.dataset.gbPad = pad.name;
+
+        var lbl = document.createElement('span');
+        lbl.className = 'gb-seq-lbl';
+        lbl.textContent = pad.label;
+        row.appendChild(lbl);
+
+        for (var i = 0; i < _groovebox.stepsPerBar; i++) {
+            (function(stepIdx) {
+                var s = document.createElement('button');
+                s.className = 'gb-step' + (_groovebox.pattern[pad.name][stepIdx] ? ' gb-step-on' : '');
+                s.dataset.gbSfx = pad.name;
+                s.dataset.gbStep = stepIdx;
+                s.addEventListener('click', function(e) {
+                    e.stopPropagation();
+                    _groovebox.pattern[pad.name][stepIdx] = !_groovebox.pattern[pad.name][stepIdx];
+                    this.classList.toggle('gb-step-on', _groovebox.pattern[pad.name][stepIdx]);
+                });
+                row.appendChild(s);
+            })(i);
+        }
+        grid.appendChild(row);
+    });
+}
+
+function _updateSeqCursor(step) {
+    document.querySelectorAll('.gb-step.gb-step-cur').forEach(function(el) {
+        el.classList.remove('gb-step-cur');
+    });
+    document.querySelectorAll('.gb-step[data-gb-step="' + step + '"]').forEach(function(el) {
+        el.classList.add('gb-step-cur');
+    });
+}
+
 window._toggleGrooveboxMode = function() {
     var btn = document.getElementById('mode-toggle');
     var transport = document.getElementById('groovebox-transport');
+    var seqGrid = document.getElementById('gb-seq-grid');
     if (_groovebox.mode === 'performance') {
         _groovebox.mode = 'groovebox';
         if (btn) { btn.textContent = 'GRVBX'; btn.classList.add('groovebox-mode'); }
         if (transport) transport.classList.add('visible');
+        if (seqGrid) seqGrid.classList.add('visible');
+        _buildSeqGrid();
     } else {
         _groovebox.mode = 'performance';
         if (btn) { btn.textContent = 'PERF'; btn.classList.remove('groovebox-mode'); }
         if (transport) transport.classList.remove('visible');
+        if (seqGrid) seqGrid.classList.remove('visible');
         _stopGroovebox();
-        // Disarm all pads
-        _groovebox.armedPads.forEach(function(sfxName) {
-            var el = document.getElementById('sfx-' + sfxName);
-            if (el) el.classList.remove('gb-armed');
-        });
-        _groovebox.armedPads.clear();
     }
 };
 
@@ -6871,6 +6949,7 @@ function _startGroovebox() {
     if (!ctx) return;
     if (ctx.state === 'suspended') ctx.resume();
     _groovebox.bpm = parseInt(document.getElementById('gb-bpm').value, 10) || 120;
+    _groovebox.currentStep = 0;
     _groovebox.nextBeatTime = ctx.currentTime + 0.05;
     _groovebox.isPlaying = true;
     var btn = document.getElementById('gb-transport-btn');
@@ -6882,6 +6961,8 @@ function _stopGroovebox() {
     _groovebox.isPlaying = false;
     clearInterval(_groovebox._intervalId);
     _groovebox._intervalId = null;
+    _groovebox.currentStep = 0;
+    _updateSeqCursor(-1); // clear cursor
     var btn = document.getElementById('gb-transport-btn');
     if (btn) { btn.innerHTML = '&#x25B6; START'; btn.classList.remove('playing'); }
 }
@@ -6889,18 +6970,24 @@ function _stopGroovebox() {
 function _grooveboxScheduler() {
     if (!_groovebox.isPlaying || !APP.audio.ctx) return;
     var ctx = APP.audio.ctx;
-    var lookahead = 0.1;
-    var sixteenth = (60 / _groovebox.bpm) / 4;
-    while (_groovebox.nextBeatTime < ctx.currentTime + lookahead) {
-        _groovebox.armedPads.forEach(function(sfxName) {
-            if (sfxName.startsWith('liq')) {
-                _fireLiqPad(parseInt(sfxName.replace('liq',''),10) - 1, _groovebox.nextBeatTime, sfxName);
-            } else {
-                // Non-liquid pads: play once at scheduled time (best-effort, no sub-sample scheduling)
-                SFX_ENGINE.play(sfxName);
+    var stepDuration = (60 / _groovebox.bpm) / 2; // 8th notes
+    if (_groovebox.nextBeatTime < ctx.currentTime + 0.1) {
+        var step = _groovebox.currentStep;
+        // Fire pads that have this step active
+        Object.keys(_groovebox.pattern).forEach(function(sfxName) {
+            if (_groovebox.pattern[sfxName][step]) {
+                if (sfxName.startsWith('liq')) {
+                    _fireLiqPad(parseInt(sfxName.replace('liq',''),10) - 1, _groovebox.nextBeatTime, sfxName);
+                } else {
+                    SFX_ENGINE.play(sfxName);
+                }
+                // Coupled FX fires only if this pad has an explicit coupling
+                if (typeof _fireCoupledFX === 'function') _fireCoupledFX(sfxName);
             }
         });
-        _groovebox.nextBeatTime += sixteenth;
+        _updateSeqCursor(step);
+        _groovebox.currentStep = (step + 1) % _groovebox.stepsPerBar;
+        _groovebox.nextBeatTime += stepDuration;
     }
 }
 
@@ -9434,16 +9521,10 @@ document.addEventListener('DOMContentLoaded', () => {
                     }
                 }
 
-                // Groovebox mode: arm/disarm instead of immediate fire
+                // Groovebox mode: pads fire as one-shot previews — pattern is set via step grid
                 if (typeof _groovebox !== 'undefined' && _groovebox.mode === 'groovebox') {
-                    if (btn.classList.contains('gb-armed')) {
-                        btn.classList.remove('gb-armed');
-                        _groovebox.armedPads.delete(sfxName);
-                    } else {
-                        btn.classList.add('gb-armed');
-                        _groovebox.armedPads.add(sfxName);
-                        _pulsePad(btn);
-                    }
+                    SFX_ENGINE.play(sfxName);
+                    _pulsePad(btn);
                     return;
                 }
                 SFX_ENGINE.play(sfxName);
@@ -9891,15 +9972,44 @@ document.addEventListener('DOMContentLoaded', () => {
             btn.querySelectorAll('.pad-gear-menu [data-fx]').forEach(function(opt) {
                 opt.addEventListener('click', function(e) {
                     e.stopPropagation();
-                    _setCouplingByName(btn, sfxName, opt.dataset.fx);
                     var gearEl = opt.closest('.pad-gear');
                     if (gearEl) gearEl.classList.remove('open');
+
+                    // CLEAR — only for custom pads; wipes audio buffer and resets UI
+                    if (opt.dataset.fx === 'clear' && sfxName.startsWith('custom')) {
+                        var bufs = SFX_ENGINE._buffers();
+                        if (bufs[sfxName]) delete bufs[sfxName];
+                        btn.classList.remove('loaded', 'coupled', ...ALL_COUPLING_CLASSES, 'armed', 'recording');
+                        _padCoupling[sfxName] = 'none';
+                        var slotNum = sfxName.replace('custom', '');
+                        var nm = btn.querySelector('.pad-name');
+                        var hint = btn.querySelector('.pad-hint');
+                        var lcd = btn.querySelector('.pad-lcd');
+                        var fxLbl = btn.querySelector('.pad-fx-label');
+                        if (nm) nm.textContent = 'C-0' + slotNum;
+                        if (hint) hint.textContent = 'LOAD SAMPLE';
+                        if (lcd) lcd.textContent = '— empty —';
+                        if (fxLbl) fxLbl.textContent = '';
+                        // Clear step pattern for this pad
+                        if (_groovebox.pattern[sfxName]) {
+                            _groovebox.pattern[sfxName] = [false,false,false,false,false,false,false,false];
+                            document.querySelectorAll('.gb-step[data-gb-sfx="' + sfxName + '"]').forEach(function(s) {
+                                s.classList.remove('gb-step-on');
+                            });
+                        }
+                        log('SFX: CLEARED ' + sfxName.toUpperCase());
+                        return;
+                    }
+
+                    _setCouplingByName(btn, sfxName, opt.dataset.fx);
                 });
             });
 
-            // Single click → fire coupled FX (sound handled by existing listener above)
+            // Single click → fire coupled FX only if this pad has an explicit coupling
             btn.addEventListener('click', function() {
-                _fireCoupledFX(sfxName);
+                if (_padCoupling[sfxName] && _padCoupling[sfxName] !== 'none') {
+                    _fireCoupledFX(sfxName);
+                }
             });
         });
     })();
