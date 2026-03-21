@@ -19,7 +19,7 @@
 <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
 <script type="importmap">{"imports":{"three":"https://unpkg.com/three@0.160.0/build/three.module.js","three/addons/":"https://unpkg.com/three@0.160.0/examples/jsm/"}}</script>
     <style>
-        @import url('https://fonts.googleapis.com/css2?family=Orbitron:wght@400;600;800;900&family=JetBrains+Mono:wght@300;400;500&family=Bebas+Neue&family=Russo+One&display=swap');
+        @import url('https://fonts.googleapis.com/css2?family=Orbitron:wght@400;600;800;900&family=JetBrains+Mono:wght@300;400;500&family=Bebas+Neue&family=Russo+One&family=Share+Tech+Mono&display=swap');
         
         :root { 
             --accent: #00f3ff; --accent-dim: rgba(0, 243, 255, 0.2); --accent-glow: rgba(0, 243, 255, 0.5);
@@ -526,7 +526,7 @@
         #cycle-badge.on { display: flex; }
 
         /* Sidebar: neutral borders — no theme color bleed, party mode animates border-color via console-breathe */
-        .sidebar { position: fixed; top: 45px; bottom: 55px; width: 200px; background: rgba(6,6,10,0.94); backdrop-filter: blur(20px) saturate(110%); -webkit-backdrop-filter: blur(20px) saturate(110%); border: 1px solid rgba(255,255,255,0.06); box-shadow: inset 0 0 20px rgba(0,0,0,0.65); overflow-y: auto; z-index: 4000; scrollbar-width: none; transition: transform 0.45s cubic-bezier(0.4, 0, 0.2, 1), opacity 0.35s ease, border-color 0.4s ease, box-shadow 0.4s ease; will-change: transform, opacity; }
+        .sidebar { position: fixed; top: 45px; bottom: 55px; width: 200px; max-width: 320px !important; background: rgba(6,6,10,0.94); backdrop-filter: blur(20px) saturate(110%); -webkit-backdrop-filter: blur(20px) saturate(110%); border: 1px solid rgba(255,255,255,0.06); box-shadow: inset 0 0 20px rgba(0,0,0,0.65); overflow-y: auto; z-index: 4000; scrollbar-width: none; transition: transform 0.45s cubic-bezier(0.4, 0, 0.2, 1), opacity 0.35s ease, border-color 0.4s ease, box-shadow 0.4s ease; will-change: transform, opacity; }
         #left-panel { left: 0; border-left: none; border-right: 1px solid rgba(255,255,255,0.07); transform: translateX(0); }
         #right-panel { right: 0; border-right: none; border-left: 1px solid rgba(255,255,255,0.07); transform: translateX(0); }
 
@@ -572,7 +572,7 @@
         .sec-dot { width: 5px; height: 5px; background: var(--g); border-radius: 50%; box-shadow: 0 0 4px var(--g); }
         .sec-dot.off { background: var(--text-dim); box-shadow: none; }
         .sec-dot.gold { background: var(--y); box-shadow: 0 0 6px var(--y); }
-        .sec-body { padding: 10px 12px; }
+        .sec-body { padding: 6px 8px; }
         .sec-body > :last-child { margin-bottom: 0; }
         .sec-head.collapsible { cursor: pointer; }
         /* Arrow hugs title; dot is pushed to far right */
@@ -712,7 +712,7 @@
             border-right: 1px solid rgba(0,0,0,0.35);
             border-bottom: 1px solid rgba(0,0,0,0.55);
             box-shadow: inset 0 1px 0 rgba(255,255,255,0.04), 0 2px 3px rgba(0,0,0,0.45);
-            color: var(--text); font-family: 'JetBrains Mono', monospace; font-size: 10px; text-align: left;
+            color: var(--text); font-family: 'Share Tech Mono', 'JetBrains Mono', monospace; font-size: 11px; letter-spacing: 1.2px; text-align: left;
             text-transform: uppercase; position: relative;
             transition: all 0.15s ease;
         }
@@ -2034,6 +2034,12 @@ body.fx-scan #stage::after {
 /* Console-mode indicator: subtle dot on top-right of button */
 .btn.console-mode::after { content: '●'; position: absolute; top: 2px; right: 3px; font-size: 5px; color: var(--accent); opacity: 0.8; pointer-events: none; }
 .btn.on { color: var(--accent) !important; border-color: var(--accent) !important; background: rgba(0,243,255,0.08) !important; text-shadow: 0 0 8px var(--accent) !important; }
+/* PUNCH LOCKED: slow Cyan pulse on button while punchLocked is active */
+@keyframes punch-lock-pulse {
+    0%, 100% { box-shadow: 0 0 6px rgba(0,243,255,0.4), inset 0 0 8px rgba(0,243,255,0.08); border-color: var(--accent); }
+    50%       { box-shadow: 0 0 18px rgba(0,243,255,0.75), inset 0 0 16px rgba(0,243,255,0.18); border-color: rgba(0,243,255,0.9); }
+}
+#btn-punch.punch-locked { animation: punch-lock-pulse 1.8s ease-in-out infinite !important; color: #00f3ff !important; border-color: var(--accent) !important; background: rgba(0,243,255,0.12) !important; }
 .btn.active-fx { color: var(--accent) !important; border-color: var(--accent) !important; background: rgba(0,243,255,0.06) !important; }
 /* NVG active: surface above the z-9998 vignette overlay, unmissable green glow */
 /* NVG active: the sidebar has transform:translate3d(0,0,0) which creates a stacking context,
@@ -2733,7 +2739,7 @@ body.fullscreen #transcription-hud { pointer-events: none !important; } /* keep 
 
     <aside class="sidebar" id="left-panel">
         <div class="section">
-            <div class="sec-head"><span class="sec-title">CAMERA_4K</span><div class="sec-dot off" id="cam-dot"></div></div>
+            <div class="sec-head"><span class="sec-title">CAMERA_4K</span><button class="sampler-help-btn" onclick="event.stopPropagation();log('CAMERA: Capture 4K still frames. Click CAM CAPTURE to init. Preview shows live feed.')" title="Camera capture: grab 4K stills from camera or load image/GIF files for compositing.">?</button><div class="sec-dot off" id="cam-dot"></div></div>
             <div class="sec-body">
                 <button class="btn" id="btn-init-cam">CAM CAPTURE [4K]</button>
                 <div id="cam-preview-float">
@@ -2781,7 +2787,7 @@ body.fullscreen #transcription-hud { pointer-events: none !important; } /* keep 
             </div>
         </div>
          <div class="section">
-            <div class="sec-head collapsible"><span class="sec-title">AI_INJECTION</span><span class="sec-arrow">&#x25B8;</span><div class="sec-dot off" id="neural-dot"></div></div>
+            <div class="sec-head collapsible"><span class="sec-title">AI_INJECTION</span><span class="sec-arrow">&#x25B8;</span><button class="sampler-help-btn" onclick="event.stopPropagation();log('AI INJECTION: Generate images via FLUX/Stable Diffusion. Prompt → generate → composited live.')" title="AI Injection: enter a text prompt to generate and overlay an AI image onto the canvas in real time.">?</button><div class="sec-dot off" id="neural-dot"></div></div>
             <div class="sec-body" id="lexica-nano-body">
                 <div class="lbl" style="font-size:7px;opacity:0.5;margin-bottom:2px;">MODEL</div>
                 <select class="inp" id="ai-model-select" style="font-size:8px;padding:4px;background:var(--panel);border:1px solid var(--border);color:var(--text);margin-bottom:4px;">
@@ -2832,7 +2838,7 @@ body.fullscreen #transcription-hud { pointer-events: none !important; } /* keep 
      
         
         <div class="section">
-            <div class="sec-head"><span class="sec-title">IDENTITY</span><div class="sec-dot"></div></div>
+            <div class="sec-head"><span class="sec-title">IDENTITY</span><button class="sampler-help-btn" onclick="event.stopPropagation();log('IDENTITY: Set station name/bug, upload 2D logo or 3D GLB model. Positions draggable on canvas.')" title="Identity: configure your station name, upload a 2D logo or 3D model for on-canvas branding.">?</button><div class="sec-dot"></div></div>
             <div class="sec-body">
                 <input type="text" class="inp" id="bug-text" placeholder="STATION_NAME..." value="VNGRD">
                 <div class="btn-row" style="gap:4px;">
@@ -2862,7 +2868,7 @@ body.fullscreen #transcription-hud { pointer-events: none !important; } /* keep 
         </div>
 
         <div class="section">
-            <div class="sec-head"><span class="sec-title">LOWER_THIRD</span><div class="sec-dot"></div></div>
+            <div class="sec-head"><span class="sec-title">LOWER_THIRD</span><button class="sampler-help-btn" onclick="event.stopPropagation();log('LOWER THIRD: Enter name + title, choose preset, then SHOW to overlay broadcast lower-third graphic.')" title="Lower Third: broadcast name/title graphic. Enter text, pick a preset, then tap SHOW.">?</button><div class="sec-dot"></div></div>
             <div class="sec-body">
                 <input type="text" class="inp" id="lt-title" placeholder="Name..." value="GUEST NAME">
                 <input type="text" class="inp" id="lt-sub" placeholder="Role..." value="TITLE / ROLE" style="margin-top:4px;">
@@ -3211,7 +3217,7 @@ body.fullscreen #transcription-hud { pointer-events: none !important; } /* keep 
             </div>
         </div>
         <div class="section">
-            <div class="sec-head collapsible open"><span class="sec-title">MIDI_HOST</span><span class="sec-arrow">&#x25BE;</span><div class="sec-dot off" id="midi-dot"></div></div>
+            <div class="sec-head collapsible open"><span class="sec-title">MIDI_HOST</span><span class="sec-arrow">&#x25BE;</span><button class="sampler-help-btn" onclick="event.stopPropagation();log('MIDI HOST: Click MIDI INIT then LEARN: ON, then click any button and hit a MIDI key to bind it.')" title="MIDI Host: init MIDI, enable LEARN mode, then click a button and press a MIDI key to map it.">?</button><div class="sec-dot off" id="midi-dot"></div></div>
             <div class="sec-body" id="midi-host-body" style="max-height:200px;padding:8px 12px;">
                 <div class="btn-row" style="gap:4px;">
                     <button class="btn" id="btn-midi" style="flex:1;font-size:8px;">MIDI INIT</button>
@@ -4898,6 +4904,9 @@ function renderLoop(timestamp) {
     var _bpmModel = APP.vj._bpm;
     var _punchIsOn = document.body.classList.contains('fx-punch');
 
+    // Bass multiplier: drives punch intensity — zero when silent, violent on kick drop
+    var _bassMultiplier = APP.audio.bassLevel / 255;
+
     // Kick onset: update BPM model on every rising-edge detection
     if (_bassRise > 12 && _bassNow > 40 && !window._punchCooldown) {
         window._punchCooldown = true;
@@ -4913,14 +4922,14 @@ function renderLoop(timestamp) {
         }
         _bpmModel.lastBeat = _nowMs;
         _bpmModel.nextBeat = _nowMs + (_bpmModel.interval > 0 ? _bpmModel.interval : 500);
-        // Impulse: kick the velocity forward (tweeter push) — stronger bass = harder kick
-        if (_punchIsOn) APP.vj._punchVel += Math.min(0.85, _bassRise / 22);
+        // Impulse: scaled by (bassLevel/255) — screen punches violently on kick, stays still in silence
+        if (_punchIsOn) APP.vj._punchVel += Math.min(0.85, _bassRise / 22) * _bassMultiplier;
     }
 
-    // BPM-scheduled pulse — keeps the flash locked to tempo between kick detections
+    // BPM-scheduled pulse — locked to tempo; magnitude driven by current bass level
     if (_punchIsOn && _bpmModel.interval > 230 && _nowMs >= _bpmModel.nextBeat) {
         _bpmModel.nextBeat += _bpmModel.interval;
-        if (APP.vj._punchSpring < 0.18) APP.vj._punchVel += 0.55;
+        if (APP.vj._punchSpring < 0.18) APP.vj._punchVel += 0.55 * _bassMultiplier;
     }
 
     // Punch demo: inject rhythmic spring impulses every 400ms when one-shot active
@@ -6346,9 +6355,9 @@ const SFX_ENGINE = (() => {
             const gain = ctx.createGain();
             gain.gain.value = GAINS[name] !== undefined ? GAINS[name] : GAIN;
             src.connect(gain);
-            // Route through duckingGain so the analyser picks up SFX for u_audioImpact
-            const dest = APP.audio.duckingGain || APP.audio.masterGain || ctx.destination;
-            gain.connect(dest);
+            // Route through duckingGain (Main Processor → analyser) so every pad hit
+            // drives bassLevel, making the Seismic + Punch engines react to sampler pads.
+            gain.connect(APP.audio.duckingGain);
             // Lit the pad button while playing
             const padBtn = document.getElementById('sfx-' + name);
             if (padBtn) padBtn.classList.add('sfx-playing');
@@ -8398,7 +8407,8 @@ document.addEventListener('DOMContentLoaded', () => {
         });
     })();
 
-    // PUNCH TOGGLE — single-click = 3s one-shot demo, double-click = toggle persistent
+    // PUNCH TOGGLE — single-click = 3s one-shot elastic, double-click = toggle punchLocked
+    APP.vj.punchLocked = false;
     APP.vj.punchConsoleMode = false;
     (function() {
         var btn = $('btn-punch');
@@ -8407,18 +8417,28 @@ document.addEventListener('DOMContentLoaded', () => {
         btn.addEventListener('click', function() {
             var now = Date.now();
             if (now - _dct < 320) {
-                // Double-click: toggle persistent punch mode
+                // Double-click: toggle punchLocked — persistent bass-synced elastic mode
                 _dct = 0;
-                APP.vj.punchConsoleMode = true;
-                var armed = document.body.classList.toggle('fx-punch');
-                btn.classList.toggle('on', armed);
-                btn.classList.toggle('console-mode', armed);
-                btn.title = armed ? 'PUNCH: PERSISTENT\nClick: one-shot' : 'PUNCH';
-                log(armed ? 'PUNCH: PERSISTENT [CANVAS+CONSOLE]' : 'PUNCH: OFF');
+                APP.vj.punchLocked = !APP.vj.punchLocked;
+                if (_punchDemoTimer) { clearTimeout(_punchDemoTimer); _punchDemoTimer = null; }
+                APP.vj._punchDemoUntil = 0;
+                if (APP.vj.punchLocked) {
+                    document.body.classList.add('fx-punch');
+                    btn.classList.add('on', 'punch-locked');
+                    btn.classList.remove('console-mode');
+                    btn.title = 'PUNCH: LOCKED\nDouble-click: release';
+                    log('PUNCH: LOCKED [BASS-SYNCED ELASTIC]');
+                } else {
+                    document.body.classList.remove('fx-punch');
+                    btn.classList.remove('on', 'punch-locked', 'console-mode');
+                    btn.title = 'Click: arm PUNCH\nDouble-click: toggle LOCK';
+                    log('PUNCH: UNLOCKED');
+                }
                 return;
             }
             _dct = now;
-            // Single click: 3-second one-shot punch demo
+            // Single click: 3-second one-shot elastic punch
+            if (APP.vj.punchLocked) return; // locked mode ignores single-click
             if (_punchDemoTimer) clearTimeout(_punchDemoTimer);
             APP.vj.punchConsoleMode = false;
             APP.vj._punchDemoUntil = performance.now() + 3000;
@@ -8427,8 +8447,10 @@ document.addEventListener('DOMContentLoaded', () => {
             log('PUNCH: ONE-SHOT_3S');
             _punchDemoTimer = setTimeout(function() {
                 APP.vj._punchDemoUntil = 0;
-                document.body.classList.remove('fx-punch');
-                if (!document.body.classList.contains('fx-punch')) btn.classList.remove('on');
+                if (!APP.vj.punchLocked) {
+                    document.body.classList.remove('fx-punch');
+                    btn.classList.remove('on');
+                }
                 btn.classList.remove('console-mode');
                 _punchDemoTimer = null;
             }, 3000);
