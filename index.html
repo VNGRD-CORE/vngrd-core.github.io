@@ -13,6 +13,8 @@
    <title>DRIS//CORE VNGRD</title>
 <script>if('serviceWorker' in navigator){navigator.serviceWorker.register('sw.js').catch(function(){});}</script>
 <script src="https://unpkg.com/peerjs@1.5.2/dist/peerjs.min.js"></script>
+<script src="https://js.puter.com/v2/"></script>
+<script src="https://cdn.jsdelivr.net/npm/@mediapipe/pose@0.5.1675469404/pose.js" crossorigin="anonymous"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/ethers/5.7.2/ethers.umd.min.js"></script>
 <!-- Puter.js removed — cloud session now uses localStorage; AI uses Pollinations (free) -->
 <script src="src/Compositor.js"></script>
@@ -2987,6 +2989,8 @@ body.fullscreen #transcription-hud { pointer-events: none !important; } /* keep 
 
     <main id="stage">
         <canvas id="vj-canvas"></canvas>
+        <!-- VANGUARD_B post-process canvas — WebGL2 shader layer over VJ output -->
+        <canvas id="vb-canvas" style="position:absolute;top:0;left:0;width:100%;height:100%;z-index:1001;pointer-events:none;display:none;"></canvas>
         <!-- GIF overlay: DOM-rendered animated GIFs (not captured by captureStream) -->
         <div id="gif-overlay" style="position:absolute; top:0; left:0; width:100%; height:100%; pointer-events:none; z-index: 1100;"></div>
         <!-- 2D logo GIF overlay: positioned by rAF to match canvas logo coords -->
@@ -3109,8 +3113,15 @@ body.fullscreen #transcription-hud { pointer-events: none !important; } /* keep 
             </div>
         </div>
         <div class="section">
-            <div class="sec-head"><span class="sec-title">REACTIVITY</span><button class="sampler-help-btn" onclick="event.stopPropagation();_toggleSectionHelp(this,'reactivity')">?</button><div class="sec-dot"></div></div>
+            <div class="sec-head"><span class="sec-title">REACTIVITY</span><button class="sampler-help-btn" onclick="event.stopPropagation();_toggleSectionHelp(this,'reactivity')">?</button><div class="sec-dot" id="vb-status-dot"></div></div>
             <div class="sec-body">
+                <!-- Bank switcher -->
+                <div class="btn-row" style="gap:3px;margin-bottom:5px;">
+                    <button class="btn" id="fx-bank-a-btn" onclick="_setFXBank('A')" style="font-size:8px;flex:1;border-color:rgba(255,255,255,0.5);color:rgba(255,255,255,0.7);" title="Console A — standard FX">[ CONSOLE_A ]</button>
+                    <button class="btn" id="fx-bank-b-btn" onclick="_setFXBank('B')" style="font-size:8px;flex:1;color:rgba(0,243,255,0.45);border-color:rgba(0,243,255,0.2);" title="Vanguard B — GPU shader FX">[ VANGUARD_B ]</button>
+                </div>
+                <!-- Bank A buttons -->
+                <div id="fx-bank-a-panel">
                 <div class="btn-grid-3" style="margin-bottom:4px;">
                     <button class="btn" onclick="toggleFX('scan')" style="font-size:8px;">X-RAY</button>
                     <button class="btn" onclick="toggleFX('tear')" style="font-size:8px;">TEAR</button>
@@ -3125,6 +3136,22 @@ body.fullscreen #transcription-hud { pointer-events: none !important; } /* keep 
                     <button class="btn" id="btn-vhs" onclick="toggleVHS()" style="font-size:9px;">VHS_OVR</button>
                     <button class="btn" id="btn-nvg" onclick="toggleFX('nvg')" style="color:#00ff41;border-color:#00ff41;text-shadow:0 0 5px #00ff41;font-size:9px;">NVG</button>
                     <button class="btn" onclick="triggerHardReset()" style="color:var(--r);font-size:9px;">RESET</button>
+                </div>
+                </div>
+                <!-- Bank B — VANGUARD_B GPU Shaders -->
+                <div id="fx-bank-b-panel" style="display:none;">
+                <div class="btn-grid-3" style="margin-bottom:3px;">
+                    <button class="btn vb-btn" id="vb-SLIT_SCAN" data-shader="SLIT_SCAN" style="font-size:7.5px;letter-spacing:0.5px;" title="Single: burst · Double: lock">SLIT_SCAN</button>
+                    <button class="btn vb-btn" id="vb-LUMA_BLOOM" data-shader="LUMA_BLOOM" style="font-size:7.5px;letter-spacing:0.5px;" title="Single: burst · Double: lock">LUMA_BLOOM</button>
+                    <button class="btn vb-btn" id="vb-DITHER_LUXE" data-shader="DITHER_LUXE" style="font-size:7.5px;letter-spacing:0.5px;" title="Single: burst · Double: lock">DITHER_LUXE</button>
+                </div>
+                <div class="btn-grid-3" style="margin-bottom:4px;">
+                    <button class="btn vb-btn" id="vb-CAUSTICS" data-shader="CAUSTICS" style="font-size:7.5px;letter-spacing:0.5px;" title="Single: burst · Double: lock">CAUSTICS</button>
+                    <button class="btn vb-btn" id="vb-SILT_BLUR" data-shader="SILT_BLUR" style="font-size:7.5px;letter-spacing:0.5px;" title="Single: burst · Double: lock">SILT_BLUR</button>
+                    <button class="btn vb-btn" id="vb-NEURAL_MESH" data-shader="NEURAL_MESH" style="font-size:7.5px;letter-spacing:0.5px;color:var(--accent);border-color:rgba(0,243,255,0.4);" title="Single: burst · Double: lock + pose tracking">NEURAL_MESH</button>
+                </div>
+                <div style="font-size:7px;text-align:center;letter-spacing:1.5px;color:rgba(0,243,255,0.3);padding-bottom:2px;" id="vb-sys-status">SYSTEM_STATUS: STANDBY</div>
+                <button class="btn" onclick="_vbClearAll()" style="width:100%;margin-top:2px;font-size:7px;color:var(--r);border-color:rgba(255,60,60,0.3);">[ CLEAR ALL ]</button>
                 </div>
             </div>
         </div>
@@ -12573,8 +12600,8 @@ var isVideo = nft.forceVideo || (imageUrl.toLowerCase().match(/\.(mp4|webm|mov|o
     };
 
     // ═══════════════════════════════════════════════════════════════════
-    // AI IMAGE GENERATOR v6 — Pollinations.ai Unified API (gen.pollinations.ai)
-    // Free unlimited generation, optional API key for faster/premium access.
+    // AI IMAGE GENERATOR v7 — Puter.js primary (no auth needed, server-side
+    // bridge) + Pollinations.ai fallback. Zero Authorization headers.
     // ═══════════════════════════════════════════════════════════════════
     var _aiGenerating = false;
 
@@ -12625,29 +12652,46 @@ var isVideo = nft.forceVideo || (imageUrl.toLowerCase().match(/\.(mp4|webm|mov|o
     // Fallback model order if primary model fails
     var _aiFallbacks = ['flux', 'dirtberry', 'nanobanana'];
 
-    // Generate image via Pollinations Unified API (gen.pollinations.ai)
-    // Free tier: no nologo/enhance (those require auth and cause 401)
-    // With API key: unlock nologo + enhance for premium quality
-    async function _aiPollinations(prompt, btn, modelName, apiKey) {
+    // ── ENGINE 1: Puter.js — server-side auth bridge, no 401/403 ──────────
+    async function _aiPuter(prompt) {
+        if (typeof puter === 'undefined' || !puter.ai || !puter.ai.txt2img) {
+            throw new Error('PUTER_NOT_READY');
+        }
+        _aiStatus('GENERATING [PUTER.AI]...', 'var(--v)');
+        log('AI: [PUTER] >> ' + prompt);
+        // Returns a blob/dataURL
+        var result = await puter.ai.txt2img(prompt);
+        if (!result) throw new Error('PUTER_NO_RESULT');
+        var src = (typeof result === 'string') ? result : (result.src || result.url || result);
+        var img = new Image();
+        img.crossOrigin = 'anonymous';
+        await new Promise(function(res, rej) {
+            img.onload = res;
+            img.onerror = function() { rej(new Error('PUTER_IMG_FAILED')); };
+            img.src = src;
+        });
+        return img;
+    }
+
+    // ── ENGINE 2: Pollinations gen.pollinations.ai (no auth headers) ───────
+    async function _aiPollinations(prompt, modelName) {
         _aiStatus('GENERATING [' + modelName.toUpperCase() + ']...', 'var(--v)');
-        log('AI: [' + modelName.toUpperCase() + '] >> ' + prompt);
+        log('AI: [POLLINATIONS/' + modelName.toUpperCase() + '] >> ' + prompt);
         var seed = Math.floor(Math.random() * 99999);
         var url = 'https://gen.pollinations.ai/image/' + encodeURIComponent(prompt)
             + '?width=1024&height=1024&model=' + encodeURIComponent(modelName)
             + '&seed=' + seed;
-        if (apiKey) {
-            url += '&key=' + encodeURIComponent(apiKey);
-        }
-        var resp = await fetch(url);
+        // credentials:omit prevents leaking stale tokens that trigger 401s
+        var resp = await fetch(url, { credentials: 'omit', mode: 'cors' });
         if (!resp.ok) throw new Error('HTTP_' + resp.status + ' (' + modelName + ')');
         var blob = await resp.blob();
-        if (!blob.type || !blob.type.startsWith('image')) throw new Error('NOT_IMAGE (' + modelName + ')');
-        var objectUrl = URL.createObjectURL(blob);
+        if (!blob.type || !blob.type.startsWith('image')) throw new Error('NOT_IMAGE');
         var img = new Image();
-        await new Promise(function(resolve, reject) {
-            img.onload = resolve;
-            img.onerror = function() { reject(new Error('IMG_DECODE_FAILED')); };
-            img.src = objectUrl;
+        img.crossOrigin = 'anonymous';
+        await new Promise(function(res, rej) {
+            img.onload = res;
+            img.onerror = function() { rej(new Error('IMG_DECODE_FAILED')); };
+            img.src = URL.createObjectURL(blob);
         });
         return img;
     }
@@ -12655,50 +12699,51 @@ var isVideo = nft.forceVideo || (imageUrl.toLowerCase().match(/\.(mp4|webm|mov|o
     async function aiGenerate(prompt) {
         if (!prompt) { _aiStatus('TYPE A PROMPT', 'var(--y)'); return; }
         if (_aiGenerating) return;
-
         _aiGenerating = true;
+
         var btn = document.getElementById('btn-generate-ai');
         if (btn) { btn.classList.add('on'); btn.textContent = 'GENERATING...'; }
-        if (document.getElementById('neural-dot')) document.getElementById('neural-dot').classList.remove('off');
+        var neuralDot = document.getElementById('neural-dot');
+        if (neuralDot) neuralDot.classList.remove('off');
 
-        var modelKey = document.getElementById('ai-model-select') ? document.getElementById('ai-model-select').value : 'flux';
+        var modelKey = (document.getElementById('ai-model-select') || {}).value || 'flux';
         var cfg = _aiModels[modelKey] || _aiModels['flux'];
         var fullPrompt = cfg.style ? prompt + ', ' + cfg.style : prompt;
-        var apiKey = '';
-        try { apiKey = localStorage.getItem('vngrd_ai_key') || ''; } catch(e) {}
-        var keyInput = document.getElementById('ai-api-key');
-        if (keyInput && keyInput.value.trim()) apiKey = keyInput.value.trim();
+        _aiStatus('ROUTING TO BEST ENGINE...', 'var(--v)');
 
-        _aiStatus('GENERATING...', 'var(--v)');
-        log('AI: [' + modelKey.toUpperCase() + '] >> ' + prompt);
+        // Strategy: try Puter first (zero-auth, no 401 possible), then Pollinations fallbacks
+        var img = null;
+        try {
+            img = await _aiPuter(fullPrompt);
+            _aiInject(img, prompt);
+            _aiDone(btn);
+            _aiStatus('DONE [PUTER.AI]', 'var(--g)');
+            log('AI: DONE via PUTER');
+            return;
+        } catch(e) {
+            log('AI: PUTER unavailable (' + e.message + '), trying Pollinations...');
+        }
 
-        // Try primary model, then fallbacks
-        var modelsToTry = [cfg.model];
-        _aiFallbacks.forEach(function(fb) { if (fb !== cfg.model) modelsToTry.push(fb); });
-
+        // Pollinations fallback chain
+        var modelsToTry = [cfg.model].concat(_aiFallbacks.filter(function(f) { return f !== cfg.model; }));
         var lastError = null;
         for (var i = 0; i < modelsToTry.length; i++) {
             try {
-                var img = await _aiPollinations(fullPrompt, btn, modelsToTry[i], apiKey);
+                img = await _aiPollinations(fullPrompt, modelsToTry[i]);
                 _aiInject(img, prompt);
                 _aiDone(btn);
-                var src = modelsToTry[i].toUpperCase();
-                if (i > 0) src += ' (FALLBACK)';
-                _aiStatus('DONE [' + src + ']', 'var(--g)');
+                _aiStatus('DONE [' + modelsToTry[i].toUpperCase() + (i > 0 ? '/FALLBACK' : '') + ']', 'var(--g)');
                 return;
-            } catch (e) {
+            } catch(e) {
                 lastError = e;
                 log('AI: ' + modelsToTry[i].toUpperCase() + ' FAIL: ' + e.message);
-                if (i < modelsToTry.length - 1) {
-                    _aiStatus('RETRYING [' + modelsToTry[i + 1].toUpperCase() + ']...', 'var(--y)');
-                }
+                if (i < modelsToTry.length - 1)
+                    _aiStatus('RETRY [' + modelsToTry[i + 1].toUpperCase() + ']...', 'var(--y)');
             }
         }
-
-        // All models failed
         _aiDone(btn);
-        _aiStatus('ALL MODELS FAILED: ' + (lastError ? lastError.message : 'UNKNOWN'), 'var(--r)');
-        log('AI: ALL MODELS FAILED');
+        _aiStatus('ALL ENGINES FAILED: ' + (lastError ? lastError.message : '?'), 'var(--r)');
+        log('AI: ALL ENGINES FAILED');
     }
 
     window.aiGenerate = aiGenerate;
@@ -14389,6 +14434,449 @@ if (btn3dX) {
     setStatus('STT: STANDBY');
 
 }());
+</script>
+
+<!-- ═══════════════════════════════════════════════════════════════════
+     VANGUARD_B FX ENGINE — WebGL2 post-process shader bank
+     6 elite GLSL 3.00 ES shaders running on #vb-canvas
+     Single-click: 3s reactive burst  |  Double-click: persistent lock
+     ═══════════════════════════════════════════════════════════════════ -->
+<script>
+(function() {
+'use strict';
+
+// ── State ─────────────────────────────────────────────────────────────
+var _vbActive    = false;   // Bank B currently selected
+var _vbShader    = null;    // Currently active shader name
+var _vbLocked    = {};      // { shaderName: true } — persistent/locked
+var _vbBurstTimer= null;    // One-shot timer handle
+var _dblTapTimer = {};      // Per-button double-tap detection
+var _vbTime      = 0;       // Shader uniform time
+var _vbRAF       = null;    // requestAnimationFrame handle
+var _vbGl        = null;    // WebGL2 context
+var _vbProgs     = {};      // Compiled shader programs
+var _vbTex       = null;    // Input texture (from vj-canvas)
+var _vbInited    = false;
+
+// ── GLSL Shaders (GLSL ES 3.00) ───────────────────────────────────────
+var VS = '#version 300 es\nin vec2 a;out vec2 v;void main(){v=a*0.5+0.5;v.y=1.0-v.y;gl_Position=vec4(a,0,1);}';
+
+var FS = {
+    SLIT_SCAN: [
+        '#version 300 es',
+        'precision mediump float;',
+        'in vec2 v; uniform sampler2D t; uniform float time; out vec4 o;',
+        'void main(){',
+        '  float a=sin(v.y*20.0+time*3.0)*0.045+sin(v.y*7.0+time*1.2)*0.018;',
+        '  vec4 r=texture(t,vec2(clamp(v.x+a,0.0,1.0),v.y));',
+        '  vec4 g=texture(t,vec2(clamp(v.x+a*0.8,0.0,1.0),v.y));',
+        '  vec4 b=texture(t,vec2(clamp(v.x+a*1.2,0.0,1.0),v.y));',
+        '  o=vec4(r.r,g.g,b.b,1.0);',
+        '}'
+    ].join('\n'),
+
+    LUMA_BLOOM: [
+        '#version 300 es',
+        'precision mediump float;',
+        'in vec2 v; uniform sampler2D t; uniform vec2 res; out vec4 o;',
+        'void main(){',
+        '  vec4 c=texture(t,v);',
+        '  float luma=dot(c.rgb,vec3(0.2126,0.7152,0.0722));',
+        '  vec3 bloom=vec3(0.0);',
+        '  if(luma>0.55){',
+        '    vec2 px=2.2/res;',
+        '    for(int x=-3;x<=3;x++)for(int y=-3;y<=3;y++)',
+        '      bloom+=texture(t,v+vec2(float(x),float(y))*px).rgb;',
+        '    bloom/=49.0; bloom*=luma*2.0;',
+        '  }',
+        '  o=vec4(min(c.rgb+bloom,1.0),1.0);',
+        '}'
+    ].join('\n'),
+
+    DITHER_LUXE: [
+        '#version 300 es',
+        'precision mediump float;',
+        'in vec2 v; uniform sampler2D t; uniform vec2 res; out vec4 o;',
+        'float bayer(ivec2 p){',
+        '  int x=p.x&3,y=p.y&3,i=y*4+x;',
+        '  if(i==0)return 0.0/16.0; if(i==1)return 8.0/16.0;',
+        '  if(i==2)return 2.0/16.0; if(i==3)return 10.0/16.0;',
+        '  if(i==4)return 12.0/16.0;if(i==5)return 4.0/16.0;',
+        '  if(i==6)return 14.0/16.0;if(i==7)return 6.0/16.0;',
+        '  if(i==8)return 3.0/16.0; if(i==9)return 11.0/16.0;',
+        '  if(i==10)return 1.0/16.0;if(i==11)return 9.0/16.0;',
+        '  if(i==12)return 15.0/16.0;if(i==13)return 7.0/16.0;',
+        '  if(i==14)return 13.0/16.0;return 5.0/16.0;',
+        '}',
+        'void main(){',
+        '  vec4 c=texture(t,v);',
+        '  float luma=dot(c.rgb,vec3(0.2126,0.7152,0.0722));',
+        '  float thr=bayer(ivec2(v*res));',
+        '  float d=step(thr,luma);',
+        '  o=vec4(mix(vec3(0.02),c.rgb,d),1.0);',
+        '}'
+    ].join('\n'),
+
+    CAUSTICS: [
+        '#version 300 es',
+        'precision mediump float;',
+        'in vec2 v; uniform sampler2D t; uniform float time; out vec4 o;',
+        'float h(vec2 p){return fract(sin(dot(p,vec2(127.1,311.7)))*43758.5453);}',
+        'float n(vec2 p){',
+        '  vec2 i=floor(p),f=fract(p);',
+        '  float a=h(i),b=h(i+vec2(1,0)),c=h(i+vec2(0,1)),d=h(i+vec2(1,1));',
+        '  vec2 u=f*f*(3.0-2.0*f);',
+        '  return mix(a,b,u.x)+(c-a)*u.y*(1.0-u.x)+(d-b)*u.x*u.y;',
+        '}',
+        'void main(){',
+        '  float n1=n(v*5.0+time*0.4);',
+        '  float n2=n(v*11.0-time*0.25);',
+        '  float n3=n(v*17.0+time*0.15);',
+        '  vec2 off=vec2(n1-0.5,n2-0.5)*0.03+vec2(n3-0.5)*0.01;',
+        '  o=texture(t,clamp(v+off,0.0,1.0));',
+        '}'
+    ].join('\n'),
+
+    SILT_BLUR: [
+        '#version 300 es',
+        'precision mediump float;',
+        'in vec2 v; uniform sampler2D t; uniform float time; out vec4 o;',
+        'void main(){',
+        '  float ang=time*0.15;',
+        '  vec2 dir=vec2(cos(ang),sin(ang))*0.0035;',
+        '  vec4 acc=vec4(0.0);',
+        '  float w=0.0;',
+        '  for(int i=0;i<10;i++){',
+        '    float f=float(i)/9.0;',
+        '    float wt=1.0-f*0.7;',
+        '    acc+=texture(t,clamp(v-dir*f,0.0,1.0))*wt;',
+        '    w+=wt;',
+        '  }',
+        '  o=acc/w;',
+        '}'
+    ].join('\n'),
+
+    NEURAL_MESH: [
+        '#version 300 es',
+        'precision mediump float;',
+        'in vec2 v; uniform sampler2D t; uniform float time; out vec4 o;',
+        'void main(){',
+        '  vec4 c=texture(t,v);',
+        '  vec2 g=fract(v*vec2(28.0,18.0));',
+        '  float hline=step(0.94,g.y);',
+        '  float vline=step(0.94,g.x);',
+        '  float grid=max(hline,vline);',
+        '  float pulse=0.45+0.55*sin(time*2.2+v.y*8.0);',
+        '  float nod=step(0.88,g.x)*step(0.88,g.y);',
+        '  vec3 mesh=vec3(0.0,0.85,1.0)*(grid*0.35+nod*0.7)*pulse;',
+        '  o=vec4(c.rgb+mesh,1.0);',
+        '}'
+    ].join('\n')
+};
+
+// ── WebGL init ────────────────────────────────────────────────────────
+function _initVB() {
+    if (_vbInited) return;
+    var canvas = document.getElementById('vb-canvas');
+    if (!canvas) return;
+    var gl = canvas.getContext('webgl2', { alpha: false, antialias: false, premultipliedAlpha: false });
+    if (!gl) { console.warn('[VB] WebGL2 not supported'); return; }
+    _vbGl = gl;
+
+    function compileShader(type, src) {
+        var s = gl.createShader(type);
+        gl.shaderSource(s, src); gl.compileShader(s);
+        if (!gl.getShaderParameter(s, gl.COMPILE_STATUS))
+            console.error('[VB] Shader compile error:', gl.getShaderInfoLog(s));
+        return s;
+    }
+    function makeProgram(fs) {
+        var prog = gl.createProgram();
+        gl.attachShader(prog, compileShader(gl.VERTEX_SHADER, VS));
+        gl.attachShader(prog, compileShader(gl.FRAGMENT_SHADER, fs));
+        gl.linkProgram(prog);
+        if (!gl.getProgramParameter(prog, gl.LINK_STATUS))
+            console.error('[VB] Program link error:', gl.getProgramInfoLog(prog));
+        return prog;
+    }
+
+    Object.keys(FS).forEach(function(name) {
+        var prog = makeProgram(FS[name]);
+        _vbProgs[name] = {
+            prog: prog,
+            aLoc: gl.getAttribLocation(prog, 'a'),
+            tLoc: gl.getUniformLocation(prog, 't'),
+            timeLoc: gl.getUniformLocation(prog, 'time'),
+            resLoc:  gl.getUniformLocation(prog, 'res'),
+            dirLoc:  gl.getUniformLocation(prog, 'dir')
+        };
+    });
+
+    // Fullscreen quad
+    var buf = gl.createBuffer();
+    gl.bindBuffer(gl.ARRAY_BUFFER, buf);
+    gl.bufferData(gl.ARRAY_BUFFER, new Float32Array([-1,-1, 1,-1, -1,1, 1,1]), gl.STATIC_DRAW);
+    _vbGl._quadBuf = buf;
+
+    // Input texture
+    _vbTex = gl.createTexture();
+    gl.bindTexture(gl.TEXTURE_2D, _vbTex);
+    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE);
+    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE);
+    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.LINEAR);
+    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.LINEAR);
+
+    _vbInited = true;
+}
+
+// ── Render loop ───────────────────────────────────────────────────────
+function _vbRender() {
+    _vbRAF = requestAnimationFrame(_vbRender);
+    var shader = _vbShader;
+    if (!shader || !_vbInited) return;
+
+    var vjCanvas = document.getElementById('vj-canvas');
+    var vbCanvas = document.getElementById('vb-canvas');
+    var gl = _vbGl;
+    if (!vjCanvas || !vbCanvas || !gl) return;
+
+    // Sync resolution
+    var w = vbCanvas.offsetWidth, h = vbCanvas.offsetHeight;
+    if (vbCanvas.width !== w || vbCanvas.height !== h) {
+        vbCanvas.width = w; vbCanvas.height = h;
+        gl.viewport(0, 0, w, h);
+    }
+
+    _vbTime += 0.016;
+    var p = _vbProgs[shader];
+    if (!p) return;
+
+    // Upload VJ canvas as texture
+    gl.bindTexture(gl.TEXTURE_2D, _vbTex);
+    try { gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, gl.RGBA, gl.UNSIGNED_BYTE, vjCanvas); }
+    catch(e) { return; }
+
+    gl.useProgram(p.prog);
+    gl.bindBuffer(gl.ARRAY_BUFFER, gl._quadBuf);
+    gl.enableVertexAttribArray(p.aLoc);
+    gl.vertexAttribPointer(p.aLoc, 2, gl.FLOAT, false, 0, 0);
+    gl.uniform1i(p.tLoc, 0);
+    if (p.timeLoc) gl.uniform1f(p.timeLoc, _vbTime);
+    if (p.resLoc)  gl.uniform2f(p.resLoc, w, h);
+    if (p.dirLoc)  gl.uniform2f(p.dirLoc, 1.0, 0.5);
+    gl.drawArrays(gl.TRIANGLE_STRIP, 0, 4);
+}
+
+// ── Activate / deactivate shader ──────────────────────────────────────
+function _vbActivate(shaderName, persistent) {
+    if (!_vbInited) _initVB();
+    var vbCanvas = document.getElementById('vb-canvas');
+    _vbShader = shaderName;
+    if (vbCanvas) vbCanvas.style.display = 'block';
+    if (!_vbRAF) _vbRender();
+    if (persistent) {
+        _vbLocked[shaderName] = true;
+    }
+    _vbUpdateUI(shaderName, persistent);
+    var hasLocked = Object.keys(_vbLocked).length > 0;
+    var statusEl = document.getElementById('vb-sys-status');
+    if (statusEl) statusEl.textContent = hasLocked ? 'SYSTEM_STATUS: NEURAL_GPU_ACTIVE' : 'SYSTEM_STATUS: STANDBY';
+    var dot = document.getElementById('vb-status-dot');
+    if (dot) dot.classList.toggle('on', hasLocked);
+}
+
+function _vbDeactivate(shaderName) {
+    delete _vbLocked[shaderName];
+    var hasLocked = Object.keys(_vbLocked).length > 0;
+    if (!hasLocked) {
+        _vbShader = null;
+        var vbCanvas = document.getElementById('vb-canvas');
+        if (vbCanvas) vbCanvas.style.display = 'none';
+    } else {
+        // Switch to another locked shader
+        _vbShader = Object.keys(_vbLocked)[0];
+    }
+    _vbUpdateUI(shaderName, false);
+    var statusEl = document.getElementById('vb-sys-status');
+    if (statusEl) statusEl.textContent = hasLocked ? 'SYSTEM_STATUS: NEURAL_GPU_ACTIVE' : 'SYSTEM_STATUS: STANDBY';
+    var dot = document.getElementById('vb-status-dot');
+    if (dot) dot.classList.toggle('on', hasLocked);
+}
+
+function _vbUpdateUI(shaderName, locked) {
+    var btn = document.getElementById('vb-' + shaderName);
+    if (!btn) return;
+    if (locked) {
+        btn.classList.add('active-fx');
+        btn.style.borderColor = 'rgba(0,243,255,0.9)';
+        btn.style.boxShadow = '0 0 10px rgba(0,243,255,0.5)';
+        btn.style.color = '#00f3ff';
+    } else {
+        btn.classList.remove('active-fx');
+        btn.style.borderColor = '';
+        btn.style.boxShadow = '';
+        btn.style.color = shaderName === 'NEURAL_MESH' ? 'var(--accent)' : '';
+    }
+}
+
+// ── Bank toggle ───────────────────────────────────────────────────────
+window._setFXBank = function(bank) {
+    _vbActive = (bank === 'B');
+    document.getElementById('fx-bank-a-panel').style.display = _vbActive ? 'none' : '';
+    document.getElementById('fx-bank-b-panel').style.display = _vbActive ? '' : 'none';
+    var bA = document.getElementById('fx-bank-a-btn');
+    var bB = document.getElementById('fx-bank-b-btn');
+    if (bA) { bA.style.color = _vbActive ? 'rgba(255,255,255,0.35)' : 'rgba(255,255,255,0.85)'; bA.style.borderColor = _vbActive ? 'rgba(255,255,255,0.15)' : 'rgba(255,255,255,0.5)'; }
+    if (bB) { bB.style.color = _vbActive ? 'var(--accent)' : 'rgba(0,243,255,0.35)'; bB.style.borderColor = _vbActive ? 'rgba(0,243,255,0.8)' : 'rgba(0,243,255,0.2)'; bB.style.boxShadow = _vbActive ? '0 0 8px rgba(0,243,255,0.3)' : ''; }
+    if (_vbActive && !_vbInited) _initVB();
+};
+
+window._vbClearAll = function() {
+    Object.keys(_vbLocked).forEach(_vbDeactivate);
+    _vbShader = null;
+    var vbCanvas = document.getElementById('vb-canvas');
+    if (vbCanvas) vbCanvas.style.display = 'none';
+    document.querySelectorAll('.vb-btn').forEach(function(b) {
+        b.classList.remove('active-fx');
+        b.style.borderColor = b.dataset.shader === 'NEURAL_MESH' ? 'rgba(0,243,255,0.4)' : '';
+        b.style.boxShadow = '';
+        b.style.color = b.dataset.shader === 'NEURAL_MESH' ? 'var(--accent)' : '';
+    });
+    var statusEl = document.getElementById('vb-sys-status');
+    if (statusEl) statusEl.textContent = 'SYSTEM_STATUS: STANDBY';
+    var dot = document.getElementById('vb-status-dot');
+    if (dot) dot.classList.remove('on');
+};
+
+// ── Single/double-click handler for VB buttons ────────────────────────
+function _vbHandleClick(btn) {
+    var shaderName = btn.dataset.shader;
+    if (!shaderName) return;
+
+    var now = Date.now();
+    var lastTap = _dblTapTimer[shaderName] || 0;
+    var isDouble = (now - lastTap) < 350;
+    _dblTapTimer[shaderName] = now;
+
+    if (_vbLocked[shaderName]) {
+        // Already locked — deactivate
+        _vbDeactivate(shaderName);
+        return;
+    }
+
+    if (isDouble) {
+        // Double-click: PERSISTENT LOCK
+        if (_vbBurstTimer) { clearTimeout(_vbBurstTimer); _vbBurstTimer = null; }
+        _vbActivate(shaderName, true);
+        log('VB_LOCK: ' + shaderName);
+        // If NEURAL_MESH locked, start pose tracking
+        if (shaderName === 'NEURAL_MESH') _startPoseTracking();
+    } else {
+        // Single-click: 3-second burst
+        if (_vbBurstTimer) clearTimeout(_vbBurstTimer);
+        _vbActivate(shaderName, false);
+        _vbBurstTimer = setTimeout(function() {
+            if (!_vbLocked[shaderName]) _vbDeactivate(shaderName);
+            _vbBurstTimer = null;
+        }, 3000);
+        log('VB_BURST: ' + shaderName);
+    }
+}
+
+// ── Wire up VB buttons on DOMContentLoaded ────────────────────────────
+document.addEventListener('DOMContentLoaded', function() {
+    document.querySelectorAll('.vb-btn').forEach(function(btn) {
+        btn.addEventListener('click', function() { _vbHandleClick(btn); });
+    });
+});
+// Fallback if DOM already loaded
+if (document.readyState !== 'loading') {
+    document.querySelectorAll('.vb-btn').forEach(function(btn) {
+        btn.addEventListener('click', function() { _vbHandleClick(btn); });
+    });
+}
+
+})();
+</script>
+
+<!-- ═══════════════════════════════════════════════════════════════════
+     MEDIAPIPE POSE — 3D body-tracking anchor for NEURAL_MESH + GLB rigging
+     Landmarks streamed to VB canvas shader and (if GLB loaded) skeleton
+     ═══════════════════════════════════════════════════════════════════ -->
+<script>
+(function() {
+'use strict';
+
+var _pose = null;
+var _poseRunning = false;
+var _poseCanvas = null;  // Offscreen 2D canvas for landmark drawing
+var _poseCtx = null;
+var _landmarks = null;
+
+window._startPoseTracking = function() {
+    if (_poseRunning) return;
+    if (typeof Pose === 'undefined') { log('NEURAL_MESH: MediaPipe not loaded'); return; }
+
+    // Use existing camera stream if available
+    var videoEl = document.getElementById('cam-preview') || document.querySelector('video');
+    if (!videoEl || !videoEl.srcObject) {
+        log('NEURAL_MESH: No camera stream — start camera first');
+        return;
+    }
+
+    _pose = new Pose({ locateFile: function(f) {
+        return 'https://cdn.jsdelivr.net/npm/@mediapipe/pose@0.5.1675469404/' + f;
+    }});
+    _pose.setOptions({ modelComplexity: 1, smoothLandmarks: true, minDetectionConfidence: 0.5, minTrackingConfidence: 0.5 });
+    _pose.onResults(function(results) {
+        _landmarks = results.poseLandmarks;
+        // If a 3D model is loaded, attempt bone mapping
+        if (_landmarks && window._3D && window._3D.model) _applyPoseToModel(_landmarks);
+    });
+
+    _poseRunning = true;
+    log('NEURAL_MESH: Pose tracking ACTIVE');
+
+    // Feed frames to MediaPipe
+    function _sendFrame() {
+        if (!_poseRunning || !_pose) return;
+        if (videoEl.readyState >= 2) _pose.send({ image: videoEl }).catch(function(){});
+        setTimeout(_sendFrame, 80); // ~12 fps — sufficient for pose
+    }
+    _sendFrame();
+};
+
+window._stopPoseTracking = function() {
+    _poseRunning = false;
+    _landmarks = null;
+    log('NEURAL_MESH: Pose tracking STOPPED');
+};
+
+// ── Bone mapping: MediaPipe → Three.js skeleton ───────────────────────
+// Maps shoulder/hip/spine landmarks to model bones if they exist
+function _applyPoseToModel(lm) {
+    var model = window._3D && window._3D.model;
+    if (!model || typeof THREE === 'undefined') return;
+    model.traverse(function(obj) {
+        if (!obj.isBone) return;
+        var name = obj.name.toLowerCase();
+        // Shoulders
+        if (name.includes('leftshoulder') || name.includes('shoulder_l')) {
+            var l = lm[11]; if (l) obj.rotation.z = (l.y - 0.5) * 1.2;
+        } else if (name.includes('rightshoulder') || name.includes('shoulder_r')) {
+            var r = lm[12]; if (r) obj.rotation.z = -(r.y - 0.5) * 1.2;
+        // Spine / hips
+        } else if (name.includes('spine') || name.includes('pelvis') || name.includes('hips')) {
+            var lhip = lm[23], rhip = lm[24];
+            if (lhip && rhip) {
+                obj.rotation.y = (lhip.x - rhip.x) * 1.5;
+                obj.rotation.x = ((lhip.y + rhip.y) * 0.5 - 0.5) * 0.8;
+            }
+        }
+    });
+}
+
+})();
 </script>
 </body>
 </html>
