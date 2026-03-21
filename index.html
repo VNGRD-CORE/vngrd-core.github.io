@@ -905,7 +905,7 @@
             border: 1px solid rgba(255,255,255,0.08);
             padding: 2px 5px;
         }
-        #sfx-pad-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 6px; padding: 4px 2px 2px; }
+        #sfx-pad-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 4px; padding: 4px 2px 2px; }
         .sfx-bank-block { display: contents; }
         .sfx-bank-label {
             grid-column: 1 / -1;
@@ -922,9 +922,9 @@
 
         /* ── CORE PAD SHAPE — thick rubber, 3D recessed ── */
         .sfx-pad {
-            font-size: 8px !important;
+            font-size: 7px !important;
             padding: 0 !important;
-            height: 38px;
+            height: 44px;
             letter-spacing: 0.04em;
             text-align: center;
             min-width: 0;
@@ -1603,21 +1603,21 @@
 
         /* Transport header */
         #gb-seq-header {
-            display: flex; align-items: center; gap: 5px;
-            padding: 5px 7px 4px;
+            display: flex; align-items: center; gap: 6px;
+            padding: 7px 9px 6px;
             border-bottom: 1px solid rgba(255,200,0,0.12);
             background: rgba(255,200,0,0.03);
         }
         .gb-seq-title {
-            font-family: 'Orbitron', sans-serif; font-size: 6px; font-weight: 700;
+            font-family: 'Orbitron', sans-serif; font-size: 9px; font-weight: 700;
             letter-spacing: 2px; color: rgba(255,200,0,0.7); flex-shrink: 0;
         }
-        .gb-bpm-lbl { font-family: 'Orbitron', sans-serif; font-size: 5.5px; color: rgba(255,200,0,0.4); flex-shrink: 0; }
+        .gb-bpm-lbl { font-family: 'Orbitron', sans-serif; font-size: 8px; color: rgba(255,200,0,0.4); flex-shrink: 0; }
         #gb-bpm {
-            width: 36px; background: rgba(0,0,0,0.6);
+            width: 44px; background: rgba(0,0,0,0.6);
             border: 1px solid rgba(255,200,0,0.3) !important; border-radius: 2px;
             color: rgba(255,220,0,0.95) !important; font-family: 'Orbitron', sans-serif;
-            font-size: 8px; font-weight: 700; text-align: center; padding: 2px 3px;
+            font-size: 10px; font-weight: 700; text-align: center; padding: 3px 4px;
             -moz-appearance: textfield;
         }
         #gb-bpm::-webkit-inner-spin-button, #gb-bpm::-webkit-outer-spin-button { -webkit-appearance: none; }
@@ -1625,51 +1625,61 @@
             flex: 1; -webkit-appearance: none; appearance: none;
             background: rgba(0,0,0,0.6); border: 1px solid rgba(255,200,0,0.25);
             border-radius: 2px; color: rgba(255,200,0,0.7);
-            font-family: 'Orbitron', sans-serif; font-size: 5px; letter-spacing: 0.5px;
-            padding: 2px 4px; cursor: pointer;
+            font-family: 'Orbitron', sans-serif; font-size: 7px; letter-spacing: 0.5px;
+            padding: 3px 5px; cursor: pointer;
         }
         #gb-transport-btn {
-            background: transparent; border: 1px solid rgba(255,200,0,0.45); border-radius: 2px;
-            color: rgba(255,210,0,0.9); font-family: 'Orbitron', sans-serif;
-            font-size: 6px; font-weight: 700; letter-spacing: 1px;
-            padding: 3px 7px; cursor: pointer; white-space: nowrap; flex-shrink: 0;
+            background: transparent; border: 2px solid rgba(255,200,0,0.55); border-radius: 3px;
+            color: rgba(255,210,0,0.95); font-family: 'Orbitron', sans-serif;
+            font-size: 10px; font-weight: 700; letter-spacing: 1.5px;
+            padding: 5px 12px; cursor: pointer; white-space: nowrap; flex-shrink: 0;
             transition: border-color 0.12s, color 0.12s, box-shadow 0.12s;
         }
-        #gb-transport-btn:hover { border-color: rgba(255,200,0,0.8); color: #ffd700; box-shadow: 0 0 10px rgba(255,200,0,0.4); }
-        #gb-transport-btn.playing { border-color: rgba(255,60,60,0.8); color: #ff4444; box-shadow: 0 0 10px rgba(255,50,50,0.5); animation: gb-play-pulse 0.6s ease-in-out infinite; }
-        @keyframes gb-play-pulse { 0%,100%{box-shadow:0 0 6px rgba(255,50,50,0.4);} 50%{box-shadow:0 0 14px rgba(255,50,50,0.8);} }
+        #gb-transport-btn:hover { border-color: rgba(255,200,0,0.9); color: #ffd700; box-shadow: 0 0 12px rgba(255,200,0,0.5); }
+        #gb-transport-btn.playing { border-color: rgba(255,60,60,0.9); color: #ff4444; box-shadow: 0 0 14px rgba(255,50,50,0.6); animation: gb-play-pulse 0.6s ease-in-out infinite; }
+        @keyframes gb-play-pulse { 0%,100%{box-shadow:0 0 8px rgba(255,50,50,0.5);} 50%{box-shadow:0 0 18px rgba(255,50,50,0.9);} }
+        /* Expand button */
+        #gb-expand-btn {
+            background: transparent; border: 1px solid rgba(0,243,255,0.3); border-radius: 2px;
+            color: rgba(0,243,255,0.55); font-family: 'Orbitron', sans-serif;
+            font-size: 8px; font-weight: 700; letter-spacing: 1px;
+            padding: 4px 7px; cursor: pointer; white-space: nowrap; flex-shrink: 0;
+            transition: border-color 0.15s, color 0.15s, box-shadow 0.15s;
+        }
+        #gb-expand-btn:hover { border-color: var(--accent); color: var(--accent); box-shadow: 0 0 8px rgba(0,243,255,0.3); }
+        #gb-expand-btn.expanded { border-color: rgba(0,243,255,0.7); color: var(--accent); box-shadow: 0 0 10px rgba(0,243,255,0.4); }
 
         /* ── STEP GRID ── */
-        #gb-seq-grid { display: flex; flex-direction: column; padding: 5px 6px 6px; gap: 2px; }
+        #gb-seq-grid { display: flex; flex-direction: column; padding: 6px 8px 8px; gap: 3px; }
 
         /* Beat number header row */
-        .gb-beat-header { display: flex; align-items: center; gap: 0; margin-bottom: 1px; padding-left: 32px; padding-right: 32px; }
+        .gb-beat-header { display: flex; align-items: center; gap: 0; margin-bottom: 2px; padding-left: 44px; padding-right: 44px; }
         .gb-beat-num {
             flex: 0 0 calc((100% - 0px) / 16); text-align: center;
-            font-family: 'Orbitron', sans-serif; font-size: 4.5px; color: rgba(255,200,0,0.25);
+            font-family: 'Orbitron', sans-serif; font-size: 7px; color: rgba(255,200,0,0.25);
         }
-        .gb-beat-num.gb-bar-start { color: rgba(255,200,0,0.6); font-weight: 700; }
+        .gb-beat-num.gb-bar-start { color: rgba(255,200,0,0.65); font-weight: 700; }
 
         /* Sequencer rows */
-        .gb-seq-row { display: flex; align-items: center; gap: 3px; }
+        .gb-seq-row { display: flex; align-items: center; gap: 4px; }
         .gb-seq-row.gb-row-muted { opacity: 0.35; }
-        .gb-seq-row.gb-row-separator { border-top: 1px solid rgba(255,200,0,0.08); margin-top: 3px; padding-top: 3px; }
+        .gb-seq-row.gb-row-separator { border-top: 1px solid rgba(255,200,0,0.08); margin-top: 4px; padding-top: 4px; }
         .gb-seq-lbl {
-            font-family: 'Orbitron', sans-serif; font-size: 5px; font-weight: 700;
-            color: rgba(255,200,0,0.5); min-width: 28px; max-width: 28px;
+            font-family: 'Orbitron', sans-serif; font-size: 7.5px; font-weight: 700;
+            color: rgba(255,200,0,0.55); min-width: 36px; max-width: 36px;
             letter-spacing: 0.3px; flex-shrink: 0; overflow: hidden; text-overflow: ellipsis;
             white-space: nowrap;
         }
 
         /* Steps container */
-        .gb-steps { display: flex; flex: 1; gap: 1px; }
+        .gb-steps { display: flex; flex: 1; gap: 2px; }
         /* Group of 4 steps separated by slightly larger gap */
-        .gb-step-group { display: flex; gap: 1px; flex: 1; }
-        .gb-step-group + .gb-step-group { margin-left: 3px; }
+        .gb-step-group { display: flex; gap: 2px; flex: 1; }
+        .gb-step-group + .gb-step-group { margin-left: 4px; }
 
         /* Individual step buttons */
         .gb-step {
-            flex: 1; height: 16px; padding: 0; border-radius: 2px; cursor: pointer;
+            flex: 1; height: 22px; padding: 0; border-radius: 2px; cursor: pointer;
             background: rgba(20,16,8,0.9);
             border: 1px solid rgba(255,200,0,0.12);
             transition: background 0.06s, border-color 0.06s, box-shadow 0.06s;
@@ -1702,10 +1712,10 @@
         }
 
         /* Row controls: mute + clear */
-        .gb-row-controls { display: flex; gap: 2px; flex-shrink: 0; }
+        .gb-row-controls { display: flex; gap: 3px; flex-shrink: 0; }
         .gb-row-mute, .gb-row-clear {
-            width: 14px; height: 16px; padding: 0; border-radius: 2px; cursor: pointer;
-            font-family: 'Orbitron', sans-serif; font-size: 5px; font-weight: 700;
+            width: 18px; height: 22px; padding: 0; border-radius: 2px; cursor: pointer;
+            font-family: 'Orbitron', sans-serif; font-size: 7px; font-weight: 700;
             background: transparent; transition: background 0.1s, color 0.1s;
         }
         .gb-row-mute { border: 1px solid rgba(255,200,0,0.2); color: rgba(255,200,0,0.4); }
@@ -1713,6 +1723,32 @@
         .gb-row-mute.muted { background: rgba(255,200,0,0.2); color: rgba(255,200,0,0.9); border-color: rgba(255,200,0,0.5); }
         .gb-row-clear { border: 1px solid rgba(255,80,80,0.18); color: rgba(255,80,80,0.35); }
         .gb-row-clear:hover { background: rgba(255,80,80,0.12); color: rgba(255,100,100,0.9); }
+
+        /* ── EXPANDED / SNAPPED sequencer overlay ── */
+        #gb-seq-backdrop {
+            display: none; position: fixed; inset: 0; background: rgba(0,0,0,0.65);
+            z-index: 9998; backdrop-filter: blur(2px);
+        }
+        #gb-seq-backdrop.visible { display: block; }
+        #gb-seq-panel.expanded {
+            position: fixed !important;
+            top: 10px; right: 10px; bottom: 10px;
+            width: min(480px, calc(100vw - 20px));
+            z-index: 9999;
+            margin: 0;
+            border-radius: 6px;
+            overflow-y: auto;
+        }
+        #gb-seq-panel.expanded #gb-seq-grid { gap: 4px; padding: 8px 10px 10px; }
+        #gb-seq-panel.expanded .gb-step { height: 28px; }
+        #gb-seq-panel.expanded .gb-seq-lbl { font-size: 9px; min-width: 42px; max-width: 42px; }
+        #gb-seq-panel.expanded .gb-beat-num { font-size: 8px; }
+        #gb-seq-panel.expanded .gb-row-mute,
+        #gb-seq-panel.expanded .gb-row-clear { width: 22px; height: 28px; font-size: 8px; }
+        #gb-seq-panel.expanded #gb-seq-header { padding: 9px 11px 8px; }
+        #gb-seq-panel.expanded .gb-seq-title { font-size: 11px; }
+        #gb-seq-panel.expanded #gb-transport-btn { font-size: 12px; padding: 6px 16px; }
+
         /* Liquid library select */
         #liq-lib-select {
             -webkit-appearance: none; appearance: none;
@@ -3545,9 +3581,11 @@ body.fullscreen #transcription-hud { pointer-events: none !important; } /* keep 
                                 <option value="3">VOID MACHINES</option>
                             </select>
                             <button id="gb-transport-btn" onclick="_toggleGrooveboxTransport()">&#x25B6; PLAY</button>
+                            <button id="gb-expand-btn" onclick="_toggleSeqExpand()" title="Snap sequencer to overlay">&#x2922;</button>
                         </div>
                         <div id="gb-seq-grid"></div>
                     </div>
+                    <div id="gb-seq-backdrop" onclick="_toggleSeqExpand()"></div>
 
                     <!-- Hidden file inputs for custom pad uploads -->
                     <input type="file" id="sfx-file-1" accept="audio/*" style="display:none;">
@@ -3585,7 +3623,7 @@ body.fullscreen #transcription-hud { pointer-events: none !important; } /* keep 
                                 <span class="sampler-help-desc">Use MIDI LEARN in the MIDI_HOST section to bind any pad to your controller.</span>
                             </div>
                         </div>
-                        <div class="sampler-help-footer">VNGRD // SAMPLER SFX · 12-PAD · GROOVEBOX</div>
+                        <div class="sampler-help-footer">VNGRD // SAMPLER SFX · 12-PAD · GROOVEBOX &nbsp;·&nbsp; <a href="https://andreamerella.github.io/DrisLab/" target="_blank" rel="noopener" style="color:rgba(0,243,255,0.45);text-decoration:none;letter-spacing:1px;" onmouseover="this.style.color='rgba(0,243,255,0.85)'" onmouseout="this.style.color='rgba(0,243,255,0.45)'">DRISLAB</a></div>
                     </div>
                 </div>
             </div>
@@ -6807,31 +6845,31 @@ function _vjHeavySync() {
 var VANGUARD_LIQUID_LIB = [
     // Kit 0: IMPACT CORE — pure brutal physical force
     { name: 'IMPACT CORE', rate: 1.0, pads: [
-        { label: 'CANNON',   p: { mode:'sweep',    oscType:'sine',     freq:185, freqEnd:22, sub:18, dist:0.08, atk:0.001, dec:0.65, sus:0.0,   dur:2.0 } },
-        { label: 'SHRAPNEL', p: { mode:'noise',    filter:'bandpass',  filterFreq:3800, filterQ:2.5,            atk:0.001, dec:0.10, sus:0.001, dur:0.22 } },
-        { label: 'TREMOR',   p: { mode:'cluster',  oscType:'sine',     freqs:[19,22,26], dist:0.05,             atk:0.012, dec:1.3,  sus:0.06,  dur:3.2 } },
-        { label: 'SLAM',     p: { mode:'metal',    freq:170, freqEnd:40, ring:720,                              atk:0.001, dec:0.30, sus:0.005, dur:1.1 } }
+        { label: 'CANNON',   p: { mode:'sweep',   oscType:'sine',     freq:240, freqEnd:30, sub:50, dist:0.12, atk:0.001, dec:0.75, sus:0.0,   dur:2.2 } },
+        { label: 'SHRAPNEL', p: { mode:'noise',   filter:'bandpass',  filterFreq:4500, filterQ:3.2, dist:0.15, atk:0.001, dec:0.09, sus:0.001, dur:0.20 } },
+        { label: 'TREMOR',   p: { mode:'cluster', oscType:'sine',     freqs:[48, 60, 72], dist:0.10,           atk:0.008, dec:1.5,  sus:0.08,  dur:3.5 } },
+        { label: 'SLAM',     p: { mode:'metal',   freq:200, freqEnd:55, ring:700, dist:0.10,                   atk:0.001, dec:0.35, sus:0.008, dur:1.3 } }
     ]},
     // Kit 1: DYSTOPIA — cyberpunk corrupt glitch signal
     { name: 'DYSTOPIA', rate: 1.0, pads: [
-        { label: 'CORRUPT',  p: { mode:'noise',    filter:'bandpass',  filterFreq:550,  filterQ:1.8, dist:0.75, atk:0.001, dec:0.09, sus:0.001, dur:0.18 } },
-        { label: 'VOLTAGE',  p: { mode:'sweep',    oscType:'sawtooth', freq:1600, freqEnd:55, dist:0.6,          atk:0.001, dec:0.16, sus:0.0,   dur:0.38 } },
-        { label: 'CODEC',    p: { mode:'noise',    filter:'bandpass',  filterFreq:380,  filterQ:3.5, dist:0.9,  atk:0.001, dec:0.22, sus:0.001, dur:0.38 } },
-        { label: 'COLLAPSE', p: { mode:'cluster',  oscType:'sawtooth', freqs:[55,73.4,82.4,146.8], dist:0.5,   atk:0.002, dec:0.55, sus:0.015, dur:2.1 } }
+        { label: 'CORRUPT',  p: { mode:'noise',   filter:'bandpass',  filterFreq:680,  filterQ:2.4, dist:0.28, atk:0.001, dec:0.11, sus:0.001, dur:0.24 } },
+        { label: 'VOLTAGE',  p: { mode:'sweep',   oscType:'sawtooth', freq:1900, freqEnd:75, dist:0.32,        atk:0.001, dec:0.18, sus:0.0,   dur:0.44 } },
+        { label: 'CODEC',    p: { mode:'noise',   filter:'bandpass',  filterFreq:460,  filterQ:4.2, dist:0.25, atk:0.001, dec:0.26, sus:0.001, dur:0.44 } },
+        { label: 'COLLAPSE', p: { mode:'cluster', oscType:'sawtooth', freqs:[65, 87, 104, 174], dist:0.22,     atk:0.002, dec:0.65, sus:0.02,  dur:2.4 } }
     ]},
     // Kit 2: WARZONE — military explosive cinematic
     { name: 'WARZONE', rate: 1.0, pads: [
-        { label: 'ARTILLERY',  p: { mode:'boom',   sub:26, filter:'lowpass', filterFreq:320, filterQ:0.7,       atk:0.001, dec:1.1,  sus:0.05,  dur:3.2 } },
-        { label: 'BREACH',     p: { mode:'metal',  freq:165, freqEnd:42, ring:840,                              atk:0.001, dec:0.28, sus:0.018, dur:0.9 } },
-        { label: 'SNIPER',     p: { mode:'noise',  filter:'bandpass',  filterFreq:2900, filterQ:2.2,            atk:0.001, dec:0.045,sus:0.0,   dur:0.14 } },
-        { label: 'DETONATN',   p: { mode:'boom',   sub:20, filter:'lowpass', filterFreq:180, filterQ:0.5,       atk:0.004, dec:1.6,  sus:0.07,  dur:4.2 } }
+        { label: 'ARTILLERY', p: { mode:'boom',   sub:50, filter:'lowpass', filterFreq:400, filterQ:0.8,       atk:0.001, dec:1.3,  sus:0.06,  dur:3.5 } },
+        { label: 'BREACH',    p: { mode:'metal',  freq:185, freqEnd:52, ring:900, dist:0.12,                   atk:0.001, dec:0.30, sus:0.02,  dur:1.1 } },
+        { label: 'SNIPER',    p: { mode:'noise',  filter:'bandpass',  filterFreq:3400, filterQ:2.5, dist:0.10, atk:0.001, dec:0.05, sus:0.0,   dur:0.16 } },
+        { label: 'DETONTN',   p: { mode:'boom',   sub:40, filter:'lowpass', filterFreq:230, filterQ:0.55,      atk:0.003, dec:2.0,  sus:0.08,  dur:4.8 } }
     ]},
     // Kit 3: VOID MACHINES — dark industrial experimental
     { name: 'VOID MACHINES', rate: 1.0, pads: [
-        { label: 'SINGULAR',   p: { mode:'resonant', freq:85, freqEnd:16, res:20,                               atk:0.07,  dec:2.0,  sus:0.12,  dur:4.8 } },
-        { label: 'WORMHOLE',   p: { mode:'sweep',    oscType:'sawtooth', freq:380, freqEnd:8, dist:0.4,         atk:0.008, dec:2.2,  sus:0.025, dur:3.6 } },
-        { label: 'EROSION',    p: { mode:'noise',    filter:'lowpass',   filterFreq:190, filterQ:9, dist:0.8,   atk:0.003, dec:0.85, sus:0.08,  dur:2.3 } },
-        { label: 'DARK PLS',   p: { mode:'am',       freq:32, lfoRate:6,                                        atk:0.01,  dec:0.7,  sus:0.22,  dur:2.8 } }
+        { label: 'SINGULAR',  p: { mode:'resonant', freq:100, freqEnd:24, res:22, dist:0.14,                   atk:0.06,  dec:2.4,  sus:0.14,  dur:5.2 } },
+        { label: 'WORMHOLE',  p: { mode:'sweep',   oscType:'sawtooth', freq:460, freqEnd:14, dist:0.28,        atk:0.007, dec:2.6,  sus:0.03,  dur:4.0 } },
+        { label: 'EROSION',   p: { mode:'noise',   filter:'lowpass',   filterFreq:240, filterQ:9, dist:0.22,   atk:0.003, dec:1.0,  sus:0.10,  dur:2.8 } },
+        { label: 'DARK PLS',  p: { mode:'am',      freq:48, lfoRate:7, dist:0.12,                              atk:0.01,  dec:0.85, sus:0.26,  dur:3.2 } }
     ]}
 ];
 
@@ -7222,6 +7260,18 @@ window._toggleGrooveboxMode = function() {
 
 window._toggleGrooveboxTransport = function() {
     if (_groovebox.isPlaying) { _stopGroovebox(); } else { _startGroovebox(); }
+};
+
+window._toggleSeqExpand = function() {
+    var panel    = document.getElementById('gb-seq-panel');
+    var backdrop = document.getElementById('gb-seq-backdrop');
+    var btn      = document.getElementById('gb-expand-btn');
+    if (!panel) return;
+    var isExpanded = panel.classList.toggle('expanded');
+    if (backdrop) backdrop.classList.toggle('visible', isExpanded);
+    if (btn)      btn.classList.toggle('expanded', isExpanded);
+    if (btn)      btn.innerHTML = isExpanded ? '&#x2923;' : '&#x2922;';
+    if (btn)      btn.title     = isExpanded ? 'Collapse sequencer' : 'Snap sequencer to overlay';
 };
 
 function _startGroovebox() {
