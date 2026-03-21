@@ -1596,7 +1596,7 @@
             border-top: 2px solid rgba(255,200,0,0.4);
             border-radius: 4px;
             margin-top: 5px;
-            overflow: hidden;
+            overflow: auto;
             box-shadow: 0 4px 20px rgba(0,0,0,0.8), inset 0 1px 0 rgba(255,200,0,0.06);
         }
         #gb-seq-panel.visible { display: flex; }
@@ -3593,11 +3593,10 @@ body.fullscreen #transcription-hud { pointer-events: none !important; } /* keep 
                                 <option value="6">VOID MACHINES</option>
                             </select>
                             <button id="gb-transport-btn" onclick="_toggleGrooveboxTransport()">&#x25B6; PLAY</button>
-                            <button id="gb-expand-btn" onclick="_toggleSeqExpand()" title="Snap sequencer to overlay">&#x2922;</button>
+                            <button id="gb-expand-btn" onclick="_toggleSeqExpand()" title="Pop out sequencer">POP</button>
                         </div>
                         <div id="gb-seq-grid"></div>
                     </div>
-                    <div id="gb-seq-backdrop" onclick="_toggleSeqExpand()"></div>
 
                     <!-- Hidden file inputs for custom pad uploads -->
                     <input type="file" id="sfx-file-1" accept="audio/*" style="display:none;">
@@ -7281,6 +7280,10 @@ window._toggleGrooveboxMode = function() {
         _groovebox.mode = 'performance';
         if (modeBtn) { modeBtn.textContent = 'PERF'; modeBtn.classList.remove('groovebox-mode'); }
         _stopGroovebox();
+        // Collapse expand overlay before hiding panel
+        if (seqPanel && seqPanel.classList.contains('expanded') && typeof window._toggleSeqExpand === 'function') {
+            window._toggleSeqExpand();
+        }
         if (seqPanel) seqPanel.classList.remove('visible');
         if (custLiq)  custLiq.style.display  = 'contents';
         if (liqSel)   liqSel.style.display   = '';
@@ -7292,79 +7295,92 @@ window._toggleGrooveboxTransport = function() {
 };
 
 // ── DRAGGABLE SEQUENCER ─────────────────────────────────────────
+// The sidebar has will-change:transform which creates a CSS containing
+// block — position:fixed children get trapped inside it and clipped.
+// Solution: physically move #gb-seq-panel to document.body on expand.
 (function() {
     var _drag = { on: false, ox: 0, oy: 0, px: 0, py: 0 };
+    var _origParent = null, _origNext = null;
+    var _headerDragAttached = false;
 
-    function _getPanel() { return document.getElementById('gb-seq-panel'); }
-    function _getHeader() { return document.getElementById('gb-seq-header'); }
+    function _startDrag(clientX, clientY) {
+        var p = document.getElementById('gb-seq-panel');
+        if (!p || !p.classList.contains('expanded')) return false;
+        var r = p.getBoundingClientRect();
+        _drag.ox = clientX; _drag.oy = clientY;
+        _drag.px = r.left;  _drag.py = r.top;
+        _drag.on = true;
+        return true;
+    }
 
-    function _onMouseMove(e) {
+    document.addEventListener('mousemove', function(e) {
         if (!_drag.on) return;
-        var p = _getPanel();
-        if (!p) return;
+        var p = document.getElementById('gb-seq-panel'); if (!p) return;
         p.style.left = (_drag.px + (e.clientX - _drag.ox)) + 'px';
         p.style.top  = (_drag.py + (e.clientY - _drag.oy)) + 'px';
-    }
-    function _onMouseUp() { _drag.on = false; }
-
-    document.addEventListener('DOMContentLoaded', function() {
-        var header = _getHeader();
-        if (!header) return;
-        header.addEventListener('mousedown', function(e) {
-            var p = _getPanel();
-            if (!p || !p.classList.contains('expanded')) return;
-            if (e.target.tagName === 'BUTTON' || e.target.tagName === 'INPUT' || e.target.tagName === 'SELECT') return;
-            var r = p.getBoundingClientRect();
-            _drag.ox = e.clientX; _drag.oy = e.clientY;
-            _drag.px = r.left;   _drag.py = r.top;
-            _drag.on = true;
-            e.preventDefault();
-        });
-        // Touch drag support
-        header.addEventListener('touchstart', function(e) {
-            var p = _getPanel();
-            if (!p || !p.classList.contains('expanded')) return;
-            if (e.target.tagName === 'BUTTON' || e.target.tagName === 'INPUT' || e.target.tagName === 'SELECT') return;
-            var t = e.touches[0];
-            var r = p.getBoundingClientRect();
-            _drag.ox = t.clientX; _drag.oy = t.clientY;
-            _drag.px = r.left;   _drag.py = r.top;
-            _drag.on = true;
-        }, { passive: true });
-        document.addEventListener('touchmove', function(e) {
-            if (!_drag.on) return;
-            var p = _getPanel(); if (!p) return;
-            var t = e.touches[0];
-            p.style.left = (_drag.px + (t.clientX - _drag.ox)) + 'px';
-            p.style.top  = (_drag.py + (t.clientY - _drag.oy)) + 'px';
-        }, { passive: true });
-        document.addEventListener('touchend', function() { _drag.on = false; });
     });
+    document.addEventListener('mouseup', function() { _drag.on = false; });
+    document.addEventListener('touchmove', function(e) {
+        if (!_drag.on) return;
+        var p = document.getElementById('gb-seq-panel'); if (!p) return;
+        var t = e.touches[0];
+        p.style.left = (_drag.px + (t.clientX - _drag.ox)) + 'px';
+        p.style.top  = (_drag.py + (t.clientY - _drag.oy)) + 'px';
+    }, { passive: true });
+    document.addEventListener('touchend', function() { _drag.on = false; });
 
-    document.addEventListener('mousemove', _onMouseMove);
-    document.addEventListener('mouseup',   _onMouseUp);
+    function _attachDragToHeader() {
+        if (_headerDragAttached) return;
+        var h = document.getElementById('gb-seq-header');
+        if (!h) return;
+        h.addEventListener('mousedown', function(e) {
+            if (e.target.tagName === 'BUTTON' || e.target.tagName === 'INPUT' || e.target.tagName === 'SELECT') return;
+            if (_startDrag(e.clientX, e.clientY)) e.preventDefault();
+        });
+        h.addEventListener('touchstart', function(e) {
+            if (e.target.tagName === 'BUTTON' || e.target.tagName === 'INPUT' || e.target.tagName === 'SELECT') return;
+            var t = e.touches[0];
+            _startDrag(t.clientX, t.clientY);
+        }, { passive: true });
+        _headerDragAttached = true;
+    }
 
     window._toggleSeqExpand = function() {
         var panel    = document.getElementById('gb-seq-panel');
         var backdrop = document.getElementById('gb-seq-backdrop');
         var btn      = document.getElementById('gb-expand-btn');
         if (!panel) return;
-        var isExpanded = panel.classList.toggle('expanded');
-        if (backdrop) backdrop.classList.toggle('visible', isExpanded);
-        if (btn) btn.classList.toggle('expanded', isExpanded);
-        if (btn) btn.innerHTML = isExpanded ? '&#x2923;' : '&#x2922;';
-        if (btn) btn.title     = isExpanded ? 'Drag header · Resize corner · Click to close' : 'Pop out sequencer';
-        if (isExpanded) {
-            // Position near center-right, large enough to be usable
-            var w = Math.min(520, window.innerWidth - 20);
+
+        var willExpand = !panel.classList.contains('expanded');
+        if (willExpand) {
+            // Save DOM position, then move panel to body level
+            _origParent = panel.parentNode;
+            _origNext   = panel.nextSibling;
+            document.body.appendChild(panel);
+            // Set initial size/position
+            var w = Math.min(600, window.innerWidth - 20);
             panel.style.width  = w + 'px';
-            panel.style.height = '';
-            panel.style.left   = Math.max(10, window.innerWidth  - w - 15) + 'px';
-            panel.style.top    = '12px';
-            panel.style.right  = '';
-            panel.style.bottom = '';
+            panel.style.left   = Math.max(10, window.innerWidth - w - 10) + 'px';
+            panel.style.top    = '10px';
+            panel.style.height = panel.style.right = panel.style.bottom = '';
+            panel.classList.add('expanded');
+            _attachDragToHeader();
         } else {
-            panel.style.left = panel.style.top = panel.style.width = panel.style.height = '';
+            // Remove expanded state, restore to sidebar
+            panel.classList.remove('expanded');
+            ['left','top','width','height','right','bottom'].forEach(function(p) {
+                panel.style[p] = '';
+            });
+            if (_origParent) {
+                _origParent.insertBefore(panel, _origNext || null);
+            }
+        }
+
+        if (backdrop) backdrop.classList.toggle('visible', willExpand);
+        if (btn) {
+            btn.classList.toggle('expanded', willExpand);
+            btn.textContent = willExpand ? 'CLOSE' : 'POP';
+            btn.title = willExpand ? 'Drag header to move  |  Drag corner to resize' : 'Pop out sequencer';
         }
     };
 })();
@@ -13562,6 +13578,11 @@ if (btn3dX) {
     }
 
 })();</script>
+
+    <!-- Sequencer overlay backdrop — must be at body level, NOT inside sidebar.
+         Sidebar has will-change:transform which creates a containing block and
+         traps position:fixed children, preventing true viewport overlay. -->
+    <div id="gb-seq-backdrop" onclick="_toggleSeqExpand()"></div>
 
     <!-- gif-host: DIRECT child of <body>, NOT inside #stage.
          #stage has transform:translate3d(0,0,0) which creates a containing block for
