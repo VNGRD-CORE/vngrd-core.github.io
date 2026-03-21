@@ -9314,6 +9314,13 @@ document.addEventListener('DOMContentLoaded', () => {
             }
         };
 
+        // Shared helper — hide SHOOT when any overlay is open, restore when all are closed
+        function _syncShootBtn() {
+            var shoot = document.getElementById('btn-shooting');
+            if (!shoot) return;
+            shoot.style.visibility = document.querySelector('.section-help-overlay.visible') ? 'hidden' : '';
+        }
+
         window._toggleSectionHelp = function(btn, sectionId) {
             var section = btn.closest('.section');
             if (!section) return;
@@ -9328,6 +9335,7 @@ document.addEventListener('DOMContentLoaded', () => {
             // Toggle off if already showing this section's content
             if (overlay.classList.contains('visible') && overlay.dataset.shoId === sectionId) {
                 overlay.classList.remove('visible');
+                _syncShootBtn();
                 return;
             }
 
@@ -9344,14 +9352,26 @@ document.addEventListener('DOMContentLoaded', () => {
                 if (colArrow) colArrow.textContent = '\u25BE';
             }
 
+            // CAMERA: force-expand to the post-capture state so the overlay fills a
+            // properly-sized section (preview 16:9 box + cam-ctrls buttons visible)
+            if (sectionId === 'camera') {
+                var prevFloat = document.getElementById('cam-preview-float');
+                var camCtrls  = document.getElementById('cam-ctrls');
+                if (prevFloat && !prevFloat.classList.contains('active')) {
+                    prevFloat.classList.add('active');
+                }
+                if (camCtrls && camCtrls.style.display === 'none') {
+                    camCtrls.style.display = 'block';
+                }
+            }
+
             var d = _SECTION_HELP[sectionId];
             if (!d) { overlay.classList.remove('visible'); return; }
             overlay.dataset.shoId = sectionId;
             overlay.innerHTML =
                 '<div class="sho-header">' +
                     '<span>HOW TO USE</span>' +
-                    '<button class="sho-close" onclick="event.stopPropagation();' +
-                        'this.closest(\'.section-help-overlay\').classList.remove(\'visible\')">&#x2715;</button>' +
+                    '<button class="sho-close" onclick="event.stopPropagation();_closeSectionHelp(this)">&#x2715;</button>' +
                 '</div>' +
                 '<div class="sho-rows">' +
                 d.rows.map(function(r) {
@@ -9364,6 +9384,13 @@ document.addEventListener('DOMContentLoaded', () => {
                 '<div class="sho-footer">' + d.footer + '</div>';
 
             overlay.classList.add('visible');
+            _syncShootBtn();   // hide SHOOT while any overlay is open
+        };
+
+        window._closeSectionHelp = function(closeBtn) {
+            var overlay = closeBtn.closest('.section-help-overlay');
+            if (overlay) overlay.classList.remove('visible');
+            _syncShootBtn();   // restore SHOOT once all overlays are closed
         };
 
         // Wire up gear menu items for every pad
