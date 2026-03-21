@@ -885,7 +885,7 @@
             user-select: none;
         }
         #sfx-sampler-header:hover .sampler-collapse-arrow { color: var(--accent) !important; }
-        #sfx-pad-body { overflow: hidden; transition: max-height 0.3s ease; max-height: 600px; }
+        #sfx-pad-body { overflow: hidden; transition: max-height 0.3s ease; max-height: 900px; }
         #sfx-pad-body.collapsed { max-height: 0; margin-bottom: 0; }
         /* Allow gear dropdown to escape the overflow:hidden clip when open */
         #sfx-pad-body.gear-open { overflow: visible; }
@@ -905,7 +905,7 @@
             border: 1px solid rgba(255,255,255,0.08);
             padding: 2px 5px;
         }
-        #sfx-pad-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 6px; padding: 4px 2px 2px; }
+        #sfx-pad-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 6px; padding: 4px 2px 2px; }
         .sfx-bank-block { display: contents; }
         .sfx-bank-label {
             grid-column: 1 / -1;
@@ -1533,6 +1533,117 @@
             letter-spacing: 1.5px; font-family: 'Orbitron', sans-serif;
             text-align: center;
         }
+
+        /* ── GROOVEBOX / 12-PAD ADDITIONS ── */
+        .sfx-wide { grid-column: 1 / -1 !important; height: 32px !important; }
+        /* Liquid bank — deep indigo/violet tint */
+        .sfx-liq:not([class*="coupled-"]) {
+            border-color: rgba(100,60,255,0.45) !important;
+            color: rgba(140,90,255,0.85) !important;
+            box-shadow:
+                2px 3px 8px rgba(0,0,0,0.95),
+                0 1px 0 rgba(255,255,255,0.04),
+                inset 0 3px 12px rgba(0,0,0,0.7),
+                inset 0 -2px 6px rgba(100,60,255,0.06),
+                0 0 8px rgba(100,60,255,0.18) !important;
+            text-shadow: 0 0 8px rgba(140,90,255,0.7) !important;
+        }
+        .sfx-liq:not([class*="coupled-"]):hover {
+            border-color: rgba(140,90,255,0.8) !important;
+            color: rgba(170,120,255,1.0) !important;
+            box-shadow:
+                2px 3px 8px rgba(0,0,0,0.95),
+                0 1px 0 rgba(255,255,255,0.06),
+                inset 0 3px 12px rgba(0,0,0,0.6),
+                inset 0 -2px 6px rgba(100,60,255,0.12),
+                0 0 16px rgba(140,90,255,0.45),
+                0 0 32px rgba(140,90,255,0.18) !important;
+            text-shadow: 0 0 12px rgba(170,120,255,0.9) !important;
+        }
+        .sfx-liq.sfx-playing:not([class*="coupled-"]) {
+            background: rgba(100,60,255,0.22) !important;
+            border-color: rgba(140,90,255,1.0) !important;
+            box-shadow: 0 0 14px rgba(100,60,255,0.6), inset 0 0 18px rgba(100,60,255,0.2) !important;
+        }
+        /* 0.75x rate badge bottom-right of liquid pad */
+        .pad-rate {
+            position: absolute;
+            bottom: 4px; right: 5px;
+            font-size: 5px; font-family: 'Orbitron', sans-serif;
+            color: rgba(140,90,255,0.6); opacity: 1;
+            line-height: 1; pointer-events: none; letter-spacing: 0;
+        }
+        /* Groovebox armed pulse */
+        @keyframes gb-arm-pulse {
+            0%, 100% { border-color: rgba(255,200,0,0.6); box-shadow: 2px 3px 8px rgba(0,0,0,0.9), inset 0 3px 12px rgba(0,0,0,0.7), 0 0 14px rgba(255,200,0,0.5); }
+            50%       { border-color: rgba(255,200,0,0.18); box-shadow: 2px 3px 8px rgba(0,0,0,0.9), inset 0 3px 12px rgba(0,0,0,0.85), 0 0 4px rgba(255,200,0,0.1); }
+        }
+        .sfx-pad.gb-armed {
+            border-color: rgba(255,200,0,0.6) !important;
+            color: rgba(255,210,0,0.9) !important;
+            animation: gb-arm-pulse 0.7s ease-in-out infinite !important;
+        }
+        /* MODE TOGGLE button */
+        #mode-toggle {
+            background: transparent;
+            border: 1px solid rgba(0,243,255,0.25);
+            border-radius: 3px;
+            color: rgba(0,243,255,0.55);
+            font-family: 'Orbitron', sans-serif;
+            font-size: 5.5px; font-weight: 700;
+            letter-spacing: 1.5px;
+            padding: 2px 5px;
+            cursor: pointer;
+            flex-shrink: 0;
+            transition: border-color 0.15s, color 0.15s, box-shadow 0.15s;
+        }
+        #mode-toggle:hover { border-color: var(--accent); color: var(--accent); box-shadow: 0 0 8px rgba(0,243,255,0.3); }
+        #mode-toggle.groovebox-mode { border-color: rgba(255,200,0,0.55); color: rgba(255,210,0,0.9); box-shadow: 0 0 8px rgba(255,200,0,0.25); }
+        /* Groovebox transport bar */
+        #groovebox-transport {
+            display: none; align-items: center; gap: 6px;
+            padding: 6px 2px 2px;
+            border-top: 1px solid rgba(255,200,0,0.14); margin-top: 4px;
+        }
+        #groovebox-transport.visible { display: flex; }
+        #gb-bpm-label { font-family: 'Orbitron', sans-serif; font-size: 6px; color: rgba(255,200,0,0.45); letter-spacing: 1px; flex-shrink: 0; }
+        #gb-bpm {
+            width: 42px;
+            background: #0c0c14; border: 1px solid rgba(255,200,0,0.38) !important;
+            border-radius: 3px; color: rgba(255,210,0,0.9) !important;
+            font-family: 'Orbitron', sans-serif; font-size: 9px; font-weight: 700;
+            text-align: center; padding: 3px 4px;
+            -moz-appearance: textfield;
+            box-shadow: inset 0 2px 6px rgba(0,0,0,0.7), 0 0 6px rgba(255,200,0,0.1);
+        }
+        #gb-bpm::-webkit-inner-spin-button,
+        #gb-bpm::-webkit-outer-spin-button { -webkit-appearance: none; margin: 0; }
+        #gb-transport-btn {
+            flex: 1;
+            background: transparent; border: 1px solid rgba(255,200,0,0.38); border-radius: 3px;
+            color: rgba(255,210,0,0.8); font-family: 'Orbitron', sans-serif;
+            font-size: 7px; font-weight: 700; letter-spacing: 1.5px;
+            padding: 4px 8px; cursor: pointer;
+            transition: border-color 0.15s, color 0.15s, box-shadow 0.15s;
+        }
+        #gb-transport-btn:hover { border-color: rgba(255,200,0,0.75); color: rgba(255,210,0,1.0); box-shadow: 0 0 10px rgba(255,200,0,0.38); }
+        #gb-transport-btn.playing { border-color: rgba(255,60,60,0.7); color: #ff4444; box-shadow: 0 0 8px rgba(255,50,50,0.45); }
+        /* Liquid library select */
+        #liq-lib-select {
+            -webkit-appearance: none; appearance: none;
+            width: 100%; margin-top: 5px; height: 26px;
+            background: #0c0c14;
+            background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='8' height='5' viewBox='0 0 8 5'%3E%3Cpath d='M0 0l4 5 4-5z' fill='%238050ff' opacity='0.6'/%3E%3C/svg%3E");
+            background-repeat: no-repeat; background-position: right 7px center; background-size: 7px 5px;
+            border: 1px solid rgba(100,60,255,0.38) !important; border-radius: 3px;
+            color: rgba(140,90,255,0.88) !important;
+            font-family: 'Orbitron', sans-serif; font-size: 6.5px; font-weight: 600;
+            letter-spacing: 0.08em; padding: 0 20px 0 8px; cursor: pointer;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.8), inset 0 1px 0 rgba(255,255,255,0.02), 0 0 6px rgba(100,60,255,0.12);
+            transition: border-color 0.15s, box-shadow 0.15s;
+        }
+        #liq-lib-select:hover { border-color: rgba(140,90,255,0.68) !important; color: rgba(170,120,255,1.0) !important; box-shadow: 0 2px 8px rgba(0,0,0,0.8), 0 0 12px rgba(100,60,255,0.3), inset 0 1px 0 rgba(255,255,255,0.03); }
+        #liq-lib-select option { background: #0c0c14; color: rgba(160,110,255,0.9); font-family: 'Orbitron', sans-serif; font-size: 7px; }
 
         /* ── GHOST TERMINAL — beautiful HUD corner edges ── */
         #ghost-terminal {
@@ -3041,7 +3152,8 @@ body.fullscreen #transcription-hud { pointer-events: none !important; } /* keep 
                         <span class="sampler-title">Sampler SFX</span>
                         <span class="sampler-collapse-arrow" id="sfx-collapse-arrow" style="font-size:8px;color:var(--accent);margin-left:4px;margin-right:auto;transition:color 0.2s;line-height:1;">&#x25BE;</span>
                         <button class="sampler-help-btn" onclick="event.stopPropagation();_toggleSectionHelp(this,'sampler')">?</button>
-                        <span class="sampler-badge">SFX · 8-PAD</span>
+                        <button id="mode-toggle" onclick="event.stopPropagation();_toggleGrooveboxMode()">PERF</button>
+                        <span class="sampler-badge">SFX · 12-PAD</span>
                     </div>
                     <div id="sfx-pad-body">
                     <div id="sfx-pad-grid">
@@ -3114,7 +3226,7 @@ body.fullscreen #transcription-hud { pointer-events: none !important; } /* keep 
                             <span class="pad-lcd">airhorn.mp3</span>
                         </button>
 
-                        <button class="btn sfx-btn sfx-pad sfx-sig" id="sfx-boom" data-sfx="boom" data-midi-target="sfx:boom" data-pad-num="04" title="Boom — click or MIDI">
+                        <button class="btn sfx-btn sfx-pad sfx-sig sfx-wide" id="sfx-boom" data-sfx="boom" data-midi-target="sfx:boom" data-pad-num="04" title="Boom — click or MIDI">
                             <div class="pad-gear" onclick="event.stopPropagation()">
                                 <span class="pad-gear-icon" onclick="_padGearToggle(this)">⚙</span>
                                 <div class="pad-gear-menu">
@@ -3211,7 +3323,7 @@ body.fullscreen #transcription-hud { pointer-events: none !important; } /* keep 
                             <span class="pad-lcd">— empty —</span>
                         </button>
 
-                        <button class="btn sfx-btn sfx-pad sfx-cust" id="sfx-custom4" data-sfx="custom4" data-midi-target="sfx:custom4" data-pad-num="08" title="Custom 4 — click: load / right-click: arm rec">
+                        <button class="btn sfx-btn sfx-pad sfx-cust sfx-wide" id="sfx-custom4" data-sfx="custom4" data-midi-target="sfx:custom4" data-pad-num="08" title="Custom 4 — click: load / right-click: arm rec">
                             <div class="pad-gear" onclick="event.stopPropagation()">
                                 <span class="pad-gear-icon" onclick="_padGearToggle(this)">⚙</span>
                                 <div class="pad-gear-menu">
@@ -3235,7 +3347,106 @@ body.fullscreen #transcription-hud { pointer-events: none !important; } /* keep 
                             <span class="pad-lcd">— empty —</span>
                         </button>
 
+                        <!-- Zone 3: Liquid Library -->
+                        <div class="sfx-bank-label" style="color:rgba(100,60,255,0.65);">LIQUID LIB <em>// 0.75× · HEAVY DRAG</em></div>
+
+                        <button class="btn sfx-btn sfx-pad sfx-liq" id="sfx-liq1" data-sfx="liq1" data-midi-target="sfx:liq1" data-pad-num="09" title="Liquid 1 — tap or arm groovebox">
+                            <div class="pad-gear" onclick="event.stopPropagation()">
+                                <span class="pad-gear-icon" onclick="_padGearToggle(this)">⚙</span>
+                                <div class="pad-gear-menu">
+                                    <div data-fx="none">— NONE —</div>
+                                    <div data-fx="nvg">NVG</div>
+                                    <div data-fx="shoot">SHOOT</div>
+                                    <div data-fx="void">VOID</div>
+                                    <div data-fx="failure">FAILURE</div>
+                                    <div data-fx="lucy">LUCY</div>
+                                    <div data-fx="seismic">SEISMIC</div>
+                                    <div data-fx="punch">PUNCH</div>
+                                    <div data-fx="party">PARTY</div>
+                                </div>
+                            </div>
+                            <span class="pad-name">LIQ-1</span>
+                            <span class="pad-fx-label"></span>
+                            <span class="pad-rate">0.75×</span>
+                        </button>
+
+                        <button class="btn sfx-btn sfx-pad sfx-liq" id="sfx-liq2" data-sfx="liq2" data-midi-target="sfx:liq2" data-pad-num="10" title="Liquid 2 — tap or arm groovebox">
+                            <div class="pad-gear" onclick="event.stopPropagation()">
+                                <span class="pad-gear-icon" onclick="_padGearToggle(this)">⚙</span>
+                                <div class="pad-gear-menu">
+                                    <div data-fx="none">— NONE —</div>
+                                    <div data-fx="nvg">NVG</div>
+                                    <div data-fx="shoot">SHOOT</div>
+                                    <div data-fx="void">VOID</div>
+                                    <div data-fx="failure">FAILURE</div>
+                                    <div data-fx="lucy">LUCY</div>
+                                    <div data-fx="seismic">SEISMIC</div>
+                                    <div data-fx="punch">PUNCH</div>
+                                    <div data-fx="party">PARTY</div>
+                                </div>
+                            </div>
+                            <span class="pad-name">LIQ-2</span>
+                            <span class="pad-fx-label"></span>
+                            <span class="pad-rate">0.75×</span>
+                        </button>
+
+                        <button class="btn sfx-btn sfx-pad sfx-liq" id="sfx-liq3" data-sfx="liq3" data-midi-target="sfx:liq3" data-pad-num="11" title="Liquid 3 — tap or arm groovebox">
+                            <div class="pad-gear" onclick="event.stopPropagation()">
+                                <span class="pad-gear-icon" onclick="_padGearToggle(this)">⚙</span>
+                                <div class="pad-gear-menu">
+                                    <div data-fx="none">— NONE —</div>
+                                    <div data-fx="nvg">NVG</div>
+                                    <div data-fx="shoot">SHOOT</div>
+                                    <div data-fx="void">VOID</div>
+                                    <div data-fx="failure">FAILURE</div>
+                                    <div data-fx="lucy">LUCY</div>
+                                    <div data-fx="seismic">SEISMIC</div>
+                                    <div data-fx="punch">PUNCH</div>
+                                    <div data-fx="party">PARTY</div>
+                                </div>
+                            </div>
+                            <span class="pad-name">LIQ-3</span>
+                            <span class="pad-fx-label"></span>
+                            <span class="pad-rate">0.75×</span>
+                        </button>
+
+                        <button class="btn sfx-btn sfx-pad sfx-liq sfx-wide" id="sfx-liq4" data-sfx="liq4" data-midi-target="sfx:liq4" data-pad-num="12" title="Liquid 4 — wide heavy drag pad">
+                            <div class="pad-gear" onclick="event.stopPropagation()">
+                                <span class="pad-gear-icon" onclick="_padGearToggle(this)">⚙</span>
+                                <div class="pad-gear-menu">
+                                    <div data-fx="none">— NONE —</div>
+                                    <div data-fx="nvg">NVG</div>
+                                    <div data-fx="shoot">SHOOT</div>
+                                    <div data-fx="void">VOID</div>
+                                    <div data-fx="failure">FAILURE</div>
+                                    <div data-fx="lucy">LUCY</div>
+                                    <div data-fx="seismic">SEISMIC</div>
+                                    <div data-fx="punch">PUNCH</div>
+                                    <div data-fx="party">PARTY</div>
+                                </div>
+                            </div>
+                            <span class="pad-name">LIQ-4</span>
+                            <span class="pad-fx-label"></span>
+                            <span class="pad-rate">0.75×</span>
+                        </button>
+
+                    </div><!-- /sfx-pad-grid -->
+
+                    <!-- Liquid Library pack selector -->
+                    <select id="liq-lib-select">
+                        <option value="0">▶ DEEP IMPACT — Sub 808 Thumps</option>
+                        <option value="1">▶ VAPOR BASS — Drifting Chords</option>
+                        <option value="2">▶ PUNCH CORE — Hard Kick Stabs</option>
+                        <option value="3">▶ LIQUID DROP — Slow Wave Subs</option>
+                    </select>
+
+                    <!-- Groovebox transport (hidden until GROOVEBOX mode) -->
+                    <div id="groovebox-transport">
+                        <span id="gb-bpm-label">BPM</span>
+                        <input type="number" id="gb-bpm" value="120" min="60" max="220">
+                        <button id="gb-transport-btn" onclick="_toggleGrooveboxTransport()">&#x25B6; START</button>
                     </div>
+
                     <!-- Hidden file inputs for custom pad uploads -->
                     <input type="file" id="sfx-file-1" accept="audio/*" style="display:none;">
                     <input type="file" id="sfx-file-2" accept="audio/*" style="display:none;">
@@ -3272,7 +3483,7 @@ body.fullscreen #transcription-hud { pointer-events: none !important; } /* keep 
                                 <span class="sampler-help-desc">Use MIDI LEARN in the MIDI_HOST section to bind any pad to your controller.</span>
                             </div>
                         </div>
-                        <div class="sampler-help-footer">VNGRD // SAMPLER SFX · 8-PAD</div>
+                        <div class="sampler-help-footer">VNGRD // SAMPLER SFX · 12-PAD · GROOVEBOX</div>
                     </div>
                 </div>
             </div>
@@ -6404,6 +6615,11 @@ const SFX_ENGINE = (() => {
     }
 
     function play(name) {
+        // Liquid pads are handled by the groovebox engine
+        if (name && name.startsWith('liq')) {
+            if (typeof _fireLiqPad === 'function') _fireLiqPad(parseInt(name.replace('liq',''),10) - 1, null, name);
+            return;
+        }
         if (!APP.audio.ctx) igniteAudio();
         if (!APP.audio.masterGain) ensureAudioChain();
         const ctx = APP.audio.ctx;
@@ -6416,13 +6632,15 @@ const SFX_ENGINE = (() => {
             const gain = ctx.createGain();
             gain.gain.value = GAINS[name] !== undefined ? GAINS[name] : GAIN;
             src.connect(gain);
-            // Route through duckingGain (Main Processor → analyser) so every pad hit
-            // drives bassLevel, making the Seismic + Punch engines react to sampler pads.
-            gain.connect(APP.audio.duckingGain);
+            // Route through padBus (lowshelf 180Hz +10dB) → duckingGain → analyser
+            var bus = (typeof _getPadBus === 'function') ? _getPadBus(ctx) : null;
+            gain.connect(bus || APP.audio.duckingGain);
             // Lit the pad button while playing
             const padBtn = document.getElementById('sfx-' + name);
             if (padBtn) padBtn.classList.add('sfx-playing');
             src.start();
+            // VJ heavy sync on every pad trigger
+            if (typeof _vjHeavySync === 'function') _vjHeavySync();
             // Signal updateVU to keep running during SFX playback
             APP.audio.sfxPlaying = true;
             // Mute mic recording feed while pad plays — prevents phase-doubled capture
@@ -6444,6 +6662,247 @@ const SFX_ENGINE = (() => {
     function _buffers() { return buffers; }
     return { init, play, loadCustom, _buffers };
 })();
+
+// ═══════════════════════════════════════════════════════════════
+//  PAD BUS — BiquadFilter lowshelf 180 Hz +10 dB
+//  Inserted between pad gains and APP.audio.duckingGain so every
+//  sampler hit punches sub-bass into the analyser chain.
+// ═══════════════════════════════════════════════════════════════
+var _padBusNode = null;
+function _getPadBus(ctx) {
+    if (!ctx) return null;
+    if (_padBusNode && _padBusNode.context === ctx && _padBusNode.context.state !== 'closed') return _padBusNode;
+    try {
+        var f = ctx.createBiquadFilter();
+        f.type = 'lowshelf';
+        f.frequency.value = 180;
+        f.gain.value = 10;
+        f.connect(APP.audio.duckingGain);
+        _padBusNode = f;
+        return f;
+    } catch(e) { return null; }
+}
+
+// ═══════════════════════════════════════════════════════════════
+//  VJ HEAVY SYNC — seismic + elastic punch on every pad trigger
+//  Scaled by live bassLevel so louder hits = more shake.
+// ═══════════════════════════════════════════════════════════════
+function _vjHeavySync() {
+    if (typeof APP === 'undefined' || !APP.vj) return;
+    var scale = (APP.audio && APP.audio.bassLevel) ? APP.audio.bassLevel / 255 : 0.65;
+    var vel = 0.45 + scale * 0.9;
+    APP.vj._seismicVel = (APP.vj._seismicVel || 0) + vel;
+    APP.vj._seismicDemoUntil = performance.now() + 1800;
+    APP.vj._punchSpring = Math.min(1.0, (APP.vj._punchSpring || 0) + 0.55 * scale);
+    APP.vj._punchDemoUntil = performance.now() + 1800;
+    APP.vj._punchDemoBeat = performance.now();
+}
+
+// ═══════════════════════════════════════════════════════════════
+//  VANGUARD LIQUID LIBRARY — 4 synthesized bass packs × 4 pads
+//  All sounds generated client-side via OfflineAudioContext.
+// ═══════════════════════════════════════════════════════════════
+var VANGUARD_LIQUID_LIB = [
+    { name: 'DEEP IMPACT', pads: [
+        { label: 'THUMP',    p: { freq:60,  type:'sine',     atk:0.003, dec:0.35, sus:0.05, dur:1.4, sub:30  } },
+        { label: '808',      p: { freq:80,  type:'sine',     atk:0.002, dec:0.55, sus:0.02, dur:1.8, sub:40  } },
+        { label: 'SLAM',     p: { freq:55,  type:'triangle', atk:0.001, dec:0.25, sus:0.08, dur:1.0, sub:28  } },
+        { label: 'GRAVITY',  p: { freq:45,  type:'sine',     atk:0.005, dec:0.70, sus:0.01, dur:2.2, sub:22  } }
+    ]},
+    { name: 'VAPOR BASS', pads: [
+        { label: 'WAVE',     p: { freq:110, type:'sine',     atk:0.02,  dec:0.4,  sus:0.15, dur:1.6, det:-8  } },
+        { label: 'CHROMA',   p: { freq:88,  type:'triangle', atk:0.015, dec:0.5,  sus:0.12, dur:2.0, det:12  } },
+        { label: 'DRIFT',    p: { freq:73,  type:'sine',     atk:0.03,  dec:0.6,  sus:0.18, dur:2.4, det:-20 } },
+        { label: 'HAUNT',    p: { freq:55,  type:'triangle', atk:0.05,  dec:0.8,  sus:0.10, dur:3.0, det:5   } }
+    ]},
+    { name: 'PUNCH CORE', pads: [
+        { label: 'KICK',     p: { freq:120, type:'sine',     atk:0.001, dec:0.15, sus:0.001,dur:0.6, sub:60 } },
+        { label: 'STOMP',    p: { freq:90,  type:'triangle', atk:0.002, dec:0.18, sus:0.002,dur:0.7, sub:45 } },
+        { label: 'SPIKE',    p: { freq:75,  type:'sawtooth', atk:0.001, dec:0.12, sus:0.001,dur:0.5, sub:38 } },
+        { label: 'DETONATE', p: { freq:55,  type:'sine',     atk:0.001, dec:0.28, sus:0.001,dur:0.9, sub:28 } }
+    ]},
+    { name: 'LIQUID DROP', pads: [
+        { label: 'FLOW',     p: { freq:100, type:'sine',     atk:0.08,  dec:0.5,  sus:0.30, dur:2.5, sub:50 } },
+        { label: 'RIPPLE',   p: { freq:82,  type:'sine',     atk:0.12,  dec:0.7,  sus:0.25, dur:3.0, sub:41 } },
+        { label: 'SURGE',    p: { freq:65,  type:'triangle', atk:0.06,  dec:0.55, sus:0.20, dur:2.0, sub:33 } },
+        { label: 'ABYSSAL',  p: { freq:45,  type:'sine',     atk:0.10,  dec:0.9,  sus:0.15, dur:4.0, sub:22 } }
+    ]}
+];
+
+// Synthesize a bass pad buffer using OfflineAudioContext
+function _synthLiqBuf(p) {
+    var sr = 44100;
+    var dur = p.dur || 1.2;
+    var numCh = 1;
+    try {
+        var oct = new OfflineAudioContext(numCh, Math.ceil(sr * dur), sr);
+        var osc = oct.createOscillator();
+        osc.type = p.type || 'sine';
+        osc.frequency.value = p.freq || 80;
+        if (p.det) osc.detune.value = p.det;
+        var env = oct.createGain();
+        env.gain.setValueAtTime(0, 0);
+        env.gain.linearRampToValueAtTime(0.88, p.atk || 0.005);
+        env.gain.exponentialRampToValueAtTime(Math.max(p.sus || 0.05, 0.001), (p.atk || 0.005) + (p.dec || 0.3));
+        env.gain.exponentialRampToValueAtTime(0.001, dur - 0.02);
+        osc.connect(env); env.connect(oct.destination);
+        osc.start(0); osc.stop(dur);
+        if (p.sub) {
+            var sub = oct.createOscillator();
+            sub.type = 'sine';
+            sub.frequency.value = p.sub;
+            var subEnv = oct.createGain();
+            subEnv.gain.setValueAtTime(0, 0);
+            subEnv.gain.linearRampToValueAtTime(0.65, 0.003);
+            subEnv.gain.exponentialRampToValueAtTime(0.001, dur - 0.02);
+            sub.connect(subEnv); subEnv.connect(oct.destination);
+            sub.start(0); sub.stop(dur);
+        }
+        return oct.startRendering();
+    } catch(e) { return Promise.reject(e); }
+}
+
+// Buffer cache: 'packIdx_padIdx' → AudioBuffer
+var _liqBufCache = {};
+var _liqCurrentPack = 0;
+
+function _getLiqBuf(packIdx, padIdx) {
+    var key = packIdx + '_' + padIdx;
+    if (_liqBufCache[key]) return Promise.resolve(_liqBufCache[key]);
+    var pack = VANGUARD_LIQUID_LIB[packIdx];
+    if (!pack || !pack.pads[padIdx]) return Promise.reject('no-pack');
+    return _synthLiqBuf(pack.pads[padIdx].p).then(function(buf) {
+        _liqBufCache[key] = buf;
+        return buf;
+    });
+}
+
+// Fire a liquid pad (padIdx 0-3, schedTime = audioCtx time or null for immediate)
+function _fireLiqPad(padIdx, schedTime, sfxName) {
+    if (!APP.audio.ctx) igniteAudio();
+    if (!APP.audio.masterGain) ensureAudioChain();
+    var ctx = APP.audio.ctx;
+    if (!ctx) return;
+    if (ctx.state === 'suspended') ctx.resume();
+    var packIdx = _liqCurrentPack;
+    _getLiqBuf(packIdx, padIdx).then(function(buf) {
+        var src = ctx.createBufferSource();
+        src.buffer = buf;
+        src.playbackRate.value = 0.75;
+        var gain = ctx.createGain();
+        gain.gain.value = 0.88;
+        src.connect(gain);
+        var bus = _getPadBus(ctx);
+        gain.connect(bus || APP.audio.duckingGain);
+        var when = (schedTime != null) ? schedTime : ctx.currentTime;
+        src.start(when);
+        APP.audio.sfxPlaying = true;
+        src.onended = function() { APP.audio.sfxPlaying = false; };
+        // Visual pulse
+        var padEl = document.getElementById('sfx-liq' + (padIdx + 1));
+        if (padEl) {
+            padEl.classList.add('sfx-pulse', 'sfx-playing');
+            setTimeout(function() { padEl.classList.remove('sfx-pulse', 'sfx-playing'); }, 320);
+        }
+        // VJ sync
+        _vjHeavySync();
+        // Coupled FX
+        var nm = sfxName || ('liq' + (padIdx + 1));
+        if (typeof _padCoupling !== 'undefined' && _padCoupling[nm] && typeof _fireCoupledFX === 'function') {
+            _fireCoupledFX(nm);
+        }
+    }).catch(function() {});
+}
+
+// Update liquid pad labels when pack changes
+function _updateLiqPadLabels(packIdx) {
+    var pack = VANGUARD_LIQUID_LIB[packIdx];
+    if (!pack) return;
+    pack.pads.forEach(function(pad, i) {
+        var el = document.getElementById('sfx-liq' + (i + 1));
+        if (el) {
+            var nameEl = el.querySelector('.pad-name');
+            if (nameEl) nameEl.textContent = pad.label;
+        }
+    });
+}
+
+// ═══════════════════════════════════════════════════════════════
+//  GROOVEBOX ENGINE — quantized Web Audio scheduler
+// ═══════════════════════════════════════════════════════════════
+var _groovebox = {
+    mode: 'performance',   // 'performance' | 'groovebox'
+    bpm: 120,
+    isPlaying: false,
+    armedPads: new Set(),
+    nextBeatTime: 0,
+    _intervalId: null
+};
+
+window._toggleGrooveboxMode = function() {
+    var btn = document.getElementById('mode-toggle');
+    var transport = document.getElementById('groovebox-transport');
+    if (_groovebox.mode === 'performance') {
+        _groovebox.mode = 'groovebox';
+        if (btn) { btn.textContent = 'GRVBX'; btn.classList.add('groovebox-mode'); }
+        if (transport) transport.classList.add('visible');
+    } else {
+        _groovebox.mode = 'performance';
+        if (btn) { btn.textContent = 'PERF'; btn.classList.remove('groovebox-mode'); }
+        if (transport) transport.classList.remove('visible');
+        _stopGroovebox();
+        // Disarm all pads
+        _groovebox.armedPads.forEach(function(sfxName) {
+            var el = document.getElementById('sfx-' + sfxName);
+            if (el) el.classList.remove('gb-armed');
+        });
+        _groovebox.armedPads.clear();
+    }
+};
+
+window._toggleGrooveboxTransport = function() {
+    if (_groovebox.isPlaying) { _stopGroovebox(); } else { _startGroovebox(); }
+};
+
+function _startGroovebox() {
+    if (!APP.audio.ctx) igniteAudio();
+    if (!APP.audio.masterGain) ensureAudioChain();
+    var ctx = APP.audio.ctx;
+    if (!ctx) return;
+    if (ctx.state === 'suspended') ctx.resume();
+    _groovebox.bpm = parseInt(document.getElementById('gb-bpm').value, 10) || 120;
+    _groovebox.nextBeatTime = ctx.currentTime + 0.05;
+    _groovebox.isPlaying = true;
+    var btn = document.getElementById('gb-transport-btn');
+    if (btn) { btn.innerHTML = '&#x25A0; STOP'; btn.classList.add('playing'); }
+    _groovebox._intervalId = setInterval(_grooveboxScheduler, 25);
+}
+
+function _stopGroovebox() {
+    _groovebox.isPlaying = false;
+    clearInterval(_groovebox._intervalId);
+    _groovebox._intervalId = null;
+    var btn = document.getElementById('gb-transport-btn');
+    if (btn) { btn.innerHTML = '&#x25B6; START'; btn.classList.remove('playing'); }
+}
+
+function _grooveboxScheduler() {
+    if (!_groovebox.isPlaying || !APP.audio.ctx) return;
+    var ctx = APP.audio.ctx;
+    var lookahead = 0.1;
+    var sixteenth = (60 / _groovebox.bpm) / 4;
+    while (_groovebox.nextBeatTime < ctx.currentTime + lookahead) {
+        _groovebox.armedPads.forEach(function(sfxName) {
+            if (sfxName.startsWith('liq')) {
+                _fireLiqPad(parseInt(sfxName.replace('liq',''),10) - 1, _groovebox.nextBeatTime, sfxName);
+            } else {
+                // Non-liquid pads: play once at scheduled time (best-effort, no sub-sample scheduling)
+                SFX_ENGINE.play(sfxName);
+            }
+        });
+        _groovebox.nextBeatTime += sixteenth;
+    }
+}
 
 function connectVideoAudio(vid) {
     if (!vid || vid.tagName !== 'VIDEO') return;
@@ -8975,6 +9434,18 @@ document.addEventListener('DOMContentLoaded', () => {
                     }
                 }
 
+                // Groovebox mode: arm/disarm instead of immediate fire
+                if (typeof _groovebox !== 'undefined' && _groovebox.mode === 'groovebox') {
+                    if (btn.classList.contains('gb-armed')) {
+                        btn.classList.remove('gb-armed');
+                        _groovebox.armedPads.delete(sfxName);
+                    } else {
+                        btn.classList.add('gb-armed');
+                        _groovebox.armedPads.add(sfxName);
+                        _pulsePad(btn);
+                    }
+                    return;
+                }
                 SFX_ENGINE.play(sfxName);
                 _pulsePad(btn);
                 log('SFX: ' + sfxName.toUpperCase());
@@ -8988,6 +9459,19 @@ document.addEventListener('DOMContentLoaded', () => {
             if (btn) _pulsePad(btn);
             _fireCoupledFX(sfxName);
         };
+
+        // ── LIQUID LIBRARY PACK SELECT ───────────────────────
+        (function() {
+            var sel = document.getElementById('liq-lib-select');
+            if (sel) {
+                sel.addEventListener('change', function() {
+                    _liqCurrentPack = parseInt(sel.value, 10) || 0;
+                    _updateLiqPadLabels(_liqCurrentPack);
+                });
+            }
+            // Set initial pack labels
+            if (typeof _updateLiqPadLabels === 'function') _updateLiqPadLabels(0);
+        })();
 
         // ── COUPLING ENGINE ─────────────────────────────────────────────
         // Gear dropdown per pad: NONE → NVG / SHOOT / RESET / VOID / FAILURE / LUCY / SEISMIC / PUNCH / PARTY
@@ -9304,13 +9788,18 @@ document.addEventListener('DOMContentLoaded', () => {
             'sampler': {
                 title: 'SAMPLER SFX',
                 rows: [
-                    ['TAP',   'Fire the sound. Works with mouse, touch, or MIDI keyboard.'],
-                    ['⚙ FX',  'Gear icon on any pad couples a visual effect that fires with the sound.'],
-                    ['LOAD',  'Tap a Custom pad (C-01 – C-04) to load any audio file from your device.'],
-                    ['REC',   'Right-click a Custom pad to arm mic recording. A 10-second count begins on tap.'],
-                    ['MIDI',  'Use MIDI LEARN in the MIDI_HOST section to bind any pad to your controller.']
+                    ['TAP',       'Fire any pad immediately. Works with mouse, touch, or MIDI.'],
+                    ['ZONE 1',    'SIG BANK — 3 sig pads + BOOM wide-pad. Core Vanguard sounds.'],
+                    ['ZONE 2',    'CUSTOM — tap C-01–C-03 to load audio. C-04 wide-pad. R-click: arm mic REC.'],
+                    ['ZONE 3',    'LIQUID LIB — 4 synthesized bass pads at 0.75× speed. Select pack below.'],
+                    ['⚙ FX',     'Gear icon on any pad couples a visual effect that fires with the sound.'],
+                    ['PERF',      'PERFORMANCE mode (default) — every tap fires sound zero-latency.'],
+                    ['GRVBX',     'GROOVEBOX mode — tapping a pad arms it (gold glow). Armed pads loop on 16th note.'],
+                    ['BPM',       'Set the transport tempo. Only active in GROOVEBOX mode.'],
+                    ['▶ START',   'Start the groovebox transport. Armed pads fire in sync. Tap again to stop.'],
+                    ['MIDI',      'Use MIDI LEARN in the MIDI_HOST section to bind any pad to your controller.']
                 ],
-                footer: 'VNGRD // SAMPLER SFX · 8-PAD'
+                footer: 'VNGRD // SAMPLER SFX · 12-PAD · GROOVEBOX'
             }
         };
 
