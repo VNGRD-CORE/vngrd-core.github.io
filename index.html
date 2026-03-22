@@ -1665,6 +1665,28 @@
         #gb-transport-btn:hover { border-color: rgba(255,200,0,0.9); color: #ffd700; box-shadow: 0 0 12px rgba(255,200,0,0.5); }
         #gb-transport-btn.playing { border-color: rgba(255,60,60,0.9); color: #ff4444; box-shadow: 0 0 14px rgba(255,50,50,0.6); animation: gb-play-pulse 0.6s ease-in-out infinite; }
         @keyframes gb-play-pulse { 0%,100%{box-shadow:0 0 8px rgba(255,50,50,0.5);} 50%{box-shadow:0 0 18px rgba(255,50,50,0.9);} }
+
+        /* ── EUCLIDEAN RADAR ENGINE ──────────────────────────────────── */
+        #euclid-panel { margin-top:5px; border:1px solid rgba(0,243,255,0.18); background:rgba(0,10,15,0.55); border-radius:2px; overflow:hidden; }
+        #euclid-header { display:flex; align-items:center; padding:4px 6px; gap:6px; border-bottom:1px solid rgba(0,243,255,0.1); }
+        #euclid-title { font-family:'Orbitron',sans-serif; font-size:8px; font-weight:700; letter-spacing:2px; color:rgba(0,243,255,0.65); flex:1; }
+        #euclid-play-btn { background:transparent; border:1px solid rgba(0,243,255,0.4); border-radius:2px; color:rgba(0,243,255,0.75); font-family:'Orbitron',sans-serif; font-size:7.5px; font-weight:700; letter-spacing:1px; padding:3px 8px; cursor:pointer; transition:border-color 0.12s,color 0.12s,box-shadow 0.12s; white-space:nowrap; }
+        #euclid-play-btn:hover { border-color:rgba(0,243,255,0.9); color:#00f3ff; box-shadow:0 0 10px rgba(0,243,255,0.4); }
+        #euclid-play-btn.armed { border-color:rgba(0,243,255,0.9); color:#00f3ff; box-shadow:0 0 14px rgba(0,243,255,0.55); animation:euclid-arm-pulse 1s ease-in-out infinite; }
+        @keyframes euclid-arm-pulse { 0%,100%{box-shadow:0 0 8px rgba(0,243,255,0.4);} 50%{box-shadow:0 0 22px rgba(0,243,255,0.9);} }
+        #euclid-body { display:flex; flex-direction:column; align-items:center; padding:6px 4px 4px; gap:5px; }
+        #euclid-canvas { display:block; border-radius:50%; background:rgba(0,0,0,0.7); border:1px solid rgba(0,243,255,0.1); }
+        #euclid-tracks { width:100%; display:flex; flex-direction:column; gap:3px; padding:0 2px; }
+        .euclid-track { display:flex; align-items:center; gap:3px; }
+        .et-label { font-family:'Orbitron',sans-serif; font-size:6px; color:rgba(0,243,255,0.5); letter-spacing:0.7px; width:30px; flex-shrink:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+        .et-dim { font-size:5.5px; color:rgba(255,255,255,0.22); flex-shrink:0; }
+        .et-steps, .et-pulses { flex:1; height:12px; cursor:pointer; accent-color:rgba(0,243,255,0.8); }
+        .et-val { font-size:5.5px; color:rgba(0,243,255,0.35); width:24px; text-align:right; flex-shrink:0; font-family:monospace; }
+        #euclid-grain-row { display:flex; align-items:center; gap:3px; width:100%; padding:0 2px; flex-wrap:wrap; }
+        .euclid-grain-lbl { font-size:6px; color:rgba(255,255,255,0.28); letter-spacing:0.7px; flex-shrink:0; }
+        .euclid-grain-sl { flex:1; height:12px; cursor:pointer; accent-color:rgba(255,140,0,0.8); min-width:30px; }
+        .euclid-grain-val { font-size:5.5px; color:rgba(255,140,0,0.4); width:22px; text-align:right; font-family:monospace; flex-shrink:0; }
+
         /* Expand button */
         #gb-expand-btn {
             background: transparent; border: 1px solid rgba(0,243,255,0.3); border-radius: 2px;
@@ -3811,6 +3833,59 @@ body.fullscreen #transcription-hud { pointer-events: none !important; } /* keep 
                             <button id="gb-expand-btn" onclick="_toggleSeqExpand()" title="Pop out sequencer">POP</button>
                         </div>
                         <div id="gb-seq-grid"></div>
+                    </div>
+
+                    <!-- ═══ EUCLIDEAN RADAR ENGINE ═══ -->
+                    <div id="euclid-panel">
+                        <div id="euclid-header">
+                            <span id="euclid-title">EUCLID_RADAR</span>
+                            <button id="euclid-play-btn" onclick="_euclidToggle()">&#x25B6; ARM</button>
+                        </div>
+                        <div id="euclid-body">
+                            <canvas id="euclid-canvas" width="170" height="170"></canvas>
+                            <div id="euclid-tracks">
+                                <div class="euclid-track" data-track="0">
+                                    <span class="et-label" id="et-label-0">PAD-1</span>
+                                    <span class="et-dim">S</span>
+                                    <input type="range" class="et-steps" data-track="0" min="4" max="32" value="16">
+                                    <span class="et-dim">P</span>
+                                    <input type="range" class="et-pulses" data-track="0" min="1" max="16" value="4">
+                                    <span class="et-val" id="et-val-0">4/16</span>
+                                </div>
+                                <div class="euclid-track" data-track="1">
+                                    <span class="et-label" id="et-label-1">PAD-2</span>
+                                    <span class="et-dim">S</span>
+                                    <input type="range" class="et-steps" data-track="1" min="4" max="32" value="16">
+                                    <span class="et-dim">P</span>
+                                    <input type="range" class="et-pulses" data-track="1" min="1" max="16" value="3">
+                                    <span class="et-val" id="et-val-1">3/16</span>
+                                </div>
+                                <div class="euclid-track" data-track="2">
+                                    <span class="et-label" id="et-label-2">PAD-3</span>
+                                    <span class="et-dim">S</span>
+                                    <input type="range" class="et-steps" data-track="2" min="4" max="32" value="16">
+                                    <span class="et-dim">P</span>
+                                    <input type="range" class="et-pulses" data-track="2" min="1" max="16" value="2">
+                                    <span class="et-val" id="et-val-2">2/16</span>
+                                </div>
+                                <div class="euclid-track" data-track="3">
+                                    <span class="et-label" id="et-label-3">PAD-4</span>
+                                    <span class="et-dim">S</span>
+                                    <input type="range" class="et-steps" data-track="3" min="4" max="32" value="12">
+                                    <span class="et-dim">P</span>
+                                    <input type="range" class="et-pulses" data-track="3" min="1" max="12" value="5">
+                                    <span class="et-val" id="et-val-3">5/12</span>
+                                </div>
+                            </div>
+                            <div id="euclid-grain-row">
+                                <span class="euclid-grain-lbl">PITCH&#xB1;</span>
+                                <input type="range" class="euclid-grain-sl" id="euclid-pitch" min="0" max="100" value="25">
+                                <span class="euclid-grain-val" id="euclid-pitch-val">25%</span>
+                                <span class="euclid-grain-lbl" style="margin-left:4px;">SPREAD</span>
+                                <input type="range" class="euclid-grain-sl" id="euclid-spread" min="0" max="100" value="60">
+                                <span class="euclid-grain-val" id="euclid-spread-val">60%</span>
+                            </div>
+                        </div>
                     </div>
 
                     <!-- Hidden file inputs for custom pad uploads -->
@@ -15440,6 +15515,453 @@ function _applyPoseToModel(lm) {
         }
     });
 }
+
+})();
+</script>
+
+<!-- ═══════════════════════════════════════════════════════════════════
+     GRANULAR EUCLIDEAN ENGINE
+     Role  : Elite DSP Engineer & WebGL Visual Architect
+     DSP   : GranularProcessor (burst-grain synthesis, WaveShaper warmth,
+             per-grain StereoPanner spread, HRTF PannerNode 3D depth)
+     Rhythm: Euclidean / Bjorklund pattern generator
+     UI    : Canvas-based multi-ring Radar (RAF, Neural Cyan sweep)
+     Routes: grains → warmth → outGain → pad-bus → duckingGain →
+             analyzer → masterGain → outputLimiter(20:1) → destination
+             All existing audio-reactive visuals (Bank A/B) stay live.
+     ═══════════════════════════════════════════════════════════════════ -->
+<script>
+'use strict';
+
+// ── Euclidean pattern generator (Bresenham / even-distribution) ───────
+function generateEuclidean(steps, pulses) {
+    steps  = Math.max(1, Math.min(steps,  64));
+    pulses = Math.max(0, Math.min(pulses, steps));
+    if (pulses === 0) return new Array(steps).fill(0);
+    if (pulses >= steps) return new Array(steps).fill(1);
+    var pattern = new Array(steps).fill(0);
+    var acc = 0;
+    for (var i = 0; i < steps; i++) {
+        acc += pulses;
+        if (acc >= steps) { acc -= steps; pattern[i] = 1; }
+    }
+    return pattern;
+}
+
+// ── GranularProcessor ─────────────────────────────────────────────────
+//  Burst-grain synthesiser.
+//  Shared chain: [all grains] → warmthShaper → outGain → outPanner → dest
+//  Per grain:   bufSrc → grainEnv → stereoPan → warmthShaper (shared)
+// ─────────────────────────────────────────────────────────────────────
+(function() {
+    // Soft-tanh sigmoid — "expensive" harmonic saturation
+    function _makeSigmoid(n, drive) {
+        var c = new Float32Array(n);
+        var tanhDrive = Math.tanh(drive);
+        for (var i = 0; i < n; i++) {
+            var x = (i / (n - 1)) * 2 - 1;
+            c[i] = Math.tanh(drive * x) / tanhDrive;
+        }
+        return c;
+    }
+
+    function GranularProcessor(ctx, destination) {
+        this.ctx = ctx;
+
+        // ① Analog warmth — soft-sigmoid WaveShaper (drive=2.8)
+        this.warmth = ctx.createWaveShaper();
+        this.warmth.curve     = _makeSigmoid(512, 2.8);
+        this.warmth.oversample = '4x';
+
+        // ② Output gain
+        this.outGain = ctx.createGain();
+        this.outGain.gain.value = 0.75;
+
+        // ③ 3D spatial panner — positions source in stereo/HRTF field
+        this.outPanner = ctx.createPanner();
+        this.outPanner.panningModel  = 'HRTF';
+        this.outPanner.distanceModel = 'inverse';
+        this.outPanner.refDistance   = 1;
+        if (this.outPanner.positionX) {
+            this.outPanner.positionX.setValueAtTime(0, ctx.currentTime);
+            this.outPanner.positionY.setValueAtTime(0, ctx.currentTime);
+            this.outPanner.positionZ.setValueAtTime(1, ctx.currentTime);
+        }
+
+        // Chain: warmth → outGain → outPanner → destination
+        this.warmth.connect(this.outGain);
+        this.outGain.connect(this.outPanner);
+        this.outPanner.connect(destination);
+    }
+
+    // Set 3D position of this source (x, y, z in metres)
+    GranularProcessor.prototype.setPosition = function(x, y, z) {
+        if (!this.outPanner.positionX) return;
+        var t = this.ctx.currentTime;
+        this.outPanner.positionX.setValueAtTime(x, t);
+        this.outPanner.positionY.setValueAtTime(y, t);
+        this.outPanner.positionZ.setValueAtTime(z, t);
+    };
+
+    // Trigger a burst of grains from an AudioBuffer at schedTime
+    GranularProcessor.prototype.trigger = function(buffer, schedTime, opts) {
+        if (!buffer) return;
+        var ctx         = this.ctx;
+        var t0          = (schedTime != null) ? schedTime : ctx.currentTime;
+        var grains      = 6;
+        var jitter      = (opts && opts.pitchJitter  != null) ? opts.pitchJitter  : 0.04;  // 0-1
+        var spread      = (opts && opts.stereoSpread != null) ? opts.stereoSpread : 0.6;   // 0-1
+        var grainDur    = Math.min(0.14, buffer.duration * 0.38);
+        var spacing     = 0.013; // 13 ms between grain attacks
+        var peakPerGrain = 0.60 / grains;
+
+        for (var i = 0; i < grains; i++) {
+            var t = t0 + i * spacing;
+
+            // Buffer source with pitch jitter
+            var src = ctx.createBufferSource();
+            src.buffer = buffer;
+            src.playbackRate.value = 1.0 + (Math.random() * 2 - 1) * jitter * 0.18;
+
+            // Grain amplitude envelope — fast attack, gentle fade
+            var env = ctx.createGain();
+            env.gain.setValueAtTime(0, t);
+            env.gain.linearRampToValueAtTime(peakPerGrain, t + 0.007);
+            env.gain.setValueAtTime(peakPerGrain, t + grainDur - 0.012);
+            env.gain.linearRampToValueAtTime(0, t + grainDur);
+
+            // Per-grain stereo spread via StereoPannerNode
+            var pan = ctx.createStereoPanner();
+            pan.pan.value = (Math.random() * 2 - 1) * spread;
+
+            // Scatter grain read-position slightly in buffer
+            var offset = Math.max(0, (Math.random() - 0.5) * 0.05);
+
+            // Wire: src → env → pan → shared warmth
+            src.connect(env);
+            env.connect(pan);
+            pan.connect(this.warmth);
+            src.start(t, offset, grainDur + 0.01);
+        }
+    };
+
+    window.GranularProcessor = GranularProcessor;
+})();
+
+// ── EuclideanRadar IIFE ───────────────────────────────────────────────
+//  Lookahead scheduler (Web Audio clock) + RAF canvas visualiser.
+//  Fires _getLiqBuf(packIdx, trackIdx) → GranularProcessor.trigger()
+//  Routes through existing pad-bus → analyzer → Bank A/B stay reactive.
+// ─────────────────────────────────────────────────────────────────────
+(function() {
+
+    var LOOK_AHEAD = 0.1;   // schedule 100 ms ahead of now
+    var SCHED_INT  = 25;    // scheduler tick every 25 ms
+
+    // Track colours (cyan, amber, green, purple)
+    var TC = ['rgba(0,243,255,','rgba(255,160,0,','rgba(0,255,65,','rgba(180,80,255,'];
+
+    // Internal state
+    var _playing    = false;
+    var _raf        = null;
+    var _schedTimer = null;
+    var _phase      = 0;          // 0-1 measure phase (visual)
+    var _startAudio = 0;          // audioCtx.currentTime at measure start
+    var _cursors    = [0,0,0,0];  // step cursors per track
+    var _stepTimes  = [0,0,0,0];  // next scheduled audio time per track
+    var _flash      = [-1,-1,-1,-1]; // last lit step per track (visual)
+    var _granulars  = [];         // GranularProcessor[4]
+
+    var _tracks = [
+        { steps:16, pulses:4,  pattern:[] },
+        { steps:16, pulses:3,  pattern:[] },
+        { steps:16, pulses:2,  pattern:[] },
+        { steps:12, pulses:5,  pattern:[] }
+    ];
+
+    function _refreshPatterns() {
+        _tracks.forEach(function(t) { t.pattern = generateEuclidean(t.steps, t.pulses); });
+    }
+    _refreshPatterns();
+
+    function _getBpm() {
+        var el = document.getElementById('gb-bpm');
+        return el ? (parseFloat(el.value) || 120) : 120;
+    }
+
+    // ── Canvas radar ─────────────────────────────────────────────
+    function _draw(ts) {
+        if (!_playing) { _raf = null; return; }
+        _raf = requestAnimationFrame(_draw);
+        _drawRadar(true);
+    }
+
+    function _drawRadar(live) {
+        var cvs = document.getElementById('euclid-canvas');
+        if (!cvs) return;
+        var ctx = cvs.getContext('2d');
+        var W = cvs.width, H = cvs.height, cx = W/2, cy = H/2;
+
+        // Sync phase to audio clock
+        if (live) {
+            var ac = APP && APP.audio && APP.audio.ctx;
+            if (ac && _startAudio > 0) {
+                var bpm = _getBpm();
+                var mDur = (60/bpm)*4;
+                _phase = ((ac.currentTime - _startAudio) % mDur) / mDur;
+            }
+        }
+
+        ctx.clearRect(0, 0, W, H);
+
+        // Subtle ring guidelines
+        for (var ri = 0; ri < 4; ri++) {
+            var rr = 26 + ri*16;
+            ctx.beginPath(); ctx.arc(cx, cy, rr, 0, Math.PI*2);
+            ctx.strokeStyle = TC[ri]+'0.07)'; ctx.lineWidth = 1; ctx.stroke();
+        }
+
+        // Radar sector sweep (filled wedge, no conicGradient needed)
+        var sweepA = _phase * Math.PI * 2 - Math.PI/2;
+        var wedge  = 0.18; // ~10°
+        ctx.save(); ctx.translate(cx, cy); ctx.rotate(sweepA);
+        ctx.beginPath(); ctx.moveTo(0, 0);
+        ctx.arc(0, 0, 82, -wedge, 0);
+        ctx.closePath();
+        ctx.fillStyle = 'rgba(0,243,255,0.045)'; ctx.fill();
+        ctx.restore();
+
+        // Step dots per track
+        for (var ti = 0; ti < 4; ti++) {
+            var trk = _tracks[ti];
+            var r   = 26 + ti*16;
+            var col = TC[ti];
+            for (var si = 0; si < trk.steps; si++) {
+                var a   = (si/trk.steps)*Math.PI*2 - Math.PI/2;
+                var px  = cx + Math.cos(a)*r;
+                var py  = cy + Math.sin(a)*r;
+                var hit = trk.pattern[si] === 1;
+                var lit = (si === _flash[ti]) && hit && live;
+                if (lit) {
+                    ctx.shadowColor = col+'1)'; ctx.shadowBlur = 14;
+                    ctx.fillStyle   = col+'1)';
+                    ctx.beginPath(); ctx.arc(px, py, 4.2, 0, Math.PI*2); ctx.fill();
+                    ctx.shadowBlur  = 0;
+                } else {
+                    ctx.fillStyle = hit ? col+'0.72)' : col+'0.18)';
+                    ctx.beginPath(); ctx.arc(px, py, hit ? 2.8 : 1.2, 0, Math.PI*2); ctx.fill();
+                }
+            }
+        }
+
+        // Radar sweep line — Neural Cyan glow
+        ctx.save(); ctx.translate(cx, cy); ctx.rotate(sweepA);
+        var lg = ctx.createLinearGradient(4, 0, 82, 0);
+        lg.addColorStop(0,   'rgba(0,243,255,0.05)');
+        lg.addColorStop(0.55,'rgba(0,243,255,0.5)');
+        lg.addColorStop(1,   'rgba(0,243,255,0.95)');
+        ctx.strokeStyle = lg; ctx.lineWidth = 1.5;
+        ctx.shadowColor = 'rgba(0,243,255,0.85)'; ctx.shadowBlur = 7;
+        ctx.beginPath(); ctx.moveTo(4, 0); ctx.lineTo(82, 0); ctx.stroke();
+        ctx.restore();
+
+        // Centre dot
+        ctx.shadowColor = '#00f3ff'; ctx.shadowBlur = 9;
+        ctx.fillStyle = '#00f3ff';
+        ctx.beginPath(); ctx.arc(cx, cy, 2.5, 0, Math.PI*2); ctx.fill();
+        ctx.shadowBlur = 0;
+
+        // BPM readout
+        ctx.font = '700 8px Orbitron,monospace';
+        ctx.fillStyle = 'rgba(0,243,255,0.32)';
+        ctx.textAlign = 'center';
+        ctx.fillText(Math.round(_getBpm())+' BPM', cx, cy+15);
+    }
+
+    // Fade flash every 80ms
+    setInterval(function() {
+        if (!_playing) { for (var i=0;i<4;i++) _flash[i]=-1; }
+    }, 80);
+
+    // ── Lookahead scheduler (Web Audio clock) ────────────────────
+    function _schedule() {
+        var ac = APP && APP.audio && APP.audio.ctx;
+        if (!ac || !_playing) return;
+        if (ac.state === 'suspended') { try { ac.resume(); } catch(e) {} }
+
+        var now    = ac.currentTime;
+        var bpm    = _getBpm();
+        var mDur   = (60/bpm)*4;
+
+        var jEl = document.getElementById('euclid-pitch');
+        var sEl = document.getElementById('euclid-spread');
+        var jitter = jEl ? jEl.value/100 : 0.25;
+        var spread = sEl ? sEl.value/100 : 0.60;
+
+        for (var ti = 0; ti < 4; ti++) {
+            var trk = _tracks[ti];
+            if (!trk.pattern.length) continue;
+            var stepDur = mDur / trk.steps;
+            while (_stepTimes[ti] < now + LOOK_AHEAD) {
+                var ft  = _stepTimes[ti];
+                var si  = _cursors[ti];
+                if (trk.pattern[si]) {
+                    _flash[ti] = si;
+                    _euclidFire(ti, ft, jitter, spread);
+                }
+                _cursors[ti] = (si+1) % trk.steps;
+                _stepTimes[ti] += stepDur;
+            }
+        }
+    }
+
+    // ── Fire a granular burst for track ti ───────────────────────
+    function _euclidFire(ti, schedTime, jitter, spread) {
+        var ac = APP && APP.audio && APP.audio.ctx;
+        if (!ac) return;
+        if (!APP.audio.masterGain && typeof ensureAudioChain==='function') ensureAudioChain();
+
+        // Create / reuse GranularProcessor — routes to pad-bus → duckingGain
+        if (!_granulars[ti]) {
+            var dest = (typeof _getPadBus==='function') ? _getPadBus(ac) : null;
+            dest = dest || (APP.audio && APP.audio.duckingGain);
+            if (!dest) return;
+            _granulars[ti] = new GranularProcessor(ac, dest);
+            // Subtle per-track 3D offset: wide left/right, slight depth
+            var positions = [[-1.2,0,1],[1.2,0,1],[-0.6,0,1.2],[0.6,0,1.2]];
+            var p = positions[ti];
+            _granulars[ti].setPosition(p[0], p[1], p[2]);
+        }
+
+        var packIdx = (typeof _liqCurrentPack !== 'undefined') ? _liqCurrentPack : 0;
+        var proc    = _granulars[ti];
+
+        if (typeof _getLiqBuf === 'function') {
+            _getLiqBuf(packIdx, ti).then(function(buf) {
+                proc.trigger(buf, schedTime, { pitchJitter: jitter, stereoSpread: spread });
+                // Visual pulse on the corresponding liquid pad
+                var el = document.getElementById('sfx-liq'+(ti+1));
+                if (el) {
+                    el.classList.add('sfx-pulse','sfx-playing');
+                    setTimeout(function(){ el.classList.remove('sfx-pulse','sfx-playing'); }, 260);
+                }
+                // Propagate coupled FX (pad gear assignments)
+                var nm = 'liq'+(ti+1);
+                if (typeof _padCoupling!=='undefined' && _padCoupling[nm] && typeof _fireCoupledFX==='function') {
+                    _fireCoupledFX(nm);
+                }
+            }).catch(function(){});
+        }
+    }
+
+    // ── Transport ─────────────────────────────────────────────────
+    window._euclidToggle = function() {
+        if (_playing) {
+            _playing = false;
+            if (_schedTimer) { clearInterval(_schedTimer); _schedTimer = null; }
+            var btn = document.getElementById('euclid-play-btn');
+            if (btn) { btn.textContent = '\u25B6 ARM'; btn.classList.remove('armed'); }
+            _drawRadar(false); // redraw static
+        } else {
+            // Boot audio if needed
+            if (typeof igniteAudio === 'function' && !(APP && APP.audio && APP.audio.ctx)) igniteAudio();
+            if (APP && APP.audio && !APP.audio.masterGain && typeof ensureAudioChain==='function') ensureAudioChain();
+            var ac = APP && APP.audio && APP.audio.ctx;
+            if (ac && ac.state === 'suspended') ac.resume();
+
+            // Invalidate processors on play (kit may have changed)
+            _granulars = [];
+
+            // Reset clocks
+            var now = ac ? ac.currentTime : 0;
+            _startAudio = now;
+            _phase      = 0;
+            var bpm  = _getBpm();
+            var mDur = (60/bpm)*4;
+            for (var i = 0; i < 4; i++) {
+                _cursors[i]   = 0;
+                _stepTimes[i] = now + 0.06; // 60ms warmup
+                _flash[i]     = -1;
+            }
+            _playing    = true;
+            _schedTimer = setInterval(_schedule, SCHED_INT);
+            if (!_raf) _raf = requestAnimationFrame(_draw);
+            var btn = document.getElementById('euclid-play-btn');
+            if (btn) { btn.textContent = '\u25A0 STOP'; btn.classList.add('armed'); }
+        }
+    };
+
+    // ── UI wiring ────────────────────────────────────────────────
+    function _wireUI() {
+        // Steps/pulses sliders
+        document.querySelectorAll('.et-steps,.et-pulses').forEach(function(el) {
+            el.addEventListener('input', function() {
+                var ti  = parseInt(el.dataset.track, 10);
+                var sEl = document.querySelector('.et-steps[data-track="'+ti+'"]');
+                var pEl = document.querySelector('.et-pulses[data-track="'+ti+'"]');
+                if (!sEl || !pEl) return;
+                var s = parseInt(sEl.value, 10);
+                var p = Math.min(parseInt(pEl.value, 10), s);
+                pEl.max   = s;
+                if (parseInt(pEl.value) > s) pEl.value = s;
+                _tracks[ti].steps   = s;
+                _tracks[ti].pulses  = p;
+                _tracks[ti].pattern = generateEuclidean(s, p);
+                _cursors[ti] = 0; // reset cursor for clean restart
+                var vEl = document.getElementById('et-val-'+ti);
+                if (vEl) vEl.textContent = p+'/'+s;
+                _drawRadar(false);
+            });
+        });
+
+        // Grain controls readout
+        ['euclid-pitch','euclid-spread'].forEach(function(id) {
+            var el = document.getElementById(id);
+            if (!el) return;
+            el.addEventListener('input', function() {
+                var v = document.getElementById(id+'-val');
+                if (v) v.textContent = el.value+'%';
+            });
+        });
+
+        // Kit change → flush granulars + update labels
+        var kitSel = document.getElementById('liq-lib-select');
+        if (kitSel) kitSel.addEventListener('change', function() {
+            _granulars = [];
+            _updateLabels();
+        });
+
+        // BPM change → resync step-time cursors
+        var bpmEl = document.getElementById('gb-bpm');
+        if (bpmEl) bpmEl.addEventListener('input', function() {
+            if (_playing && APP && APP.audio && APP.audio.ctx) {
+                var now = APP.audio.ctx.currentTime;
+                for (var i = 0; i < 4; i++) {
+                    _stepTimes[i] = now + 0.06;
+                    _cursors[i]   = 0;
+                }
+                _startAudio = now;
+            }
+        });
+
+        _updateLabels();
+        _drawRadar(false); // draw idle radar on load
+    }
+
+    function _updateLabels() {
+        var pi   = (typeof _liqCurrentPack !== 'undefined') ? _liqCurrentPack : 0;
+        var pack = (typeof VANGUARD_LIQUID_LIB !== 'undefined') ? VANGUARD_LIQUID_LIB[pi] : null;
+        for (var i = 0; i < 4; i++) {
+            var el = document.getElementById('et-label-'+i);
+            if (el && pack && pack.pads[i]) el.textContent = pack.pads[i].label;
+        }
+    }
+
+    if (document.readyState === 'loading') {
+        document.addEventListener('DOMContentLoaded', _wireUI);
+    } else {
+        setTimeout(_wireUI, 0);
+    }
 
 })();
 </script>
