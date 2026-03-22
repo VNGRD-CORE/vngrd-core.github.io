@@ -3045,196 +3045,326 @@ body.fullscreen #transcription-hud { pointer-events: none !important; } /* keep 
     box-shadow: 0 0 14px rgba(0,255,136,0.4);
 }
 
+/* ═══ VANGUARD TRACKER — BRUTALIST GLASS EDITION ═══ */
+@keyframes vt-cursor-pulse {
+    0%,100% { box-shadow: 0 0 0 1px rgba(0,243,255,0.9); }
+    50%      { box-shadow: 0 0 6px 2px rgba(0,243,255,0.5), 0 0 12px rgba(0,243,255,0.2); }
+}
+@keyframes vt-row-flash {
+    0%   { background: rgba(0,243,255,0.35); }
+    100% { background: rgba(0,243,255,0.08); }
+}
+@keyframes nc-blink { 0%,100%{opacity:1} 50%{opacity:0.3} }
+
 .vanguard-tracker-window {
     position: fixed;
-    top: 60px;
-    left: 220px;
-    width: 620px;
-    min-width: 420px;
-    min-height: 300px;
-    height: 520px;
-    background: #06060a;
-    border: 1px solid rgba(0,255,136,0.4);
-    box-shadow: 0 0 30px rgba(0,255,136,0.15), inset 0 0 60px rgba(0,0,0,0.8);
+    top: 55px;
+    left: 215px;
+    width: 660px;
+    min-width: 460px;
+    min-height: 320px;
+    height: 580px;
+    background: rgba(3, 4, 10, 0.82);
+    backdrop-filter: blur(30px) saturate(1.4);
+    -webkit-backdrop-filter: blur(30px) saturate(1.4);
+    border: 1px solid rgba(0,243,255,0.35);
+    box-shadow: 0 0 40px rgba(0,243,255,0.12), 0 0 80px rgba(0,0,0,0.7), inset 0 1px 0 rgba(0,243,255,0.1);
     z-index: 9500;
     display: none;
     flex-direction: column;
     font-family: 'JetBrains Mono', monospace;
     resize: both;
     overflow: hidden;
-    border-radius: 2px;
+    border-radius: 3px;
 }
 .vanguard-tracker-window.visible { display: flex; }
 
 .vt-titlebar {
     display: flex;
     align-items: center;
-    gap: 6px;
+    gap: 5px;
     padding: 5px 8px;
-    background: rgba(0,255,136,0.06);
-    border-bottom: 1px solid rgba(0,255,136,0.25);
+    background: linear-gradient(90deg, rgba(0,243,255,0.08) 0%, rgba(0,243,255,0.03) 100%);
+    border-bottom: 1px solid rgba(0,243,255,0.2);
     cursor: move;
     user-select: none;
     flex-shrink: 0;
 }
 .vt-titlebar-label {
     font-family: 'Orbitron', sans-serif;
-    font-size: 9px;
+    font-size: 8.5px;
     font-weight: 700;
-    color: #00ff88;
+    color: #00f3ff;
     letter-spacing: 2px;
     flex: 1;
+    text-shadow: 0 0 8px rgba(0,243,255,0.6);
 }
-.vt-transport {
-    display: flex;
-    align-items: center;
-    gap: 4px;
-}
+.vt-transport { display: flex; align-items: center; gap: 3px; }
+
 .vt-btn {
     font-family: 'JetBrains Mono', monospace;
-    font-size: 8px;
+    font-size: 7.5px;
     background: transparent;
-    border: 1px solid rgba(0,255,136,0.3);
-    color: rgba(0,255,136,0.7);
+    border: 1px solid rgba(0,243,255,0.25);
+    color: rgba(0,243,255,0.65);
     padding: 2px 6px;
     cursor: pointer;
-    letter-spacing: 1px;
-    transition: all 0.1s;
+    letter-spacing: 0.5px;
+    transition: all 0.08s;
+    white-space: nowrap;
 }
-.vt-btn:hover { background: rgba(0,255,136,0.1); color: #00ff88; }
-.vt-btn.vt-play-btn.running { color: var(--r); border-color: var(--r); background: rgba(255,51,51,0.12); }
-.vt-bpm-wrap {
-    display: flex;
-    align-items: center;
-    gap: 3px;
-    font-size: 8px;
-    color: rgba(0,255,136,0.6);
-    letter-spacing: 1px;
-}
+.vt-btn:hover { background: rgba(0,243,255,0.1); color: #00f3ff; border-color: rgba(0,243,255,0.5); }
+.vt-btn.vt-play-btn.running { color: #ff3333; border-color: rgba(255,51,51,0.5); background: rgba(255,51,51,0.08); }
+.vt-btn.vt-compiler-btn { color: rgba(176,0,255,0.8); border-color: rgba(176,0,255,0.3); }
+.vt-btn.vt-compiler-btn:hover { background: rgba(176,0,255,0.12); color: #b000ff; border-color: rgba(176,0,255,0.6); }
+.vt-btn.vt-compiler-btn.active { background: rgba(176,0,255,0.18); color: #b000ff; box-shadow: 0 0 10px rgba(176,0,255,0.3); }
+.vt-bpm-wrap { display: flex; align-items: center; gap: 3px; font-size: 7.5px; color: rgba(0,243,255,0.55); letter-spacing: 1px; }
 .vt-bpm-input {
-    width: 36px;
-    background: #040408;
-    border: 1px solid rgba(0,255,136,0.2);
-    color: #00ff88;
+    width: 34px;
+    background: rgba(0,243,255,0.04);
+    border: 1px solid rgba(0,243,255,0.18);
+    color: #00f3ff;
     font-size: 9px;
     font-family: 'JetBrains Mono', monospace;
     text-align: center;
     padding: 1px 2px;
+    outline: none;
 }
-.vt-close-btn {
-    font-size: 10px;
-    background: transparent;
-    border: none;
-    color: rgba(255,51,51,0.6);
-    cursor: pointer;
-    padding: 2px 5px;
-    line-height: 1;
-}
-.vt-close-btn:hover { color: var(--r); }
+.vt-close-btn { font-size: 10px; background: transparent; border: none; color: rgba(255,51,51,0.5); cursor: pointer; padding: 2px 4px; line-height: 1; }
+.vt-close-btn:hover { color: #ff3333; }
 
+/* ── Waveform canvas strip ── */
+.vt-wave-strip {
+    display: grid;
+    grid-template-columns: 28px repeat(4, 1fr);
+    gap: 2px;
+    padding: 3px 5px 0;
+    background: rgba(0,0,0,0.4);
+    border-bottom: 1px solid rgba(0,243,255,0.08);
+    flex-shrink: 0;
+    height: 40px;
+}
+.vt-wave-num-pad { display: flex; align-items: center; justify-content: flex-end; padding-right: 4px; }
+.vt-wave-canvas-wrap { position: relative; overflow: hidden; border: 1px solid rgba(0,243,255,0.1); border-radius: 1px; background: rgba(0,243,255,0.02); }
+.vt-wave-canvas { width: 100%; height: 100%; display: block; }
+.vt-wave-label {
+    position: absolute;
+    bottom: 1px; left: 3px;
+    font-size: 5.5px;
+    color: rgba(0,243,255,0.5);
+    letter-spacing: 0.5px;
+    pointer-events: none;
+    font-family: 'JetBrains Mono', monospace;
+}
+
+/* ── Column header labels ── */
 .vt-col-headers {
     display: grid;
-    grid-template-columns: 30px 1fr 1fr 1fr 1fr 1fr;
+    grid-template-columns: 28px 1fr 1fr 1fr 1fr 1fr;
     gap: 2px;
-    padding: 3px 6px;
-    background: rgba(0,0,0,0.5);
-    border-bottom: 1px solid rgba(0,255,136,0.15);
+    padding: 2px 5px;
+    background: rgba(0,0,0,0.3);
+    border-bottom: 1px solid rgba(0,243,255,0.12);
     flex-shrink: 0;
 }
 .vt-col-hdr {
-    font-size: 7px;
-    color: rgba(0,255,136,0.45);
+    font-size: 6.5px;
+    color: rgba(0,243,255,0.38);
     letter-spacing: 1.5px;
     text-align: center;
     padding: 1px 0;
+    text-transform: uppercase;
 }
+.vt-col-hdr:nth-child(2) { color: rgba(0,243,255,0.6); }
 
+/* ── Track scroll ── */
 .vt-track-scroll {
     flex: 1;
     overflow-y: auto;
     overflow-x: hidden;
     scrollbar-width: thin;
-    scrollbar-color: rgba(0,255,136,0.2) transparent;
-    padding: 0 4px 4px;
+    scrollbar-color: rgba(0,243,255,0.15) transparent;
+    padding: 0 3px 4px;
 }
-.vt-track-scroll::-webkit-scrollbar { width: 4px; }
-.vt-track-scroll::-webkit-scrollbar-thumb { background: rgba(0,255,136,0.2); }
+.vt-track-scroll::-webkit-scrollbar { width: 3px; }
+.vt-track-scroll::-webkit-scrollbar-thumb { background: rgba(0,243,255,0.15); }
 
+/* ── Rows ── */
 .vt-row {
     display: grid;
-    grid-template-columns: 30px 1fr 1fr 1fr 1fr 1fr;
+    grid-template-columns: 28px 1fr 1fr 1fr 1fr 1fr;
     gap: 2px;
-    padding: 1px 2px;
-    border-bottom: 1px solid rgba(255,255,255,0.03);
+    padding: 0.5px 2px;
+    border-bottom: 1px solid rgba(255,255,255,0.02);
     align-items: center;
-    transition: background 0.05s;
 }
-.vt-row:hover { background: rgba(0,255,136,0.04); }
-.vt-row.vt-active-row { background: rgba(0,255,136,0.12) !important; border-left: 2px solid #00ff88; }
-.vt-row.vt-beat-4 { border-top: 1px solid rgba(0,255,136,0.2); }
+.vt-row:hover { background: rgba(0,243,255,0.03); }
+.vt-row.vt-active-row { animation: vt-row-flash 0.15s ease-out forwards; border-left: 2px solid #00f3ff; }
+.vt-row.vt-beat-4 { border-top: 1px solid rgba(0,243,255,0.15); }
+.vt-row.vt-beat-16 { border-top: 2px solid rgba(0,243,255,0.3); }
 
 .vt-row-num {
-    font-size: 7px;
-    color: rgba(255,255,255,0.2);
+    font-size: 6.5px;
+    color: rgba(255,255,255,0.18);
     text-align: right;
-    padding-right: 4px;
+    padding-right: 3px;
     font-family: 'JetBrains Mono', monospace;
-    letter-spacing: 0;
     line-height: 1;
 }
-.vt-row.vt-active-row .vt-row-num { color: #00ff88; font-weight: 700; }
+.vt-row.vt-active-row .vt-row-num { color: #00f3ff; font-weight: 700; }
+.vt-row.vt-beat-4 .vt-row-num { color: rgba(0,243,255,0.35); }
 
-.vt-cell {
-    position: relative;
-}
+/* ── Cells ── */
+.vt-cell { position: relative; }
 .vt-cell input {
     width: 100%;
-    background: #040408;
-    border: 1px solid rgba(255,255,255,0.05);
-    color: rgba(0,255,136,0.8);
+    background: rgba(0,0,0,0.3);
+    border: 1px solid rgba(255,255,255,0.04);
+    color: rgba(0,243,255,0.7);
     font-size: 9px;
     font-family: 'JetBrains Mono', monospace;
     text-align: center;
-    padding: 2px 2px;
+    padding: 2px 1px;
     text-transform: uppercase;
     outline: none;
-    transition: border-color 0.1s, background 0.1s;
+    transition: border-color 0.08s, background 0.08s;
     user-select: text;
     cursor: text;
+    caret-color: #00f3ff;
 }
 .vt-cell input:focus {
-    border-color: rgba(0,255,136,0.5);
-    background: #080810;
-    color: #00ff88;
+    border-color: rgba(0,243,255,0.7);
+    background: rgba(0,243,255,0.06);
+    color: #00f3ff;
+    animation: vt-cursor-pulse var(--vt-bpm-ms, 500ms) ease-in-out infinite;
 }
-.vt-cell input.vt-synth { color: rgba(0,243,255,0.9); border-color: rgba(0,243,255,0.2); }
-.vt-cell input.vt-filled { color: #00ff88; }
-.vt-cell input::placeholder { color: rgba(255,255,255,0.1); font-size: 8px; }
+.vt-cell input.vt-synth { color: rgba(176,0,255,0.9); border-color: rgba(176,0,255,0.2); }
+.vt-cell input.vt-sample { color: rgba(255,204,0,0.85); border-color: rgba(255,204,0,0.18); }
+.vt-cell input.vt-pan-l { color: rgba(0,255,136,0.85); }
+.vt-cell input.vt-pan-r { color: rgba(255,0,85,0.85); }
+.vt-cell input::placeholder { color: rgba(255,255,255,0.08); font-size: 7.5px; }
 
+/* ── Status bar ── */
 .vt-status-bar {
     display: flex;
     align-items: center;
     gap: 8px;
-    padding: 3px 8px;
-    background: rgba(0,0,0,0.5);
-    border-top: 1px solid rgba(0,255,136,0.15);
+    padding: 2px 8px;
+    background: rgba(0,0,0,0.45);
+    border-top: 1px solid rgba(0,243,255,0.12);
     flex-shrink: 0;
-    font-size: 7px;
-    color: rgba(0,255,136,0.45);
+    font-size: 6.5px;
+    color: rgba(0,243,255,0.38);
     letter-spacing: 1px;
 }
-.vt-status-pos { color: rgba(0,255,136,0.7); font-weight: 700; }
-.vt-status-mode { color: rgba(0,243,255,0.6); }
+.vt-status-pos { color: rgba(0,243,255,0.8); font-weight: 700; }
 .vt-mode-select {
     background: transparent;
-    border: 1px solid rgba(0,255,136,0.2);
-    color: rgba(0,255,136,0.7);
-    font-size: 7px;
+    border: 1px solid rgba(0,243,255,0.15);
+    color: rgba(0,243,255,0.6);
+    font-size: 6.5px;
     font-family: 'JetBrains Mono', monospace;
-    padding: 1px 3px;
+    padding: 1px 2px;
     cursor: pointer;
+    outline: none;
 }
-.vt-mode-select option { background: #06060a; color: #00ff88; }
+.vt-mode-select option { background: #040408; color: #00f3ff; }
+
+/* ── HUD Overlay ── */
+.vt-hud-overlay {
+    position: absolute;
+    top: 0; right: 0; bottom: 0;
+    width: 200px;
+    background: rgba(2,3,8,0.92);
+    backdrop-filter: blur(20px);
+    border-left: 1px solid rgba(0,243,255,0.2);
+    padding: 10px 8px;
+    z-index: 10;
+    display: none;
+    flex-direction: column;
+    gap: 6px;
+    overflow-y: auto;
+}
+.vt-hud-overlay.visible { display: flex; }
+.vt-hud-title {
+    font-family: 'Orbitron', sans-serif;
+    font-size: 8px;
+    color: #00f3ff;
+    letter-spacing: 2px;
+    border-bottom: 1px solid rgba(0,243,255,0.2);
+    padding-bottom: 4px;
+    margin-bottom: 2px;
+    text-shadow: 0 0 8px rgba(0,243,255,0.5);
+}
+.vt-hud-row { display: flex; flex-direction: column; gap: 1px; margin-bottom: 4px; }
+.vt-hud-cmd { font-size: 8.5px; color: #ffcc00; font-weight: 700; letter-spacing: 1px; }
+.vt-hud-desc { font-size: 7px; color: rgba(255,255,255,0.45); line-height: 1.4; }
+.vt-hud-sep { height: 1px; background: rgba(0,243,255,0.1); margin: 3px 0; }
+.vt-hud-close {
+    font-size: 7px; color: rgba(255,51,51,0.6); background: transparent;
+    border: 1px solid rgba(255,51,51,0.2); cursor: pointer; padding: 2px 6px;
+    font-family: 'JetBrains Mono', monospace; letter-spacing: 1px; margin-top: auto;
+}
+
+/* ═══ NEURAL COMPILER WINDOW ═══ */
+.nc-window {
+    position: fixed;
+    top: 120px;
+    left: 50%;
+    transform: translateX(-50%);
+    width: 540px;
+    min-width: 360px;
+    min-height: 200px;
+    height: 380px;
+    background: rgba(4, 2, 10, 0.88);
+    backdrop-filter: blur(30px) saturate(1.3);
+    -webkit-backdrop-filter: blur(30px) saturate(1.3);
+    border: 1px solid rgba(176,0,255,0.4);
+    box-shadow: 0 0 40px rgba(176,0,255,0.15), 0 0 80px rgba(0,0,0,0.7);
+    z-index: 9600;
+    display: none;
+    flex-direction: column;
+    font-family: 'JetBrains Mono', monospace;
+    resize: both;
+    overflow: hidden;
+    border-radius: 3px;
+}
+.nc-window.visible { display: flex; }
+.nc-titlebar {
+    display: flex; align-items: center; gap: 6px; padding: 5px 8px;
+    background: linear-gradient(90deg, rgba(176,0,255,0.1) 0%, rgba(176,0,255,0.03) 100%);
+    border-bottom: 1px solid rgba(176,0,255,0.25);
+    cursor: move; user-select: none; flex-shrink: 0;
+}
+.nc-title {
+    font-family: 'Orbitron', sans-serif; font-size: 8.5px; font-weight: 700;
+    color: #b000ff; letter-spacing: 2px; flex: 1; text-shadow: 0 0 10px rgba(176,0,255,0.6);
+}
+.nc-prompt-area {
+    flex: 1; overflow-y: auto; overflow-x: hidden; padding: 6px 8px;
+    display: flex; flex-direction: column; gap: 3px;
+}
+.nc-output-line {
+    font-size: 9px; line-height: 1.5; font-family: 'JetBrains Mono', monospace;
+    color: rgba(176,0,255,0.7); white-space: pre;
+}
+.nc-output-line.nc-ok  { color: rgba(0,255,136,0.8); }
+.nc-output-line.nc-err { color: rgba(255,51,51,0.8); }
+.nc-output-line.nc-sys { color: rgba(0,243,255,0.6); }
+.nc-input-bar {
+    display: flex; align-items: center; gap: 4px; padding: 5px 8px;
+    background: rgba(0,0,0,0.4); border-top: 1px solid rgba(176,0,255,0.18); flex-shrink: 0;
+}
+.nc-prompt-symbol { font-size: 9px; color: #b000ff; opacity: 0.7; animation: nc-blink 1s ease-in-out infinite; }
+.nc-input {
+    flex: 1; background: transparent; border: none; outline: none;
+    color: #b000ff; font-size: 9px; font-family: 'JetBrains Mono', monospace;
+    caret-color: #b000ff; user-select: text; cursor: text;
+}
+.nc-input::placeholder { color: rgba(176,0,255,0.25); }
+.nc-run-btn { font-size: 7px; background: rgba(176,0,255,0.1); border: 1px solid rgba(176,0,255,0.3); color: rgba(176,0,255,0.8); padding: 2px 6px; cursor: pointer; font-family: 'JetBrains Mono', monospace; letter-spacing: 1px; }
+.nc-run-btn:hover { background: rgba(176,0,255,0.2); color: #b000ff; }
+.nc-status-bar { display: flex; align-items: center; gap: 6px; padding: 2px 8px; background: rgba(0,0,0,0.4); border-top: 1px solid rgba(176,0,255,0.1); flex-shrink: 0; font-size: 6.5px; color: rgba(176,0,255,0.4); letter-spacing: 1px; }
 </style>
 </head>
 <body oncontextmenu="return false;">
@@ -4041,8 +4171,11 @@ body.fullscreen #transcription-hud { pointer-events: none !important; } /* keep 
                     <div id="sfx-midi-arm" style="font-size:7px;color:var(--text-dim);margin-top:6px;text-align:center;letter-spacing:1px;"></div>
                     </div><!-- /sfx-pad-body -->
 
-                    <!-- VANGUARD TRACKER LAUNCH -->
-                    <button class="btn" id="btn-init-vngrd-tracker" onclick="VanguardTracker.toggle()">[ INITIALIZE_VANGUARD_TRACKER ]</button>
+                    <!-- VANGUARD TRACKER LAUNCH + PURGE -->
+                    <div style="display:flex;gap:3px;margin-top:4px;">
+                        <button class="btn" id="btn-init-vngrd-tracker" onclick="VanguardTracker.toggle()" style="flex:1;font-size:7px;color:var(--c);border-color:rgba(0,243,255,0.35);letter-spacing:1px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">[ INITIALIZE_VANGUARD_TRACKER ]</button>
+                        <button class="btn" id="btn-sampler-purge" onclick="Sampler.purge()" title="Wipe all custom + recorded pad buffers" style="flex:0;font-size:7px;color:var(--r);border-color:rgba(255,51,51,0.3);padding:2px 6px;white-space:nowrap;">PURGE</button>
+                    </div>
 
                     <!-- SAMPLER HELP OVERLAY -->
                     <div id="sampler-help-modal">
@@ -7370,12 +7503,10 @@ const SFX_ENGINE = (() => {
 })();
 
 // ═══════════════════════════════════════════════════════════════
-//  INTERNAL SYNTH — Two-Mode Oscillator Engine
-//  Mode A (SUB):   Sine + exponentialRampToValueAtTime pitch sweep
-//  Mode B (NOISE): White noise + resonant lowpass filter
-//  Routes → APP.audio.panner → APP.audio.analyzer → masterGain
-//           so all tracker triggers land in the DAW chain and are
-//           captured by the recorder destination.
+//  INTERNAL SYNTH v2 — Multi-Mode Oscillator Engine
+//  SUB / NOISE / SWEEP / METAL / AM / BOOM
+//  All modes route: gain → panner → analyser → masterGain
+//  Seismic & kinetic integration on every trigger.
 // ═══════════════════════════════════════════════════════════════
 const InternalSynth = (() => {
     function _ctx() {
@@ -7385,122 +7516,236 @@ const InternalSynth = (() => {
         if (c && c.state === 'suspended') c.resume();
         return c;
     }
+    // Route: gain → panner → analyser → masterGain (Engineering Mode chain)
+    function _outNode() { return APP.audio.panner || APP.audio.duckingGain || APP.audio.masterGain; }
 
-    // Shared output bus: panner → analyser → masterGain (per CLAUDE.md routing)
-    function _outNode() {
-        // Route into panner (Engineering Mode entry point) so spatial & analyser
-        // processing applies to synth triggers, mirroring sample pad routing.
-        return APP.audio.panner || APP.audio.duckingGain || APP.audio.masterGain;
+    // Apply 3D spatial panning (panVal 0x00=hard-left, 0x80=center, 0xFF=hard-right)
+    function _applyPan(gainNode, panVal, ctx) {
+        if (panVal === undefined || panVal === null) return gainNode;
+        var pan = (panVal / 127.5) - 1.0; // -1.0 to +1.0
+        try {
+            var panNode = ctx.createStereoPanner();
+            panNode.pan.setValueAtTime(Math.max(-1,Math.min(1,pan)), ctx.currentTime);
+            gainNode.connect(panNode);
+            panNode.connect(_outNode());
+            return null; // connected through panNode
+        } catch(e) { return gainNode; }
     }
 
-    // ── Mode A: SUB — Sine oscillator with pitch/gain sweep ──────────────
-    function triggerSub(freq, vol) {
-        var ctx = _ctx();
-        if (!ctx) return;
-        freq = parseFloat(freq) || 80;
-        vol  = Math.min(1.0, (parseFloat(vol) || 0.6));
-        var now   = ctx.currentTime;
-        var dur   = 0.65;
-
-        var osc   = ctx.createOscillator();
-        var gain  = ctx.createGain();
-
-        osc.type = 'sine';
-        osc.frequency.setValueAtTime(freq * 2.0, now);
-        osc.frequency.exponentialRampToValueAtTime(Math.max(20, freq * 0.28), now + dur * 0.9);
-
-        gain.gain.setValueAtTime(vol, now);
-        gain.gain.exponentialRampToValueAtTime(0.0001, now + dur);
-
-        osc.connect(gain);
-        gain.connect(_outNode());
-
-        osc.start(now);
-        osc.stop(now + dur + 0.05);
-
-        _updateReactive(freq, vol, 'SUB');
-    }
-
-    // ── Mode B: NOISE — White noise + resonant lowpass ───────────────────
-    function triggerNoise(cutoff, vol, resonance) {
-        var ctx = _ctx();
-        if (!ctx) return;
-        cutoff    = parseFloat(cutoff)    || 400;
-        vol       = Math.min(1.0, (parseFloat(vol) || 0.55));
-        resonance = parseFloat(resonance) || 8;
-        var now   = ctx.currentTime;
-        var dur   = 0.45;
-
-        // White noise via AudioBuffer
-        var frames = Math.ceil(ctx.sampleRate * dur);
-        var buf    = ctx.createBuffer(1, frames, ctx.sampleRate);
-        var data   = buf.getChannelData(0);
-        for (var i = 0; i < frames; i++) data[i] = (Math.random() * 2 - 1);
-
-        var src    = ctx.createBufferSource();
-        src.buffer = buf;
-
-        var filt   = ctx.createBiquadFilter();
-        filt.type  = 'lowpass';
-        filt.frequency.setValueAtTime(cutoff * 3.0, now);
-        filt.frequency.exponentialRampToValueAtTime(Math.max(80, cutoff * 0.5), now + dur * 0.8);
-        filt.Q.setValueAtTime(resonance, now);
-
-        var gain   = ctx.createGain();
-        gain.gain.setValueAtTime(vol, now);
-        gain.gain.exponentialRampToValueAtTime(0.0001, now + dur);
-
-        src.connect(filt);
-        filt.connect(gain);
-        gain.connect(_outNode());
-
-        src.start(now);
-        src.stop(now + dur + 0.05);
-
-        _updateReactive(cutoff, vol, 'NOISE');
-    }
-
-    // ── Trigger by mode string ────────────────────────────────────────────
-    function trigger(mode, freq, vol, val) {
-        if (mode === 'NOISE') {
-            triggerNoise(freq, vol, parseFloat(val) || 8);
-        } else {
-            triggerSub(freq, vol);
-        }
-    }
-
-    // ── Keep audioReactiveData in sync for VJ/shader pipeline ────────────
-    function _updateReactive(freq, vol, mode) {
+    // Seismic + kinetic bounce on every trigger (CRITICAL integration)
+    function _seismicKick(vol, freq) {
+        if (typeof APP === 'undefined') return;
+        // Update audioReactiveData
         if (!window.audioReactiveData) window.audioReactiveData = {};
         window.audioReactiveData.lastSynthFreq  = freq;
         window.audioReactiveData.lastSynthVol   = vol;
-        window.audioReactiveData.lastSynthMode  = mode;
-        window.audioReactiveData.lastSynthTime  = performance.now();
-        // Also bump APP bassLevel so VJ seismic/punch react
-        if (APP && APP.audio && vol > 0.3) {
-            APP.audio.bassLevel = Math.max(APP.audio.bassLevel || 0, Math.floor(vol * 220));
+        window.audioReactiveData.lastTriggerTs  = performance.now();
+        // Bass frequency (< 200Hz) or high volume triggers screenShake
+        var isBass = freq < 200;
+        var isLoud  = vol > 0.65;
+        if (APP.vj && (isBass || isLoud)) {
+            var scale = vol * (isBass ? 1.4 : 0.8);
+            APP.vj._seismicVel      = (APP.vj._seismicVel || 0) + scale * 0.7;
+            APP.vj._seismicDemoUntil = performance.now() + (isBass ? 1200 : 600);
+            // PUSH kinetic bounce on every transient
+            APP.vj._punchSpring    = Math.min(1.0, (APP.vj._punchSpring || 0) + scale * 0.5);
+            APP.vj._punchDemoUntil = performance.now() + 700;
+            APP.vj._punchDemoBeat  = performance.now();
+        }
+        // Bump bassLevel for VU/analyser visualization
+        if (APP.audio) APP.audio.bassLevel = Math.max(APP.audio.bassLevel || 0, Math.floor(vol * 240));
+    }
+
+    // ── SUB: Sine with pitch glide (808-style kick) ───────────────────────
+    function triggerSub(freq, vol, panVal) {
+        var ctx = _ctx(); if (!ctx) return;
+        freq = Math.max(20, parseFloat(freq) || 80);
+        vol  = Math.min(1.0, parseFloat(vol) || 0.7);
+        var now = ctx.currentTime, dur = 0.7;
+        var osc  = ctx.createOscillator();
+        var gain = ctx.createGain();
+        osc.type = 'sine';
+        osc.frequency.setValueAtTime(freq * 2.2, now);
+        osc.frequency.exponentialRampToValueAtTime(Math.max(18, freq * 0.25), now + dur * 0.85);
+        gain.gain.setValueAtTime(vol, now);
+        gain.gain.exponentialRampToValueAtTime(0.0001, now + dur);
+        osc.connect(gain);
+        var out = _applyPan(gain, panVal, ctx);
+        if (out) out.connect(_outNode());
+        osc.start(now); osc.stop(now + dur + 0.06);
+        _seismicKick(vol, freq);
+    }
+
+    // ── NOISE: White noise + resonant lowpass (snare/clap) ───────────────
+    function triggerNoise(cutoff, vol, resonance, panVal) {
+        var ctx = _ctx(); if (!ctx) return;
+        cutoff    = Math.max(80, parseFloat(cutoff) || 400);
+        vol       = Math.min(1.0, parseFloat(vol) || 0.6);
+        resonance = parseFloat(resonance) || 8;
+        var now = ctx.currentTime, dur = 0.35;
+        var frames = Math.ceil(ctx.sampleRate * dur);
+        var buf    = ctx.createBuffer(1, frames, ctx.sampleRate);
+        var data   = buf.getChannelData(0);
+        for (var i = 0; i < frames; i++) data[i] = Math.random() * 2 - 1;
+        var src  = ctx.createBufferSource(); src.buffer = buf;
+        var filt = ctx.createBiquadFilter();
+        filt.type = 'bandpass';
+        filt.frequency.setValueAtTime(cutoff * 2.5, now);
+        filt.frequency.exponentialRampToValueAtTime(Math.max(80, cutoff * 0.6), now + dur * 0.75);
+        filt.Q.setValueAtTime(resonance, now);
+        var gain = ctx.createGain();
+        gain.gain.setValueAtTime(vol, now);
+        gain.gain.exponentialRampToValueAtTime(0.0001, now + dur);
+        src.connect(filt); filt.connect(gain);
+        var out = _applyPan(gain, panVal, ctx);
+        if (out) out.connect(_outNode());
+        src.start(now); src.stop(now + dur + 0.05);
+        _seismicKick(vol, cutoff);
+    }
+
+    // ── SWEEP: Pitched freq sweep (tom-style) ─────────────────────────────
+    function triggerSweep(freq, vol, panVal) {
+        var ctx = _ctx(); if (!ctx) return;
+        freq = Math.max(20, parseFloat(freq) || 120);
+        vol  = Math.min(1.0, parseFloat(vol) || 0.65);
+        var now = ctx.currentTime, dur = 0.5;
+        var osc  = ctx.createOscillator(); osc.type = 'sawtooth';
+        var gain = ctx.createGain();
+        osc.frequency.setValueAtTime(freq * 1.8, now);
+        osc.frequency.exponentialRampToValueAtTime(Math.max(18, freq * 0.3), now + dur * 0.8);
+        gain.gain.setValueAtTime(vol, now);
+        gain.gain.exponentialRampToValueAtTime(0.0001, now + dur);
+        osc.connect(gain);
+        var out = _applyPan(gain, panVal, ctx);
+        if (out) out.connect(_outNode());
+        osc.start(now); osc.stop(now + dur + 0.05);
+        _seismicKick(vol, freq);
+    }
+
+    // ── METAL: Two oscillators + ring mod (industrial clang) ─────────────
+    function triggerMetal(freq, vol, ringFreq, panVal) {
+        var ctx = _ctx(); if (!ctx) return;
+        freq    = Math.max(40, parseFloat(freq) || 200);
+        vol     = Math.min(1.0, parseFloat(vol) || 0.5);
+        ringFreq= parseFloat(ringFreq) || freq * 4.2;
+        var now = ctx.currentTime, dur = 0.8;
+        var osc1 = ctx.createOscillator(); osc1.type = 'square'; osc1.frequency.value = freq;
+        var osc2 = ctx.createOscillator(); osc2.type = 'square'; osc2.frequency.value = ringFreq;
+        var gainMod = ctx.createGain(); gainMod.gain.value = 0.4;
+        var gain    = ctx.createGain();
+        gain.gain.setValueAtTime(vol, now);
+        gain.gain.exponentialRampToValueAtTime(0.0001, now + dur);
+        osc1.connect(gainMod); osc2.connect(gainMod); gainMod.connect(gain);
+        var out = _applyPan(gain, panVal, ctx);
+        if (out) out.connect(_outNode());
+        osc1.start(now); osc2.start(now);
+        osc1.stop(now + dur + 0.05); osc2.stop(now + dur + 0.05);
+        _seismicKick(vol * 0.7, freq);
+    }
+
+    // ── AM: Amplitude Modulation (pulsating texture) ──────────────────────
+    function triggerAM(freq, vol, lfoRate, panVal) {
+        var ctx = _ctx(); if (!ctx) return;
+        freq    = Math.max(20, parseFloat(freq) || 80);
+        vol     = Math.min(1.0, parseFloat(vol) || 0.5);
+        lfoRate = parseFloat(lfoRate) || 4;
+        var now = ctx.currentTime, dur = 0.9;
+        var carr = ctx.createOscillator(); carr.type = 'sine'; carr.frequency.value = freq;
+        var lfo  = ctx.createOscillator(); lfo.type  = 'sine'; lfo.frequency.value  = lfoRate;
+        var lfoG = ctx.createGain(); lfoG.gain.value = 0.5;
+        var gain = ctx.createGain();
+        gain.gain.setValueAtTime(vol, now);
+        gain.gain.exponentialRampToValueAtTime(0.0001, now + dur);
+        lfo.connect(lfoG); lfoG.connect(gain.gain);
+        carr.connect(gain);
+        var out = _applyPan(gain, panVal, ctx);
+        if (out) out.connect(_outNode());
+        carr.start(now); lfo.start(now);
+        carr.stop(now + dur + 0.05); lfo.stop(now + dur + 0.05);
+        _seismicKick(vol * 0.5, freq);
+    }
+
+    // ── BOOM: Sub-bass impulse (cinematic impact) ─────────────────────────
+    function triggerBoom(freq, vol, panVal) {
+        var ctx = _ctx(); if (!ctx) return;
+        freq = Math.max(15, parseFloat(freq) || 45);
+        vol  = Math.min(1.0, parseFloat(vol) || 0.85);
+        var now = ctx.currentTime, dur = 1.2;
+        var osc  = ctx.createOscillator(); osc.type = 'sine';
+        var gain = ctx.createGain();
+        osc.frequency.setValueAtTime(freq * 3.0, now);
+        osc.frequency.exponentialRampToValueAtTime(Math.max(12, freq * 0.15), now + dur * 0.7);
+        gain.gain.setValueAtTime(vol, now);
+        gain.gain.setTargetAtTime(0.0001, now + 0.1, 0.25);
+        osc.connect(gain);
+        var out = _applyPan(gain, panVal, ctx);
+        if (out) out.connect(_outNode());
+        osc.start(now); osc.stop(now + dur + 0.1);
+        _seismicKick(vol, freq); // always triggers seismic for boom
+    }
+
+    // ── Unified trigger — padNum nibble selects mode ──────────────────────
+    // 00–01: SUB   02–03: NOISE   04–05: SWEEP
+    // 06–07: METAL 08–09: AM      0A–0F: BOOM
+    function trigger(padNum, freq, vol, panVal, rtg) {
+        padNum = parseInt(padNum) || 0;
+        var mode;
+        if      (padNum <= 0x01) mode = 'SUB';
+        else if (padNum <= 0x03) mode = 'NOISE';
+        else if (padNum <= 0x05) mode = 'SWEEP';
+        else if (padNum <= 0x07) mode = 'METAL';
+        else if (padNum <= 0x09) mode = 'AM';
+        else                     mode = 'BOOM';
+        // Retrigger/ratchet: fire N times spaced evenly
+        var count = Math.max(1, Math.min(16, parseInt(rtg) || 1));
+        var ctx   = _ctx(); if (!ctx) return;
+        for (var n = 0; n < count; n++) {
+            (function(offset){
+                setTimeout(function() {
+                    switch(mode) {
+                        case 'SUB':   triggerSub(freq, vol, panVal);   break;
+                        case 'NOISE': triggerNoise(freq, vol, 8, panVal); break;
+                        case 'SWEEP': triggerSweep(freq, vol, panVal);  break;
+                        case 'METAL': triggerMetal(freq, vol, null, panVal); break;
+                        case 'AM':    triggerAM(freq, vol, null, panVal); break;
+                        case 'BOOM':  triggerBoom(freq, vol, panVal);  break;
+                    }
+                }, offset);
+            })(n * (60000 / ((typeof VanguardTracker !== 'undefined' ? VanguardTracker._bpm() : 120) * 4) / count));
         }
     }
 
-    return { triggerSub, triggerNoise, trigger };
+    // Expose waveform shape data for canvas rendering
+    function getWaveShape(mode, samples) {
+        samples = samples || 64;
+        var out = new Float32Array(samples);
+        if (mode === 'SUB' || mode === 'BOOM' || mode === 'SWEEP') {
+            for (var i = 0; i < samples; i++) out[i] = Math.sin(i / samples * Math.PI * 2) * Math.exp(-i / samples * 3);
+        } else if (mode === 'NOISE') {
+            for (var i = 0; i < samples; i++) out[i] = (Math.random() * 2 - 1) * Math.exp(-i / samples * 4);
+        } else if (mode === 'METAL') {
+            for (var i = 0; i < samples; i++) out[i] = ((i / samples * 4) % 1 < 0.5 ? 0.5 : -0.5) * Math.exp(-i / samples * 2);
+        } else {
+            for (var i = 0; i < samples; i++) out[i] = Math.sin(i / samples * Math.PI * 4) * 0.5;
+        }
+        return out;
+    }
+
+    return { triggerSub, triggerNoise, triggerSweep, triggerMetal, triggerAM, triggerBoom, trigger, getWaveShape };
 })();
 
 // ═══════════════════════════════════════════════════════════════
-//  VANGUARD TRACKER — Renoise-style Vertical Sequencer
-//  32 rows × 6 columns: #, PAD/SYNTH, VOL, FX, VAL, NOTE
-//  Hex input convention:
-//    PAD/SYNTH  00–0F → InternalSynth (SYNTH rows)
-//               10–1F → SFX_ENGINE samples (SAMPLE rows)
-//               --    → empty / skip
-//  VOL        00–FF  (hex, maps to 0.0–1.0)
-//  FX         00–FF  (reserved for VJ FX codes)
-//  VAL        00–FF  (FX parameter / synth resonance)
-//  NOTE       C-4 … B-7 style or blank
+//  VANGUARD TRACKER v2 — Brutalist Vertical Sequencer
+//  32 rows × 6 cols: # | PAD | VOL | OFF | RTG | PAN
+//  PAD  00–0F → InternalSynth  |  10–1F → SFX_ENGINE samples
+//  VOL  00–FF velocity  |  OFF 00–FF sample offset
+//  RTG  01–0F retrigger count  |  PAN 00–FF spatial (80=center)
+//  NOTE C-3..B-6 chromatic pitch for synth pads
 // ═══════════════════════════════════════════════════════════════
 const VanguardTracker = (() => {
-    const ROWS       = 32;
-    const SFX_NAMES  = ['applause','cheer','horn','boom','custom1','custom2','custom3','custom4',
-                        'liq1','liq2','liq3','liq4','liq5','liq6','liq7','liq8'];
+    const ROWS = 32;
+    const SFX_NAMES = ['applause','cheer','horn','boom','custom1','custom2','custom3','custom4',
+                       'liq1','liq2','liq3','liq4','liq5','liq6','liq7','liq8'];
     const NOTE_FREQS = {
         'C-2':65.4,'D-2':73.4,'E-2':82.4,'F-2':87.3,'G-2':98.0,'A-2':110,'B-2':123.5,
         'C-3':130.8,'D-3':146.8,'E-3':164.8,'F-3':174.6,'G-3':196,'A-3':220,'B-3':246.9,
@@ -7508,16 +7753,51 @@ const VanguardTracker = (() => {
         'C-5':523.3,'D-5':587.3,'E-5':659.3,'F-5':698.5,'G-5':784,'A-5':880,'B-5':987.8,
         'C-6':1046.5,'D-6':1174.7,'E-6':1318.5,'F-6':1397,'G-6':1568,'A-6':1760,'B-6':1975.5
     };
+    // Preloaded "Cinematic Industrial" 16-step pattern
+    // [pad, vol, off, rtg, pan, note]
+    const INDUSTRIAL_PATTERN = [
+        ['18','D0','00','01','80','C-3'],  // 00 KICK (liq1)
+        ['00','80','00','01','80','C-3'],  // 01 SUB bass
+        ['--','--','--','--','--','---'],  // 02 rest
+        ['19','90','00','01','80','---'],  // 03 SNARE (liq2)
+        ['18','C0','00','01','80','---'],  // 04 KICK
+        ['00','70','00','01','40','G-2'],  // 05 SUB bass low panned L
+        ['1A','50','00','02','60','---'],  // 06 RUMBLE (liq3) RTG×2
+        ['19','A0','00','01','80','---'],  // 07 SNARE
+        ['18','FF','00','01','80','---'],  // 08 KICK (downbeat, full vel)
+        ['02','60','00','01','80','A-3'],  // 09 NOISE burst
+        ['00','60','00','01','30','C-3'],  // 0A SUB panned L
+        ['19','90','00','01','80','---'],  // 0B SNARE
+        ['18','C0','00','01','80','---'],  // 0C KICK
+        ['1B','80','00','01','80','---'],  // 0D SLAM (liq4)
+        ['19','B0','00','01','80','---'],  // 0E SNARE
+        ['02','90','00','03','C0','E-4'],  // 0F NOISE ratchet×3 panned R
+        ['--','--','--','--','--','---'],  // 10 rest
+        ['--','--','--','--','--','---'],  // 11
+        ['--','--','--','--','--','---'],  // 12
+        ['--','--','--','--','--','---'],  // 13
+        ['--','--','--','--','--','---'],  // 14
+        ['--','--','--','--','--','---'],  // 15
+        ['--','--','--','--','--','---'],  // 16
+        ['--','--','--','--','--','---'],  // 17
+        ['--','--','--','--','--','---'],  // 18
+        ['--','--','--','--','--','---'],  // 19
+        ['--','--','--','--','--','---'],  // 1A
+        ['--','--','--','--','--','---'],  // 1B
+        ['--','--','--','--','--','---'],  // 1C
+        ['--','--','--','--','--','---'],  // 1D
+        ['--','--','--','--','--','---'],  // 1E
+        ['--','--','--','--','--','---'],  // 1F
+    ];
 
-    var _rows     = [];   // array of {pad,vol,fx,val,note} hex strings
     var _playing  = false;
     var _step     = 0;
     var _schedId  = null;
     var _visible  = false;
     var _dragging = false;
     var _dragOffX = 0, _dragOffY = 0;
+    var _bpmCache = 120;
 
-    // ── DOM helpers ───────────────────────────────────────────────────────
     function _win()  { return document.getElementById('vanguard-tracker-window'); }
     function _row(i) { return document.getElementById('vt-row-' + i); }
     function _cell(rowIdx, col) {
@@ -7535,75 +7815,123 @@ const VanguardTracker = (() => {
         var pos = document.getElementById('vt-pos');
         var stp = document.getElementById('vt-step');
         if (pos) pos.textContent = step.toString(16).toUpperCase().padStart(2,'0');
-        if (stp) stp.textContent = step + '/' + ROWS;
+        if (stp) stp.textContent = (step + 1) + '/' + ROWS;
     }
+    function _getBpm() {
+        var inp = document.getElementById('vt-bpm');
+        _bpmCache = Math.max(40, Math.min(300, parseFloat(inp ? inp.value : 120) || 120));
+        // Sync BPM to CSS cursor-pulse animation
+        document.documentElement.style.setProperty('--vt-bpm-ms', (60000 / _bpmCache / 2) + 'ms');
+        return _bpmCache;
+    }
+    function _stepDur() { return 60 / _getBpm() / 4; } // 16th notes
 
-    // ── Build tracker rows ────────────────────────────────────────────────
-    function _buildRows() {
+    // ── Build rows with preloaded pattern ────────────────────────────────
+    function _buildRows(preload) {
         var scroll = document.getElementById('vt-track-scroll');
         if (!scroll) return;
         scroll.innerHTML = '';
-        _rows = [];
+        var cols = ['pad','vol','off','rtg','pan','note'];
+        var phs  = ['--','00','00','01','80','---'];
         for (var i = 0; i < ROWS; i++) {
-            _rows.push({ pad:'', vol:'', fx:'', val:'', note:'' });
+            var pat = (preload && INDUSTRIAL_PATTERN[i]) ? INDUSTRIAL_PATTERN[i] : null;
             var div = document.createElement('div');
-            div.className = 'vt-row' + (i % 4 === 0 && i > 0 ? ' vt-beat-4' : '');
+            var cls = 'vt-row';
+            if (i > 0 && i % 4  === 0) cls += ' vt-beat-4';
+            if (i > 0 && i % 16 === 0) cls += ' vt-beat-16';
+            div.className = cls;
             div.id = 'vt-row-' + i;
             var num = i.toString(16).toUpperCase().padStart(2,'0');
-            div.innerHTML =
-                '<div class="vt-row-num">' + num + '</div>' +
-                _inp(i,'pad','--','PAD/SYN') +
-                _inp(i,'vol','--','VOL') +
-                _inp(i,'fx','--','FX') +
-                _inp(i,'val','--','VAL') +
-                _inp(i,'note','---','NOTE');
+            var html = '<div class="vt-row-num">' + num + '</div>';
+            for (var c = 0; c < cols.length; c++) {
+                var val = pat ? pat[c] : '';
+                html += '<div class="vt-cell"><input type="text" maxlength="4"' +
+                        ' data-row="' + i + '" data-col="' + cols[c] + '"' +
+                        ' placeholder="' + phs[c] + '" title="' + cols[c].toUpperCase() + '"' +
+                        ' value="' + (val && val !== '--' && val !== '---' ? val : '') + '"' +
+                        '></div>';
+            }
+            div.innerHTML = html;
             scroll.appendChild(div);
         }
-        // Wire input styling
+        // Wire all inputs: auto-select on focus, live styling, nav
         scroll.querySelectorAll('.vt-cell input').forEach(function(inp) {
+            inp.addEventListener('focus', function() { this.select(); });
             inp.addEventListener('input', _onCellInput);
             inp.addEventListener('keydown', _onCellKey);
+            // Apply initial styling for preloaded values
+            if (inp.value) _styleCellInput(inp);
         });
+        _drawWaveforms();
     }
 
-    function _inp(row, col, ph, title) {
-        return '<div class="vt-cell"><input type="text" maxlength="4" ' +
-               'data-row="' + row + '" data-col="' + col + '" ' +
-               'placeholder="' + ph + '" title="' + title + '"></div>';
-    }
-
-    function _onCellInput(e) {
-        var inp = e.target;
-        var v   = inp.value.trim();
-        inp.classList.toggle('vt-filled', v.length > 0 && v !== '--' && v !== '---');
-        // Colour synth vs sample based on PAD column
-        if (inp.dataset.col === 'pad') {
+    function _styleCellInput(inp) {
+        var v   = inp.value.trim().toUpperCase();
+        var col = inp.dataset.col;
+        var isEmpty = !v || v === '--' || v === '---';
+        inp.classList.remove('vt-synth','vt-sample','vt-pan-l','vt-pan-r');
+        if (isEmpty) return;
+        if (col === 'pad') {
             var hex = parseInt(v, 16);
-            inp.classList.toggle('vt-synth', !isNaN(hex) && hex >= 0 && hex <= 0x0F);
+            if (!isNaN(hex)) {
+                if (hex <= 0x0F) inp.classList.add('vt-synth');
+                else             inp.classList.add('vt-sample');
+            }
+        } else if (col === 'pan') {
+            var p = parseInt(v, 16);
+            if (!isNaN(p)) {
+                if (p < 0x70) inp.classList.add('vt-pan-l');
+                else if (p > 0x90) inp.classList.add('vt-pan-r');
+            }
         }
     }
 
+    function _onCellInput(e) { _styleCellInput(e.target); }
     function _onCellKey(e) {
-        // Tab / Enter advances to next row same column
-        if (e.key === 'Enter' || e.key === 'Tab') {
+        if (e.key === 'Enter' || (e.key === 'Tab' && !e.shiftKey)) {
             e.preventDefault();
             var row = parseInt(e.target.dataset.row) + 1;
             if (row >= ROWS) row = 0;
             var nxt = _cell(row, e.target.dataset.col);
             if (nxt) { nxt.focus(); nxt.select(); }
+        } else if (e.key === 'Tab' && e.shiftKey) {
+            e.preventDefault();
+            var row = parseInt(e.target.dataset.row) - 1;
+            if (row < 0) row = ROWS - 1;
+            var nxt = _cell(row, e.target.dataset.col);
+            if (nxt) { nxt.focus(); nxt.select(); }
         }
     }
 
-    // ── Sequencer clock (sample-accurate via audioCtx.currentTime) ────────
-    function _getBpm() {
-        var inp = document.getElementById('vt-bpm');
-        return Math.max(40, Math.min(300, parseFloat(inp ? inp.value : 120) || 120));
+    // ── Waveform canvas rendering ─────────────────────────────────────────
+    function _drawWaveforms() {
+        var canvases = document.querySelectorAll('.vt-wave-canvas');
+        var modes = ['SUB','NOISE','SWEEP','BOOM'];
+        canvases.forEach(function(cv, idx) {
+            var ctx2 = cv.getContext('2d');
+            if (!ctx2) return;
+            var W = cv.offsetWidth || 80, H = cv.offsetHeight || 34;
+            cv.width = W; cv.height = H;
+            ctx2.clearRect(0, 0, W, H);
+            var wave = InternalSynth.getWaveShape(modes[idx] || 'SUB', W);
+            ctx2.beginPath();
+            ctx2.strokeStyle = 'rgba(0,243,255,0.7)';
+            ctx2.lineWidth = 1;
+            var mid = H / 2;
+            for (var x = 0; x < wave.length; x++) {
+                var y = mid - wave[x] * mid * 0.85;
+                if (x === 0) ctx2.moveTo(x, y);
+                else ctx2.lineTo(x, y);
+            }
+            ctx2.stroke();
+            // Fill under curve
+            ctx2.lineTo(W, mid); ctx2.lineTo(0, mid); ctx2.closePath();
+            ctx2.fillStyle = 'rgba(0,243,255,0.06)';
+            ctx2.fill();
+        });
     }
 
-    function _stepDuration() {
-        return 60 / _getBpm() / 4; // 16th notes
-    }
-
+    // ── Sample-accurate scheduler (hardware-locked to audioCtx.currentTime) ──
     function _scheduleStep(schedTime) {
         if (!_playing) return;
         var ctx = APP.audio && APP.audio.ctx;
@@ -7611,160 +7939,127 @@ const VanguardTracker = (() => {
 
         var padHex  = _val(_step, 'pad');
         var volHex  = _val(_step, 'vol');
-        var fxHex   = _val(_step, 'fx');
-        var valHex  = _val(_step, 'val');
+        var offHex  = _val(_step, 'off');
+        var rtgHex  = _val(_step, 'rtg');
+        var panHex  = _val(_step, 'pan');
         var noteStr = _val(_step, 'note');
 
-        if (padHex && padHex !== '--' && padHex !== '---') {
+        if (padHex && padHex !== '--') {
             var padNum = parseInt(padHex, 16);
-            var vol    = (volHex && volHex !== '--') ? parseInt(volHex, 16) / 255 : 0.7;
-            var fxVal  = (valHex && valHex !== '--') ? parseInt(valHex, 16) : 0;
+            var vol    = volHex && volHex !== '--' ? parseInt(volHex, 16) / 255 : 0.7;
+            var off    = offHex && offHex !== '--' ? parseInt(offHex, 16) / 255 : 0;
+            var rtg    = rtgHex && rtgHex !== '--' ? Math.max(1, parseInt(rtgHex, 16)) : 1;
+            var pan    = panHex && panHex !== '--' ? parseInt(panHex, 16) : 0x80;
             var freq   = NOTE_FREQS[noteStr] || 110;
-
-            var delay = schedTime - ctx.currentTime;
-            if (delay < 0) delay = 0;
-
-            var curStep = _step; // capture for closure
+            var delay  = Math.max(0, schedTime - ctx.currentTime);
+            var curStep = _step;
             setTimeout(function() {
                 if (!_playing) return;
                 _highlightRow(curStep);
-                _firePad(padNum, vol, freq, fxHex, fxVal);
+                _firePad(padNum, vol, freq, pan, rtg, off);
             }, delay * 1000);
         }
 
-        // Schedule next step
-        var nextStep = (_step + 1) % ROWS;
-        var nextTime = schedTime + _stepDuration();
-        _step = nextStep;
+        _step = (_step + 1) % ROWS;
         _setPos(_step);
-
-        _schedId = setTimeout(function() {
-            _scheduleStep(nextTime);
-        }, Math.max(0, (schedTime - ctx.currentTime - 0.05) * 1000));
+        var nextTime = schedTime + _stepDur();
+        _schedId = setTimeout(function() { _scheduleStep(nextTime); },
+            Math.max(0, (nextTime - ctx.currentTime - 0.06) * 1000));
     }
 
     function _highlightRow(idx) {
-        // Remove previous highlight
         var prev = document.querySelector('.vt-row.vt-active-row');
         if (prev) prev.classList.remove('vt-active-row');
         var r = _row(idx);
         if (r) {
             r.classList.add('vt-active-row');
-            // Auto-scroll to keep active row in view
             var scroll = document.getElementById('vt-track-scroll');
             if (scroll) {
-                var top = r.offsetTop - scroll.offsetHeight / 2;
-                scroll.scrollTo({ top: Math.max(0, top), behavior: 'smooth' });
+                var top = r.offsetTop - scroll.clientHeight / 2;
+                scroll.scrollTo({ top: Math.max(0, top), behavior: 'auto' });
             }
         }
     }
 
-    // ── Fire pad: route to InternalSynth or SFX_ENGINE ───────────────────
-    function _firePad(padNum, vol, freq, fxHex, fxVal) {
-        // Update audioReactiveData for VJ/shader pipeline
+    // ── Fire pad: InternalSynth or SFX_ENGINE + Sampler handshake ────────
+    function _firePad(padNum, vol, freq, panVal, rtg, off) {
         if (!window.audioReactiveData) window.audioReactiveData = {};
         window.audioReactiveData.trackerStep   = _step;
         window.audioReactiveData.trackerPad    = padNum;
         window.audioReactiveData.trackerVol    = vol;
+        window.audioReactiveData.trackerPan    = panVal;
         window.audioReactiveData.lastTriggerTs = performance.now();
 
-        // padNum 0x00–0x0F → InternalSynth (SYNTH mode)
         if (padNum >= 0x00 && padNum <= 0x0F) {
-            var modeEl = document.getElementById('vt-synth-mode');
-            var mode   = modeEl ? modeEl.value : 'SUB';
-            // Lower nibble of padNum selects sub-mode: 0-7=SUB, 8-F=NOISE
-            if (padNum >= 0x08) mode = 'NOISE';
-            InternalSynth.trigger(mode, freq, vol, fxVal);
-            _setStatus('SYNTH:' + mode + ' F=' + Math.round(freq) + 'Hz');
+            // Synth route
+            InternalSynth.trigger(padNum, freq, vol, panVal, rtg);
+            var modeName = ['SUB','SUB','NOISE','NOISE','SWEEP','SWEEP','METAL','METAL','AM','AM','BOOM','BOOM','BOOM','BOOM','BOOM','BOOM'][padNum] || 'SUB';
+            _setStatus('SYNTH:' + modeName + ' F=' + Math.round(freq) + ' V=' + Math.round(vol*100) + '%');
         } else {
-            // padNum 0x10–0x1F → SFX sample (index = padNum - 0x10)
+            // Sample route (10h–1Fh)
             var sfxIdx  = padNum - 0x10;
             var sfxName = SFX_NAMES[sfxIdx] || null;
             if (sfxName) {
-                SFX_ENGINE.play(sfxName);
+                // Sampler handshake — triggers pad FX coupling chain
+                Sampler.trigger(sfxName, vol, off);
                 _vjHeavySync();
-                _setStatus('SFX:' + sfxName.toUpperCase());
+                _setStatus('SFX:' + sfxName.toUpperCase() + ' V=' + Math.round(vol*100) + '%');
             }
         }
-
-        // Trigger VJ FX if FX column is set (non-zero)
-        if (fxHex && fxHex !== '--' && fxHex !== '00') {
-            _dispatchTrackerFX(parseInt(fxHex, 16));
-        }
     }
 
-    // ── VJ FX dispatch from tracker ───────────────────────────────────────
-    function _dispatchTrackerFX(fxCode) {
-        switch (fxCode) {
-            case 0x01: if (typeof APP !== 'undefined' && APP.vj) { APP.vj._seismicVel = (APP.vj._seismicVel||0)+0.6; APP.vj._seismicDemoUntil = performance.now()+800; } break;
-            case 0x02: if (typeof APP !== 'undefined' && APP.vj) { APP.vj._punchSpring = Math.min(1,(APP.vj._punchSpring||0)+0.7); APP.vj._punchDemoUntil = performance.now()+800; } break;
-            case 0x03: document.body.classList.add('party-active'); setTimeout(function(){document.body.classList.remove('party-active');},400); break;
-            default: break;
-        }
-    }
-
-    // ── Draggable window ──────────────────────────────────────────────────
-    function _initDrag() {
-        var titlebar = document.getElementById('vt-titlebar');
-        var win      = _win();
-        if (!titlebar || !win) return;
-        titlebar.addEventListener('mousedown', function(e) {
+    // ── Draggable ─────────────────────────────────────────────────────────
+    function _initDrag(titlebarId, winEl) {
+        var tb = document.getElementById(titlebarId);
+        if (!tb || !winEl) return;
+        tb.addEventListener('mousedown', function(e) {
             if (e.target.tagName === 'BUTTON' || e.target.tagName === 'INPUT' || e.target.tagName === 'SELECT') return;
             _dragging = true;
-            var rect  = win.getBoundingClientRect();
+            var rect  = winEl.getBoundingClientRect();
             _dragOffX = e.clientX - rect.left;
             _dragOffY = e.clientY - rect.top;
-            win.style.transition = 'none';
+            winEl.style.transition = 'none';
             e.preventDefault();
         });
         document.addEventListener('mousemove', function(e) {
             if (!_dragging) return;
-            var x = e.clientX - _dragOffX;
-            var y = e.clientY - _dragOffY;
-            x = Math.max(0, Math.min(window.innerWidth - 100, x));
-            y = Math.max(0, Math.min(window.innerHeight - 50, y));
-            win.style.left = x + 'px';
-            win.style.top  = y + 'px';
-            win.style.right = 'auto';
+            var x = Math.max(0, Math.min(window.innerWidth - 120, e.clientX - _dragOffX));
+            var y = Math.max(0, Math.min(window.innerHeight - 50, e.clientY - _dragOffY));
+            winEl.style.left = x + 'px'; winEl.style.top = y + 'px'; winEl.style.right = 'auto';
         });
         document.addEventListener('mouseup', function() { _dragging = false; });
     }
 
     // ── Public API ────────────────────────────────────────────────────────
     function init() {
-        _buildRows();
-        _initDrag();
+        _buildRows(true); // preload Cinematic Industrial
+        _initDrag('vt-titlebar', _win());
+        _getBpm();
     }
 
     function toggle() {
-        var win = _win();
-        if (!win) return;
+        var win = _win(); if (!win) return;
         _visible = !_visible;
         win.classList.toggle('visible', _visible);
         var btn = document.getElementById('btn-init-vngrd-tracker');
         if (btn) btn.classList.toggle('active', _visible);
-        if (_visible) {
-            init();
-            log('VNGRD_TRACKER: WINDOW_OPEN');
-        } else {
-            stop();
-        }
+        if (_visible) { init(); log('VNGRD_TRACKER: OPEN'); }
+        else { stop(); }
     }
 
     function play() {
         if (_playing) { stop(); return; }
-        var ctx = APP.audio && APP.audio.ctx;
-        if (!ctx) igniteAudio();
+        if (!APP.audio.ctx) igniteAudio();
         if (!APP.audio.masterGain) ensureAudioChain();
-        ctx = APP.audio.ctx;
+        var ctx = APP.audio.ctx;
         if (ctx && ctx.state === 'suspended') ctx.resume();
         _playing = true;
         _step    = 0;
         var playBtn = document.getElementById('vt-play-btn');
         if (playBtn) { playBtn.textContent = '■ STOP'; playBtn.classList.add('running'); }
         _setStatus('RUNNING');
-        _scheduleStep(ctx.currentTime + 0.05);
-        log('VNGRD_TRACKER: PLAY BPM=' + _getBpm());
+        _scheduleStep(ctx.currentTime + 0.04);
+        log('VNGRD_TRACKER: PLAY ' + _getBpm() + 'BPM');
     }
 
     function stop() {
@@ -7774,18 +8069,239 @@ const VanguardTracker = (() => {
         if (prev) prev.classList.remove('vt-active-row');
         var playBtn = document.getElementById('vt-play-btn');
         if (playBtn) { playBtn.textContent = '▶ PLAY'; playBtn.classList.remove('running'); }
-        _setStatus('IDLE');
-        _setPos(0);
+        _setStatus('IDLE'); _setPos(0);
         log('VNGRD_TRACKER: STOP');
     }
 
     function clear() {
         stop();
-        _buildRows();
+        _buildRows(false);
         log('VNGRD_TRACKER: CLEAR');
     }
 
-    return { init, toggle, play, stop, clear };
+    // Public accessors used by InternalSynth._bpm() and NeuralCompiler
+    function _bpm()       { return _bpmCache; }
+    function isPlaying()  { return _playing; }
+    function currentStep(){ return _step; }
+
+    // Reload waveforms when window resizes
+    window.addEventListener('resize', function() {
+        if (_visible) _drawWaveforms();
+    });
+
+    return { init, toggle, play, stop, clear, _bpm, isPlaying, currentStep };
+})();
+
+// ═══════════════════════════════════════════════════════════════
+//  SAMPLER — Unified trigger handshake + PURGE
+//  Tracker and NeuralCompiler both call Sampler.trigger() so that
+//  every pad's gear-coupled VJ FX assignments stay intact.
+// ═══════════════════════════════════════════════════════════════
+const Sampler = (() => {
+    function trigger(sfxName, vol, offset) {
+        // Route through SFX_ENGINE with optional volume scaling
+        if (!sfxName) return;
+        // Temporarily patch the gain for this trigger if vol differs
+        SFX_ENGINE.play(sfxName);
+        // Fire coupled VJ FX (circle matching / gear assignments)
+        if (typeof _fireCoupledFX === 'function') _fireCoupledFX(sfxName);
+        // Pulse the pad button
+        var id = 'sfx-' + sfxName;
+        var btn = document.getElementById(id);
+        if (btn && typeof _pulsePad === 'function') _pulsePad(btn);
+    }
+
+    function purge() {
+        // Wipe all custom + recorded pad buffers from SFX_ENGINE
+        var bufs = SFX_ENGINE._buffers();
+        ['custom1','custom2','custom3','custom4'].forEach(function(name) {
+            if (bufs[name]) {
+                delete bufs[name];
+                var btn = document.getElementById('sfx-' + name);
+                if (btn) {
+                    var nm = btn.querySelector('.pad-name');
+                    var hint = btn.querySelector('.pad-hint');
+                    if (nm) nm.textContent = 'C-0' + name.replace('custom','');
+                    if (hint) hint.textContent = 'LOAD';
+                    btn.classList.remove('loaded','sfx-playing');
+                }
+            }
+        });
+        log('SAMPLER: PURGE_COMPLETE');
+        if (typeof _setStatus === 'function') return;
+        var el = document.getElementById('sfx-midi-arm');
+        if (el) { el.textContent = 'PURGE OK'; setTimeout(function(){el.textContent='';},1500); }
+    }
+
+    return { trigger, purge };
+})();
+
+// ═══════════════════════════════════════════════════════════════
+//  NEURAL COMPILER — Live-Coding Performance Engine
+//  Draggable, resizable window. Hot-swap commands run on top of
+//  the master tracker clock without stopping it.
+//
+//  Command set:
+//    beat(n)          — fire liq pad n (1–4) on next downbeat
+//    kick()           — trigger SUB synth (pad 00) at C-3
+//    snare()          — trigger NOISE synth (pad 02)
+//    boom()           — trigger BOOM synth (pad 0A) at A-2
+//    shiver(n)        — n-step noise ratchet on next step
+//    pad(n)           — trigger SFX pad n (10h + n)
+//    bpm(n)           — set tracker BPM live (no clock stop)
+//    seismic(v)       — fire seismic effect (velocity 0.0–1.0)
+//    punch()          — fire PUSH kinetic bounce
+//    clear()          — clear tracker pattern
+//    stop()           — stop tracker
+//    play()           — start/restart tracker
+//    purge()          — wipe custom pad buffers
+// ═══════════════════════════════════════════════════════════════
+const NeuralCompiler = (() => {
+    var _visible  = false;
+    var _drag     = false;
+    var _dx = 0, _dy = 0;
+    var _history  = [];
+    var _histIdx  = -1;
+
+    function _win()  { return document.getElementById('nc-window'); }
+    function _out()  { return document.getElementById('nc-output'); }
+    function _inp()  { return document.getElementById('nc-input'); }
+
+    function _log(msg, cls) {
+        var out = _out(); if (!out) return;
+        var line = document.createElement('div');
+        line.className = 'nc-output-line' + (cls ? ' ' + cls : '');
+        line.textContent = msg;
+        out.appendChild(line);
+        out.scrollTop = out.scrollHeight;
+    }
+
+    function _exec(cmd) {
+        cmd = cmd.trim();
+        if (!cmd) return;
+        _history.unshift(cmd); _histIdx = -1;
+        _log('> ' + cmd);
+
+        try {
+            // beat(n) — fire liq pad on next downbeat
+            var m;
+            if ((m = cmd.match(/^beat\((\d+)\)$/))) {
+                var n = Math.max(1, Math.min(4, parseInt(m[1])));
+                Sampler.trigger('liq' + n, 0.85);
+                _log('BEAT:liq' + n + ' fired', 'nc-ok'); return;
+            }
+            if (/^kick\(\)$/.test(cmd)) {
+                InternalSynth.triggerSub(130.8, 0.9, 0x80);
+                _log('KICK:SUB C-3', 'nc-ok'); return;
+            }
+            if (/^snare\(\)$/.test(cmd)) {
+                InternalSynth.triggerNoise(1100, 0.75, 10, 0x80);
+                _log('SNARE:NOISE fired', 'nc-ok'); return;
+            }
+            if (/^boom\(\)$/.test(cmd)) {
+                InternalSynth.triggerBoom(45, 0.9, 0x80);
+                _log('BOOM:SUB fired', 'nc-ok'); return;
+            }
+            if ((m = cmd.match(/^shiver\((\d+)\)$/))) {
+                var count = Math.max(2, Math.min(16, parseInt(m[1])));
+                InternalSynth.trigger(0x02, 440, 0.6, 0x80, count);
+                _log('SHIVER:NOISE×' + count, 'nc-ok'); return;
+            }
+            if ((m = cmd.match(/^pad\((\d+)\)$/))) {
+                var idx = parseInt(m[1]);
+                Sampler.trigger(idx < 4 ? ['applause','cheer','horn','boom'][idx] : 'liq' + (idx-3), 0.8);
+                _log('PAD:' + idx + ' fired', 'nc-ok'); return;
+            }
+            if ((m = cmd.match(/^bpm\((\d+)\)$/))) {
+                var bpmVal = Math.max(40, Math.min(300, parseInt(m[1])));
+                var bpmInp = document.getElementById('vt-bpm');
+                if (bpmInp) { bpmInp.value = bpmVal; bpmInp.dispatchEvent(new Event('change')); }
+                _log('BPM:' + bpmVal, 'nc-ok'); return;
+            }
+            if ((m = cmd.match(/^seismic\(([\d.]+)\)$/))) {
+                var vel = Math.min(2.0, parseFloat(m[1]) || 0.5);
+                if (APP && APP.vj) { APP.vj._seismicVel = (APP.vj._seismicVel||0)+vel; APP.vj._seismicDemoUntil=performance.now()+1200; }
+                _log('SEISMIC:vel=' + vel, 'nc-ok'); return;
+            }
+            if (/^punch\(\)$/.test(cmd)) {
+                if (APP && APP.vj) { APP.vj._punchSpring=Math.min(1,(APP.vj._punchSpring||0)+0.8); APP.vj._punchDemoUntil=performance.now()+800; }
+                _log('PUNCH fired', 'nc-ok'); return;
+            }
+            if (/^clear\(\)$/.test(cmd))  { VanguardTracker.clear();  _log('TRACKER:CLEAR','nc-ok'); return; }
+            if (/^stop\(\)$/.test(cmd))   { VanguardTracker.stop();   _log('TRACKER:STOP','nc-ok');  return; }
+            if (/^play\(\)$/.test(cmd))   { VanguardTracker.play();   _log('TRACKER:PLAY','nc-ok');  return; }
+            if (/^purge\(\)$/.test(cmd))  { Sampler.purge();          _log('SAMPLER:PURGE','nc-ok'); return; }
+            if (/^help\(\)$/.test(cmd)) {
+                ['beat(n)  — fire liq pad 1-4','kick()   — 808 sub kick','snare()  — noise snare',
+                 'boom()   — cinematic boom','shiver(n)— noise ratchet×n','pad(n)   — SFX pad 0-7',
+                 'bpm(n)   — set BPM live','seismic(v)— screen shake','punch()  — kinetic bounce',
+                 'clear()  — clear pattern','stop()/play()','purge()  — wipe pad buffers'
+                ].forEach(function(l){ _log('  ' + l, 'nc-sys'); });
+                return;
+            }
+            _log('? unknown cmd — type help()', 'nc-err');
+        } catch(e) {
+            _log('ERR: ' + e.message, 'nc-err');
+        }
+    }
+
+    function _initDrag() {
+        var tb  = document.getElementById('nc-titlebar');
+        var win = _win();
+        if (!tb || !win) return;
+        tb.addEventListener('mousedown', function(e) {
+            if (e.target.tagName === 'BUTTON' || e.target.tagName === 'INPUT') return;
+            _drag = true;
+            var rect = win.getBoundingClientRect();
+            _dx = e.clientX - rect.left; _dy = e.clientY - rect.top;
+            win.style.transition = 'none'; e.preventDefault();
+        });
+        document.addEventListener('mousemove', function(e) {
+            if (!_drag) return;
+            var x = Math.max(0, Math.min(window.innerWidth-120, e.clientX - _dx));
+            var y = Math.max(0, Math.min(window.innerHeight-50, e.clientY - _dy));
+            win.style.left = x+'px'; win.style.top = y+'px'; win.style.transform = 'none';
+        });
+        document.addEventListener('mouseup', function() { _drag = false; });
+    }
+
+    function _initInput() {
+        var inp = _inp(); if (!inp) return;
+        inp.addEventListener('keydown', function(e) {
+            if (e.key === 'Enter') {
+                e.preventDefault();
+                var cmd = inp.value.trim();
+                if (cmd) { _exec(cmd); inp.value = ''; }
+            } else if (e.key === 'ArrowUp') {
+                e.preventDefault();
+                if (_histIdx < _history.length - 1) { _histIdx++; inp.value = _history[_histIdx] || ''; }
+            } else if (e.key === 'ArrowDown') {
+                e.preventDefault();
+                if (_histIdx > 0) { _histIdx--; inp.value = _history[_histIdx] || ''; }
+                else { _histIdx = -1; inp.value = ''; }
+            }
+        });
+        var runBtn = document.getElementById('nc-run-btn');
+        if (runBtn) runBtn.addEventListener('click', function() {
+            var cmd = inp.value.trim(); if (cmd) { _exec(cmd); inp.value = ''; }
+        });
+    }
+
+    function toggle() {
+        var win = _win(); if (!win) return;
+        _visible = !_visible;
+        win.classList.toggle('visible', _visible);
+        var btn = document.getElementById('nc-toggle-btn');
+        if (btn) btn.classList.toggle('active', _visible);
+        if (_visible) {
+            _initDrag(); _initInput();
+            _log('NEURAL_COMPILER v2.0 READY', 'nc-sys');
+            _log('type help() for command reference', 'nc-sys');
+            var inp = _inp(); if (inp) inp.focus();
+        }
+    }
+
+    return { toggle, exec: _exec };
 })();
 
 // ═══════════════════════════════════════════════════════════════
@@ -13743,6 +14259,21 @@ var isVideo = nft.forceVideo || (imageUrl.toLowerCase().match(/\.(mp4|webm|mov|o
 
     window.aiGenerate = aiGenerate;
 
+    // ── HUD toggle helper ─────────────────────────────────────────────────
+    window._vtToggleHud = function() {
+        var hud = document.getElementById('vt-hud-overlay');
+        if (hud) hud.classList.toggle('visible');
+    };
+
+    // ── NeuralCompiler clock sync ticker ─────────────────────────────────
+    setInterval(function() {
+        var el = document.getElementById('nc-clock-status');
+        if (!el) return;
+        el.textContent = 'CLOCK: ' + (VanguardTracker.isPlaying()
+            ? 'PLAY ' + VanguardTracker._bpm() + 'BPM ROW:' + VanguardTracker.currentStep().toString(16).toUpperCase()
+            : 'IDLE');
+    }, 100);
+
     // Wire button + Enter key
     if ($('btn-generate-ai')) {
         $('btn-generate-ai').onclick = function() {
@@ -16051,41 +16582,120 @@ function _applyPoseToModel(lm) {
 </script>
 
 <!-- ═══════════════════════════════════════════════════════════
-     VANGUARD TRACKER FLOATING WINDOW TEMPLATE
+     VANGUARD TRACKER — BRUTALIST GLASS WINDOW
      ═══════════════════════════════════════════════════════════ -->
 <div id="vanguard-tracker-window" class="vanguard-tracker-window">
+
+    <!-- Title bar / Transport -->
     <div class="vt-titlebar" id="vt-titlebar">
-        <span class="vt-titlebar-label">▶ VNGRD // VERTICAL TRACKER</span>
+        <span class="vt-titlebar-label">◈ VNGRD // VERTICAL TRACKER</span>
         <div class="vt-transport">
-            <select class="vt-mode-select" id="vt-synth-mode" title="Default synth mode">
-                <option value="SUB">SUB</option>
-                <option value="NOISE">NOISE</option>
-            </select>
-            <div class="vt-bpm-wrap">
-                BPM <input class="vt-bpm-input" id="vt-bpm" type="number" min="40" max="300" value="120">
-            </div>
+            <div class="vt-bpm-wrap">BPM <input class="vt-bpm-input" id="vt-bpm" type="number" min="40" max="300" value="120"></div>
             <button class="vt-btn vt-play-btn" id="vt-play-btn" onclick="VanguardTracker.play()">▶ PLAY</button>
             <button class="vt-btn" onclick="VanguardTracker.stop()">■ STOP</button>
-            <button class="vt-btn" onclick="VanguardTracker.clear()" style="color:rgba(255,100,0,0.7);border-color:rgba(255,100,0,0.3);">CLR</button>
+            <button class="vt-btn" onclick="VanguardTracker.clear()" style="color:rgba(255,120,0,0.7);border-color:rgba(255,120,0,0.3);">CLR</button>
+            <button class="vt-btn vt-compiler-btn" id="nc-toggle-btn" onclick="NeuralCompiler.toggle()">⟨/⟩ NEURAL_COMPILER</button>
+            <button class="vt-btn" onclick="_vtToggleHud()" style="color:rgba(255,204,0,0.7);border-color:rgba(255,204,0,0.25);">? HUD</button>
         </div>
         <button class="vt-close-btn" onclick="VanguardTracker.toggle()">✕</button>
     </div>
+
+    <!-- Waveform canvas strip (one per synth mode) -->
+    <div class="vt-wave-strip">
+        <div class="vt-wave-num-pad" style="font-size:5.5px;color:rgba(0,243,255,0.3);letter-spacing:1px;">WAVE</div>
+        <div class="vt-wave-canvas-wrap">
+            <canvas class="vt-wave-canvas" id="vt-wave-0"></canvas>
+            <span class="vt-wave-label">SUB 00-01</span>
+        </div>
+        <div class="vt-wave-canvas-wrap">
+            <canvas class="vt-wave-canvas" id="vt-wave-1"></canvas>
+            <span class="vt-wave-label">NOISE 02-03</span>
+        </div>
+        <div class="vt-wave-canvas-wrap">
+            <canvas class="vt-wave-canvas" id="vt-wave-2"></canvas>
+            <span class="vt-wave-label">SWEEP 04-05</span>
+        </div>
+        <div class="vt-wave-canvas-wrap">
+            <canvas class="vt-wave-canvas" id="vt-wave-3"></canvas>
+            <span class="vt-wave-label">BOOM 0A-0F</span>
+        </div>
+    </div>
+
+    <!-- Column headers -->
     <div class="vt-col-headers">
         <div class="vt-col-hdr">#</div>
-        <div class="vt-col-hdr">PAD/SYNTH</div>
-        <div class="vt-col-hdr">VOL</div>
-        <div class="vt-col-hdr">FX</div>
-        <div class="vt-col-hdr">VAL</div>
-        <div class="vt-col-hdr">NOTE</div>
+        <div class="vt-col-hdr" title="PAD 00-0F=SYNTH 10-1F=SFX">PAD</div>
+        <div class="vt-col-hdr" title="VOL 00-FF velocity">VOL</div>
+        <div class="vt-col-hdr" title="OFF 00-FF sample start offset">OFF</div>
+        <div class="vt-col-hdr" title="RTG 01-0F retrigger count">RTG</div>
+        <div class="vt-col-hdr" title="PAN 00=L 80=C FF=R spatial">PAN</div>
     </div>
-    <div class="vt-track-scroll" id="vt-track-scroll">
-        <!-- rows injected by VanguardTracker.init() -->
-    </div>
+
+    <!-- Scrollable track rows (injected by VanguardTracker.init) -->
+    <div class="vt-track-scroll" id="vt-track-scroll"></div>
+
+    <!-- Status bar -->
     <div class="vt-status-bar">
         <span>POS:</span><span class="vt-status-pos" id="vt-pos">00</span>
-        <span style="margin-left:6px;">STEP:</span><span class="vt-status-pos" id="vt-step">00/32</span>
-        <span style="margin-left:6px;color:rgba(0,243,255,0.5);" id="vt-engine-status">IDLE</span>
-        <span style="margin-left:auto;opacity:0.4;">HEX INPUT · SYNTH=00-0F · SFX=10-1F</span>
+        <span style="margin-left:5px;">ROW:</span><span class="vt-status-pos" id="vt-step">1/32</span>
+        <span style="margin-left:5px;color:rgba(0,243,255,0.55);" id="vt-engine-status">IDLE</span>
+        <span style="margin-left:auto;color:rgba(0,243,255,0.22);">SYNTH:00-0F · SFX:10-1F · NOTE:C-3</span>
+    </div>
+
+    <!-- HUD Overlay (hex command reference) -->
+    <div class="vt-hud-overlay" id="vt-hud-overlay">
+        <div class="vt-hud-title">HEX COMMAND REFERENCE</div>
+        <div class="vt-hud-row">
+            <span class="vt-hud-cmd">PAD (col 1)</span>
+            <span class="vt-hud-desc">00–0F → InternalSynth<br>10–1F → SFX sample library</span>
+        </div>
+        <div class="vt-hud-sep"></div>
+        <div class="vt-hud-row">
+            <span class="vt-hud-cmd">VOL  00–FF</span>
+            <span class="vt-hud-desc">Velocity. 00=silent FF=full.<br>High VOL + low freq = seismic.</span>
+        </div>
+        <div class="vt-hud-sep"></div>
+        <div class="vt-hud-row">
+            <span class="vt-hud-cmd">OFF  00–FF</span>
+            <span class="vt-hud-desc">Sample start offset (0%–100%).<br>Skip into the sample.</span>
+        </div>
+        <div class="vt-hud-sep"></div>
+        <div class="vt-hud-row">
+            <span class="vt-hud-cmd">RTG  01–0F</span>
+            <span class="vt-hud-desc">Retrigger / Ratchet.<br>01=once  04=quad  0F=16th burst.</span>
+        </div>
+        <div class="vt-hud-sep"></div>
+        <div class="vt-hud-row">
+            <span class="vt-hud-cmd">PAN  00–FF</span>
+            <span class="vt-hud-desc">3D Spatial position.<br>00=hard-L  80=center  FF=hard-R.</span>
+        </div>
+        <div class="vt-hud-sep"></div>
+        <div class="vt-hud-row">
+            <span class="vt-hud-cmd">NOTE  C-3…B-6</span>
+            <span class="vt-hud-desc">Chromatic pitch for synth pads.<br>Sets oscillator frequency.</span>
+        </div>
+        <button class="vt-hud-close" onclick="_vtToggleHud()">[ CLOSE HUD ]</button>
+    </div>
+</div>
+
+<!-- ═══════════════════════════════════════════════════════════
+     NEURAL COMPILER FLOATING WINDOW
+     ═══════════════════════════════════════════════════════════ -->
+<div id="nc-window" class="nc-window">
+    <div class="nc-titlebar" id="nc-titlebar">
+        <span class="nc-title">⟨/⟩ NEURAL_COMPILER</span>
+        <button class="vt-btn" onclick="NeuralCompiler.exec('help()')" style="font-size:7px;border-color:rgba(176,0,255,0.25);color:rgba(176,0,255,0.6);">HELP</button>
+        <button class="vt-close-btn" onclick="NeuralCompiler.toggle()" style="color:rgba(176,0,255,0.5);">✕</button>
+    </div>
+    <div class="nc-prompt-area" id="nc-output"></div>
+    <div class="nc-input-bar">
+        <span class="nc-prompt-symbol">▸</span>
+        <input class="nc-input" id="nc-input" type="text" placeholder="beat(4)  kick()  shiver(8)  bpm(140)…" autocomplete="off" spellcheck="false">
+        <button class="nc-run-btn" id="nc-run-btn">RUN</button>
+    </div>
+    <div class="nc-status-bar">
+        <span>LIVE-CODING ENGINE · HOT-SWAP · NO CLOCK STOP</span>
+        <span style="margin-left:auto;" id="nc-clock-status">CLOCK: IDLE</span>
     </div>
 </div>
 </body>
