@@ -2413,6 +2413,34 @@ body.fx-nvg .sidebar { z-index: 9999; }
 /* Unmissable green glow on the active NVG button */
 #btn-nvg.active-fx { color: #00ff41 !important; border-color: #00ff41 !important; background: rgba(0,255,65,0.30) !important; filter: drop-shadow(0 0 8px #00ff41) drop-shadow(0 0 18px rgba(0,255,65,0.55)) !important; text-shadow: 0 0 6px #00ff41, 0 0 16px #00ff41 !important; }
 
+/* ── BANK A — va-btn: mirrors Bank B style, slightly bigger, color-coded per FX ── */
+.va-btn {
+    font-size: 10px !important;
+    padding: 7px 4px !important;
+    text-align: center !important;
+    letter-spacing: 1px !important;
+    color: var(--va-color, rgba(255,255,255,0.55)) !important;
+    border-color: color-mix(in srgb, var(--va-color, rgba(255,255,255,0.2)) 45%, transparent) !important;
+    transition: color 0.15s, border-color 0.15s, box-shadow 0.15s, background 0.15s;
+}
+.va-btn:hover {
+    color: var(--va-color, var(--accent)) !important;
+    border-color: var(--va-color, var(--accent)) !important;
+    box-shadow: 0 0 8px color-mix(in srgb, var(--va-color, var(--accent)) 60%, transparent) !important;
+    text-shadow: 0 0 6px var(--va-color, var(--accent)) !important;
+    background: color-mix(in srgb, var(--va-color, var(--accent)) 8%, #090910) !important;
+}
+.va-btn.active-fx,
+.va-btn.active-mode,
+.va-btn.on {
+    color: var(--va-color, var(--accent)) !important;
+    border-color: var(--va-color, var(--accent)) !important;
+    background: color-mix(in srgb, var(--va-color, var(--accent)) 14%, #090910) !important;
+    box-shadow: 0 0 12px color-mix(in srgb, var(--va-color, var(--accent)) 70%, transparent) !important;
+    text-shadow: 0 0 8px var(--va-color, var(--accent)) !important;
+    filter: none !important;
+}
+
 /* Ensure no FX overlay blocks clicks */
 .fx-punch::after, .punch-hit::after {
     pointer-events: none !important;
@@ -3185,27 +3213,27 @@ body.fullscreen #transcription-hud { pointer-events: none !important; } /* keep 
             <div class="sec-body">
                 <!-- Bank switcher -->
                 <div class="btn-row" style="gap:3px;margin-bottom:5px;">
-                    <button class="btn" id="fx-bank-a-btn" onclick="_setFXBank('A')" style="font-size:8px;flex:1;" title="VNGRD Bank A — console FX">[ VNGRD BANK A ]</button>
-                    <button class="btn" id="fx-bank-b-btn" onclick="_setFXBank('B')" style="font-size:8px;flex:1;" title="VNGRD Bank B — GPU shader FX">[ VNGRD BANK B ]</button>
+                    <button class="btn" id="fx-bank-a-btn" onclick="_setFXBank('A')" style="font-size:9px;flex:1;text-align:center;padding:8px 4px;letter-spacing:1px;" title="VNGRD Bank A — console FX">[ VNGRD BANK A ]</button>
+                    <button class="btn" id="fx-bank-b-btn" onclick="_setFXBank('B')" style="font-size:9px;flex:1;text-align:center;padding:8px 4px;letter-spacing:1px;" title="VNGRD Bank B — GPU shader FX">[ VNGRD BANK B ]</button>
                 </div>
                 <!-- Bank A — console FX -->
                 <div id="fx-bank-a-panel">
                 <div class="btn-grid-3" style="margin-bottom:4px;">
-                    <button class="btn" onclick="toggleFX('scan')" style="font-size:8px;">X-RAY</button>
-                    <button class="btn" onclick="toggleFX('tear')" style="font-size:8px;">TEAR</button>
-                    <button class="btn" id="btn-psychosis" style="font-size:8px;">FAILURE</button>
+                    <button class="btn va-btn" onclick="toggleFX('scan')" style="--va-color:#00f3ff;" title="Tap=toggle">X-RAY</button>
+                    <button class="btn va-btn" onclick="toggleFX('tear')" style="--va-color:#00f3ff;" title="Tap=toggle">TEAR</button>
+                    <button class="btn va-btn" id="btn-psychosis" style="--va-color:#ff00ff;" title="Tap=toggle">FAILURE</button>
                 </div>
                 <div class="btn-grid-3" style="margin-bottom:4px;">
-                    <button class="btn" id="btn-shooting" style="color:var(--r);border-color:var(--r);font-size:9px;">SHOOT</button>
-                    <button class="btn" onclick="toggleFX('void')" style="font-size:9px;">VOID</button>
-                    <button class="btn" onclick="toggleFX('lucy')" style="color:#ff00ff;border-color:#ff00ff;text-shadow:0 0 5px #ff00ff;font-size:9px;">LUCY</button>
+                    <button class="btn va-btn" id="btn-shooting" style="--va-color:#ff3333;" title="Tap=toggle">SHOOT</button>
+                    <button class="btn va-btn" onclick="toggleFX('void')" style="--va-color:#aa44ff;" title="Tap=toggle">VOID</button>
+                    <button class="btn va-btn" onclick="toggleFX('lucy')" style="--va-color:#ff00ff;" title="Tap=toggle">LUCY</button>
                 </div>
-                <div class="btn-grid-3" style="margin-bottom:2px;">
-                    <button class="btn" id="btn-vhs" onclick="toggleVHS()" style="font-size:9px;">VHS_OVR</button>
-                    <button class="btn" id="btn-nvg" onclick="toggleFX('nvg')" style="color:#00ff41;border-color:#00ff41;text-shadow:0 0 5px #00ff41;font-size:9px;">NVG</button>
-                    <button class="btn" onclick="triggerHardReset()" style="color:var(--r);font-size:9px;">RESET</button>
+                <div class="btn-grid-3" style="margin-bottom:4px;">
+                    <button class="btn va-btn" id="btn-vhs" onclick="toggleVHS()" style="--va-color:#ffaa00;" title="Tap=toggle">VHS_OVR</button>
+                    <button class="btn va-btn" id="btn-nvg" onclick="toggleFX('nvg')" style="--va-color:#00ff41;" title="Tap=toggle">NVG</button>
+                    <button class="btn va-btn" onclick="triggerHardReset()" style="--va-color:#ff3333;" title="Hard reset all FX">RESET</button>
                 </div>
-                <div style="font-size:7px;text-align:center;letter-spacing:1.5px;color:rgba(255,255,255,0.18);padding-bottom:2px;">BANK A // TAP=TOGGLE</div>
+                <div style="font-size:7px;text-align:center;letter-spacing:1.5px;color:rgba(0,243,255,0.3);padding-bottom:2px;">BANK A // TAP=TOGGLE</div>
                 </div>
                 <!-- Bank B — VNGRD_B GPU Shaders (identical layout to Bank A) -->
                 <div id="fx-bank-b-panel" style="display:none;">
