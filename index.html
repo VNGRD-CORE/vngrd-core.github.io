@@ -3160,11 +3160,10 @@ body.fullscreen #transcription-hud { pointer-events: none !important; } /* keep 
 /* ── Column header labels ── */
 .vt-col-headers {
     display: grid;
-    grid-template-columns: 28px 1fr 1fr 1fr 1fr 1fr;
-    gap: 2px;
+    grid-template-columns: 28px 1fr 1fr 1fr 1fr;
     padding: 2px 5px;
     background: rgba(0,0,0,0.3);
-    border-bottom: 1px solid rgba(0,243,255,0.12);
+    border-bottom: 1px solid rgba(0,243,255,0.18);
     flex-shrink: 0;
 }
 .vt-col-hdr {
@@ -3172,10 +3171,22 @@ body.fullscreen #transcription-hud { pointer-events: none !important; } /* keep 
     color: rgba(0,243,255,0.38);
     letter-spacing: 1.5px;
     text-align: center;
-    padding: 1px 0;
+    padding: 2px 0;
     text-transform: uppercase;
+    border-right: 1px solid rgba(0,243,255,0.12);
+    position: relative;
 }
-.vt-col-hdr:nth-child(2) { color: rgba(0,243,255,0.6); }
+.vt-col-hdr:last-child { border-right: none; }
+.vt-col-hdr:nth-child(2) { color: rgba(0,243,255,0.65); }
+/* Laser line glow under each header */
+.vt-col-hdr::after {
+    content: '';
+    position: absolute;
+    bottom: 0; left: 0; right: 0;
+    height: 1px;
+    background: rgba(0,243,255,0.2);
+    box-shadow: 0 0 4px rgba(0,243,255,0.4);
+}
 
 /* ── Track scroll ── */
 .vt-track-scroll {
@@ -3192,8 +3203,7 @@ body.fullscreen #transcription-hud { pointer-events: none !important; } /* keep 
 /* ── Rows ── */
 .vt-row {
     display: grid;
-    grid-template-columns: 28px 1fr 1fr 1fr 1fr 1fr;
-    gap: 2px;
+    grid-template-columns: 28px 1fr 1fr 1fr 1fr;
     padding: 0.5px 2px;
     border-bottom: 1px solid rgba(255,255,255,0.02);
     align-items: center;
@@ -3215,11 +3225,12 @@ body.fullscreen #transcription-hud { pointer-events: none !important; } /* keep 
 .vt-row.vt-beat-4 .vt-row-num { color: rgba(0,243,255,0.35); }
 
 /* ── Cells ── */
-.vt-cell { position: relative; }
+.vt-cell { position: relative; border-right: 1px solid rgba(0,243,255,0.07); }
+.vt-cell:last-child { border-right: none; }
 .vt-cell input {
     width: 100%;
-    background: rgba(0,0,0,0.3);
-    border: 1px solid rgba(255,255,255,0.04);
+    background: transparent;
+    border: 1px solid transparent;
     color: rgba(0,243,255,0.7);
     font-size: 9px;
     font-family: 'JetBrains Mono', monospace;
@@ -3227,96 +3238,132 @@ body.fullscreen #transcription-hud { pointer-events: none !important; } /* keep 
     padding: 2px 1px;
     text-transform: uppercase;
     outline: none;
-    transition: border-color 0.08s, background 0.08s;
+    transition: border-color 0.06s, background 0.06s;
     user-select: text;
     cursor: text;
     caret-color: #00f3ff;
+    box-sizing: border-box;
 }
 .vt-cell input:focus {
-    border-color: rgba(0,243,255,0.7);
-    background: rgba(0,243,255,0.06);
+    border-color: rgba(0,243,255,0.8);
+    background: rgba(0,243,255,0.08);
     color: #00f3ff;
+    box-shadow: 0 0 6px rgba(0,243,255,0.2);
     animation: vt-cursor-pulse var(--vt-bpm-ms, 500ms) ease-in-out infinite;
+    position: relative; z-index: 2;
 }
-.vt-cell input.vt-synth { color: rgba(176,0,255,0.9); border-color: rgba(176,0,255,0.2); }
-.vt-cell input.vt-sample { color: rgba(255,204,0,0.85); border-color: rgba(255,204,0,0.18); }
-.vt-cell input.vt-pan-l { color: rgba(0,255,136,0.85); }
-.vt-cell input.vt-pan-r { color: rgba(255,0,85,0.85); }
-.vt-cell input::placeholder { color: rgba(255,255,255,0.08); font-size: 7.5px; }
+.vt-cell input.vt-synth  { color: rgba(176,0,255,0.9); }
+.vt-cell input.vt-synth:focus { border-color: rgba(176,0,255,0.7); background: rgba(176,0,255,0.08); }
+.vt-cell input.vt-sample { color: rgba(255,204,0,0.85); }
+.vt-cell input.vt-sample:focus { border-color: rgba(255,204,0,0.6); background: rgba(255,204,0,0.06); }
+.vt-cell input.vt-pan-l  { color: rgba(0,255,136,0.85); }
+.vt-cell input.vt-pan-r  { color: rgba(255,0,85,0.85); }
+.vt-cell input::placeholder { color: rgba(255,255,255,0.07); font-size: 7.5px; }
 
 /* ── Status bar ── */
 .vt-status-bar {
-    display: flex;
-    align-items: center;
-    gap: 8px;
-    padding: 2px 8px;
-    background: rgba(0,0,0,0.45);
-    border-top: 1px solid rgba(0,243,255,0.12);
-    flex-shrink: 0;
-    font-size: 6.5px;
-    color: rgba(0,243,255,0.38);
-    letter-spacing: 1px;
+    display: flex; align-items: center; gap: 8px; padding: 2px 8px;
+    background: rgba(0,0,0,0.45); border-top: 1px solid rgba(0,243,255,0.12);
+    flex-shrink: 0; font-size: 6.5px; color: rgba(0,243,255,0.38); letter-spacing: 1px;
 }
 .vt-status-pos { color: rgba(0,243,255,0.8); font-weight: 700; }
 .vt-mode-select {
-    background: transparent;
-    border: 1px solid rgba(0,243,255,0.15);
-    color: rgba(0,243,255,0.6);
-    font-size: 6.5px;
-    font-family: 'JetBrains Mono', monospace;
-    padding: 1px 2px;
-    cursor: pointer;
-    outline: none;
+    background: transparent; border: 1px solid rgba(0,243,255,0.15);
+    color: rgba(0,243,255,0.6); font-size: 6.5px; font-family: 'JetBrains Mono', monospace;
+    padding: 1px 2px; cursor: pointer; outline: none;
 }
 .vt-mode-select option { background: #040408; color: #00f3ff; }
 
-/* ── HUD Overlay ── */
+/* ── HUD Overlay — full-screen glass morphism ── */
 .vt-hud-overlay {
-    position: absolute;
-    top: 0; right: 0; bottom: 0;
-    width: 200px;
-    background: rgba(2,3,8,0.92);
-    backdrop-filter: blur(20px);
-    border-left: 1px solid rgba(0,243,255,0.2);
-    padding: 10px 8px;
-    z-index: 10;
+    position: fixed;
+    inset: 0;
+    z-index: 9800;
+    background: rgba(0, 4, 14, 0.75);
+    backdrop-filter: blur(20px) saturate(1.6);
+    -webkit-backdrop-filter: blur(20px) saturate(1.6);
     display: none;
-    flex-direction: column;
-    gap: 6px;
-    overflow-y: auto;
+    align-items: center;
+    justify-content: center;
 }
 .vt-hud-overlay.visible { display: flex; }
-.vt-hud-title {
-    font-family: 'Orbitron', sans-serif;
-    font-size: 8px;
-    color: #00f3ff;
-    letter-spacing: 2px;
-    border-bottom: 1px solid rgba(0,243,255,0.2);
-    padding-bottom: 4px;
-    margin-bottom: 2px;
-    text-shadow: 0 0 8px rgba(0,243,255,0.5);
+.vt-hud-panel {
+    width: 480px;
+    max-width: 92vw;
+    background: rgba(2, 6, 18, 0.92);
+    border: 1px solid rgba(0,243,255,0.35);
+    box-shadow: 0 0 60px rgba(0,243,255,0.12), 0 0 120px rgba(0,0,0,0.8);
+    border-radius: 4px;
+    padding: 18px 20px;
+    display: flex; flex-direction: column; gap: 8px;
 }
-.vt-hud-row { display: flex; flex-direction: column; gap: 1px; margin-bottom: 4px; }
-.vt-hud-cmd { font-size: 8.5px; color: #ffcc00; font-weight: 700; letter-spacing: 1px; }
-.vt-hud-desc { font-size: 7px; color: rgba(255,255,255,0.45); line-height: 1.4; }
-.vt-hud-sep { height: 1px; background: rgba(0,243,255,0.1); margin: 3px 0; }
+.vt-hud-title {
+    font-family: 'Orbitron', sans-serif; font-size: 10px; color: #00f3ff;
+    letter-spacing: 3px; text-shadow: 0 0 12px rgba(0,243,255,0.7);
+    border-bottom: 1px solid rgba(0,243,255,0.2); padding-bottom: 8px; margin-bottom: 4px;
+    text-align: center;
+}
+.vt-hud-grid {
+    display: grid; grid-template-columns: 1fr 1fr; gap: 10px;
+}
+.vt-hud-row { display: flex; flex-direction: column; gap: 2px; }
+.vt-hud-cmd  { font-size: 9.5px; color: #ffcc00; font-weight: 700; letter-spacing: 1px; }
+.vt-hud-desc { font-size: 7.5px; color: rgba(255,255,255,0.45); line-height: 1.5; }
+.vt-hud-sep  { height: 1px; background: rgba(0,243,255,0.1); grid-column: 1/-1; }
+.vt-hud-section-title {
+    font-size: 7px; letter-spacing: 2px; color: rgba(0,243,255,0.5);
+    text-transform: uppercase; grid-column: 1/-1; margin-top: 4px;
+    border-left: 2px solid rgba(0,243,255,0.4); padding-left: 6px;
+}
 .vt-hud-close {
-    font-size: 7px; color: rgba(255,51,51,0.6); background: transparent;
-    border: 1px solid rgba(255,51,51,0.2); cursor: pointer; padding: 2px 6px;
-    font-family: 'JetBrains Mono', monospace; letter-spacing: 1px; margin-top: auto;
+    font-size: 8px; color: rgba(0,243,255,0.7); background: transparent;
+    border: 1px solid rgba(0,243,255,0.25); cursor: pointer; padding: 4px 12px;
+    font-family: 'JetBrains Mono', monospace; letter-spacing: 2px; align-self: center;
+    margin-top: 6px; transition: all 0.1s;
+}
+.vt-hud-close:hover { background: rgba(0,243,255,0.1); color: #00f3ff; }
+
+/* ── Glowing NC launch button in tracker titlebar ── */
+.vt-btn-nc-launch {
+    font-family: 'Orbitron', sans-serif;
+    font-size: 7.5px; font-weight: 700;
+    background: rgba(176,0,255,0.12);
+    border: 1px solid rgba(176,0,255,0.5);
+    color: #b000ff;
+    padding: 3px 10px;
+    cursor: pointer;
+    letter-spacing: 1px;
+    white-space: nowrap;
+    box-shadow: 0 0 10px rgba(176,0,255,0.2), inset 0 0 8px rgba(176,0,255,0.05);
+    animation: nc-btn-pulse 2.5s ease-in-out infinite;
+    transition: all 0.1s;
+}
+.vt-btn-nc-launch:hover {
+    background: rgba(176,0,255,0.25);
+    box-shadow: 0 0 18px rgba(176,0,255,0.45), inset 0 0 12px rgba(176,0,255,0.1);
+    color: #cc44ff;
+}
+.vt-btn-nc-launch.active {
+    background: rgba(176,0,255,0.3);
+    box-shadow: 0 0 24px rgba(176,0,255,0.6);
+    animation: none;
+}
+@keyframes nc-btn-pulse {
+    0%,100% { box-shadow: 0 0 8px rgba(176,0,255,0.2), inset 0 0 6px rgba(176,0,255,0.05); }
+    50%      { box-shadow: 0 0 18px rgba(176,0,255,0.45), inset 0 0 10px rgba(176,0,255,0.12); }
 }
 
 /* ═══ NEURAL COMPILER WINDOW ═══ */
 .nc-window {
     position: fixed;
-    top: 120px;
+    top: 80px;
     left: 50%;
     transform: translateX(-50%);
-    width: 540px;
-    min-width: 360px;
-    min-height: 200px;
-    height: 380px;
-    background: rgba(4, 2, 10, 0.88);
+    width: 580px;
+    min-width: 400px;
+    min-height: 240px;
+    height: 460px;
+    background: rgba(4, 2, 12, 0.90);
     backdrop-filter: blur(30px) saturate(1.3);
     -webkit-backdrop-filter: blur(30px) saturate(1.3);
     border: 1px solid rgba(176,0,255,0.4);
@@ -3340,31 +3387,84 @@ body.fullscreen #transcription-hud { pointer-events: none !important; } /* keep 
     font-family: 'Orbitron', sans-serif; font-size: 8.5px; font-weight: 700;
     color: #b000ff; letter-spacing: 2px; flex: 1; text-shadow: 0 0 10px rgba(176,0,255,0.6);
 }
-.nc-prompt-area {
-    flex: 1; overflow-y: auto; overflow-x: hidden; padding: 6px 8px;
-    display: flex; flex-direction: column; gap: 3px;
+.nc-body {
+    flex: 1; display: flex; flex-direction: column; overflow: hidden; min-height: 0;
 }
+.nc-editor-wrap {
+    flex: 1; position: relative; min-height: 0; border-bottom: 1px solid rgba(176,0,255,0.15);
+}
+.nc-editor {
+    position: absolute; inset: 0;
+    width: 100%; height: 100%;
+    background: rgba(0,0,0,0.35);
+    border: none; outline: none; resize: none;
+    color: rgba(176,0,255,0.85);
+    font-size: 10px; line-height: 1.6;
+    font-family: 'JetBrains Mono', monospace;
+    padding: 8px 10px;
+    caret-color: #b000ff;
+    user-select: text; cursor: text;
+    tab-size: 2;
+    scrollbar-width: thin;
+    scrollbar-color: rgba(176,0,255,0.2) transparent;
+    box-sizing: border-box;
+}
+.nc-editor::-webkit-scrollbar { width: 3px; }
+.nc-editor::-webkit-scrollbar-thumb { background: rgba(176,0,255,0.2); }
+.nc-editor::placeholder { color: rgba(176,0,255,0.2); }
+.nc-output-panel {
+    height: 100px; overflow-y: auto; overflow-x: hidden;
+    background: rgba(0,0,0,0.4); flex-shrink: 0;
+    padding: 4px 8px; display: flex; flex-direction: column; gap: 1px;
+    scrollbar-width: thin; scrollbar-color: rgba(176,0,255,0.15) transparent;
+}
+.nc-output-panel::-webkit-scrollbar { width: 3px; }
+.nc-output-panel::-webkit-scrollbar-thumb { background: rgba(176,0,255,0.15); }
 .nc-output-line {
-    font-size: 9px; line-height: 1.5; font-family: 'JetBrains Mono', monospace;
-    color: rgba(176,0,255,0.7); white-space: pre;
+    font-size: 8.5px; line-height: 1.5; font-family: 'JetBrains Mono', monospace;
+    color: rgba(176,0,255,0.65); white-space: pre-wrap; word-break: break-all;
 }
 .nc-output-line.nc-ok  { color: rgba(0,255,136,0.8); }
-.nc-output-line.nc-err { color: rgba(255,51,51,0.8); }
-.nc-output-line.nc-sys { color: rgba(0,243,255,0.6); }
-.nc-input-bar {
-    display: flex; align-items: center; gap: 4px; padding: 5px 8px;
-    background: rgba(0,0,0,0.4); border-top: 1px solid rgba(176,0,255,0.18); flex-shrink: 0;
+.nc-output-line.nc-err { color: rgba(255,51,51,0.85); }
+.nc-output-line.nc-sys { color: rgba(0,243,255,0.65); }
+.nc-toolbar {
+    display: flex; align-items: center; gap: 5px; padding: 4px 8px;
+    background: rgba(0,0,0,0.5); border-top: 1px solid rgba(176,0,255,0.12); flex-shrink: 0;
 }
-.nc-prompt-symbol { font-size: 9px; color: #b000ff; opacity: 0.7; animation: nc-blink 1s ease-in-out infinite; }
-.nc-input {
-    flex: 1; background: transparent; border: none; outline: none;
-    color: #b000ff; font-size: 9px; font-family: 'JetBrains Mono', monospace;
-    caret-color: #b000ff; user-select: text; cursor: text;
+.nc-run-btn {
+    font-size: 7.5px; background: rgba(176,0,255,0.15); border: 1px solid rgba(176,0,255,0.4);
+    color: rgba(176,0,255,0.9); padding: 3px 10px; cursor: pointer;
+    font-family: 'JetBrains Mono', monospace; letter-spacing: 1px;
+    box-shadow: 0 0 8px rgba(176,0,255,0.15);
 }
-.nc-input::placeholder { color: rgba(176,0,255,0.25); }
-.nc-run-btn { font-size: 7px; background: rgba(176,0,255,0.1); border: 1px solid rgba(176,0,255,0.3); color: rgba(176,0,255,0.8); padding: 2px 6px; cursor: pointer; font-family: 'JetBrains Mono', monospace; letter-spacing: 1px; }
-.nc-run-btn:hover { background: rgba(176,0,255,0.2); color: #b000ff; }
-.nc-status-bar { display: flex; align-items: center; gap: 6px; padding: 2px 8px; background: rgba(0,0,0,0.4); border-top: 1px solid rgba(176,0,255,0.1); flex-shrink: 0; font-size: 6.5px; color: rgba(176,0,255,0.4); letter-spacing: 1px; }
+.nc-run-btn:hover { background: rgba(176,0,255,0.3); color: #b000ff; box-shadow: 0 0 14px rgba(176,0,255,0.3); }
+.nc-stop-btn {
+    font-size: 7.5px; background: rgba(255,51,51,0.1); border: 1px solid rgba(255,51,51,0.3);
+    color: rgba(255,51,51,0.7); padding: 3px 8px; cursor: pointer;
+    font-family: 'JetBrains Mono', monospace; letter-spacing: 1px;
+}
+.nc-stop-btn:hover { background: rgba(255,51,51,0.2); color: #ff3333; }
+.nc-hint {
+    font-size: 6.5px; color: rgba(176,0,255,0.35); letter-spacing: 0.5px; margin-left: auto;
+}
+.nc-status-bar {
+    display: flex; align-items: center; gap: 6px; padding: 2px 8px;
+    background: rgba(0,0,0,0.45); border-top: 1px solid rgba(176,0,255,0.1);
+    flex-shrink: 0; font-size: 6.5px; color: rgba(176,0,255,0.4); letter-spacing: 1px;
+}
+
+/* Per-pad [x] clear button */
+.pad-xclear {
+    position: absolute; top: 2px; right: 2px;
+    font-size: 6px; line-height: 1; padding: 1px 3px;
+    background: transparent; border: 1px solid rgba(255,51,51,0.25);
+    color: rgba(255,51,51,0.4); cursor: pointer;
+    font-family: 'JetBrains Mono', monospace;
+    z-index: 50; transition: all 0.1s; border-radius: 1px;
+    opacity: 0;
+}
+.sfx-pad:hover .pad-xclear { opacity: 1; }
+.pad-xclear:hover { background: rgba(255,51,51,0.2); color: #ff3333; border-color: rgba(255,51,51,0.6); }
 </style>
 </head>
 <body oncontextmenu="return false;">
@@ -4171,11 +4271,8 @@ body.fullscreen #transcription-hud { pointer-events: none !important; } /* keep 
                     <div id="sfx-midi-arm" style="font-size:7px;color:var(--text-dim);margin-top:6px;text-align:center;letter-spacing:1px;"></div>
                     </div><!-- /sfx-pad-body -->
 
-                    <!-- VANGUARD TRACKER LAUNCH + PURGE -->
-                    <div style="display:flex;gap:3px;margin-top:4px;">
-                        <button class="btn" id="btn-init-vngrd-tracker" onclick="VanguardTracker.toggle()" style="flex:1;font-size:7px;color:var(--c);border-color:rgba(0,243,255,0.35);letter-spacing:1px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">[ INITIALIZE_VANGUARD_TRACKER ]</button>
-                        <button class="btn" id="btn-sampler-purge" onclick="Sampler.purge()" title="Wipe all custom + recorded pad buffers" style="flex:0;font-size:7px;color:var(--r);border-color:rgba(255,51,51,0.3);padding:2px 6px;white-space:nowrap;">PURGE</button>
-                    </div>
+                    <!-- VNGRD // SONIC SUITE LAUNCH -->
+                    <button class="btn" id="btn-init-vngrd-tracker" onclick="VanguardTracker.toggle()" style="width:100%;margin-top:5px;font-family:'Orbitron',sans-serif;font-size:7.5px;font-weight:700;color:#00f3ff;border-color:rgba(0,243,255,0.4);letter-spacing:1.5px;padding:5px 4px;text-align:center;box-shadow:0 0 10px rgba(0,243,255,0.1);transition:all 0.1s;">[ VNGRD // SONIC SUITE ]</button>
 
                     <!-- SAMPLER HELP OVERLAY -->
                     <div id="sampler-help-modal">
@@ -7754,40 +7851,40 @@ const VanguardTracker = (() => {
         'C-6':1046.5,'D-6':1174.7,'E-6':1318.5,'F-6':1397,'G-6':1568,'A-6':1760,'B-6':1975.5
     };
     // Preloaded "Cinematic Industrial" 16-step pattern
-    // [pad, vol, off, rtg, pan, note]
+    // [pad, note, vol, fx]  — fx: 01=seismic 02=punch 03=party
     const INDUSTRIAL_PATTERN = [
-        ['18','D0','00','01','80','C-3'],  // 00 KICK (liq1)
-        ['00','80','00','01','80','C-3'],  // 01 SUB bass
-        ['--','--','--','--','--','---'],  // 02 rest
-        ['19','90','00','01','80','---'],  // 03 SNARE (liq2)
-        ['18','C0','00','01','80','---'],  // 04 KICK
-        ['00','70','00','01','40','G-2'],  // 05 SUB bass low panned L
-        ['1A','50','00','02','60','---'],  // 06 RUMBLE (liq3) RTG×2
-        ['19','A0','00','01','80','---'],  // 07 SNARE
-        ['18','FF','00','01','80','---'],  // 08 KICK (downbeat, full vel)
-        ['02','60','00','01','80','A-3'],  // 09 NOISE burst
-        ['00','60','00','01','30','C-3'],  // 0A SUB panned L
-        ['19','90','00','01','80','---'],  // 0B SNARE
-        ['18','C0','00','01','80','---'],  // 0C KICK
-        ['1B','80','00','01','80','---'],  // 0D SLAM (liq4)
-        ['19','B0','00','01','80','---'],  // 0E SNARE
-        ['02','90','00','03','C0','E-4'],  // 0F NOISE ratchet×3 panned R
-        ['--','--','--','--','--','---'],  // 10 rest
-        ['--','--','--','--','--','---'],  // 11
-        ['--','--','--','--','--','---'],  // 12
-        ['--','--','--','--','--','---'],  // 13
-        ['--','--','--','--','--','---'],  // 14
-        ['--','--','--','--','--','---'],  // 15
-        ['--','--','--','--','--','---'],  // 16
-        ['--','--','--','--','--','---'],  // 17
-        ['--','--','--','--','--','---'],  // 18
-        ['--','--','--','--','--','---'],  // 19
-        ['--','--','--','--','--','---'],  // 1A
-        ['--','--','--','--','--','---'],  // 1B
-        ['--','--','--','--','--','---'],  // 1C
-        ['--','--','--','--','--','---'],  // 1D
-        ['--','--','--','--','--','---'],  // 1E
-        ['--','--','--','--','--','---'],  // 1F
+        ['18','C-3','D0','01'],  // 00 KICK (liq1)
+        ['00','C-3','80','--'],  // 01 SUB bass
+        ['--','---','--','--'],  // 02 rest
+        ['19','---','90','01'],  // 03 SNARE (liq2)
+        ['18','---','C0','01'],  // 04 KICK
+        ['00','G-2','70','--'],  // 05 SUB bass low
+        ['1A','---','50','02'],  // 06 RUMBLE (liq3) + punch
+        ['19','---','A0','01'],  // 07 SNARE
+        ['18','---','FF','01'],  // 08 KICK (downbeat, full vel)
+        ['02','A-3','60','01'],  // 09 NOISE burst
+        ['00','C-3','60','--'],  // 0A SUB
+        ['19','---','90','01'],  // 0B SNARE
+        ['18','---','C0','01'],  // 0C KICK
+        ['1B','---','80','01'],  // 0D SLAM (liq4)
+        ['19','---','B0','01'],  // 0E SNARE
+        ['02','E-4','90','01'],  // 0F NOISE ratchet
+        ['--','---','--','--'],  // 10 rest
+        ['--','---','--','--'],  // 11
+        ['--','---','--','--'],  // 12
+        ['--','---','--','--'],  // 13
+        ['--','---','--','--'],  // 14
+        ['--','---','--','--'],  // 15
+        ['--','---','--','--'],  // 16
+        ['--','---','--','--'],  // 17
+        ['--','---','--','--'],  // 18
+        ['--','---','--','--'],  // 19
+        ['--','---','--','--'],  // 1A
+        ['--','---','--','--'],  // 1B
+        ['--','---','--','--'],  // 1C
+        ['--','---','--','--'],  // 1D
+        ['--','---','--','--'],  // 1E
+        ['--','---','--','--'],  // 1F
     ];
 
     var _playing  = false;
@@ -7826,13 +7923,20 @@ const VanguardTracker = (() => {
     }
     function _stepDur() { return 60 / _getBpm() / 4; } // 16th notes
 
+    // ── Note string normaliser: 'C2' or 'C-2' → frequency Hz ─────────────
+    function _noteToFreq(noteStr) {
+        if (!noteStr || noteStr === '---' || noteStr === '--') return null;
+        var n = noteStr.replace(/^([A-G]#?)(\d)$/, '$1-$2');
+        return NOTE_FREQS[n] || null;
+    }
+
     // ── Build rows with preloaded pattern ────────────────────────────────
     function _buildRows(preload) {
         var scroll = document.getElementById('vt-track-scroll');
         if (!scroll) return;
         scroll.innerHTML = '';
-        var cols = ['pad','vol','off','rtg','pan','note'];
-        var phs  = ['--','00','00','01','80','---'];
+        var cols = ['pad','note','vol','fx'];
+        var phs  = ['--','---','80','--'];
         for (var i = 0; i < ROWS; i++) {
             var pat = (preload && INDUSTRIAL_PATTERN[i]) ? INDUSTRIAL_PATTERN[i] : null;
             var div = document.createElement('div');
@@ -7938,25 +8042,26 @@ const VanguardTracker = (() => {
         if (!ctx) return;
 
         var padHex  = _val(_step, 'pad');
-        var volHex  = _val(_step, 'vol');
-        var offHex  = _val(_step, 'off');
-        var rtgHex  = _val(_step, 'rtg');
-        var panHex  = _val(_step, 'pan');
         var noteStr = _val(_step, 'note');
+        var volHex  = _val(_step, 'vol');
+        var fxHex   = _val(_step, 'fx');
 
         if (padHex && padHex !== '--') {
             var padNum = parseInt(padHex, 16);
             var vol    = volHex && volHex !== '--' ? parseInt(volHex, 16) / 255 : 0.7;
-            var off    = offHex && offHex !== '--' ? parseInt(offHex, 16) / 255 : 0;
-            var rtg    = rtgHex && rtgHex !== '--' ? Math.max(1, parseInt(rtgHex, 16)) : 1;
-            var pan    = panHex && panHex !== '--' ? parseInt(panHex, 16) : 0x80;
-            var freq   = NOTE_FREQS[noteStr] || 110;
+            var freq   = _noteToFreq(noteStr) || 110;
+            var fx     = fxHex && fxHex !== '--' ? parseInt(fxHex, 16) : 0;
             var delay  = Math.max(0, schedTime - ctx.currentTime);
             var curStep = _step;
             setTimeout(function() {
                 if (!_playing) return;
                 _highlightRow(curStep);
-                _firePad(padNum, vol, freq, pan, rtg, off);
+                _firePad(padNum, vol, freq, 0x80, 1, 0);
+                if (fx === 0x01) _vjHeavySync();
+                else if (fx === 0x02 && APP && APP.vj) {
+                    APP.vj._punchSpring = Math.min(1, (APP.vj._punchSpring||0)+0.8);
+                    APP.vj._punchDemoUntil = performance.now()+800;
+                } else if (fx === 0x03 && typeof _partyMode === 'function') _partyMode();
             }, delay * 1000);
         }
 
@@ -8111,63 +8216,72 @@ const Sampler = (() => {
         if (btn && typeof _pulsePad === 'function') _pulsePad(btn);
     }
 
-    function purge() {
-        // Wipe all custom + recorded pad buffers from SFX_ENGINE
+    function purgePad(name) {
+        if (!name) return;
         var bufs = SFX_ENGINE._buffers();
-        ['custom1','custom2','custom3','custom4'].forEach(function(name) {
-            if (bufs[name]) {
-                delete bufs[name];
-                var btn = document.getElementById('sfx-' + name);
-                if (btn) {
-                    var nm = btn.querySelector('.pad-name');
-                    var hint = btn.querySelector('.pad-hint');
-                    if (nm) nm.textContent = 'C-0' + name.replace('custom','');
-                    if (hint) hint.textContent = 'LOAD';
-                    btn.classList.remove('loaded','sfx-playing');
-                }
+        if (bufs[name]) {
+            delete bufs[name];
+            var btn = document.getElementById('sfx-' + name);
+            if (btn) {
+                var nm   = btn.querySelector('.pad-name');
+                var hint = btn.querySelector('.pad-hint');
+                if (nm)   nm.textContent   = name.replace('custom','C-0').replace('liq','L-0');
+                if (hint) hint.textContent  = 'LOAD';
+                btn.classList.remove('loaded','sfx-playing');
             }
-        });
-        log('SAMPLER: PURGE_COMPLETE');
-        if (typeof _setStatus === 'function') return;
-        var el = document.getElementById('sfx-midi-arm');
-        if (el) { el.textContent = 'PURGE OK'; setTimeout(function(){el.textContent='';},1500); }
+        }
+        log('SAMPLER: PURGE:' + name.toUpperCase());
     }
 
-    return { trigger, purge };
+    function purge() {
+        ['custom1','custom2','custom3','custom4'].forEach(purgePad);
+        log('SAMPLER: PURGE_COMPLETE');
+    }
+
+    return { trigger, purgePad, purge };
 })();
 
 // ═══════════════════════════════════════════════════════════════
-//  NEURAL COMPILER — Live-Coding Performance Engine
-//  Draggable, resizable window. Hot-swap commands run on top of
-//  the master tracker clock without stopping it.
-//
-//  Command set:
-//    beat(n)          — fire liq pad n (1–4) on next downbeat
-//    kick()           — trigger SUB synth (pad 00) at C-3
-//    snare()          — trigger NOISE synth (pad 02)
-//    boom()           — trigger BOOM synth (pad 0A) at A-2
-//    shiver(n)        — n-step noise ratchet on next step
-//    pad(n)           — trigger SFX pad n (10h + n)
-//    bpm(n)           — set tracker BPM live (no clock stop)
-//    seismic(v)       — fire seismic effect (velocity 0.0–1.0)
-//    punch()          — fire PUSH kinetic bounce
-//    clear()          — clear tracker pattern
-//    stop()           — stop tracker
-//    play()           — start/restart tracker
-//    purge()          — wipe custom pad buffers
+//  NEURAL COMPILER v3 — eval()-based Live-Coding Engine
+//  APIs: loop(bpm, fn)  p(n).play(vol)  synth(note, type)
+//  Shift+Enter to execute. Routes audio through InternalSynth
+//  → Engineering Mode AnalyserNode → seismic/kinetic naturally.
 // ═══════════════════════════════════════════════════════════════
 const NeuralCompiler = (() => {
-    var _visible  = false;
-    var _drag     = false;
+    var _visible = false;
+    var _drag    = false;
     var _dx = 0, _dy = 0;
-    var _history  = [];
-    var _histIdx  = -1;
+    var _loopId  = null;
+    var _ncBeat  = 0;
+    var _dragInit = false;
+    var _inputInit = false;
 
-    function _win()  { return document.getElementById('nc-window'); }
-    function _out()  { return document.getElementById('nc-output'); }
-    function _inp()  { return document.getElementById('nc-input'); }
+    // p(n) pad names: liq1-8 for drums, custom1-4 for user samples
+    var _PAD_NAMES = ['liq1','liq2','liq3','liq4','liq5','liq6','liq7','liq8',
+                      'custom1','custom2','custom3','custom4',
+                      'applause','cheer','horn','boom'];
 
-    function _log(msg, cls) {
+    var _NOTE_MAP = {
+        'C-2':65.4,'D-2':73.4,'E-2':82.4,'F-2':87.3,'G-2':98.0,'A-2':110,'B-2':123.5,
+        'C-3':130.8,'D-3':146.8,'E-3':164.8,'F-3':174.6,'G-3':196,'A-3':220,'B-3':246.9,
+        'C-4':261.6,'D-4':293.7,'E-4':329.6,'F-4':349.2,'G-4':392,'A-4':440,'B-4':493.9,
+        'C-5':523.3,'D-5':587.3,'E-5':659.3,'F-5':698.5,'G-5':784,'A-5':880,'B-5':987.8,
+        'C-6':1046.5,'D-6':1174.7,'E-6':1318.5
+    };
+
+    var _PRELOAD =
+'loop(124, () => {\n' +
+'  p(0).play(0.9);              // Deep Kick  (liq1)\n' +
+'  if (beat % 4 === 2) p(1).play(0.6);  // Snare (liq2)\n' +
+'  if (beat % 8 === 0) synth(\'C2\', \'sub\');  // Harmonic sub\n' +
+'  if (beat % 16 === 8) synth(\'G2\', \'boom\'); // Boom accent\n' +
+'});';
+
+    function _win() { return document.getElementById('nc-window'); }
+    function _out() { return document.getElementById('nc-output'); }
+    function _editor() { return document.getElementById('nc-editor'); }
+
+    function _ncLog(msg, cls) {
         var out = _out(); if (!out) return;
         var line = document.createElement('div');
         line.className = 'nc-output-line' + (cls ? ' ' + cls : '');
@@ -8176,81 +8290,87 @@ const NeuralCompiler = (() => {
         out.scrollTop = out.scrollHeight;
     }
 
-    function _exec(cmd) {
-        cmd = cmd.trim();
-        if (!cmd) return;
-        _history.unshift(cmd); _histIdx = -1;
-        _log('> ' + cmd);
+    function _noteToFreq(note) {
+        if (!note) return 110;
+        var n = String(note).replace(/^([A-G]#?)(\d)$/, '$1-$2');
+        return _NOTE_MAP[n] || 110;
+    }
 
+    // p(n) returns a pad proxy with .play(vol)
+    function _ncP(n) {
+        return {
+            play: function(vol) {
+                var name = _PAD_NAMES[n] || null;
+                if (!name) return;
+                Sampler.trigger(name, typeof vol === 'number' ? vol : 0.8);
+                _vjHeavySync();
+            }
+        };
+    }
+
+    // synth(note, type) — routes through InternalSynth → analyser → seismic
+    function _ncSynth(note, type) {
+        var freq = _noteToFreq(note);
+        var t = (type || 'sub').toLowerCase();
+        if (t === 'sub')        InternalSynth.triggerSub(freq, 0.8, 0x80);
+        else if (t === 'noise') InternalSynth.triggerNoise(freq, 0.7, 8, 0x80);
+        else if (t === 'sweep') InternalSynth.triggerSweep(freq, 0.8, 0x80);
+        else if (t === 'metal') InternalSynth.triggerMetal(freq, 0.75, freq * 3.1, 0x80);
+        else if (t === 'am')    InternalSynth.triggerAM(freq, 0.75, 8, 0x80);
+        else if (t === 'boom')  InternalSynth.triggerBoom(freq, 0.9, 0x80);
+        else                    InternalSynth.triggerSub(freq, 0.8, 0x80);
+    }
+
+    // loop(bpm, fn) — schedules fn every 16th note at given BPM
+    function _ncLoop(bpm, fn) {
+        _stopLoop();
+        _ncBeat = 0;
+        var ms = Math.round(60000 / Math.max(20, Math.min(300, bpm)) / 4);
+        // Sync BPM to tracker
+        var bpmInp = document.getElementById('vt-bpm');
+        if (bpmInp) { bpmInp.value = bpm; bpmInp.dispatchEvent(new Event('change')); }
+        _loopId = setInterval(function() {
+            window.beat = _ncBeat;
+            try { fn(); } catch(e) { _ncLog('ERR: ' + e.message, 'nc-err'); _stopLoop(); }
+            _ncBeat++;
+        }, ms);
+        _ncLog('LOOP @ ' + bpm + 'BPM — beat 0↑', 'nc-ok');
+        var cs = document.getElementById('nc-clock-status');
+        if (cs) cs.textContent = 'LOOP: ' + bpm + 'BPM';
+    }
+
+    function _stopLoop() {
+        if (_loopId) { clearInterval(_loopId); _loopId = null; }
+        _ncBeat = 0;
+        window.beat = 0;
+        var cs = document.getElementById('nc-clock-status');
+        if (cs) cs.textContent = 'LOOP: IDLE';
+    }
+
+    function _run() {
+        var ed = _editor(); if (!ed) return;
+        var code = ed.value.trim();
+        if (!code) return;
+        _stopLoop(); // clear any prior loop before re-run
+        _ncLog('─── RUN ───────────────────────────────', 'nc-sys');
         try {
-            // beat(n) — fire liq pad on next downbeat
-            var m;
-            if ((m = cmd.match(/^beat\((\d+)\)$/))) {
-                var n = Math.max(1, Math.min(4, parseInt(m[1])));
-                Sampler.trigger('liq' + n, 0.85);
-                _log('BEAT:liq' + n + ' fired', 'nc-ok'); return;
-            }
-            if (/^kick\(\)$/.test(cmd)) {
-                InternalSynth.triggerSub(130.8, 0.9, 0x80);
-                _log('KICK:SUB C-3', 'nc-ok'); return;
-            }
-            if (/^snare\(\)$/.test(cmd)) {
-                InternalSynth.triggerNoise(1100, 0.75, 10, 0x80);
-                _log('SNARE:NOISE fired', 'nc-ok'); return;
-            }
-            if (/^boom\(\)$/.test(cmd)) {
-                InternalSynth.triggerBoom(45, 0.9, 0x80);
-                _log('BOOM:SUB fired', 'nc-ok'); return;
-            }
-            if ((m = cmd.match(/^shiver\((\d+)\)$/))) {
-                var count = Math.max(2, Math.min(16, parseInt(m[1])));
-                InternalSynth.trigger(0x02, 440, 0.6, 0x80, count);
-                _log('SHIVER:NOISE×' + count, 'nc-ok'); return;
-            }
-            if ((m = cmd.match(/^pad\((\d+)\)$/))) {
-                var idx = parseInt(m[1]);
-                Sampler.trigger(idx < 4 ? ['applause','cheer','horn','boom'][idx] : 'liq' + (idx-3), 0.8);
-                _log('PAD:' + idx + ' fired', 'nc-ok'); return;
-            }
-            if ((m = cmd.match(/^bpm\((\d+)\)$/))) {
-                var bpmVal = Math.max(40, Math.min(300, parseInt(m[1])));
-                var bpmInp = document.getElementById('vt-bpm');
-                if (bpmInp) { bpmInp.value = bpmVal; bpmInp.dispatchEvent(new Event('change')); }
-                _log('BPM:' + bpmVal, 'nc-ok'); return;
-            }
-            if ((m = cmd.match(/^seismic\(([\d.]+)\)$/))) {
-                var vel = Math.min(2.0, parseFloat(m[1]) || 0.5);
-                if (APP && APP.vj) { APP.vj._seismicVel = (APP.vj._seismicVel||0)+vel; APP.vj._seismicDemoUntil=performance.now()+1200; }
-                _log('SEISMIC:vel=' + vel, 'nc-ok'); return;
-            }
-            if (/^punch\(\)$/.test(cmd)) {
-                if (APP && APP.vj) { APP.vj._punchSpring=Math.min(1,(APP.vj._punchSpring||0)+0.8); APP.vj._punchDemoUntil=performance.now()+800; }
-                _log('PUNCH fired', 'nc-ok'); return;
-            }
-            if (/^clear\(\)$/.test(cmd))  { VanguardTracker.clear();  _log('TRACKER:CLEAR','nc-ok'); return; }
-            if (/^stop\(\)$/.test(cmd))   { VanguardTracker.stop();   _log('TRACKER:STOP','nc-ok');  return; }
-            if (/^play\(\)$/.test(cmd))   { VanguardTracker.play();   _log('TRACKER:PLAY','nc-ok');  return; }
-            if (/^purge\(\)$/.test(cmd))  { Sampler.purge();          _log('SAMPLER:PURGE','nc-ok'); return; }
-            if (/^help\(\)$/.test(cmd)) {
-                ['beat(n)  — fire liq pad 1-4','kick()   — 808 sub kick','snare()  — noise snare',
-                 'boom()   — cinematic boom','shiver(n)— noise ratchet×n','pad(n)   — SFX pad 0-7',
-                 'bpm(n)   — set BPM live','seismic(v)— screen shake','punch()  — kinetic bounce',
-                 'clear()  — clear pattern','stop()/play()','purge()  — wipe pad buffers'
-                ].forEach(function(l){ _log('  ' + l, 'nc-sys'); });
-                return;
-            }
-            _log('? unknown cmd — type help()', 'nc-err');
+            if (!APP.audio.ctx) igniteAudio();
+            if (APP.audio.ctx && APP.audio.ctx.state === 'suspended') APP.audio.ctx.resume();
+            var fn = new Function('p', 'synth', 'loop', code);
+            fn(_ncP, _ncSynth, _ncLoop);
+            if (!_loopId) _ncLog('✓ EXECUTED', 'nc-ok');
         } catch(e) {
-            _log('ERR: ' + e.message, 'nc-err');
+            _ncLog('ERR: ' + e.message, 'nc-err');
         }
     }
 
     function _initDrag() {
+        if (_dragInit) return; _dragInit = true;
         var tb  = document.getElementById('nc-titlebar');
         var win = _win();
         if (!tb || !win) return;
         tb.addEventListener('mousedown', function(e) {
-            if (e.target.tagName === 'BUTTON' || e.target.tagName === 'INPUT') return;
+            if (e.target.tagName === 'BUTTON' || e.target.tagName === 'TEXTAREA') return;
             _drag = true;
             var rect = win.getBoundingClientRect();
             _dx = e.clientX - rect.left; _dy = e.clientY - rect.top;
@@ -8258,32 +8378,32 @@ const NeuralCompiler = (() => {
         });
         document.addEventListener('mousemove', function(e) {
             if (!_drag) return;
-            var x = Math.max(0, Math.min(window.innerWidth-120, e.clientX - _dx));
-            var y = Math.max(0, Math.min(window.innerHeight-50, e.clientY - _dy));
-            win.style.left = x+'px'; win.style.top = y+'px'; win.style.transform = 'none';
+            var x = Math.max(0, Math.min(window.innerWidth - 120, e.clientX - _dx));
+            var y = Math.max(0, Math.min(window.innerHeight - 50, e.clientY - _dy));
+            win.style.left = x + 'px'; win.style.top = y + 'px'; win.style.transform = 'none';
         });
         document.addEventListener('mouseup', function() { _drag = false; });
     }
 
     function _initInput() {
-        var inp = _inp(); if (!inp) return;
-        inp.addEventListener('keydown', function(e) {
-            if (e.key === 'Enter') {
-                e.preventDefault();
-                var cmd = inp.value.trim();
-                if (cmd) { _exec(cmd); inp.value = ''; }
-            } else if (e.key === 'ArrowUp') {
-                e.preventDefault();
-                if (_histIdx < _history.length - 1) { _histIdx++; inp.value = _history[_histIdx] || ''; }
-            } else if (e.key === 'ArrowDown') {
-                e.preventDefault();
-                if (_histIdx > 0) { _histIdx--; inp.value = _history[_histIdx] || ''; }
-                else { _histIdx = -1; inp.value = ''; }
-            }
-        });
+        if (_inputInit) return; _inputInit = true;
+        var ed = _editor();
+        if (ed) {
+            // Preload script on first open if editor is empty
+            if (!ed.value.trim()) ed.value = _PRELOAD;
+            ed.addEventListener('keydown', function(e) {
+                if (e.key === 'Enter' && e.shiftKey) {
+                    e.preventDefault();
+                    _run();
+                }
+            });
+        }
         var runBtn = document.getElementById('nc-run-btn');
-        if (runBtn) runBtn.addEventListener('click', function() {
-            var cmd = inp.value.trim(); if (cmd) { _exec(cmd); inp.value = ''; }
+        if (runBtn) runBtn.addEventListener('click', _run);
+        var stopBtn = document.getElementById('nc-stop-btn');
+        if (stopBtn) stopBtn.addEventListener('click', function() {
+            _stopLoop();
+            _ncLog('LOOP STOPPED', 'nc-sys');
         });
     }
 
@@ -8294,14 +8414,17 @@ const NeuralCompiler = (() => {
         var btn = document.getElementById('nc-toggle-btn');
         if (btn) btn.classList.toggle('active', _visible);
         if (_visible) {
-            _initDrag(); _initInput();
-            _log('NEURAL_COMPILER v2.0 READY', 'nc-sys');
-            _log('type help() for command reference', 'nc-sys');
-            var inp = _inp(); if (inp) inp.focus();
+            _initDrag();
+            _initInput();
+            _ncLog('NEURAL_COMPILER v3 READY — Shift+Enter to run', 'nc-sys');
+            _ncLog('APIs: loop(bpm, fn)  p(n).play(vol)  synth(note, type)', 'nc-sys');
+            var ed = _editor(); if (ed) ed.focus();
+        } else {
+            _stopLoop();
         }
     }
 
-    return { toggle, exec: _exec };
+    return { toggle, run: _run, stopLoop: _stopLoop };
 })();
 
 // ═══════════════════════════════════════════════════════════════
@@ -14274,6 +14397,24 @@ var isVideo = nft.forceVideo || (imageUrl.toLowerCase().match(/\.(mp4|webm|mov|o
             : 'IDLE');
     }, 100);
 
+    // ── Per-pad [x] clear buttons ─────────────────────────────────────────
+    (function() {
+        document.querySelectorAll('.sfx-pad').forEach(function(btn) {
+            var name = btn.dataset && btn.dataset.sfx;
+            if (!name) return;
+            var xBtn = document.createElement('button');
+            xBtn.className = 'pad-xclear';
+            xBtn.textContent = 'x';
+            xBtn.title = 'Clear ' + name;
+            xBtn.addEventListener('click', function(e) {
+                e.stopPropagation();
+                Sampler.purgePad(name);
+            });
+            btn.style.position = 'relative';
+            btn.appendChild(xBtn);
+        });
+    })();
+
     // Wire button + Enter key
     if ($('btn-generate-ai')) {
         $('btn-generate-ai').onclick = function() {
@@ -16582,27 +16723,27 @@ function _applyPoseToModel(lm) {
 </script>
 
 <!-- ═══════════════════════════════════════════════════════════
-     VANGUARD TRACKER — BRUTALIST GLASS WINDOW
+     VNGRD // SONIC SUITE — VERTICAL TRACKER WINDOW
      ═══════════════════════════════════════════════════════════ -->
 <div id="vanguard-tracker-window" class="vanguard-tracker-window">
 
     <!-- Title bar / Transport -->
     <div class="vt-titlebar" id="vt-titlebar">
-        <span class="vt-titlebar-label">◈ VNGRD // VERTICAL TRACKER</span>
+        <span class="vt-titlebar-label">◈ VNGRD // SONIC SUITE</span>
         <div class="vt-transport">
             <div class="vt-bpm-wrap">BPM <input class="vt-bpm-input" id="vt-bpm" type="number" min="40" max="300" value="120"></div>
             <button class="vt-btn vt-play-btn" id="vt-play-btn" onclick="VanguardTracker.play()">▶ PLAY</button>
             <button class="vt-btn" onclick="VanguardTracker.stop()">■ STOP</button>
-            <button class="vt-btn" onclick="VanguardTracker.clear()" style="color:rgba(255,120,0,0.7);border-color:rgba(255,120,0,0.3);">CLR</button>
-            <button class="vt-btn vt-compiler-btn" id="nc-toggle-btn" onclick="NeuralCompiler.toggle()">⟨/⟩ NEURAL_COMPILER</button>
-            <button class="vt-btn" onclick="_vtToggleHud()" style="color:rgba(255,204,0,0.7);border-color:rgba(255,204,0,0.25);">? HUD</button>
+            <button class="vt-btn" onclick="VanguardTracker.clear()" style="color:rgba(255,120,0,0.65);border-color:rgba(255,120,0,0.25);">CLR</button>
+            <button class="vt-btn-nc-launch" id="nc-toggle-btn" onclick="NeuralCompiler.toggle()">[ OPEN NEURAL COMPILER ]</button>
+            <button class="vt-btn" onclick="_vtToggleHud()" style="color:rgba(255,204,0,0.65);border-color:rgba(255,204,0,0.22);font-size:7px;">? HUD</button>
         </div>
         <button class="vt-close-btn" onclick="VanguardTracker.toggle()">✕</button>
     </div>
 
-    <!-- Waveform canvas strip (one per synth mode) -->
+    <!-- Waveform canvas strip -->
     <div class="vt-wave-strip">
-        <div class="vt-wave-num-pad" style="font-size:5.5px;color:rgba(0,243,255,0.3);letter-spacing:1px;">WAVE</div>
+        <div class="vt-wave-num-pad" style="font-size:5.5px;color:rgba(0,243,255,0.28);letter-spacing:1px;">WAVE</div>
         <div class="vt-wave-canvas-wrap">
             <canvas class="vt-wave-canvas" id="vt-wave-0"></canvas>
             <span class="vt-wave-label">SUB 00-01</span>
@@ -16621,17 +16762,16 @@ function _applyPoseToModel(lm) {
         </div>
     </div>
 
-    <!-- Column headers -->
+    <!-- Column headers (PAD | NOTE | VOL | FX) with laser lines -->
     <div class="vt-col-headers">
         <div class="vt-col-hdr">#</div>
-        <div class="vt-col-hdr" title="PAD 00-0F=SYNTH 10-1F=SFX">PAD</div>
-        <div class="vt-col-hdr" title="VOL 00-FF velocity">VOL</div>
-        <div class="vt-col-hdr" title="OFF 00-FF sample start offset">OFF</div>
-        <div class="vt-col-hdr" title="RTG 01-0F retrigger count">RTG</div>
-        <div class="vt-col-hdr" title="PAN 00=L 80=C FF=R spatial">PAN</div>
+        <div class="vt-col-hdr" title="00-0F = InternalSynth  10-1F = Sampler Pads">PAD</div>
+        <div class="vt-col-hdr" title="Chromatic note: C-3…B-6">NOTE</div>
+        <div class="vt-col-hdr" title="Velocity 00=off FF=max">VOL</div>
+        <div class="vt-col-hdr" title="VJ FX code: 01=seismic 02=punch 03=party">FX</div>
     </div>
 
-    <!-- Scrollable track rows (injected by VanguardTracker.init) -->
+    <!-- Scrollable rows (built by VanguardTracker.init) -->
     <div class="vt-track-scroll" id="vt-track-scroll"></div>
 
     <!-- Status bar -->
@@ -16639,63 +16779,94 @@ function _applyPoseToModel(lm) {
         <span>POS:</span><span class="vt-status-pos" id="vt-pos">00</span>
         <span style="margin-left:5px;">ROW:</span><span class="vt-status-pos" id="vt-step">1/32</span>
         <span style="margin-left:5px;color:rgba(0,243,255,0.55);" id="vt-engine-status">IDLE</span>
-        <span style="margin-left:auto;color:rgba(0,243,255,0.22);">SYNTH:00-0F · SFX:10-1F · NOTE:C-3</span>
-    </div>
-
-    <!-- HUD Overlay (hex command reference) -->
-    <div class="vt-hud-overlay" id="vt-hud-overlay">
-        <div class="vt-hud-title">HEX COMMAND REFERENCE</div>
-        <div class="vt-hud-row">
-            <span class="vt-hud-cmd">PAD (col 1)</span>
-            <span class="vt-hud-desc">00–0F → InternalSynth<br>10–1F → SFX sample library</span>
-        </div>
-        <div class="vt-hud-sep"></div>
-        <div class="vt-hud-row">
-            <span class="vt-hud-cmd">VOL  00–FF</span>
-            <span class="vt-hud-desc">Velocity. 00=silent FF=full.<br>High VOL + low freq = seismic.</span>
-        </div>
-        <div class="vt-hud-sep"></div>
-        <div class="vt-hud-row">
-            <span class="vt-hud-cmd">OFF  00–FF</span>
-            <span class="vt-hud-desc">Sample start offset (0%–100%).<br>Skip into the sample.</span>
-        </div>
-        <div class="vt-hud-sep"></div>
-        <div class="vt-hud-row">
-            <span class="vt-hud-cmd">RTG  01–0F</span>
-            <span class="vt-hud-desc">Retrigger / Ratchet.<br>01=once  04=quad  0F=16th burst.</span>
-        </div>
-        <div class="vt-hud-sep"></div>
-        <div class="vt-hud-row">
-            <span class="vt-hud-cmd">PAN  00–FF</span>
-            <span class="vt-hud-desc">3D Spatial position.<br>00=hard-L  80=center  FF=hard-R.</span>
-        </div>
-        <div class="vt-hud-sep"></div>
-        <div class="vt-hud-row">
-            <span class="vt-hud-cmd">NOTE  C-3…B-6</span>
-            <span class="vt-hud-desc">Chromatic pitch for synth pads.<br>Sets oscillator frequency.</span>
-        </div>
-        <button class="vt-hud-close" onclick="_vtToggleHud()">[ CLOSE HUD ]</button>
+        <span style="margin-left:auto;color:rgba(0,243,255,0.2);">SYNTH:00-0F · SFX:10-1F</span>
     </div>
 </div>
 
 <!-- ═══════════════════════════════════════════════════════════
-     NEURAL COMPILER FLOATING WINDOW
+     HUD CRYSTAL OVERLAY — glass morphism
+     ═══════════════════════════════════════════════════════════ -->
+<div class="vt-hud-overlay" id="vt-hud-overlay">
+    <div class="vt-hud-panel">
+        <div class="vt-hud-title">◈ VNGRD // SONIC SUITE — MANUAL</div>
+        <div class="vt-hud-grid">
+            <div class="vt-hud-section-title">[ TRACKER ] — HEX SEQUENCER</div>
+            <div class="vt-hud-row">
+                <span class="vt-hud-cmd">PAD  00–0F</span>
+                <span class="vt-hud-desc">Internal Synth engine<br>SUB / NOISE / SWEEP / METAL / AM / BOOM</span>
+            </div>
+            <div class="vt-hud-row">
+                <span class="vt-hud-cmd">PAD  10–1F</span>
+                <span class="vt-hud-desc">Sampler Pads (SFX library)<br>10=applause 11=cheer 12=horn 13=boom</span>
+            </div>
+            <div class="vt-hud-row">
+                <span class="vt-hud-cmd">NOTE  C-3…B-6</span>
+                <span class="vt-hud-desc">Chromatic pitch for synth<br>Sets oscillator frequency</span>
+            </div>
+            <div class="vt-hud-row">
+                <span class="vt-hud-cmd">VOL  00–FF</span>
+                <span class="vt-hud-desc">Velocity. High VOL + low freq<br>auto-triggers seismic screen shake</span>
+            </div>
+            <div class="vt-hud-sep"></div>
+            <div class="vt-hud-section-title">[ FX ] — VJ VISUAL CODES</div>
+            <div class="vt-hud-row">
+                <span class="vt-hud-cmd">FX  01</span>
+                <span class="vt-hud-desc">SEISMIC — screen shake</span>
+            </div>
+            <div class="vt-hud-row">
+                <span class="vt-hud-cmd">FX  02</span>
+                <span class="vt-hud-desc">PUNCH — kinetic bounce</span>
+            </div>
+            <div class="vt-hud-row">
+                <span class="vt-hud-cmd">FX  03</span>
+                <span class="vt-hud-desc">PARTY — beat-reactive mode</span>
+            </div>
+            <div class="vt-hud-sep"></div>
+            <div class="vt-hud-section-title">[ COMPILER ] — NEURAL SCRIPTING</div>
+            <div class="vt-hud-row">
+                <span class="vt-hud-cmd">loop(bpm, () =&gt; { })</span>
+                <span class="vt-hud-desc">Live loop. 'beat' is auto-injected.<br>Output routes through master analyser.</span>
+            </div>
+            <div class="vt-hud-row">
+                <span class="vt-hud-cmd">p(n).play(vol)</span>
+                <span class="vt-hud-desc">Fire Sampler pad n (0–11)<br>Triggers gear-coupled VJ FX</span>
+            </div>
+            <div class="vt-hud-row">
+                <span class="vt-hud-cmd">synth(note, type)</span>
+                <span class="vt-hud-desc">Play note via InternalSynth<br>type: sub / noise / boom / metal / sweep</span>
+            </div>
+            <div class="vt-hud-row">
+                <span class="vt-hud-cmd">Shift+Enter</span>
+                <span class="vt-hud-desc">Execute script. Hot-swap — no clock stop.</span>
+            </div>
+        </div>
+        <button class="vt-hud-close" onclick="_vtToggleHud()">[ CLOSE ]</button>
+    </div>
+</div>
+
+<!-- ═══════════════════════════════════════════════════════════
+     NEURAL COMPILER — DRIS-STYLE IDE WINDOW
      ═══════════════════════════════════════════════════════════ -->
 <div id="nc-window" class="nc-window">
     <div class="nc-titlebar" id="nc-titlebar">
         <span class="nc-title">⟨/⟩ NEURAL_COMPILER</span>
-        <button class="vt-btn" onclick="NeuralCompiler.exec('help()')" style="font-size:7px;border-color:rgba(176,0,255,0.25);color:rgba(176,0,255,0.6);">HELP</button>
+        <span style="font-size:6.5px;color:rgba(176,0,255,0.4);letter-spacing:1px;">SONIC SUITE v3</span>
         <button class="vt-close-btn" onclick="NeuralCompiler.toggle()" style="color:rgba(176,0,255,0.5);">✕</button>
     </div>
-    <div class="nc-prompt-area" id="nc-output"></div>
-    <div class="nc-input-bar">
-        <span class="nc-prompt-symbol">▸</span>
-        <input class="nc-input" id="nc-input" type="text" placeholder="beat(4)  kick()  shiver(8)  bpm(140)…" autocomplete="off" spellcheck="false">
-        <button class="nc-run-btn" id="nc-run-btn">RUN</button>
+    <div class="nc-body">
+        <div class="nc-editor-wrap">
+            <textarea class="nc-editor" id="nc-editor" spellcheck="false" autocomplete="off" autocorrect="off" autocapitalize="off"></textarea>
+        </div>
+        <div class="nc-output-panel" id="nc-output"></div>
+    </div>
+    <div class="nc-toolbar">
+        <button class="nc-run-btn" id="nc-run-btn">▶ RUN</button>
+        <button class="nc-stop-btn" id="nc-stop-btn">■ STOP LOOP</button>
+        <span class="nc-hint">Shift+Enter to run · loop(bpm, fn) · p(n).play(vol) · synth(note, type)</span>
     </div>
     <div class="nc-status-bar">
-        <span>LIVE-CODING ENGINE · HOT-SWAP · NO CLOCK STOP</span>
-        <span style="margin-left:auto;" id="nc-clock-status">CLOCK: IDLE</span>
+        <span>OUTPUT ROUTED → ENGINE ANALYSER → SEISMIC/KINETIC</span>
+        <span style="margin-left:auto;" id="nc-clock-status">LOOP: IDLE</span>
     </div>
 </div>
 </body>
