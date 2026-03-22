@@ -1953,8 +1953,13 @@
 
         #countdown { position: absolute; inset: 0; background: rgba(0,0,0,0.95); display: none; align-items: center; justify-content: center; z-index: 5000; }
         #countdown-num { font-family: 'Orbitron', sans-serif; font-size: 140px; font-weight: 900; color: var(--accent); text-shadow: 0 0 60px var(--accent); }
-        #nft-hud { position: fixed; bottom: 70px; left: 50%; transform: translateX(-50%); z-index: 9999; background: rgba(0,0,0,0.95); border: 2px solid var(--r); padding: 15px 30px; font-family: 'Orbitron', sans-serif; display: none; text-align: center; }
+        #nft-hud { position: fixed; bottom: 70px; left: 50%; transform: translateX(-50%); z-index: 9999; background: rgba(0,0,0,0.95); border: 2px solid var(--r); padding: 12px 24px 15px; font-family: 'Orbitron', sans-serif; display: none; text-align: center; cursor: grab; user-select: none; transition: opacity 0.2s; }
         #nft-hud.active { display: block; }
+        #nft-hud.dragging { cursor: grabbing; }
+        #nft-hud-controls { display: flex; justify-content: space-between; align-items: center; margin-bottom: 6px; gap: 10px; }
+        #nft-dim-btn { background: none; border: 1px solid rgba(255,255,255,0.2); color: rgba(255,255,255,0.5); cursor: pointer; font-size: 13px; line-height:1; padding: 1px 5px; font-family: inherit; border-radius: 2px; }
+        #nft-dim-btn:hover { color: #fff; border-color: rgba(255,255,255,0.5); }
+        #nft-drag-handle { color: rgba(255,255,255,0.3); font-size: 14px; cursor: grab; letter-spacing: -1px; }
         #nft-timer { font-size: 36px; color: var(--r); font-weight: 900; }
         #nft-label { font-size: 10px; color: #fff; margin-top: 5px; letter-spacing: 2px; }
         .nft-bar { width: 200px; height: 4px; background: #333; margin-top: 10px; }
@@ -3250,8 +3255,8 @@ body.fullscreen #transcription-hud { pointer-events: none !important; } /* keep 
                 </div>
                 <div class="btn-grid-3" style="margin-bottom:4px;">
                     <button class="btn va-btn vb-btn" id="vb-CAUSTICS" data-shader="CAUSTICS" style="--va-color:#00ddbb;" title="Tap=3s burst · Double-tap=lock">CAUSTICS</button>
-                    <button class="btn va-btn vb-btn" id="vb-SILT_BLUR" data-shader="SILT_BLUR" style="--va-color:#4488ff;" title="Tap=3s burst · Double-tap=lock">SILT_BLUR</button>
-                    <button class="btn va-btn vb-btn" id="vb-NEURAL_MESH" data-shader="NEURAL_MESH" style="--va-color:#00ff41;" title="Tap=3s burst · Double-tap=lock + pose">NEURAL_MESH</button>
+                    <button class="btn va-btn vb-btn" id="vb-GHOST_ECHO" data-shader="GHOST_ECHO" style="--va-color:#4488ff;" title="Tap=3s burst · Double-tap=lock">GHOST_ECHO</button>
+                    <button class="btn va-btn vb-btn" id="vb-SPECTRAL_MOSH" data-shader="SPECTRAL_MOSH" style="--va-color:#00ff41;" title="Tap=3s burst · Double-tap=lock + pose">SPECTRAL_MOSH</button>
                 </div>
                 <div style="font-size:7px;text-align:center;letter-spacing:1.5px;color:rgba(0,243,255,0.3);padding-bottom:2px;" id="vb-sys-status">SYSTEM_STATUS: STANDBY</div>
                 <button class="btn va-btn" onclick="_vbClearAll()" style="width:100%;margin-top:2px;--va-color:#ff3333;">[ CLEAR ALL ]</button>
@@ -3431,8 +3436,8 @@ body.fullscreen #transcription-hud { pointer-events: none !important; } /* keep 
                                     <div data-fx="vb-luma-bloom">LUMA_BLOOM</div>
                                     <div data-fx="vb-dither-luxe">DITHER_LUXE</div>
                                     <div data-fx="vb-caustics">CAUSTICS</div>
-                                    <div data-fx="vb-silt-blur">SILT_BLUR</div>
-                                    <div data-fx="vb-neural-mesh">NEURAL_MESH</div>
+                                    <div data-fx="vb-ghost-echo">GHOST_ECHO</div>
+                                    <div data-fx="vb-spectral-mosh">SPECTRAL_MOSH</div>
                                 </div>
                             </div>
                             <span class="pad-id">PAD 1</span>
@@ -3460,8 +3465,8 @@ body.fullscreen #transcription-hud { pointer-events: none !important; } /* keep 
                                     <div data-fx="vb-luma-bloom">LUMA_BLOOM</div>
                                     <div data-fx="vb-dither-luxe">DITHER_LUXE</div>
                                     <div data-fx="vb-caustics">CAUSTICS</div>
-                                    <div data-fx="vb-silt-blur">SILT_BLUR</div>
-                                    <div data-fx="vb-neural-mesh">NEURAL_MESH</div>
+                                    <div data-fx="vb-ghost-echo">GHOST_ECHO</div>
+                                    <div data-fx="vb-spectral-mosh">SPECTRAL_MOSH</div>
                                 </div>
                             </div>
                             <span class="pad-id">PAD 2</span>
@@ -3489,8 +3494,8 @@ body.fullscreen #transcription-hud { pointer-events: none !important; } /* keep 
                                     <div data-fx="vb-luma-bloom">LUMA_BLOOM</div>
                                     <div data-fx="vb-dither-luxe">DITHER_LUXE</div>
                                     <div data-fx="vb-caustics">CAUSTICS</div>
-                                    <div data-fx="vb-silt-blur">SILT_BLUR</div>
-                                    <div data-fx="vb-neural-mesh">NEURAL_MESH</div>
+                                    <div data-fx="vb-ghost-echo">GHOST_ECHO</div>
+                                    <div data-fx="vb-spectral-mosh">SPECTRAL_MOSH</div>
                                 </div>
                             </div>
                             <span class="pad-id">PAD 3</span>
@@ -3518,8 +3523,8 @@ body.fullscreen #transcription-hud { pointer-events: none !important; } /* keep 
                                     <div data-fx="vb-luma-bloom">LUMA_BLOOM</div>
                                     <div data-fx="vb-dither-luxe">DITHER_LUXE</div>
                                     <div data-fx="vb-caustics">CAUSTICS</div>
-                                    <div data-fx="vb-silt-blur">SILT_BLUR</div>
-                                    <div data-fx="vb-neural-mesh">NEURAL_MESH</div>
+                                    <div data-fx="vb-ghost-echo">GHOST_ECHO</div>
+                                    <div data-fx="vb-spectral-mosh">SPECTRAL_MOSH</div>
                                 </div>
                             </div>
                             <span class="pad-id">PAD 4</span>
@@ -3552,8 +3557,8 @@ body.fullscreen #transcription-hud { pointer-events: none !important; } /* keep 
                                     <div data-fx="vb-luma-bloom">LUMA_BLOOM</div>
                                     <div data-fx="vb-dither-luxe">DITHER_LUXE</div>
                                     <div data-fx="vb-caustics">CAUSTICS</div>
-                                    <div data-fx="vb-silt-blur">SILT_BLUR</div>
-                                    <div data-fx="vb-neural-mesh">NEURAL_MESH</div>
+                                    <div data-fx="vb-ghost-echo">GHOST_ECHO</div>
+                                    <div data-fx="vb-spectral-mosh">SPECTRAL_MOSH</div>
                                     <div data-fx="clear" style="border-top:1px solid rgba(255,255,255,0.07);margin-top:2px;padding-top:4px;color:rgba(255,80,80,0.7);">✕ CLEAR</div>
                                 </div>
                             </div>
@@ -3584,8 +3589,8 @@ body.fullscreen #transcription-hud { pointer-events: none !important; } /* keep 
                                     <div data-fx="vb-luma-bloom">LUMA_BLOOM</div>
                                     <div data-fx="vb-dither-luxe">DITHER_LUXE</div>
                                     <div data-fx="vb-caustics">CAUSTICS</div>
-                                    <div data-fx="vb-silt-blur">SILT_BLUR</div>
-                                    <div data-fx="vb-neural-mesh">NEURAL_MESH</div>
+                                    <div data-fx="vb-ghost-echo">GHOST_ECHO</div>
+                                    <div data-fx="vb-spectral-mosh">SPECTRAL_MOSH</div>
                                     <div data-fx="clear" style="border-top:1px solid rgba(255,255,255,0.07);margin-top:2px;padding-top:4px;color:rgba(255,80,80,0.7);">✕ CLEAR</div>
                                 </div>
                             </div>
@@ -3616,8 +3621,8 @@ body.fullscreen #transcription-hud { pointer-events: none !important; } /* keep 
                                     <div data-fx="vb-luma-bloom">LUMA_BLOOM</div>
                                     <div data-fx="vb-dither-luxe">DITHER_LUXE</div>
                                     <div data-fx="vb-caustics">CAUSTICS</div>
-                                    <div data-fx="vb-silt-blur">SILT_BLUR</div>
-                                    <div data-fx="vb-neural-mesh">NEURAL_MESH</div>
+                                    <div data-fx="vb-ghost-echo">GHOST_ECHO</div>
+                                    <div data-fx="vb-spectral-mosh">SPECTRAL_MOSH</div>
                                     <div data-fx="clear" style="border-top:1px solid rgba(255,255,255,0.07);margin-top:2px;padding-top:4px;color:rgba(255,80,80,0.7);">✕ CLEAR</div>
                                 </div>
                             </div>
@@ -3648,8 +3653,8 @@ body.fullscreen #transcription-hud { pointer-events: none !important; } /* keep 
                                     <div data-fx="vb-luma-bloom">LUMA_BLOOM</div>
                                     <div data-fx="vb-dither-luxe">DITHER_LUXE</div>
                                     <div data-fx="vb-caustics">CAUSTICS</div>
-                                    <div data-fx="vb-silt-blur">SILT_BLUR</div>
-                                    <div data-fx="vb-neural-mesh">NEURAL_MESH</div>
+                                    <div data-fx="vb-ghost-echo">GHOST_ECHO</div>
+                                    <div data-fx="vb-spectral-mosh">SPECTRAL_MOSH</div>
                                     <div data-fx="clear" style="border-top:1px solid rgba(255,255,255,0.07);margin-top:2px;padding-top:4px;color:rgba(255,80,80,0.7);">✕ CLEAR</div>
                                 </div>
                             </div>
@@ -3683,8 +3688,8 @@ body.fullscreen #transcription-hud { pointer-events: none !important; } /* keep 
                                     <div data-fx="vb-luma-bloom">LUMA_BLOOM</div>
                                     <div data-fx="vb-dither-luxe">DITHER_LUXE</div>
                                     <div data-fx="vb-caustics">CAUSTICS</div>
-                                    <div data-fx="vb-silt-blur">SILT_BLUR</div>
-                                    <div data-fx="vb-neural-mesh">NEURAL_MESH</div>
+                                    <div data-fx="vb-ghost-echo">GHOST_ECHO</div>
+                                    <div data-fx="vb-spectral-mosh">SPECTRAL_MOSH</div>
                                 </div>
                             </div>
                             <span class="pad-name">LIQ-1</span>
@@ -3710,8 +3715,8 @@ body.fullscreen #transcription-hud { pointer-events: none !important; } /* keep 
                                     <div data-fx="vb-luma-bloom">LUMA_BLOOM</div>
                                     <div data-fx="vb-dither-luxe">DITHER_LUXE</div>
                                     <div data-fx="vb-caustics">CAUSTICS</div>
-                                    <div data-fx="vb-silt-blur">SILT_BLUR</div>
-                                    <div data-fx="vb-neural-mesh">NEURAL_MESH</div>
+                                    <div data-fx="vb-ghost-echo">GHOST_ECHO</div>
+                                    <div data-fx="vb-spectral-mosh">SPECTRAL_MOSH</div>
                                 </div>
                             </div>
                             <span class="pad-name">LIQ-2</span>
@@ -3737,8 +3742,8 @@ body.fullscreen #transcription-hud { pointer-events: none !important; } /* keep 
                                     <div data-fx="vb-luma-bloom">LUMA_BLOOM</div>
                                     <div data-fx="vb-dither-luxe">DITHER_LUXE</div>
                                     <div data-fx="vb-caustics">CAUSTICS</div>
-                                    <div data-fx="vb-silt-blur">SILT_BLUR</div>
-                                    <div data-fx="vb-neural-mesh">NEURAL_MESH</div>
+                                    <div data-fx="vb-ghost-echo">GHOST_ECHO</div>
+                                    <div data-fx="vb-spectral-mosh">SPECTRAL_MOSH</div>
                                 </div>
                             </div>
                             <span class="pad-name">LIQ-3</span>
@@ -3764,8 +3769,8 @@ body.fullscreen #transcription-hud { pointer-events: none !important; } /* keep 
                                     <div data-fx="vb-luma-bloom">LUMA_BLOOM</div>
                                     <div data-fx="vb-dither-luxe">DITHER_LUXE</div>
                                     <div data-fx="vb-caustics">CAUSTICS</div>
-                                    <div data-fx="vb-silt-blur">SILT_BLUR</div>
-                                    <div data-fx="vb-neural-mesh">NEURAL_MESH</div>
+                                    <div data-fx="vb-ghost-echo">GHOST_ECHO</div>
+                                    <div data-fx="vb-spectral-mosh">SPECTRAL_MOSH</div>
                                 </div>
                             </div>
                             <span class="pad-name">LIQ-4</span>
@@ -3979,6 +3984,10 @@ body.fullscreen #transcription-hud { pointer-events: none !important; } /* keep 
     </div>
     
     <div id="nft-hud">
+        <div id="nft-hud-controls">
+            <button id="nft-dim-btn" title="Dim HUD (click to cycle opacity)" onclick="_nftHudDim()">◐</button>
+            <span id="nft-drag-handle" title="Drag to reposition">⠿</span>
+        </div>
         <div id="nft-timer">00:00</div>
         <div id="nft-label">SYSTEM_CAPTURING</div>
         <div class="nft-bar"><div class="nft-fill" id="nft-fill"></div></div>
@@ -4500,8 +4509,8 @@ var GHOST = {
         if (c.match(/luma.?bloom/)) return 'vb_luma_bloom';
         if (c.match(/dither|dither.?luxe/)) return 'vb_dither_luxe';
         if (c.match(/caustic/)) return 'vb_caustics';
-        if (c.match(/silt.?blur|silt/)) return 'vb_silt_blur';
-        if (c.match(/neural.?mesh/)) return 'vb_neural_mesh';
+        if (c.match(/ghost.?echo|ghost|echo trail/)) return 'vb_ghost_echo';
+        if (c.match(/spectral.?mosh|mosh|spectral/)) return 'vb_spectral_mosh';
         if (c.match(/bank.?b|gpu.?fx|shader|bank b fx/)) return 'vb_help';
 
         // Voice toggle
@@ -4704,7 +4713,7 @@ function processGhostCommand(cmd, voiceMode) {
 
             case 'fx_help':
                 ghostLog('BANK A: void · lucy · xray · tear · punch · nvg · vhs · shoot | seismic · party · reset', 'ai');
-                ghostLog('BANK B (GPU): slit_scan · luma_bloom · dither_luxe · caustics · silt_blur · neural_mesh', 'ai');
+                ghostLog('BANK B (GPU): slit_scan · luma_bloom · dither_luxe · caustics · ghost_echo · spectral_mosh', 'ai');
                 ghostLog('BURST: crush · stutter · invert · shatter', 'ai');
                 break;
 
@@ -4725,7 +4734,7 @@ function processGhostCommand(cmd, voiceMode) {
                 ghostLog('SFX PADS: click a pad → BOOM, HORN, CROWD, etc. Right-click to arm mic recording.', 'ai');
                 ghostLog('Gear icon on each pad → load sample file + couple an FX:', 'ai');
                 ghostLog('  BANK A: punch · seismic · void · lucy · nvg · vhs · failure · shoot · party', 'ai');
-                ghostLog('  BANK B: slit_scan · luma_bloom · dither_luxe · caustics · silt_blur · neural_mesh', 'ai');
+                ghostLog('  BANK B: slit_scan · luma_bloom · dither_luxe · caustics · ghost_echo · spectral_mosh', 'ai');
                 ghostLog('Coupled FX fires on pad hit + sample audio drives audio-reactive engines.', 'ai');
                 ghostLog('MIDI-mappable: assign any pad to a MIDI note for live triggering.', 'ai');
                 break;
@@ -4897,12 +4906,12 @@ function processGhostCommand(cmd, voiceMode) {
             case 'vb_luma_bloom':
             case 'vb_dither_luxe':
             case 'vb_caustics':
-            case 'vb_silt_blur':
-            case 'vb_neural_mesh': {
+            case 'vb_ghost_echo':
+            case 'vb_spectral_mosh': {
                 var _vbMap = {
                     'vb_slit_scan':'SLIT_SCAN','vb_luma_bloom':'LUMA_BLOOM',
                     'vb_dither_luxe':'DITHER_LUXE','vb_caustics':'CAUSTICS',
-                    'vb_silt_blur':'SILT_BLUR','vb_neural_mesh':'NEURAL_MESH'
+                    'vb_ghost_echo':'GHOST_ECHO','vb_spectral_mosh':'SPECTRAL_MOSH'
                 };
                 var _vbSN = _vbMap[intent];
                 if (typeof _setFXBank === 'function') _setFXBank('B');
@@ -4912,7 +4921,7 @@ function processGhostCommand(cmd, voiceMode) {
             }
 
             case 'vb_help':
-                ghostLog('BANK B — GPU SHADERS: slit_scan · luma_bloom · dither_luxe · caustics · silt_blur · neural_mesh', 'ai');
+                ghostLog('BANK B — GPU SHADERS: slit_scan · luma_bloom · dither_luxe · caustics · ghost_echo · spectral_mosh', 'ai');
                 ghostLog('Speak or type any shader name to fire a 3s burst. Assignable to SFX pads via gear icon.', 'ai');
                 break;
 
@@ -5130,30 +5139,40 @@ function drawMediaStripToggle(ctx, w, h) {
     var hasContent = (APP.media.queue.length > 0 || (APP.user.assets && APP.user.assets.length > 0));
     if (!hasContent) return 0;
 
-    var tabH = Math.max(18, Math.round(h * 0.011));
-    var tabW = Math.max(60, Math.round(h * 0.055));
+    var tabH = Math.max(22, Math.round(h * 0.016));
+    var tabW = Math.max(80, Math.round(h * 0.075));
     var tabX = (w - tabW) / 2;
     var tabY = h - tabH;
 
     ctx.save();
     ctx.globalCompositeOperation = 'source-over';
 
-    // Background pill
-    ctx.fillStyle = 'rgba(6,6,12,0.92)';
+    // Background pill — slightly more opaque
+    ctx.fillStyle = 'rgba(4,4,10,0.94)';
     ctx.fillRect(tabX, tabY, tabW, tabH);
 
-    // Top accent line — subtle white
-    ctx.fillStyle = 'rgba(255,255,255,0.12)';
-    ctx.fillRect(tabX, tabY, tabW, 1);
+    // Top accent line — cyan, fully visible
+    ctx.fillStyle = 'rgba(0,243,255,0.7)';
+    ctx.fillRect(tabX, tabY, tabW, 2);
 
-    // Arrow + label
-    var fs = Math.max(9, Math.round(tabH * 0.52));
-    ctx.font = '600 ' + fs + 'px monospace';
-    ctx.fillStyle = 'rgba(255,255,255,0.45)';
+    // Glow behind the tab
+    ctx.shadowColor = 'rgba(0,243,255,0.55)';
+    ctx.shadowBlur = 10;
+    ctx.fillStyle = 'rgba(0,243,255,0.0)';
+    ctx.fillRect(tabX, tabY, tabW, tabH);
+    ctx.shadowBlur = 0;
+
+    // Arrow — bright cyan, larger
+    var fs = Math.max(11, Math.round(tabH * 0.62));
+    ctx.font = '700 ' + fs + 'px monospace';
+    ctx.fillStyle = 'rgba(0,243,255,0.92)';
+    ctx.shadowColor = 'rgba(0,243,255,0.8)';
+    ctx.shadowBlur = 8;
     ctx.textAlign = 'center';
     ctx.textBaseline = 'middle';
     var arrow = APP.state.showMediaStrips ? '▼' : '▲';
     ctx.fillText(arrow, tabX + tabW / 2, tabY + tabH / 2);
+    ctx.shadowBlur = 0;
 
     ctx.restore();
 
@@ -8110,7 +8129,7 @@ $('btn-rec').onclick = () => {
             }
 
             APP.broadcast.chunks = [];
-            var bcastOpts = { mimeType: 'video/webm;codecs=vp9,opus', videoBitsPerSecond: 5000000, audioBitsPerSecond: 128000 };
+            var bcastOpts = { mimeType: 'video/webm;codecs=vp9,opus', videoBitsPerSecond: 50000000, audioBitsPerSecond: 128000 };
             try { APP.broadcast.recorder = new MediaRecorder(bcastStream, bcastOpts); }
             catch(e) {
                 try { APP.broadcast.recorder = new MediaRecorder(bcastStream, { mimeType: 'video/webm;codecs=vp8,opus' }); }
@@ -9051,7 +9070,7 @@ async function startNFTRecording() {
         }
 
         // 5. Create MediaRecorder — codec cascade for broad compatibility
-        try { APP.nft.recorder = new MediaRecorder(combinedStream, { mimeType: 'video/webm;codecs=vp9,opus', videoBitsPerSecond: 5000000, audioBitsPerSecond: 128000 }); }
+        try { APP.nft.recorder = new MediaRecorder(combinedStream, { mimeType: 'video/webm;codecs=vp9,opus', videoBitsPerSecond: 50000000, audioBitsPerSecond: 128000 }); }
         catch(e) {
             try { APP.nft.recorder = new MediaRecorder(combinedStream, { mimeType: 'video/webm;codecs=vp8,opus' }); }
             catch(e2) { APP.nft.recorder = new MediaRecorder(combinedStream, { mimeType: 'video/webm' }); }
@@ -9108,8 +9127,77 @@ function updateNFTTimer() {
     requestAnimationFrame(updateNFTTimer); 
 }
 
-function finalizeNFT() { 
-    const blob = new Blob(APP.nft.chunks, { type: 'video/webm' }); 
+// ── NFT HUD: draggable + dimmable ────────────────────────────────────
+(function() {
+    var hud, isDragging = false, ox = 0, oy = 0, pinned = false;
+    var _dims = [1, 0.55, 0.25, 0.08]; var _dimIdx = 0;
+
+    function _init() {
+        hud = document.getElementById('nft-hud');
+        if (!hud) return;
+        // Drag on mousedown anywhere on HUD (except dim button)
+        hud.addEventListener('mousedown', function(e) {
+            if (e.target.id === 'nft-dim-btn') return;
+            isDragging = true;
+            var r = hud.getBoundingClientRect();
+            ox = e.clientX - r.left; oy = e.clientY - r.top;
+            hud.classList.add('dragging');
+        });
+        document.addEventListener('mousemove', function(e) {
+            if (!isDragging) return;
+            pinned = true;
+            hud.style.left   = (e.clientX - ox) + 'px';
+            hud.style.top    = (e.clientY - oy) + 'px';
+            hud.style.bottom = 'auto';
+            hud.style.transform = 'none';
+        });
+        document.addEventListener('mouseup', function() {
+            isDragging = false;
+            hud.classList.remove('dragging');
+        });
+        // Touch drag
+        hud.addEventListener('touchstart', function(e) {
+            if (e.target.id === 'nft-dim-btn') return;
+            var t = e.touches[0]; var r = hud.getBoundingClientRect();
+            ox = t.clientX - r.left; oy = t.clientY - r.top; isDragging = true;
+        }, { passive: true });
+        document.addEventListener('touchmove', function(e) {
+            if (!isDragging) return;
+            var t = e.touches[0]; pinned = true;
+            hud.style.left = (t.clientX - ox) + 'px';
+            hud.style.top  = (t.clientY - oy) + 'px';
+            hud.style.bottom = 'auto'; hud.style.transform = 'none';
+        }, { passive: true });
+        document.addEventListener('touchend', function() { isDragging = false; });
+    }
+
+    window._nftHudDim = function() {
+        _dimIdx = (_dimIdx + 1) % _dims.length;
+        if (!hud) hud = document.getElementById('nft-hud');
+        if (hud) hud.style.opacity = _dims[_dimIdx];
+    };
+    // Reset position/opacity when recording starts
+    var _origShow = null;
+    document.addEventListener('DOMContentLoaded', function() {
+        _init();
+        // Patch: reset HUD position when a new recording starts
+        var origAdd = DOMTokenList.prototype.add;
+        if (!hud) hud = document.getElementById('nft-hud');
+        if (hud) {
+            var observer = new MutationObserver(function(muts) {
+                muts.forEach(function(m) {
+                    if (m.attributeName === 'class' && hud.classList.contains('active') && !pinned) {
+                        hud.style.opacity = '1'; _dimIdx = 0;
+                    }
+                });
+            });
+            observer.observe(hud, { attributes: true });
+        }
+    });
+})();
+
+function finalizeNFT() {
+    const blob = new Blob(APP.nft.chunks, { type: 'video/webm' });
     const url = URL.createObjectURL(blob); 
     const a = document.createElement('a'); 
     a.href = url; 
@@ -10363,7 +10451,7 @@ document.addEventListener('DOMContentLoaded', () => {
             'coupled-seismic','coupled-punch','coupled-party','coupled-glitch',
             // Bank B GPU shaders
             'coupled-vb-slit-scan','coupled-vb-luma-bloom','coupled-vb-dither-luxe',
-            'coupled-vb-caustics','coupled-vb-silt-blur','coupled-vb-neural-mesh'
+            'coupled-vb-caustics','coupled-vb-ghost-echo','coupled-vb-spectral-mosh'
         ];
         var COUPLING_LABELS = {
             none:'', nvg:'NVG', shoot:'SHOOT', reset:'RESET',
@@ -10371,7 +10459,7 @@ document.addEventListener('DOMContentLoaded', () => {
             seismic:'SEISMIC', punch:'PUNCH', party:'PARTY', glitch:'GLITCH',
             'vb-slit-scan':'SLIT_SCN', 'vb-luma-bloom':'LUM_BLM',
             'vb-dither-luxe':'DITHER', 'vb-caustics':'CAUSTIC',
-            'vb-silt-blur':'SILT_BL', 'vb-neural-mesh':'NEURAL'
+            'vb-ghost-echo':'GHO_ECH', 'vb-spectral-mosh':'SPEC_MSH'
         };
 
         function _setCouplingByName(btn, sfxName, fx) {
@@ -10486,7 +10574,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 var shaderMap = {
                     'vb-slit-scan':'SLIT_SCAN','vb-luma-bloom':'LUMA_BLOOM',
                     'vb-dither-luxe':'DITHER_LUXE','vb-caustics':'CAUSTICS',
-                    'vb-silt-blur':'SILT_BLUR','vb-neural-mesh':'NEURAL_MESH'
+                    'vb-ghost-echo':'GHOST_ECHO','vb-spectral-mosh':'SPECTRAL_MOSH'
                 };
                 var sn = shaderMap[fx];
                 if (sn && typeof _vbActivate === 'function') {
@@ -14863,6 +14951,9 @@ var _vbRAF       = null;    // requestAnimationFrame handle
 var _vbGl        = null;    // WebGL2 context
 var _vbProgs     = {};      // Compiled shader programs
 var _vbTex       = null;    // Input texture (from vj-canvas)
+var _vbPrevTex   = null;    // Previous-frame texture for GHOST_ECHO feedback
+var _vbPrevCvs   = null;    // Off-screen 2D canvas storing last rendered frame
+var _vbPrevCtx2d = null;    // 2D context for _vbPrevCvs
 var _vbInited    = false;
 
 // ── GLSL Shaders (GLSL ES 3.00) ───────────────────────────────────────
@@ -14944,39 +15035,53 @@ var FS = {
         '}'
     ].join('\n'),
 
-    SILT_BLUR: [
+    GHOST_ECHO: [
         '#version 300 es',
-        'precision mediump float;',
-        'in vec2 v; uniform sampler2D t; uniform float time; out vec4 o;',
+        'precision highp float;',
+        'in vec2 v;',
+        'uniform sampler2D t;',
+        'uniform sampler2D tPrev;',
+        'uniform float time;',
+        'uniform float uAudio;',
+        'out vec4 o;',
         'void main(){',
-        '  float ang=time*0.15;',
-        '  vec2 dir=vec2(cos(ang),sin(ang))*0.0035;',
-        '  vec4 acc=vec4(0.0);',
-        '  float w=0.0;',
-        '  for(int i=0;i<10;i++){',
-        '    float f=float(i)/9.0;',
-        '    float wt=1.0-f*0.7;',
-        '    acc+=texture(t,clamp(v-dir*f,0.0,1.0))*wt;',
-        '    w+=wt;',
-        '  }',
-        '  o=acc/w;',
+        '  vec4 cur=texture(t,v);',
+        // Subtle UV drift so ghost trails shift rather than stack perfectly
+        '  vec2 drift=vec2(sin(time*0.31+v.y*3.8)*0.0009,cos(time*0.19+v.x*2.7)*0.0006);',
+        '  vec4 ghost=texture(tPrev,clamp(v+drift,0.0,1.0));',
+        // decay: 0.80 at silence → 0.95 at full bass — longer trails on kicks
+        '  float decay=0.80+uAudio*0.15;',
+        '  o=vec4(cur.rgb+ghost.rgb*decay,1.0);',
         '}'
     ].join('\n'),
 
-    NEURAL_MESH: [
+    SPECTRAL_MOSH: [
         '#version 300 es',
-        'precision mediump float;',
-        'in vec2 v; uniform sampler2D t; uniform float time; out vec4 o;',
+        'precision highp float;',
+        'in vec2 v;',
+        'uniform sampler2D t;',
+        'uniform float time;',
+        'uniform float uAudio;',
+        'uniform vec2 res;',
+        'out vec4 o;',
         'void main(){',
-        '  vec4 c=texture(t,v);',
-        '  vec2 g=fract(v*vec2(28.0,18.0));',
-        '  float hline=step(0.94,g.y);',
-        '  float vline=step(0.94,g.x);',
-        '  float grid=max(hline,vline);',
-        '  float pulse=0.45+0.55*sin(time*2.2+v.y*8.0);',
-        '  float nod=step(0.88,g.x)*step(0.88,g.y);',
-        '  vec3 mesh=vec3(0.0,0.85,1.0)*(grid*0.35+nod*0.7)*pulse;',
-        '  o=vec4(c.rgb+mesh,1.0);',
+        '  vec2 px=1.0/max(res,vec2(1.0));',
+        // Luminance gradient → per-pixel velocity estimate
+        '  vec3 c0=texture(t,v).rgb;',
+        '  float lumC=dot(c0,vec3(0.299,0.587,0.114));',
+        '  float lumR=dot(texture(t,v+vec2(px.x,0.0)).rgb,vec3(0.299,0.587,0.114));',
+        '  float lumU=dot(texture(t,v+vec2(0.0,px.y)).rgb,vec3(0.299,0.587,0.114));',
+        // Displacement magnitude grows with bass
+        '  float mag=(0.006+uAudio*0.022)*26.0;',
+        '  vec2 shift=vec2(lumR-lumC,lumU-lumC)*mag;',
+        // Time-modulated channel separation — each channel bleeds differently
+        '  float tmod=time*0.38;',
+        '  float r=texture(t,clamp(v+shift*1.9,0.0,1.0)).r;',
+        '  float g=texture(t,clamp(v+shift*0.55+vec2(sin(tmod)*0.0025,0.0),0.0,1.0)).g;',
+        '  float b=texture(t,clamp(v-shift*1.4+vec2(0.0,cos(tmod)*0.002),0.0,1.0)).b;',
+        // Blend: only apply mosh where gradient is strong enough
+        '  float edge=clamp(length(shift)*35.0,0.0,1.0);',
+        '  o=vec4(mix(c0,vec3(r,g,b),edge),1.0);',
         '}'
     ].join('\n')
 };
@@ -15010,14 +15115,29 @@ function _initVB() {
     Object.keys(FS).forEach(function(name) {
         var prog = makeProgram(FS[name]);
         _vbProgs[name] = {
-            prog: prog,
-            aLoc: gl.getAttribLocation(prog, 'a'),
-            tLoc: gl.getUniformLocation(prog, 't'),
-            timeLoc: gl.getUniformLocation(prog, 'time'),
-            resLoc:  gl.getUniformLocation(prog, 'res'),
-            dirLoc:  gl.getUniformLocation(prog, 'dir')
+            prog:      prog,
+            aLoc:      gl.getAttribLocation(prog, 'a'),
+            tLoc:      gl.getUniformLocation(prog, 't'),
+            timeLoc:   gl.getUniformLocation(prog, 'time'),
+            resLoc:    gl.getUniformLocation(prog, 'res'),
+            dirLoc:    gl.getUniformLocation(prog, 'dir'),
+            audioLoc:  gl.getUniformLocation(prog, 'uAudio'),  // bass 0-1
+            prevLoc:   gl.getUniformLocation(prog, 'tPrev')    // feedback frame
         };
     });
+
+    // Off-screen canvas for GHOST_ECHO frame feedback
+    _vbPrevCvs = document.createElement('canvas');
+    _vbPrevCvs.width = 2; _vbPrevCvs.height = 2;
+    _vbPrevCtx2d = _vbPrevCvs.getContext('2d');
+    _vbPrevTex = gl.createTexture();
+    gl.bindTexture(gl.TEXTURE_2D, _vbPrevTex);
+    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE);
+    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE);
+    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.LINEAR);
+    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.LINEAR);
+    // Seed with opaque black
+    gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, 1, 1, 0, gl.RGBA, gl.UNSIGNED_BYTE, new Uint8Array([0,0,0,255]));
 
     // Fullscreen quad
     var buf = gl.createBuffer();
@@ -15067,11 +15187,47 @@ function _vbRender() {
     gl.bindBuffer(gl.ARRAY_BUFFER, gl._quadBuf);
     gl.enableVertexAttribArray(p.aLoc);
     gl.vertexAttribPointer(p.aLoc, 2, gl.FLOAT, false, 0, 0);
+
+    // Texture unit 0 — current frame from vj-canvas
+    gl.activeTexture(gl.TEXTURE0);
+    gl.bindTexture(gl.TEXTURE_2D, _vbTex);
     gl.uniform1i(p.tLoc, 0);
-    if (p.timeLoc) gl.uniform1f(p.timeLoc, _vbTime);
-    if (p.resLoc)  gl.uniform2f(p.resLoc, w, h);
-    if (p.dirLoc)  gl.uniform2f(p.dirLoc, 1.0, 0.5);
+
+    // Texture unit 1 — previous frame (GHOST_ECHO feedback)
+    if (p.prevLoc && _vbPrevTex) {
+        gl.activeTexture(gl.TEXTURE1);
+        gl.bindTexture(gl.TEXTURE_2D, _vbPrevTex);
+        if (_vbPrevCvs && _vbPrevCvs.width > 2) {
+            try { gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, gl.RGBA, gl.UNSIGNED_BYTE, _vbPrevCvs); } catch(e) {}
+        }
+        gl.uniform1i(p.prevLoc, 1);
+        gl.activeTexture(gl.TEXTURE0);
+    }
+
+    // Audio uniform — bass level normalised 0-1
+    var _audio = (typeof APP !== 'undefined' && APP.audio && APP.audio.bassLevel) ? APP.audio.bassLevel / 255 : 0;
+    if (p.audioLoc) gl.uniform1f(p.audioLoc, _audio);
+    if (p.timeLoc)  gl.uniform1f(p.timeLoc, _vbTime);
+    if (p.resLoc)   gl.uniform2f(p.resLoc, w, h);
+    if (p.dirLoc)   gl.uniform2f(p.dirLoc, 1.0, 0.5);
     gl.drawArrays(gl.TRIANGLE_STRIP, 0, 4);
+
+    // Save rendered output as previous frame for GHOST_ECHO feedback
+    if (shader === 'GHOST_ECHO' && _vbPrevCvs && _vbPrevCtx2d) {
+        if (_vbPrevCvs.width !== w || _vbPrevCvs.height !== h) {
+            _vbPrevCvs.width = w; _vbPrevCvs.height = h;
+        }
+        try { _vbPrevCtx2d.drawImage(vbCanvas, 0, 0, w, h); } catch(e) {}
+    }
+
+    // ── UNIFIED RECORDER BLIT ─────────────────────────────────────────
+    // Composite Bank B output onto vj-canvas so captureStream captures it.
+    // renderLoop always runs before _vbRender (registered first), so this
+    // blit lands after the full 2D frame is drawn — clean composition.
+    try {
+        var _mainCtx = vjCanvas.getContext('2d');
+        if (_mainCtx) _mainCtx.drawImage(vbCanvas, 0, 0, vjCanvas.width, vjCanvas.height);
+    } catch(e) {}
 }
 
 // ── Activate / deactivate shader ──────────────────────────────────────
@@ -15087,7 +15243,7 @@ function _vbActivate(shaderName, persistent) {
     _vbUpdateUI(shaderName, persistent);
     var hasLocked = Object.keys(_vbLocked).length > 0;
     var statusEl = document.getElementById('vb-sys-status');
-    if (statusEl) statusEl.textContent = hasLocked ? 'SYSTEM_STATUS: NEURAL_GPU_ACTIVE' : 'SYSTEM_STATUS: STANDBY';
+    if (statusEl) statusEl.textContent = hasLocked ? 'SYSTEM_STATUS: GPU_FX_ACTIVE' : 'SYSTEM_STATUS: STANDBY';
     var dot = document.getElementById('vb-status-dot');
     if (dot) dot.classList.toggle('on', hasLocked);
 }
@@ -15105,7 +15261,7 @@ function _vbDeactivate(shaderName) {
     }
     _vbUpdateUI(shaderName, false);
     var statusEl = document.getElementById('vb-sys-status');
-    if (statusEl) statusEl.textContent = hasLocked ? 'SYSTEM_STATUS: NEURAL_GPU_ACTIVE' : 'SYSTEM_STATUS: STANDBY';
+    if (statusEl) statusEl.textContent = hasLocked ? 'SYSTEM_STATUS: GPU_FX_ACTIVE' : 'SYSTEM_STATUS: STANDBY';
     var dot = document.getElementById('vb-status-dot');
     if (dot) dot.classList.toggle('on', hasLocked);
 }
@@ -15175,8 +15331,8 @@ function _vbHandleClick(btn) {
         if (_vbBurstTimer) { clearTimeout(_vbBurstTimer); _vbBurstTimer = null; }
         _vbActivate(shaderName, true);
         log('VB_LOCK: ' + shaderName);
-        // If NEURAL_MESH locked, start pose tracking
-        if (shaderName === 'NEURAL_MESH') _startPoseTracking();
+        // If SPECTRAL_MOSH locked, start pose tracking
+        if (shaderName === 'SPECTRAL_MOSH') _startPoseTracking();
     } else {
         // Single-click: 3-second burst — show active-fx while running
         if (_vbBurstTimer) clearTimeout(_vbBurstTimer);
@@ -15209,7 +15365,7 @@ if (document.readyState !== 'loading') { _vbWireButtons(); }
 </script>
 
 <!-- ═══════════════════════════════════════════════════════════════════
-     MEDIAPIPE POSE — 3D body-tracking anchor for NEURAL_MESH + GLB rigging
+     MEDIAPIPE POSE — 3D body-tracking anchor for SPECTRAL_MOSH + GLB rigging
      Landmarks streamed to VB canvas shader and (if GLB loaded) skeleton
      ═══════════════════════════════════════════════════════════════════ -->
 <script>
@@ -15224,12 +15380,12 @@ var _landmarks = null;
 
 window._startPoseTracking = function() {
     if (_poseRunning) return;
-    if (typeof Pose === 'undefined') { log('NEURAL_MESH: MediaPipe not loaded'); return; }
+    if (typeof Pose === 'undefined') { log('SPECTRAL_MOSH: MediaPipe not loaded'); return; }
 
     // Use existing camera stream if available
     var videoEl = document.getElementById('cam-preview') || document.querySelector('video');
     if (!videoEl || !videoEl.srcObject) {
-        log('NEURAL_MESH: No camera stream — start camera first');
+        log('SPECTRAL_MOSH: No camera stream — start camera first');
         return;
     }
 
@@ -15244,7 +15400,7 @@ window._startPoseTracking = function() {
     });
 
     _poseRunning = true;
-    log('NEURAL_MESH: Pose tracking ACTIVE');
+    log('SPECTRAL_MOSH: Pose tracking ACTIVE');
 
     // Feed frames to MediaPipe
     function _sendFrame() {
@@ -15258,7 +15414,7 @@ window._startPoseTracking = function() {
 window._stopPoseTracking = function() {
     _poseRunning = false;
     _landmarks = null;
-    log('NEURAL_MESH: Pose tracking STOPPED');
+    log('SPECTRAL_MOSH: Pose tracking STOPPED');
 };
 
 // ── Bone mapping: MediaPipe → Three.js skeleton ───────────────────────
