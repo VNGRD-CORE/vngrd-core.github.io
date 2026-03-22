@@ -6681,6 +6681,7 @@ function loadMediaFiles(input) {
 
 function ensureAudioChain() {
     if (APP.audio.analyzer) return;
+    _padBusNode = null; // force reconnect to new duckingGain
     if (!APP.audio.ctx) APP.audio.ctx = new (window.AudioContext || window.webkitAudioContext)();
     var ctx = APP.audio.ctx;
     APP.audio.analyzer = ctx.createAnalyser();
@@ -8238,6 +8239,10 @@ function setupAudioChain() {
     // ═══ Phase 2: Mic analyzer for ducking ═══
     APP.audio.micAnalyzer = ctx.createAnalyser();
     APP.audio.micAnalyzer.fftSize = 256;
+
+    // Invalidate cached padBusNode — it was connected to the old duckingGain
+    // which is now replaced; _getPadBus will reconnect to the new node on next SFX play
+    _padBusNode = null;
 
     // Upgraded routing: Source -> Panner -> EQ -> Comp -> Ducking -> Analyzer -> MasterGain -> Limiter -> Destination
     APP.audio.source
@@ -10153,10 +10158,14 @@ document.addEventListener('DOMContentLoaded', () => {
                 if (typeof _groovebox !== 'undefined' && _groovebox.mode === 'groovebox') {
                     SFX_ENGINE.play(sfxName);
                     _pulsePad(btn);
+                    // liq pads fire coupling inside _fireLiqPad — avoid double-trigger
+                    if (typeof _fireCoupledFX === 'function' && !sfxName.startsWith('liq')) _fireCoupledFX(sfxName);
                     return;
                 }
                 SFX_ENGINE.play(sfxName);
                 _pulsePad(btn);
+                // liq pads fire coupling inside _fireLiqPad — avoid double-trigger
+                if (typeof _fireCoupledFX === 'function' && !sfxName.startsWith('liq')) _fireCoupledFX(sfxName);
                 log('SFX: ' + sfxName.toUpperCase());
             });
         });
