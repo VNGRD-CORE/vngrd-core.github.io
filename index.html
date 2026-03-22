@@ -2413,12 +2413,15 @@ body.fx-nvg .sidebar { z-index: 9999; }
 /* Unmissable green glow on the active NVG button */
 #btn-nvg.active-fx { color: #00ff41 !important; border-color: #00ff41 !important; background: rgba(0,255,65,0.30) !important; filter: drop-shadow(0 0 8px #00ff41) drop-shadow(0 0 18px rgba(0,255,65,0.55)) !important; text-shadow: 0 0 6px #00ff41, 0 0 16px #00ff41 !important; }
 
-/* ── BANK A — va-btn: mirrors Bank B style, slightly bigger, color-coded per FX ── */
+/* ── va-btn: unified FX button style for Bank A + Bank B ── */
 .va-btn {
-    font-size: 10px !important;
-    padding: 7px 4px !important;
+    font-size: 7.5px !important;
+    padding: 6px 2px !important;
     text-align: center !important;
-    letter-spacing: 1px !important;
+    letter-spacing: 0.4px !important;
+    white-space: nowrap !important;
+    overflow: hidden !important;
+    text-overflow: ellipsis !important;
     color: var(--va-color, rgba(255,255,255,0.55)) !important;
     border-color: color-mix(in srgb, var(--va-color, rgba(255,255,255,0.2)) 45%, transparent) !important;
     transition: color 0.15s, border-color 0.15s, box-shadow 0.15s, background 0.15s;
@@ -3224,14 +3227,14 @@ body.fullscreen #transcription-hud { pointer-events: none !important; } /* keep 
                     <button class="btn va-btn" id="btn-psychosis" style="--va-color:#ff00ff;" title="Tap=toggle">FAILURE</button>
                 </div>
                 <div class="btn-grid-3" style="margin-bottom:4px;">
-                    <button class="btn va-btn" id="btn-shooting" style="--va-color:#ff3333;" title="Tap=toggle">SHOOT</button>
+                    <button class="btn va-btn" id="btn-shooting" style="--va-color:#ff8800;" title="Tap=toggle">SHOOT</button>
                     <button class="btn va-btn" onclick="toggleFX('void')" style="--va-color:#aa44ff;" title="Tap=toggle">VOID</button>
                     <button class="btn va-btn" onclick="toggleFX('lucy')" style="--va-color:#ff00ff;" title="Tap=toggle">LUCY</button>
                 </div>
                 <div class="btn-grid-3" style="margin-bottom:4px;">
                     <button class="btn va-btn" id="btn-vhs" onclick="toggleVHS()" style="--va-color:#ffaa00;" title="Tap=toggle">VHS_OVR</button>
                     <button class="btn va-btn" id="btn-nvg" onclick="toggleFX('nvg')" style="--va-color:#00ff41;" title="Tap=toggle">NVG</button>
-                    <button class="btn va-btn" onclick="triggerHardReset()" style="--va-color:#ffaa00;" title="Hard reset all FX">RESET</button>
+                    <button class="btn va-btn" onclick="triggerHardReset()" style="--va-color:#ff3333;" title="Hard reset all FX">RESET</button>
                 </div>
                 <div style="font-size:7px;text-align:center;letter-spacing:1.5px;color:rgba(0,243,255,0.3);padding-bottom:2px;">BANK A // TAP=TOGGLE</div>
                 </div>
@@ -3248,7 +3251,7 @@ body.fullscreen #transcription-hud { pointer-events: none !important; } /* keep 
                     <button class="btn va-btn vb-btn" id="vb-NEURAL_MESH" data-shader="NEURAL_MESH" style="--va-color:#00ff41;" title="Tap=3s burst · Double-tap=lock + pose">NEURAL_MESH</button>
                 </div>
                 <div style="font-size:7px;text-align:center;letter-spacing:1.5px;color:rgba(0,243,255,0.3);padding-bottom:2px;" id="vb-sys-status">SYSTEM_STATUS: STANDBY</div>
-                <button class="btn va-btn" onclick="_vbClearAll()" style="width:100%;margin-top:2px;font-size:7px;--va-color:rgba(255,255,255,0.45);">[ CLEAR ALL ]</button>
+                <button class="btn va-btn" onclick="_vbClearAll()" style="width:100%;margin-top:2px;--va-color:#ff3333;">[ CLEAR ALL ]</button>
                 </div>
             </div>
         </div>
