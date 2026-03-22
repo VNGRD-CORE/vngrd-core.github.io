@@ -1904,7 +1904,50 @@
         .info-item span { color: var(--text); }
         .info-item .hl { color: var(--accent); }
 
-        #sys-log { position: fixed; bottom: 55px; right: 200px; width: 220px; height: 45px; background: rgba(0,0,0,0.95); border: 1px solid var(--border); border-bottom: none; font-size: 8px; color: var(--text-dim); overflow-y: auto; padding: 5px; z-index: 4400; }
+        #sys-log {
+            position: fixed; bottom: 55px; right: 200px;
+            width: 230px;
+            background: rgba(4,6,14,0.94);
+            border: 1px solid rgba(0,243,255,0.1);
+            border-radius: 4px;
+            font-size: 8px; color: var(--text-dim);
+            z-index: 4400;
+            overflow: hidden;
+            opacity: 0.12;
+            transition: opacity 0.5s ease, border-color 0.4s, box-shadow 0.4s;
+            pointer-events: all;
+        }
+        /* Opacity states */
+        #sys-log.sl-idle   { opacity: 0.42; }
+        #sys-log.sl-active { opacity: 0.88; border-color: rgba(0,243,255,0.25); }
+        #sys-log.sl-alert  { opacity: 1;    border-color: rgba(255,200,0,0.55); box-shadow: 0 0 14px rgba(255,200,0,0.18); }
+        #sys-log.sl-pinned { opacity: 0.72; border-color: rgba(0,243,255,0.18); }
+        /* Drag handle */
+        #sys-log-handle {
+            display: flex; align-items: center; gap: 5px;
+            padding: 3px 7px 3px 6px;
+            background: rgba(0,243,255,0.03);
+            border-bottom: 1px solid rgba(0,243,255,0.07);
+            cursor: grab; user-select: none;
+            font-family: 'Orbitron', sans-serif; font-size: 6px;
+            letter-spacing: 1.2px; color: rgba(0,243,255,0.28);
+        }
+        #sys-log-handle:active { cursor: grabbing; }
+        #sys-log-handle-label { flex: 1; }
+        #sys-log-badge {
+            background: rgba(255,200,0,0.8); color: #000;
+            border-radius: 8px; font-size: 6px; font-weight: 700;
+            padding: 1px 5px; display: none; min-width: 14px; text-align: center;
+        }
+        #sys-log-pin-btn, #sys-log-clear-btn {
+            background: none; border: none; cursor: pointer;
+            color: rgba(0,243,255,0.28); font-size: 10px; padding: 0 1px;
+            line-height: 1; font-family: monospace; transition: color 0.15s;
+        }
+        #sys-log-pin-btn:hover, #sys-log-clear-btn:hover { color: rgba(0,243,255,0.8); }
+        #sys-log-pin-btn.pinned { color: rgba(255,200,0,0.7); }
+        /* Log lines body */
+        #sys-log-body { max-height: 60px; overflow-y: auto; padding: 4px 6px 5px; }
         .log-line { margin-bottom: 2px; }
         .log-line .ts { color: var(--accent); margin-right: 5px; }
 
@@ -2199,7 +2242,7 @@ body.shooting-mode #btn-shooting {
         #clock { font-size: 12px; }
         .badge { font-size: 7px; padding: 2px 5px; }
         #bottom-bar { height: 40px; }
-        #sys-log { max-height: 60px; font-size: 9px; }
+        #sys-log { font-size: 9px; } #sys-log-body { max-height: 70px; }
         #lower-third { bottom: 40px; left: 15px; }
         .lt-container { min-width: 200px; max-width: 300px; padding: 8px 16px 8px 10px; }
         .lt-title { font-size: 14px; }
@@ -3891,7 +3934,15 @@ body.fullscreen #transcription-hud { pointer-events: none !important; } /* keep 
         </div>
     </div>
 
-    <div id="sys-log"></div>
+    <div id="sys-log">
+        <div id="sys-log-handle">
+            <span id="sys-log-handle-label">SYS//LOG</span>
+            <span id="sys-log-badge">0</span>
+            <button id="sys-log-pin-btn" title="Pin visible" onclick="event.stopPropagation();_sysLogTogglePin()">⊙</button>
+            <button id="sys-log-clear-btn" title="Clear log" onclick="event.stopPropagation();_sysLogClear()">✕</button>
+        </div>
+        <div id="sys-log-body"></div>
+    </div>
     
     <div id="nft-hud">
         <div id="nft-timer">00:00</div>
@@ -3955,46 +4006,7 @@ const $ = id => document.getElementById(id);
 
 // --- BROADCAST SAFE DRAG MODULE ---
 function makeLogSafeDraggable(el) {
-    let isDragging = false;
-    let offset = { x: 0, y: 0 };
-
-    el.addEventListener('mousedown', (e) => {
-        if (e.target !== el) return; 
-        isDragging = true;
-        offset.x = e.clientX - el.offsetLeft;
-        offset.y = e.clientY - el.offsetTop;
-        el.style.borderColor = 'var(--accent)'; 
-        el.style.transition = 'none'; 
-    });
-
-    document.addEventListener('mousemove', (e) => {
-        if (!isDragging) return;
-
-        const marginX = window.innerWidth * 0.10;
-        const marginY = window.innerHeight * 0.10;
-
-        let newX = e.clientX - offset.x;
-        let newY = e.clientY - offset.y;
-
-        newX = Math.max(marginX, Math.min(newX, window.innerWidth - el.offsetWidth - marginX));
-        newY = Math.max(marginY, Math.min(newY, window.innerHeight - el.offsetHeight - marginY));
-
-        el.style.left = newX + 'px';
-        el.style.top = newY + 'px';
-        el.style.right = 'auto'; 
-        el.style.bottom = 'auto';
-    });
-
-    document.addEventListener('mouseup', () => {
-        isDragging = false;
-        el.style.borderColor = 'var(--border)';
-        el.style.transition = 'all 0.2s';
-    });
-
-    el.ondblclick = () => {
-        el.style.left = ''; el.style.top = '';
-        el.style.right = '200px'; el.style.bottom = '55px';
-    };
+    // Legacy no-op — handle-based drag is wired in _sysLogInit()
 }
 // --- KILL SWITCH ---
 document.addEventListener('keydown', e => {
@@ -4922,7 +4934,24 @@ function updateTickerCycle() {
 }
 
 // UTILS
-function log(msg) { const sysLog = document.getElementById('sys-log'); if (!sysLog) return; const ts = new Date().toTimeString().split(' ')[0]; const el = document.createElement('div'); el.className = 'log-line'; el.innerHTML = `<span class="ts">${ts}</span>${msg}`; sysLog.appendChild(el); if (sysLog.children.length > 20) sysLog.removeChild(sysLog.firstChild); sysLog.scrollTop = sysLog.scrollHeight; if (window._sysLogResetTimer) { sysLog.style.display = 'block'; clearTimeout(window._sysLogTimer); window._sysLogTimer = setTimeout(() => { sysLog.style.display = 'none'; }, 30000); } }
+function log(msg) {
+    var body = document.getElementById('sys-log-body');
+    if (!body) { console.log('[SYS]', msg); return; }
+    var ts = new Date().toTimeString().split(' ')[0];
+    var el = document.createElement('div');
+    el.className = 'log-line';
+    el.innerHTML = '<span class="ts">' + ts + '</span>' + msg;
+    body.appendChild(el);
+    if (body.children.length > 30) body.removeChild(body.firstChild);
+    body.scrollTop = body.scrollHeight;
+    // Determine alert level from message content
+    var m = msg.toUpperCase();
+    var level = 'info';
+    if (/ERR|FAIL|DENIED|BLOCKED|FATAL|CRASH/.test(m))      level = 'err';
+    else if (/WARN|MISS|TIMEOUT|RETRY|ABORT/.test(m))        level = 'warn';
+    else if (/DONE|READY|ACTIVE|INJECTED|LOADED|OK/.test(m)) level = 'ok';
+    if (typeof window._sysLogWake === 'function') window._sysLogWake(level);
+}
 function checkMobile() { APP.state.isMobile = /Android|iPhone|iPad|iPod|webOS|BlackBerry/i.test(navigator.userAgent); if (APP.state.isMobile) { APP.render.width = 1920; APP.render.height = 1080; log('MOBILE_MODE'); } }
 
 // RENDER
@@ -12914,21 +12943,127 @@ var isVideo = nft.forceVideo || (imageUrl.toLowerCase().match(/\.(mp4|webm|mov|o
     // --- DRAG INITIALIZATION (mid-script) ---
     makeLogSafeDraggable($('sys-log'));
 
-    // ── SYS-LOG AUTO-HIDE: vanish after 30s of no new messages or mouse interaction ──
+    // ── SYS-LOG v2: smart dim/alert + handle drag + pin ──────────────────
     (function() {
-        const sl = $('sys-log');
-        if (!sl) return;
-        window._sysLogTimer = null;
-        window._sysLogResetTimer = true; // flag: log() uses this to reset the timer
-        function resetSlTimer() {
-            clearTimeout(window._sysLogTimer);
-            sl.style.display = 'block';
-            window._sysLogTimer = setTimeout(() => { sl.style.display = 'none'; }, 30000);
+        var sl    = document.getElementById('sys-log');
+        var handle= document.getElementById('sys-log-handle');
+        var badge = document.getElementById('sys-log-badge');
+        if (!sl || !handle) return;
+
+        var _pinned      = false;
+        var _unread      = 0;
+        var _dimTimer    = null;
+        var _alertTimer  = null;
+
+        var STATES = ['sl-dim','sl-idle','sl-active','sl-alert','sl-pinned'];
+        function _setState(cls) {
+            sl.classList.remove('sl-dim','sl-idle','sl-active','sl-alert','sl-pinned');
+            sl.classList.add(cls);
         }
-        window._sysLogShow = resetSlTimer; // expose for log() to call
-        sl.addEventListener('mouseover', resetSlTimer);
-        sl.addEventListener('focus',     resetSlTimer);
-        resetSlTimer();
+
+        // Dim after inactivity
+        function _scheduleDim(ms) {
+            clearTimeout(_dimTimer);
+            _dimTimer = setTimeout(function() {
+                if (!_pinned) _setState('');  // back to base (opacity 0.12)
+            }, ms || 8000);
+        }
+
+        // Expose to log()
+        window._sysLogWake = function(level) {
+            clearTimeout(_alertTimer);
+            if (_pinned) return; // pinned: no state override
+            if (level === 'err') {
+                _setState('sl-alert');
+                _unread++;
+                if (badge) { badge.textContent = _unread; badge.style.display = 'inline-block'; }
+                _alertTimer = setTimeout(function() { _setState('sl-idle'); _scheduleDim(10000); }, 7000);
+            } else if (level === 'warn') {
+                _setState('sl-active');
+                _scheduleDim(6000);
+            } else if (level === 'ok') {
+                if (!sl.classList.contains('sl-alert')) _setState('sl-idle');
+                _scheduleDim(4000);
+            } else {
+                // 'info' — only show if already visible; never wake from deep dim
+                if (sl.classList.contains('sl-active') || sl.classList.contains('sl-alert') || sl.classList.contains('sl-idle')) {
+                    _scheduleDim(4000); // just reset timer, no state change
+                }
+                // otherwise stay dimmed
+            }
+        };
+
+        // Pin toggle
+        window._sysLogTogglePin = function() {
+            _pinned = !_pinned;
+            var btn = document.getElementById('sys-log-pin-btn');
+            if (_pinned) {
+                _setState('sl-pinned');
+                clearTimeout(_dimTimer);
+                if (btn) btn.classList.add('pinned');
+            } else {
+                if (btn) btn.classList.remove('pinned');
+                _setState('sl-idle');
+                _scheduleDim(8000);
+            }
+        };
+
+        // Clear
+        window._sysLogClear = function() {
+            var body = document.getElementById('sys-log-body');
+            if (body) body.innerHTML = '';
+            _unread = 0;
+            if (badge) { badge.textContent = '0'; badge.style.display = 'none'; }
+        };
+
+        // Hover: briefly show
+        sl.addEventListener('mouseenter', function() {
+            clearTimeout(_dimTimer);
+            if (!_pinned && !sl.classList.contains('sl-alert')) _setState('sl-active');
+        });
+        sl.addEventListener('mouseleave', function() {
+            if (!_pinned) _scheduleDim(5000);
+        });
+        // Click badge: clear unread
+        if (badge) badge.addEventListener('click', function(e) {
+            e.stopPropagation();
+            _unread = 0; badge.style.display = 'none';
+        });
+
+        // ── HANDLE DRAG ───────────────────────────────────────────────
+        var _drag = { on: false, ox: 0, oy: 0, px: 0, py: 0 };
+
+        handle.addEventListener('mousedown', function(e) {
+            if (e.target.tagName === 'BUTTON') return;
+            var r = sl.getBoundingClientRect();
+            _drag.ox = e.clientX; _drag.oy = e.clientY;
+            _drag.px = r.left;   _drag.py = r.top;
+            _drag.on = true;
+            sl.style.transition = 'opacity 0.5s ease, border-color 0.4s, box-shadow 0.4s';
+            e.preventDefault();
+        });
+        document.addEventListener('mousemove', function(e) {
+            if (!_drag.on) return;
+            var nx = _drag.px + (e.clientX - _drag.ox);
+            var ny = _drag.py + (e.clientY - _drag.oy);
+            nx = Math.max(0, Math.min(nx, window.innerWidth  - sl.offsetWidth));
+            ny = Math.max(0, Math.min(ny, window.innerHeight - sl.offsetHeight));
+            sl.style.left   = nx + 'px';
+            sl.style.top    = ny + 'px';
+            sl.style.right  = 'auto';
+            sl.style.bottom = 'auto';
+        });
+        document.addEventListener('mouseup', function() { _drag.on = false; });
+
+        // Double-click handle: snap back to default corner
+        handle.addEventListener('dblclick', function(e) {
+            if (e.target.tagName === 'BUTTON') return;
+            sl.style.left = ''; sl.style.top = '';
+            sl.style.right = '200px'; sl.style.bottom = '55px';
+        });
+
+        // Start dimmed
+        _setState('');
     })();
 
 
