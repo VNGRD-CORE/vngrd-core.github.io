@@ -3213,8 +3213,8 @@ body.fullscreen #transcription-hud { pointer-events: none !important; } /* keep 
             <div class="sec-body">
                 <!-- Bank switcher -->
                 <div class="btn-row" style="gap:3px;margin-bottom:5px;">
-                    <button class="btn" id="fx-bank-a-btn" onclick="_setFXBank('A')" style="font-size:9px;flex:1;text-align:center;padding:8px 4px;letter-spacing:1px;" title="VNGRD Bank A — console FX">[ VNGRD BANK A ]</button>
-                    <button class="btn" id="fx-bank-b-btn" onclick="_setFXBank('B')" style="font-size:9px;flex:1;text-align:center;padding:8px 4px;letter-spacing:1px;" title="VNGRD Bank B — GPU shader FX">[ VNGRD BANK B ]</button>
+                    <button class="btn" id="fx-bank-a-btn" onclick="_setFXBank('A')" style="font-size:7px;flex:1;text-align:center;padding:4px 3px;letter-spacing:0.5px;white-space:nowrap;" title="VNGRD Bank A — console FX">[ BANK A ]</button>
+                    <button class="btn" id="fx-bank-b-btn" onclick="_setFXBank('B')" style="font-size:7px;flex:1;text-align:center;padding:4px 3px;letter-spacing:0.5px;white-space:nowrap;" title="VNGRD Bank B — GPU shader FX">[ BANK B ]</button>
                 </div>
                 <!-- Bank A — console FX -->
                 <div id="fx-bank-a-panel">
@@ -3231,24 +3231,24 @@ body.fullscreen #transcription-hud { pointer-events: none !important; } /* keep 
                 <div class="btn-grid-3" style="margin-bottom:4px;">
                     <button class="btn va-btn" id="btn-vhs" onclick="toggleVHS()" style="--va-color:#ffaa00;" title="Tap=toggle">VHS_OVR</button>
                     <button class="btn va-btn" id="btn-nvg" onclick="toggleFX('nvg')" style="--va-color:#00ff41;" title="Tap=toggle">NVG</button>
-                    <button class="btn va-btn" onclick="triggerHardReset()" style="--va-color:#ff3333;" title="Hard reset all FX">RESET</button>
+                    <button class="btn va-btn" onclick="triggerHardReset()" style="--va-color:#ffaa00;" title="Hard reset all FX">RESET</button>
                 </div>
                 <div style="font-size:7px;text-align:center;letter-spacing:1.5px;color:rgba(0,243,255,0.3);padding-bottom:2px;">BANK A // TAP=TOGGLE</div>
                 </div>
-                <!-- Bank B — VNGRD_B GPU Shaders (identical layout to Bank A) -->
+                <!-- Bank B — VNGRD_B GPU Shaders -->
                 <div id="fx-bank-b-panel" style="display:none;">
                 <div class="btn-grid-3" style="margin-bottom:4px;">
-                    <button class="btn vb-btn" id="vb-SLIT_SCAN" data-shader="SLIT_SCAN" style="font-size:8px;" title="Tap=3s burst · Double-tap=lock">SLIT_SCAN</button>
-                    <button class="btn vb-btn" id="vb-LUMA_BLOOM" data-shader="LUMA_BLOOM" style="font-size:8px;" title="Tap=3s burst · Double-tap=lock">LUMA_BLOOM</button>
-                    <button class="btn vb-btn" id="vb-DITHER_LUXE" data-shader="DITHER_LUXE" style="font-size:8px;" title="Tap=3s burst · Double-tap=lock">DITHER_LUXE</button>
+                    <button class="btn va-btn vb-btn" id="vb-SLIT_SCAN" data-shader="SLIT_SCAN" style="--va-color:#00f3ff;" title="Tap=3s burst · Double-tap=lock">SLIT_SCAN</button>
+                    <button class="btn va-btn vb-btn" id="vb-LUMA_BLOOM" data-shader="LUMA_BLOOM" style="--va-color:#ffcc00;" title="Tap=3s burst · Double-tap=lock">LUMA_BLOOM</button>
+                    <button class="btn va-btn vb-btn" id="vb-DITHER_LUXE" data-shader="DITHER_LUXE" style="--va-color:#aa44ff;" title="Tap=3s burst · Double-tap=lock">DITHER_LUXE</button>
                 </div>
                 <div class="btn-grid-3" style="margin-bottom:4px;">
-                    <button class="btn vb-btn" id="vb-CAUSTICS" data-shader="CAUSTICS" style="font-size:8px;" title="Tap=3s burst · Double-tap=lock">CAUSTICS</button>
-                    <button class="btn vb-btn" id="vb-SILT_BLUR" data-shader="SILT_BLUR" style="font-size:8px;" title="Tap=3s burst · Double-tap=lock">SILT_BLUR</button>
-                    <button class="btn vb-btn" id="vb-NEURAL_MESH" data-shader="NEURAL_MESH" style="font-size:8px;" title="Tap=3s burst · Double-tap=lock + pose">NEURAL_MESH</button>
+                    <button class="btn va-btn vb-btn" id="vb-CAUSTICS" data-shader="CAUSTICS" style="--va-color:#00ddbb;" title="Tap=3s burst · Double-tap=lock">CAUSTICS</button>
+                    <button class="btn va-btn vb-btn" id="vb-SILT_BLUR" data-shader="SILT_BLUR" style="--va-color:#4488ff;" title="Tap=3s burst · Double-tap=lock">SILT_BLUR</button>
+                    <button class="btn va-btn vb-btn" id="vb-NEURAL_MESH" data-shader="NEURAL_MESH" style="--va-color:#00ff41;" title="Tap=3s burst · Double-tap=lock + pose">NEURAL_MESH</button>
                 </div>
                 <div style="font-size:7px;text-align:center;letter-spacing:1.5px;color:rgba(0,243,255,0.3);padding-bottom:2px;" id="vb-sys-status">SYSTEM_STATUS: STANDBY</div>
-                <button class="btn" onclick="_vbClearAll()" style="width:100%;margin-top:2px;font-size:7px;color:var(--r);border-color:rgba(255,60,60,0.3);">[ CLEAR ALL ]</button>
+                <button class="btn va-btn" onclick="_vbClearAll()" style="width:100%;margin-top:2px;font-size:7px;--va-color:rgba(255,255,255,0.45);">[ CLEAR ALL ]</button>
                 </div>
             </div>
         </div>
@@ -14989,17 +14989,11 @@ function _vbDeactivate(shaderName) {
 function _vbUpdateUI(shaderName, locked) {
     var btn = document.getElementById('vb-' + shaderName);
     if (!btn) return;
-    if (locked) {
-        btn.classList.add('active-fx');
-        btn.style.borderColor = 'rgba(0,243,255,0.9)';
-        btn.style.boxShadow = '0 0 10px rgba(0,243,255,0.5)';
-        btn.style.color = '#00f3ff';
-    } else {
-        btn.classList.remove('active-fx');
-        btn.style.borderColor = '';
-        btn.style.boxShadow = '';
-        btn.style.color = shaderName === 'NEURAL_MESH' ? 'var(--accent)' : '';
-    }
+    // CSS handles all color/glow via .va-btn.active-fx + --va-color
+    btn.classList.toggle('active-fx', locked);
+    btn.style.borderColor = '';
+    btn.style.boxShadow = '';
+    btn.style.color = '';
 }
 
 // ── Bank toggle ───────────────────────────────────────────────────────
@@ -15023,9 +15017,9 @@ window._vbClearAll = function() {
     if (vbCanvas) vbCanvas.style.display = 'none';
     document.querySelectorAll('.vb-btn').forEach(function(b) {
         b.classList.remove('active-fx');
-        b.style.borderColor = b.dataset.shader === 'NEURAL_MESH' ? 'rgba(0,243,255,0.4)' : '';
+        b.style.borderColor = '';
         b.style.boxShadow = '';
-        b.style.color = b.dataset.shader === 'NEURAL_MESH' ? 'var(--accent)' : '';
+        b.style.color = '';
     });
     var statusEl = document.getElementById('vb-sys-status');
     if (statusEl) statusEl.textContent = 'SYSTEM_STATUS: STANDBY';
@@ -15057,11 +15051,16 @@ function _vbHandleClick(btn) {
         // If NEURAL_MESH locked, start pose tracking
         if (shaderName === 'NEURAL_MESH') _startPoseTracking();
     } else {
-        // Single-click: 3-second burst
+        // Single-click: 3-second burst — show active-fx while running
         if (_vbBurstTimer) clearTimeout(_vbBurstTimer);
         _vbActivate(shaderName, false);
+        var burstBtn = document.getElementById('vb-' + shaderName);
+        if (burstBtn) burstBtn.classList.add('active-fx');
         _vbBurstTimer = setTimeout(function() {
-            if (!_vbLocked[shaderName]) _vbDeactivate(shaderName);
+            if (!_vbLocked[shaderName]) {
+                _vbDeactivate(shaderName);
+                if (burstBtn) burstBtn.classList.remove('active-fx');
+            }
             _vbBurstTimer = null;
         }, 3000);
         log('VB_BURST: ' + shaderName);
