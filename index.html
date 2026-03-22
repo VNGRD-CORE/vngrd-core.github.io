@@ -13,7 +13,6 @@
    <title>DRIS//CORE VNGRD</title>
 <script>if('serviceWorker' in navigator){navigator.serviceWorker.register('sw.js').catch(function(){});}</script>
 <script src="https://unpkg.com/peerjs@1.5.2/dist/peerjs.min.js"></script>
-<script src="https://js.puter.com/v2/"></script>
 <script src="https://cdn.jsdelivr.net/npm/@mediapipe/pose@0.5.1675469404/pose.js" crossorigin="anonymous"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/ethers/5.7.2/ethers.umd.min.js"></script>
 <!-- Puter.js removed — cloud session now uses localStorage; AI uses Pollinations (free) -->
@@ -1111,6 +1110,16 @@
         .pad-gear-menu [data-fx="seismic"]:hover,
         .pad-gear-menu [data-fx="punch"]:hover    { color: #ff6600; background: rgba(255,102,0,0.08); }
         .pad-gear-menu [data-fx="party"]:hover    { color: #ff00ff; background: rgba(255,0,255,0.08); }
+        /* Bank B shader entries in gear menu */
+        .pad-gear-menu .gear-bank-sep { font-size:6px; letter-spacing:1.5px; color:rgba(0,243,255,0.25); padding:5px 8px 3px; border-top:1px solid rgba(0,243,255,0.12); pointer-events:none; }
+        .pad-gear-menu [data-fx^="vb-"] { color:rgba(0,243,255,0.55); }
+        .pad-gear-menu [data-fx^="vb-"]:hover { color:var(--accent); background:rgba(0,243,255,0.1); }
+        .pad-gear-menu [data-fx^="vb-"].active-fx-opt { color:var(--accent); background:rgba(0,243,255,0.12); text-shadow:0 0 6px rgba(0,243,255,0.6); }
+        /* VB-coupled pad icon: cyan */
+        .sfx-pad[class*="coupled-vb-"] .pad-gear-icon { opacity:0.85 !important; animation:none; color:var(--accent); text-shadow:0 0 6px rgba(0,243,255,0.85); }
+        /* Bank switcher active state */
+        #fx-bank-a-btn.bank-active { border-color:rgba(255,255,255,0.7); color:#fff; box-shadow:0 0 8px rgba(255,255,255,0.15); }
+        #fx-bank-b-btn.bank-active { border-color:var(--accent); color:var(--accent); box-shadow:0 0 8px rgba(0,243,255,0.25); }
 
         /* ── INPUT LANG SELECT — visually identical to adjacent sfx-pad sfx-sig buttons ── */
         #vngrd-input-lang {
@@ -1602,6 +1611,22 @@
             box-shadow: 0 4px 20px rgba(0,0,0,0.8), inset 0 1px 0 rgba(255,200,0,0.06);
         }
         #gb-seq-panel.visible { display: flex; }
+
+        /* Mini floating state — transport header only, bottom-right corner */
+        #gb-seq-panel.mini {
+            display: flex !important;
+            position: fixed;
+            bottom: 60px;
+            right: 20px;
+            width: 340px;
+            height: auto;
+            margin: 0;
+            z-index: 2001;
+            overflow: hidden;
+            box-shadow: 0 4px 24px rgba(0,0,0,0.92), 0 0 0 1px rgba(255,200,0,0.25);
+        }
+        #gb-seq-panel.mini #gb-seq-grid { display: none; }
+        #gb-seq-panel.mini #gb-seq-header { border-bottom: none; background: rgba(255,200,0,0.05); }
 
         /* Transport header */
         #gb-seq-header {
@@ -3117,38 +3142,39 @@ body.fullscreen #transcription-hud { pointer-events: none !important; } /* keep 
             <div class="sec-body">
                 <!-- Bank switcher -->
                 <div class="btn-row" style="gap:3px;margin-bottom:5px;">
-                    <button class="btn" id="fx-bank-a-btn" onclick="_setFXBank('A')" style="font-size:8px;flex:1;border-color:rgba(255,255,255,0.5);color:rgba(255,255,255,0.7);" title="Console A — standard FX">[ CONSOLE_A ]</button>
-                    <button class="btn" id="fx-bank-b-btn" onclick="_setFXBank('B')" style="font-size:8px;flex:1;color:rgba(0,243,255,0.45);border-color:rgba(0,243,255,0.2);" title="Vanguard B — GPU shader FX">[ VANGUARD_B ]</button>
+                    <button class="btn" id="fx-bank-a-btn" onclick="_setFXBank('A')" style="font-size:8px;flex:1;" title="VNGRD Bank A — console FX">[ VNGRD BANK A ]</button>
+                    <button class="btn" id="fx-bank-b-btn" onclick="_setFXBank('B')" style="font-size:8px;flex:1;" title="VNGRD Bank B — GPU shader FX">[ VNGRD BANK B ]</button>
                 </div>
-                <!-- Bank A buttons -->
+                <!-- Bank A — console FX -->
                 <div id="fx-bank-a-panel">
                 <div class="btn-grid-3" style="margin-bottom:4px;">
                     <button class="btn" onclick="toggleFX('scan')" style="font-size:8px;">X-RAY</button>
                     <button class="btn" onclick="toggleFX('tear')" style="font-size:8px;">TEAR</button>
                     <button class="btn" id="btn-psychosis" style="font-size:8px;">FAILURE</button>
                 </div>
-                <div class="btn-grid-3">
+                <div class="btn-grid-3" style="margin-bottom:4px;">
                     <button class="btn" id="btn-shooting" style="color:var(--r);border-color:var(--r);font-size:9px;">SHOOT</button>
                     <button class="btn" onclick="toggleFX('void')" style="font-size:9px;">VOID</button>
                     <button class="btn" onclick="toggleFX('lucy')" style="color:#ff00ff;border-color:#ff00ff;text-shadow:0 0 5px #ff00ff;font-size:9px;">LUCY</button>
                 </div>
-                <div class="btn-grid-3" style="margin-bottom:4px;">
+                <div class="btn-grid-3" style="margin-bottom:2px;">
                     <button class="btn" id="btn-vhs" onclick="toggleVHS()" style="font-size:9px;">VHS_OVR</button>
                     <button class="btn" id="btn-nvg" onclick="toggleFX('nvg')" style="color:#00ff41;border-color:#00ff41;text-shadow:0 0 5px #00ff41;font-size:9px;">NVG</button>
                     <button class="btn" onclick="triggerHardReset()" style="color:var(--r);font-size:9px;">RESET</button>
                 </div>
+                <div style="font-size:7px;text-align:center;letter-spacing:1.5px;color:rgba(255,255,255,0.18);padding-bottom:2px;">BANK A // TAP=TOGGLE</div>
                 </div>
-                <!-- Bank B — VANGUARD_B GPU Shaders -->
+                <!-- Bank B — VNGRD_B GPU Shaders (identical layout to Bank A) -->
                 <div id="fx-bank-b-panel" style="display:none;">
-                <div class="btn-grid-3" style="margin-bottom:3px;">
-                    <button class="btn vb-btn" id="vb-SLIT_SCAN" data-shader="SLIT_SCAN" style="font-size:7.5px;letter-spacing:0.5px;" title="Single: burst · Double: lock">SLIT_SCAN</button>
-                    <button class="btn vb-btn" id="vb-LUMA_BLOOM" data-shader="LUMA_BLOOM" style="font-size:7.5px;letter-spacing:0.5px;" title="Single: burst · Double: lock">LUMA_BLOOM</button>
-                    <button class="btn vb-btn" id="vb-DITHER_LUXE" data-shader="DITHER_LUXE" style="font-size:7.5px;letter-spacing:0.5px;" title="Single: burst · Double: lock">DITHER_LUXE</button>
+                <div class="btn-grid-3" style="margin-bottom:4px;">
+                    <button class="btn vb-btn" id="vb-SLIT_SCAN" data-shader="SLIT_SCAN" style="font-size:8px;" title="Tap=3s burst · Double-tap=lock">SLIT_SCAN</button>
+                    <button class="btn vb-btn" id="vb-LUMA_BLOOM" data-shader="LUMA_BLOOM" style="font-size:8px;" title="Tap=3s burst · Double-tap=lock">LUMA_BLOOM</button>
+                    <button class="btn vb-btn" id="vb-DITHER_LUXE" data-shader="DITHER_LUXE" style="font-size:8px;" title="Tap=3s burst · Double-tap=lock">DITHER_LUXE</button>
                 </div>
                 <div class="btn-grid-3" style="margin-bottom:4px;">
-                    <button class="btn vb-btn" id="vb-CAUSTICS" data-shader="CAUSTICS" style="font-size:7.5px;letter-spacing:0.5px;" title="Single: burst · Double: lock">CAUSTICS</button>
-                    <button class="btn vb-btn" id="vb-SILT_BLUR" data-shader="SILT_BLUR" style="font-size:7.5px;letter-spacing:0.5px;" title="Single: burst · Double: lock">SILT_BLUR</button>
-                    <button class="btn vb-btn" id="vb-NEURAL_MESH" data-shader="NEURAL_MESH" style="font-size:7.5px;letter-spacing:0.5px;color:var(--accent);border-color:rgba(0,243,255,0.4);" title="Single: burst · Double: lock + pose tracking">NEURAL_MESH</button>
+                    <button class="btn vb-btn" id="vb-CAUSTICS" data-shader="CAUSTICS" style="font-size:8px;" title="Tap=3s burst · Double-tap=lock">CAUSTICS</button>
+                    <button class="btn vb-btn" id="vb-SILT_BLUR" data-shader="SILT_BLUR" style="font-size:8px;" title="Tap=3s burst · Double-tap=lock">SILT_BLUR</button>
+                    <button class="btn vb-btn" id="vb-NEURAL_MESH" data-shader="NEURAL_MESH" style="font-size:8px;" title="Tap=3s burst · Double-tap=lock + pose">NEURAL_MESH</button>
                 </div>
                 <div style="font-size:7px;text-align:center;letter-spacing:1.5px;color:rgba(0,243,255,0.3);padding-bottom:2px;" id="vb-sys-status">SYSTEM_STATUS: STANDBY</div>
                 <button class="btn" onclick="_vbClearAll()" style="width:100%;margin-top:2px;font-size:7px;color:var(--r);border-color:rgba(255,60,60,0.3);">[ CLEAR ALL ]</button>
@@ -3323,6 +3349,13 @@ body.fullscreen #transcription-hud { pointer-events: none !important; } /* keep 
                                     <div data-fx="seismic">SEISMIC</div>
                                     <div data-fx="punch">PUNCH</div>
                                     <div data-fx="party">PARTY</div>
+                                    <div class="gear-bank-sep">— BANK B —</div>
+                                    <div data-fx="vb-slit-scan">SLIT_SCAN</div>
+                                    <div data-fx="vb-luma-bloom">LUMA_BLOOM</div>
+                                    <div data-fx="vb-dither-luxe">DITHER_LUXE</div>
+                                    <div data-fx="vb-caustics">CAUSTICS</div>
+                                    <div data-fx="vb-silt-blur">SILT_BLUR</div>
+                                    <div data-fx="vb-neural-mesh">NEURAL_MESH</div>
                                 </div>
                             </div>
                             <span class="pad-id">PAD 1</span>
@@ -3345,6 +3378,13 @@ body.fullscreen #transcription-hud { pointer-events: none !important; } /* keep 
                                     <div data-fx="seismic">SEISMIC</div>
                                     <div data-fx="punch">PUNCH</div>
                                     <div data-fx="party">PARTY</div>
+                                    <div class="gear-bank-sep">— BANK B —</div>
+                                    <div data-fx="vb-slit-scan">SLIT_SCAN</div>
+                                    <div data-fx="vb-luma-bloom">LUMA_BLOOM</div>
+                                    <div data-fx="vb-dither-luxe">DITHER_LUXE</div>
+                                    <div data-fx="vb-caustics">CAUSTICS</div>
+                                    <div data-fx="vb-silt-blur">SILT_BLUR</div>
+                                    <div data-fx="vb-neural-mesh">NEURAL_MESH</div>
                                 </div>
                             </div>
                             <span class="pad-id">PAD 2</span>
@@ -3367,6 +3407,13 @@ body.fullscreen #transcription-hud { pointer-events: none !important; } /* keep 
                                     <div data-fx="seismic">SEISMIC</div>
                                     <div data-fx="punch">PUNCH</div>
                                     <div data-fx="party">PARTY</div>
+                                    <div class="gear-bank-sep">— BANK B —</div>
+                                    <div data-fx="vb-slit-scan">SLIT_SCAN</div>
+                                    <div data-fx="vb-luma-bloom">LUMA_BLOOM</div>
+                                    <div data-fx="vb-dither-luxe">DITHER_LUXE</div>
+                                    <div data-fx="vb-caustics">CAUSTICS</div>
+                                    <div data-fx="vb-silt-blur">SILT_BLUR</div>
+                                    <div data-fx="vb-neural-mesh">NEURAL_MESH</div>
                                 </div>
                             </div>
                             <span class="pad-id">PAD 3</span>
@@ -3389,6 +3436,13 @@ body.fullscreen #transcription-hud { pointer-events: none !important; } /* keep 
                                     <div data-fx="seismic">SEISMIC</div>
                                     <div data-fx="punch">PUNCH</div>
                                     <div data-fx="party">PARTY</div>
+                                    <div class="gear-bank-sep">— BANK B —</div>
+                                    <div data-fx="vb-slit-scan">SLIT_SCAN</div>
+                                    <div data-fx="vb-luma-bloom">LUMA_BLOOM</div>
+                                    <div data-fx="vb-dither-luxe">DITHER_LUXE</div>
+                                    <div data-fx="vb-caustics">CAUSTICS</div>
+                                    <div data-fx="vb-silt-blur">SILT_BLUR</div>
+                                    <div data-fx="vb-neural-mesh">NEURAL_MESH</div>
                                 </div>
                             </div>
                             <span class="pad-id">PAD 4</span>
@@ -3416,6 +3470,13 @@ body.fullscreen #transcription-hud { pointer-events: none !important; } /* keep 
                                     <div data-fx="seismic">SEISMIC</div>
                                     <div data-fx="punch">PUNCH</div>
                                     <div data-fx="party">PARTY</div>
+                                    <div class="gear-bank-sep">— BANK B —</div>
+                                    <div data-fx="vb-slit-scan">SLIT_SCAN</div>
+                                    <div data-fx="vb-luma-bloom">LUMA_BLOOM</div>
+                                    <div data-fx="vb-dither-luxe">DITHER_LUXE</div>
+                                    <div data-fx="vb-caustics">CAUSTICS</div>
+                                    <div data-fx="vb-silt-blur">SILT_BLUR</div>
+                                    <div data-fx="vb-neural-mesh">NEURAL_MESH</div>
                                     <div data-fx="clear" style="border-top:1px solid rgba(255,255,255,0.07);margin-top:2px;padding-top:4px;color:rgba(255,80,80,0.7);">✕ CLEAR</div>
                                 </div>
                             </div>
@@ -3441,6 +3502,13 @@ body.fullscreen #transcription-hud { pointer-events: none !important; } /* keep 
                                     <div data-fx="seismic">SEISMIC</div>
                                     <div data-fx="punch">PUNCH</div>
                                     <div data-fx="party">PARTY</div>
+                                    <div class="gear-bank-sep">— BANK B —</div>
+                                    <div data-fx="vb-slit-scan">SLIT_SCAN</div>
+                                    <div data-fx="vb-luma-bloom">LUMA_BLOOM</div>
+                                    <div data-fx="vb-dither-luxe">DITHER_LUXE</div>
+                                    <div data-fx="vb-caustics">CAUSTICS</div>
+                                    <div data-fx="vb-silt-blur">SILT_BLUR</div>
+                                    <div data-fx="vb-neural-mesh">NEURAL_MESH</div>
                                     <div data-fx="clear" style="border-top:1px solid rgba(255,255,255,0.07);margin-top:2px;padding-top:4px;color:rgba(255,80,80,0.7);">✕ CLEAR</div>
                                 </div>
                             </div>
@@ -3466,6 +3534,13 @@ body.fullscreen #transcription-hud { pointer-events: none !important; } /* keep 
                                     <div data-fx="seismic">SEISMIC</div>
                                     <div data-fx="punch">PUNCH</div>
                                     <div data-fx="party">PARTY</div>
+                                    <div class="gear-bank-sep">— BANK B —</div>
+                                    <div data-fx="vb-slit-scan">SLIT_SCAN</div>
+                                    <div data-fx="vb-luma-bloom">LUMA_BLOOM</div>
+                                    <div data-fx="vb-dither-luxe">DITHER_LUXE</div>
+                                    <div data-fx="vb-caustics">CAUSTICS</div>
+                                    <div data-fx="vb-silt-blur">SILT_BLUR</div>
+                                    <div data-fx="vb-neural-mesh">NEURAL_MESH</div>
                                     <div data-fx="clear" style="border-top:1px solid rgba(255,255,255,0.07);margin-top:2px;padding-top:4px;color:rgba(255,80,80,0.7);">✕ CLEAR</div>
                                 </div>
                             </div>
@@ -3491,6 +3566,13 @@ body.fullscreen #transcription-hud { pointer-events: none !important; } /* keep 
                                     <div data-fx="seismic">SEISMIC</div>
                                     <div data-fx="punch">PUNCH</div>
                                     <div data-fx="party">PARTY</div>
+                                    <div class="gear-bank-sep">— BANK B —</div>
+                                    <div data-fx="vb-slit-scan">SLIT_SCAN</div>
+                                    <div data-fx="vb-luma-bloom">LUMA_BLOOM</div>
+                                    <div data-fx="vb-dither-luxe">DITHER_LUXE</div>
+                                    <div data-fx="vb-caustics">CAUSTICS</div>
+                                    <div data-fx="vb-silt-blur">SILT_BLUR</div>
+                                    <div data-fx="vb-neural-mesh">NEURAL_MESH</div>
                                     <div data-fx="clear" style="border-top:1px solid rgba(255,255,255,0.07);margin-top:2px;padding-top:4px;color:rgba(255,80,80,0.7);">✕ CLEAR</div>
                                 </div>
                             </div>
@@ -3519,6 +3601,13 @@ body.fullscreen #transcription-hud { pointer-events: none !important; } /* keep 
                                     <div data-fx="seismic">SEISMIC</div>
                                     <div data-fx="punch">PUNCH</div>
                                     <div data-fx="party">PARTY</div>
+                                    <div class="gear-bank-sep">— BANK B —</div>
+                                    <div data-fx="vb-slit-scan">SLIT_SCAN</div>
+                                    <div data-fx="vb-luma-bloom">LUMA_BLOOM</div>
+                                    <div data-fx="vb-dither-luxe">DITHER_LUXE</div>
+                                    <div data-fx="vb-caustics">CAUSTICS</div>
+                                    <div data-fx="vb-silt-blur">SILT_BLUR</div>
+                                    <div data-fx="vb-neural-mesh">NEURAL_MESH</div>
                                 </div>
                             </div>
                             <span class="pad-name">LIQ-1</span>
@@ -3539,6 +3628,13 @@ body.fullscreen #transcription-hud { pointer-events: none !important; } /* keep 
                                     <div data-fx="seismic">SEISMIC</div>
                                     <div data-fx="punch">PUNCH</div>
                                     <div data-fx="party">PARTY</div>
+                                    <div class="gear-bank-sep">— BANK B —</div>
+                                    <div data-fx="vb-slit-scan">SLIT_SCAN</div>
+                                    <div data-fx="vb-luma-bloom">LUMA_BLOOM</div>
+                                    <div data-fx="vb-dither-luxe">DITHER_LUXE</div>
+                                    <div data-fx="vb-caustics">CAUSTICS</div>
+                                    <div data-fx="vb-silt-blur">SILT_BLUR</div>
+                                    <div data-fx="vb-neural-mesh">NEURAL_MESH</div>
                                 </div>
                             </div>
                             <span class="pad-name">LIQ-2</span>
@@ -3559,6 +3655,13 @@ body.fullscreen #transcription-hud { pointer-events: none !important; } /* keep 
                                     <div data-fx="seismic">SEISMIC</div>
                                     <div data-fx="punch">PUNCH</div>
                                     <div data-fx="party">PARTY</div>
+                                    <div class="gear-bank-sep">— BANK B —</div>
+                                    <div data-fx="vb-slit-scan">SLIT_SCAN</div>
+                                    <div data-fx="vb-luma-bloom">LUMA_BLOOM</div>
+                                    <div data-fx="vb-dither-luxe">DITHER_LUXE</div>
+                                    <div data-fx="vb-caustics">CAUSTICS</div>
+                                    <div data-fx="vb-silt-blur">SILT_BLUR</div>
+                                    <div data-fx="vb-neural-mesh">NEURAL_MESH</div>
                                 </div>
                             </div>
                             <span class="pad-name">LIQ-3</span>
@@ -3579,6 +3682,13 @@ body.fullscreen #transcription-hud { pointer-events: none !important; } /* keep 
                                     <div data-fx="seismic">SEISMIC</div>
                                     <div data-fx="punch">PUNCH</div>
                                     <div data-fx="party">PARTY</div>
+                                    <div class="gear-bank-sep">— BANK B —</div>
+                                    <div data-fx="vb-slit-scan">SLIT_SCAN</div>
+                                    <div data-fx="vb-luma-bloom">LUMA_BLOOM</div>
+                                    <div data-fx="vb-dither-luxe">DITHER_LUXE</div>
+                                    <div data-fx="vb-caustics">CAUSTICS</div>
+                                    <div data-fx="vb-silt-blur">SILT_BLUR</div>
+                                    <div data-fx="vb-neural-mesh">NEURAL_MESH</div>
                                 </div>
                             </div>
                             <span class="pad-name">LIQ-4</span>
@@ -7299,17 +7409,18 @@ window._toggleGrooveboxMode = function() {
         // Sync kit selector to current pack
         var kitSel = document.getElementById('gb-kit-select');
         if (kitSel) kitSel.value = _liqCurrentPack;
-        // Auto-pop sequencer so user doesn't need to scroll to find it
-        if (seqPanel && !seqPanel.classList.contains('expanded') && typeof window._toggleSeqExpand === 'function') {
-            window._toggleSeqExpand();
+        // Auto-pop sequencer to full expanded state (bypass mini — user only uses when popped)
+        if (seqPanel && typeof window._toggleSeqExpand === 'function') {
+            var alreadyExpanded = seqPanel.classList.contains('expanded');
+            if (!alreadyExpanded) window._toggleSeqExpand();
         }
     } else {
         _groovebox.mode = 'performance';
         if (modeBtn) { modeBtn.textContent = 'PERF'; modeBtn.classList.remove('groovebox-mode'); }
         _stopGroovebox();
-        // Collapse expand overlay before hiding panel
-        if (seqPanel && seqPanel.classList.contains('expanded') && typeof window._toggleSeqExpand === 'function') {
-            window._toggleSeqExpand();
+        // Collapse and restore seq panel to sidebar
+        if (typeof window._collapseSeqToSidebar === 'function') {
+            window._collapseSeqToSidebar();
         }
         if (seqPanel) seqPanel.classList.remove('visible');
         if (custLiq)  custLiq.style.display  = 'contents';
@@ -7378,37 +7489,50 @@ window._toggleGrooveboxTransport = function() {
         var btn      = document.getElementById('gb-expand-btn');
         if (!panel) return;
 
-        var willExpand = !panel.classList.contains('expanded');
-        if (willExpand) {
-            // Save DOM position, then move panel to body level
-            _origParent = panel.parentNode;
-            _origNext   = panel.nextSibling;
-            document.body.appendChild(panel);
+        var isExpanded = panel.classList.contains('expanded');
+        var isMini     = panel.classList.contains('mini');
+
+        if (!isExpanded) {
+            // Going to EXPANDED: ensure panel is at body level
+            if (!isMini) {
+                // First pop from sidebar — save DOM position and move to body
+                _origParent = panel.parentNode;
+                _origNext   = panel.nextSibling;
+                document.body.appendChild(panel);
+            }
+            panel.classList.remove('mini');
             // Set initial size/position
-            var w = Math.min(600, window.innerWidth - 20);
+            var w = Math.min(620, window.innerWidth - 20);
             panel.style.width  = w + 'px';
             panel.style.left   = Math.max(10, window.innerWidth - w - 10) + 'px';
             panel.style.top    = '10px';
             panel.style.height = panel.style.right = panel.style.bottom = '';
             panel.classList.add('expanded');
             _attachDragToHeader();
+            if (btn) { btn.classList.add('expanded'); btn.textContent = 'CLOSE'; btn.title = 'Drag header to move'; }
         } else {
-            // Remove expanded state, restore to sidebar
+            // Collapsing EXPANDED → MINI (stay at body level, no sidebar scroll needed)
             panel.classList.remove('expanded');
-            ['left','top','width','height','right','bottom'].forEach(function(p) {
-                panel.style[p] = '';
-            });
-            if (_origParent) {
-                _origParent.insertBefore(panel, _origNext || null);
-            }
+            ['left','top','width','height','right','bottom'].forEach(function(k) { panel.style[k] = ''; });
+            panel.classList.add('mini');
+            if (btn) { btn.classList.remove('expanded'); btn.textContent = 'POP'; btn.title = 'Pop out sequencer'; }
         }
 
-        if (backdrop) backdrop.classList.toggle('visible', willExpand);
-        if (btn) {
-            btn.classList.toggle('expanded', willExpand);
-            btn.textContent = willExpand ? 'CLOSE' : 'POP';
-            btn.title = willExpand ? 'Drag header to move  |  Drag corner to resize' : 'Pop out sequencer';
+        if (backdrop) backdrop.classList.remove('visible');
+    };
+
+    // Called by _toggleGrooveboxMode when exiting SEQ — restore panel to sidebar
+    window._collapseSeqToSidebar = function() {
+        var panel = document.getElementById('gb-seq-panel');
+        if (!panel) return;
+        panel.classList.remove('expanded', 'mini');
+        ['left','top','width','height','right','bottom'].forEach(function(k) { panel.style[k] = ''; });
+        if (_origParent) {
+            _origParent.insertBefore(panel, _origNext || null);
+            _origParent = null; _origNext = null;
         }
+        var btn = document.getElementById('gb-expand-btn');
+        if (btn) { btn.classList.remove('expanded'); btn.textContent = 'POP'; btn.title = 'Pop out sequencer'; }
     };
 })();
 
@@ -10046,12 +10170,18 @@ document.addEventListener('DOMContentLoaded', () => {
         var ALL_COUPLING_CLASSES = [
             'coupled-nvg','coupled-shoot','coupled-reset',
             'coupled-void','coupled-failure','coupled-lucy',
-            'coupled-seismic','coupled-punch','coupled-party','coupled-glitch'
+            'coupled-seismic','coupled-punch','coupled-party','coupled-glitch',
+            // Bank B GPU shaders
+            'coupled-vb-slit-scan','coupled-vb-luma-bloom','coupled-vb-dither-luxe',
+            'coupled-vb-caustics','coupled-vb-silt-blur','coupled-vb-neural-mesh'
         ];
         var COUPLING_LABELS = {
             none:'', nvg:'NVG', shoot:'SHOOT', reset:'RESET',
             void:'VOID', failure:'FAILURE', lucy:'LUCY',
-            seismic:'SEISMIC', punch:'PUNCH', party:'PARTY', glitch:'GLITCH'
+            seismic:'SEISMIC', punch:'PUNCH', party:'PARTY', glitch:'GLITCH',
+            'vb-slit-scan':'SLIT_SCN', 'vb-luma-bloom':'LUM_BLM',
+            'vb-dither-luxe':'DITHER', 'vb-caustics':'CAUSTIC',
+            'vb-silt-blur':'SILT_BL', 'vb-neural-mesh':'NEURAL'
         };
 
         function _setCouplingByName(btn, sfxName, fx) {
@@ -10159,6 +10289,21 @@ document.addEventListener('DOMContentLoaded', () => {
             if (fx === 'reset') {
                 if (typeof triggerHardReset === 'function') triggerHardReset();
                 _flashFXBtn('btn-reset', 1000);
+                return;
+            }
+            // BANK B — VNGRD_B GPU shader burst (3s one-shot via coupling)
+            if (fx.indexOf('vb-') === 0) {
+                var shaderMap = {
+                    'vb-slit-scan':'SLIT_SCAN','vb-luma-bloom':'LUMA_BLOOM',
+                    'vb-dither-luxe':'DITHER_LUXE','vb-caustics':'CAUSTICS',
+                    'vb-silt-blur':'SILT_BLUR','vb-neural-mesh':'NEURAL_MESH'
+                };
+                var sn = shaderMap[fx];
+                if (sn && typeof _vbActivate === 'function') {
+                    // Switch to Bank B if not already there
+                    if (typeof _setFXBank === 'function') _setFXBank('B');
+                    _vbActivate(sn, false); // false = 3s burst (not persistent)
+                }
                 return;
             }
             // CSS class-based FX: nvg, void, lucy, scan, tear, etc. — 3s one-shot
@@ -12600,8 +12745,8 @@ var isVideo = nft.forceVideo || (imageUrl.toLowerCase().match(/\.(mp4|webm|mov|o
     };
 
     // ═══════════════════════════════════════════════════════════════════
-    // AI IMAGE GENERATOR v7 — Puter.js primary (no auth needed, server-side
-    // bridge) + Pollinations.ai fallback. Zero Authorization headers.
+    // AI IMAGE GENERATOR v8 — Pollinations.ai only (100% free, no API key,
+    // no credits). credentials:omit prevents stale-token 401s.
     // ═══════════════════════════════════════════════════════════════════
     var _aiGenerating = false;
 
@@ -12652,28 +12797,7 @@ var isVideo = nft.forceVideo || (imageUrl.toLowerCase().match(/\.(mp4|webm|mov|o
     // Fallback model order if primary model fails
     var _aiFallbacks = ['flux', 'dirtberry', 'nanobanana'];
 
-    // ── ENGINE 1: Puter.js — server-side auth bridge, no 401/403 ──────────
-    async function _aiPuter(prompt) {
-        if (typeof puter === 'undefined' || !puter.ai || !puter.ai.txt2img) {
-            throw new Error('PUTER_NOT_READY');
-        }
-        _aiStatus('GENERATING [PUTER.AI]...', 'var(--v)');
-        log('AI: [PUTER] >> ' + prompt);
-        // Returns a blob/dataURL
-        var result = await puter.ai.txt2img(prompt);
-        if (!result) throw new Error('PUTER_NO_RESULT');
-        var src = (typeof result === 'string') ? result : (result.src || result.url || result);
-        var img = new Image();
-        img.crossOrigin = 'anonymous';
-        await new Promise(function(res, rej) {
-            img.onload = res;
-            img.onerror = function() { rej(new Error('PUTER_IMG_FAILED')); };
-            img.src = src;
-        });
-        return img;
-    }
-
-    // ── ENGINE 2: Pollinations gen.pollinations.ai (no auth headers) ───────
+    // ── ENGINE: Pollinations gen.pollinations.ai (100% free, no auth) ────────
     async function _aiPollinations(prompt, modelName) {
         _aiStatus('GENERATING [' + modelName.toUpperCase() + ']...', 'var(--v)');
         log('AI: [POLLINATIONS/' + modelName.toUpperCase() + '] >> ' + prompt);
@@ -12711,20 +12835,7 @@ var isVideo = nft.forceVideo || (imageUrl.toLowerCase().match(/\.(mp4|webm|mov|o
         var fullPrompt = cfg.style ? prompt + ', ' + cfg.style : prompt;
         _aiStatus('ROUTING TO BEST ENGINE...', 'var(--v)');
 
-        // Strategy: try Puter first (zero-auth, no 401 possible), then Pollinations fallbacks
-        var img = null;
-        try {
-            img = await _aiPuter(fullPrompt);
-            _aiInject(img, prompt);
-            _aiDone(btn);
-            _aiStatus('DONE [PUTER.AI]', 'var(--g)');
-            log('AI: DONE via PUTER');
-            return;
-        } catch(e) {
-            log('AI: PUTER unavailable (' + e.message + '), trying Pollinations...');
-        }
-
-        // Pollinations fallback chain
+        // Pollinations model chain (free, no auth)
         var modelsToTry = [cfg.model].concat(_aiFallbacks.filter(function(f) { return f !== cfg.model; }));
         var lastError = null;
         for (var i = 0; i < modelsToTry.length; i++) {
@@ -14722,12 +14833,14 @@ function _vbUpdateUI(shaderName, locked) {
 // ── Bank toggle ───────────────────────────────────────────────────────
 window._setFXBank = function(bank) {
     _vbActive = (bank === 'B');
-    document.getElementById('fx-bank-a-panel').style.display = _vbActive ? 'none' : '';
-    document.getElementById('fx-bank-b-panel').style.display = _vbActive ? '' : 'none';
-    var bA = document.getElementById('fx-bank-a-btn');
-    var bB = document.getElementById('fx-bank-b-btn');
-    if (bA) { bA.style.color = _vbActive ? 'rgba(255,255,255,0.35)' : 'rgba(255,255,255,0.85)'; bA.style.borderColor = _vbActive ? 'rgba(255,255,255,0.15)' : 'rgba(255,255,255,0.5)'; }
-    if (bB) { bB.style.color = _vbActive ? 'var(--accent)' : 'rgba(0,243,255,0.35)'; bB.style.borderColor = _vbActive ? 'rgba(0,243,255,0.8)' : 'rgba(0,243,255,0.2)'; bB.style.boxShadow = _vbActive ? '0 0 8px rgba(0,243,255,0.3)' : ''; }
+    var panA = document.getElementById('fx-bank-a-panel');
+    var panB = document.getElementById('fx-bank-b-panel');
+    var bA   = document.getElementById('fx-bank-a-btn');
+    var bB   = document.getElementById('fx-bank-b-btn');
+    if (panA) panA.style.display = _vbActive ? 'none' : '';
+    if (panB) panB.style.display = _vbActive ? '' : 'none';
+    if (bA)  bA.classList.toggle('bank-active', !_vbActive);
+    if (bB)  bB.classList.toggle('bank-active', _vbActive);
     if (_vbActive && !_vbInited) _initVB();
 };
 
@@ -14783,18 +14896,16 @@ function _vbHandleClick(btn) {
     }
 }
 
-// ── Wire up VB buttons on DOMContentLoaded ────────────────────────────
-document.addEventListener('DOMContentLoaded', function() {
+// ── Wire up VB buttons + init Bank A active state ─────────────────────
+function _vbWireButtons() {
     document.querySelectorAll('.vb-btn').forEach(function(btn) {
         btn.addEventListener('click', function() { _vbHandleClick(btn); });
     });
-});
-// Fallback if DOM already loaded
-if (document.readyState !== 'loading') {
-    document.querySelectorAll('.vb-btn').forEach(function(btn) {
-        btn.addEventListener('click', function() { _vbHandleClick(btn); });
-    });
+    // Set Bank A as active on load
+    window._setFXBank('A');
 }
+document.addEventListener('DOMContentLoaded', _vbWireButtons);
+if (document.readyState !== 'loading') { _vbWireButtons(); }
 
 })();
 </script>
