@@ -2301,6 +2301,8 @@ body.shooting-mode #btn-shooting {
             height: 180px !important; max-height: 40vh !important;
         }
         #ghost-close-btn { display: block !important; }
+        #btn-ghost-mic.on { color: var(--accent) !important; border-color: var(--accent) !important; box-shadow: 0 0 8px rgba(0,243,255,0.4); animation: mic-pulse 1.4s ease-in-out infinite; }
+        @keyframes mic-pulse { 0%,100%{opacity:1} 50%{opacity:0.55} }
         #top-center-controls button { font-size: 7px; padding: 2px 7px; }
     }
 
@@ -3123,6 +3125,7 @@ body.fullscreen #transcription-hud { pointer-events: none !important; } /* keep 
             <span id="ghost-terminal-title">GHOST://COMMAND_INTERFACE</span>
             <div id="ghost-terminal-controls">
                 <span id="ghost-terminal-status">ONLINE</span>
+                <button id="btn-ghost-mic" onclick="_ghostVoiceToggle()" title="Voice commands — speak any GHOST command hands-free" style="background:none;border:1px solid rgba(0,243,255,0.15);color:rgba(0,243,255,0.45);cursor:pointer;font-size:10px;line-height:1;padding:2px 5px;font-family:'JetBrains Mono',monospace;letter-spacing:0;border-radius:1px;transition:all 0.15s;">🎤</button>
                 <button onclick="$('ghost-terminal-body').innerHTML='';_ghostLastMsg='';" title="Purge chat log" style="background:none;border:none;color:rgba(255,255,255,0.28);cursor:pointer;font-size:13px;line-height:1;padding:1px 2px;opacity:0.7;">⌫</button>
                 <button id="ghost-close-btn" onclick="toggleGhost()" style="background:none;border:1px solid rgba(0,243,255,0.2);color:var(--c);cursor:pointer;font-size:9px;line-height:1;padding:3px 6px;font-family:'JetBrains Mono',monospace;display:block;letter-spacing:1px;opacity:0.85;border-radius:1px;">✕&nbsp;[G]</button>
             </div>
@@ -4483,24 +4486,42 @@ var GHOST = {
         if (c.match(/clear|cls|wipe/)) return 'clear';
         if (c.match(/fullscreen|fs|maximize|expand/)) return 'fullscreen';
         if (c.match(/slide|panels|hide panels|show panels|focus|cinema/)) return 'slide';
-        if (c.match(/ai|generate|image|dall|prompt|inject|txt2img/)) return 'ai_help';
+        if (c.match(/ai|generate|image|dall|prompt|txt2img/)) return 'ai_help';
         if (c.match(/resolution|4k|1080|canvas size/)) return 'resolution';
         if (c.match(/spatial|stereo|dolby|surround|3d audio/)) return 'audio_mode';
         if (c.match(/shortcut|hotkey|keyboard|key bind/)) return 'shortcuts';
+
+        // Direct action: go live / inject loop
+        if (c.match(/^(go.?live|start.?live|start.?broadcast|broadcast|3.?2.?1)/)) return 'golive_exec';
+        if (c.match(/^(inject|inject.?loop|record.?loop|loop|10.?sec)/)) return 'inject_exec';
+
+        // Bank B GPU shaders
+        if (c.match(/slit.?scan/)) return 'vb_slit_scan';
+        if (c.match(/luma.?bloom/)) return 'vb_luma_bloom';
+        if (c.match(/dither|dither.?luxe/)) return 'vb_dither_luxe';
+        if (c.match(/caustic/)) return 'vb_caustics';
+        if (c.match(/silt.?blur|silt/)) return 'vb_silt_blur';
+        if (c.match(/neural.?mesh/)) return 'vb_neural_mesh';
+        if (c.match(/bank.?b|gpu.?fx|shader|bank b fx/)) return 'vb_help';
+
+        // Voice toggle
+        if (c.match(/voice.?cmd|voice.?command|listen|mic.?cmd|stop.?listen/)) return 'voice_toggle';
 
         return 'unknown';
     }
 };
 
-function processGhostCommand(cmd) {
-    ghostLog(cmd.toUpperCase(), 'user');
-    var intent = GHOST.understand(cmd);
+function processGhostCommand(cmd, voiceMode) {
     var c = cmd.toLowerCase().trim();
+    var intent = GHOST.understand(cmd);
     var ctx = GHOST.getContext();
     var hour = ctx.hour;
+    // Voice mode: show compact [VOICE] prefix; text mode: show full typed command
+    if (voiceMode) ghostLog('🎤 ' + cmd.toUpperCase(), 'cmd');
+    else ghostLog(cmd.toUpperCase(), 'user');
 
-    setTimeout(function() {
-        switch(intent) {
+    // Execute immediately — no fake AI typing delay
+    switch(intent) {
             // ── GREETINGS ──
             case 'greet':
                 var greets = [
@@ -4609,9 +4630,9 @@ function processGhostCommand(cmd) {
                 break;
 
             case 'golive_help':
-                if (!ctx.hasCamera) { ghostLog('No camera initialized. Click INIT_CAM first, then GO_LIVE.', 'crit'); }
-                else if (ctx.isLive) { ghostLog('You\'re already live! Use END to stop broadcasting, or KILL to shut down camera.', 'ai'); }
-                else { ghostLog('Camera is ready. Click GO_LIVE for the 3-2-1 countdown. Audio ducks automatically.', 'ai'); }
+                if (!ctx.hasCamera) { ghostLog('INIT_CAM first, then say "go live" or click GO_LIVE.', 'crit'); }
+                else if (ctx.isLive) { ghostLog('ALREADY LIVE. Say "end" to stop broadcast or "kill" to shut down.', 'ai'); }
+                else { ghostLog('CAM READY. Say "go live" or click GO_LIVE for 3-2-1 countdown.', 'ai'); }
                 break;
 
             case 'record_help':
@@ -4648,42 +4669,43 @@ function processGhostCommand(cmd) {
 
             case 'void':
                 if (typeof toggleFX === 'function') toggleFX('void');
-                ghostLog('VOID — grayscale + high contrast crush. Toggle.', 'success');
+                ghostLog('VOID: ' + (document.body.classList.contains('fx-void') ? 'ON' : 'OFF'), 'success');
                 break;
 
             case 'lucy':
                 if (typeof toggleFX === 'function') toggleFX('lucy');
-                ghostLog('LUCY — full hallucination mode. Color warp + displacement. Toggle.', 'success');
+                ghostLog('LUCY: ' + (document.body.classList.contains('fx-lucy') ? 'ON' : 'OFF'), 'success');
                 break;
 
             case 'xray':
                 if (typeof toggleFX === 'function') toggleFX('scan');
-                ghostLog('X-RAY — transparency scan effect. Toggle.', 'success');
+                ghostLog('X-RAY: ' + (document.body.classList.contains('fx-scan') ? 'ON' : 'OFF'), 'success');
                 break;
 
             case 'tear':
                 if (typeof toggleFX === 'function') toggleFX('tear');
-                ghostLog('TEAR — horizontal slice displacement / glitch. Toggle.', 'success');
+                ghostLog('TEAR: ' + (document.body.classList.contains('fx-tear') ? 'ON' : 'OFF'), 'success');
                 break;
 
             case 'punch':
                 if (typeof toggleFX === 'function') toggleFX('punch');
-                ghostLog('PUNCH — impact flash on bass hits. Toggle.', 'success');
+                ghostLog('PUNCH: ' + (document.body.classList.contains('fx-punch') ? 'ON' : 'OFF'), 'success');
                 break;
 
             case 'nvg':
                 if (typeof toggleFX === 'function') toggleFX('nvg');
-                ghostLog('NVG — green night vision + grain. Toggle.', 'success');
+                ghostLog('NVG: ' + (document.body.classList.contains('fx-nvg') ? 'ON' : 'OFF'), 'success');
                 break;
 
             case 'vhs':
                 if (typeof toggleVHS === 'function') toggleVHS();
-                ghostLog('VHS — analog scan lines + color bleed. Toggle.', 'success');
+                ghostLog('VHS: TOGGLED', 'success');
                 break;
 
             case 'fx_help':
-                ghostLog('Toggles: void lucy xray tear punch nvg vhs | Reactive: party seismic | "reset" clears all.', 'ai');
-                ghostLog('Burst FX: crush · stutter · invert · shatter | Tactical: shoot (machine gun mode)', 'ai');
+                ghostLog('BANK A: void · lucy · xray · tear · punch · nvg · vhs · shoot | seismic · party · reset', 'ai');
+                ghostLog('BANK B (GPU): slit_scan · luma_bloom · dither_luxe · caustics · silt_blur · neural_mesh', 'ai');
+                ghostLog('BURST: crush · stutter · invert · shatter', 'ai');
                 break;
 
             case 'shoot_help':
@@ -4700,21 +4722,22 @@ function processGhostCommand(cmd) {
                 break;
 
             case 'sampler_help':
-                ghostLog('SFX PADS — 8 pads in the lower panel. Click a pad to trigger sounds: BOOM, HORN, CROWD, etc.', 'ai');
-                ghostLog('Each pad has a gear icon — click it to change the sound and link an FX (PUNCH, SEISMIC, VOID, etc.).', 'ai');
+                ghostLog('SFX PADS: click a pad → BOOM, HORN, CROWD, etc. Right-click to arm mic recording.', 'ai');
+                ghostLog('Gear icon on each pad → load sample file + couple an FX:', 'ai');
+                ghostLog('  BANK A: punch · seismic · void · lucy · nvg · vhs · failure · shoot · party', 'ai');
+                ghostLog('  BANK B: slit_scan · luma_bloom · dither_luxe · caustics · silt_blur · neural_mesh', 'ai');
+                ghostLog('Coupled FX fires on pad hit + sample audio drives audio-reactive engines.', 'ai');
                 ghostLog('MIDI-mappable: assign any pad to a MIDI note for live triggering.', 'ai');
                 break;
 
             case 'party':
                 if ($('btn-ui-react')) $('btn-ui-react').click();
-                ghostLog(APP.vj.uiReactivity ? 'PARTY MODE: ON — autonomous morphing on every beat drop.' : 'PARTY MODE: OFF', APP.vj.uiReactivity ? 'success' : 'ai');
-                if (APP.vj.uiReactivity && !ctx.hasAudio) ghostLog('Load some music to see the full effect!', 'ai');
+                ghostLog('PARTY MODE: ' + (APP.vj.uiReactivity ? 'ON' : 'OFF'), APP.vj.uiReactivity ? 'success' : 'ai');
                 break;
 
             case 'seismic':
                 if ($('btn-rumble')) $('btn-rumble').click();
-                ghostLog(APP.vj.rumbleEnabled ? 'SEISMIC: ARMED — every bass hit shakes the viewport.' : 'SEISMIC: OFF', APP.vj.rumbleEnabled ? 'success' : 'ai');
-                if (APP.vj.rumbleEnabled && !ctx.hasAudio) ghostLog('Load audio first — seismic reacts to bass frequencies.', 'ai');
+                ghostLog('SEISMIC: ' + (APP.vj.rumbleEnabled ? 'ARMED' : 'OFF'), APP.vj.rumbleEnabled ? 'success' : 'ai');
                 break;
 
             case 'failure':
@@ -4856,19 +4879,117 @@ function processGhostCommand(cmd) {
                 ghostLog('G: terminal | H: fullscreen | TAB: slide panels | SPACE: next media | ESC: panic reset', 'ai');
                 break;
 
-            // ── UNKNOWN — smart fallback ──
+            // ── DIRECT ACTIONS ──
+            case 'golive_exec':
+                var glBtn = document.getElementById('btn-go-live');
+                if (glBtn) { glBtn.click(); ghostLog('GO_LIVE: COUNTDOWN INITIATED', 'success'); }
+                else ghostLog('GO_LIVE: INIT_CAM FIRST', 'crit');
+                break;
+
+            case 'inject_exec':
+                var inBtn = document.getElementById('btn-inject');
+                if (inBtn) { inBtn.click(); ghostLog('INJECT_LOOP: RECORDING 10s', 'success'); }
+                else ghostLog('INJECT_LOOP: CAM NOT READY', 'crit');
+                break;
+
+            // ── BANK B GPU SHADERS ──
+            case 'vb_slit_scan':
+            case 'vb_luma_bloom':
+            case 'vb_dither_luxe':
+            case 'vb_caustics':
+            case 'vb_silt_blur':
+            case 'vb_neural_mesh': {
+                var _vbMap = {
+                    'vb_slit_scan':'SLIT_SCAN','vb_luma_bloom':'LUMA_BLOOM',
+                    'vb_dither_luxe':'DITHER_LUXE','vb_caustics':'CAUSTICS',
+                    'vb_silt_blur':'SILT_BLUR','vb_neural_mesh':'NEURAL_MESH'
+                };
+                var _vbSN = _vbMap[intent];
+                if (typeof _setFXBank === 'function') _setFXBank('B');
+                if (typeof window._vbActivate === 'function') window._vbActivate(_vbSN, false);
+                ghostLog('BANK_B: ' + _vbSN + ' [3s BURST]', 'success');
+                break;
+            }
+
+            case 'vb_help':
+                ghostLog('BANK B — GPU SHADERS: slit_scan · luma_bloom · dither_luxe · caustics · silt_blur · neural_mesh', 'ai');
+                ghostLog('Speak or type any shader name to fire a 3s burst. Assignable to SFX pads via gear icon.', 'ai');
+                break;
+
+            // ── VOICE CMD TOGGLE ──
+            case 'voice_toggle':
+                if (typeof _ghostVoiceToggle === 'function') _ghostVoiceToggle();
+                break;
+
+            // ── UNKNOWN — silent, single line ──
             case 'unknown':
-                var fallbacks = [
-                    'I don\'t know that command, but I know a lot. Try "help" or ask me about any feature.',
-                    'Not sure what you mean. Ask me about: camera, fx, midi, audio, themes, p2p, wallet...',
-                    'Command not recognized. But try asking naturally — "how do I go live?" or "what effects are there?"'
-                ];
-                ghostLog(fallbacks[Math.floor(Math.random() * fallbacks.length)], 'crit');
-                ghostLog(GHOST.getTip(), 'ai');
+                if (!voiceMode) {
+                    ghostLog('Unknown. Try: void · lucy · seismic · party · go live · inject · slit scan · status · help', 'crit');
+                }
                 break;
         }
-    }, 200 + Math.random() * 200);
 }
+
+// ═══════════════════════════════════════════════════════════════
+// GHOST VOICE COMMAND ENGINE
+// Always-on speech recognition → processGhostCommand(cmd, true)
+// Separate from subtitle STT. Works in fullscreen + slide mode.
+// Toggle: 🎤 button in ghost header, or type "voice cmd"
+// ═══════════════════════════════════════════════════════════════
+(function() {
+    var _gvRec = null;
+    var _gvOn  = false;
+
+    function _gvFire(text) {
+        var t = text.trim();
+        if (!t || t.length < 2) return;
+        if (typeof processGhostCommand === 'function') processGhostCommand(t, true);
+    }
+
+    function _buildGVRec() {
+        var SpeechAPI = window.SpeechRecognition || window.webkitSpeechRecognition;
+        if (!SpeechAPI) return null;
+        var r = new SpeechAPI();
+        r.continuous      = true;
+        r.interimResults  = false;
+        r.lang            = 'en-US';
+        r.maxAlternatives = 1;
+        r.onresult = function(e) {
+            for (var i = e.resultIndex; i < e.results.length; i++) {
+                if (e.results[i].isFinal) _gvFire(e.results[i][0].transcript);
+            }
+        };
+        r.onend = function() {
+            if (_gvOn) setTimeout(function() { try { r.start(); } catch(x) {} }, 400);
+        };
+        r.onerror = function(e) {
+            if (e.error === 'no-speech' || e.error === 'aborted') return;
+            if (typeof ghostLog === 'function') ghostLog('VOICE_ERR: ' + e.error, 'crit');
+        };
+        return r;
+    }
+
+    window._ghostVoiceToggle = function() {
+        _gvOn = !_gvOn;
+        var btn = document.getElementById('btn-ghost-mic');
+        if (_gvOn) {
+            if (!_gvRec) _gvRec = _buildGVRec();
+            if (_gvRec) {
+                try { _gvRec.start(); } catch(x) {}
+                if (btn) btn.classList.add('on');
+                if (typeof ghostLog === 'function') ghostLog('VOICE_CMD: ARMED — speak any command', 'success');
+            } else {
+                _gvOn = false;
+                if (typeof ghostLog === 'function') ghostLog('VOICE_CMD: UNSUPPORTED IN THIS BROWSER', 'crit');
+            }
+        } else {
+            if (_gvRec) { try { _gvRec.abort(); } catch(x) {} _gvRec = null; }
+            if (btn) btn.classList.remove('on');
+            if (typeof ghostLog === 'function') ghostLog('VOICE_CMD: OFF', 'ai');
+        }
+        return _gvOn;
+    };
+})();
 
 // ═══ GHOST AUTO-TIPS — pops up if idle, gives contextual advice on startup ═══
 var _ghostIdleTimer = null;
@@ -14999,7 +15120,10 @@ function _vbUpdateUI(shaderName, locked) {
     btn.style.color = '';
 }
 
-// ── Bank toggle ───────────────────────────────────────────────────────
+// Expose internals for coupling and ghost voice commands
+window._vbActivate   = function(sn, p) { _vbActivate(sn, p); };
+window._vbDeactivate = function(sn)    { _vbDeactivate(sn); };
+
 window._setFXBank = function(bank) {
     _vbActive = (bank === 'B');
     var panA = document.getElementById('fx-bank-a-panel');
