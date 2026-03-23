@@ -241,24 +241,65 @@
             mix-blend-mode: exclusion;
         }
         #main-logo.hidden { display: none; }
-        
-        /* Text Style Modes */
-        #main-logo.style-solid {
+
+        /* ═══ LOGO MODE SYSTEM ═══════════════════════════════════════════════
+         * Toggle via: applyLogoMode('solid' | 'knockout' | 'inverted')
+         * Or set VNGRD_CONFIG.logoMode before page load.
+         * ═══════════════════════════════════════════════════════════════════ */
+
+        /* MODE: solid — fixed fill, accent glow, subtle breathe + rare flicker  */
+        #main-logo.logo-mode-solid {
             mix-blend-mode: normal;
             color: #fff;
-            text-shadow: 0 0 15px var(--accent);
+            text-shadow: 0 0 12px var(--accent), 0 0 30px rgba(0,243,255,0.15);
+            animation: logo-solid-breathe 4s ease-in-out infinite, logo-solid-flicker 9s infinite;
         }
-        #main-logo.style-hollow {
+        @keyframes logo-solid-breathe {
+            0%, 100% { text-shadow: 0 0 10px var(--accent), 0 0 22px rgba(0,243,255,0.12); }
+            50%       { text-shadow: 0 0 20px var(--accent), 0 0 42px rgba(0,243,255,0.28), 0 0 60px rgba(0,243,255,0.07); }
+        }
+        /* Single rare colour-swap flash — borrowed from core-flicker rhythm */
+        @keyframes logo-solid-flicker {
+            0%, 88%, 100% { color: #fff; }
+            91%            { color: var(--accent); }
+            93%            { color: #fff; }
+            95%            { color: rgba(255,255,255,0.3); }
+            97%            { color: #fff; }
+        }
+
+        /* MODE: knockout — stencil cut-out; letter shapes show through to bg   */
+        #main-logo.logo-mode-knockout {
             mix-blend-mode: normal;
             color: transparent;
-            -webkit-text-stroke: 1px var(--accent);
+            -webkit-text-stroke: 1.5px var(--accent);
             text-shadow: none;
+            filter: drop-shadow(0 0 6px rgba(0,243,255,0.35));
+            animation: logo-knockout-trace 3.5s ease-in-out infinite;
         }
-        #main-logo.style-inverted {
-            mix-blend-mode: exclusion;
+        @keyframes logo-knockout-trace {
+            0%, 100% { filter: drop-shadow(0 0 4px rgba(0,243,255,0.3));  -webkit-text-stroke-width: 1.5px; }
+            50%       { filter: drop-shadow(0 0 14px rgba(0,243,255,0.75)); -webkit-text-stroke-width: 1px; }
+        }
+
+        /* MODE: inverted — mix-blend-mode:difference; auto white-on-black / black-on-white */
+        #main-logo.logo-mode-inverted {
+            mix-blend-mode: difference;
             color: #fff;
             text-shadow: none;
+            animation: logo-invert-phase 5s ease-in-out infinite;
         }
+        /* Subtle chromatic-shake rhythm cherry-picked from .m5 — very restrained */
+        @keyframes logo-invert-phase {
+            0%, 90%, 100% { transform: translate(0, 0); opacity: 1; }
+            92%            { transform: translate(1px, 0); }
+            94%            { transform: translate(-1px, 0); }
+            96%            { transform: translate(0, 0); opacity: 0.88; }
+        }
+
+        /* Legacy style classes — kept for backward compatibility */
+        #main-logo.style-solid    { mix-blend-mode: normal; color: #fff; text-shadow: 0 0 15px var(--accent); }
+        #main-logo.style-hollow   { mix-blend-mode: normal; color: transparent; -webkit-text-stroke: 1px var(--accent); text-shadow: none; }
+        #main-logo.style-inverted { mix-blend-mode: exclusion; color: #fff; text-shadow: none; }
         
         /* V29 MANUAL LAYER ELEMENTS */
        /* --- V29 INDUSTRIAL OVERRIDE (NO GLOW) --- */
@@ -3856,14 +3897,14 @@ body.fullscreen #transcription-hud { pointer-events: none !important; } /* keep 
                 <!-- Bank B — VNGRD_B GPU Shaders -->
                 <div id="fx-bank-b-panel" style="display:none;">
                 <div class="btn-grid-3" style="margin-bottom:4px;">
-                    <button class="btn va-btn vb-btn" id="vb-SLIT_SCAN" data-shader="SLIT_SCAN" style="--va-color:#00f3ff;" title="Tap=3s burst · Double-tap=lock">SLIT_SCAN</button>
-                    <button class="btn va-btn vb-btn" id="vb-LUMA_BLOOM" data-shader="LUMA_BLOOM" style="--va-color:#ffcc00;" title="Tap=3s burst · Double-tap=lock">LUMA_BLOOM</button>
-                    <button class="btn va-btn vb-btn" id="vb-DITHER_LUXE" data-shader="DITHER_LUXE" style="--va-color:#aa44ff;" title="Tap=3s burst · Double-tap=lock">DITHER_LUXE</button>
+                    <button class="btn va-btn vb-btn" id="vb-SLIT_SCAN" data-shader="SLIT_SCAN" style="--va-color:#00f3ff;" title="Tap=3s burst · Double-tap=lock · Say: slitscan off">SLITSCAN</button>
+                    <button class="btn va-btn vb-btn" id="vb-LUMA_BLOOM" data-shader="LUMA_BLOOM" style="--va-color:#ffcc00;" title="Tap=3s burst · Double-tap=lock · Say: bloom off">BLOOM</button>
+                    <button class="btn va-btn vb-btn" id="vb-DITHER_LUXE" data-shader="DITHER_LUXE" style="--va-color:#aa44ff;" title="Tap=3s burst · Double-tap=lock · Say: dither off">DITHER</button>
                 </div>
                 <div class="btn-grid-3" style="margin-bottom:4px;">
-                    <button class="btn va-btn vb-btn" id="vb-CAUSTICS" data-shader="CAUSTICS" style="--va-color:#00ddbb;" title="Tap=3s burst · Double-tap=lock">CAUSTICS</button>
-                    <button class="btn va-btn vb-btn" id="vb-GHOST_ECHO" data-shader="GHOST_ECHO" style="--va-color:#4488ff;" title="Tap=3s burst · Double-tap=lock">GHOST_ECHO</button>
-                    <button class="btn va-btn vb-btn" id="vb-SPECTRAL_MOSH" data-shader="SPECTRAL_MOSH" style="--va-color:#00ff41;" title="Tap=3s burst · Double-tap=lock + pose">SPECTRAL_MOSH</button>
+                    <button class="btn va-btn vb-btn" id="vb-CAUSTICS" data-shader="CAUSTICS" style="--va-color:#00ddbb;" title="Tap=3s burst · Double-tap=lock · Say: caustics off">CAUSTICS</button>
+                    <button class="btn va-btn vb-btn" id="vb-GHOST_ECHO" data-shader="GHOST_ECHO" style="--va-color:#4488ff;" title="Tap=3s burst · Double-tap=lock · Say: ghost off">GHOSTECHO</button>
+                    <button class="btn va-btn vb-btn" id="vb-SPECTRAL_MOSH" data-shader="SPECTRAL_MOSH" style="--va-color:#00ff41;" title="Tap=3s burst · Double-tap=lock · Say: mosh off">MOSH</button>
                 </div>
                 <div style="font-size:7px;text-align:center;letter-spacing:1.5px;color:rgba(0,243,255,0.3);padding-bottom:2px;" id="vb-sys-status">SYSTEM_STATUS: STANDBY</div>
                 <button class="btn va-btn" onclick="_vbClearAll()" style="width:100%;margin-top:2px;--va-color:#ff3333;">[ CLEAR ALL ]</button>
@@ -5030,6 +5071,21 @@ var GHOST = {
     understand: function(input) {
         var c = input.toLowerCase().trim();
 
+        // Bank B GPU shaders — resolved first to prevent collision with media 'scan'/'ghost' etc.
+        if (c.match(/slit.?scan\s+(off|stop|disable)|slitscan\s+(off|stop|disable)/)) return 'vb_b_off';
+        if (c.match(/(luma.?bloom|bloom)\s+(off|stop|disable)/)) return 'vb_b_off';
+        if (c.match(/(dither.?luxe?|dither)\s+(off|stop|disable)/)) return 'vb_b_off';
+        if (c.match(/caustics?\s+(off|stop|disable)/)) return 'vb_b_off';
+        if (c.match(/(ghost.?echo|ghostecho)\s+(off|stop|disable)/)) return 'vb_b_off';
+        if (c.match(/(spectral.?mosh|mosh|spectral)\s+(off|stop|disable)/)) return 'vb_b_off';
+        if (c.match(/slit.?scan|slitscan/)) return 'vb_slit_scan';
+        if (c.match(/luma.?bloom/)) return 'vb_luma_bloom';
+        if (c.match(/dither|dither.?luxe/)) return 'vb_dither_luxe';
+        if (c.match(/caustic/)) return 'vb_caustics';
+        if (c.match(/ghost.?echo|ghostecho|ghost echo/)) return 'vb_ghost_echo';
+        if (c.match(/spectral.?mosh|mosh/)) return 'vb_spectral_mosh';
+        if (c.match(/bank.?b|gpu.?fx|shader|bank b fx/)) return 'vb_help';
+
         // Map natural language to intents
         if (c.match(/^(hi|hello|hey|yo|sup|ciao|hola|bonjour|salut|oi|what'?s up|howdy|greetings?)$/)) return 'greet';
         if (c.match(/help|what can|how do|commands?|guide|tutorial|show me|teach/)) return 'help';
@@ -5037,7 +5093,7 @@ var GHOST = {
         if (c.match(/^(tip|advice|suggest|idea|what should|bored|nothing|idk|hmm|now what)/)) return 'tip';
 
         // Media & Audio
-        if (c.match(/load|scan|open|import|folder|browse|add media|add visual/)) return 'load';
+        if (c.match(/load|open|import|folder|browse|add media|add visual/)) return 'load';
         if (c.match(/music|audio|song|track|sound|playlist|beat/)) return 'audio_help';
         if (c.match(/play|pause|resume|stop playing/)) return 'play';
         if (c.match(/next|skip|forward/)) return 'next';
@@ -5121,15 +5177,6 @@ var GHOST = {
         // Direct action: go live / inject loop
         if (c.match(/^(go.?live|start.?live|start.?broadcast|broadcast|3.?2.?1)/)) return 'golive_exec';
         if (c.match(/^(inject|inject.?loop|record.?loop|loop|10.?sec)/)) return 'inject_exec';
-
-        // Bank B GPU shaders
-        if (c.match(/slit.?scan/)) return 'vb_slit_scan';
-        if (c.match(/luma.?bloom/)) return 'vb_luma_bloom';
-        if (c.match(/dither|dither.?luxe/)) return 'vb_dither_luxe';
-        if (c.match(/caustic/)) return 'vb_caustics';
-        if (c.match(/ghost.?echo|ghost|echo trail/)) return 'vb_ghost_echo';
-        if (c.match(/spectral.?mosh|mosh|spectral/)) return 'vb_spectral_mosh';
-        if (c.match(/bank.?b|gpu.?fx|shader|bank b fx/)) return 'vb_help';
 
         // Voice toggle
         if (c.match(/voice.?cmd|voice.?command|listen|mic.?cmd|stop.?listen/)) return 'voice_toggle';
@@ -5552,6 +5599,25 @@ function processGhostCommand(cmd, voiceMode) {
                 break;
 
             // ── BANK B GPU SHADERS ──
+            case 'vb_b_off': {
+                // "SLITSCAN off", "BLOOM off", "MOSH off" etc.
+                var _vbOffWord = c.split(/\s+/)[0];
+                var _vbOffMap = {
+                    'slit':'SLIT_SCAN','slitscan':'SLIT_SCAN',
+                    'luma':'LUMA_BLOOM','bloom':'LUMA_BLOOM',
+                    'dither':'DITHER_LUXE',
+                    'caustics':'CAUSTICS','caustic':'CAUSTICS',
+                    'ghost':'GHOST_ECHO','ghostecho':'GHOST_ECHO',
+                    'mosh':'SPECTRAL_MOSH','spectral':'SPECTRAL_MOSH'
+                };
+                var _vbOffSN = _vbOffMap[_vbOffWord];
+                if (_vbOffSN && typeof _vbDeactivate === 'function') {
+                    _vbDeactivate(_vbOffSN);
+                    ghostLog('BANK_B: ' + _vbOffSN + ' OFF', 'ai');
+                }
+                break;
+            }
+
             case 'vb_slit_scan':
             case 'vb_luma_bloom':
             case 'vb_dither_luxe':
@@ -5566,13 +5632,13 @@ function processGhostCommand(cmd, voiceMode) {
                 var _vbSN = _vbMap[intent];
                 if (typeof _setFXBank === 'function') _setFXBank('B');
                 if (typeof window._vbActivate === 'function') window._vbActivate(_vbSN, false);
-                ghostLog('BANK_B: ' + _vbSN + ' [3s BURST]', 'success');
+                ghostLog('BANK_B: ' + _vbSN + ' BURST', 'success');
                 break;
             }
 
             case 'vb_help':
-                ghostLog('BANK B — GPU SHADERS: slit_scan · luma_bloom · dither_luxe · caustics · ghost_echo · spectral_mosh', 'ai');
-                ghostLog('Speak or type any shader name to fire a 3s burst. Assignable to SFX pads via gear icon.', 'ai');
+                ghostLog('BANK B — GPU SHADERS: slitscan · bloom · dither · caustics · ghostecho · mosh', 'ai');
+                ghostLog('Say any name to burst 3s, name + "off" to stop. Double-tap button = persistent lock.', 'ai');
                 break;
 
             // ── VOICE CMD TOGGLE ──
@@ -11031,6 +11097,37 @@ function toggleSystemSlide() {
 }
 
 function morphLogo() { const logo = $('main-logo'); APP.ui.morphs.forEach(m => logo.classList.remove(m)); APP.ui.logoMorph = (APP.ui.logoMorph + 1) % APP.ui.morphs.length; logo.classList.add(APP.ui.morphs[APP.ui.logoMorph]); }
+
+// ═══ LOGO MODE CONFIG ══════════════════════════════════════════════════════
+// Three render modes for the DRIS//CORE brand logo.
+// Toggle at any time: applyLogoMode('solid' | 'knockout' | 'inverted')
+// Set before load:   window.VNGRD_CONFIG = { logoMode: 'knockout' };
+// ───────────────────────────────────────────────────────────────────────────
+window.VNGRD_CONFIG = window.VNGRD_CONFIG || {};
+window.VNGRD_CONFIG.logoMode = window.VNGRD_CONFIG.logoMode || 'solid'; // ← change here
+
+window.applyLogoMode = function(mode) {
+    var el = document.getElementById('main-logo');
+    if (!el) return;
+    el.classList.remove('logo-mode-solid', 'logo-mode-knockout', 'logo-mode-inverted');
+    if (mode === 'solid' || mode === 'knockout' || mode === 'inverted') {
+        el.classList.add('logo-mode-' + mode);
+    }
+    window.VNGRD_CONFIG.logoMode = mode;
+};
+// Apply on load
+(function() {
+    function _applyInitialLogoMode() {
+        if (window.applyLogoMode) window.applyLogoMode(window.VNGRD_CONFIG.logoMode);
+    }
+    if (document.readyState === 'loading') {
+        document.addEventListener('DOMContentLoaded', _applyInitialLogoMode);
+    } else {
+        _applyInitialLogoMode();
+    }
+})();
+// ───────────────────────────────────────────────────────────────────────────
+
 function updateClock() { $('clock').textContent = new Date().toTimeString().split(' ')[0]; const s = Math.floor((Date.now() - APP.state.startTime) / 1000); $('uptime').textContent = `${String(Math.floor(s/3600)).padStart(2,'0')}:${String(Math.floor((s%3600)/60)).padStart(2,'0')}:${String(s%60).padStart(2,'0')}`; }
 
 // EMERGENCY
