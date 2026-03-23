@@ -1175,7 +1175,7 @@
         .slot-grid.open .slot-row:nth-child(4) .slot-lbl { animation-delay: 1.8s; }
 
         /* ── VNGRD UNIFIED SELECT / DROPDOWN STYLE — matches sampler gear menu ── */
-        select.inp, #ai-model-select, #bug-style-select, #lt-style-select,
+        select.inp, #ai-model-select, #bug-style-select, #bug-mode-select, #lt-style-select,
         #audio-input-select, #audio-output {
             -webkit-appearance: none;
             appearance: none;
@@ -3896,12 +3896,12 @@ body.fullscreen #transcription-hud { pointer-events: none !important; } /* keep 
                 </div>
                 <div class="btn-row" style="gap:4px;">
                     <button class="btn" id="btn-set-station" style="flex:2;">SET BUG</button>
-                    <select id="bug-style-select" title="Style" style="background:var(--panel);border:1px solid var(--border);color:var(--text);font-size:8px;font-family:inherit;padding:2px 3px;cursor:pointer;min-width:0;">
+                    <select id="bug-style-select" title="Style" style="min-width:0;">
                         <option value="plain">PL</option>
                         <option value="pulse">PU</option>
                         <option value="glitch">GL</option>
                     </select>
-                    <select id="bug-mode-select" title="Render mode" style="background:var(--panel);border:1px solid var(--border);color:var(--accent);font-size:8px;font-family:inherit;padding:2px 3px;cursor:pointer;min-width:0;">
+                    <select id="bug-mode-select" title="Render mode" style="min-width:0;">
                         <option value="solid">SLD</option>
                         <option value="knockout">K/O</option>
                         <option value="inverted">INV</option>
@@ -12749,9 +12749,10 @@ document.addEventListener('DOMContentLoaded', () => {
             'identity': {
                 title: 'IDENTITY',
                 rows: [
+                    ['● COLOR',  'Colour picker on the text row sets the bug tint in real-time.'],
                     ['SET BUG',  'Commits the station name as a live watermark overlay on the canvas.'],
-                    ['PL/PU/GL', 'Style selector — PLAIN, PULSE (animated), or GLITCH mode.'],
-                    ['● COLOR',  'Color picker sets the bug and watermark tint in real-time.'],
+                    ['PL/PU/GL', 'Style — PLAIN: solid fill. PULSE: animated alpha. GLITCH: RGB split.'],
+                    ['SLD/K/O/INV', 'Render mode — SLD: solid fill. K/O: knockout (stroke outline, video shows through). INV: difference blend, auto-contrasts on any background.'],
                     ['[X]',      'Toggle the station name bug visible or hidden on the canvas.'],
                     ['2D LOGO',  'Load a PNG/JPG/GIF as a corner logo overlay on the canvas.'],
                     ['3D LOGO',  'Load a .OBJ/.FBX model — renders and spins live on the canvas.']
