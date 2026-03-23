@@ -3649,18 +3649,42 @@ body.fullscreen #transcription-hud { pointer-events: none !important; } /* keep 
     flex-shrink: 0; font-size: 6.5px; color: rgba(176,0,255,0.4); letter-spacing: 1px;
 }
 
-/* Per-pad [x] clear button */
+/* Per-pad kill button — custom pads only, bottom-right (away from gear at top-right) */
 .pad-xclear {
-    position: absolute; top: 2px; right: 2px;
-    font-size: 6px; line-height: 1; padding: 1px 3px;
-    background: transparent; border: 1px solid rgba(255,51,51,0.25);
-    color: rgba(255,51,51,0.4); cursor: pointer;
-    font-family: 'JetBrains Mono', monospace;
+    position: absolute; bottom: 11px; right: 3px;
+    font-size: 5px; line-height: 1; padding: 1px 2px;
+    background: transparent; border: 1px solid rgba(255,51,51,0.2);
+    color: rgba(255,51,51,0.35); cursor: pointer;
+    font-family: 'JetBrains Mono', monospace; letter-spacing: 0;
     z-index: 50; transition: all 0.1s; border-radius: 1px;
     opacity: 0;
 }
 .sfx-pad:hover .pad-xclear { opacity: 1; }
-.pad-xclear:hover { background: rgba(255,51,51,0.2); color: #ff3333; border-color: rgba(255,51,51,0.6); }
+.pad-xclear:hover { background: rgba(255,51,51,0.2); color: #ff4444; border-color: rgba(255,51,51,0.55); }
+
+/* Per-pad mute button — sig/liq pads, bottom-left (opposite corner from kill) */
+.pad-mute {
+    position: absolute; bottom: 11px; left: 3px;
+    font-size: 6px; font-weight: 900; line-height: 1; padding: 1px 2px;
+    background: transparent; border: 1px solid rgba(255,200,0,0.15);
+    color: rgba(255,200,0,0.25); cursor: pointer;
+    font-family: 'Orbitron', sans-serif; letter-spacing: 0;
+    z-index: 50; transition: all 0.1s; border-radius: 1px;
+    opacity: 0;
+}
+.sfx-pad:hover .pad-mute { opacity: 1; }
+.pad-mute:hover { background: rgba(255,200,0,0.1); color: rgba(255,200,0,0.9); border-color: rgba(255,200,0,0.5); }
+/* Muted state — M stays lit amber; content is visually quieted */
+.sfx-pad.pad-muted { border-color: rgba(255,200,0,0.4) !important; }
+.sfx-pad.pad-muted .pad-mute {
+    opacity: 1 !important;
+    color: #ffcc00 !important;
+    border-color: rgba(255,200,0,0.65) !important;
+    background: rgba(255,200,0,0.1) !important;
+    text-shadow: 0 0 5px rgba(255,200,0,0.65);
+}
+.sfx-pad.pad-muted .pad-name { opacity: 0.3 !important; }
+.sfx-pad.pad-muted .pad-lcd  { opacity: 0.1 !important; }
 </style>
 </head>
 <body oncontextmenu="return false;">
@@ -12276,17 +12300,17 @@ document.addEventListener('DOMContentLoaded', () => {
 
                 // Groovebox mode: pads fire as one-shot previews — pattern is set via step grid
                 if (typeof _groovebox !== 'undefined' && _groovebox.mode === 'groovebox') {
-                    SFX_ENGINE.play(sfxName);
+                    if (!btn.classList.contains('pad-muted')) SFX_ENGINE.play(sfxName);
                     _pulsePad(btn);
                     // liq pads fire coupling inside _fireLiqPad — avoid double-trigger
                     if (typeof _fireCoupledFX === 'function' && !sfxName.startsWith('liq')) _fireCoupledFX(sfxName);
                     return;
                 }
-                SFX_ENGINE.play(sfxName);
+                if (!btn.classList.contains('pad-muted')) SFX_ENGINE.play(sfxName);
                 _pulsePad(btn);
                 // liq pads fire coupling inside _fireLiqPad — avoid double-trigger
                 if (typeof _fireCoupledFX === 'function' && !sfxName.startsWith('liq')) _fireCoupledFX(sfxName);
-                log('SFX: ' + sfxName.toUpperCase());
+                log('SFX: ' + sfxName.toUpperCase() + (btn.classList.contains('pad-muted') ? ' [MUTED]' : ''));
             });
         });
 
@@ -15029,21 +15053,36 @@ var isVideo = nft.forceVideo || (imageUrl.toLowerCase().match(/\.(mp4|webm|mov|o
             : 'IDLE');
     }, 100);
 
-    // ── Per-pad [x] clear buttons ─────────────────────────────────────────
+    // ── Per-pad controls: kill × (custom only) + mute M (all pads) ──────────
     (function() {
-        document.querySelectorAll('.sfx-pad').forEach(function(btn) {
-            var name = btn.dataset && btn.dataset.sfx;
+        document.querySelectorAll('.sfx-pad').forEach(function(pad) {
+            var name = pad.dataset && pad.dataset.sfx;
             if (!name) return;
-            var xBtn = document.createElement('button');
-            xBtn.className = 'pad-xclear';
-            xBtn.textContent = 'x';
-            xBtn.title = 'Clear ' + name;
-            xBtn.addEventListener('click', function(e) {
+
+            // Kill × — only on custom pads (sfx-cust), bottom-right corner
+            if (pad.classList.contains('sfx-cust')) {
+                var xBtn = document.createElement('button');
+                xBtn.className = 'pad-xclear';
+                xBtn.textContent = '×';
+                xBtn.title = 'Clear sample';
+                xBtn.addEventListener('click', function(e) {
+                    e.stopPropagation();
+                    Sampler.purgePad(name);
+                });
+                pad.appendChild(xBtn);
+            }
+
+            // Mute M — all pads, bottom-left corner
+            var mBtn = document.createElement('button');
+            mBtn.className = 'pad-mute';
+            mBtn.textContent = 'M';
+            mBtn.title = 'Mute pad';
+            mBtn.addEventListener('click', function(e) {
                 e.stopPropagation();
-                Sampler.purgePad(name);
+                var muted = pad.classList.toggle('pad-muted');
+                mBtn.title = muted ? 'Unmute pad' : 'Mute pad';
             });
-            btn.style.position = 'relative';
-            btn.appendChild(xBtn);
+            pad.appendChild(mBtn);
         });
     })();
 
