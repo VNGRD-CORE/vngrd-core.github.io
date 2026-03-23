@@ -780,8 +780,9 @@
         .btn:hover {
             background: linear-gradient(180deg, #1a1a26 0%, #111118 100%);
             color: var(--text-bright); border-color: var(--accent);
-            box-shadow: var(--theme-glow), inset 0 1px 0 rgba(255,255,255,0.06), 0 2px 3px rgba(0,0,0,0.45);
+            box-shadow: var(--theme-glow), 0 0 0 1px var(--theme-border), inset 0 1px 0 rgba(255,255,255,0.06), 0 3px 8px rgba(0,0,0,0.6);
             text-shadow: 0 0 8px var(--accent);
+            transform: translateY(-1px);
         }
         .btn:active {
             /* pressed in: top highlight inverts, drop-shadow collapses */
@@ -1876,8 +1877,100 @@
             animation: btn-end-warning 1.4s ease-in-out infinite !important;
         }
         @keyframes btn-end-warning {
-            0%, 100% { opacity: 1; box-shadow: 0 0 8px rgba(255,51,51,0.3); }
-            50%       { opacity: 0.5; box-shadow: none; }
+            0%, 100% { opacity: 1; box-shadow: inset 0 0 10px rgba(255,51,51,0.12); color: rgba(255,80,80,0.8) !important; }
+            50%       { opacity: 0.55; box-shadow: none; }
+        }
+
+        /* ── Broadcast solid-block panel — ON-AIR aesthetic ── */
+        .bcast-block {
+            border: 1px solid #252535;
+            border-radius: 2px;
+            overflow: hidden;
+            margin-bottom: 6px;
+            position: relative;
+        }
+        .bcast-btn {
+            font-family: 'Orbitron', sans-serif !important;
+            font-size: 9px !important;
+            font-weight: 700 !important;
+            letter-spacing: 2.5px !important;
+            text-align: center !important;
+            background: linear-gradient(180deg, #0e0e14 0%, #08080c 100%) !important;
+            border: none !important;
+            border-bottom: 1px solid #1c1c2a !important;
+            border-radius: 0 !important;
+            padding: 11px 12px !important;
+            margin: 0 !important;
+            width: 100%;
+            display: block;
+            position: relative;
+            overflow: hidden;
+            cursor: pointer;
+            transition: color 0.2s ease, box-shadow 0.2s ease, background 0.2s ease, transform 0.06s ease !important;
+        }
+        .bcast-block .bcast-btn:last-child { border-bottom: none !important; }
+        /* Diagonal scanlines — matches ON-AIR button */
+        .bcast-btn::before {
+            content: '';
+            position: absolute; inset: 0;
+            background: repeating-linear-gradient(
+                -48deg,
+                transparent, transparent 5px,
+                rgba(255,255,255,0.012) 5px, rgba(255,255,255,0.012) 10px
+            );
+            pointer-events: none;
+            z-index: 0;
+        }
+        /* REC active — override border-based animation with shadow-based glow for block context */
+        .bcast-btn.rec.active {
+            color: #ff5555 !important;
+            animation: bcast-rec-radiate-block 1.1s ease-in-out infinite !important;
+        }
+        @keyframes bcast-rec-radiate-block {
+            0%, 100% {
+                background: linear-gradient(180deg, #120002 0%, #0a0001 100%);
+                box-shadow: inset 0 0 18px rgba(255,30,30,0.2), 0 0 0 1px rgba(255,30,30,0.5);
+                text-shadow: 0 0 8px rgba(255,80,80,0.6);
+            }
+            50% {
+                background: linear-gradient(180deg, #1c0004 0%, #110002 100%);
+                box-shadow: inset 0 0 32px rgba(255,30,30,0.35), 0 0 0 1px rgba(255,120,120,0.8), 0 0 12px rgba(255,30,30,0.3);
+                text-shadow: 0 0 16px rgba(255,100,100,0.95);
+            }
+        }
+        /* REC default */
+        .bcast-btn.rec { color: #ff2222 !important; }
+        .bcast-btn.rec:hover {
+            background: linear-gradient(180deg, #140004 0%, #0a0002 100%) !important;
+            color: #ff4444 !important;
+            box-shadow: inset 0 0 24px rgba(255,0,30,0.1), 0 0 0 1px rgba(255,0,30,0.35) !important;
+            transform: translateY(-1px) !important;
+        }
+        /* END LIVE default */
+        #btn-end.bcast-btn { color: #404050 !important; }
+        #btn-end.bcast-btn:hover {
+            color: #ff6600 !important;
+            background: linear-gradient(180deg, #120800 0%, #0a0500 100%) !important;
+            box-shadow: inset 0 0 24px rgba(255,100,0,0.08), 0 0 0 1px rgba(255,100,0,0.3) !important;
+            transform: translateY(-1px) !important;
+        }
+        /* SHUTDOWN CAM — standalone pill (outside .bcast-block) */
+        .bcast-kill {
+            background: linear-gradient(180deg, #0e0e14 0%, #08080c 100%) !important;
+            border: 1px solid #252535 !important;
+            border-radius: 2px !important;
+            font-family: 'Orbitron', sans-serif !important;
+            font-size: 9px !important;
+            font-weight: 700 !important;
+            letter-spacing: 2.5px !important;
+            text-align: center !important;
+            color: #404050 !important;
+        }
+        .bcast-kill:hover {
+            color: #ff2222 !important;
+            border-color: rgba(255,0,30,0.45) !important;
+            box-shadow: 0 0 8px rgba(255,0,30,0.18), 0 0 0 1px rgba(255,0,30,0.25), inset 0 0 16px rgba(255,0,30,0.06) !important;
+            transform: translateY(-1px) !important;
         }
 
         .palette-grid { display: flex; gap: 6px; flex-wrap: wrap; }
@@ -2635,6 +2728,21 @@ body.fx-nvg #stage::after {
     background: linear-gradient(180deg, #140008 0%, #0a0005 100%);
     animation: tally-pulse 1.25s ease-in-out infinite;
     text-shadow: 0 0 10px rgba(255,0,85,0.9), 0 0 20px rgba(255,0,85,0.4);
+}
+
+/* ── SUBS.LANG// idle blink — draws user attention to click ── */
+@keyframes subs-lang-blink {
+    0%, 100% { opacity: 0.55; color: var(--text); border-color: var(--border); box-shadow: none; }
+    50%       { opacity: 1; color: var(--accent); border-color: var(--accent); box-shadow: 0 0 6px var(--accent-dim), 0 0 0 1px var(--theme-border); text-shadow: 0 0 6px var(--accent); }
+}
+#btn-slots-toggle:not(.opened) {
+    animation: subs-lang-blink 1.6s ease-in-out infinite;
+}
+#btn-slots-toggle.opened {
+    animation: none;
+    opacity: 1;
+    color: var(--accent);
+    border-color: var(--accent);
 }
 
 /* On-Air tally dot inside sec-head */
@@ -3612,10 +3720,12 @@ body.fullscreen #transcription-hud { pointer-events: none !important; } /* keep 
                 </div>
                 <div id="live-ctrls" style="display:none">
                     <div class="lbl" style="font-size:6.5px;opacity:0.4;letter-spacing:2px;margin-bottom:4px;">BROADCAST CONTROLS</div>
-                    <button class="btn rec" id="btn-rec">⏺ REC_BROADCAST</button>
-                    <button class="btn" id="btn-end" style="text-align:center;">■ END LIVE</button>
+                    <div class="bcast-block">
+                        <button class="btn rec bcast-btn" id="btn-rec">⏺ REC_BROADCAST</button>
+                        <button class="btn bcast-btn" id="btn-end">■ END LIVE</button>
+                    </div>
                 </div>
-                <button class="btn" id="btn-kill" style="display:none;color:var(--r)">SHUTDOWN CAM</button>
+                <button class="btn bcast-btn bcast-kill" id="btn-kill" style="display:none;">SHUTDOWN CAM</button>
             </div>
         </div>
         
@@ -3788,7 +3898,7 @@ body.fullscreen #transcription-hud { pointer-events: none !important; } /* keep 
                     <span id="mcr-status">STT: STANDBY</span>
                 </div>
                 <button id="btn-on-air" class="onair-pill">OFF-AIR</button>
-                <button id="btn-slots-toggle" class="btn" style="margin-top:5px;width:100%;font-size:8px;letter-spacing:1.5px;opacity:0.65;" onclick="var g=this.nextElementSibling;var o=g.classList.toggle('open');this.style.opacity=o?'1':'0.65';this.textContent=o?'SLOTS \u25B4':'SLOTS \u25BE';">SLOTS &#x25BE;</button>
+                <button id="btn-slots-toggle" class="btn" style="margin-top:5px;width:100%;font-size:8px;letter-spacing:1.5px;" onclick="var g=this.nextElementSibling;var o=g.classList.toggle('open');this.classList.toggle('opened',o);this.textContent=o?'SUBS.LANG// \u25B4':'SUBS.LANG// \u25BE';">SUBS.LANG// &#x25BE;</button>
                 <div class="slot-grid">
                     <div class="slot-row"><span class="slot-lbl">LANG 1</span><select class="slot-select" id="slot-1"><option value="OFF">OFF</option><option value="EN" selected>EN</option><option value="NL">NL</option><option value="ES">ES</option><option value="FR">FR</option><option value="ZH">ZH</option><option value="JA">JA</option><option value="AR">AR</option><option value="IT">IT</option><option value="DE">DE</option><option value="SCOUSE">SCOUSE</option></select></div>
                     <div class="slot-row"><span class="slot-lbl">LANG 2</span><select class="slot-select" id="slot-2"><option value="OFF" selected>OFF</option><option value="EN">EN</option><option value="NL">NL</option><option value="ES">ES</option><option value="FR">FR</option><option value="ZH">ZH</option><option value="JA">JA</option><option value="AR">AR</option><option value="IT">IT</option><option value="DE">DE</option><option value="SCOUSE">SCOUSE</option></select></div>
