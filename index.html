@@ -249,10 +249,10 @@
 
         /* MODE: solid — fixed fill, accent glow, subtle breathe + rare flicker  */
         #main-logo.logo-mode-solid {
-            mix-blend-mode: normal;
-            color: #fff;
-            text-shadow: 0 0 12px var(--accent), 0 0 30px rgba(0,243,255,0.15);
-            animation: logo-solid-breathe 4s ease-in-out infinite, logo-solid-flicker 9s infinite;
+            mix-blend-mode: normal !important;
+            color: #fff !important;
+            text-shadow: 0 0 12px var(--accent), 0 0 30px rgba(0,243,255,0.15) !important;
+            animation: logo-solid-breathe 4s ease-in-out infinite, logo-solid-flicker 9s infinite !important;
         }
         @keyframes logo-solid-breathe {
             0%, 100% { text-shadow: 0 0 10px var(--accent), 0 0 22px rgba(0,243,255,0.12); }
@@ -269,12 +269,12 @@
 
         /* MODE: knockout — stencil cut-out; letter shapes show through to bg   */
         #main-logo.logo-mode-knockout {
-            mix-blend-mode: normal;
-            color: transparent;
+            mix-blend-mode: normal !important;
+            color: transparent !important;
             -webkit-text-stroke: 1.5px var(--accent);
-            text-shadow: none;
+            text-shadow: none !important;
             filter: drop-shadow(0 0 6px rgba(0,243,255,0.35));
-            animation: logo-knockout-trace 3.5s ease-in-out infinite;
+            animation: logo-knockout-trace 3.5s ease-in-out infinite !important;
         }
         @keyframes logo-knockout-trace {
             0%, 100% { filter: drop-shadow(0 0 4px rgba(0,243,255,0.3));  -webkit-text-stroke-width: 1.5px; }
@@ -283,10 +283,10 @@
 
         /* MODE: inverted — mix-blend-mode:difference; auto white-on-black / black-on-white */
         #main-logo.logo-mode-inverted {
-            mix-blend-mode: difference;
-            color: #fff;
-            text-shadow: none;
-            animation: logo-invert-phase 5s ease-in-out infinite;
+            mix-blend-mode: difference !important;
+            color: #fff !important;
+            text-shadow: none !important;
+            animation: logo-invert-phase 5s ease-in-out infinite !important;
         }
         /* Subtle chromatic-shake rhythm cherry-picked from .m5 — very restrained */
         @keyframes logo-invert-phase {
@@ -11120,7 +11120,10 @@ function toggleSystemSlide() {
     log(isSlid ? 'SYSTEM_SLIDE: PANELS_OUT' : 'SYSTEM_SLIDE: PANELS_IN');
 }
 
-function morphLogo() { const logo = $('main-logo'); APP.ui.morphs.forEach(m => logo.classList.remove(m)); APP.ui.logoMorph = (APP.ui.logoMorph + 1) % APP.ui.morphs.length; logo.classList.add(APP.ui.morphs[APP.ui.logoMorph]); }
+function morphLogo() {
+    if (APP.ui.logoModeLocked) return; // respect logo mode lock
+    const logo = $('main-logo'); APP.ui.morphs.forEach(m => logo.classList.remove(m)); APP.ui.logoMorph = (APP.ui.logoMorph + 1) % APP.ui.morphs.length; logo.classList.add(APP.ui.morphs[APP.ui.logoMorph]);
+}
 
 // ═══ LOGO MODE CONFIG ══════════════════════════════════════════════════════
 // Three render modes for the DRIS//CORE brand logo.
@@ -11133,23 +11136,18 @@ window.VNGRD_CONFIG.logoMode = window.VNGRD_CONFIG.logoMode || 'solid'; // ← c
 window.applyLogoMode = function(mode) {
     var el = document.getElementById('main-logo');
     if (!el) return;
+    // Strip all morph and mode classes for a clean slate
+    var morphs = (window.APP && APP.ui && APP.ui.morphs) ? APP.ui.morphs : ['m1','m2','m3','m4','m5','m6'];
+    morphs.forEach(function(m) { el.classList.remove(m); });
     el.classList.remove('logo-mode-solid', 'logo-mode-knockout', 'logo-mode-inverted');
     if (mode === 'solid' || mode === 'knockout' || mode === 'inverted') {
         el.classList.add('logo-mode-' + mode);
+        if (window.APP && APP.ui) APP.ui.logoModeLocked = mode;
+    } else {
+        if (window.APP && APP.ui) APP.ui.logoModeLocked = null;
     }
     window.VNGRD_CONFIG.logoMode = mode;
 };
-// Apply on load
-(function() {
-    function _applyInitialLogoMode() {
-        if (window.applyLogoMode) window.applyLogoMode(window.VNGRD_CONFIG.logoMode);
-    }
-    if (document.readyState === 'loading') {
-        document.addEventListener('DOMContentLoaded', _applyInitialLogoMode);
-    } else {
-        _applyInitialLogoMode();
-    }
-})();
 // ───────────────────────────────────────────────────────────────────────────
 
 function updateClock() { $('clock').textContent = new Date().toTimeString().split(' ')[0]; const s = Math.floor((Date.now() - APP.state.startTime) / 1000); $('uptime').textContent = `${String(Math.floor(s/3600)).padStart(2,'0')}:${String(Math.floor((s%3600)/60)).padStart(2,'0')}:${String(s%60).padStart(2,'0')}`; }
@@ -11542,6 +11540,10 @@ document.addEventListener('DOMContentLoaded', () => {
 
     requestAnimationFrame(renderLoop);
     updateClock(); setInterval(updateClock, 1000); morphLogo(); setTimeout(morphLogo, 4000);
+    // Apply logo mode after morphLogo so mode wins and locks the cycle
+    if (window.VNGRD_CONFIG && window.VNGRD_CONFIG.logoMode && window.applyLogoMode) {
+        window.applyLogoMode(window.VNGRD_CONFIG.logoMode);
+    }
 
     // ── PHASE 1 (1s): COMPOSITOR + LAYERS — let UI settle first ──
     setTimeout(() => {
