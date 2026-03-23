@@ -8180,7 +8180,7 @@ const VanguardTracker = (() => {
 
     var _playing   = false;
     var _step      = 0;
-    var _schedId   = null;
+    var _proTimer  = null;   // ProScheduler interval handle
     var _visible   = false;
     var _dragging  = false;
     var _dragOffX  = 0, _dragOffY = 0;
@@ -8315,17 +8315,28 @@ const VanguardTracker = (() => {
             var rmNote = RENOISE_MAP[e.key]; // exact key match (case-sensitive)
             if (rmNote) {
                 e.preventDefault();
-                // Write note string directly — 'C-3' or 'C#3' etc.
                 e.target.value = rmNote;
                 _styleCellInput(e.target);
-                // Instant audio: window.synth('pluck', midiValue)
-                var midi = _rmNoteToMidi(rmNote);
-                if (typeof window.synth === 'function') {
-                    window.synth('pluck', midi, 0.65);
+                // Ensure AudioContext is running
+                if (!APP.audio.ctx) igniteAudio();
+                if (APP.audio.ctx && APP.audio.ctx.state === 'suspended') APP.audio.ctx.resume();
+                var ctx = APP.audio.ctx;
+                // Schedule at nextNoteTime if tracker is running, else immediate
+                var schedTime = (window.nextNoteTime && ctx && window.nextNoteTime > ctx.currentTime)
+                    ? window.nextNoteTime
+                    : (ctx ? ctx.currentTime + 0.01 : 0);
+                // Map 24 RENOISE keys → 4 kit pads (6 keys per pad: lower to higher)
+                var _rmKeys = ['z','s','x','d','c','v','g','b','h','n','j','m',
+                               'q','2','w','3','e','r','5','t','6','y','7','u'];
+                var rmIdx  = _rmKeys.indexOf(e.key);
+                var padIdx = Math.min(3, Math.max(0, Math.floor(rmIdx / 6)));
+                // Play PCM kit sample; InternalSynth fallback handled inside playBuffer
+                if (typeof KitManager !== 'undefined' && ctx) {
+                    KitManager.playBuffer(KitManager.getActiveKit(), padIdx, schedTime, 0.65);
                 } else {
-                    var freq = _rmNoteToFreq(rmNote);
-                    if (!APP.audio.ctx) igniteAudio();
-                    InternalSynth.triggerSweep(freq, 0.65, 0x80);
+                    var midi = _rmNoteToMidi(rmNote);
+                    if (typeof window.synth === 'function') window.synth('pluck', midi, 0.65);
+                    else InternalSynth.triggerSweep(_rmNoteToFreq(rmNote), 0.65, 0x80);
                 }
                 // Auto-advance: focus next row's NOTE cell
                 var nxt = _cell((step + 1) % ROWS, track, 'note');
@@ -8450,53 +8461,60 @@ const VanguardTracker = (() => {
         }).catch(function(e) { log('MIDI: DENIED ' + e.message); });
     }
 
-    // ── Sample-accurate polyphonic scheduler ──────────────────────────────
-    function _scheduleStep(schedTime) {
+    // ── SONIC-CORE ProScheduler — audioCtx.currentTime lookahead ─────────
+    // Runs every 25ms, queues all events within 100ms lookahead window.
+    // window.nextNoteTime is shared with NeuralCompiler so they never drift.
+    var SCHED_AHEAD = 0.10; // seconds to look ahead
+    var SCHED_TICK  = 25;   // ms between scheduler ticks
+
+    function _proTick() {
         if (!_playing) return;
         var ctx = APP.audio && APP.audio.ctx;
         if (!ctx) return;
+        while (window.nextNoteTime < ctx.currentTime + SCHED_AHEAD) {
+            _scheduleStepAt(window.nextNoteTime, _step);
+            _step = (_step + 1) % ROWS;
+            window.nextNoteTime += _stepDur();
+        }
+        _setPos(_step);
+    }
 
-        // Collect all track events for this step
+    function _scheduleStepAt(schedTime, stepIdx) {
+        var ctx = APP.audio.ctx;
         var events = [];
         for (var t = 0; t < TRACKS; t++) {
-            var padHex = _val(_step, t, 'pad');
+            var padHex = _val(stepIdx, t, 'pad');
             if (!padHex || padHex === '--') continue;
-            var volHex = _val(_step, t, 'vol');
-            var fxHex  = t === 0 ? _val(_step, 0, 'fx') : '--';
+            var volHex = _val(stepIdx, t, 'vol');
+            var fxHex  = t === 0 ? _val(stepIdx, 0, 'fx') : '--';
             events.push({
                 padNum: parseInt(padHex, 16),
-                freq:   _noteToFreq(_val(_step, t, 'note')) || 110,
+                freq:   _noteToFreq(_val(stepIdx, t, 'note')) || 110,
                 vol:    volHex && volHex !== '--' ? parseInt(volHex, 16) / 255 : 0.7,
                 fx:     fxHex && fxHex !== '--' ? parseInt(fxHex, 16) : 0
             });
         }
+        if (events.length === 0) return;
 
-        if (events.length > 0) {
-            var delay   = Math.max(0, schedTime - ctx.currentTime);
-            var curStep = _step;
-            var evSnap  = events.slice();
-            setTimeout(function() {
-                if (!_playing) return;
-                _highlightRow(curStep);
-                for (var i = 0; i < evSnap.length; i++) {
-                    var ev = evSnap[i];
-                    _firePad(ev.padNum, ev.vol, ev.freq, 0x80, 1, 0);
-                    if (i === 0) { // FX from track 0 only
-                        if (ev.fx === 0x01) _vjHeavySync();
-                        else if (ev.fx === 0x02 && APP && APP.vj) {
-                            APP.vj._punchSpring = Math.min(1, (APP.vj._punchSpring||0) + 0.8);
-                            APP.vj._punchDemoUntil = performance.now() + 800;
-                        } else if (ev.fx === 0x03 && typeof _partyMode === 'function') _partyMode();
-                    }
+        // Schedule visual highlight via setTimeout (display only — OK to drift slightly)
+        var delay   = Math.max(0, (schedTime - ctx.currentTime) * 1000);
+        var stepSnap = stepIdx;
+        var evSnap   = events.slice();
+        setTimeout(function() {
+            if (!_playing) return;
+            _highlightRow(stepSnap);
+            for (var i = 0; i < evSnap.length; i++) {
+                var ev = evSnap[i];
+                _firePad(ev.padNum, ev.vol, ev.freq, 0x80, 1, 0);
+                if (i === 0) {
+                    if (ev.fx === 0x01) _vjHeavySync();
+                    else if (ev.fx === 0x02 && APP && APP.vj) {
+                        APP.vj._punchSpring = Math.min(1, (APP.vj._punchSpring||0) + 0.8);
+                        APP.vj._punchDemoUntil = performance.now() + 800;
+                    } else if (ev.fx === 0x03 && typeof _partyMode === 'function') _partyMode();
                 }
-            }, delay * 1000);
-        }
-
-        _step = (_step + 1) % ROWS;
-        _setPos(_step);
-        var nextTime = schedTime + _stepDur();
-        _schedId = setTimeout(function() { _scheduleStep(nextTime); },
-            Math.max(0, (nextTime - ctx.currentTime - 0.06) * 1000));
+            }
+        }, delay);
     }
 
     function _highlightRow(idx) {
@@ -8572,14 +8590,14 @@ const VanguardTracker = (() => {
         _initDrag('vt-titlebar', _win());
         _getBpm();
         _initMIDI();
-        // Inject octave label into status bar once
+        // Inject kit label into status bar once
         var sb = document.querySelector('.vt-status-bar');
         if (sb && !document.getElementById('vt-kbd-octave')) {
             var octEl = document.createElement('span');
             octEl.id = 'vt-kbd-octave';
             octEl.className = 'vt-kbd-octave';
-            octEl.textContent = 'OCT:' + _kbdOctave;
-            octEl.title = 'Note-keyboard octave (+ / − to shift when NOTE cell focused)';
+            octEl.textContent = 'Z-M:KEYS';
+            octEl.title = 'RENOISE piano matrix: Z-M lower octave, Q-U upper octave';
             var autoRight = sb.querySelector('[style*="margin-left:auto"]');
             sb.insertBefore(octEl, autoRight || null);
         }
@@ -8603,16 +8621,18 @@ const VanguardTracker = (() => {
         if (ctx && ctx.state === 'suspended') ctx.resume();
         _playing = true;
         _step    = 0;
+        window.nextNoteTime = ctx.currentTime + 0.04;
         var playBtn = document.getElementById('vt-play-btn');
         if (playBtn) { playBtn.textContent = '■ STOP'; playBtn.classList.add('running'); }
         _setStatus('RUNNING');
-        _scheduleStep(ctx.currentTime + 0.04);
+        _proTick(); // immediate first scan
+        _proTimer = setInterval(_proTick, SCHED_TICK);
         log('VNGRD_TRACKER: PLAY ' + _getBpm() + 'BPM');
     }
 
     function stop() {
         _playing = false;
-        clearTimeout(_schedId);
+        if (_proTimer) { clearInterval(_proTimer); _proTimer = null; }
         var prev = document.querySelector('.vt-step-group.vt-active-group');
         if (prev) prev.classList.remove('vt-active-group');
         var playBtn = document.getElementById('vt-play-btn');
@@ -8685,6 +8705,147 @@ const Sampler = (() => {
 })();
 
 // ═══════════════════════════════════════════════════════════════
+//  KIT MANAGER — 5-Kit PCM engine with FreeSound assets
+//  Fetches sample-accurate AudioBuffers from FreeSound CDN.
+//  URL pattern: cdn.freesound.org/previews/{floor(id/1000)*1000}/{id}-lq.mp3
+//  ADSR: 0.005s linear ramp-out per sample. Normalized to -3 dB (×0.708).
+//  KitManager.setKit(n) / KitManager.playBuffer(kit, pad, schedTime, vol)
+// ═══════════════════════════════════════════════════════════════
+const KitManager = (() => {
+    const KITS = [
+        { name: 'INDUSTRIAL_CORE', pads: [
+            { label: 'KICK',    id: 411088 },
+            { label: 'SNARE',   id: 209861 },
+            { label: 'METAL',   id: 387346 },
+            { label: 'STEAM',   id: 418045 }
+        ]},
+        { name: 'OBSIDIAN_BOOM', pads: [
+            { label: 'SUB BOOM', id: 538148 },
+            { label: 'IMPACT',   id: 659357 },
+            { label: 'ATMOS',    id: 484344 },
+            { label: 'PLUCK',    id: 360662 }
+        ]},
+        { name: '808_PRIME', pads: [
+            { label: '808 KICK', id: 567563 },
+            { label: '808 SNARE',id: 387087 },
+            { label: '808 HAT',  id: 251961 },
+            { label: '808 CLAP', id: 448568 }
+        ]},
+        { name: 'GLITCH_LAB', pads: [
+            { label: 'CLICK',   id: 204533 },
+            { label: 'SKIP',    id: 462264 },
+            { label: 'ZAP',     id: 243601 },
+            { label: 'BURST',   id: 262616 }
+        ]},
+        { name: 'ETHER_PAD', pads: [
+            { label: 'PAD 1',   id: 447910 },
+            { label: 'PAD 2',   id: 396564 },
+            { label: 'SWIRL',   id: 415663 },
+            { label: 'DRONE',   id: 536095 }
+        ]}
+    ];
+
+    var _activeKit = 0;
+    var _buffers   = KITS.map(function() { return [null,null,null,null]; });
+    var _loading   = KITS.map(function() { return [null,null,null,null]; });
+
+    function _url(id) {
+        return 'https://cdn.freesound.org/previews/' +
+               (Math.floor(id / 1000) * 1000) + '/' + id + '-lq.mp3';
+    }
+
+    function _loadPad(kitIdx, padIdx) {
+        if (_loading[kitIdx][padIdx]) return _loading[kitIdx][padIdx];
+        var id  = KITS[kitIdx].pads[padIdx].id;
+        var url = _url(id);
+        _loading[kitIdx][padIdx] = fetch(url)
+            .then(function(r) {
+                if (!r.ok) throw new Error('HTTP ' + r.status);
+                return r.arrayBuffer();
+            })
+            .then(function(ab) {
+                var ctx = APP.audio && APP.audio.ctx;
+                if (!ctx) throw new Error('no AudioContext');
+                return ctx.decodeAudioData(ab);
+            })
+            .then(function(buf) {
+                _buffers[kitIdx][padIdx] = buf;
+                return buf;
+            })
+            .catch(function(e) {
+                log('KIT[' + KITS[kitIdx].name + '] pad' + padIdx + ': ' + e.message);
+                return null;
+            });
+        return _loading[kitIdx][padIdx];
+    }
+
+    function preload(kitIdx) {
+        for (var p = 0; p < 4; p++) _loadPad(kitIdx, p);
+    }
+
+    // Play PCM buffer at precise audioCtx time. Falls back to InternalSynth if not loaded.
+    function playBuffer(kitIdx, padIdx, schedTime, vol) {
+        var ctx = APP.audio && APP.audio.ctx;
+        if (!ctx) return;
+        var buf = _buffers[kitIdx] && _buffers[kitIdx][padIdx];
+        if (!buf) {
+            // Trigger async load; InternalSynth fallback
+            _loadPad(kitIdx, padIdx);
+            var fallbackFreqs = [60, 110, 220, 440];
+            InternalSynth.triggerSweep(fallbackFreqs[padIdx] || 110, vol || 0.8, 0x80);
+            return;
+        }
+        var targetVol = (typeof vol === 'number' ? vol : 0.8) * 0.708; // -3 dB
+        var gain = ctx.createGain();
+        gain.gain.setValueAtTime(targetVol, schedTime);
+        // 5ms linear ramp-out at end to prevent digital click
+        var endTime = schedTime + buf.duration;
+        gain.gain.setValueAtTime(targetVol, endTime - 0.005);
+        gain.gain.linearRampToValueAtTime(0, endTime + 0.002);
+        gain.connect(APP.audio.masterGain || ctx.destination);
+
+        var src = ctx.createBufferSource();
+        src.buffer = buf;
+        src.connect(gain);
+        src.start(schedTime);
+        src.stop(endTime + 0.01);
+
+        // audioReactiveData handshake
+        if (!window.audioReactiveData) window.audioReactiveData = {};
+        window.audioReactiveData.padName      = KITS[kitIdx].name + ':' + KITS[kitIdx].pads[padIdx].label;
+        window.audioReactiveData.padVol       = targetVol;
+        window.audioReactiveData.lastTriggerTs = performance.now();
+        // Kick/sub pads (index 0) → seismic
+        if (padIdx === 0 && APP && APP.vj) {
+            APP.vj._seismicVel = (APP.vj._seismicVel || 0) + (vol || 0.8) * 1.4;
+            APP.vj._seismicDemoUntil = performance.now() + 1800;
+            APP.vj._punchSpring = Math.min(1, (APP.vj._punchSpring || 0) + 0.7 * (vol || 0.8));
+            APP.vj._punchDemoUntil = performance.now() + 1800;
+        } else { _vjHeavySync(); }
+    }
+
+    function setKit(idx) {
+        _activeKit = Math.max(0, Math.min(KITS.length - 1, idx | 0));
+        preload(_activeKit);
+        log('KITMAN: active=' + KITS[_activeKit].name);
+    }
+
+    function getActiveKit()           { return _activeKit; }
+    function getKitName(idx)          { return KITS[idx != null ? idx : _activeKit].name; }
+    function getPadLabel(kit, pad)    { return (KITS[kit] && KITS[kit].pads[pad]) ? KITS[kit].pads[pad].label : '---'; }
+    function getKitCount()            { return KITS.length; }
+
+    // Auto-preload kit 0 when AudioContext becomes available
+    document.addEventListener('click', function _kitInit() {
+        document.removeEventListener('click', _kitInit);
+        if (APP.audio && APP.audio.ctx) preload(0);
+        else setTimeout(function() { if (APP.audio && APP.audio.ctx) preload(0); }, 500);
+    }, { once: false });
+
+    return { preload, playBuffer, setKit, getActiveKit, getKitName, getPadLabel, getKitCount, KITS };
+})();
+
+// ═══════════════════════════════════════════════════════════════
 //  NEURAL COMPILER v3 — eval()-based Live-Coding Engine
 //  APIs: loop(bpm, fn)  p(n).play(vol)  synth(note, type)
 //  Shift+Enter to execute. Routes audio through InternalSynth
@@ -8712,13 +8873,21 @@ const NeuralCompiler = (() => {
         'C-6':1046.5,'D-6':1174.7,'E-6':1318.5
     };
 
+    // ── Async sequential demo — one cycle, auto-loops via temporal recursion ─
     var _PRELOAD =
-'loop(124, () => {\n' +
-'  p(0).play(0.9);              // Deep Kick  (liq1)\n' +
-'  if (beat % 4 === 2) p(1).play(0.6);  // Snare (liq2)\n' +
-'  if (beat % 8 === 0) synth(\'C2\', \'sub\');  // Harmonic sub\n' +
-'  if (beat % 16 === 8) synth(\'G2\', \'boom\'); // Boom accent\n' +
-'});';
+'// IDM CORE — one cycle, auto-loops (Shift+Enter to run)\n' +
+'bpm(124);\n' +
+'play(0, 0.9);              // Kick  (kit pad 0)\n' +
+'await beat(1);\n' +
+'play(1, 0.65);             // Snare (kit pad 1)\n' +
+'synth(\'pluck\', \'E-4\', 0.5); // Luma_Bloom burst\n' +
+'await beat(1);\n' +
+'play(0, 0.8);\n' +
+'play(2, 0.4);              // Hat  (kit pad 2)\n' +
+'await beat(0.5);\n' +
+'play(1, 0.6);\n' +
+'synth(\'sub\', \'C-2\', 0.7);  // Sub bass → seismic\n' +
+'await beat(0.5);';
 
     function _win() { return document.getElementById('nc-window'); }
     function _out() { return document.getElementById('nc-output'); }
@@ -8764,56 +8933,104 @@ const NeuralCompiler = (() => {
         else                    InternalSynth.triggerSub(freq, 0.8, 0x80);
     }
 
-    // loop(bpm, fn) — setInterval loop; exposes beat count via window.loopBeat
+    // ── bpm(v) — sets global BPM and syncs tracker input ─────────────────
+    function _ncBpmSet(v) {
+        var b = Math.max(20, Math.min(300, v | 0));
+        window.currentBPM = b;
+        var inp = document.getElementById('vt-bpm');
+        if (inp) { inp.value = b; inp.dispatchEvent(new Event('change')); }
+    }
+
+    // ── loop(bpm, fn) — beat-aligned callback loop (backward compat) ──────
     function _ncLoop(bpm, fn) {
         _stopLoop();
+        _ncBpmSet(bpm);
         _ncBeat = 0;
         var ms = Math.round(60000 / Math.max(20, Math.min(300, bpm)) / 4);
-        window.currentBPM = bpm;
-        var bpmInp = document.getElementById('vt-bpm');
-        if (bpmInp) { bpmInp.value = bpm; bpmInp.dispatchEvent(new Event('change')); }
         _loopId = setInterval(function() {
-            window.loopBeat = _ncBeat; // beat counter for loop() callbacks
+            window.loopBeat = _ncBeat;
             try { fn(_ncBeat); } catch(e) { _ncLog('ERR: ' + e.message, 'nc-err'); _stopLoop(); }
             _ncBeat++;
         }, ms);
-        _ncLog('LOOP @ ' + bpm + 'BPM — step 0↑', 'nc-ok');
+        _ncLog('LOOP @ ' + bpm + 'BPM', 'nc-ok');
         var cs = document.getElementById('nc-clock-status');
         if (cs) cs.textContent = 'LOOP: ' + bpm + 'BPM';
     }
 
     function _stopLoop() {
+        window._ncLoopActive = false;
         if (_loopId) { clearInterval(_loopId); _loopId = null; }
         _ncBeat = 0; window.loopBeat = 0;
         var cs = document.getElementById('nc-clock-status');
         if (cs) cs.textContent = 'LOOP: IDLE';
     }
 
-    // ── Async _run(): transpiles beat( → await beat(, wraps in async IIFE ─
+    // ── Temporal recursion engine (Sonic Pi style) ────────────────────────
+    // Re-executes _ncCurrentCode after each async cycle completes.
+    // Hot-swap: updating _ncCurrentCode takes effect on the next iteration.
+    var _ncCurrentCode = null;
+
+    function _ncTemporalLoop() {
+        if (!window._ncLoopActive) return;
+        var code = _ncCurrentCode;
+        if (!code) return;
+        try {
+            var transpiled = code.replace(/\bbeat\(/g, 'await beat(');
+            var wrapped    = 'return (async () => {\n' + transpiled + '\n})();';
+            // APIs exposed to user code: p, synth, play, beat, bpm, loop
+            var fn = new Function('p', 'synth', 'play', 'beat', 'bpm', 'loop', wrapped);
+            var promise = fn(_ncP, window.synth, window.play, window.beat, _ncBpmSet, _ncLoop);
+            if (promise && typeof promise.then === 'function') {
+                promise
+                    .then(function() {
+                        if (window._ncLoopActive) {
+                            _ncTemporalLoop(); // re-execute with latest _ncCurrentCode
+                        } else {
+                            _ncLog('✓ SEQUENCE COMPLETE', 'nc-ok');
+                            var cs = document.getElementById('nc-clock-status');
+                            if (cs) cs.textContent = 'LOOP: IDLE';
+                        }
+                    })
+                    .catch(function(e) {
+                        _ncLog('ERR: ' + e.message, 'nc-err');
+                        window._ncLoopActive = false;
+                        var cs = document.getElementById('nc-clock-status');
+                        if (cs) cs.textContent = 'LOOP: ERR';
+                    });
+            } else {
+                // Sync code — still recurse if active
+                if (window._ncLoopActive) _ncTemporalLoop();
+            }
+        } catch(e) {
+            _ncLog('ERR: ' + e.message, 'nc-err');
+            window._ncLoopActive = false;
+        }
+    }
+
+    // ── _run(): execute or hot-swap editor code ───────────────────────────
     function _run() {
         var ed = _editor(); if (!ed) return;
         var code = ed.value.trim();
         if (!code) return;
-        _stopLoop();
-        _ncLog('─── RUN ───────────────────────────────', 'nc-sys');
-        try {
-            if (!APP.audio.ctx) igniteAudio();
-            if (APP.audio.ctx && APP.audio.ctx.state === 'suspended') APP.audio.ctx.resume();
-            // Transpile: every bare beat( call becomes await beat(
-            var transpiled = code.replace(/\bbeat\(/g, 'await beat(');
-            // Wrap in async IIFE so await works at top level
-            var wrapped = 'return (async () => {\n' + transpiled + '\n})();';
-            var fn = new Function('p', 'synth', 'loop', 'beat', wrapped);
-            var promise = fn(_ncP, _ncSynth, _ncLoop, window.beat);
-            if (promise && typeof promise.then === 'function') {
-                promise
-                    .then(function() { if (!_loopId) _ncLog('✓ SEQUENCE COMPLETE', 'nc-ok'); })
-                    .catch(function(e) { _ncLog('ERR: ' + e.message, 'nc-err'); });
-            }
-            _ncLog('✓ RUNNING (async)...', 'nc-ok');
-        } catch(e) {
-            _ncLog('ERR: ' + e.message, 'nc-err');
+        if (!APP.audio.ctx) igniteAudio();
+        if (APP.audio.ctx && APP.audio.ctx.state === 'suspended') APP.audio.ctx.resume();
+
+        if (window._ncLoopActive) {
+            // Hot-swap: update code; takes effect when current iteration ends
+            _ncCurrentCode = code;
+            _ncLog('↺ HOT-SWAP on next cycle', 'nc-sys');
+            return;
         }
+
+        // Stop any legacy setInterval loop
+        if (_loopId) { clearInterval(_loopId); _loopId = null; }
+        _ncCurrentCode = code;
+        window._ncLoopActive = true;
+        _ncLog('─── RUN ───────────────────────────────', 'nc-sys');
+        _ncLog('✓ RUNNING (temporal recursion)...', 'nc-ok');
+        var cs = document.getElementById('nc-clock-status');
+        if (cs) cs.textContent = 'LOOP: RUN';
+        _ncTemporalLoop();
     }
 
     function _initDrag() {
@@ -8868,8 +9085,8 @@ const NeuralCompiler = (() => {
         if (_visible) {
             _initDrag();
             _initInput();
-            _ncLog('NEURAL_COMPILER v3 READY — Shift+Enter to run', 'nc-sys');
-            _ncLog('APIs: loop(bpm, fn)  p(n).play(vol)  synth(note, type)', 'nc-sys');
+            _ncLog('NEURAL_COMPILER v3 READY — Shift+Enter to run / re-run to hot-swap', 'nc-sys');
+            _ncLog('APIs: bpm(n) play(n,v) synth(t,n,v) beat(n) loop(bpm,fn) p(n).play(v)', 'nc-sys');
             var ed = _editor(); if (ed) ed.focus();
         } else {
             _stopLoop();
@@ -8887,9 +9104,18 @@ const NeuralCompiler = (() => {
 //  window.currentBPM      — live BPM (kept in sync with tracker input)
 // ═══════════════════════════════════════════════════════════════
 
-// ── window.beat — Promise-based timing engine (as per spec) ──────────
+// ── Shared precision clock globals ───────────────────────────────────
+// nextNoteTime: shared between VanguardTracker ProScheduler and NeuralCompiler
+//   so both systems stay on the same beat grid without drift.
+// _ncLoopActive: NeuralCompiler temporal recursion flag.
+//   true  = keep re-executing editor code after each cycle (hot-swap safe)
+//   false = stop after current cycle finishes
+window.nextNoteTime   = 0;
+window._ncLoopActive  = false;
+
+// ── window.beat — Promise-based timing engine ─────────────────────────
 // beat(v) resolves after v beats at window.currentBPM.
-// Used as: await beat(1)  await beat(0.33)  await beat(0.5)
+// Used as: await beat(1)  await beat(0.5)
 // NeuralCompiler transpiles bare beat( → await beat( before eval().
 window.currentBPM = 120;
 window.beat = function(v) {
