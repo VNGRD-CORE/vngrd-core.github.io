@@ -1979,6 +1979,7 @@
             border: 1px solid #252535 !important;
             border-radius: 2px !important;
             font-family: 'Orbitron', sans-serif !important;
+            font-size: 9px !important;
             font-weight: 700 !important;
             letter-spacing: 2px !important;
             text-align: center !important;
@@ -2437,8 +2438,8 @@ body.shooting-mode #btn-shooting {
             height: 180px !important; max-height: 40vh !important;
         }
         #ghost-close-btn { display: block !important; }
-        #btn-ghost-mic.on { color: var(--accent) !important; border-color: var(--accent) !important; box-shadow: 0 0 8px rgba(0,243,255,0.4); animation: mic-pulse 1.4s ease-in-out infinite; }
-        @keyframes mic-pulse { 0%,100%{opacity:1} 50%{opacity:0.55} }
+        #btn-ghost-mic.on { color: var(--accent) !important; border-color: var(--accent) !important; background: rgba(0,243,255,0.08) !important; box-shadow: 0 0 8px rgba(0,243,255,0.5), 0 0 0 1px rgba(0,243,255,0.25) !important; text-shadow: 0 0 6px var(--accent); animation: mic-pulse 1.4s ease-in-out infinite; }
+        @keyframes mic-pulse { 0%,100%{opacity:1; box-shadow: 0 0 8px rgba(0,243,255,0.5), 0 0 0 1px rgba(0,243,255,0.25);} 50%{opacity:0.65; box-shadow: 0 0 4px rgba(0,243,255,0.2), 0 0 0 1px rgba(0,243,255,0.1);} }
         #top-center-controls button { font-size: 7px; padding: 2px 7px; }
     }
 
@@ -2504,13 +2505,15 @@ body.fx-scan #stage::after {
 }
 
 /* 2. TEAR (Horizontal Data Glitch) */
-.fx-tear {
-    animation: tear-shake 0.2s steps(2) infinite;
+/* body.fx-tear is only a state flag — visual is rendered directly into canvas pixels */
+/* Shake is scoped to the canvas element only, not the whole console */
+body.fx-tear #vj-canvas {
+    animation: tear-shake 0.18s steps(2) infinite;
 }
 @keyframes tear-shake {
-    0% { transform: translate(3px,0) skew(1deg); filter: contrast(1.5) hue-rotate(45deg); }
-    50% { transform: translate(-3px,0) skew(-1deg); filter: contrast(2) brightness(1.2); }
-    100% { transform: translate(0,0); }
+    0%   { transform: translate(3px, 0); }
+    50%  { transform: translate(-3px, 0); }
+    100% { transform: translate(0, 0); }
 }
 
 
@@ -2779,6 +2782,14 @@ body.fx-nvg #stage::after {
 #btn-slots-toggle.opened {
     animation: none;
     opacity: 1;
+}
+/* Suppress all hover glow on slots toggle — text-only interaction */
+#btn-slots-toggle:hover {
+    border-color: var(--border) !important;
+    box-shadow: none !important;
+    text-shadow: none !important;
+    transform: none !important;
+    background: linear-gradient(180deg, #151520 0%, #0d0d14 100%) !important;
 }
 
 /* On-Air tally dot inside sec-head */
@@ -5038,10 +5049,18 @@ var GHOST = {
         // Camera & Live
         if (c.match(/camera|cam|webcam|init cam/)) return 'camera_help';
         if (c.match(/go live|start live|broadcast|stream|countdown/)) return 'golive_help';
+        if (c.match(/^(record|rec|start rec(ording)?|stop rec(ording)?)$/)) return 'record_toggle';
         if (c.match(/record|rec|capture/)) return 'record_help';
         if (c.match(/kill|shutdown|stop cam|end cam/)) return 'kill_help';
 
-        // FX & Visuals
+        // FX & Visuals — OFF variants must come before toggle variants
+        if (c.match(/^(void|grayscale|grey|gray|desaturate)\s+(off|stop|disable)$/)) return 'fx_off';
+        if (c.match(/^(lucy|hallucin|psychedelic|trippy|acid)\s+(off|stop|disable)$/)) return 'fx_off';
+        if (c.match(/^(xray|x-ray|scan|skeleton)\s+(off|stop|disable)$/)) return 'fx_off';
+        if (c.match(/^(tear|rip|displace)\s+(off|stop|disable)$/)) return 'fx_off';
+        if (c.match(/^(punch|hit|impact)\s+(off|stop|disable)$/)) return 'fx_off';
+        if (c.match(/^(nvg|night.?vision|thermal)\s+(off|stop|disable)$/)) return 'fx_off';
+        if (c.match(/^(vhs|retro|analog|tape)\s+(off|stop|disable)$/)) return 'fx_off';
         if (c.match(/^(shatter|break|glass|fracture|smash)$/)) return 'shatter';
         if (c.match(/^(crush|rgb|split|glitch)$/)) return 'crush';
         if (c.match(/^(stutter|trails?|echo)$/)) return 'stutter';
@@ -5347,6 +5366,38 @@ function processGhostCommand(cmd, voiceMode) {
                 if ($('btn-rumble')) $('btn-rumble').click();
                 ghostLog('SEISMIC: ' + (APP.vj.rumbleEnabled ? 'ARMED' : 'OFF'), APP.vj.rumbleEnabled ? 'success' : 'ai');
                 break;
+
+            case 'record_toggle': {
+                var _lc = $('live-ctrls');
+                if (!_lc || _lc.style.display === 'none') {
+                    ghostLog('REC: go live first to enable recording', 'crit');
+                } else {
+                    var _wasRec = APP.broadcast.isRecording;
+                    $('btn-rec').click();
+                    ghostLog(_wasRec ? 'REC: STOPPED — saving clip' : 'REC: RECORDING STARTED', _wasRec ? 'ai' : 'success');
+                }
+                break;
+            }
+
+            case 'fx_off': {
+                // Parse FX keyword (first word of "nvg off", "tear off", etc.)
+                var _fxWord = c.split(/\s+/)[0];
+                var _fxMap = { void:'void', grayscale:'void', grey:'void', gray:'void', lucy:'lucy',
+                               xray:'scan', scan:'scan', skeleton:'scan', tear:'tear', rip:'tear',
+                               punch:'punch', hit:'punch', nvg:'nvg', vhs:'vhs', retro:'vhs', tape:'vhs' };
+                var _fxId = _fxMap[_fxWord];
+                if (_fxId) {
+                    var _cls = 'fx-' + _fxId;
+                    if (document.body.classList.contains(_cls)) {
+                        if (_fxId === 'vhs') { if (typeof toggleVHS === 'function') toggleVHS(); }
+                        else { if (typeof toggleFX === 'function') toggleFX(_fxId); }
+                        ghostLog(_fxWord.toUpperCase() + ': OFF', 'ai');
+                    } else {
+                        ghostLog(_fxWord.toUpperCase() + ': already off', 'ai');
+                    }
+                }
+                break;
+            }
 
             case 'failure':
                 if ($('btn-psychosis')) $('btn-psychosis').click();
@@ -5743,6 +5794,16 @@ function drawMediaStripToggle(ctx, w, h) {
     var tabX = (w - tabW) / 2;
     var tabY = h - tabH;
 
+    // Always store hit zone so click interaction works even during recording
+    if (!APP.state.mediaStripToggleZone) APP.state.mediaStripToggleZone = {};
+    APP.state.mediaStripToggleZone.x = tabX;
+    APP.state.mediaStripToggleZone.y = tabY;
+    APP.state.mediaStripToggleZone.w = tabW;
+    APP.state.mediaStripToggleZone.h = tabH;
+
+    // During recording: skip drawing the arrow so it doesn't appear in the output
+    if (APP.broadcast && APP.broadcast.isRecording) return tabH;
+
     ctx.save();
     ctx.globalCompositeOperation = 'source-over';
 
@@ -5774,13 +5835,6 @@ function drawMediaStripToggle(ctx, w, h) {
     ctx.shadowBlur = 0;
 
     ctx.restore();
-
-    // Store hit zone
-    if (!APP.state.mediaStripToggleZone) APP.state.mediaStripToggleZone = {};
-    APP.state.mediaStripToggleZone.x = tabX;
-    APP.state.mediaStripToggleZone.y = tabY;
-    APP.state.mediaStripToggleZone.w = tabW;
-    APP.state.mediaStripToggleZone.h = tabH;
 
     return tabH;
 }
