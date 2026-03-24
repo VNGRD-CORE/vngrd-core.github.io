@@ -3986,14 +3986,14 @@ body.fullscreen #transcription-hud { pointer-events: none !important; } /* keep 
             <div class="sec-body" id="lexica-nano-body">
                 <div class="lbl" style="font-size:7px;opacity:0.5;margin-bottom:2px;">MODEL</div>
                 <select class="inp" id="ai-model-select" style="font-size:8px;padding:4px;background:var(--panel);border:1px solid var(--border);color:var(--text);margin-bottom:4px;">
-                    <option value="flux" selected>FLUX [FREE/DEFAULT]</option>
-                    <option value="gptimage">GPT IMAGE</option>
-                    <option value="seedream">SEEDREAM</option>
-                    <option value="dirtberry">DIRTBERRY [REALISTIC]</option>
-                    <option value="nanobanana">NANOBANANA</option>
-                    <option value="flux-anime">FLUX ANIME STYLE</option>
-                    <option value="flux-3d">FLUX 3D STYLE</option>
+                    <option value="flux" selected>FLUX [DEFAULT]</option>
+                    <option value="flux-anime">FLUX ANIME</option>
+                    <option value="flux-3d">FLUX 3D</option>
                     <option value="flux-cinematic">FLUX CINEMATIC</option>
+                    <option value="dirtberry">FLUX REALISM</option>
+                    <option value="gptimage">TURBO [FAST]</option>
+                    <option value="seedream">DREAMLIKE</option>
+                    <option value="nanobanana">SURREAL</option>
                 </select>
                 <div style="display:flex;align-items:center;gap:4px;margin-bottom:3px;">
                     <span id="ai-key-toggle" title="API key settings" style="cursor:pointer;font-size:9px;opacity:0.35;user-select:none;">&#x2699;</span>
@@ -15340,9 +15340,9 @@ var isVideo = nft.forceVideo || (imageUrl.toLowerCase().match(/\.(mp4|webm|mov|o
     };
 
     // ═══════════════════════════════════════════════════════════════════
-    // AI IMAGE GENERATOR v10 — multi-provider cascade, always free.
-    // Chain: Pollinations.AI → Pollinations (alt model) → Puter.AI
-    // No API key required. Falls through automatically on any failure.
+    // AI IMAGE GENERATOR v11 — Pollinations.AI cascade, 100% free.
+    // Uses fetch → blob URL (sidesteps all CORS/canvas-taint issues).
+    // Puter.AI removed — it requires a paid account.
     // ═══════════════════════════════════════════════════════════════════
     var _aiGenerating = false;
 
@@ -15378,80 +15378,50 @@ var isVideo = nft.forceVideo || (imageUrl.toLowerCase().match(/\.(mp4|webm|mov|o
         log('AI: INJECTED >> ' + label);
     }
 
-    // ── Shared: load an image from a URL, return HTMLImageElement ──────
-    function _aiLoadUrl(url) {
-        return new Promise(function(res, rej) {
-            var img = new Image();
-            img.crossOrigin = 'anonymous';
-            img.onload = function() { res(img); };
-            img.onerror = function() { rej(new Error('IMG_LOAD_FAILED')); };
-            img.src = url;
-        });
+    // ── fetch URL → blob URL → loaded HTMLImageElement ─────────────────
+    // Blob URL is same-origin, so drawImage() on canvas never taints it.
+    async function _aiLoadUrl(url, timeoutMs) {
+        var controller = new AbortController();
+        var tid = setTimeout(function() { controller.abort(); }, timeoutMs || 90000);
+        try {
+            var resp = await fetch(url, { signal: controller.signal });
+            if (!resp.ok) throw new Error('HTTP ' + resp.status);
+            var blob = await resp.blob();
+            var blobUrl = URL.createObjectURL(blob);
+            return await new Promise(function(res, rej) {
+                var img = new Image();
+                img.onload = function() { res(img); };
+                img.onerror = function() { URL.revokeObjectURL(blobUrl); rej(new Error('BLOB_DECODE_FAILED')); };
+                img.src = blobUrl;
+            });
+        } finally {
+            clearTimeout(tid);
+        }
     }
 
-    // ── Map UI model selector to Pollinations model name + style suffix ─
-    function _aiModelParams(modelKey, prompt) {
-        var map = {
-            'flux':           { model: 'flux',   extra: '' },
-            'flux-anime':     { model: 'flux',   extra: ', anime style, cel shading' },
-            'flux-3d':        { model: 'flux',   extra: ', 3D render, octane, studio lighting' },
-            'flux-cinematic': { model: 'flux',   extra: ', cinematic film still, anamorphic lens' },
-            'gptimage':       { model: 'turbo',  extra: '' },
-            'seedream':       { model: 'flux',   extra: ', dreamy, soft light, painterly' },
-            'dirtberry':      { model: 'flux',   extra: ', photorealistic, RAW photo, 8k' },
-            'nanobanana':     { model: 'flux',   extra: ', vibrant colors, surreal' }
-        };
-        var p = map[modelKey] || map['flux'];
-        return { model: p.model, fullPrompt: prompt + p.extra };
-    }
+    // ── Pollinations model map (real model names) ──────────────────────
+    var _pollinationsModels = {
+        'flux':           { model: 'flux',            extra: '' },
+        'flux-anime':     { model: 'flux-anime',      extra: '' },
+        'flux-3d':        { model: 'flux-3d',         extra: '' },
+        'flux-cinematic': { model: 'flux-cinematic',  extra: '' },
+        'gptimage':       { model: 'turbo',           extra: '' },
+        'seedream':       { model: 'flux',            extra: ', dreamy, painterly, soft light' },
+        'dirtberry':      { model: 'flux-realism',    extra: '' },
+        'nanobanana':     { model: 'flux',            extra: ', vivid surreal colors' }
+    };
 
-    // ── ENGINE 1: Pollinations.AI — free, no auth, URL-based ───────────
-    async function _aiPollinationsGenerate(prompt, modelKey) {
-        var params = _aiModelParams(modelKey || 'flux', prompt);
+    // ── Build Pollinations URL ─────────────────────────────────────────
+    function _polUrl(promptText, modelName) {
         var seed = Math.floor(Math.random() * 2147483647);
-        var url = 'https://image.pollinations.ai/prompt/' +
-            encodeURIComponent(params.fullPrompt) +
-            '?model=' + params.model +
+        return 'https://image.pollinations.ai/prompt/' +
+            encodeURIComponent(promptText) +
+            '?model=' + encodeURIComponent(modelName) +
             '&width=1024&height=1024&seed=' + seed +
-            '&nologo=true&enhance=false';
-        _aiStatus('GENERATING [POLLINATIONS]...', 'var(--v)');
-        log('AI: [POLLINATIONS/' + params.model.toUpperCase() + '] >> ' + params.fullPrompt);
-        return await _aiLoadUrl(url);
+            '&nologo=true&enhance=false&safe=false';
     }
 
-    // ── ENGINE 2: Pollinations turbo fallback ──────────────────────────
-    async function _aiPollinationsTurbo(prompt) {
-        var seed = Math.floor(Math.random() * 2147483647);
-        var url = 'https://image.pollinations.ai/prompt/' +
-            encodeURIComponent(prompt) +
-            '?model=turbo&width=1024&height=1024&seed=' + seed +
-            '&nologo=true';
-        _aiStatus('TRYING TURBO...', 'var(--y)');
-        log('AI: [POLLINATIONS/TURBO] >> ' + prompt);
-        return await _aiLoadUrl(url);
-    }
-
-    // ── ENGINE 3: Puter.AI — last resort ──────────────────────────────
-    async function _aiPuterGenerate(prompt) {
-        _aiStatus('TRYING PUTER.AI...', 'var(--y)');
-        log('AI: [PUTER.AI/TXT2IMG] >> ' + prompt);
-        // Intercept any balance/upgrade dialogs Puter may open
-        var _origOpen = window.open;
-        window.open = function() { return null; };
-        var dataUrl;
-        try { dataUrl = await puter.ai.txt2img(prompt); }
-        finally { window.open = _origOpen; }
-        var img = new Image();
-        img.crossOrigin = 'anonymous';
-        await new Promise(function(res, rej) {
-            img.onload = res;
-            img.onerror = function() { rej(new Error('IMG_DECODE_FAILED')); };
-            img.src = typeof dataUrl === 'string' ? dataUrl : (dataUrl.src || dataUrl);
-        });
-        return img;
-    }
-
-    // ── MAIN: cascade through all engines until one succeeds ───────────
+    // ── MAIN: try selected model, then turbo, then flux as final fallback
     async function aiGenerate(prompt) {
         if (!prompt) { _aiStatus('TYPE A PROMPT', 'var(--y)'); return; }
         if (_aiGenerating) return;
@@ -15463,34 +15433,42 @@ var isVideo = nft.forceVideo || (imageUrl.toLowerCase().match(/\.(mp4|webm|mov|o
         if (neuralDot) neuralDot.classList.remove('off');
 
         var modelSel = document.getElementById('ai-model-select');
-        var modelKey = modelSel ? modelSel.value : 'flux';
+        var key = (modelSel ? modelSel.value : 'flux') || 'flux';
+        var mp = _pollinationsModels[key] || _pollinationsModels['flux'];
+        var fullPrompt = prompt + (mp.extra || '');
 
-        var providers = [
-            { name: 'POLLINATIONS',       fn: function() { return _aiPollinationsGenerate(prompt, modelKey); } },
-            { name: 'POLLINATIONS/TURBO', fn: function() { return _aiPollinationsTurbo(prompt); } },
-            { name: 'PUTER.AI',           fn: function() { return _aiPuterGenerate(prompt); } }
+        var tries = [
+            { label: mp.model.toUpperCase(),  url: _polUrl(fullPrompt, mp.model) },
+            { label: 'TURBO',                 url: _polUrl(prompt, 'turbo') },
+            { label: 'FLUX',                  url: _polUrl(prompt, 'flux') }
         ];
+        // Deduplicate (if selected model is already turbo/flux)
+        var seen = {};
+        tries = tries.filter(function(t) {
+            if (seen[t.url]) return false;
+            seen[t.url] = true; return true;
+        });
 
         var lastErr = null;
-        for (var i = 0; i < providers.length; i++) {
+        for (var i = 0; i < tries.length; i++) {
             try {
-                _aiStatus('TRYING ' + providers[i].name + '...', 'var(--v)');
-                var img = await providers[i].fn();
+                _aiStatus('GENERATING [' + tries[i].label + ']...', 'var(--v)');
+                log('AI: [POLLINATIONS/' + tries[i].label + '] >> ' + fullPrompt);
+                var img = await _aiLoadUrl(tries[i].url, 90000);
                 _aiInject(img, prompt);
                 _aiDone(btn);
-                _aiStatus('DONE [' + providers[i].name + ']', 'var(--g)');
-                log('AI: SUCCESS via ' + providers[i].name);
+                _aiStatus('DONE [' + tries[i].label + ']', 'var(--g)');
                 return;
             } catch(e) {
                 lastErr = e;
-                log('AI: ' + providers[i].name + ' FAIL: ' + e.message);
+                log('AI: ' + tries[i].label + ' FAIL: ' + e.message);
+                if (i < tries.length - 1) _aiStatus('RETRYING...', 'var(--y)');
             }
         }
 
-        // All providers failed
         _aiDone(btn);
-        _aiStatus('ALL PROVIDERS FAILED', 'var(--r)');
-        log('AI: ALL PROVIDERS EXHAUSTED. Last error: ' + (lastErr ? lastErr.message : 'unknown'));
+        _aiStatus('FAIL: ' + (lastErr ? lastErr.message : 'unknown'), 'var(--r)');
+        log('AI: ALL ATTEMPTS EXHAUSTED');
     }
 
     window.aiGenerate = aiGenerate;
@@ -15646,7 +15624,7 @@ var isVideo = nft.forceVideo || (imageUrl.toLowerCase().match(/\.(mp4|webm|mov|o
         var STATES = ['sl-dim','sl-idle','sl-active','sl-alert','sl-pinned'];
         function _setState(cls) {
             sl.classList.remove('sl-dim','sl-idle','sl-active','sl-alert','sl-pinned');
-            sl.classList.add(cls);
+            if (cls) sl.classList.add(cls);
         }
 
         // Dim after inactivity
