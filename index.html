@@ -764,7 +764,7 @@
         .podcast-slot .slot-lang { font-size: 7px; color: var(--accent); letter-spacing: 2px; margin-bottom: 3px; }
         .podcast-slot .slot-text { color: #fff; font-size: 10px; }
 
-        #top-bar { position: fixed; top: 0; left: 0; right: 0; height: 45px; background: var(--bg-panel, var(--panel)); border-bottom: var(--border-style, 2px solid rgba(255,255,255,0.08)); box-shadow: var(--shadow-style, 0 2px 8px rgba(0,0,0,0.7)); display: flex; align-items: center; justify-content: space-between; padding: 0 15px; z-index: 5000; border-radius: var(--radius, 0); overflow: hidden; }
+        #top-bar { position: fixed; top: 0; left: 0; right: 0; height: 45px; background: var(--panel); border-bottom: 2px solid rgba(255,255,255,0.08); box-shadow: 0 2px 8px rgba(0,0,0,0.7); display: flex; align-items: center; justify-content: space-between; padding: 0 15px; z-index: 5000; border-radius: 0; overflow: hidden; }
         #brand { display: flex; align-items: center; min-width: 0; flex-shrink: 1; overflow: hidden; }
         #status-bar { display: flex; align-items: center; gap: 15px; flex-shrink: 0; }
         .stat { display: flex; align-items: center; gap: 5px; font-size: 10px; }
@@ -785,7 +785,7 @@
         #cycle-badge.on { display: flex; }
 
         /* Sidebar: neutral borders — no theme color bleed, party mode animates border-color via console-breathe */
-        .sidebar { position: fixed; top: 45px; bottom: 55px; width: 200px; max-width: 320px !important; background: var(--bg-panel, rgba(6,6,10,0.94)); backdrop-filter: blur(20px) saturate(110%); -webkit-backdrop-filter: blur(20px) saturate(110%); border: var(--border-style, 1px solid rgba(255,255,255,0.06)); box-shadow: var(--shadow-style, inset 0 0 20px rgba(0,0,0,0.65)); overflow-y: auto; overflow-x: hidden; z-index: 4000; scrollbar-width: none; transition: transform 0.45s cubic-bezier(0.4, 0, 0.2, 1), opacity 0.35s ease, border-color 0.4s ease, box-shadow 0.4s ease; will-change: transform, opacity; }
+        .sidebar { position: fixed; top: 45px; bottom: 55px; width: 200px; max-width: 320px !important; background: rgba(6,6,10,0.94); backdrop-filter: blur(20px) saturate(110%); -webkit-backdrop-filter: blur(20px) saturate(110%); border: 1px solid rgba(255,255,255,0.06); box-shadow: inset 0 0 20px rgba(0,0,0,0.65); overflow-y: auto; overflow-x: hidden; z-index: 4000; scrollbar-width: none; transition: transform 0.45s cubic-bezier(0.4, 0, 0.2, 1), opacity 0.35s ease, border-color 0.4s ease, box-shadow 0.4s ease; will-change: transform, opacity; }
         /* Lock sidebars: no horizontal pan, no content drag */
         .sidebar, .sidebar * { overscroll-behavior-x: none; -webkit-user-drag: none; user-drag: none; }
         #left-panel { left: 0; border-left: none; border-right: 1px solid rgba(255,255,255,0.07); transform: translateX(0); }
@@ -804,8 +804,7 @@
         .section {
             position: relative; /* anchor for .section-help-overlay */
             border-top: 4px solid rgba(0,0,0,0.9);
-            border-bottom: var(--border-style, 1px solid rgba(255,255,255,0.04));
-            border-radius: var(--radius, 0);
+            border-bottom: 1px solid rgba(255,255,255,0.04);
         }
         .section:first-child { border-top: none; }
 
@@ -1026,10 +1025,13 @@
             display: block; width: 100%; padding: 8px 10px; margin-bottom: 6px;
             position: relative;
             background: linear-gradient(180deg, #121218 0%, #090910 100%);
-            border-radius: var(--radius, 0);
-            border: var(--border-style, 1px solid var(--border));
-            box-shadow: var(--shadow-style, inset 0 1px 0 rgba(255,255,255,0.04), 0 2px 3px rgba(0,0,0,0.45));
-            color: var(--text-main, var(--text)); font-family: var(--font-primary); font-size: 11px; letter-spacing: 1.2px; text-align: left;
+            border-radius: 0;
+            border-top: 1px solid rgba(255,255,255,0.09);
+            border-left: 1px solid var(--border);
+            border-right: 1px solid rgba(0,0,0,0.35);
+            border-bottom: 1px solid rgba(0,0,0,0.55);
+            box-shadow: inset 0 1px 0 rgba(255,255,255,0.04), 0 2px 3px rgba(0,0,0,0.45);
+            color: var(--text); font-family: 'Share Tech Mono', 'JetBrains Mono', monospace; font-size: 11px; letter-spacing: 1.2px; text-align: left;
             text-transform: uppercase; position: relative;
             transition: all 0.15s ease;
         }
@@ -2279,7 +2281,7 @@
         .pal[data-t="gold"] { background: #ffd700; }
         .pal[data-t="night"] { background: linear-gradient(135deg, #0a1a15, #1a1a2a); border-color: #334455; }
 
-        #bottom-bar { position: fixed; bottom: 0; left: 0; right: 0; height: 55px; background: var(--bg-panel, var(--panel)); border-top: var(--border-style, 2px solid rgba(255,255,255,0.08)); box-shadow: var(--shadow-style, 0 -2px 8px rgba(0,0,0,0.7)); z-index: 5000; display: flex; flex-direction: column; border-radius: var(--radius, 0); }
+        #bottom-bar { position: fixed; bottom: 0; left: 0; right: 0; height: 55px; background: var(--panel); border-top: 2px solid rgba(255,255,255,0.08); box-shadow: 0 -2px 8px rgba(0,0,0,0.7); z-index: 5000; display: flex; flex-direction: column; border-radius: 0; }
         #ticker-wrap { flex: 1; display: flex; align-items: center; background: rgba(0,0,0,0.3); border-bottom: 1px solid var(--border); overflow: hidden; }
         #ticker-label { padding: 0 12px; font-size: 8px; letter-spacing: 2px; color: var(--accent); background: var(--accent-dim); height: 100%; display: flex; align-items: center; border-right: 1px solid var(--border); }
         #ticker-scroll { flex: 1; overflow: hidden; white-space: nowrap; }
