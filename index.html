@@ -16,6 +16,47 @@
 <script src="https://cdn.jsdelivr.net/npm/@mediapipe/pose@0.5.1675469404/pose.js" crossorigin="anonymous"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/ethers/5.7.2/ethers.umd.min.js"></script>
 <script src="https://js.puter.com/v2/"></script>
+<script>
+// Auto-dismiss Puter.AI "Low Balance" / upgrade dialogs instantly.
+(function() {
+    var _keywords = ['low balance','upgrade','not enough funding','upgrade to continue','upgrade now'];
+    function _isPuterDialog(node) {
+        if (!node || node.nodeType !== 1) return false;
+        var text = (node.textContent || '').toLowerCase();
+        return _keywords.some(function(k) { return text.indexOf(k) !== -1; });
+    }
+    function _dismissNode(node) {
+        // Try close/dismiss buttons first
+        var btns = node.querySelectorAll ? node.querySelectorAll('button') : [];
+        for (var i = 0; i < btns.length; i++) {
+            var t = (btns[i].textContent || '').toLowerCase();
+            if (t.indexOf('close') !== -1 || t.indexOf('cancel') !== -1 || t.indexOf('dismiss') !== -1) {
+                btns[i].click(); return;
+            }
+        }
+        // Fall back to hiding the node
+        node.style.display = 'none';
+        if (node.parentNode) node.parentNode.removeChild(node);
+    }
+    var obs = new MutationObserver(function(mutations) {
+        mutations.forEach(function(m) {
+            m.addedNodes.forEach(function(node) {
+                if (_isPuterDialog(node)) { _dismissNode(node); }
+                // Also check children (nested overlays)
+                if (node.querySelectorAll) {
+                    var children = node.querySelectorAll('*');
+                    for (var i = 0; i < children.length; i++) {
+                        if (_isPuterDialog(children[i])) { _dismissNode(children[i]); break; }
+                    }
+                }
+            });
+        });
+    });
+    document.addEventListener('DOMContentLoaded', function() {
+        obs.observe(document.body, { childList: true, subtree: true });
+    });
+})();
+</script>
 <script src="src/Compositor.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
 <script type="importmap">{"imports":{"three":"https://unpkg.com/three@0.160.0/build/three.module.js","three/addons/":"https://unpkg.com/three@0.160.0/examples/jsm/"}}</script>
@@ -15218,8 +15259,9 @@ var isVideo = nft.forceVideo || (imageUrl.toLowerCase().match(/\.(mp4|webm|mov|o
     };
 
     // ═══════════════════════════════════════════════════════════════════
-    // AI IMAGE GENERATOR v9 — puter.ai.txt2img (no headers, no tokens,
-    // no external fetch URLs — 401-proof by design).
+    // AI IMAGE GENERATOR v10 — multi-provider cascade, always free.
+    // Chain: Pollinations.AI → Pollinations (alt model) → Puter.AI
+    // No API key required. Falls through automatically on any failure.
     // ═══════════════════════════════════════════════════════════════════
     var _aiGenerating = false;
 
@@ -15255,11 +15297,69 @@ var isVideo = nft.forceVideo || (imageUrl.toLowerCase().match(/\.(mp4|webm|mov|o
         log('AI: INJECTED >> ' + label);
     }
 
-    // ── ENGINE: puter.ai.txt2img — zero auth, zero headers, zero tokens ──
+    // ── Shared: load an image from a URL, return HTMLImageElement ──────
+    function _aiLoadUrl(url) {
+        return new Promise(function(res, rej) {
+            var img = new Image();
+            img.crossOrigin = 'anonymous';
+            img.onload = function() { res(img); };
+            img.onerror = function() { rej(new Error('IMG_LOAD_FAILED')); };
+            img.src = url;
+        });
+    }
+
+    // ── Map UI model selector to Pollinations model name + style suffix ─
+    function _aiModelParams(modelKey, prompt) {
+        var map = {
+            'flux':           { model: 'flux',   extra: '' },
+            'flux-anime':     { model: 'flux',   extra: ', anime style, cel shading' },
+            'flux-3d':        { model: 'flux',   extra: ', 3D render, octane, studio lighting' },
+            'flux-cinematic': { model: 'flux',   extra: ', cinematic film still, anamorphic lens' },
+            'gptimage':       { model: 'turbo',  extra: '' },
+            'seedream':       { model: 'flux',   extra: ', dreamy, soft light, painterly' },
+            'dirtberry':      { model: 'flux',   extra: ', photorealistic, RAW photo, 8k' },
+            'nanobanana':     { model: 'flux',   extra: ', vibrant colors, surreal' }
+        };
+        var p = map[modelKey] || map['flux'];
+        return { model: p.model, fullPrompt: prompt + p.extra };
+    }
+
+    // ── ENGINE 1: Pollinations.AI — free, no auth, URL-based ───────────
+    async function _aiPollinationsGenerate(prompt, modelKey) {
+        var params = _aiModelParams(modelKey || 'flux', prompt);
+        var seed = Math.floor(Math.random() * 2147483647);
+        var url = 'https://image.pollinations.ai/prompt/' +
+            encodeURIComponent(params.fullPrompt) +
+            '?model=' + params.model +
+            '&width=1024&height=1024&seed=' + seed +
+            '&nologo=true&enhance=false';
+        _aiStatus('GENERATING [POLLINATIONS]...', 'var(--v)');
+        log('AI: [POLLINATIONS/' + params.model.toUpperCase() + '] >> ' + params.fullPrompt);
+        return await _aiLoadUrl(url);
+    }
+
+    // ── ENGINE 2: Pollinations turbo fallback ──────────────────────────
+    async function _aiPollinationsTurbo(prompt) {
+        var seed = Math.floor(Math.random() * 2147483647);
+        var url = 'https://image.pollinations.ai/prompt/' +
+            encodeURIComponent(prompt) +
+            '?model=turbo&width=1024&height=1024&seed=' + seed +
+            '&nologo=true';
+        _aiStatus('TRYING TURBO...', 'var(--y)');
+        log('AI: [POLLINATIONS/TURBO] >> ' + prompt);
+        return await _aiLoadUrl(url);
+    }
+
+    // ── ENGINE 3: Puter.AI — last resort ──────────────────────────────
     async function _aiPuterGenerate(prompt) {
-        _aiStatus('GENERATING [PUTER.AI]...', 'var(--v)');
+        _aiStatus('TRYING PUTER.AI...', 'var(--y)');
         log('AI: [PUTER.AI/TXT2IMG] >> ' + prompt);
-        var dataUrl = await puter.ai.txt2img(prompt);
+        // Intercept any balance/upgrade dialogs Puter may open
+        var _origOpen = window.open;
+        window.open = function() { return null; };
+        var dataUrl;
+        try { dataUrl = await puter.ai.txt2img(prompt); }
+        finally { window.open = _origOpen; }
         var img = new Image();
         img.crossOrigin = 'anonymous';
         await new Promise(function(res, rej) {
@@ -15270,6 +15370,7 @@ var isVideo = nft.forceVideo || (imageUrl.toLowerCase().match(/\.(mp4|webm|mov|o
         return img;
     }
 
+    // ── MAIN: cascade through all engines until one succeeds ───────────
     async function aiGenerate(prompt) {
         if (!prompt) { _aiStatus('TYPE A PROMPT', 'var(--y)'); return; }
         if (_aiGenerating) return;
@@ -15280,18 +15381,35 @@ var isVideo = nft.forceVideo || (imageUrl.toLowerCase().match(/\.(mp4|webm|mov|o
         var neuralDot = document.getElementById('neural-dot');
         if (neuralDot) neuralDot.classList.remove('off');
 
-        _aiStatus('INITIALIZING PUTER.AI...', 'var(--v)');
+        var modelSel = document.getElementById('ai-model-select');
+        var modelKey = modelSel ? modelSel.value : 'flux';
 
-        try {
-            var img = await _aiPuterGenerate(prompt);
-            _aiInject(img, prompt);
-            _aiDone(btn);
-            _aiStatus('DONE [PUTER.AI]', 'var(--g)');
-        } catch(e) {
-            _aiDone(btn);
-            _aiStatus('PUTER.AI FAIL: ' + e.message, 'var(--r)');
-            log('AI: PUTER.AI FAIL: ' + e.message);
+        var providers = [
+            { name: 'POLLINATIONS',       fn: function() { return _aiPollinationsGenerate(prompt, modelKey); } },
+            { name: 'POLLINATIONS/TURBO', fn: function() { return _aiPollinationsTurbo(prompt); } },
+            { name: 'PUTER.AI',           fn: function() { return _aiPuterGenerate(prompt); } }
+        ];
+
+        var lastErr = null;
+        for (var i = 0; i < providers.length; i++) {
+            try {
+                _aiStatus('TRYING ' + providers[i].name + '...', 'var(--v)');
+                var img = await providers[i].fn();
+                _aiInject(img, prompt);
+                _aiDone(btn);
+                _aiStatus('DONE [' + providers[i].name + ']', 'var(--g)');
+                log('AI: SUCCESS via ' + providers[i].name);
+                return;
+            } catch(e) {
+                lastErr = e;
+                log('AI: ' + providers[i].name + ' FAIL: ' + e.message);
+            }
         }
+
+        // All providers failed
+        _aiDone(btn);
+        _aiStatus('ALL PROVIDERS FAILED', 'var(--r)');
+        log('AI: ALL PROVIDERS EXHAUSTED. Last error: ' + (lastErr ? lastErr.message : 'unknown'));
     }
 
     window.aiGenerate = aiGenerate;
