@@ -179,6 +179,68 @@
         body.theme-broadcast .info-item span { color: #1a2030 !important; }
         body.theme-broadcast .info-item .hl { color: #b8001a !important; }
 
+        /* === TICKER: purple text === */
+        body.theme-broadcast #ticker-text,
+        body.theme-broadcast #ticker-text span { color: #6d28d9 !important; }
+        body.theme-broadcast .tick-up { color: #146b30 !important; }
+        body.theme-broadcast .tick-down { color: #b8001a !important; }
+
+        /* === LOGO MORPH: keep neon morphing visible on silver === */
+        /* m4 = white stroke → dark stroke */
+        body.theme-broadcast .logo.m4 { color: transparent !important; -webkit-text-stroke: 1.5px #1a2030 !important; text-shadow: none !important; }
+        /* m5 = white text → dark with coloured shadows */
+        body.theme-broadcast .logo.m5 { color: #1a2030 !important; text-shadow: 2px 0 #b8001a, -2px 0 #005080 !important; }
+
+        /* === ALL INPUTS / TEXT AREAS: light bg, dark text === */
+        body.theme-broadcast .inp,
+        body.theme-broadcast input:not([type="range"]):not([type="checkbox"]):not([type="radio"]) {
+            background: rgba(255,255,255,0.88) !important;
+            border-color: rgba(0,0,0,0.18) !important;
+            color: #1a2030 !important;
+        }
+        body.theme-broadcast .inp:focus,
+        body.theme-broadcast input:focus {
+            border-color: #b8001a !important;
+            box-shadow: 0 0 0 2px rgba(184,0,26,0.12) !important;
+        }
+
+        /* === ALL SELECTS (including ID-specific ones): light bg === */
+        body.theme-broadcast select,
+        body.theme-broadcast select.inp,
+        body.theme-broadcast .slot-select,
+        body.theme-broadcast #ai-model-select,
+        body.theme-broadcast #bug-style-select,
+        body.theme-broadcast #bug-mode-select,
+        body.theme-broadcast #lt-style-select,
+        body.theme-broadcast #audio-input-select,
+        body.theme-broadcast #audio-output {
+            background: rgba(255,255,255,0.88) !important;
+            background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='8' height='5' viewBox='0 0 8 5'%3E%3Cpath d='M0 0l4 5 4-5z' fill='%231a2030' opacity='0.55'/%3E%3C/svg%3E") !important;
+            background-repeat: no-repeat !important;
+            background-position: right 7px center !important;
+            background-size: 7px 5px !important;
+            border: 1px solid rgba(0,0,0,0.2) !important;
+            color: #1a2030 !important;
+            box-shadow: 0 1px 3px rgba(0,0,0,0.1) !important;
+        }
+        body.theme-broadcast select:focus,
+        body.theme-broadcast select.inp:focus,
+        body.theme-broadcast .slot-select:focus,
+        body.theme-broadcast #ai-model-select:focus,
+        body.theme-broadcast #bug-style-select:focus,
+        body.theme-broadcast #lt-style-select:focus,
+        body.theme-broadcast #audio-input-select:focus,
+        body.theme-broadcast #audio-output:focus {
+            border-color: #b8001a !important;
+            box-shadow: 0 0 0 2px rgba(184,0,26,0.12) !important;
+        }
+        /* Dropdown option items */
+        body.theme-broadcast select option,
+        body.theme-broadcast .slot-select option {
+            background: #f4f5f8 !important;
+            color: #1a2030 !important;
+        }
+
         /* STRUCTURAL THEME ENGINE — ETHEREAL_MINIMAL */
         body.theme-ethereal {
             --bg-main: #1c1c1e;
