@@ -81,8 +81,8 @@
             --font-primary: 'JetBrains Mono', monospace;
             --font-header: 'Bebas Neue', sans-serif;
             --radius: 0px;
-            --border-style: 1px solid var(--accent);
-            --shadow-style: 0 0 20px rgba(0, 255, 133, 0.15);
+            --border-style: 1px solid rgba(255,255,255,0.06);
+            --shadow-style: 0 2px 8px rgba(0,0,0,0.7);
         }
 
         body.theme-magenta { --accent: #ff0055; --accent-dim: rgba(255,0,85,0.2); --accent-glow: rgba(255,0,85,0.5); --theme-color: #ff0055; --theme-bg-tint: rgba(255,0,85,0.05); --theme-glow: 0 0 20px rgba(255,0,85,0.15); --theme-border: rgba(255,0,85,0.3); }
@@ -93,15 +93,62 @@
 
         /* STRUCTURAL THEME ENGINE — BROADCAST_PRO */
         body.theme-broadcast {
-            --bg-main: #f4f5f7;
-            --bg-panel: #ffffff;
-            --text-main: #0f172a;
-            --accent-struct: #E10600;
+            --bg-main: #adb5c2;
+            --bg-panel: #c4cad5;
+            --text-main: #080c14;
+            --accent-struct: #9a0010;
             --font-primary: 'Space Mono', monospace;
             --font-header: 'Arial Black', sans-serif;
-            --radius: 4px;
-            --border-style: 3px solid #cbd5e1;
-            --shadow-style: 4px 4px 0px rgba(0,0,0,0.1);
+            --radius: 0px;
+            --border-style: 1px solid #7a8598;
+            --shadow-style: 2px 2px 0px #7a8598, -1px -1px 0px rgba(255,255,255,0.55);
+        }
+        body.theme-broadcast #top-bar,
+        body.theme-broadcast #bottom-bar {
+            background: linear-gradient(180deg, #d2d8e2 0%, #b8bfcc 100%) !important;
+        }
+        body.theme-broadcast .sidebar {
+            background: linear-gradient(180deg, #c8cfd9 0%, #b4bbc8 100%) !important;
+        }
+        body.theme-broadcast .sec-title {
+            color: var(--accent-struct) !important;
+            font-weight: 800;
+            letter-spacing: 2.5px;
+        }
+        body.theme-broadcast .sec-dot { background: var(--accent-struct) !important; box-shadow: none !important; }
+        body.theme-broadcast .sec-head { border-left-color: var(--accent-struct) !important; }
+        body.theme-broadcast .sec-head:hover { background: rgba(0,0,0,0.06) !important; }
+        body.theme-broadcast .btn {
+            background: linear-gradient(180deg, #d0d6e0 0%, #b0b8c4 100%) !important;
+            color: #080c14 !important;
+            border: 1px solid #7a8598 !important;
+            box-shadow: 2px 2px 0px #7a8598, -1px -1px 0px rgba(255,255,255,0.55) !important;
+            text-shadow: none !important;
+        }
+        body.theme-broadcast .btn:hover {
+            background: linear-gradient(180deg, #dde3ec 0%, #bcc4d0 100%) !important;
+        }
+        body.theme-broadcast .section {
+            border-bottom: 1px solid #8a93a3 !important;
+        }
+        body.theme-broadcast .sec-body,
+        body.theme-broadcast label,
+        body.theme-broadcast input,
+        body.theme-broadcast select,
+        body.theme-broadcast textarea,
+        body.theme-broadcast span:not(.sec-title),
+        body.theme-broadcast p {
+            color: #080c14 !important;
+        }
+        body.theme-broadcast input,
+        body.theme-broadcast select,
+        body.theme-broadcast textarea {
+            background: rgba(255,255,255,0.4) !important;
+            border-color: #7a8598 !important;
+        }
+        body.theme-broadcast .log-entry,
+        body.theme-broadcast #ghost-output {
+            color: #0a1020 !important;
         }
 
         /* STRUCTURAL THEME ENGINE — ETHEREAL_MINIMAL */
@@ -2090,10 +2137,10 @@
             transform: translateY(-1px) !important;
         }
 
-        .palette-grid { display: flex; gap: 6px; flex-wrap: wrap; }
-        .pal { width: 26px; height: 26px; border: 2px solid var(--border); border-radius: 4px; transition: all 0.2s; }
-        .pal:hover { transform: scale(1.15); }
-        .pal.on { border-color: #fff; box-shadow: 0 0 10px rgba(255,255,255,0.4); }
+        .palette-grid { display: flex; gap: 4px; flex-wrap: nowrap; align-items: center; }
+        .pal { width: 14px; height: 14px; border: 1.5px solid var(--border); border-radius: 3px; transition: all 0.15s; cursor: pointer; flex-shrink: 0; }
+        .pal:hover { transform: scale(1.2); }
+        .pal.on { border-color: #fff; box-shadow: 0 0 6px rgba(255,255,255,0.5); }
         .pal[data-t="cyan"] { background: #00f3ff; }
         .pal[data-t="magenta"] { background: #ff0055; }
         .pal[data-t="green"] { background: #00ff88; }
@@ -4627,7 +4674,7 @@ body.fullscreen #transcription-hud { pointer-events: none !important; } /* keep 
                     <div class="pal" data-t="gold"></div>
                     <div class="pal" data-t="night"></div>
                 </div>
-                <button class="btn" onclick="cycleStructuralTheme()" style="letter-spacing:1px; font-weight:700;">CYCLE INTERFACE</button>
+                <button class="btn" onclick="cycleStructuralTheme()" style="font-size:9px; letter-spacing:0.8px; font-weight:600; padding:4px 8px; margin-top:5px;">Change Theme</button>
             </div>
         </div>
 
@@ -11440,7 +11487,7 @@ function triggerIndustrialSnap(nextImageUrl) {
 }
 
 // UI
-function setTheme(theme) { document.body.className = document.body.className.replace(/theme-\w+/g, '').replace('system-failure', ''); if (theme !== 'cyan') document.body.classList.add(`theme-${theme}`); APP.state.theme = theme; document.querySelectorAll('.pal').forEach(p => p.classList.toggle('on', p.dataset.t === theme)); log(`THEME: ${theme}`); }
+function setTheme(theme) { const structClass = ['theme-broadcast','theme-ethereal'].find(c => document.body.classList.contains(c)) || null; document.body.className = document.body.className.replace(/theme-\w+/g, '').replace('system-failure', ''); if (theme !== 'cyan') document.body.classList.add(`theme-${theme}`); if (structClass) document.body.classList.add(structClass); APP.state.theme = theme; document.querySelectorAll('.pal').forEach(p => p.classList.toggle('on', p.dataset.t === theme)); log(`THEME: ${theme}`); }
 
 (function() {
   const STRUCT_THEMES = ['', 'theme-broadcast', 'theme-ethereal'];
