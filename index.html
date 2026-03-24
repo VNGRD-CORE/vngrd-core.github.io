@@ -4586,6 +4586,7 @@ body.fullscreen #transcription-hud { pointer-events: none !important; } /* keep 
                     <div class="pal" data-t="gold"></div>
                     <div class="pal" data-t="night"></div>
                 </div>
+                <button class="btn" onclick="cycleStructuralTheme()" style="letter-spacing:1px; font-weight:700;">CYCLE INTERFACE</button>
             </div>
         </div>
 
@@ -11399,6 +11400,23 @@ function triggerIndustrialSnap(nextImageUrl) {
 
 // UI
 function setTheme(theme) { document.body.className = document.body.className.replace(/theme-\w+/g, '').replace('system-failure', ''); if (theme !== 'cyan') document.body.classList.add(`theme-${theme}`); APP.state.theme = theme; document.querySelectorAll('.pal').forEach(p => p.classList.toggle('on', p.dataset.t === theme)); log(`THEME: ${theme}`); }
+
+(function() {
+  const STRUCT_THEMES = ['', 'theme-broadcast', 'theme-ethereal'];
+  let _structIdx = 0;
+  window.cycleStructuralTheme = function() {
+    // Remove old structural theme classes without disturbing others
+    document.body.classList.remove('theme-broadcast', 'theme-ethereal');
+    _structIdx = (_structIdx + 1) % STRUCT_THEMES.length;
+    if (STRUCT_THEMES[_structIdx]) {
+      document.body.classList.add(STRUCT_THEMES[_structIdx]);
+    }
+    const names = ['CYBER_CORE', 'BROADCAST_PRO', 'ETHEREAL_MINIMAL'];
+    // Log to ghost terminal if available
+    if (window.ghostLog) window.ghostLog('THEME > ' + names[_structIdx], 'ai');
+  };
+})();
+
 function toggleVHS() { if (APP.peer && APP.peer.call) { log('FX_BLOCKED: P2P active'); return; } document.body.classList.toggle('vhs'); $('btn-vhs').classList.toggle('on'); log('VHS'); }
 function toggleCRT() { document.body.classList.toggle('crt'); $('btn-crt').classList.toggle('on'); log('CRT'); }
 function toggleFullscreen() { APP.state.isFullscreen = !APP.state.isFullscreen; document.body.classList.toggle('fullscreen', APP.state.isFullscreen); log('FULLSCREEN'); }
