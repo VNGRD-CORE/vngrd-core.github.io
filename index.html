@@ -3454,7 +3454,7 @@ body.fullscreen #transcription-hud { pointer-events: none !important; } /* keep 
     align-items: center;
     gap: 5px;
     padding: 5px 8px;
-    background: linear-gradient(90deg, rgba(0,243,255,0.08) 0%, rgba(0,243,255,0.03) 100%);
+    background: #000000;
     border-bottom: 1px solid rgba(0,243,255,0.2);
     cursor: move;
     user-select: none;
@@ -3475,7 +3475,9 @@ body.fullscreen #transcription-hud { pointer-events: none !important; } /* keep 
     font-family: 'JetBrains Mono', monospace;
     font-size: 7.5px;
     background: transparent;
-    border: 1px solid rgba(0,243,255,0.25);
+    border: 1px solid #333;
+    border-bottom: 3px solid #000;
+    box-shadow: inset 1px 1px 0px rgba(255,255,255,0.05);
     color: rgba(0,243,255,0.65);
     padding: 2px 6px;
     cursor: pointer;
@@ -3633,7 +3635,7 @@ body.fullscreen #transcription-hud { pointer-events: none !important; } /* keep 
 /* ── Status bar ── */
 .vt-status-bar {
     display: flex; align-items: center; gap: 8px; padding: 2px 8px;
-    background: rgba(0,0,0,0.45); border-top: 1px solid rgba(0,243,255,0.12);
+    background: #000000; border-top: 1px solid rgba(0,243,255,0.12);
     flex-shrink: 0; font-size: 6.5px; color: rgba(0,243,255,0.38); letter-spacing: 1px;
 }
 .vt-status-pos { color: rgba(0,243,255,0.8); font-weight: 700; }
@@ -3723,6 +3725,34 @@ body.fullscreen #transcription-hud { pointer-events: none !important; } /* keep 
     50%      { box-shadow: 0 0 18px rgba(176,0,255,0.45), inset 0 0 10px rgba(176,0,255,0.12); }
 }
 
+/* ═══ GHOST MODE — panel backgrounds only, tracer borders unaffected ═══ */
+/* GLASS: 70% */
+#vanguard-tracker-window.vt-ghost-glass { background: rgba(3,4,10,0.57) !important; }
+#vanguard-tracker-window.vt-ghost-glass .vt-wave-strip { background: rgba(0,0,0,0.28) !important; }
+#vanguard-tracker-window.vt-ghost-glass .vt-col-headers { background: rgba(0,0,0,0.21) !important; }
+#vanguard-tracker-window.vt-ghost-glass .vt-status-bar { background: rgba(0,0,0,0.56) !important; }
+#nc-window.vt-ghost-glass { background: rgba(4,2,12,0.63) !important; }
+#nc-window.vt-ghost-glass .nc-output-panel { background: rgba(0,0,0,0.28) !important; }
+#nc-window.vt-ghost-glass .nc-toolbar { background: rgba(0,0,0,0.35) !important; }
+/* GHOST: 40% */
+#vanguard-tracker-window.vt-ghost-fade { background: rgba(3,4,10,0.33) !important; }
+#vanguard-tracker-window.vt-ghost-fade .vt-wave-strip { background: rgba(0,0,0,0.16) !important; }
+#vanguard-tracker-window.vt-ghost-fade .vt-col-headers { background: rgba(0,0,0,0.12) !important; }
+#vanguard-tracker-window.vt-ghost-fade .vt-status-bar { background: rgba(0,0,0,0.32) !important; }
+#nc-window.vt-ghost-fade { background: rgba(4,2,12,0.36) !important; }
+#nc-window.vt-ghost-fade .nc-output-panel { background: rgba(0,0,0,0.16) !important; }
+#nc-window.vt-ghost-fade .nc-toolbar { background: rgba(0,0,0,0.20) !important; }
+/* nc-editor NEVER changes opacity in any ghost state — code stays sharp */
+#nc-window.vt-ghost-glass .nc-editor,
+#nc-window.vt-ghost-fade .nc-editor { background: rgba(0,0,0,0.35) !important; }
+/* Tracer lines (cyan + purple borders) — explicit 1.0 opacity enforcement */
+#vanguard-tracker-window.vt-ghost-glass .vt-titlebar,
+#vanguard-tracker-window.vt-ghost-fade .vt-titlebar,
+#vanguard-tracker-window.vt-ghost-glass .vt-status-bar,
+#vanguard-tracker-window.vt-ghost-fade .vt-status-bar,
+#nc-window.vt-ghost-glass .nc-titlebar,
+#nc-window.vt-ghost-fade .nc-titlebar { opacity: 1 !important; }
+
 /* ═══ NEURAL COMPILER WINDOW ═══ */
 .nc-window {
     position: fixed;
@@ -3749,7 +3779,7 @@ body.fullscreen #transcription-hud { pointer-events: none !important; } /* keep 
 .nc-window.visible { display: flex; }
 .nc-titlebar {
     display: flex; align-items: center; gap: 6px; padding: 5px 8px;
-    background: linear-gradient(90deg, rgba(176,0,255,0.1) 0%, rgba(176,0,255,0.03) 100%);
+    background: #000000;
     border-bottom: 1px solid rgba(176,0,255,0.25);
     cursor: move; user-select: none; flex-shrink: 0;
 }
@@ -11595,6 +11625,30 @@ function setTheme(theme) { const structClass = ['theme-broadcast','theme-etherea
   };
 })();
 
+// GHOST MODE — cycles tracker/compiler panel opacity: 1.0 → 0.7 → 0.4
+// Borders (cyan/purple tracer lines) are CSS 'border' props — unaffected by bg changes
+// Code editor (.nc-editor) background is never changed — text stays sharp
+(function() {
+  const GHOST_STATES = [
+    { name: 'OPAQUE', cls: null },
+    { name: 'GLASS',  cls: 'vt-ghost-glass' },
+    { name: 'GHOST',  cls: 'vt-ghost-fade'  }
+  ];
+  let _ghostIdx = 0;
+  window.toggleGhostMode = function() {
+    const vt = document.getElementById('vanguard-tracker-window');
+    const nc = document.getElementById('nc-window');
+    const btn = document.getElementById('vt-alpha-btn');
+    GHOST_STATES.forEach(function(s) {
+      if (s.cls) { vt && vt.classList.remove(s.cls); nc && nc.classList.remove(s.cls); }
+    });
+    _ghostIdx = (_ghostIdx + 1) % GHOST_STATES.length;
+    const state = GHOST_STATES[_ghostIdx];
+    if (state.cls) { vt && vt.classList.add(state.cls); nc && nc.classList.add(state.cls); }
+    if (btn) btn.textContent = '[ ALPHA: ' + state.name + ' ]';
+  };
+})();
+
 function toggleVHS() { if (APP.peer && APP.peer.call) { log('FX_BLOCKED: P2P active'); return; } document.body.classList.toggle('vhs'); $('btn-vhs').classList.toggle('on'); log('VHS'); }
 function toggleCRT() { document.body.classList.toggle('crt'); $('btn-crt').classList.toggle('on'); log('CRT'); }
 function toggleFullscreen() { APP.state.isFullscreen = !APP.state.isFullscreen; document.body.classList.toggle('fullscreen', APP.state.isFullscreen); log('FULLSCREEN'); }
@@ -17877,6 +17931,7 @@ function _applyPoseToModel(lm) {
             <button class="vt-btn" onclick="VanguardTracker.clear()" style="color:rgba(255,120,0,0.65);border-color:rgba(255,120,0,0.25);">CLR</button>
             <button class="vt-btn-nc-launch" id="nc-toggle-btn" onclick="NeuralCompiler.toggle()">[ OPEN NEURAL COMPILER ]</button>
             <button class="vt-btn" onclick="_vtToggleHud()" style="color:rgba(255,204,0,0.65);border-color:rgba(255,204,0,0.22);font-size:7px;">? HUD</button>
+            <button class="vt-btn" id="vt-alpha-btn" onclick="toggleGhostMode()" style="color:rgba(255,255,255,0.45);border-color:#333;font-size:7px;letter-spacing:0.5px;">[ ALPHA ]</button>
         </div>
         <button class="vt-close-btn" onclick="VanguardTracker.toggle()">✕</button>
     </div>
