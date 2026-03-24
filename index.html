@@ -21,8 +21,9 @@
 <script type="importmap">{"imports":{"three":"https://unpkg.com/three@0.160.0/build/three.module.js","three/addons/":"https://unpkg.com/three@0.160.0/examples/jsm/"}}</script>
     <style>
         @import url('https://fonts.googleapis.com/css2?family=Orbitron:wght@400;600;800;900&family=JetBrains+Mono:wght@300;400;500&family=Bebas+Neue&family=Russo+One&family=Share+Tech+Mono&display=swap');
+        @import url('https://fonts.googleapis.com/css2?family=Space+Mono:wght@400;700&family=Inter:wght@300;400;500;600&display=swap');
         
-        :root { 
+        :root {
             --accent: #00f3ff; --accent-dim: rgba(0, 243, 255, 0.2); --accent-glow: rgba(0, 243, 255, 0.5);
             --p: #ff0055; --c: #00f3ff; --g: #00ff88; --y: #ffcc00; --r: #ff3333; --o: #ff9d00; --v: #b000ff;
             --bg: #050508; --panel: #08080c; --panel-light: #0c0c12; --border: #151520; --border-light: #202030;
@@ -31,6 +32,16 @@
             --theme-bg-tint: rgba(0, 243, 255, 0.05);
             --theme-glow: 0 0 20px rgba(0, 243, 255, 0.15);
             --theme-border: rgba(0, 243, 255, 0.3);
+            /* STRUCTURAL THEME ENGINE — CYBER_CORE (Default) */
+            --bg-main: #070707;
+            --bg-panel: #111111;
+            --text-main: #ffffff;
+            --accent-struct: #00ff85;
+            --font-primary: 'JetBrains Mono', monospace;
+            --font-header: 'Bebas Neue', sans-serif;
+            --radius: 0px;
+            --border-style: 1px solid var(--accent);
+            --shadow-style: 0 0 20px rgba(0, 255, 133, 0.15);
         }
 
         body.theme-magenta { --accent: #ff0055; --accent-dim: rgba(255,0,85,0.2); --accent-glow: rgba(255,0,85,0.5); --theme-color: #ff0055; --theme-bg-tint: rgba(255,0,85,0.05); --theme-glow: 0 0 20px rgba(255,0,85,0.15); --theme-border: rgba(255,0,85,0.3); }
@@ -38,6 +49,32 @@
         body.theme-purple { --accent: #b000ff; --accent-dim: rgba(176,0,255,0.2); --accent-glow: rgba(176,0,255,0.5); --theme-color: #b000ff; --theme-bg-tint: rgba(176,0,255,0.05); --theme-glow: 0 0 20px rgba(176,0,255,0.15); --theme-border: rgba(176,0,255,0.3); }
         body.theme-gold { --accent: #ffd700; --accent-dim: rgba(255,215,0,0.2); --accent-glow: rgba(255,215,0,0.5); --theme-color: #ffd700; --theme-bg-tint: rgba(255,215,0,0.05); --theme-glow: 0 0 20px rgba(255,215,0,0.15); --theme-border: rgba(255,215,0,0.3); }
         body.theme-night { --accent: #334455; --accent-dim: rgba(51,68,85,0.2); --bg: #020204; --panel: #040408; --theme-color: #334455; --theme-bg-tint: rgba(51,68,85,0.05); --theme-glow: 0 0 20px rgba(51,68,85,0.15); --theme-border: rgba(51,68,85,0.3); }
+
+        /* STRUCTURAL THEME ENGINE — BROADCAST_PRO */
+        body.theme-broadcast {
+            --bg-main: #f4f5f7;
+            --bg-panel: #ffffff;
+            --text-main: #0f172a;
+            --accent-struct: #E10600;
+            --font-primary: 'Space Mono', monospace;
+            --font-header: 'Arial Black', sans-serif;
+            --radius: 4px;
+            --border-style: 3px solid #cbd5e1;
+            --shadow-style: 4px 4px 0px rgba(0,0,0,0.1);
+        }
+
+        /* STRUCTURAL THEME ENGINE — ETHEREAL_MINIMAL */
+        body.theme-ethereal {
+            --bg-main: #1c1c1e;
+            --bg-panel: #2c2c2e;
+            --text-main: #e5e5ea;
+            --accent-struct: #a78bfa;
+            --font-primary: 'Inter', sans-serif;
+            --font-header: 'Inter', sans-serif;
+            --radius: 16px;
+            --border-style: 1px solid rgba(255,255,255,0.05);
+            --shadow-style: 0 10px 40px rgba(0,0,0,0.4);
+        }
 
         /* --- WEB DNA KILL SWITCH --- */
         * { 
@@ -89,11 +126,11 @@
             overflow: hidden; 
             height: 100vh; width: 100vw; 
             background: var(--bg); color: var(--text); 
-            font-family: 'JetBrains Mono', monospace; 
-            font-size: 12px; 
-            overscroll-behavior: none; 
-            touch-action: none; 
-            transition: background 0.1s linear; 
+            font-family: var(--font-primary);
+            font-size: 12px;
+            overscroll-behavior: none;
+            touch-action: none;
+            transition: background 0.1s linear;
         }
 
         input, textarea { 
@@ -508,7 +545,7 @@
         .podcast-slot .slot-lang { font-size: 7px; color: var(--accent); letter-spacing: 2px; margin-bottom: 3px; }
         .podcast-slot .slot-text { color: #fff; font-size: 10px; }
 
-        #top-bar { position: fixed; top: 0; left: 0; right: 0; height: 45px; background: var(--panel); border-bottom: 2px solid rgba(255,255,255,0.08); box-shadow: 0 2px 8px rgba(0,0,0,0.7); display: flex; align-items: center; justify-content: space-between; padding: 0 15px; z-index: 5000; border-radius: 0; overflow: hidden; }
+        #top-bar { position: fixed; top: 0; left: 0; right: 0; height: 45px; background: var(--bg-panel, var(--panel)); border-bottom: var(--border-style, 2px solid rgba(255,255,255,0.08)); box-shadow: var(--shadow-style, 0 2px 8px rgba(0,0,0,0.7)); display: flex; align-items: center; justify-content: space-between; padding: 0 15px; z-index: 5000; border-radius: var(--radius, 0); overflow: hidden; }
         #brand { display: flex; align-items: center; min-width: 0; flex-shrink: 1; overflow: hidden; }
         #status-bar { display: flex; align-items: center; gap: 15px; flex-shrink: 0; }
         .stat { display: flex; align-items: center; gap: 5px; font-size: 10px; }
@@ -529,7 +566,7 @@
         #cycle-badge.on { display: flex; }
 
         /* Sidebar: neutral borders — no theme color bleed, party mode animates border-color via console-breathe */
-        .sidebar { position: fixed; top: 45px; bottom: 55px; width: 200px; max-width: 320px !important; background: rgba(6,6,10,0.94); backdrop-filter: blur(20px) saturate(110%); -webkit-backdrop-filter: blur(20px) saturate(110%); border: 1px solid rgba(255,255,255,0.06); box-shadow: inset 0 0 20px rgba(0,0,0,0.65); overflow-y: auto; overflow-x: hidden; z-index: 4000; scrollbar-width: none; transition: transform 0.45s cubic-bezier(0.4, 0, 0.2, 1), opacity 0.35s ease, border-color 0.4s ease, box-shadow 0.4s ease; will-change: transform, opacity; }
+        .sidebar { position: fixed; top: 45px; bottom: 55px; width: 200px; max-width: 320px !important; background: var(--bg-panel, rgba(6,6,10,0.94)); backdrop-filter: blur(20px) saturate(110%); -webkit-backdrop-filter: blur(20px) saturate(110%); border: var(--border-style, 1px solid rgba(255,255,255,0.06)); box-shadow: var(--shadow-style, inset 0 0 20px rgba(0,0,0,0.65)); overflow-y: auto; overflow-x: hidden; z-index: 4000; scrollbar-width: none; transition: transform 0.45s cubic-bezier(0.4, 0, 0.2, 1), opacity 0.35s ease, border-color 0.4s ease, box-shadow 0.4s ease; will-change: transform, opacity; }
         /* Lock sidebars: no horizontal pan, no content drag */
         .sidebar, .sidebar * { overscroll-behavior-x: none; -webkit-user-drag: none; user-drag: none; }
         #left-panel { left: 0; border-left: none; border-right: 1px solid rgba(255,255,255,0.07); transform: translateX(0); }
@@ -548,7 +585,8 @@
         .section {
             position: relative; /* anchor for .section-help-overlay */
             border-top: 4px solid rgba(0,0,0,0.9);
-            border-bottom: 1px solid rgba(255,255,255,0.04);
+            border-bottom: var(--border-style, 1px solid rgba(255,255,255,0.04));
+            border-radius: var(--radius, 0);
         }
         .section:first-child { border-top: none; }
 
@@ -769,13 +807,10 @@
             display: block; width: 100%; padding: 8px 10px; margin-bottom: 6px;
             position: relative;
             background: linear-gradient(180deg, #121218 0%, #090910 100%);
-            border-radius: 0;
-            border-top: 1px solid rgba(255,255,255,0.09);
-            border-left: 1px solid var(--border);
-            border-right: 1px solid rgba(0,0,0,0.35);
-            border-bottom: 1px solid rgba(0,0,0,0.55);
-            box-shadow: inset 0 1px 0 rgba(255,255,255,0.04), 0 2px 3px rgba(0,0,0,0.45);
-            color: var(--text); font-family: 'Share Tech Mono', 'JetBrains Mono', monospace; font-size: 11px; letter-spacing: 1.2px; text-align: left;
+            border-radius: var(--radius, 0);
+            border: var(--border-style, 1px solid var(--border));
+            box-shadow: var(--shadow-style, inset 0 1px 0 rgba(255,255,255,0.04), 0 2px 3px rgba(0,0,0,0.45));
+            color: var(--text-main, var(--text)); font-family: var(--font-primary); font-size: 11px; letter-spacing: 1.2px; text-align: left;
             text-transform: uppercase; position: relative;
             transition: all 0.15s ease;
         }
@@ -2025,7 +2060,7 @@
         .pal[data-t="gold"] { background: #ffd700; }
         .pal[data-t="night"] { background: linear-gradient(135deg, #0a1a15, #1a1a2a); border-color: #334455; }
 
-        #bottom-bar { position: fixed; bottom: 0; left: 0; right: 0; height: 55px; background: var(--panel); border-top: 2px solid rgba(255,255,255,0.08); box-shadow: 0 -2px 8px rgba(0,0,0,0.7); z-index: 5000; display: flex; flex-direction: column; border-radius: 0; }
+        #bottom-bar { position: fixed; bottom: 0; left: 0; right: 0; height: 55px; background: var(--bg-panel, var(--panel)); border-top: var(--border-style, 2px solid rgba(255,255,255,0.08)); box-shadow: var(--shadow-style, 0 -2px 8px rgba(0,0,0,0.7)); z-index: 5000; display: flex; flex-direction: column; border-radius: var(--radius, 0); }
         #ticker-wrap { flex: 1; display: flex; align-items: center; background: rgba(0,0,0,0.3); border-bottom: 1px solid var(--border); overflow: hidden; }
         #ticker-label { padding: 0 12px; font-size: 8px; letter-spacing: 2px; color: var(--accent); background: var(--accent-dim); height: 100%; display: flex; align-items: center; border-right: 1px solid var(--border); }
         #ticker-scroll { flex: 1; overflow: hidden; white-space: nowrap; }
@@ -4551,6 +4586,7 @@ body.fullscreen #transcription-hud { pointer-events: none !important; } /* keep 
                     <div class="pal" data-t="gold"></div>
                     <div class="pal" data-t="night"></div>
                 </div>
+                <button class="btn" onclick="cycleStructuralTheme()" style="letter-spacing:1px; font-weight:700;">CYCLE INTERFACE</button>
             </div>
         </div>
 
@@ -11364,6 +11400,23 @@ function triggerIndustrialSnap(nextImageUrl) {
 
 // UI
 function setTheme(theme) { document.body.className = document.body.className.replace(/theme-\w+/g, '').replace('system-failure', ''); if (theme !== 'cyan') document.body.classList.add(`theme-${theme}`); APP.state.theme = theme; document.querySelectorAll('.pal').forEach(p => p.classList.toggle('on', p.dataset.t === theme)); log(`THEME: ${theme}`); }
+
+(function() {
+  const STRUCT_THEMES = ['', 'theme-broadcast', 'theme-ethereal'];
+  let _structIdx = 0;
+  window.cycleStructuralTheme = function() {
+    // Remove old structural theme classes without disturbing others
+    document.body.classList.remove('theme-broadcast', 'theme-ethereal');
+    _structIdx = (_structIdx + 1) % STRUCT_THEMES.length;
+    if (STRUCT_THEMES[_structIdx]) {
+      document.body.classList.add(STRUCT_THEMES[_structIdx]);
+    }
+    const names = ['CYBER_CORE', 'BROADCAST_PRO', 'ETHEREAL_MINIMAL'];
+    // Log to ghost terminal if available
+    if (window.ghostLog) window.ghostLog('THEME > ' + names[_structIdx], 'ai');
+  };
+})();
+
 function toggleVHS() { if (APP.peer && APP.peer.call) { log('FX_BLOCKED: P2P active'); return; } document.body.classList.toggle('vhs'); $('btn-vhs').classList.toggle('on'); log('VHS'); }
 function toggleCRT() { document.body.classList.toggle('crt'); $('btn-crt').classList.toggle('on'); log('CRT'); }
 function toggleFullscreen() { APP.state.isFullscreen = !APP.state.isFullscreen; document.body.classList.toggle('fullscreen', APP.state.isFullscreen); log('FULLSCREEN'); }
