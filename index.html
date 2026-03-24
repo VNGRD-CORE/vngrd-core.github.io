@@ -3910,7 +3910,7 @@ body.fullscreen #transcription-hud { pointer-events: none !important; } /* keep 
                     <option value="flux-3d">FLUX 3D</option>
                     <option value="flux-cinematic">FLUX CINEMATIC</option>
                     <option value="dirtberry">FLUX REALISM</option>
-                    <option value="gptimage">TURBO [FAST]</option>
+                    <option value="gptimage">FLUX VIVID</option>
                     <option value="seedream">DREAMLIKE</option>
                     <option value="nanobanana">SURREAL</option>
                 </select>
@@ -15324,23 +15324,23 @@ var isVideo = nft.forceVideo || (imageUrl.toLowerCase().match(/\.(mp4|webm|mov|o
         'flux-anime':     { model: 'flux-anime',      extra: '' },
         'flux-3d':        { model: 'flux-3d',         extra: '' },
         'flux-cinematic': { model: 'flux-cinematic',  extra: '' },
-        'gptimage':       { model: 'turbo',           extra: '' },
+        'gptimage':       { model: 'flux',            extra: ', fast, vivid' },
         'seedream':       { model: 'flux',            extra: ', dreamy, painterly, soft light' },
         'dirtberry':      { model: 'flux-realism',    extra: '' },
         'nanobanana':     { model: 'flux',            extra: ', vivid surreal colors' }
     };
 
-    // ── Build Pollinations URL ─────────────────────────────────────────
+    // ── Build Pollinations URL — minimal params, no invalid flags ──────
     function _polUrl(promptText, modelName) {
         var seed = Math.floor(Math.random() * 2147483647);
         return 'https://image.pollinations.ai/prompt/' +
             encodeURIComponent(promptText) +
             '?model=' + encodeURIComponent(modelName) +
             '&width=1024&height=1024&seed=' + seed +
-            '&nologo=true&enhance=false&safe=false';
+            '&nologo=true';
     }
 
-    // ── MAIN: try selected model, then turbo, then flux as final fallback
+    // ── MAIN: try selected model → flux-realism → flux (bare) ─────────
     async function aiGenerate(prompt) {
         if (!prompt) { _aiStatus('TYPE A PROMPT', 'var(--y)'); return; }
         if (_aiGenerating) return;
@@ -15354,18 +15354,20 @@ var isVideo = nft.forceVideo || (imageUrl.toLowerCase().match(/\.(mp4|webm|mov|o
         var modelSel = document.getElementById('ai-model-select');
         var key = (modelSel ? modelSel.value : 'flux') || 'flux';
         var mp = _pollinationsModels[key] || _pollinationsModels['flux'];
-        var fullPrompt = prompt + (mp.extra || '');
+        var fullPrompt = prompt + (mp.extra ? ' ' + mp.extra : '');
 
-        var tries = [
-            { label: mp.model.toUpperCase(),  url: _polUrl(fullPrompt, mp.model) },
-            { label: 'TURBO',                 url: _polUrl(prompt, 'turbo') },
-            { label: 'FLUX',                  url: _polUrl(prompt, 'flux') }
+        // Build fallback chain: chosen model → flux-realism → plain flux
+        var tryCandidates = [
+            { label: mp.model.toUpperCase(), url: _polUrl(fullPrompt, mp.model) },
+            { label: 'FLUX-REALISM',         url: _polUrl(prompt, 'flux-realism') },
+            { label: 'FLUX',                 url: _polUrl(prompt, 'flux') }
         ];
-        // Deduplicate (if selected model is already turbo/flux)
-        var seen = {};
-        tries = tries.filter(function(t) {
-            if (seen[t.url]) return false;
-            seen[t.url] = true; return true;
+        // Deduplicate by model name
+        var seenModels = {};
+        var tries = tryCandidates.filter(function(t) {
+            var m = t.label;
+            if (seenModels[m]) return false;
+            seenModels[m] = true; return true;
         });
 
         var lastErr = null;
