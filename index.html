@@ -209,11 +209,26 @@
         .lt-container.lt-split { flex-direction: row; align-items: center; gap: 0; border-left: none; border-bottom: 3px solid #ffaa00; border-top: 1px solid rgba(255,170,0,0.25); border-right: none; border-left: 3px solid #ffaa00; background: linear-gradient(90deg, rgba(18,10,0,0.95) 0%, rgba(12,8,0,0.8) 100%); padding: 10px 20px 10px 12px; }
         .lt-container.lt-split .lt-title { flex: 1; font-size: 18px; }
         .lt-container.lt-split .lt-subtitle { color: #ffaa00; border-left: 2px solid rgba(255,170,0,0.5); padding-left: 14px; margin-top: 0; font-size: 10px; letter-spacing: 3px; flex: 1; }
-        /* SCAN: teal with persistent animated scan line */
-        .lt-container.lt-scan { border-color: #00ffaa; overflow: hidden; position: relative; }
-        .lt-container.lt-scan .lt-subtitle { color: #00ffaa; }
-        .lt-container.lt-scan::after { content: ''; position: absolute; top: 0; left: -100%; width: 60%; height: 100%; background: linear-gradient(90deg, transparent, rgba(0,255,170,0.15), transparent); animation: lt-scan-sweep 3s ease-in-out infinite; pointer-events: none; }
-        @keyframes lt-scan-sweep { 0% { left: -60%; } 100% { left: 120%; } }
+        /* GLITCH: rounded pill, electric violet, chromatic aberration reveal */
+        .lt-container.lt-glitch {
+            border: 2px solid #bf00ff;
+            border-radius: 40px;
+            background: linear-gradient(110deg, rgba(12,0,22,0.94) 0%, rgba(8,0,14,0.88) 100%);
+            box-shadow: 0 0 22px rgba(191,0,255,0.35), inset 0 0 16px rgba(191,0,255,0.06);
+            overflow: hidden;
+        }
+        .lt-container.lt-glitch .lt-title  { color: #fff; text-shadow: 2px 0 #ff0040, -2px 0 #00f3ff; }
+        .lt-container.lt-glitch .lt-subtitle { color: #bf00ff; letter-spacing: 3px; }
+        /* Glitch entrance — slide + chromatic burst that settles */
+        @keyframes lt-glitch-in {
+            0%   { opacity: 0; transform: translateX(-28px) scaleX(0.92); filter: hue-rotate(90deg) saturate(3); }
+            35%  { opacity: 1; transform: translateX(4px)  scaleX(1.01); filter: hue-rotate(0deg)  saturate(1.5); }
+            55%  { transform: translateX(-2px) scaleX(0.99); filter: none; }
+            100% { transform: translateX(0)   scaleX(1);    filter: none; }
+        }
+        #lower-third.visible .lt-container.lt-glitch {
+            animation: lt-glitch-in 0.55s cubic-bezier(0.22,1,0.36,1) both;
+        }
 
         /* ========================================
            TRIPLE-STACK IDENTITY - HEADER BRAND
@@ -3930,14 +3945,14 @@ body.fullscreen #transcription-hud { pointer-events: none !important; } /* keep 
                     <button class="btn active-mode" id="btn-lt-guest" style="flex:1;font-size:8px;">GUEST</button>
                     <button class="btn" id="btn-lt-track" style="flex:1;font-size:8px;color:var(--g);border-color:rgba(0,255,136,0.25);">TRACK</button>
                     <button class="btn" id="btn-lt-breaking" style="flex:1;font-size:8px;color:var(--r);border-color:rgba(255,51,51,0.25);">BREAK</button>
-                    <button class="btn" id="btn-lt-off" style="font-size:9px;padding:4px 8px;">[X]</button>
+                    <button class="btn" id="btn-lt-off" title="Hide lower third" style="font-size:11px;padding:3px 7px;opacity:0.45;letter-spacing:0;border-color:rgba(255,255,255,0.1);">×</button>
                 </div>
                 <div class="btn-row" style="margin-top:4px;gap:4px;">
                     <select id="lt-style-select" style="flex:1;background:var(--panel);border:1px solid var(--border);color:var(--text);font-size:8px;font-family:inherit;padding:3px 4px;cursor:pointer;">
                         <option value="default">DEFAULT</option>
                         <option value="neon">NEON</option>
                         <option value="split">SPLIT</option>
-                        <option value="scan">SCAN</option>
+                        <option value="glitch">GLITCH</option>
                     </select>
                     <label title="Colour" style="width:26px;height:26px;cursor:pointer;position:relative;flex-shrink:0;display:flex;align-items:center;justify-content:center;">
                         <input type="color" id="lt-color" value="#00f3ff" style="position:absolute;inset:0;opacity:0;cursor:pointer;width:100%;height:100%;">
@@ -4720,7 +4735,7 @@ const APP = {
         logo: { x: 0.85,  y: 0.015, scale: 1.0, visible: false },
         logo3d: { x: 0.40, y: 0.015, scale: 2.0, visible: false },
     },
-    lowerThird: { visible: false, preset: 'guest', mode: 'guest', ltStyle: 'default', ltColor: null },
+    lowerThird: { visible: false, preset: 'guest', mode: 'guest', ltStyle: 'default', ltColor: null, _showTime: 0, _hiding: false, _hideStart: 0 },
     ui: { logoMorph: 0, morphs: ['m1','m2','m3','m4','m5','m6'] },
     ghost: { seismicEnergy: 0, nodesSecured: 0, directoryHandle: null },
     crypto: { ids: 'bitcoin,ethereum,solana,dogecoin' },
@@ -6701,11 +6716,26 @@ if (T.logo.visible) {
     // BURN-IN LOWER THIRD — Premium Broadcast Canvas Render
     // Draws directly to captureStream canvas = ALWAYS in recording
     // ══════════════════════════════════════════════════
-    if (APP.lowerThird && APP.lowerThird.visible) {
+    if (APP.lowerThird && (APP.lowerThird.visible || APP.lowerThird._hiding)) {
         ctx.save();
         ctx.globalCompositeOperation = 'source-over';
-        ctx.globalAlpha = 1;
         ctx.filter = 'none';
+
+        // ── Entrance / Exit animation ──────────────────────────────────────
+        var _ltEnterDur = 420, _ltExitDur = 420;
+        var _ltAge = timestamp - (APP.lowerThird._showTime || timestamp);
+        var _ltEnterT = Math.min(1, _ltAge / _ltEnterDur);
+        // easeOutQuart
+        var _ltEnter = 1 - Math.pow(1 - _ltEnterT, 4);
+        var _ltExitT = APP.lowerThird._hiding
+            ? Math.min(1, (timestamp - APP.lowerThird._hideStart) / _ltExitDur)
+            : 0;
+        // easeInQuart
+        var _ltExit = _ltExitT * _ltExitT * _ltExitT * _ltExitT;
+        var _ltAlpha = _ltEnter * (1 - _ltExit);
+        var _ltDX = (1 - _ltEnter) * -28 + _ltExit * 22;
+        ctx.globalAlpha = Math.max(0, _ltAlpha);
+        ctx.translate(_ltDX, 0);
 
         // A. Preset accent color per style
         var ltPreset = APP.lowerThird.preset || 'guest';
@@ -6715,7 +6745,7 @@ if (T.logo.visible) {
         else if (ltPreset === 'breaking') { ltAccent = '#ff3333'; ltGlow = 'rgba(255,51,51,'; }
         else if (ltPreset === 'neon')    { ltAccent = '#ff00cc'; ltGlow = 'rgba(255,0,204,'; }
         else if (ltPreset === 'split')   { ltAccent = '#ffaa00'; ltGlow = 'rgba(255,170,0,'; }
-        else if (ltPreset === 'scan')    { ltAccent = '#00ffaa'; ltGlow = 'rgba(0,255,170,'; }
+        else if (ltPreset === 'glitch')  { ltAccent = '#bf00ff'; ltGlow = 'rgba(191,0,255,'; }
         // User colour override
         if (APP.lowerThird.ltColor) { ltAccent = APP.lowerThird.ltColor; var _lcr=parseInt(ltAccent.slice(1,3),16),_lcg=parseInt(ltAccent.slice(3,5),16),_lcb=parseInt(ltAccent.slice(5,7),16); ltGlow='rgba('+_lcr+','+_lcg+','+_lcb+','; }
 
@@ -6882,74 +6912,94 @@ if (T.logo.visible) {
 
             ctx.restore();
         }
-        // ─── STYLE: SCAN ───────────────────────────────────────────
-        else if (ltPreset === 'scan') {
-            // Background
-            var scBg = ctx.createLinearGradient(boxX, 0, boxX + boxW, 0);
-            scBg.addColorStop(0, 'rgba(0,12,8,0.95)');
-            scBg.addColorStop(0.7, 'rgba(0,10,6,0.85)');
-            scBg.addColorStop(1, 'rgba(0,10,6,0)');
-            ctx.fillStyle = scBg;
-            ctx.fillRect(boxX, boxY, boxW, boxH);
+        // ─── STYLE: GLITCH — rounded pill, electric violet, chromatic aberration ──
+        else if (ltPreset === 'glitch') {
+            var glRadius = Math.round(boxH * 0.42);
+            var gPulse   = 0.5 + 0.5 * Math.sin(timestamp * 0.004);
 
-            // Left accent stripe
-            ctx.shadowColor = ltAccent; ctx.shadowBlur = 16;
-            ctx.fillStyle = ltAccent;
-            ctx.fillRect(boxX, boxY, accentW, boxH);
+            // Rounded pill background
+            ctx.beginPath();
+            ctx.roundRect(boxX, boxY, boxW, boxH, glRadius);
+            ctx.fillStyle = 'rgba(10,0,18,0.93)';
+            ctx.fill();
+
+            // Electric border with breathing glow
+            ctx.strokeStyle = ltAccent;
+            ctx.lineWidth = 2;
+            ctx.shadowColor = ltAccent;
+            ctx.shadowBlur = 12 + gPulse * 14;
+            ctx.beginPath();
+            ctx.roundRect(boxX + 1, boxY + 1, boxW - 2, boxH - 2, glRadius - 1);
+            ctx.stroke();
             ctx.shadowBlur = 0;
 
-            // Bottom accent line
-            ctx.fillStyle = ltAccent;
-            ctx.fillRect(boxX, boxY + boxH, boxW * 0.6, 2);
-            var scTail = ctx.createLinearGradient(boxX + boxW * 0.6, 0, boxX + boxW, 0);
-            scTail.addColorStop(0, ltAccent); scTail.addColorStop(1, 'rgba(0,0,0,0)');
-            ctx.fillStyle = scTail;
-            ctx.fillRect(boxX + boxW * 0.6, boxY + boxH, boxW * 0.4, 2);
+            // Inner glow tint
+            ctx.beginPath();
+            ctx.roundRect(boxX + 2, boxY + 2, boxW - 4, boxH - 4, glRadius - 2);
+            ctx.fillStyle = ltGlow + (0.04 + gPulse * 0.05) + ')';
+            ctx.fill();
 
-            // Progress bar (teal segment, cycles over 5 seconds)
-            var scanCycle = (timestamp % 5000) / 5000;
-            ctx.fillStyle = ltAccent;
-            ctx.globalAlpha = 0.18;
-            ctx.fillRect(boxX + accentW, boxY + boxH - 3, boxW * scanCycle, 3);
-            ctx.globalAlpha = 1;
+            // Glitch bars — seed changes every 80ms, sparse random triggers
+            var glSeed = Math.floor(timestamp / 80);
+            ctx.save();
+            ctx.beginPath();
+            ctx.roundRect(boxX, boxY, boxW, boxH, glRadius);
+            ctx.clip();
+            for (var gi = 0; gi < 4; gi++) {
+                var grng = Math.abs(Math.sin(glSeed * 127.3 + gi * 43.7));
+                if (grng > 0.62) {
+                    var gbarFrac = Math.abs(Math.sin(glSeed * 91.1 + gi * 17.3));
+                    var gbarY2   = boxY + gbarFrac * boxH;
+                    var gbarH2   = 1.5 + Math.abs(Math.sin(glSeed * 61 + gi)) * 3.5;
+                    var gbarOff  = (Math.sin(glSeed * 173 + gi * 31) * 0.5 + 0.5) * boxW * 0.35;
+                    ctx.globalAlpha = 0.22 * _ltAlpha;
+                    ctx.fillStyle = gi % 2 === 0 ? '#ff0040' : ltAccent;
+                    ctx.fillRect(boxX + gbarOff, gbarY2, boxW - gbarOff, gbarH2);
+                }
+            }
+            ctx.globalAlpha = _ltAlpha;
+            ctx.restore();
 
-            // Persistent sweep line (every 3s)
-            var sweepT = (timestamp % 3000) / 3000;
-            var sweepX = boxX + sweepT * boxW;
-            var sweepG = ctx.createLinearGradient(sweepX - 20, 0, sweepX + 20, 0);
-            sweepG.addColorStop(0, 'rgba(0,255,170,0)');
-            sweepG.addColorStop(0.5, 'rgba(0,255,170,0.18)');
-            sweepG.addColorStop(1, 'rgba(0,255,170,0)');
-            ctx.fillStyle = sweepG;
-            ctx.fillRect(boxX, boxY, boxW, boxH);
+            // Chromatic aberration on title — magnitude reduces once settled
+            var glTextX = boxX + glRadius * 0.55 + ltPad;
+            var glTextY = boxY + ltPad + (subText ? 0 : (boxH - ltPad * 2 - titleFS) * 0.5);
+            var chrMax = Math.max(2, titleFS * 0.055);
+            // Extra chroma during entrance, then settles to a persistent subtle split
+            var chrOff2 = chrMax * (1 + 2.5 * Math.max(0, 1 - _ltEnterT * 2.5));
+            var chrPersist = 1.5 + Math.sin(timestamp * 0.0025) * 0.5; // subtle living offset
 
-            // Title
             ctx.font = '800 ' + titleFS + 'px Orbitron, sans-serif';
+            ctx.textAlign = 'left'; ctx.textBaseline = 'top';
+
+            // Red channel — offset right
+            ctx.globalAlpha = 0.50 * _ltAlpha;
+            ctx.fillStyle = '#ff0040';
+            ctx.fillText(titleText, glTextX + chrOff2, glTextY);
+            // Cyan channel — offset left
+            ctx.fillStyle = '#00f3ff';
+            ctx.fillText(titleText, glTextX - chrOff2, glTextY);
+            // White base — sharp, with faint violet glow
+            ctx.globalAlpha = _ltAlpha;
             ctx.fillStyle = '#ffffff';
-            ctx.textAlign = 'left';
-            ctx.textBaseline = 'top';
-            ctx.shadowColor = 'rgba(0,0,0,0.8)'; ctx.shadowBlur = 4;
-            ctx.fillText(titleText, boxX + accentW + ltPad, boxY + ltPad);
+            ctx.shadowColor = ltAccent; ctx.shadowBlur = 5 + gPulse * 4;
+            // Persistent micro chroma even when settled
+            ctx.globalAlpha = 0.35 * _ltAlpha;
+            ctx.fillStyle = '#ff0040'; ctx.fillText(titleText, glTextX + chrPersist, glTextY);
+            ctx.fillStyle = '#00f3ff'; ctx.fillText(titleText, glTextX - chrPersist, glTextY);
+            ctx.globalAlpha = _ltAlpha;
+            ctx.fillStyle = '#ffffff'; ctx.shadowBlur = 5 + gPulse * 4;
+            ctx.fillText(titleText, glTextX, glTextY);
             ctx.shadowBlur = 0;
 
-            // Subtitle
+            // Subtitle — violet, spaced, JetBrains Mono
             if (subText) {
                 ctx.font = '500 ' + subFS + 'px "JetBrains Mono", monospace';
                 ctx.fillStyle = ltAccent;
-                ctx.globalAlpha = 0.9;
-                ctx.fillText(subText.toUpperCase(), boxX + accentW + ltPad, boxY + ltPad + titleFS + 6);
-                ctx.globalAlpha = 1;
-            }
-
-            // Shimmer: extra bright sweep
-            if (doShimmer) {
-                var shmX = boxX + shimmerT * (boxW + 60) - 60;
-                var shmG = ctx.createLinearGradient(shmX, 0, shmX + 60, 0);
-                shmG.addColorStop(0, 'rgba(255,255,255,0)');
-                shmG.addColorStop(0.5, 'rgba(255,255,255,0.28)');
-                shmG.addColorStop(1, 'rgba(255,255,255,0)');
-                ctx.fillStyle = shmG;
-                ctx.fillRect(boxX, boxY, boxW, boxH);
+                ctx.globalAlpha = 0.82 * _ltAlpha;
+                ctx.shadowColor = ltAccent; ctx.shadowBlur = 4 + gPulse * 3;
+                ctx.fillText(subText.toUpperCase(), glTextX, glTextY + titleFS + 6);
+                ctx.shadowBlur = 0;
+                ctx.globalAlpha = _ltAlpha;
             }
 
             ctx.restore();
@@ -10274,16 +10324,17 @@ function showLowerThird(preset) {
     // Update content mode when a mode button triggers this
     if (modePresets.includes(preset)) APP.lowerThird.mode = preset;
     // Update style if a legacy style name was passed (P2P sync compat)
-    if (['neon','split','scan'].includes(preset)) {
+    if (['neon','split','glitch'].includes(preset)) {
         APP.lowerThird.ltStyle = preset;
         if ($('lt-style-select')) $('lt-style-select').value = preset;
     }
     const mode  = APP.lowerThird.mode  || 'guest';
     const style = ($('lt-style-select') ? $('lt-style-select').value : null) || APP.lowerThird.ltStyle || 'default';
     const visualPreset = (style !== 'default') ? style : mode;
-    container.classList.remove('lt-guest','lt-track','lt-breaking','lt-neon','lt-split','lt-scan');
+    container.classList.remove('lt-guest','lt-track','lt-breaking','lt-neon','lt-split','lt-glitch');
     container.classList.add(`lt-${visualPreset}`);
     APP.lowerThird.preset = visualPreset; APP.lowerThird.visible = true; APP.lowerThird._lastShimmer = null;
+    APP.lowerThird._showTime = performance.now(); APP.lowerThird._hiding = false;
     // Fill text from content mode (track always pulls live track name)
     if (mode === 'track') { $('lt-title-text').textContent = APP.audio.currentTrackName || $('lt-title').value || 'TRACK TITLE'; $('lt-subtitle-text').textContent = 'NOW PLAYING'; }
     else if (mode === 'breaking') { $('lt-title-text').textContent = $('lt-title').value || 'BREAKING NEWS'; $('lt-subtitle-text').textContent = $('lt-sub').value || 'LIVE UPDATE'; }
@@ -10296,7 +10347,17 @@ function showLowerThird(preset) {
     ['guest','track','breaking'].forEach(m => { const el = $(`btn-lt-${m}`); if (el) el.classList.toggle('active-mode', m === mode); });
 }
 function hideLowerThird() {
-    $('lower-third').classList.remove('visible'); APP.lowerThird.visible = false;
+    if (APP.lowerThird.visible && !APP.lowerThird._hiding) {
+        APP.lowerThird._hiding = true;
+        APP.lowerThird._hideStart = performance.now();
+        setTimeout(function() {
+            $('lower-third').classList.remove('visible');
+            APP.lowerThird.visible = false;
+            APP.lowerThird._hiding = false;
+        }, 420);
+    } else if (!APP.lowerThird.visible) {
+        $('lower-third').classList.remove('visible');
+    }
     ['guest','track','breaking'].forEach(m => { const el = $(`btn-lt-${m}`); if (el) el.classList.remove('active-mode'); });
 }
 
@@ -12767,8 +12828,9 @@ document.addEventListener('DOMContentLoaded', () => {
                     ['GUEST',  'Fires the lower-third in name/role format. Stays on canvas.'],
                     ['TRACK',  'Swaps to track-title mode (green tint). Updates live.'],
                     ['BREAK',  'Fires a BREAKING NEWS style lower-third (red tint).'],
-                    ['[X]',    'Instantly removes the lower-third from the canvas.'],
-                    ['STYLE',  'Pick a graphic preset: DEFAULT, NEON, SPLIT, or SCAN.']
+                    ['×',      'Fades the lower-third out with an exit animation, then removes it.'],
+                    ['STYLE',  'Graphic preset — DEFAULT: clean bar. NEON: glowing border. SPLIT: two-column. GLITCH: rounded pill, electric violet, chromatic aberration + glitch bars.'],
+                    ['ENTER/EXIT', 'All styles animate in (slide + fade). × triggers a smooth exit before clearing.']
                 ],
                 footer: 'VNGRD // LOWER_THIRD · BROADCAST GRAPHIC'
             },
