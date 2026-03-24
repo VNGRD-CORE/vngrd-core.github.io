@@ -253,6 +253,43 @@
             --border-style: 1px solid rgba(255,255,255,0.05);
             --shadow-style: 0 10px 40px rgba(0,0,0,0.4);
         }
+        /* Ethereal — explicit overrides so hardcoded console elements pick up the theme */
+        body.theme-ethereal #top-bar,
+        body.theme-ethereal #bottom-bar {
+            background: #2c2c2e !important;
+            border-color: rgba(255,255,255,0.05) !important;
+            box-shadow: 0 10px 40px rgba(0,0,0,0.4) !important;
+            border-radius: 0 !important;
+        }
+        body.theme-ethereal .sidebar {
+            background: #2c2c2e !important;
+            border-color: rgba(255,255,255,0.05) !important;
+            box-shadow: 0 10px 40px rgba(0,0,0,0.4) !important;
+        }
+        body.theme-ethereal .section {
+            border-top-color: rgba(255,255,255,0.03) !important;
+            border-bottom-color: rgba(255,255,255,0.05) !important;
+        }
+        body.theme-ethereal .btn {
+            background: linear-gradient(180deg, #3a3a3c 0%, #2c2c2e 100%) !important;
+            border-radius: 16px !important;
+            border-top: 1px solid rgba(255,255,255,0.08) !important;
+            border-left: 1px solid rgba(255,255,255,0.05) !important;
+            border-right: 1px solid rgba(255,255,255,0.03) !important;
+            border-bottom: 1px solid rgba(0,0,0,0.3) !important;
+            box-shadow: 0 10px 40px rgba(0,0,0,0.4) !important;
+            color: #e5e5ea !important;
+            font-family: 'Inter', sans-serif !important;
+        }
+        body.theme-ethereal .btn:hover {
+            background: linear-gradient(180deg, #48484a 0%, #3a3a3c 100%) !important;
+            border-color: rgba(167,139,250,0.5) !important;
+        }
+        body.theme-ethereal .btn.on {
+            border-color: #a78bfa !important;
+            color: #a78bfa !important;
+            box-shadow: 0 0 14px rgba(167,139,250,0.3) !important;
+        }
 
         /* --- WEB DNA KILL SWITCH --- */
         * { 
