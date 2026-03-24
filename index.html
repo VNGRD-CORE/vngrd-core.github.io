@@ -150,6 +150,35 @@
         /* Palette swatches — dark border so on-state is visible on light bg */
         body.theme-broadcast .pal.on { border-color: #1a2030 !important; box-shadow: 0 0 5px rgba(0,0,0,0.3) !important; }
 
+        /* === TOP BAR: logo, badges, clock === */
+        /* Disable exclusion blend — neon colors show fine on silver without it */
+        body.theme-broadcast #main-logo { mix-blend-mode: normal !important; }
+        /* CORE span readable */
+        body.theme-broadcast #main-logo span { color: #b8001a !important; opacity: 1 !important; }
+        body.theme-broadcast .sub-tag { color: #1a2030 !important; opacity: 0.75 !important; }
+        body.theme-broadcast .version { color: #b8001a !important; background: rgba(184,0,26,0.08) !important; border-color: #b8001a !important; }
+        /* Generic badges → dark text */
+        body.theme-broadcast .badge { border-color: rgba(0,0,0,0.22) !important; color: #1a2030 !important; background: rgba(255,255,255,0.4) !important; }
+        body.theme-broadcast #fps-badge { color: #146b30 !important; border-color: #146b30 !important; background: rgba(20,107,48,0.08) !important; }
+        body.theme-broadcast #wallet-badge { color: #7a4800 !important; border-color: #7a4800 !important; background: rgba(122,72,0,0.06) !important; }
+        body.theme-broadcast #btn-open-p2p-modal { color: #005080 !important; border-color: #005080 !important; background: rgba(0,80,128,0.06) !important; }
+        body.theme-broadcast .stat,
+        body.theme-broadcast #status-text { color: #1a2030 !important; }
+        body.theme-broadcast #clock { color: #1a2030 !important; font-weight: 700; }
+
+        /* === BOTTOM BAR: ticker + info bar === */
+        /* Remove dark overlay from ticker strip */
+        body.theme-broadcast #ticker-wrap { background: rgba(0,0,0,0.06) !important; border-color: rgba(0,0,0,0.1) !important; }
+        body.theme-broadcast #ticker-label { color: #b8001a !important; background: rgba(184,0,26,0.08) !important; border-color: rgba(0,0,0,0.1) !important; }
+        body.theme-broadcast #ticker-text,
+        body.theme-broadcast #ticker-text * { color: #1a2030 !important; }
+        body.theme-broadcast .tick-up { color: #146b30 !important; }
+        body.theme-broadcast .tick-down { color: #b8001a !important; }
+        body.theme-broadcast #info-bar { border-color: rgba(0,0,0,0.08) !important; }
+        body.theme-broadcast .info-item { color: #5a6878 !important; }
+        body.theme-broadcast .info-item span { color: #1a2030 !important; }
+        body.theme-broadcast .info-item .hl { color: #b8001a !important; }
+
         /* STRUCTURAL THEME ENGINE — ETHEREAL_MINIMAL */
         body.theme-ethereal {
             --bg-main: #1c1c1e;
