@@ -6245,10 +6245,17 @@ async function fetchCrypto() {
     }
 }
 // TICKER CYCLE ENGINE — [WEATHER] > [CRYPTO] > [IDENTITY]
+// NOTE: Cyber/default theme only — Broadcast theme has its own engine below.
 APP.crypto.tickerHTML = '';
 APP.ticker = { phase: 0, interval: null };
 
 function updateTickerCycle() {
+    // ── Broadcast theme gets its own dedicated ticker engine ──────────────
+    if (document.body.classList.contains('theme-broadcast')) {
+        updateBroadcastTicker();
+        return;
+    }
+    // ── Cyber / Ethereal: original weather + crypto + identity cycle ──────
     const ticker = $('ticker-text');
     if (!ticker) return;
     const weatherBlock = APP.atmosphere.city !== 'UNKNOWN'
@@ -6259,6 +6266,101 @@ function updateTickerCycle() {
     const full = weatherBlock + '&nbsp;&nbsp;//&nbsp;&nbsp;' + cryptoBlock + '&nbsp;&nbsp;//&nbsp;&nbsp;' + identityBlock;
     ticker.innerHTML = full + '&nbsp;&nbsp;//&nbsp;&nbsp;' + full;
 }
+
+// ─── BROADCAST TICKER ENGINE ─────────────────────────────────────────────────
+// Global clocks helper — returns [ LOCAL: HH:MM ] [ NY: HH:MM ] ...
+function getGlobalClocks() {
+    function fmt(tz) {
+        return new Intl.DateTimeFormat('en-GB', {
+            hour: '2-digit', minute: '2-digit', hour12: false, timeZone: tz
+        }).format(new Date());
+    }
+    var localTz = Intl.DateTimeFormat().resolvedOptions().timeZone;
+    return '[ LOCAL: ' + fmt(localTz) + ' ] [ NY: ' + fmt('America/New_York') +
+           ' ] [ LDN: ' + fmt('Europe/London') + ' ] [ TYO: ' + fmt('Asia/Tokyo') + ' ]';
+}
+
+APP.broadcast = APP.broadcast || {};
+APP.broadcast.newsCache  = [];
+APP.broadcast.lastFetch  = 0;
+APP.broadcast.newsCity   = '';
+
+// Fetch top-3 geo-targeted headlines; falls back to Hacker News on failure
+function fetchBroadcastNews() {
+    var city = APP.atmosphere.city;
+    var now  = Date.now();
+    // 5-minute cache — don't hammer the proxy
+    if (APP.broadcast.newsCache.length && now - APP.broadcast.lastFetch < 300000) {
+        return Promise.resolve(APP.broadcast.newsCache);
+    }
+    if (city && city !== 'UNKNOWN') {
+        var rssUrl = 'https://news.google.com/rss/headlines/section/geo/' + encodeURIComponent(city);
+        var apiUrl = 'https://api.rss2json.com/v1/api.json?rss_url=' + encodeURIComponent(rssUrl);
+        return fetch(apiUrl)
+            .then(function(r) { return r.json(); })
+            .then(function(data) {
+                if (data.status === 'ok' && data.items && data.items.length) {
+                    APP.broadcast.newsCache = data.items.slice(0, 3).map(function(i) {
+                        return i.title.replace(/\s+/g, ' ').trim().toUpperCase();
+                    });
+                    APP.broadcast.lastFetch = now;
+                    APP.broadcast.newsCity  = city;
+                    return APP.broadcast.newsCache;
+                }
+                throw new Error('RSS_EMPTY');
+            })
+            .catch(function() { return _broadcastHNFallback(now); });
+    }
+    return _broadcastHNFallback(now);
+}
+
+function _broadcastHNFallback(now) {
+    return fetch('https://hacker-news.firebaseio.com/v0/topstories.json')
+        .then(function(r) { return r.json(); })
+        .then(function(ids) {
+            return Promise.all(ids.slice(0, 3).map(function(id) {
+                return fetch('https://hacker-news.firebaseio.com/v0/item/' + id + '.json')
+                    .then(function(r) { return r.json(); })
+                    .then(function(d) { return (d.title || 'INTEL UNAVAILABLE').toUpperCase(); });
+            }));
+        })
+        .then(function(titles) {
+            APP.broadcast.newsCache = titles;
+            APP.broadcast.lastFetch = now;
+            APP.broadcast.newsCity  = 'GLOBAL';
+            return titles;
+        })
+        .catch(function() {
+            return ['SIGNAL ACQUIRING\u2026', 'FEED STANDBY\u2026', 'INTEL PENDING\u2026'];
+        });
+}
+
+function updateBroadcastTicker() {
+    var ticker = $('ticker-text');
+    if (!ticker) return;
+    var clocks = getGlobalClocks();
+    fetchBroadcastNews().then(function(headlines) {
+        var city = (APP.broadcast.newsCity && APP.broadcast.newsCity !== 'UNKNOWN')
+                   ? APP.broadcast.newsCity : 'GLOBAL';
+        var bullets = headlines.map(function(h) { return '\u25CF ' + h; }).join('&nbsp;&nbsp;&nbsp;');
+        var content = clocks
+                    + '&nbsp;&nbsp;//&nbsp;&nbsp;'
+                    + '[ ' + city + ' LOCAL INTEL ]'
+                    + '&nbsp;&nbsp;' + bullets;
+        // Obsidian broadcast palette: sharp dark text on ticker bar, Space Mono
+        // Uses !important inline to beat the stylesheet span color override
+        var full = '<span style="font-family:\'Space Mono\',monospace!important;font-size:9px!important;'
+                 + 'letter-spacing:0.05em!important;color:#1a2030!important;font-weight:600!important;">'
+                 + content + '</span>';
+        ticker.innerHTML = full + '&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;' + full;
+    });
+}
+
+// Refresh clocks every 60 s while Broadcast is active (news stays cached 5 min)
+setInterval(function() {
+    if (document.body.classList.contains('theme-broadcast')) updateBroadcastTicker();
+}, 60000);
+// ─── END BROADCAST TICKER ENGINE ─────────────────────────────────────────────
 
 // UTILS
 function log(msg) {
@@ -11836,6 +11938,8 @@ function setTheme(theme) { const structClass = ['theme-broadcast','theme-etherea
     const names = ['CYBER_CORE', 'BROADCAST_PRO', 'ETHEREAL_MINIMAL'];
     // Log to ghost terminal if available
     if (window.ghostLog) window.ghostLog('THEME > ' + names[_structIdx], 'ai');
+    // Immediately refresh ticker for the new structural theme
+    if (typeof updateTickerCycle === 'function') updateTickerCycle();
   };
 })();
 
