@@ -220,7 +220,9 @@
         body.theme-broadcast .info-item span { color: #1a2030 !important; }
         body.theme-broadcast .info-item .hl { color: #b8001a !important; }
 
-        /* === TICKER text: Broadcast uses injected dark text — no override needed === */
+        /* === TICKER: purple text === */
+        body.theme-broadcast #ticker-text,
+        body.theme-broadcast #ticker-text span { color: #6d28d9 !important; }
         body.theme-broadcast .tick-up { color: #146b30 !important; }
         body.theme-broadcast .tick-down { color: #b8001a !important; }
 
@@ -326,115 +328,8 @@
         }
         body.theme-ethereal .btn.on {
             border-color: #a78bfa !important;
-            color: #c4b5fd !important;
-            box-shadow: 0 0 14px rgba(167,139,250,0.25), inset 0 1px 3px rgba(0,0,0,0.3) !important;
-        }
-        /* Inputs */
-        body.theme-ethereal input,
-        body.theme-ethereal select,
-        body.theme-ethereal textarea {
-            background: rgba(255,255,255,0.06) !important;
-            border-color: rgba(255,255,255,0.1) !important;
-            color: #e5e5ea !important;
-        }
-        body.theme-ethereal input:focus,
-        body.theme-ethereal select:focus,
-        body.theme-ethereal textarea:focus {
-            border-color: #a78bfa !important;
-            box-shadow: 0 0 0 2px rgba(167,139,250,0.15) !important;
-        }
-        /* Text */
-        body.theme-ethereal .sec-body,
-        body.theme-ethereal label,
-        body.theme-ethereal .log-entry,
-        body.theme-ethereal .info-val,
-        body.theme-ethereal .info-label { color: #8e8e93 !important; }
-        body.theme-ethereal span:not(.sec-title):not(.accent) { color: #e5e5ea; }
-        body.theme-ethereal .pal.on { border-color: #a78bfa !important; box-shadow: 0 0 6px rgba(167,139,250,0.4) !important; }
-
-        /* === TOP BAR ===*/
-        body.theme-ethereal #main-logo { mix-blend-mode: normal !important; }
-        body.theme-ethereal #main-logo span { color: #a78bfa !important; opacity: 1 !important; }
-        body.theme-ethereal .sub-tag { color: #8e8e93 !important; opacity: 0.85 !important; }
-        body.theme-ethereal .sub-tag::after { background: linear-gradient(90deg, transparent, rgba(167,139,250,0.25), transparent); }
-        body.theme-ethereal .version { color: #a78bfa !important; background: rgba(167,139,250,0.08) !important; border-color: rgba(167,139,250,0.35) !important; }
-        body.theme-ethereal .badge { border-color: rgba(255,255,255,0.1) !important; color: #c4c4c8 !important; background: rgba(255,255,255,0.04) !important; }
-        body.theme-ethereal #fps-badge { color: #34d399 !important; border-color: rgba(52,211,153,0.4) !important; background: rgba(52,211,153,0.06) !important; }
-        body.theme-ethereal #wallet-badge { color: #fbbf24 !important; border-color: rgba(251,191,36,0.4) !important; background: rgba(251,191,36,0.06) !important; }
-        body.theme-ethereal #btn-open-p2p-modal { color: #60a5fa !important; border-color: rgba(96,165,250,0.4) !important; background: rgba(96,165,250,0.06) !important; }
-        body.theme-ethereal .stat,
-        body.theme-ethereal #status-text { color: #aeaeb2 !important; }
-        body.theme-ethereal #clock { color: #e5e5ea !important; font-weight: 600; }
-
-        /* === BOTTOM BAR: ticker + info — Obsidian hardware frame ===*/
-        body.theme-ethereal #ticker-wrap { background: #000000 !important; border-color: rgba(167,139,250,0.15) !important; }
-        body.theme-ethereal #ticker-label { color: #a78bfa !important; background: rgba(167,139,250,0.12) !important; border-color: rgba(167,139,250,0.3) !important; font-weight: 700 !important; }
-        /* Ethereal ticker content is injected with inline !important — base fallback only */
-        body.theme-ethereal #ticker-text { color: #e5e5ea !important; }
-        body.theme-ethereal #ticker-text * { color: #e5e5ea !important; }
-        body.theme-ethereal .tick-up { color: #34d399 !important; }
-        body.theme-ethereal .tick-down { color: #f87171 !important; }
-        body.theme-ethereal #info-bar { border-color: rgba(255,255,255,0.04) !important; }
-        body.theme-ethereal .info-item { color: #636366 !important; }
-        body.theme-ethereal .info-item span { color: #aeaeb2 !important; }
-        body.theme-ethereal .info-item .hl { color: #a78bfa !important; }
-
-        /* === LOGO MORPH ===*/
-        body.theme-ethereal .logo.m4 { color: transparent !important; -webkit-text-stroke: 1.5px #e5e5ea !important; text-shadow: none !important; }
-        body.theme-ethereal .logo.m5 { color: #e5e5ea !important; text-shadow: 2px 0 #a78bfa, -2px 0 #60a5fa !important; }
-
-        /* === SELECTS ===*/
-        body.theme-ethereal select,
-        body.theme-ethereal .slot-select,
-        body.theme-ethereal #ai-model-select,
-        body.theme-ethereal #bug-style-select,
-        body.theme-ethereal #bug-mode-select,
-        body.theme-ethereal #lt-style-select,
-        body.theme-ethereal #audio-input-select,
-        body.theme-ethereal #audio-output {
-            background: rgba(255,255,255,0.06) !important;
-            background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='8' height='5' viewBox='0 0 8 5'%3E%3Cpath d='M0 0l4 5 4-5z' fill='%23a78bfa' opacity='0.6'/%3E%3C/svg%3E") !important;
-            background-repeat: no-repeat !important;
-            background-position: right 7px center !important;
-            background-size: 7px 5px !important;
-            border: 1px solid rgba(255,255,255,0.1) !important;
-            color: #e5e5ea !important;
-        }
-        body.theme-ethereal select option,
-        body.theme-ethereal .slot-select option {
-            background: #2c2c2e !important;
-            color: #e5e5ea !important;
-        }
-
-        /* === LIGHT PANEL SHEEN — slow beam across bars === */
-        body.theme-ethereal #top-bar,
-        body.theme-ethereal #bottom-bar,
-        body.theme-ethereal .sidebar { overflow: hidden; position: relative; }
-        body.theme-ethereal #top-bar::before,
-        body.theme-ethereal #bottom-bar::before,
-        body.theme-ethereal .sidebar::before {
-            content: '';
-            position: absolute;
-            top: 0; left: -200%; width: 80%; height: 1px;
-            background: linear-gradient(90deg, transparent, rgba(255,255,255,0.09), transparent);
-            animation: eth-panel-beam 14s ease-in-out infinite;
-            pointer-events: none; z-index: 0;
-        }
-        body.theme-ethereal .sidebar::before {
-            width: 1px; height: 80%;
-            top: -200%; left: 0;
-            background: linear-gradient(180deg, transparent, rgba(255,255,255,0.09), transparent);
-            animation: eth-sidebar-beam 18s ease-in-out infinite;
-        }
-        @keyframes eth-panel-beam {
-            0%, 60%, 100% { left: -200%; opacity: 0; }
-            63%, 70% { opacity: 1; }
-            68% { left: 220%; }
-        }
-        @keyframes eth-sidebar-beam {
-            0%, 55%, 100% { top: -200%; opacity: 0; }
-            58%, 65% { opacity: 1; }
-            63% { top: 220%; }
+            color: #a78bfa !important;
+            box-shadow: 0 0 14px rgba(167,139,250,0.3) !important;
         }
 
         /* --- WEB DNA KILL SWITCH --- */
@@ -6385,16 +6280,12 @@ APP.crypto.tickerHTML = '';
 APP.ticker = { phase: 0, interval: null };
 
 function updateTickerCycle() {
-    // ── Structural themes each have dedicated ticker engines ──────────────
+    // ── Broadcast theme gets its own dedicated ticker engine ──────────────
     if (document.body.classList.contains('theme-broadcast')) {
         updateBroadcastTicker();
         return;
     }
-    if (document.body.classList.contains('theme-ethereal')) {
-        updateEtherealTicker();
-        return;
-    }
-    // ── Cyber (default): original weather + crypto + identity cycle ───────
+    // ── Cyber / Ethereal: original weather + crypto + identity cycle ──────
     const ticker = $('ticker-text');
     if (!ticker) return;
     const weatherBlock = APP.atmosphere.city !== 'UNKNOWN'
@@ -6500,97 +6391,6 @@ setInterval(function() {
     if (document.body.classList.contains('theme-broadcast')) updateBroadcastTicker();
 }, 60000);
 // ─── END BROADCAST TICKER ENGINE ─────────────────────────────────────────────
-
-// ─── ETHEREAL TICKER ENGINE — Global Culture + Local Art ─────────────────────
-APP.ethereal = APP.ethereal || {};
-APP.ethereal.newsCache   = null;   // { global: [], local: [], city: '' }
-APP.ethereal.lastFetch   = 0;
-
-// Strip "- Publisher Name" suffix injected by Google News (e.g. " - The Guardian")
-function _stripPublisher(title) {
-    return title.replace(/\s+[-–]\s+[^-–]{2,50}$/, '').trim();
-}
-
-function fetchEtherealNews() {
-    var city = APP.atmosphere.city;
-    var now  = Date.now();
-    // 5-minute cache
-    if (APP.ethereal.newsCache && now - APP.ethereal.lastFetch < 300000) {
-        return Promise.resolve(APP.ethereal.newsCache);
-    }
-
-    var globalUrl = 'https://news.google.com/rss/search?q=%22Art+News%22+OR+%22Contemporary+Art%22+OR+%22Design+Culture%22';
-    var localQ    = (city && city !== 'UNKNOWN')
-                  ? '%22Art+Exhibition%22+OR+%22Gallery%22+location%3A' + encodeURIComponent(city)
-                  : '%22Art+Exhibition%22+OR+%22Contemporary+Gallery%22';
-
-    var localUrl  = 'https://news.google.com/rss/search?q=' + localQ;
-    var proxy     = 'https://api.rss2json.com/v1/api.json?rss_url=';
-
-    function fetchFeed(rssUrl, count) {
-        return fetch(proxy + encodeURIComponent(rssUrl))
-            .then(function(r) { return r.json(); })
-            .then(function(data) {
-                if (data.status === 'ok' && data.items && data.items.length) {
-                    return data.items.slice(0, count).map(function(i) {
-                        return _stripPublisher(i.title).toUpperCase();
-                    });
-                }
-                return [];
-            })
-            .catch(function() { return []; });
-    }
-
-    return Promise.all([fetchFeed(globalUrl, 2), fetchFeed(localUrl, 2)])
-        .then(function(results) {
-            var globalItems = results[0].length ? results[0] : ['\u2014', '\u2014'];
-            var localItems  = results[1].length ? results[1] : ['\u2014', '\u2014'];
-            var cache = {
-                global: globalItems,
-                local:  localItems,
-                city:   (city && city !== 'UNKNOWN') ? city : 'GLOBAL'
-            };
-            APP.ethereal.newsCache = cache;
-            APP.ethereal.lastFetch = now;
-            return cache;
-        });
-}
-
-function updateEtherealTicker() {
-    var ticker = $('ticker-text');
-    if (!ticker) return;
-
-    fetchEtherealNews().then(function(data) {
-        // Accent colour — use Ethereal's violet; inline fallback for non-Ethereal contexts
-        var accent = '#a78bfa';
-        // Global culture block
-        var gBullets = data.global.map(function(h) { return '\u25CF \u201C' + h + '\u201D'; }).join('&nbsp;&nbsp;');
-        var lBullets = data.local.map(function(h)  { return '\u25CF \u201C' + h + '\u201D'; }).join('&nbsp;&nbsp;');
-
-        var globalBlock = '<span style="color:' + accent + '!important;font-weight:700;">[ GLOBAL CULTURE ]</span>'
-                        + '&nbsp;&nbsp;' + gBullets;
-        var localBlock  = '<span style="color:' + accent + '!important;font-weight:700;">[ ' + data.city + ' // LOCAL ART ]</span>'
-                        + '&nbsp;&nbsp;' + lBullets;
-
-        var content = globalBlock
-                    + '&nbsp;&nbsp;//&nbsp;&nbsp;'
-                    + localBlock;
-
-        // Obsidian hardware frame: #000 bg is set by the containing ticker-wrap CSS;
-        // text uses near-white for readability on dark substrate
-        var full = '<span style="font-family:\'Inter\',sans-serif!important;font-size:9px!important;'
-                 + 'letter-spacing:0.04em!important;color:#e5e5ea!important;">'
-                 + content + '</span>';
-
-        ticker.innerHTML = full + '&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;' + full;
-    });
-}
-
-// Refresh Ethereal ticker every 60 s (clocks not shown; news cached 5 min)
-setInterval(function() {
-    if (document.body.classList.contains('theme-ethereal')) updateEtherealTicker();
-}, 60000);
-// ─── END ETHEREAL TICKER ENGINE ───────────────────────────────────────────────
 
 // UTILS
 function log(msg) {
