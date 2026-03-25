@@ -4105,7 +4105,267 @@ body.fullscreen #transcription-hud { pointer-events: none !important; } /* keep 
     flex-shrink: 0; font-size: 6.5px; color: rgba(176,0,255,0.4); letter-spacing: 1px;
 }
 
-/* Per-pad kill × — custom pads only, floats BELOW pad boundary (outside tap zone) */
+/* ═══════════════════════════════════════════════════════════════
+   KORG ESX-1 // DRIS CORE — Floating HUD Window
+   Obsidian titlebar + Red-metal brushed chassis
+   ═══════════════════════════════════════════════════════════════ */
+
+/* ── Launch trigger button in sampler panel ── */
+#btn-esx-launch {
+    width: 100%; margin-top: 5px;
+    background: linear-gradient(180deg, rgba(163,21,21,0.25) 0%, rgba(74,5,5,0.35) 100%);
+    border: 1px solid rgba(200,30,30,0.55);
+    color: rgba(255,120,120,0.95);
+    font-family: 'Orbitron', sans-serif; font-size: 7.5px; font-weight: 700;
+    letter-spacing: 1.8px; padding: 5px 4px; text-align: center;
+    cursor: pointer; transition: all 0.12s;
+    box-shadow: 0 0 10px rgba(163,21,21,0.2);
+}
+#btn-esx-launch:hover {
+    background: linear-gradient(180deg, rgba(200,40,40,0.4) 0%, rgba(100,10,10,0.5) 100%);
+    border-color: rgba(255,80,80,0.8); color: #ff6060;
+    box-shadow: 0 0 18px rgba(200,30,30,0.45);
+}
+#btn-esx-launch.esx-open {
+    border-color: rgba(255,60,60,0.9); color: #ff4040;
+    box-shadow: 0 0 16px rgba(255,40,40,0.5);
+    animation: esx-btn-pulse 1.2s ease-in-out infinite;
+}
+@keyframes esx-btn-pulse {
+    0%,100% { box-shadow: 0 0 10px rgba(200,30,30,0.4); }
+    50%      { box-shadow: 0 0 22px rgba(255,50,50,0.75); }
+}
+
+/* ── ESX-1 Floating Window ── */
+.esx-window {
+    position: fixed;
+    top: 100px; right: 22px;
+    width: 580px;
+    background: transparent;  /* chassis handles bg */
+    border: none;
+    z-index: 9700;
+    display: none;
+    flex-direction: column;
+    font-family: 'JetBrains Mono', monospace;
+    filter: drop-shadow(0 24px 56px rgba(0,0,0,0.92));
+    border-radius: 6px 6px 8px 8px;
+    overflow: hidden;
+    resize: none;
+    user-select: none;
+}
+.esx-window.esx-visible { display: flex; }
+
+/* ── Titlebar — Obsidian dark chrome ── */
+.esx-titlebar {
+    display: flex; align-items: center; gap: 6px;
+    padding: 5px 10px;
+    background: linear-gradient(180deg, #252525 0%, #111 55%, #0a0a0a 100%);
+    border-bottom: 1px solid rgba(255,255,255,0.06);
+    border-top: 1px solid rgba(255,255,255,0.12);
+    border-left: 1px solid rgba(255,255,255,0.08);
+    border-right: 1px solid rgba(255,255,255,0.05);
+    cursor: move; user-select: none; flex-shrink: 0;
+    border-radius: 6px 6px 0 0;
+}
+/* Traffic-light dots */
+.esx-tb-dot {
+    width: 9px; height: 9px; border-radius: 50%;
+    flex-shrink: 0; cursor: pointer;
+}
+.esx-tb-dot.esx-close { background: #ff5f57; box-shadow: 0 0 4px rgba(255,95,87,0.6); }
+.esx-tb-dot.esx-min   { background: #febc2e; box-shadow: 0 0 4px rgba(254,188,46,0.5); }
+.esx-tb-dot:hover { filter: brightness(1.25); }
+.esx-tb-title {
+    font-family: 'Orbitron', sans-serif; font-size: 8px; font-weight: 700;
+    color: rgba(255,255,255,0.75); letter-spacing: 2.5px; flex: 1;
+    text-shadow: 0 1px 2px rgba(0,0,0,0.8);
+}
+.esx-tb-sub {
+    font-size: 6.5px; color: rgba(255,80,80,0.5); letter-spacing: 1.5px;
+}
+
+/* ── Chassis — red brushed metal ── */
+.esx-chassis {
+    background: linear-gradient(160deg, #c41c1c 0%, #8b0f0f 45%, #4a0505 100%);
+    padding: 12px 14px 14px;
+    position: relative; overflow: hidden;
+    border-left: 2px solid rgba(180,20,20,0.8);
+    border-right: 2px solid rgba(60,0,0,0.9);
+    border-bottom: 2px solid rgba(40,0,0,0.95);
+}
+/* Brushed-metal noise overlay */
+.esx-chassis::before {
+    content: ''; position: absolute; inset: 0; pointer-events: none;
+    background: repeating-linear-gradient(
+        90deg, transparent, transparent 2px,
+        rgba(255,255,255,0.012) 2px, rgba(255,255,255,0.012) 3px
+    );
+    mix-blend-mode: overlay;
+}
+/* Vignette inner shadow */
+.esx-chassis::after {
+    content: ''; position: absolute; inset: 0; pointer-events: none;
+    box-shadow: inset 0 0 60px rgba(0,0,0,0.55);
+}
+
+/* ── Valve tubes ── */
+.esx-valves {
+    display: flex; justify-content: center; align-items: flex-end;
+    gap: 18px; margin-bottom: 10px; position: relative; z-index: 1;
+}
+.esx-valve-tube {
+    width: 7px; border-radius: 4px 4px 2px 2px;
+    background: linear-gradient(180deg, #00f8ff 0%, #0088cc 55%, #003355 100%);
+    box-shadow: 0 0 10px rgba(0,243,255,0.8), 0 0 22px rgba(0,220,255,0.4);
+    animation: esx-valve-pulse 2.2s ease-in-out infinite;
+    position: relative;
+}
+.esx-valve-tube::after {
+    content: ''; position: absolute; top: -4px; left: 50%; transform: translateX(-50%);
+    width: 11px; height: 5px; border-radius: 50%;
+    background: rgba(0,243,255,0.3);
+    box-shadow: 0 0 6px rgba(0,243,255,0.7);
+}
+.esx-valve-tube:nth-child(1) { height: 28px; animation-delay: 0s; }
+.esx-valve-tube:nth-child(2) { height: 36px; animation-delay: 0.4s; }
+.esx-valve-tube:nth-child(3) { height: 44px; animation-delay: 0.2s; }
+.esx-valve-tube:nth-child(4) { height: 36px; animation-delay: 0.6s; }
+.esx-valve-tube:nth-child(5) { height: 28px; animation-delay: 0.1s; }
+@keyframes esx-valve-pulse {
+    0%,100% { opacity: 0.75; box-shadow: 0 0 8px rgba(0,243,255,0.7), 0 0 18px rgba(0,200,255,0.3); }
+    50%      { opacity: 1.0;  box-shadow: 0 0 14px rgba(0,243,255,0.95), 0 0 30px rgba(0,220,255,0.55); }
+}
+
+/* ── Control Panel (BPM + transport) ── */
+.esx-ctrl-panel {
+    background: rgba(0,0,0,0.55); border: 1px solid rgba(255,255,255,0.06);
+    border-radius: 4px; padding: 7px 10px; margin-bottom: 8px;
+    display: flex; align-items: center; gap: 8px; position: relative; z-index: 1;
+    box-shadow: inset 0 1px 0 rgba(255,255,255,0.04), inset 0 -1px 0 rgba(0,0,0,0.4);
+}
+.esx-bpm-lbl {
+    font-family: 'Orbitron',sans-serif; font-size: 7px; font-weight: 700;
+    color: rgba(255,100,100,0.65); letter-spacing: 1.5px; flex-shrink: 0;
+}
+#esx-bpm {
+    width: 46px; background: rgba(0,0,0,0.7); border: 1px solid rgba(200,30,30,0.45);
+    border-radius: 2px; color: rgba(255,160,160,0.95); font-family: 'Orbitron',sans-serif;
+    font-size: 11px; font-weight: 700; text-align: center; padding: 2px 3px;
+    -moz-appearance: textfield;
+}
+#esx-bpm::-webkit-inner-spin-button,
+#esx-bpm::-webkit-outer-spin-button { -webkit-appearance: none; }
+.esx-transport-btn {
+    background: rgba(0,0,0,0.5); border: 1px solid rgba(200,30,30,0.5); border-radius: 3px;
+    color: rgba(255,120,120,0.9); font-family: 'Orbitron',sans-serif;
+    font-size: 8px; font-weight: 700; letter-spacing: 1px;
+    padding: 4px 10px; cursor: pointer; white-space: nowrap; flex-shrink: 0;
+    transition: all 0.1s;
+}
+.esx-transport-btn:hover { border-color: rgba(255,80,80,0.85); color: #ff6060; }
+.esx-transport-btn.esx-running {
+    border-color: rgba(255,50,50,0.9); color: #ff4040;
+    box-shadow: 0 0 12px rgba(255,40,40,0.5);
+    animation: gb-play-pulse 0.55s ease-in-out infinite;
+}
+/* Step counter LED */
+.esx-step-counter {
+    margin-left: auto; font-family: 'Orbitron',sans-serif; font-size: 9px; font-weight: 700;
+    color: rgba(255,220,50,0.8); letter-spacing: 2px; flex-shrink: 0;
+    text-shadow: 0 0 8px rgba(255,200,0,0.5);
+    min-width: 36px; text-align: right;
+}
+
+/* ── Track selector row ── */
+.esx-track-row {
+    display: flex; gap: 4px; margin-bottom: 8px;
+    position: relative; z-index: 1;
+}
+.esx-track-btn {
+    flex: 1; padding: 4px 2px; text-align: center;
+    background: rgba(0,0,0,0.55); border: 1px solid rgba(255,255,255,0.08);
+    border-radius: 3px; cursor: pointer;
+    font-family: 'Orbitron',sans-serif; font-size: 6.5px; font-weight: 700;
+    letter-spacing: 0.8px; color: rgba(255,255,255,0.45); transition: all 0.1s;
+    box-shadow: inset 0 1px 0 rgba(255,255,255,0.04);
+}
+.esx-track-btn:hover { background: rgba(0,0,0,0.75); }
+.esx-track-btn.esx-track-active {
+    border-bottom-width: 2px; color: rgba(255,255,255,0.92);
+    box-shadow: inset 0 1px 0 rgba(255,255,255,0.08), 0 0 8px currentColor;
+}
+/* Muted track indicator */
+.esx-track-btn.esx-track-muted { opacity: 0.35; }
+
+/* ── 16 Step buttons ── */
+.esx-steps-grid {
+    display: grid; grid-template-columns: repeat(8, 1fr);
+    gap: 5px; position: relative; z-index: 1;
+}
+.esx-step-btn {
+    aspect-ratio: 1; min-height: 36px;
+    background: rgba(18,6,6,0.88);
+    border: 1px solid rgba(180,30,30,0.28);
+    border-top-color: rgba(255,255,255,0.07);
+    border-left-color: rgba(255,255,255,0.05);
+    border-radius: 4px; cursor: pointer;
+    display: flex; align-items: center; justify-content: center;
+    font-family: 'Orbitron',sans-serif; font-size: 7px; font-weight: 700;
+    color: rgba(200,60,60,0.45); letter-spacing: 0.5px;
+    transition: background 0.06s, box-shadow 0.06s;
+    box-shadow: 0 2px 4px rgba(0,0,0,0.7), inset 0 1px 0 rgba(255,255,255,0.04);
+    position: relative; overflow: hidden;
+}
+/* Frosted glass shimmer on top */
+.esx-step-btn::before {
+    content: ''; position: absolute;
+    top: 0; left: 0; right: 0; height: 40%;
+    background: linear-gradient(180deg, rgba(255,255,255,0.06) 0%, transparent 100%);
+    border-radius: 4px 4px 0 0; pointer-events: none;
+}
+.esx-step-btn:hover {
+    background: rgba(40,10,10,0.95);
+    border-color: rgba(255,80,80,0.45); color: rgba(255,100,100,0.7);
+}
+/* ON state — step is armed */
+.esx-step-btn.esx-step-on {
+    background: linear-gradient(180deg, rgba(220,40,40,0.85) 0%, rgba(160,20,20,0.9) 100%);
+    border-color: rgba(255,100,100,0.7);
+    border-top-color: rgba(255,160,160,0.4);
+    color: rgba(255,220,220,0.95);
+    box-shadow: 0 0 10px rgba(255,50,50,0.55), 0 2px 6px rgba(0,0,0,0.5),
+                inset 0 1px 0 rgba(255,180,180,0.2);
+}
+/* Playhead cursor flash */
+.esx-step-btn.esx-step-cur {
+    outline: 2px solid rgba(255,220,50,0.9);
+    outline-offset: -2px;
+}
+.esx-step-btn.esx-step-on.esx-step-cur {
+    background: linear-gradient(180deg, #ff6060 0%, #cc2020 100%);
+    box-shadow: 0 0 16px rgba(255,80,80,0.8), inset 0 1px 0 rgba(255,200,200,0.3);
+}
+
+/* ── Mini info strip at the bottom of chassis ── */
+.esx-chassis-footer {
+    display: flex; align-items: center; justify-content: space-between;
+    margin-top: 8px; padding-top: 6px;
+    border-top: 1px solid rgba(255,255,255,0.06);
+    position: relative; z-index: 1;
+}
+.esx-model-badge {
+    font-family: 'Orbitron',sans-serif; font-size: 7px; font-weight: 700;
+    color: rgba(255,255,255,0.25); letter-spacing: 2px;
+}
+.esx-mute-all-btn {
+    background: transparent; border: 1px solid rgba(255,255,255,0.12);
+    color: rgba(255,255,255,0.3); font-family: 'Orbitron',sans-serif;
+    font-size: 6px; letter-spacing: 1px; padding: 2px 6px; cursor: pointer;
+    border-radius: 2px; transition: all 0.1s;
+}
+.esx-mute-all-btn:hover { border-color: rgba(255,100,100,0.5); color: rgba(255,100,100,0.7); }
+
+/* Per-pad kill button — custom pads only, bottom-right (away from gear at top-right) */
 .pad-xclear {
     position: absolute; bottom: -16px; right: 2px;
     font-size: 5px; line-height: 1; padding: 1px 3px;
@@ -4960,6 +5220,8 @@ body.fullscreen #transcription-hud { pointer-events: none !important; } /* keep 
 
                     <!-- VNGRD // SONIC SUITE LAUNCH -->
                     <button class="btn" id="btn-init-vngrd-tracker" onclick="VanguardTracker.toggle()" style="width:100%;margin-top:5px;font-family:'Orbitron',sans-serif;font-size:7.5px;font-weight:700;color:#00f3ff;border-color:rgba(0,243,255,0.4);letter-spacing:1.5px;padding:5px 4px;text-align:center;box-shadow:0 0 10px rgba(0,243,255,0.1);transition:all 0.1s;">[ VNGRD // SONIC SUITE ]</button>
+                    <!-- KORG ESX-1 LAUNCH TRIGGER -->
+                    <button id="btn-esx-launch" onclick="ESX.toggle()">⚡ LAUNCH ESX-1</button>
 
                     <!-- SAMPLER HELP OVERLAY -->
                     <div id="sampler-help-modal">
@@ -10357,6 +10619,12 @@ Scheduler.prototype._tick = function() {
             playSample(_HT_ROWS[row].key, fireAt, cell.slice, cell.ratchet, stepDur);
         }
 
+        // ── ESX-1 Master Clock hook — no separate timer ──────────
+        // Same sub-tick lookahead window; ESX shares this exact fireAt.
+        if (typeof ESX_State !== 'undefined' && ESX_State.isPlaying) {
+            ESX_State.scheduleStep(step, fireAt, stepDur);
+        }
+
         // Defer cursor to audioCtx playback time via rAF (no audio jitter)
         (function(s, t) {
             var ms = Math.max(0, (t - ctx.currentTime) * 1000);
@@ -11201,6 +11469,283 @@ var VFXLayer = (function() {
 })();
 
 document.addEventListener('DOMContentLoaded', function() { VFXLayer.init(); });
+
+// ═══════════════════════════════════════════════════════════════
+//  KORG ESX-1 // DRIS CORE — Floating Hardware Sequencer HUD
+//
+//  Master Clock: hooks into Scheduler.prototype._tick() via
+//  ESX_State.scheduleStep() — zero drift, no separate timer.
+//
+//  Tracks 0-3: Drum parts — trigger existing liq kit buffers
+//              via playSample() for anti-click precision.
+//  Tracks 4-5: ROM Synth — pure Web Audio API oscillator chain
+//              (Sawtooth+Lowpass / Square+Detune).
+//
+//  window.ESX_State is set immediately so Scheduler._tick
+//  can check `typeof ESX_State !== 'undefined'` safely.
+// ═══════════════════════════════════════════════════════════════
+const ESX = (() => {
+
+    // ── Track definitions ─────────────────────────────────────
+    const TRACKS = [
+        { label: 'KICK',  color: '#ff5050', type: 'drum',  key: 'liq1' },
+        { label: 'SNARE', color: '#ff9050', type: 'drum',  key: 'liq2' },
+        { label: 'HH',    color: '#ffe050', type: 'drum',  key: 'liq3' },
+        { label: 'PERC',  color: '#50ff90', type: 'drum',  key: 'liq4' },
+        // ROM synth: sawtooth through 400Hz lowpass (classic deep bass)
+        { label: 'BASS',  color: '#50aaff', type: 'synth', osc: 'sawtooth', filt: 400,  note: 36 },
+        // ROM synth: square wave, +5ct detune (fat IDM lead)
+        { label: 'LEAD',  color: '#cc80ff', type: 'synth', osc: 'square',   filt: 1400, note: 60, detune: 5 }
+    ];
+    const N_TRACKS = TRACKS.length; // 6
+    const N_STEPS  = 16;
+
+    // ── Pattern state ─────────────────────────────────────────
+    // _pat[track][step] = { on: bool, vel: 0-127 }
+    var _pat = Array.from({ length: N_TRACKS }, function() {
+        return Array.from({ length: N_STEPS }, function() { return { on: false, vel: 100 }; });
+    });
+    var _muted      = new Array(N_TRACKS).fill(false);
+    var _activeTrack = 0;   // which track the step buttons are editing
+    var _isPlaying  = false;
+    var _visible    = false;
+    var _drag       = false, _dx = 0, _dy = 0, _dragInit = false;
+
+    // Expose global state struct read by Scheduler._tick
+    window.ESX_State = {
+        isPlaying: false,
+        scheduleStep: _scheduleStep  // forward ref — defined below
+    };
+
+    // ── Schedule one step column ──────────────────────────────
+    // Called from Scheduler._tick with the same fireAt/stepDur
+    // that the HyperTracker uses — perfectly sample-synchronous.
+    function _scheduleStep(col, fireAt, stepDur) {
+        var ctx = APP.audio.ctx; if (!ctx) return;
+        for (var t = 0; t < N_TRACKS; t++) {
+            if (_muted[t]) continue;
+            var cell = _pat[t][col];
+            if (!cell.on) continue;
+            var def = TRACKS[t];
+            if (def.type === 'drum') {
+                // Reuse HyperTracker's anti-click engine for drum parts
+                playSample(def.key, fireAt, 0, 1, stepDur);
+            } else {
+                _triggerROMSynth(def, fireAt, stepDur);
+            }
+        }
+        // Defer ESX cursor update to rAF (aligned with audio time)
+        (function(c, t) {
+            var ms = Math.max(0, (t - ctx.currentTime) * 1000);
+            setTimeout(function() {
+                requestAnimationFrame(function() { _updateCursor(c); });
+            }, ms);
+        })(col, fireAt);
+    }
+
+    // ── ROM Synth engine ──────────────────────────────────────
+    // Pure Web Audio: Oscillator → BiquadFilter → GainNode(env) → master
+    // 2ms attack + exponential decay — same anti-click discipline as playSample.
+    function _triggerROMSynth(def, fireAt, stepDur) {
+        var ctx = APP.audio.ctx; if (!ctx) return;
+        var freq = 440 * Math.pow(2, ((def.note || 60) - 69) / 12);
+
+        var osc = ctx.createOscillator();
+        osc.type = def.osc || 'sawtooth';
+        osc.frequency.value = freq;
+        if (def.detune) osc.detune.value = def.detune;
+
+        var filt = ctx.createBiquadFilter();
+        filt.type = 'lowpass';
+        filt.frequency.value = def.filt || 800;
+        filt.Q.value = 2.5;
+
+        var env = ctx.createGain();
+        env.gain.setValueAtTime(0, fireAt);
+        // 3ms linear ramp-in (anti-click)
+        env.gain.linearRampToValueAtTime(0.38, fireAt + 0.003);
+        // Exponential decay to silence — ends slightly before next step
+        var tail = Math.max(0.025, stepDur * 0.72);
+        env.gain.exponentialRampToValueAtTime(0.0001, fireAt + tail);
+
+        osc.connect(filt);
+        filt.connect(env);
+        // Route through master chain
+        var out = (APP.audio && (APP.audio.panner || APP.audio.duckingGain || APP.audio.masterGain))
+                  || ctx.destination;
+        env.connect(out);
+
+        osc.start(fireAt);
+        osc.stop(fireAt + tail + 0.005);
+    }
+
+    // ── ESX step cursor ───────────────────────────────────────
+    function _updateCursor(col) {
+        var grid = document.getElementById('esx-steps-grid');
+        if (!grid) return;
+        grid.querySelectorAll('.esx-step-btn').forEach(function(el, i) {
+            el.classList.toggle('esx-step-cur', i === col);
+        });
+        // Update LED counter
+        var led = document.getElementById('esx-step-led');
+        if (led) led.textContent = String(col + 1).padStart(2, '0');
+    }
+
+    // ── Rebuild step grid for the active track ────────────────
+    function _renderSteps() {
+        var grid = document.getElementById('esx-steps-grid');
+        if (!grid) return;
+        grid.querySelectorAll('.esx-step-btn').forEach(function(btn, i) {
+            btn.classList.toggle('esx-step-on', _pat[_activeTrack][i].on);
+        });
+    }
+
+    // ── Build the track selector row ──────────────────────────
+    function _buildTrackRow() {
+        var row = document.getElementById('esx-track-row');
+        if (!row) return;
+        row.innerHTML = '';
+        TRACKS.forEach(function(def, t) {
+            var btn = document.createElement('button');
+            btn.className = 'esx-track-btn' +
+                (_muted[t] ? ' esx-track-muted' : '') +
+                (t === _activeTrack ? ' esx-track-active' : '');
+            btn.style.setProperty('color',
+                t === _activeTrack ? def.color : 'rgba(255,255,255,0.42)');
+            btn.style.setProperty('border-color',
+                t === _activeTrack ? def.color : 'rgba(255,255,255,0.08)');
+            if (t === _activeTrack) btn.style.boxShadow = '0 0 8px ' + def.color;
+            btn.textContent = def.label;
+            btn.title = 'Select track ' + def.label + ' · Right-click to mute';
+            btn.addEventListener('click', function() {
+                _activeTrack = t;
+                _buildTrackRow();
+                _renderSteps();
+            });
+            btn.addEventListener('contextmenu', function(e) {
+                e.preventDefault();
+                _muted[t] = !_muted[t];
+                _buildTrackRow();
+            });
+            row.appendChild(btn);
+        });
+    }
+
+    // ── Build 16 step buttons ─────────────────────────────────
+    function _buildSteps() {
+        var grid = document.getElementById('esx-steps-grid');
+        if (!grid) return;
+        grid.innerHTML = '';
+        for (var i = 0; i < N_STEPS; i++) {
+            (function(idx) {
+                var btn = document.createElement('button');
+                btn.className = 'esx-step-btn' + (_pat[_activeTrack][idx].on ? ' esx-step-on' : '');
+                btn.textContent = String(idx + 1).padStart(2, '0');
+                btn.dataset.esxStep = idx;
+                btn.addEventListener('click', function() {
+                    _pat[_activeTrack][idx].on = !_pat[_activeTrack][idx].on;
+                    btn.classList.toggle('esx-step-on', _pat[_activeTrack][idx].on);
+                });
+                grid.appendChild(btn);
+            })(i);
+        }
+    }
+
+    // ── Transport ─────────────────────────────────────────────
+    function _start() {
+        if (!APP.audio.ctx) igniteAudio();
+        if (!APP.audio.masterGain) ensureAudioChain();
+        var ctx = APP.audio.ctx; if (!ctx) return;
+        if (ctx.state === 'suspended') ctx.resume();
+        // Sync ESX BPM to master
+        var bpmEl = document.getElementById('esx-bpm');
+        if (bpmEl) _groovebox.bpm = parseInt(bpmEl.value, 10) || _groovebox.bpm;
+        _isPlaying = true;
+        window.ESX_State.isPlaying = true;
+        // Ensure Scheduler is running (shares its timer)
+        if (!_htScheduler._active) _htScheduler.start();
+        var btn = document.getElementById('esx-play-btn');
+        if (btn) { btn.textContent = '■ STOP'; btn.classList.add('esx-running'); }
+    }
+
+    function _stop() {
+        _isPlaying = false;
+        window.ESX_State.isPlaying = false;
+        _updateCursor(-1);
+        var btn = document.getElementById('esx-play-btn');
+        if (btn) { btn.textContent = '▶ START'; btn.classList.remove('esx-running'); }
+        var led = document.getElementById('esx-step-led');
+        if (led) led.textContent = '--';
+    }
+
+    // ── Drag ──────────────────────────────────────────────────
+    function _initDrag() {
+        if (_dragInit) return; _dragInit = true;
+        var tb  = document.getElementById('esx-titlebar');
+        var win = document.getElementById('esx-hud');
+        if (!tb || !win) return;
+        tb.addEventListener('mousedown', function(e) {
+            if (e.target.classList.contains('esx-tb-dot') ||
+                e.target.tagName === 'BUTTON') return;
+            _drag = true;
+            var r = win.getBoundingClientRect();
+            _dx = e.clientX - r.left; _dy = e.clientY - r.top;
+            win.style.transition = 'none'; e.preventDefault();
+        });
+        document.addEventListener('mousemove', function(e) {
+            if (!_drag) return;
+            var x = Math.max(0, Math.min(window.innerWidth  - 120, e.clientX - _dx));
+            var y = Math.max(0, Math.min(window.innerHeight - 50,  e.clientY - _dy));
+            win.style.left = x + 'px'; win.style.top = y + 'px';
+            win.style.right = 'auto';
+        });
+        document.addEventListener('mouseup', function() { _drag = false; });
+    }
+
+    // ── BPM input sync ────────────────────────────────────────
+    function _initBpmSync() {
+        var bpmEl = document.getElementById('esx-bpm');
+        if (!bpmEl) return;
+        bpmEl.addEventListener('change', function() {
+            _groovebox.bpm = Math.max(20, Math.min(400, parseInt(bpmEl.value, 10) || 120));
+            window.currentBPM = _groovebox.bpm;
+            // Mirror to HyperTracker BPM input
+            var htBpm = document.getElementById('gb-bpm');
+            if (htBpm) htBpm.value = _groovebox.bpm;
+        });
+    }
+
+    // ── Public: toggle (open / close) ────────────────────────
+    function toggle() {
+        _visible = !_visible;
+        var win = document.getElementById('esx-hud');
+        var launchBtn = document.getElementById('btn-esx-launch');
+        if (win) win.classList.toggle('esx-visible', _visible);
+        if (launchBtn) launchBtn.classList.toggle('esx-open', _visible);
+        if (_visible) {
+            _buildTrackRow();
+            _buildSteps();
+            _initDrag();
+            _initBpmSync();
+        } else {
+            _stop();
+        }
+    }
+
+    // Expose internal methods needed by inline HTML onclick handlers
+    function unmuteAll() {
+        for (var i = 0; i < N_TRACKS; i++) _muted[i] = false;
+        _buildTrackRow();
+    }
+
+    return {
+        toggle:        toggle,
+        _start:        _start,
+        _stop:         _stop,
+        _buildTrackRow: _buildTrackRow,
+        unmuteAll:     unmuteAll
+    };
+})();
 
 function connectVideoAudio(vid) {
     if (!vid || vid.tagName !== 'VIDEO') return;
@@ -19164,5 +19709,63 @@ function _applyPoseToModel(lm) {
         <span style="margin-left:auto;" id="nc-clock-status">LOOP: IDLE</span>
     </div>
 </div>
+
+<!-- ═══════════════════════════════════════════════════════════
+     KORG ESX-1 // DRIS CORE — Floating Hardware Sequencer HUD
+     Obsidian titlebar + red brushed-metal chassis
+     Master Clock: Scheduler._tick() via ESX_State.scheduleStep()
+     ═══════════════════════════════════════════════════════════ -->
+<div id="esx-hud" class="esx-window">
+
+    <!-- Obsidian titlebar — drag handle, traffic-light, minimize -->
+    <div class="esx-titlebar" id="esx-titlebar">
+        <div class="esx-tb-dot esx-close" title="Close ESX-1"
+             onclick="ESX.toggle()"></div>
+        <div class="esx-tb-dot esx-min"   title="Minimize ESX-1"
+             onclick="ESX.toggle()"></div>
+        <span class="esx-tb-title">⚡ KORG ESX-1 // DRIS CORE</span>
+        <span class="esx-tb-sub">ELECTRIBE · SX · ROM SYNTH</span>
+    </div>
+
+    <!-- Red brushed-metal Korg chassis -->
+    <div class="esx-chassis">
+
+        <!-- Valve glow tubes — top center -->
+        <div class="esx-valves">
+            <div class="esx-valve-tube"></div>
+            <div class="esx-valve-tube"></div>
+            <div class="esx-valve-tube"></div>
+            <div class="esx-valve-tube"></div>
+            <div class="esx-valve-tube"></div>
+        </div>
+
+        <!-- Transport + BPM control panel -->
+        <div class="esx-ctrl-panel">
+            <span class="esx-bpm-lbl">BPM</span>
+            <input type="number" id="esx-bpm" value="120" min="20" max="400">
+            <button class="esx-transport-btn" id="esx-play-btn"
+                    onclick="ESX_State.isPlaying?ESX._stop():ESX._start()">
+                ▶ START
+            </button>
+            <span class="esx-step-counter" id="esx-step-led">--</span>
+        </div>
+
+        <!-- Track selector (6 tracks) -->
+        <div class="esx-track-row" id="esx-track-row"></div>
+
+        <!-- 16 hardware-style frosted step buttons -->
+        <div class="esx-steps-grid" id="esx-steps-grid"></div>
+
+        <!-- Footer info strip -->
+        <div class="esx-chassis-footer">
+            <span class="esx-model-badge">KORG ESX-1 · DRIS CORE EDITION</span>
+            <button class="esx-mute-all-btn" onclick="ESX.unmuteAll()">
+                UNMUTE ALL
+            </button>
+        </div>
+
+    </div><!-- /esx-chassis -->
+</div><!-- /esx-hud -->
+
 </body>
 </html>
