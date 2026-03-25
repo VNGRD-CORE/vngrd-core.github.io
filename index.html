@@ -4106,7 +4106,7 @@ body.fullscreen #transcription-hud { pointer-events: none !important; } /* keep 
 }
 
 /* ═══════════════════════════════════════════════════════════════
-   KORG ESX-1 // DRIS CORE — Floating HUD Window
+   VNGRD// ESX-1 // DRIS CORE — Floating HUD Window
    Obsidian titlebar + Red-metal brushed chassis
    ═══════════════════════════════════════════════════════════════ */
 
@@ -4807,7 +4807,6 @@ body.fullscreen #transcription-hud { pointer-events: none !important; } /* keep 
                         <span class="sampler-title">Sampler SFX</span>
                         <span class="sampler-collapse-arrow" id="sfx-collapse-arrow" style="font-size:8px;color:var(--accent);margin-left:4px;margin-right:auto;transition:color 0.2s;line-height:1;">&#x25BE;</span>
                         <button class="sampler-help-btn" onclick="event.stopPropagation();_toggleSectionHelp(this,'sampler')">?</button>
-                        <button id="mode-toggle" onclick="event.stopPropagation();_toggleGrooveboxMode()">PERF</button>
                         <span class="sampler-badge">SFX · 12-PAD</span>
                     </div>
                     <div id="sfx-pad-body">
@@ -5220,7 +5219,7 @@ body.fullscreen #transcription-hud { pointer-events: none !important; } /* keep 
 
                     <!-- VNGRD // SONIC SUITE LAUNCH -->
                     <button class="btn" id="btn-init-vngrd-tracker" onclick="VanguardTracker.toggle()" style="width:100%;margin-top:5px;font-family:'Orbitron',sans-serif;font-size:7.5px;font-weight:700;color:#00f3ff;border-color:rgba(0,243,255,0.4);letter-spacing:1.5px;padding:5px 4px;text-align:center;box-shadow:0 0 10px rgba(0,243,255,0.1);transition:all 0.1s;">[ VNGRD // SONIC SUITE ]</button>
-                    <!-- KORG ESX-1 LAUNCH TRIGGER -->
+                    <!-- VNGRD// ESX-1 LAUNCH TRIGGER -->
                     <button id="btn-esx-launch" onclick="ESX.toggle()">⚡ LAUNCH ESX-1</button>
 
                     <!-- SAMPLER HELP OVERLAY -->
@@ -10909,9 +10908,7 @@ function _htFlashKey(key) {
     }
 }
 
-// ── Legacy aliases — keep any stale call sites working ───────────────────────
-function _buildSeqGrid()       { _buildHyperGrid(); }
-function _updateSeqCursor(col) { _htUpdateCursor(col); }
+
 
 // ── BPM input sync ───────────────────────────────────────────────────────────
 document.addEventListener('DOMContentLoaded', function() {
@@ -10926,22 +10923,6 @@ document.addEventListener('DOMContentLoaded', function() {
 });
 
 // ─────────────────────────────────────────────────────────────
-//  Transport
-// ─────────────────────────────────────────────────────────────
-function _startGroovebox() {
-    _groovebox.bpm = parseInt((document.getElementById('gb-bpm') || {}).value, 10) || 120;
-    _htScheduler.start();
-    var btn = document.getElementById('gb-transport-btn');
-    if (btn) { btn.innerHTML = '&#x25A0; STOP'; btn.classList.add('playing'); }
-}
-
-function _stopGroovebox() {
-    _htScheduler.stop();
-    _groovebox.currentStep = 0;
-    _htUpdateCursor(-1);
-    var btn = document.getElementById('gb-transport-btn');
-    if (btn) { btn.innerHTML = '&#x25B6; PLAY'; btn.classList.remove('playing'); }
-}
 
 // ─────────────────────────────────────────────────────────────
 //  NeuralCompiler API — window.step()
@@ -10969,298 +10950,9 @@ window.step = function(row, col, opts) {
 //  Mode toggle: Performance ↔ Groovebox (SEQ mode)
 //  Fully compatible with existing sidebar button + draggable IIFE
 // ─────────────────────────────────────────────────────────────
-window._toggleGrooveboxMode = function() {
-    var modeBtn  = document.getElementById('mode-toggle');
-    var seqPanel = document.getElementById('gb-seq-panel');
-    var custLiq  = document.getElementById('sfx-cust-liq-section');
-    var liqSel   = document.getElementById('liq-lib-select');
-    if (_groovebox.mode === 'performance') {
-        _groovebox.mode = 'groovebox';
-        if (modeBtn)  { modeBtn.textContent = 'SEQ'; modeBtn.classList.add('groovebox-mode'); }
-        if (custLiq)  custLiq.style.display  = 'none';
-        if (liqSel)   liqSel.style.display   = 'none';
-        if (seqPanel) seqPanel.classList.add('visible');
-        _buildHyperGrid();
-        var kitSel = document.getElementById('gb-kit-select');
-        if (kitSel) kitSel.value = _liqCurrentPack;
-        if (seqPanel && typeof window._toggleSeqExpand === 'function') {
-            if (!seqPanel.classList.contains('expanded')) window._toggleSeqExpand();
-        }
-    } else {
-        _groovebox.mode = 'performance';
-        if (modeBtn) { modeBtn.textContent = 'PERF'; modeBtn.classList.remove('groovebox-mode'); }
-        _stopGroovebox();
-        if (typeof window._collapseSeqToSidebar === 'function') window._collapseSeqToSidebar();
-        if (seqPanel) seqPanel.classList.remove('visible');
-        if (custLiq)  custLiq.style.display  = 'contents';
-        if (liqSel)   liqSel.style.display   = '';
-    }
-};
 
-window._toggleGrooveboxTransport = function() {
-    if (_groovebox.isPlaying) { _stopGroovebox(); } else { _startGroovebox(); }
-};
-
-function _buildSeqGrid() {
-    var grid = document.getElementById('gb-seq-grid');
-    if (!grid) return;
-    grid.innerHTML = '';
-
-    // Beat number header
-    var hdr = document.createElement('div');
-    hdr.className = 'gb-beat-header';
-    for (var h = 0; h < 16; h++) {
-        var hSpan = document.createElement('span');
-        hSpan.className = 'gb-beat-num' + (h % 4 === 0 ? ' gb-bar-start' : '');
-        hSpan.textContent = h % 4 === 0 ? (h / 4 + 1) : '·';
-        hdr.appendChild(hSpan);
-    }
-    grid.appendChild(hdr);
-
-    _GB_PADS.forEach(function(pad) {
-        if (!_groovebox.pattern[pad.name]) _groovebox.pattern[pad.name] = new Array(16).fill(0);
-        if (_groovebox.muted[pad.name] === undefined) _groovebox.muted[pad.name] = false;
-
-        var row = document.createElement('div');
-        row.className = 'gb-seq-row' + (pad.sep ? ' gb-row-separator' : '') + (_groovebox.muted[pad.name] ? ' gb-row-muted' : '');
-        row.dataset.gbPad = pad.name;
-
-        // Row label (shows custom pad name if loaded)
-        var lbl = document.createElement('span');
-        lbl.className = 'gb-seq-lbl';
-        if (pad.name.startsWith('custom')) {
-            var padEl = document.getElementById('sfx-' + pad.name);
-            var nm = padEl && padEl.querySelector('.pad-name');
-            lbl.textContent = (nm && nm.textContent !== pad.label && padEl.classList.contains('loaded'))
-                ? nm.textContent.substring(0,5) : pad.label;
-        } else {
-            lbl.textContent = pad.label;
-        }
-        row.appendChild(lbl);
-
-        // Step buttons — grouped in sets of 4
-        var stepsWrap = document.createElement('div');
-        stepsWrap.className = 'gb-steps';
-        for (var g = 0; g < 4; g++) {
-            var grp = document.createElement('div');
-            grp.className = 'gb-step-group';
-            for (var s = 0; s < 4; s++) {
-                (function(stepIdx) {
-                    var btn = document.createElement('button');
-                    var val = _groovebox.pattern[pad.name][stepIdx];
-                    btn.className = 'gb-step' + (val === 1 ? ' gb-step-on' : '') + (val === 2 ? ' gb-step-on gb-step-accent' : '');
-                    btn.dataset.gbSfx = pad.name;
-                    btn.dataset.gbStep = stepIdx;
-                    btn.addEventListener('click', function(e) {
-                        e.stopPropagation();
-                        var cur = _groovebox.pattern[pad.name][stepIdx];
-                        var nxt = cur === 0 ? 1 : 0;
-                        _groovebox.pattern[pad.name][stepIdx] = nxt;
-                        btn.classList.remove('gb-step-on','gb-step-accent');
-                        if (nxt >= 1) btn.classList.add('gb-step-on');
-                        if (nxt === 2) btn.classList.add('gb-step-accent');
-                    });
-                    btn.addEventListener('contextmenu', function(e) {
-                        e.preventDefault(); e.stopPropagation();
-                        var cur = _groovebox.pattern[pad.name][stepIdx];
-                        var nxt = cur === 0 ? 1 : cur === 1 ? 2 : 0; // off→on→accent→off
-                        _groovebox.pattern[pad.name][stepIdx] = nxt;
-                        btn.classList.remove('gb-step-on','gb-step-accent');
-                        if (nxt >= 1) btn.classList.add('gb-step-on');
-                        if (nxt === 2) btn.classList.add('gb-step-accent');
-                    });
-                    grp.appendChild(btn);
-                })(g * 4 + s);
-            }
-            stepsWrap.appendChild(grp);
-        }
-        row.appendChild(stepsWrap);
-
-        // Row controls: [M] mute, [✕] clear
-        var ctrl = document.createElement('div');
-        ctrl.className = 'gb-row-controls';
-
-        var muteBtn = document.createElement('button');
-        muteBtn.className = 'gb-row-mute' + (_groovebox.muted[pad.name] ? ' muted' : '');
-        muteBtn.textContent = 'M';
-        muteBtn.title = 'Mute / unmute row';
-        (function(pName, rRow, mBtn) {
-            mBtn.addEventListener('click', function(e) {
-                e.stopPropagation();
-                _groovebox.muted[pName] = !_groovebox.muted[pName];
-                mBtn.classList.toggle('muted', _groovebox.muted[pName]);
-                rRow.classList.toggle('gb-row-muted', _groovebox.muted[pName]);
-            });
-        })(pad.name, row, muteBtn);
-        ctrl.appendChild(muteBtn);
-
-        var clrBtn = document.createElement('button');
-        clrBtn.className = 'gb-row-clear';
-        clrBtn.textContent = '✕';
-        clrBtn.title = 'Clear all steps in row';
-        (function(pName, rRow) {
-            clrBtn.addEventListener('click', function(e) {
-                e.stopPropagation();
-                _groovebox.pattern[pName].fill(0);
-                rRow.querySelectorAll('.gb-step').forEach(function(s) {
-                    s.classList.remove('gb-step-on','gb-step-accent','gb-step-cur');
-                });
-            });
-        })(pad.name, row);
-        ctrl.appendChild(clrBtn);
-
-        row.appendChild(ctrl);
-        grid.appendChild(row);
-    });
-}
-
-function _updateSeqCursor(step) {
-    document.querySelectorAll('.gb-step.gb-step-cur').forEach(function(el) { el.classList.remove('gb-step-cur'); });
-    if (step < 0) return;
-    document.querySelectorAll('.gb-step[data-gb-step="' + step + '"]').forEach(function(el) { el.classList.add('gb-step-cur'); });
-}
-
-window._toggleGrooveboxMode = function() {
-    var modeBtn = document.getElementById('mode-toggle');
-    var seqPanel = document.getElementById('gb-seq-panel');
-    var custLiq  = document.getElementById('sfx-cust-liq-section');
-    var liqSel   = document.getElementById('liq-lib-select');
-    if (_groovebox.mode === 'performance') {
-        _groovebox.mode = 'groovebox';
-        if (modeBtn) { modeBtn.textContent = 'SEQ'; modeBtn.classList.add('groovebox-mode'); }
-        if (custLiq)  custLiq.style.display  = 'none';
-        if (liqSel)   liqSel.style.display   = 'none';
-        if (seqPanel) seqPanel.classList.add('visible');
-        _buildSeqGrid();
-        // Sync kit selector to current pack
-        var kitSel = document.getElementById('gb-kit-select');
-        if (kitSel) kitSel.value = _liqCurrentPack;
-        // Auto-pop sequencer to full expanded state (bypass mini — user only uses when popped)
-        if (seqPanel && typeof window._toggleSeqExpand === 'function') {
-            var alreadyExpanded = seqPanel.classList.contains('expanded');
-            if (!alreadyExpanded) window._toggleSeqExpand();
-        }
-    } else {
-        _groovebox.mode = 'performance';
-        if (modeBtn) { modeBtn.textContent = 'PERF'; modeBtn.classList.remove('groovebox-mode'); }
-        _stopGroovebox();
-        // Collapse and restore seq panel to sidebar
-        if (typeof window._collapseSeqToSidebar === 'function') {
-            window._collapseSeqToSidebar();
-        }
-        if (seqPanel) seqPanel.classList.remove('visible');
-        if (custLiq)  custLiq.style.display  = 'contents';
-        if (liqSel)   liqSel.style.display   = '';
-    }
-};
-
-window._toggleGrooveboxTransport = function() {
-    if (_groovebox.isPlaying) { _stopGroovebox(); } else { _startGroovebox(); }
-};
-
-// ── DRAGGABLE SEQUENCER ─────────────────────────────────────────
-// The sidebar has will-change:transform which creates a CSS containing
-// block — position:fixed children get trapped inside it and clipped.
-// Solution: physically move #gb-seq-panel to document.body on expand.
-(function() {
-    var _drag = { on: false, ox: 0, oy: 0, px: 0, py: 0 };
-    var _origParent = null, _origNext = null;
-    var _headerDragAttached = false;
-
-    function _startDrag(clientX, clientY) {
-        var p = document.getElementById('gb-seq-panel');
-        if (!p || !p.classList.contains('expanded')) return false;
-        var r = p.getBoundingClientRect();
-        _drag.ox = clientX; _drag.oy = clientY;
-        _drag.px = r.left;  _drag.py = r.top;
-        _drag.on = true;
-        return true;
-    }
-
-    document.addEventListener('mousemove', function(e) {
-        if (!_drag.on) return;
-        var p = document.getElementById('gb-seq-panel'); if (!p) return;
-        p.style.left = (_drag.px + (e.clientX - _drag.ox)) + 'px';
-        p.style.top  = (_drag.py + (e.clientY - _drag.oy)) + 'px';
-    });
-    document.addEventListener('mouseup', function() { _drag.on = false; });
-    document.addEventListener('touchmove', function(e) {
-        if (!_drag.on) return;
-        var p = document.getElementById('gb-seq-panel'); if (!p) return;
-        var t = e.touches[0];
-        p.style.left = (_drag.px + (t.clientX - _drag.ox)) + 'px';
-        p.style.top  = (_drag.py + (t.clientY - _drag.oy)) + 'px';
-    }, { passive: true });
-    document.addEventListener('touchend', function() { _drag.on = false; });
-
-    function _attachDragToHeader() {
-        if (_headerDragAttached) return;
-        var h = document.getElementById('gb-seq-header');
-        if (!h) return;
-        h.addEventListener('mousedown', function(e) {
-            if (e.target.tagName === 'BUTTON' || e.target.tagName === 'INPUT' || e.target.tagName === 'SELECT') return;
-            if (_startDrag(e.clientX, e.clientY)) e.preventDefault();
-        });
-        h.addEventListener('touchstart', function(e) {
-            if (e.target.tagName === 'BUTTON' || e.target.tagName === 'INPUT' || e.target.tagName === 'SELECT') return;
-            var t = e.touches[0];
-            _startDrag(t.clientX, t.clientY);
-        }, { passive: true });
-        _headerDragAttached = true;
-    }
-
-    window._toggleSeqExpand = function() {
-        var panel    = document.getElementById('gb-seq-panel');
-        var backdrop = document.getElementById('gb-seq-backdrop');
-        var btn      = document.getElementById('gb-expand-btn');
-        if (!panel) return;
-
-        var isExpanded = panel.classList.contains('expanded');
-        var isMini     = panel.classList.contains('mini');
-
-        if (!isExpanded) {
-            // Going to EXPANDED: ensure panel is at body level
-            if (!isMini) {
-                // First pop from sidebar — save DOM position and move to body
-                _origParent = panel.parentNode;
-                _origNext   = panel.nextSibling;
-                document.body.appendChild(panel);
-            }
-            panel.classList.remove('mini');
-            // Set initial size/position
-            var w = Math.min(620, window.innerWidth - 20);
-            panel.style.width  = w + 'px';
-            panel.style.left   = Math.max(10, window.innerWidth - w - 10) + 'px';
-            panel.style.top    = '10px';
-            panel.style.height = panel.style.right = panel.style.bottom = '';
-            panel.classList.add('expanded');
-            _attachDragToHeader();
-            if (btn) { btn.classList.add('expanded'); btn.textContent = 'CLOSE'; btn.title = 'Drag header to move'; }
-        } else {
-            // Collapsing EXPANDED → MINI (stay at body level, no sidebar scroll needed)
-            panel.classList.remove('expanded');
-            ['left','top','width','height','right','bottom'].forEach(function(k) { panel.style[k] = ''; });
-            panel.classList.add('mini');
-            if (btn) { btn.classList.remove('expanded'); btn.textContent = 'POP'; btn.title = 'Pop out sequencer'; }
-        }
-
-        if (backdrop) backdrop.classList.remove('visible');
-    };
-
-    // Called by _toggleGrooveboxMode when exiting SEQ — restore panel to sidebar
-    window._collapseSeqToSidebar = function() {
-        var panel = document.getElementById('gb-seq-panel');
-        if (!panel) return;
-        panel.classList.remove('expanded', 'mini');
-        ['left','top','width','height','right','bottom'].forEach(function(k) { panel.style[k] = ''; });
-        if (_origParent) {
-            _origParent.insertBefore(panel, _origNext || null);
-            _origParent = null; _origNext = null;
-        }
-        var btn = document.getElementById('gb-expand-btn');
-        if (btn) { btn.classList.remove('expanded'); btn.textContent = 'POP'; btn.title = 'Pop out sequencer'; }
-    };
-})();
+        
+        
 
 // ═══════════════════════════════════════════════════════════════
 //  VFX LAYER — TouchDesigner-style GLSL Webcam Displacement
@@ -11471,7 +11163,7 @@ var VFXLayer = (function() {
 document.addEventListener('DOMContentLoaded', function() { VFXLayer.init(); });
 
 // ═══════════════════════════════════════════════════════════════
-//  KORG ESX-1 // DRIS CORE — Floating Hardware Sequencer HUD
+//  VNGRD// ESX-1 // DRIS CORE — Floating Hardware Sequencer HUD
 //
 //  Master Clock: hooks into Scheduler.prototype._tick() via
 //  ESX_State.scheduleStep() — zero drift, no separate timer.
@@ -19711,7 +19403,7 @@ function _applyPoseToModel(lm) {
 </div>
 
 <!-- ═══════════════════════════════════════════════════════════
-     KORG ESX-1 // DRIS CORE — Floating Hardware Sequencer HUD
+     VNGRD// ESX-1 // DRIS CORE — Floating Hardware Sequencer HUD
      Obsidian titlebar + red brushed-metal chassis
      Master Clock: Scheduler._tick() via ESX_State.scheduleStep()
      ═══════════════════════════════════════════════════════════ -->
@@ -19723,11 +19415,11 @@ function _applyPoseToModel(lm) {
              onclick="ESX.toggle()"></div>
         <div class="esx-tb-dot esx-min"   title="Minimize ESX-1"
              onclick="ESX.toggle()"></div>
-        <span class="esx-tb-title">⚡ KORG ESX-1 // DRIS CORE</span>
+        <span class="esx-tb-title">⚡ VNGRD// ESX-1 // DRIS CORE</span>
         <span class="esx-tb-sub">ELECTRIBE · SX · ROM SYNTH</span>
     </div>
 
-    <!-- Red brushed-metal Korg chassis -->
+    <!-- Red brushed-metal VNGRD// chassis -->
     <div class="esx-chassis">
 
         <!-- Valve glow tubes — top center -->
@@ -19758,7 +19450,7 @@ function _applyPoseToModel(lm) {
 
         <!-- Footer info strip -->
         <div class="esx-chassis-footer">
-            <span class="esx-model-badge">KORG ESX-1 · DRIS CORE EDITION</span>
+            <span class="esx-model-badge">VNGRD// ESX-1 · DRIS CORE EDITION</span>
             <button class="esx-mute-all-btn" onclick="ESX.unmuteAll()">
                 UNMUTE ALL
             </button>
