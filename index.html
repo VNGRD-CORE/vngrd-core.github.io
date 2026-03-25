@@ -220,9 +220,7 @@
         body.theme-broadcast .info-item span { color: #1a2030 !important; }
         body.theme-broadcast .info-item .hl { color: #b8001a !important; }
 
-        /* === TICKER: purple text === */
-        body.theme-broadcast #ticker-text,
-        body.theme-broadcast #ticker-text span { color: #6d28d9 !important; }
+        /* Broadcast ticker text: dark navy — JS injects !important inline, CSS provides base */
         body.theme-broadcast .tick-up { color: #146b30 !important; }
         body.theme-broadcast .tick-down { color: #b8001a !important; }
 
@@ -295,13 +293,24 @@
             --shadow-style: 0 10px 40px rgba(0,0,0,0.4);
         }
         /* Ethereal — explicit overrides so hardcoded console elements pick up the theme */
-        body.theme-ethereal #top-bar,
-        body.theme-ethereal #bottom-bar {
+        body.theme-ethereal #top-bar {
             background: #2c2c2e !important;
             border-color: rgba(255,255,255,0.05) !important;
             box-shadow: 0 10px 40px rgba(0,0,0,0.4) !important;
             border-radius: 0 !important;
         }
+        /* Bottom bar: Obsidian hardware frame — pure black so ticker reads like a news chyron */
+        body.theme-ethereal #bottom-bar {
+            background: #000000 !important;
+            border-color: rgba(167,139,250,0.15) !important;
+            box-shadow: 0 -4px 20px rgba(0,0,0,0.8) !important;
+            border-radius: 0 !important;
+        }
+        /* Ticker strip inside the black bar */
+        body.theme-ethereal #ticker-wrap { background: transparent !important; border-color: rgba(167,139,250,0.12) !important; }
+        body.theme-ethereal #ticker-label { color: #a78bfa !important; background: rgba(167,139,250,0.15) !important; border-color: rgba(167,139,250,0.3) !important; font-weight: 700 !important; }
+        body.theme-ethereal #ticker-text  { color: #e5e5ea !important; }
+        body.theme-ethereal #ticker-text *{ color: #e5e5ea !important; }
         body.theme-ethereal .sidebar {
             background: #2c2c2e !important;
             border-color: rgba(255,255,255,0.05) !important;
@@ -1202,7 +1211,7 @@
             border: 1px solid rgba(255,255,255,0.08);
             padding: 2px 5px;
         }
-        #sfx-pad-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 4px; padding: 4px 2px 2px; }
+        #sfx-pad-grid { display: grid; grid-template-columns: repeat(4, 1fr); column-gap: 4px; row-gap: 20px; padding: 4px 2px 4px; }
         .sfx-bank-block { display: contents; }
         .sfx-bank-label {
             grid-column: 1 / -1;
@@ -1333,19 +1342,20 @@
         }
         /* Discoverable pulse — subtle cyan breathe, draws the eye */
         @keyframes gear-discover-pulse {
-            0%, 100% { opacity: 0.18; filter: drop-shadow(0 0 0px transparent); }
-            50%       { opacity: 0.55; filter: drop-shadow(0 0 3px rgba(0,243,255,0.6)); }
+            /* dims for 40% of the cycle, then lights up with a clear cyan glow */
+            0%, 40%, 100% { opacity: 0.1;  filter: drop-shadow(0 0 0px transparent); }
+            55%, 70%      { opacity: 0.65; filter: drop-shadow(0 0 5px rgba(0,243,255,0.75)); }
         }
         .pad-gear-icon {
             display: block;
             font-size: 7px;
-            opacity: 0.18;
+            opacity: 0.1;
             cursor: pointer;
             line-height: 1;
             padding: 2px;
             transition: opacity 0.12s, color 0.12s, text-shadow 0.12s;
             user-select: none;
-            animation: gear-discover-pulse 2s ease-in-out infinite;
+            animation: gear-discover-pulse 3.5s ease-in-out infinite;
         }
         .pad-gear:hover .pad-gear-icon,
         .pad-gear.open .pad-gear-icon {
@@ -4357,25 +4367,25 @@ body.fullscreen #transcription-hud { pointer-events: none !important; } /* keep 
 
 /* Per-pad kill button — custom pads only, bottom-right (away from gear at top-right) */
 .pad-xclear {
-    position: absolute; bottom: 11px; right: 3px;
-    font-size: 5px; line-height: 1; padding: 1px 2px;
+    position: absolute; bottom: -16px; right: 2px;
+    font-size: 5px; line-height: 1; padding: 1px 3px;
     background: transparent; border: 1px solid rgba(255,51,51,0.2);
-    color: rgba(255,51,51,0.35); cursor: pointer;
+    color: rgba(255,51,51,0.4); cursor: pointer;
     font-family: 'JetBrains Mono', monospace; letter-spacing: 0;
-    z-index: 50; transition: all 0.1s; border-radius: 1px;
+    z-index: 50; transition: all 0.1s; border-radius: 2px;
     opacity: 0;
 }
 .sfx-pad:hover .pad-xclear { opacity: 1; }
-.pad-xclear:hover { background: rgba(255,51,51,0.2); color: #ff4444; border-color: rgba(255,51,51,0.55); }
+.pad-xclear:hover { background: rgba(255,51,51,0.2); color: #ff4444; border-color: rgba(255,51,51,0.6); }
 
-/* Per-pad mute button — sig/liq pads, bottom-left (opposite corner from kill) */
+/* Per-pad mute M — all pads, floats BELOW pad boundary (outside tap zone) */
 .pad-mute {
-    position: absolute; bottom: 11px; left: 3px;
-    font-size: 6px; font-weight: 900; line-height: 1; padding: 1px 2px;
-    background: transparent; border: 1px solid rgba(255,200,0,0.15);
-    color: rgba(255,200,0,0.25); cursor: pointer;
+    position: absolute; bottom: -16px; left: 2px;
+    font-size: 6px; font-weight: 900; line-height: 1; padding: 1px 3px;
+    background: transparent; border: 1px solid rgba(255,200,0,0.18);
+    color: rgba(255,200,0,0.3); cursor: pointer;
     font-family: 'Orbitron', sans-serif; letter-spacing: 0;
-    z-index: 50; transition: all 0.1s; border-radius: 1px;
+    z-index: 50; transition: all 0.1s; border-radius: 2px;
     opacity: 0;
 }
 .sfx-pad:hover .pad-mute { opacity: 1; }
@@ -6537,10 +6547,15 @@ async function fetchCrypto() {
     }
 }
 // TICKER CYCLE ENGINE — [WEATHER] > [CRYPTO] > [IDENTITY]
+// NOTE: Cyber/default theme only — Broadcast theme has its own engine below.
 APP.crypto.tickerHTML = '';
 APP.ticker = { phase: 0, interval: null };
 
 function updateTickerCycle() {
+    // ── Each structural theme has its own dedicated ticker engine ─────────
+    if (document.body.classList.contains('theme-broadcast')) { updateBroadcastTicker(); return; }
+    if (document.body.classList.contains('theme-ethereal'))  { updateEtherealTicker();  return; }
+    // ── Cyber (default): original weather + crypto + identity cycle ───────
     const ticker = $('ticker-text');
     if (!ticker) return;
     const weatherBlock = APP.atmosphere.city !== 'UNKNOWN'
@@ -6551,6 +6566,174 @@ function updateTickerCycle() {
     const full = weatherBlock + '&nbsp;&nbsp;//&nbsp;&nbsp;' + cryptoBlock + '&nbsp;&nbsp;//&nbsp;&nbsp;' + identityBlock;
     ticker.innerHTML = full + '&nbsp;&nbsp;//&nbsp;&nbsp;' + full;
 }
+
+// ─── BROADCAST TICKER ENGINE ─────────────────────────────────────────────────
+// Global clocks helper — returns [ LOCAL: HH:MM ] [ NY: HH:MM ] ...
+function getGlobalClocks() {
+    function fmt(tz) {
+        return new Intl.DateTimeFormat('en-GB', {
+            hour: '2-digit', minute: '2-digit', hour12: false, timeZone: tz
+        }).format(new Date());
+    }
+    var localTz = Intl.DateTimeFormat().resolvedOptions().timeZone;
+    return '[ LOCAL: ' + fmt(localTz) + ' ] [ NY: ' + fmt('America/New_York') +
+           ' ] [ LDN: ' + fmt('Europe/London') + ' ] [ TYO: ' + fmt('Asia/Tokyo') + ' ]';
+}
+
+APP.broadcast = APP.broadcast || {};
+APP.broadcast.newsCache  = [];
+APP.broadcast.lastFetch  = 0;
+APP.broadcast.newsCity   = '';
+
+// Fetch top-3 geo-targeted headlines; falls back to Hacker News on failure
+function fetchBroadcastNews() {
+    var city = APP.atmosphere.city;
+    var now  = Date.now();
+    // 5-minute cache — don't hammer the proxy
+    if (APP.broadcast.newsCache.length && now - APP.broadcast.lastFetch < 300000) {
+        return Promise.resolve(APP.broadcast.newsCache);
+    }
+    if (city && city !== 'UNKNOWN') {
+        var rssUrl = 'https://news.google.com/rss/headlines/section/geo/' + encodeURIComponent(city);
+        var apiUrl = 'https://api.rss2json.com/v1/api.json?rss_url=' + encodeURIComponent(rssUrl);
+        return fetch(apiUrl)
+            .then(function(r) { return r.json(); })
+            .then(function(data) {
+                if (data.status === 'ok' && data.items && data.items.length) {
+                    APP.broadcast.newsCache = data.items.slice(0, 3).map(function(i) {
+                        return i.title.replace(/\s+/g, ' ').trim().toUpperCase();
+                    });
+                    APP.broadcast.lastFetch = now;
+                    APP.broadcast.newsCity  = city;
+                    return APP.broadcast.newsCache;
+                }
+                throw new Error('RSS_EMPTY');
+            })
+            .catch(function() { return _broadcastHNFallback(now); });
+    }
+    return _broadcastHNFallback(now);
+}
+
+function _broadcastHNFallback(now) {
+    return fetch('https://hacker-news.firebaseio.com/v0/topstories.json')
+        .then(function(r) { return r.json(); })
+        .then(function(ids) {
+            return Promise.all(ids.slice(0, 3).map(function(id) {
+                return fetch('https://hacker-news.firebaseio.com/v0/item/' + id + '.json')
+                    .then(function(r) { return r.json(); })
+                    .then(function(d) { return (d.title || 'INTEL UNAVAILABLE').toUpperCase(); });
+            }));
+        })
+        .then(function(titles) {
+            APP.broadcast.newsCache = titles;
+            APP.broadcast.lastFetch = now;
+            APP.broadcast.newsCity  = 'GLOBAL';
+            return titles;
+        })
+        .catch(function() {
+            return ['SIGNAL ACQUIRING\u2026', 'FEED STANDBY\u2026', 'INTEL PENDING\u2026'];
+        });
+}
+
+function updateBroadcastTicker() {
+    var ticker = $('ticker-text');
+    if (!ticker) return;
+    var clocks = getGlobalClocks();
+    fetchBroadcastNews().then(function(headlines) {
+        var city = (APP.broadcast.newsCity && APP.broadcast.newsCity !== 'UNKNOWN')
+                   ? APP.broadcast.newsCity : 'GLOBAL';
+        var bullets = headlines.map(function(h) { return '\u25CF ' + h; }).join('&nbsp;&nbsp;&nbsp;');
+        var content = clocks
+                    + '&nbsp;&nbsp;//&nbsp;&nbsp;'
+                    + '[ ' + city + ' LOCAL INTEL ]'
+                    + '&nbsp;&nbsp;' + bullets;
+        // Obsidian broadcast palette: sharp dark text on ticker bar, Space Mono
+        // Uses !important inline to beat the stylesheet span color override
+        var full = '<span style="font-family:\'Space Mono\',monospace!important;font-size:9px!important;'
+                 + 'letter-spacing:0.05em!important;color:#1a2030!important;font-weight:600!important;">'
+                 + content + '</span>';
+        ticker.innerHTML = full + '&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;' + full;
+    });
+}
+
+// Refresh clocks every 60 s while Broadcast is active (news stays cached 5 min)
+setInterval(function() {
+    if (document.body.classList.contains('theme-broadcast')) updateBroadcastTicker();
+}, 60000);
+// ─── END BROADCAST TICKER ENGINE ─────────────────────────────────────────────
+
+// ─── ETHEREAL TICKER ENGINE — Global Culture + Local Art ─────────────────────
+APP.ethereal = APP.ethereal || {};
+APP.ethereal.newsCache = null;  // { global:[], local:[], city:'' }
+APP.ethereal.lastFetch = 0;
+
+// Strip " - Publisher Name" suffix that Google News appends to every headline
+function _stripPublisher(title) {
+    return title.replace(/\s+[-\u2013]\s+[^-\u2013]{2,60}$/, '').trim();
+}
+
+function fetchEtherealNews() {
+    var city = APP.atmosphere && APP.atmosphere.city;
+    var now  = Date.now();
+    if (APP.ethereal.newsCache && now - APP.ethereal.lastFetch < 300000) {
+        return Promise.resolve(APP.ethereal.newsCache);
+    }
+    var proxy      = 'https://api.rss2json.com/v1/api.json?rss_url=';
+    var globalRss  = 'https://news.google.com/rss/search?q=%22Art+News%22+OR+%22Contemporary+Art%22+OR+%22Design+Culture%22';
+    var localQ     = (city && city !== 'UNKNOWN')
+                   ? '%22Art+Exhibition%22+OR+%22Gallery%22+location%3A' + encodeURIComponent(city)
+                   : '%22Art+Exhibition%22+OR+%22Contemporary+Gallery%22';
+    var localRss   = 'https://news.google.com/rss/search?q=' + localQ;
+
+    function fetchFeed(url, count) {
+        return fetch(proxy + encodeURIComponent(url))
+            .then(function(r) { return r.json(); })
+            .then(function(d) {
+                if (d.status === 'ok' && d.items && d.items.length) {
+                    return d.items.slice(0, count).map(function(i) {
+                        return _stripPublisher(i.title).toUpperCase();
+                    });
+                }
+                return [];
+            })
+            .catch(function() { return []; });
+    }
+
+    return Promise.all([fetchFeed(globalRss, 2), fetchFeed(localRss, 2)])
+        .then(function(res) {
+            var cache = {
+                global: res[0].length ? res[0] : ['\u2014 ACQUIRING \u2014', '\u2014'],
+                local:  res[1].length ? res[1] : ['\u2014 ACQUIRING \u2014', '\u2014'],
+                city:   (city && city !== 'UNKNOWN') ? city : 'GLOBAL'
+            };
+            APP.ethereal.newsCache = cache;
+            APP.ethereal.lastFetch = now;
+            return cache;
+        });
+}
+
+function updateEtherealTicker() {
+    var ticker = $('ticker-text');
+    if (!ticker) return;
+    fetchEtherealNews().then(function(data) {
+        var accent  = '#a78bfa';  // Ethereal violet accent
+        var gbullets = data.global.map(function(h) { return '\u25CF \u201C' + h + '\u201D'; }).join('&nbsp;&nbsp;');
+        var lbullets = data.local.map(function(h)  { return '\u25CF \u201C' + h + '\u201D'; }).join('&nbsp;&nbsp;');
+        var gBlock  = '<span style="color:' + accent + '!important;font-weight:700;">[ GLOBAL CULTURE ]</span>&nbsp;&nbsp;' + gbullets;
+        var lBlock  = '<span style="color:' + accent + '!important;font-weight:700;">[ ' + data.city + ' // LOCAL ART ]</span>&nbsp;&nbsp;' + lbullets;
+        var content = gBlock + '&nbsp;&nbsp;//&nbsp;&nbsp;' + lBlock;
+        // Obsidian hardware frame: black ticker bar, near-white body text, Inter font
+        var full = '<span style="font-family:\'Inter\',sans-serif!important;font-size:9px!important;'
+                 + 'letter-spacing:0.04em!important;color:#e5e5ea!important;">' + content + '</span>';
+        ticker.innerHTML = full + '&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;' + full;
+    });
+}
+
+// Refresh every 60 s while Ethereal is active (news cached 5 min)
+setInterval(function() {
+    if (document.body.classList.contains('theme-ethereal')) updateEtherealTicker();
+}, 60000);
+// ─── END ETHEREAL TICKER ENGINE ──────────────────────────────────────────────
 
 // UTILS
 function log(msg) {
@@ -13025,6 +13208,8 @@ function setTheme(theme) { const structClass = ['theme-broadcast','theme-etherea
     const names = ['CYBER_CORE', 'BROADCAST_PRO', 'ETHEREAL_MINIMAL'];
     // Log to ghost terminal if available
     if (window.ghostLog) window.ghostLog('THEME > ' + names[_structIdx], 'ai');
+    // Immediately refresh ticker for the new structural theme
+    if (typeof updateTickerCycle === 'function') updateTickerCycle();
   };
 })();
 
