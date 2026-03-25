@@ -283,7 +283,21 @@
         }
 
         /* STRUCTURAL THEME ENGINE — ETHEREAL_MINIMAL */
+        /* STRUCTURAL THEME ENGINE — ETHEREAL_MINIMAL */
         body.theme-ethereal {
+            /* Legacy vars — feed all default elements that still use var(--bg) etc */
+            --bg: #1c1c1e;
+            --panel: #2c2c2e;
+            --text: #e5e5ea;
+            --text-dim: #8e8e93;
+            --text-bright: #ffffff;
+            --border: rgba(255,255,255,0.06);
+            --border-light: rgba(255,255,255,0.03);
+            --accent: #a78bfa;
+            --accent-dim: rgba(167,139,250,0.18);
+            --accent-glow: rgba(167,139,250,0.5);
+            --theme-color: #a78bfa;
+            /* Structural vars */
             --bg-main: #1c1c1e;
             --bg-panel: #2c2c2e;
             --text-main: #e5e5ea;
@@ -294,42 +308,193 @@
             --border-style: 1px solid rgba(255,255,255,0.05);
             --shadow-style: 0 10px 40px rgba(0,0,0,0.4);
         }
-        /* Ethereal — explicit overrides so hardcoded console elements pick up the theme */
+        body.theme-ethereal { background: #1c1c1e !important; color: #e5e5ea !important; }
+
+        /* Top/bottom bars */
         body.theme-ethereal #top-bar,
         body.theme-ethereal #bottom-bar {
-            background: #2c2c2e !important;
+            background: linear-gradient(180deg, #2c2c2e 0%, #242426 100%) !important;
             border-color: rgba(255,255,255,0.05) !important;
-            box-shadow: 0 10px 40px rgba(0,0,0,0.4) !important;
+            box-shadow: 0 2px 20px rgba(0,0,0,0.5) !important;
             border-radius: 0 !important;
         }
+        /* Sidebar */
         body.theme-ethereal .sidebar {
-            background: #2c2c2e !important;
+            background: linear-gradient(180deg, #2c2c2e 0%, #242426 100%) !important;
             border-color: rgba(255,255,255,0.05) !important;
-            box-shadow: 0 10px 40px rgba(0,0,0,0.4) !important;
+            box-shadow: 2px 0 20px rgba(0,0,0,0.4) !important;
+        }
+        /* Canvas */
+        body.theme-ethereal #stage {
+            border-color: rgba(255,255,255,0.04) !important;
+        }
+        /* Section headers — violet left accent */
+        body.theme-ethereal .sec-head {
+            background: linear-gradient(90deg, rgba(167,139,250,0.06) 0%, rgba(255,255,255,0.01) 80%) !important;
+            border-left: 3px solid rgba(167,139,250,0.6) !important;
+        }
+        body.theme-ethereal .sec-head:hover {
+            background: linear-gradient(90deg, rgba(167,139,250,0.12) 0%, rgba(255,255,255,0.02) 80%) !important;
+        }
+        body.theme-ethereal .sec-title {
+            color: #c4b5fd !important;
+            font-weight: 600; letter-spacing: 1.5px;
+        }
+        body.theme-ethereal .sec-dot {
+            background: #a78bfa !important;
+            box-shadow: 0 0 6px rgba(167,139,250,0.6) !important;
+        }
+        body.theme-ethereal .sec-dot.off {
+            background: #48484a !important;
+            box-shadow: none !important;
         }
         body.theme-ethereal .section {
-            border-top-color: rgba(255,255,255,0.03) !important;
-            border-bottom-color: rgba(255,255,255,0.05) !important;
+            border-bottom: 1px solid rgba(255,255,255,0.04) !important;
         }
+        /* Buttons — dark glass pill */
         body.theme-ethereal .btn {
             background: linear-gradient(180deg, #3a3a3c 0%, #2c2c2e 100%) !important;
             border-radius: 16px !important;
             border-top: 1px solid rgba(255,255,255,0.08) !important;
             border-left: 1px solid rgba(255,255,255,0.05) !important;
             border-right: 1px solid rgba(255,255,255,0.03) !important;
-            border-bottom: 1px solid rgba(0,0,0,0.3) !important;
-            box-shadow: 0 10px 40px rgba(0,0,0,0.4) !important;
+            border-bottom: 1px solid rgba(0,0,0,0.35) !important;
+            box-shadow: 0 4px 14px rgba(0,0,0,0.5), inset 0 1px 0 rgba(255,255,255,0.04) !important;
             color: #e5e5ea !important;
             font-family: 'Inter', sans-serif !important;
+            overflow: hidden;
+            position: relative;
+        }
+        body.theme-ethereal .btn::after {
+            content: '';
+            position: absolute;
+            top: 0; left: -120%; width: 60%; height: 100%;
+            background: linear-gradient(90deg, transparent, rgba(255,255,255,0.055), transparent);
+            animation: eth-btn-shine 10s ease-in-out infinite;
+            pointer-events: none;
+        }
+        @keyframes eth-btn-shine {
+            0%, 65%, 100% { left: -120%; opacity: 0; }
+            68%, 72% { opacity: 1; }
+            70% { left: 160%; }
         }
         body.theme-ethereal .btn:hover {
-            background: linear-gradient(180deg, #48484a 0%, #3a3a3c 100%) !important;
-            border-color: rgba(167,139,250,0.5) !important;
+            background: linear-gradient(180deg, #4a4a4e 0%, #3a3a3c 100%) !important;
+            border-color: rgba(167,139,250,0.45) !important;
+            box-shadow: 0 4px 18px rgba(0,0,0,0.5), 0 0 0 1px rgba(167,139,250,0.12) !important;
         }
         body.theme-ethereal .btn.on {
+            background: linear-gradient(180deg, #38306a 0%, #2a2252 100%) !important;
             border-color: #a78bfa !important;
-            color: #a78bfa !important;
-            box-shadow: 0 0 14px rgba(167,139,250,0.3) !important;
+            color: #c4b5fd !important;
+            box-shadow: 0 0 14px rgba(167,139,250,0.25), inset 0 1px 3px rgba(0,0,0,0.3) !important;
+        }
+        /* Inputs */
+        body.theme-ethereal input,
+        body.theme-ethereal select,
+        body.theme-ethereal textarea {
+            background: rgba(255,255,255,0.06) !important;
+            border-color: rgba(255,255,255,0.1) !important;
+            color: #e5e5ea !important;
+        }
+        body.theme-ethereal input:focus,
+        body.theme-ethereal select:focus,
+        body.theme-ethereal textarea:focus {
+            border-color: #a78bfa !important;
+            box-shadow: 0 0 0 2px rgba(167,139,250,0.15) !important;
+        }
+        /* Text */
+        body.theme-ethereal .sec-body,
+        body.theme-ethereal label,
+        body.theme-ethereal .log-entry,
+        body.theme-ethereal .info-val,
+        body.theme-ethereal .info-label { color: #8e8e93 !important; }
+        body.theme-ethereal span:not(.sec-title):not(.accent) { color: #e5e5ea; }
+        body.theme-ethereal .pal.on { border-color: #a78bfa !important; box-shadow: 0 0 6px rgba(167,139,250,0.4) !important; }
+
+        /* === TOP BAR ===*/
+        body.theme-ethereal #main-logo { mix-blend-mode: normal !important; }
+        body.theme-ethereal #main-logo span { color: #a78bfa !important; opacity: 1 !important; }
+        body.theme-ethereal .sub-tag { color: #8e8e93 !important; opacity: 0.85 !important; }
+        body.theme-ethereal .sub-tag::after { background: linear-gradient(90deg, transparent, rgba(167,139,250,0.25), transparent); }
+        body.theme-ethereal .version { color: #a78bfa !important; background: rgba(167,139,250,0.08) !important; border-color: rgba(167,139,250,0.35) !important; }
+        body.theme-ethereal .badge { border-color: rgba(255,255,255,0.1) !important; color: #c4c4c8 !important; background: rgba(255,255,255,0.04) !important; }
+        body.theme-ethereal #fps-badge { color: #34d399 !important; border-color: rgba(52,211,153,0.4) !important; background: rgba(52,211,153,0.06) !important; }
+        body.theme-ethereal #wallet-badge { color: #fbbf24 !important; border-color: rgba(251,191,36,0.4) !important; background: rgba(251,191,36,0.06) !important; }
+        body.theme-ethereal #btn-open-p2p-modal { color: #60a5fa !important; border-color: rgba(96,165,250,0.4) !important; background: rgba(96,165,250,0.06) !important; }
+        body.theme-ethereal .stat,
+        body.theme-ethereal #status-text { color: #aeaeb2 !important; }
+        body.theme-ethereal #clock { color: #e5e5ea !important; font-weight: 600; }
+
+        /* === BOTTOM BAR: ticker + info ===*/
+        body.theme-ethereal #ticker-wrap { background: rgba(255,255,255,0.02) !important; border-color: rgba(255,255,255,0.05) !important; }
+        body.theme-ethereal #ticker-label { color: #a78bfa !important; background: rgba(167,139,250,0.08) !important; border-color: rgba(167,139,250,0.2) !important; }
+        body.theme-ethereal #ticker-text,
+        body.theme-ethereal #ticker-text * { color: #c4c4c8 !important; }
+        body.theme-ethereal #ticker-text span { color: #c4b5fd !important; }
+        body.theme-ethereal .tick-up { color: #34d399 !important; }
+        body.theme-ethereal .tick-down { color: #f87171 !important; }
+        body.theme-ethereal #info-bar { border-color: rgba(255,255,255,0.04) !important; }
+        body.theme-ethereal .info-item { color: #636366 !important; }
+        body.theme-ethereal .info-item span { color: #aeaeb2 !important; }
+        body.theme-ethereal .info-item .hl { color: #a78bfa !important; }
+
+        /* === LOGO MORPH ===*/
+        body.theme-ethereal .logo.m4 { color: transparent !important; -webkit-text-stroke: 1.5px #e5e5ea !important; text-shadow: none !important; }
+        body.theme-ethereal .logo.m5 { color: #e5e5ea !important; text-shadow: 2px 0 #a78bfa, -2px 0 #60a5fa !important; }
+
+        /* === SELECTS ===*/
+        body.theme-ethereal select,
+        body.theme-ethereal .slot-select,
+        body.theme-ethereal #ai-model-select,
+        body.theme-ethereal #bug-style-select,
+        body.theme-ethereal #bug-mode-select,
+        body.theme-ethereal #lt-style-select,
+        body.theme-ethereal #audio-input-select,
+        body.theme-ethereal #audio-output {
+            background: rgba(255,255,255,0.06) !important;
+            background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='8' height='5' viewBox='0 0 8 5'%3E%3Cpath d='M0 0l4 5 4-5z' fill='%23a78bfa' opacity='0.6'/%3E%3C/svg%3E") !important;
+            background-repeat: no-repeat !important;
+            background-position: right 7px center !important;
+            background-size: 7px 5px !important;
+            border: 1px solid rgba(255,255,255,0.1) !important;
+            color: #e5e5ea !important;
+        }
+        body.theme-ethereal select option,
+        body.theme-ethereal .slot-select option {
+            background: #2c2c2e !important;
+            color: #e5e5ea !important;
+        }
+
+        /* === LIGHT PANEL SHEEN — slow beam across bars === */
+        body.theme-ethereal #top-bar,
+        body.theme-ethereal #bottom-bar,
+        body.theme-ethereal .sidebar { overflow: hidden; position: relative; }
+        body.theme-ethereal #top-bar::before,
+        body.theme-ethereal #bottom-bar::before,
+        body.theme-ethereal .sidebar::before {
+            content: '';
+            position: absolute;
+            top: 0; left: -200%; width: 80%; height: 1px;
+            background: linear-gradient(90deg, transparent, rgba(255,255,255,0.09), transparent);
+            animation: eth-panel-beam 14s ease-in-out infinite;
+            pointer-events: none; z-index: 0;
+        }
+        body.theme-ethereal .sidebar::before {
+            width: 1px; height: 80%;
+            top: -200%; left: 0;
+            background: linear-gradient(180deg, transparent, rgba(255,255,255,0.09), transparent);
+            animation: eth-sidebar-beam 18s ease-in-out infinite;
+        }
+        @keyframes eth-panel-beam {
+            0%, 60%, 100% { left: -200%; opacity: 0; }
+            63%, 70% { opacity: 1; }
+            68% { left: 220%; }
+        }
+        @keyframes eth-sidebar-beam {
+            0%, 55%, 100% { top: -200%; opacity: 0; }
+            58%, 65% { opacity: 1; }
+            63% { top: 220%; }
         }
 
         /* --- WEB DNA KILL SWITCH --- */
@@ -1202,7 +1367,7 @@
             border: 1px solid rgba(255,255,255,0.08);
             padding: 2px 5px;
         }
-        #sfx-pad-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 4px; padding: 4px 2px 2px; }
+        #sfx-pad-grid { display: grid; grid-template-columns: repeat(4, 1fr); column-gap: 4px; row-gap: 20px; padding: 4px 2px 4px; }
         .sfx-bank-block { display: contents; }
         .sfx-bank-label {
             grid-column: 1 / -1;
@@ -1331,21 +1496,21 @@
             right: 4px;
             z-index: 10;
         }
-        /* Discoverable pulse — subtle cyan breathe, draws the eye */
+        /* Discoverable pulse — slow blink to prompt FX pairing */
         @keyframes gear-discover-pulse {
-            0%, 100% { opacity: 0.18; filter: drop-shadow(0 0 0px transparent); }
-            50%       { opacity: 0.55; filter: drop-shadow(0 0 3px rgba(0,243,255,0.6)); }
+            0%, 40%, 100% { opacity: 0.1; filter: drop-shadow(0 0 0px transparent); }
+            55%, 70%      { opacity: 0.65; filter: drop-shadow(0 0 5px rgba(0,243,255,0.75)); }
         }
         .pad-gear-icon {
             display: block;
             font-size: 7px;
-            opacity: 0.18;
+            opacity: 0.1;
             cursor: pointer;
             line-height: 1;
             padding: 2px;
             transition: opacity 0.12s, color 0.12s, text-shadow 0.12s;
             user-select: none;
-            animation: gear-discover-pulse 2s ease-in-out infinite;
+            animation: gear-discover-pulse 3.5s ease-in-out infinite;
         }
         .pad-gear:hover .pad-gear-icon,
         .pad-gear.open .pad-gear-icon {
@@ -2584,6 +2749,16 @@ body.shooting-mode #btn-shooting {
             60% { transform: translate(-2px, 3px); }
             80% { transform: translate(2px, -3px); }
         }
+        /* CONSOLE SHOT SHAKE — fires on each bullet impact in shooting mode */
+        @keyframes console-shot-shake {
+            0%   { transform: translate3d(0, 0, 0); }
+            20%  { transform: translate3d(-5px, 2px, 0) rotate(-0.3deg); }
+            45%  { transform: translate3d(5px, -3px, 0) rotate(0.3deg); }
+            70%  { transform: translate3d(-3px, 2px, 0) rotate(-0.15deg); }
+            100% { transform: translate3d(0, 0, 0); }
+        }
+        .console-shot-anim { animation: console-shot-shake 0.14s ease-out !important; }
+
         /* seismic-shake: body-level shake for visible feedback even without canvas media */
         body.seismic-active { animation: seismic-body-shake 0.10s ease-in-out infinite; }
         @keyframes seismic-body-shake {
@@ -3933,27 +4108,27 @@ body.fullscreen #transcription-hud { pointer-events: none !important; } /* keep 
     flex-shrink: 0; font-size: 6.5px; color: rgba(176,0,255,0.4); letter-spacing: 1px;
 }
 
-/* Per-pad kill button — custom pads only, bottom-right (away from gear at top-right) */
+/* Per-pad kill button — custom pads only, floats BELOW the pad (outside tap zone) */
 .pad-xclear {
-    position: absolute; bottom: 11px; right: 3px;
-    font-size: 5px; line-height: 1; padding: 1px 2px;
+    position: absolute; bottom: -16px; right: 2px;
+    font-size: 5px; line-height: 1; padding: 1px 3px;
     background: transparent; border: 1px solid rgba(255,51,51,0.2);
-    color: rgba(255,51,51,0.35); cursor: pointer;
+    color: rgba(255,51,51,0.4); cursor: pointer;
     font-family: 'JetBrains Mono', monospace; letter-spacing: 0;
-    z-index: 50; transition: all 0.1s; border-radius: 1px;
+    z-index: 50; transition: all 0.1s; border-radius: 2px;
     opacity: 0;
 }
 .sfx-pad:hover .pad-xclear { opacity: 1; }
-.pad-xclear:hover { background: rgba(255,51,51,0.2); color: #ff4444; border-color: rgba(255,51,51,0.55); }
+.pad-xclear:hover { background: rgba(255,51,51,0.2); color: #ff4444; border-color: rgba(255,51,51,0.6); }
 
-/* Per-pad mute button — sig/liq pads, bottom-left (opposite corner from kill) */
+/* Per-pad mute button — floats BELOW the pad (outside tap zone), left side */
 .pad-mute {
-    position: absolute; bottom: 11px; left: 3px;
-    font-size: 6px; font-weight: 900; line-height: 1; padding: 1px 2px;
-    background: transparent; border: 1px solid rgba(255,200,0,0.15);
-    color: rgba(255,200,0,0.25); cursor: pointer;
+    position: absolute; bottom: -16px; left: 2px;
+    font-size: 6px; font-weight: 900; line-height: 1; padding: 1px 3px;
+    background: transparent; border: 1px solid rgba(255,200,0,0.18);
+    color: rgba(255,200,0,0.3); cursor: pointer;
     font-family: 'Orbitron', sans-serif; letter-spacing: 0;
-    z-index: 50; transition: all 0.1s; border-radius: 1px;
+    z-index: 50; transition: all 0.1s; border-radius: 2px;
     opacity: 0;
 }
 .sfx-pad:hover .pad-mute { opacity: 1; }
@@ -14015,6 +14190,15 @@ document.addEventListener('DOMContentLoaded', () => {
         // Screen shake
         document.body.style.transform = `translate(${(Math.random()-0.5)*8}px, ${(Math.random()-0.5)*8}px)`;
         setTimeout(() => document.body.style.transform = '', 40);
+
+        // Console shake — sidebar + top/bottom bars shudder on each hit
+        [$('top-bar'), $('bottom-bar'), document.querySelector('.sidebar')].forEach(function(el) {
+            if (!el) return;
+            el.classList.remove('console-shot-anim');
+            void el.offsetWidth; // force reflow so animation restarts
+            el.classList.add('console-shot-anim');
+            el.addEventListener('animationend', function() { el.classList.remove('console-shot-anim'); }, {once: true});
+        });
     }
     
     // WEAPON STATE ISOLATION - GLOBAL CAPTURE PHASE LISTENER
