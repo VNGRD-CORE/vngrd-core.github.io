@@ -11176,268 +11176,7 @@ document.addEventListener('DOMContentLoaded', function() { VFXLayer.init(); });
 //  window.ESX_State is set immediately so Scheduler._tick
 //  can check `typeof ESX_State !== 'undefined'` safely.
 // ═══════════════════════════════════════════════════════════════
-const ESX = (() => {
 
-    // ── Track definitions ─────────────────────────────────────
-    const TRACKS = [
-        { label: 'KICK',  color: '#ff5050', type: 'drum',  key: 'liq1' },
-        { label: 'SNARE', color: '#ff9050', type: 'drum',  key: 'liq2' },
-        { label: 'HH',    color: '#ffe050', type: 'drum',  key: 'liq3' },
-        { label: 'PERC',  color: '#50ff90', type: 'drum',  key: 'liq4' },
-        // ROM synth: sawtooth through 400Hz lowpass (classic deep bass)
-        { label: 'BASS',  color: '#50aaff', type: 'synth', osc: 'sawtooth', filt: 400,  note: 36 },
-        // ROM synth: square wave, +5ct detune (fat IDM lead)
-        { label: 'LEAD',  color: '#cc80ff', type: 'synth', osc: 'square',   filt: 1400, note: 60, detune: 5 }
-    ];
-    const N_TRACKS = TRACKS.length; // 6
-    const N_STEPS  = 16;
-
-    // ── Pattern state ─────────────────────────────────────────
-    // _pat[track][step] = { on: bool, vel: 0-127 }
-    var _pat = Array.from({ length: N_TRACKS }, function() {
-        return Array.from({ length: N_STEPS }, function() { return { on: false, vel: 100 }; });
-    });
-    var _muted      = new Array(N_TRACKS).fill(false);
-    var _activeTrack = 0;   // which track the step buttons are editing
-    var _isPlaying  = false;
-    var _visible    = false;
-    var _drag       = false, _dx = 0, _dy = 0, _dragInit = false;
-
-    // Expose global state struct read by Scheduler._tick
-    window.ESX_State = {
-        isPlaying: false,
-        scheduleStep: _scheduleStep  // forward ref — defined below
-    };
-
-    // ── Schedule one step column ──────────────────────────────
-    // Called from Scheduler._tick with the same fireAt/stepDur
-    // that the HyperTracker uses — perfectly sample-synchronous.
-    function _scheduleStep(col, fireAt, stepDur) {
-        var ctx = APP.audio.ctx; if (!ctx) return;
-        for (var t = 0; t < N_TRACKS; t++) {
-            if (_muted[t]) continue;
-            var cell = _pat[t][col];
-            if (!cell.on) continue;
-            var def = TRACKS[t];
-            if (def.type === 'drum') {
-                // Reuse HyperTracker's anti-click engine for drum parts
-                playSample(def.key, fireAt, 0, 1, stepDur);
-            } else {
-                _triggerROMSynth(def, fireAt, stepDur);
-            }
-        }
-        // Defer ESX cursor update to rAF (aligned with audio time)
-        (function(c, t) {
-            var ms = Math.max(0, (t - ctx.currentTime) * 1000);
-            setTimeout(function() {
-                requestAnimationFrame(function() { _updateCursor(c); });
-            }, ms);
-        })(col, fireAt);
-    }
-
-    // ── ROM Synth engine ──────────────────────────────────────
-    // Pure Web Audio: Oscillator → BiquadFilter → GainNode(env) → master
-    // 2ms attack + exponential decay — same anti-click discipline as playSample.
-    function _triggerROMSynth(def, fireAt, stepDur) {
-        var ctx = APP.audio.ctx; if (!ctx) return;
-        var freq = 440 * Math.pow(2, ((def.note || 60) - 69) / 12);
-
-        var osc = ctx.createOscillator();
-        osc.type = def.osc || 'sawtooth';
-        osc.frequency.value = freq;
-        if (def.detune) osc.detune.value = def.detune;
-
-        var filt = ctx.createBiquadFilter();
-        filt.type = 'lowpass';
-        filt.frequency.value = def.filt || 800;
-        filt.Q.value = 2.5;
-
-        var env = ctx.createGain();
-        env.gain.setValueAtTime(0, fireAt);
-        // 3ms linear ramp-in (anti-click)
-        env.gain.linearRampToValueAtTime(0.38, fireAt + 0.003);
-        // Exponential decay to silence — ends slightly before next step
-        var tail = Math.max(0.025, stepDur * 0.72);
-        env.gain.exponentialRampToValueAtTime(0.0001, fireAt + tail);
-
-        osc.connect(filt);
-        filt.connect(env);
-        // Route through master chain
-        var out = (APP.audio && (APP.audio.panner || APP.audio.duckingGain || APP.audio.masterGain))
-                  || ctx.destination;
-        env.connect(out);
-
-        osc.start(fireAt);
-        osc.stop(fireAt + tail + 0.005);
-    }
-
-    // ── ESX step cursor ───────────────────────────────────────
-    function _updateCursor(col) {
-        var grid = document.getElementById('esx-steps-grid');
-        if (!grid) return;
-        grid.querySelectorAll('.esx-step-btn').forEach(function(el, i) {
-            el.classList.toggle('esx-step-cur', i === col);
-        });
-        // Update LED counter
-        var led = document.getElementById('esx-step-led');
-        if (led) led.textContent = String(col + 1).padStart(2, '0');
-    }
-
-    // ── Rebuild step grid for the active track ────────────────
-    function _renderSteps() {
-        var grid = document.getElementById('esx-steps-grid');
-        if (!grid) return;
-        grid.querySelectorAll('.esx-step-btn').forEach(function(btn, i) {
-            btn.classList.toggle('esx-step-on', _pat[_activeTrack][i].on);
-        });
-    }
-
-    // ── Build the track selector row ──────────────────────────
-    function _buildTrackRow() {
-        var row = document.getElementById('esx-track-row');
-        if (!row) return;
-        row.innerHTML = '';
-        TRACKS.forEach(function(def, t) {
-            var btn = document.createElement('button');
-            btn.className = 'esx-track-btn' +
-                (_muted[t] ? ' esx-track-muted' : '') +
-                (t === _activeTrack ? ' esx-track-active' : '');
-            btn.style.setProperty('color',
-                t === _activeTrack ? def.color : 'rgba(255,255,255,0.42)');
-            btn.style.setProperty('border-color',
-                t === _activeTrack ? def.color : 'rgba(255,255,255,0.08)');
-            if (t === _activeTrack) btn.style.boxShadow = '0 0 8px ' + def.color;
-            btn.textContent = def.label;
-            btn.title = 'Select track ' + def.label + ' · Right-click to mute';
-            btn.addEventListener('click', function() {
-                _activeTrack = t;
-                _buildTrackRow();
-                _renderSteps();
-            });
-            btn.addEventListener('contextmenu', function(e) {
-                e.preventDefault();
-                _muted[t] = !_muted[t];
-                _buildTrackRow();
-            });
-            row.appendChild(btn);
-        });
-    }
-
-    // ── Build 16 step buttons ─────────────────────────────────
-    function _buildSteps() {
-        var grid = document.getElementById('esx-steps-grid');
-        if (!grid) return;
-        grid.innerHTML = '';
-        for (var i = 0; i < N_STEPS; i++) {
-            (function(idx) {
-                var btn = document.createElement('button');
-                btn.className = 'esx-step-btn' + (_pat[_activeTrack][idx].on ? ' esx-step-on' : '');
-                btn.textContent = String(idx + 1).padStart(2, '0');
-                btn.dataset.esxStep = idx;
-                btn.addEventListener('click', function() {
-                    _pat[_activeTrack][idx].on = !_pat[_activeTrack][idx].on;
-                    btn.classList.toggle('esx-step-on', _pat[_activeTrack][idx].on);
-                });
-                grid.appendChild(btn);
-            })(i);
-        }
-    }
-
-    // ── Transport ─────────────────────────────────────────────
-    function _start() {
-        if (!APP.audio.ctx) igniteAudio();
-        if (!APP.audio.masterGain) ensureAudioChain();
-        var ctx = APP.audio.ctx; if (!ctx) return;
-        if (ctx.state === 'suspended') ctx.resume();
-        // Sync ESX BPM to master
-        var bpmEl = document.getElementById('esx-bpm');
-        if (bpmEl) _groovebox.bpm = parseInt(bpmEl.value, 10) || _groovebox.bpm;
-        _isPlaying = true;
-        window.ESX_State.isPlaying = true;
-        // Ensure Scheduler is running (shares its timer)
-        if (!_htScheduler._active) _htScheduler.start();
-        var btn = document.getElementById('esx-play-btn');
-        if (btn) { btn.textContent = '■ STOP'; btn.classList.add('esx-running'); }
-    }
-
-    function _stop() {
-        _isPlaying = false;
-        window.ESX_State.isPlaying = false;
-        _updateCursor(-1);
-        var btn = document.getElementById('esx-play-btn');
-        if (btn) { btn.textContent = '▶ START'; btn.classList.remove('esx-running'); }
-        var led = document.getElementById('esx-step-led');
-        if (led) led.textContent = '--';
-    }
-
-    // ── Drag ──────────────────────────────────────────────────
-    function _initDrag() {
-        if (_dragInit) return; _dragInit = true;
-        var tb  = document.getElementById('esx-titlebar');
-        var win = document.getElementById('esx-hud');
-        if (!tb || !win) return;
-        tb.addEventListener('mousedown', function(e) {
-            if (e.target.classList.contains('esx-tb-dot') ||
-                e.target.tagName === 'BUTTON') return;
-            _drag = true;
-            var r = win.getBoundingClientRect();
-            _dx = e.clientX - r.left; _dy = e.clientY - r.top;
-            win.style.transition = 'none'; e.preventDefault();
-        });
-        document.addEventListener('mousemove', function(e) {
-            if (!_drag) return;
-            var x = Math.max(0, Math.min(window.innerWidth  - 120, e.clientX - _dx));
-            var y = Math.max(0, Math.min(window.innerHeight - 50,  e.clientY - _dy));
-            win.style.left = x + 'px'; win.style.top = y + 'px';
-            win.style.right = 'auto';
-        });
-        document.addEventListener('mouseup', function() { _drag = false; });
-    }
-
-    // ── BPM input sync ────────────────────────────────────────
-    function _initBpmSync() {
-        var bpmEl = document.getElementById('esx-bpm');
-        if (!bpmEl) return;
-        bpmEl.addEventListener('change', function() {
-            _groovebox.bpm = Math.max(20, Math.min(400, parseInt(bpmEl.value, 10) || 120));
-            window.currentBPM = _groovebox.bpm;
-            // Mirror to HyperTracker BPM input
-            var htBpm = document.getElementById('gb-bpm');
-            if (htBpm) htBpm.value = _groovebox.bpm;
-        });
-    }
-
-    // ── Public: toggle (open / close) ────────────────────────
-    function toggle() {
-        _visible = !_visible;
-        var win = document.getElementById('esx-hud');
-        var launchBtn = document.getElementById('btn-esx-launch');
-        if (win) win.classList.toggle('esx-visible', _visible);
-        if (launchBtn) launchBtn.classList.toggle('esx-open', _visible);
-        if (_visible) {
-            _buildTrackRow();
-            _buildSteps();
-            _initDrag();
-            _initBpmSync();
-        } else {
-            _stop();
-        }
-    }
-
-    // Expose internal methods needed by inline HTML onclick handlers
-    function unmuteAll() {
-        for (var i = 0; i < N_TRACKS; i++) _muted[i] = false;
-        _buildTrackRow();
-    }
-
-    return {
-        toggle:        toggle,
-        _start:        _start,
-        _stop:         _stop,
-        _buildTrackRow: _buildTrackRow,
-        unmuteAll:     unmuteAll
-    };
-})();
 
 function connectVideoAudio(vid) {
     if (!vid || vid.tagName !== 'VIDEO') return;
@@ -19402,62 +19141,80 @@ function _applyPoseToModel(lm) {
     </div>
 </div>
 
-<!-- ═══════════════════════════════════════════════════════════
-     VNGRD// ESX-1 // DRIS CORE — Floating Hardware Sequencer HUD
-     Obsidian titlebar + red brushed-metal chassis
-     Master Clock: Scheduler._tick() via ESX_State.scheduleStep()
-     ═══════════════════════════════════════════════════════════ -->
-<div id="esx-hud" class="esx-window">
-
-    <!-- Obsidian titlebar — drag handle, traffic-light, minimize -->
-    <div class="esx-titlebar" id="esx-titlebar">
-        <div class="esx-tb-dot esx-close" title="Close ESX-1"
-             onclick="ESX.toggle()"></div>
-        <div class="esx-tb-dot esx-min"   title="Minimize ESX-1"
-             onclick="ESX.toggle()"></div>
-        <span class="esx-tb-title">⚡ VNGRD// ESX-1 // DRIS CORE</span>
-        <span class="esx-tb-sub">ELECTRIBE · SX · ROM SYNTH</span>
+<div id="vanguard-hud" style="position: absolute; bottom: 20px; right: 20px; background: rgba(10, 15, 10, 0.85); border: 1px solid #50ff90; padding: 20px; border-radius: 4px; z-index: 9999; color: #50ff90; font-family: 'Courier New', monospace; text-align: center; box-shadow: 0 0 15px rgba(80, 255, 144, 0.2); backdrop-filter: blur(4px); width: 280px;">
+    
+    <div style="font-size: 1.2em; font-weight: bold; margin-bottom: 5px; letter-spacing: 2px;">VNGRD// SPATIAL</div>
+    <div style="font-size: 0.75em; color: #aaa; margin-bottom: 15px; letter-spacing: 1px;">KINEMATIC DRONE & GLITCH</div>
+    
+    <button id="vngrd-engage-btn" 
+            onclick="if(window.VANGUARD_SPATIAL){ window.VANGUARD_SPATIAL.engage(); this.innerText='⚡ NEURAL LINK ACTIVE'; this.style.color='#000'; this.style.background='#50ff90'; this.style.boxShadow='0 0 10px #50ff90'; }" 
+            style="width: 100%; padding: 12px; background: transparent; color: #50ff90; border: 1px solid #50ff90; cursor: pointer; font-family: inherit; font-weight: bold; transition: all 0.2s; letter-spacing: 1px;">
+        [ ENGAGE ENGINE ]
+    </button>
+    
+    <div style="margin-top: 15px; font-size: 0.7em; color: #888; text-align: left; line-height: 1.6;">
+        <div><b>L-HAND X:</b> Filter Cutoff</div>
+        <div><b>L-HAND Y:</b> Sub Pitch</div>
+        <div><b>R-HAND Y:</b> Glitch Trigger (Raise)</div>
+        <div><b>R-HAND X:</b> Glitch Panning</div>
     </div>
 
-    <!-- Red brushed-metal VNGRD// chassis -->
-    <div class="esx-chassis">
+</div>
 
-        <!-- Valve glow tubes — top center -->
-        <div class="esx-valves">
-            <div class="esx-valve-tube"></div>
-            <div class="esx-valve-tube"></div>
-            <div class="esx-valve-tube"></div>
-            <div class="esx-valve-tube"></div>
-            <div class="esx-valve-tube"></div>
-        </div>
+    
 
-        <!-- Transport + BPM control panel -->
-        <div class="esx-ctrl-panel">
-            <span class="esx-bpm-lbl">BPM</span>
-            <input type="number" id="esx-bpm" value="120" min="20" max="400">
-            <button class="esx-transport-btn" id="esx-play-btn"
-                    onclick="ESX_State.isPlaying?ESX._stop():ESX._start()">
-                ▶ START
-            </button>
-            <span class="esx-step-counter" id="esx-step-led">--</span>
-        </div>
+<script>
+// 👁️ VNGRD KINEMATIC CAMERA LINK 👁️
+(function initSpatialCamera() {
+    console.log("Initializing VNGRD Spatial Camera...");
+    
+    // 1. Create a hidden video element to read the webcam
+    const videoElement = document.createElement('video');
+    videoElement.style.display = 'none';
+    videoElement.setAttribute('playsinline', ''); // Ensures it works on all devices
+    document.body.appendChild(videoElement);
 
-        <!-- Track selector (6 tracks) -->
-        <div class="esx-track-row" id="esx-track-row"></div>
+    // 2. Initialize MediaPipe Pose
+    const pose = new Pose({locateFile: (file) => {
+        return `https://cdn.jsdelivr.net/npm/@mediapipe/pose/${file}`;
+    }});
 
-        <!-- 16 hardware-style frosted step buttons -->
-        <div class="esx-steps-grid" id="esx-steps-grid"></div>
+    pose.setOptions({
+        modelComplexity: 1,
+        smoothLandmarks: true,
+        minDetectionConfidence: 0.5,
+        minTrackingConfidence: 0.5
+    });
 
-        <!-- Footer info strip -->
-        <div class="esx-chassis-footer">
-            <span class="esx-model-badge">VNGRD// ESX-1 · DRIS CORE EDITION</span>
-            <button class="esx-mute-all-btn" onclick="ESX.unmuteAll()">
-                UNMUTE ALL
-            </button>
-        </div>
+    // 3. The Neural Link: Feed hand coordinates to your Audio Engine
+    pose.onResults((results) => {
+        if (results.poseLandmarks && window.VANGUARD_SPATIAL) {
+            // MediaPipe indexes: 15 is Left Wrist, 16 is Right Wrist
+           let leftWrist = results.poseLandmarks;
+let rightWrist = results.poseLandmarks;
+            
+            VANGUARD_SPATIAL.updateFromHands(
+                leftWrist ? leftWrist.x : null,
+                leftWrist ? leftWrist.y : null,
+                rightWrist ? rightWrist.x : null,
+                rightWrist ? rightWrist.y : null
+            );
+        }
+    });
 
-    </div><!-- /esx-chassis -->
-</div><!-- /esx-hud -->
-
-</body>
+    // 4. Request Webcam Access and start the loop
+    navigator.mediaDevices.getUserMedia({ video: { width: 640, height: 480 } }).then((stream) => {
+        videoElement.srcObject = stream;
+        videoElement.play();
+        
+        async function detectionFrame() {
+            if (!videoElement.paused && !videoElement.ended) {
+                await pose.send({image: videoElement});
+            }
+            requestAnimationFrame(detectionFrame);
+        }
+        videoElement.addEventListener('playing', detectionFrame);
+    }).catch(err => console.error("🛑 Webcam access denied or not found:", err));
+})();
+</script></body>
 </html>
