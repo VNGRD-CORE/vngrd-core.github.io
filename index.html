@@ -14,6 +14,7 @@
 <script>if('serviceWorker' in navigator){navigator.serviceWorker.register('sw.js').catch(function(){});}</script>
 <script src="https://unpkg.com/peerjs@1.5.2/dist/peerjs.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/@mediapipe/pose@0.5.1675469404/pose.js" crossorigin="anonymous"></script>
+<script src="https://cdn.jsdelivr.net/npm/@mediapipe/camera_utils/camera_utils.js" crossorigin="anonymous"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/ethers/5.7.2/ethers.umd.min.js"></script>
 <script src="https://js.puter.com/v2/"></script>
 <script>
@@ -11163,202 +11164,293 @@ var VFXLayer = (function() {
 document.addEventListener('DOMContentLoaded', function() { VFXLayer.init(); });
 
 // ═══════════════════════════════════════════════════════════════
-//  SPATIAL_AUDIO — Generative DSP Suite (IIFE Module)
-//  Drone: 55Hz sawtooth pad / Kick: 150Hz sub-drop / Glitch: HPF burst
-//  Master Bus: DynamicsCompressorNode → ctx.destination
+//  SPATIAL_AUDIO v2 — Techno DSP Engine (IIFE Module)
+//  135 BPM Scheduler · Auto-Kick beats 1&3 · Euclidean E(5,16)
+//  Lead synth: square + resonant bandpass (hand X→cutoff, Y→pitch)
+//  Master gain: silent until Neural Link swell · 2s fade-out
 // ═══════════════════════════════════════════════════════════════
 const SPATIAL_AUDIO = (() => {
     'use strict';
-    let ctx = null, compressor = null;
-    let droneOsc = null, droneGain = null, droneFilter = null;
-    let _running = false;
+    let ctx = null, compressor = null, masterGain = null;
+    let droneOsc1 = null, droneOsc2 = null, droneGain = null, droneFilter = null;
+    let _leadOsc = null, _leadFilter = null, _leadGain = null, _leadActive = false;
+    let _seqTimer = null, _seqStep = 0;
+    let _running = false, _swelled = false;
+
+    // ── Euclidean rhythm E(5,16): hits at steps 3,6,9,12,15 ──
+    const GLITCH_PAT = Array.from({ length: 16 }, (_, i) =>
+        Math.floor((i + 1) * 5 / 16) > Math.floor(i * 5 / 16) ? 1 : 0);
 
     function init() {
         if (_running) return;
         ctx = new (window.AudioContext || window.webkitAudioContext)();
 
-        // ── Master bus compressor ──────────────────────────────
+        // ── Master bus ─────────────────────────────────────────
         compressor = ctx.createDynamicsCompressor();
-        compressor.threshold.value = -18;
-        compressor.knee.value       = 6;
-        compressor.ratio.value      = 4;
-        compressor.attack.value     = 0.003;
-        compressor.release.value    = 0.25;
-        compressor.connect(ctx.destination);
+        compressor.threshold.value = -16;
+        compressor.knee.value      = 8;
+        compressor.ratio.value     = 6;
+        compressor.attack.value    = 0.002;
+        compressor.release.value   = 0.2;
 
-        // ── THE DRONE — 55Hz sawtooth pad ─────────────────────
-        droneOsc = ctx.createOscillator();
-        droneOsc.type = 'sawtooth';
-        droneOsc.frequency.value = 55;
+        masterGain = ctx.createGain();
+        masterGain.gain.value = 0.0;   // SILENT until Neural Link swell
+        compressor.connect(masterGain);
+        masterGain.connect(ctx.destination);
+
+        // ── Drone: dual detuned sawtooth → stereo width ────────
+        droneOsc1 = ctx.createOscillator();
+        droneOsc2 = ctx.createOscillator();
+        droneOsc1.type = droneOsc2.type = 'sawtooth';
+        droneOsc1.frequency.value = 55;
+        droneOsc2.frequency.value = 55.15; // slight detune
 
         droneFilter = ctx.createBiquadFilter();
         droneFilter.type            = 'lowpass';
         droneFilter.frequency.value = 400;
-        droneFilter.Q.value         = 8;
+        droneFilter.Q.value         = 10;
 
         droneGain = ctx.createGain();
-        droneGain.gain.value = 0.0;
+        droneGain.gain.value = 0.18;
 
-        droneOsc.connect(droneFilter);
+        droneOsc1.connect(droneFilter);
+        droneOsc2.connect(droneFilter);
         droneFilter.connect(droneGain);
         droneGain.connect(compressor);
-        droneOsc.start();
+        droneOsc1.start();
+        droneOsc2.start();
 
-        // Fade in
-        droneGain.gain.linearRampToValueAtTime(0.28, ctx.currentTime + 2.0);
         _running = true;
+        _startSequencer();
     }
 
-    function triggerKick() {
-        if (!ctx) return;
-        const now  = ctx.currentTime;
-        const osc  = ctx.createOscillator();
-        const gain = ctx.createGain();
+    // ── 3-second Neural Link power-up swell ───────────────────
+    function swellDrone() {
+        if (!ctx || _swelled) return;
+        _swelled = true;
+        masterGain.gain.setValueAtTime(0.001, ctx.currentTime);
+        masterGain.gain.exponentialRampToValueAtTime(0.85, ctx.currentTime + 3.0);
+    }
 
-        // ── THE KICK — 150Hz pitch-drop sub ───────────────────
+    // ── 135 BPM 16-step sequencer ─────────────────────────────
+    function _startSequencer() {
+        const stepMs = (60 / 135 / 4) * 1000; // ~111ms per 16th note
+        _seqStep = 0;
+        function tick() {
+            if (!_running) return;
+            // Auto-kick: beat 1 (step 0) and beat 3 (step 8)
+            if (_seqStep === 0 || _seqStep === 8) _triggerKick();
+            // Euclidean glitch rhythm
+            if (GLITCH_PAT[_seqStep]) {
+                _triggerGlitch();
+                if (typeof SPATIAL_VISUALS !== 'undefined' && SPATIAL_VISUALS.isRunning()) {
+                    SPATIAL_VISUALS.setTriggerPulse(_seqStep === 0 || _seqStep === 8 ? 1.0 : 0.35);
+                }
+            }
+            _seqStep = (_seqStep + 1) % 16;
+            _seqTimer = setTimeout(tick, stepMs);
+        }
+        _seqTimer = setTimeout(tick, stepMs);
+    }
+
+    // ── Sub-kick: 150Hz → 0.01Hz pitch drop ───────────────────
+    function _triggerKick() {
+        if (!ctx) return;
+        const now = ctx.currentTime;
+        const osc = ctx.createOscillator(), g = ctx.createGain();
         osc.type = 'sine';
         osc.frequency.setValueAtTime(150, now);
-        osc.frequency.exponentialRampToValueAtTime(0.01, now + 0.5);
-
-        gain.gain.setValueAtTime(1.0, now);
-        gain.gain.exponentialRampToValueAtTime(0.001, now + 0.5);
-
-        osc.connect(gain);
-        gain.connect(compressor);
-        osc.start(now);
-        osc.stop(now + 0.52);
+        osc.frequency.exponentialRampToValueAtTime(0.01, now + 0.55);
+        g.gain.setValueAtTime(1.1, now);
+        g.gain.exponentialRampToValueAtTime(0.001, now + 0.55);
+        osc.connect(g); g.connect(compressor);
+        osc.start(now); osc.stop(now + 0.58);
     }
 
-    function triggerGlitch() {
+    // ── Hyper-panned HPF noise burst ──────────────────────────
+    function _triggerGlitch() {
         if (!ctx) return;
-        const now     = ctx.currentTime;
-        const bufSize = Math.floor(ctx.sampleRate * 0.08);
-        const buffer  = ctx.createBuffer(1, bufSize, ctx.sampleRate);
-        const data    = buffer.getChannelData(0);
-        for (let i = 0; i < bufSize; i++) data[i] = Math.random() * 2 - 1;
-
-        const src  = ctx.createBufferSource();
-        src.buffer = buffer;
-
-        // ── THE GLITCH — hyper-panned HPF burst ───────────────
+        const now = ctx.currentTime;
+        const sz  = Math.floor(ctx.sampleRate * 0.055);
+        const buf = ctx.createBuffer(1, sz, ctx.sampleRate);
+        const d   = buf.getChannelData(0);
+        for (let i = 0; i < sz; i++) d[i] = Math.random() * 2 - 1;
+        const src = ctx.createBufferSource(); src.buffer = buf;
         const hpf = ctx.createBiquadFilter();
-        hpf.type  = 'highpass';
-        hpf.frequency.value = 8000;
-
-        const panner = ctx.createStereoPanner();
-        panner.pan.setValueAtTime(-1, now);
-        panner.pan.linearRampToValueAtTime(1, now + 0.08);
-
-        const gain = ctx.createGain();
-        gain.gain.setValueAtTime(0.55, now);
-        gain.gain.exponentialRampToValueAtTime(0.001, now + 0.08);
-
-        src.connect(hpf);
-        hpf.connect(panner);
-        panner.connect(gain);
-        gain.connect(compressor);
+        hpf.type = 'highpass'; hpf.frequency.value = 9000;
+        const pan = ctx.createStereoPanner();
+        pan.pan.value = Math.random() * 2 - 1;
+        const g = ctx.createGain();
+        g.gain.setValueAtTime(0.5, now);
+        g.gain.exponentialRampToValueAtTime(0.001, now + 0.055);
+        src.connect(hpf); hpf.connect(pan); pan.connect(g); g.connect(compressor);
         src.start(now);
     }
 
-    function update(params) {
-        if (!ctx || !droneFilter) return;
-        // params.x [0..1] drives lowpass cutoff (200–2400 Hz)
-        const freq = 200 + (params.x || 0.5) * 2200;
-        droneFilter.frequency.setTargetAtTime(freq, ctx.currentTime, 0.05);
+    // ── Lead synth: square wave + resonant bandpass ────────────
+    function _startLead() {
+        if (!ctx || _leadOsc) return;
+        _leadOsc              = ctx.createOscillator();
+        _leadFilter           = ctx.createBiquadFilter();
+        _leadGain             = ctx.createGain();
+        _leadOsc.type         = 'square';
+        _leadOsc.frequency.value = 220;
+        _leadFilter.type      = 'bandpass';
+        _leadFilter.frequency.value = 800;
+        _leadFilter.Q.value   = 14;
+        _leadGain.gain.value  = 0.35;
+        _leadOsc.connect(_leadFilter);
+        _leadFilter.connect(_leadGain);
+        _leadGain.connect(compressor);
+        _leadOsc.start();
+        _leadActive = true;
     }
 
+    function _stopLead() {
+        if (!_leadOsc) return;
+        try { _leadGain.gain.setTargetAtTime(0.001, ctx.currentTime, 0.03); } catch(e) {}
+        const o = _leadOsc;
+        setTimeout(() => { try { o.stop(); } catch(e) {} }, 100);
+        _leadOsc = null; _leadFilter = null; _leadGain = null; _leadActive = false;
+    }
+
+    // ── Public one-shot triggers (manual performance clicks) ───
+    function triggerKick()   { _triggerKick();   }
+    function triggerGlitch() { _triggerGlitch(); }
+
+    // ── Unified update: mouse X→drone filter, hand→lead synth ─
+    function update(params) {
+        if (!ctx) return;
+        if (droneFilter) {
+            droneFilter.frequency.setTargetAtTime(
+                200 + (params.x || 0.5) * 2400, ctx.currentTime, 0.06);
+        }
+        if (params.handActive) {
+            if (!_leadActive) _startLead();
+            if (_leadOsc && _leadFilter) {
+                // Hand X → cutoff (200–6000 Hz), Hand Y → pitch (55–440 Hz)
+                _leadFilter.frequency.setTargetAtTime(200 + params.x * 5800, ctx.currentTime, 0.02);
+                _leadOsc.frequency.setTargetAtTime(
+                    55 * Math.pow(8, 1.0 - params.y), ctx.currentTime, 0.02);
+            }
+        } else if (_leadActive) {
+            _stopLead();
+        }
+    }
+
+    // ── 2-second exponential fade-out on master gain ───────────
     function stop() {
         if (!ctx) return;
-        if (droneGain) droneGain.gain.linearRampToValueAtTime(0, ctx.currentTime + 0.5);
-        setTimeout(() => {
-            try { ctx.close(); } catch(e) {}
-            ctx = null; _running = false;
-        }, 600);
+        if (_seqTimer) { clearTimeout(_seqTimer); _seqTimer = null; }
+        _stopLead();
+        const savedCtx  = ctx;
+        const savedGain = masterGain;
+        ctx = null; _running = false; _swelled = false;
+        savedGain.gain.exponentialRampToValueAtTime(0.001, savedCtx.currentTime + 2.0);
+        setTimeout(() => { try { savedCtx.close(); } catch(e) {} }, 2200);
     }
 
     function isRunning() { return _running; }
+    function isSwelled() { return _swelled; }
 
-    return { init, triggerKick, triggerGlitch, update, stop, isRunning };
+    return { init, swellDrone, triggerKick, triggerGlitch, update, stop, isRunning, isSwelled };
 })();
 
 
 // ═══════════════════════════════════════════════════════════════
-//  SPATIAL_VISUALS — Pure WebGL Raymarching Engine (IIFE Module)
-//  SDF: Twisting geometric column + mouse-driven smooth-subtract sphere
-//  Resolution scaler: 0.5× for locked 60fps
+//  SPATIAL_VISUALS v2 — Mercury Fractal Raymarching Engine (IIFE)
+//  KIFS: 4-iter Mandelbox box-fold + sphere-inversion + rotation
+//  Infinite domain repetition · Dark chrome + Fresnel neon cyan
+//  Glitch distortion multiplied by u_triggerPulse · 0.5× scaler
 // ═══════════════════════════════════════════════════════════════
 const SPATIAL_VISUALS = (() => {
     'use strict';
     let gl = null, program = null, canvas = null;
     let uTime, uResolution, uMouse, uTriggerPulse;
-    let _triggerPulse = 0.0;
-    let _animId = null, _startTime = 0;
-    let _running = false;
+    let _pulse = 0.0, _animId = null, _t0 = 0, _running = false;
 
-    // ── Vertex shader (full-screen quad passthrough) ───────────
-    const VS = `attribute vec2 a_position;
-void main(){gl_Position=vec4(a_position,0.0,1.0);}`;
+    const VS = `attribute vec2 a_position;void main(){gl_Position=vec4(a_position,0.0,1.0);}`;
 
-    // ── Fragment shader — Raymarching Scene ───────────────────
+    // ── Fragment shader — Mercury Fractal ─────────────────────
     const FS = `precision highp float;
 uniform float u_time;
 uniform vec2  u_resolution;
 uniform vec2  u_mouse;
 uniform float u_triggerPulse;
 
-float smin(float a,float b,float k){
-    float h=clamp(0.5+0.5*(b-a)/k,0.0,1.0);
-    return mix(b,a,h)-k*h*(1.0-h);
-}
 mat2 rot2(float a){return mat2(cos(a),-sin(a),sin(a),cos(a));}
 
-float sdColumn(vec3 p,float twist){
-    p.xz=rot2(p.y*twist)*p.xz;
-    float d=length(p.xz)-0.30;
-    d-=0.05*sin(p.y*8.0+u_time*2.0);
-    return d;
+// ── KIFS: Mandelbox box-fold + sphere-inversion, 4 iterations ─
+// Creates complex interlocking sci-fi fractal architecture
+float kifs(vec3 pos){
+    vec3 p=pos;
+    float dr=1.0;
+    for(int i=0;i<4;i++){
+        // Box fold: reflect components at ±1
+        p=2.0*clamp(p,-1.0,1.0)-p;
+        // Sphere inversion: scale by 1/|p|^2 inside unit sphere
+        float r2=dot(p,p);
+        float k=max(1.2/r2,0.4);
+        p*=k; dr*=abs(k);
+        // Animated rotation — golden-ratio phase offset per iter
+        float ang=u_time*0.05+float(i)*0.7854;
+        p.xz=rot2(ang)*p.xz;
+        p.yz=rot2(ang*0.6180)*p.yz;
+    }
+    // Box SDF cross-section gives architecture feel
+    vec3 q=abs(p)-vec3(0.8);
+    return (length(max(q,0.0))+min(max(q.x,max(q.y,q.z)),0.0))/abs(dr);
 }
-float sdSphere(vec3 p,vec3 c,float r){return length(p-c)-r;}
 
 float scene(vec3 p){
+    // ── Glitch: pulse shatters geometry ───────────────────────
     float pulse=u_triggerPulse;
-    float distort=0.02*sin(p.y*12.0+u_time*3.0)*(1.0+pulse*3.0);
-    p.x+=distort; p.z+=distort*0.5;
-    float col=sdColumn(p,1.5+pulse*2.0);
-    vec3 mPos=vec3((u_mouse.x-0.5)*2.5,(u_mouse.y-0.5)*-2.5,0.0);
-    float sph=sdSphere(p,mPos,0.5+pulse*0.35);
-    return smin(col,max(col,-sph),0.15);
+    p.x+=pulse*0.25*sin(p.y*28.0+u_time*22.0);
+    p.z+=pulse*0.18*sin(p.x*22.0+u_time*18.0);
+    // ── Infinite repetition: tile space in 10-unit cells ──────
+    vec3 q=mod(p+5.0,10.0)-5.0;
+    float d=kifs(q);
+    // ── Mouse sphere carves liquid holes via smooth subtraction ─
+    vec2 mn=u_mouse*2.0-1.0;
+    vec3 mPos=vec3(mn.x*7.0,-mn.y*5.0,0.0);
+    float sph=length(p-mPos)-1.6;
+    float k=0.7;
+    float h=clamp(0.5-0.5*(d+sph)/k,0.0,1.0);
+    return mix(d,-sph,h)+k*h*(1.0-h);
 }
 
 float march(vec3 ro,vec3 rd){
     float t=0.0;
-    for(int i=0;i<64;i++){
+    for(int i=0;i<80;i++){
         float d=scene(ro+rd*t);
-        if(d<0.001)return t;
-        if(t>10.0)return -1.0;
-        t+=d*0.75;
+        if(d<0.003)return t;
+        if(t>18.0)return -1.0;
+        t+=max(d*0.5,0.01);
     }
     return -1.0;
 }
 
 vec3 calcNormal(vec3 p){
-    vec2 e=vec2(0.001,0.0);
+    vec2 e=vec2(0.003,0.0);
     return normalize(vec3(
         scene(p+e.xyy)-scene(p-e.xyy),
         scene(p+e.yxy)-scene(p-e.yxy),
-        scene(p+e.yyx)-scene(p-e.yyx)
-    ));
+        scene(p+e.yyx)-scene(p-e.yyx)));
 }
 
 void main(){
     vec2 uv=(gl_FragCoord.xy/u_resolution)*2.0-1.0;
     uv.x*=u_resolution.x/u_resolution.y;
 
-    vec3 ro=vec3(0.0,0.0,-2.5);
-    vec3 rd=normalize(vec3(uv,1.5));
-    float ca=u_time*0.15;
-    rd.xz=rot2(ca)*rd.xz;
-    ro.xz=rot2(ca)*ro.xz;
+    vec3 neon=vec3(0.0,0.95,1.0);  // #00f3ff — VNGRD cyan
+
+    // ── Orbiting camera ────────────────────────────────────────
+    float ca=u_time*0.07;
+    vec3 ro=vec3(sin(ca)*4.5,sin(u_time*0.05)*1.8,cos(ca)*4.5);
+    vec3 fwd=normalize(vec3(0.0)-ro);
+    vec3 right=normalize(cross(vec3(0.0,1.0,0.0),fwd));
+    vec3 up=cross(fwd,right);
+    vec3 rd=normalize(uv.x*right+uv.y*up+1.3*fwd);
 
     float t=march(ro,rd);
     vec3 col=vec3(0.0);
@@ -11366,22 +11458,32 @@ void main(){
     if(t>0.0){
         vec3 p=ro+rd*t;
         vec3 n=calcNormal(p);
-        vec3 light=normalize(vec3(1.0,2.0,-1.0));
-        float diff=max(dot(n,light),0.0);
-        float spec=pow(max(dot(reflect(-light,n),-rd),0.0),32.0);
-        vec3 baseCol=mix(vec3(0.0,0.95,1.0),vec3(1.0,0.0,0.42),u_triggerPulse);
-        col=baseCol*(diff*0.8+0.2)+vec3(1.0)*spec*0.8;
-        float fr=pow(1.0-abs(dot(n,-rd)),3.0);
-        col+=baseCol*fr*1.6;
-        col*=exp(-t*0.15);
+        // ── Dark chrome material ───────────────────────────────
+        vec3 L=normalize(vec3(1.2,2.0,-1.5));
+        float diff=max(dot(n,L),0.0)*0.25;
+        float spec=pow(max(dot(reflect(-L,n),-rd),0.0),80.0);
+        // Near-black chrome base
+        col=vec3(0.02,0.025,0.03)*(diff+0.04)+vec3(1.0)*spec;
+        // ── Fresnel: edges glow neon cyan, pulse→magenta ───────
+        float fr=pow(1.0-abs(dot(n,-rd)),3.5);
+        col+=mix(neon,vec3(1.0,0.0,0.5),u_triggerPulse)*fr*2.8;
+        // Depth fog
+        col*=exp(-t*0.055);
     } else {
-        vec2 grid=fract(uv*4.0+vec2(0.0,u_time*0.1));
-        float lines=step(0.97,max(grid.x,grid.y));
-        col=vec3(0.0,0.95,1.0)*lines*0.06;
+        // ── Background: deep void + neon grid + stars ──────────
+        float gx=step(0.97,fract(uv.x*6.0+u_time*0.04));
+        float gy=step(0.97,fract(uv.y*6.0-u_time*0.03));
+        col=neon*(gx+gy)*0.035;
+        float s=step(0.998,fract(sin(dot(floor(uv*100.0),vec2(127.1,311.7)))*43758.5));
+        col+=vec3(0.7,0.9,1.0)*s*0.5;
     }
 
-    col*=1.0-smoothstep(0.5,1.4,length(uv*0.7));
-    col+=u_triggerPulse*0.12;
+    // ── Glitch: high-freq sine noise multiplied on pulse beat ──
+    col*=1.0+u_triggerPulse*abs(sin(uv.y*300.0+u_time*60.0))*0.4;
+    // Vignette
+    col*=1.0-smoothstep(0.35,1.2,length(uv*0.7));
+    // Pulse cyan flash
+    col+=neon*u_triggerPulse*0.09;
     gl_FragColor=vec4(col,1.0);
 }`;
 
@@ -11390,7 +11492,7 @@ void main(){
         gl.shaderSource(s, src);
         gl.compileShader(s);
         if (!gl.getShaderParameter(s, gl.COMPILE_STATUS)) {
-            console.error('[SPATIAL_VISUALS] Shader error:', gl.getShaderInfoLog(s));
+            console.error('[SPATIAL_VISUALS] Shader:', gl.getShaderInfoLog(s));
             return null;
         }
         return s;
@@ -11400,14 +11502,14 @@ void main(){
         canvas = document.getElementById('spatial-matrix');
         if (!canvas) return false;
 
-        // ── Resolution scaler: 0.5× for 60fps ─────────────────
+        // ── 0.5× resolution scaler for 60fps performance ───────
         canvas.width  = Math.floor(window.innerWidth  * 0.5);
         canvas.height = Math.floor(window.innerHeight * 0.5);
         canvas.style.width  = '100vw';
         canvas.style.height = '100vh';
 
         gl = canvas.getContext('webgl') || canvas.getContext('experimental-webgl');
-        if (!gl) { console.error('[SPATIAL_VISUALS] WebGL not supported'); return false; }
+        if (!gl) { console.error('[SPATIAL_VISUALS] WebGL unavailable'); return false; }
 
         const vs = _compileShader(VS, gl.VERTEX_SHADER);
         const fs = _compileShader(FS, gl.FRAGMENT_SHADER);
@@ -11418,17 +11520,14 @@ void main(){
         gl.attachShader(program, fs);
         gl.linkProgram(program);
         if (!gl.getProgramParameter(program, gl.LINK_STATUS)) {
-            console.error('[SPATIAL_VISUALS] Link error:', gl.getProgramInfoLog(program));
+            console.error('[SPATIAL_VISUALS] Link:', gl.getProgramInfoLog(program));
             return false;
         }
         gl.useProgram(program);
 
-        // Full-screen triangle strip quad
         const buf = gl.createBuffer();
         gl.bindBuffer(gl.ARRAY_BUFFER, buf);
-        gl.bufferData(gl.ARRAY_BUFFER,
-            new Float32Array([-1,-1, 1,-1, -1,1, 1,1]), gl.STATIC_DRAW);
-
+        gl.bufferData(gl.ARRAY_BUFFER, new Float32Array([-1,-1, 1,-1, -1,1, 1,1]), gl.STATIC_DRAW);
         const posLoc = gl.getAttribLocation(program, 'a_position');
         gl.enableVertexAttribArray(posLoc);
         gl.vertexAttribPointer(posLoc, 2, gl.FLOAT, false, 0, 0);
@@ -11438,8 +11537,8 @@ void main(){
         uMouse        = gl.getUniformLocation(program, 'u_mouse');
         uTriggerPulse = gl.getUniformLocation(program, 'u_triggerPulse');
 
-        _startTime = performance.now();
-        _running   = true;
+        _t0 = performance.now();
+        _running = true;
         _render();
         return true;
     }
@@ -11447,22 +11546,19 @@ void main(){
     function _render() {
         if (!_running) return;
         _animId = requestAnimationFrame(_render);
-
-        // ── Pulse decay ────────────────────────────────────────
-        _triggerPulse *= 0.88;
-        if (_triggerPulse < 0.001) _triggerPulse = 0.0;
-
-        const t = (performance.now() - _startTime) * 0.001;
+        _pulse *= 0.88;
+        if (_pulse < 0.001) _pulse = 0.0;
+        const t = (performance.now() - _t0) * 0.001;
         gl.viewport(0, 0, canvas.width, canvas.height);
         gl.useProgram(program);
         gl.uniform1f(uTime, t);
         gl.uniform2f(uResolution, canvas.width, canvas.height);
         gl.uniform2f(uMouse, window._smMouseX || 0.5, window._smMouseY || 0.5);
-        gl.uniform1f(uTriggerPulse, _triggerPulse);
+        gl.uniform1f(uTriggerPulse, _pulse);
         gl.drawArrays(gl.TRIANGLE_STRIP, 0, 4);
     }
 
-    function setTriggerPulse(v) { _triggerPulse = Math.max(_triggerPulse, v); }
+    function setTriggerPulse(v) { _pulse = Math.max(_pulse, v); }
 
     function stop() {
         _running = false;
@@ -11476,27 +11572,32 @@ void main(){
 
 
 // ═══════════════════════════════════════════════════════════════
-//  SPATIAL MATRIX — Kinematic & Pointer Link + Integration (IIFE)
-//  Mouse → lerp → u_mouse + drone filter
-//  Click → kick + glitch + triggerPulse = 1.0
-//  MediaPipe Pose → right wrist (lm[16]) feeds same update()
+//  SPATIAL MATRIX v2 — Integration Controller (IIFE)
+//  Fade-out: 2s exponential masterGain ramp on close
+//  Neural Link: 3s power-up swell on first user gesture
+//  Kinematic: mouse + MediaPipe wrist (lm[16]) → lerp → uniforms
 // ═══════════════════════════════════════════════════════════════
 window._smMouseX = 0.5;
 window._smMouseY = 0.5;
 
 const SpatialMatrix = (() => {
     'use strict';
-    let _open    = false;
-    let _targetX = 0.5;
-    let _targetY = 0.5;
-    let _lerpId  = null;
+    let _open         = false;
+    let _closing      = false;
+    let _targetX      = 0.5, _targetY = 0.5;
+    let _lerpId       = null;
+    let _handDetected = false;
 
-    // ── Lerp loop — smooth glide on all inputs ─────────────────
+    // ── Lerp: smooth glide for all inputs ─────────────────────
     function _lerpLoop() {
         window._smMouseX += (_targetX - window._smMouseX) * 0.08;
         window._smMouseY += (_targetY - window._smMouseY) * 0.08;
         if (SPATIAL_AUDIO.isRunning()) {
-            SPATIAL_AUDIO.update({ x: window._smMouseX, y: window._smMouseY });
+            SPATIAL_AUDIO.update({
+                x: window._smMouseX,
+                y: window._smMouseY,
+                handActive: _handDetected
+            });
         }
         _lerpId = requestAnimationFrame(_lerpLoop);
     }
@@ -11507,45 +11608,85 @@ const SpatialMatrix = (() => {
         _targetY = e.clientY / window.innerHeight;
     });
 
-    // ── Click: kick + glitch + pulse ─────────────────────────
-    window.addEventListener('click', function() {
+    // ── Click: manual performance trigger ─────────────────────
+    // Ignored if click lands on the sm-overlay UI chrome
+    window.addEventListener('click', function(e) {
         if (!_open) return;
-        SPATIAL_AUDIO.triggerKick();
-        SPATIAL_AUDIO.triggerGlitch();
+        var el = e.target;
+        while (el) { if (el.id === 'sm-overlay') return; el = el.parentElement; }
+        if (SPATIAL_AUDIO.isRunning()) {
+            SPATIAL_AUDIO.triggerKick();
+            SPATIAL_AUDIO.triggerGlitch();
+        }
         SPATIAL_VISUALS.setTriggerPulse(1.0);
     });
 
-    // ── MediaPipe Pose hook ────────────────────────────────────
-    // Right wrist = landmark 16; falls back to mouse if unavailable
+    // ── MediaPipe Pose → right wrist (lm[16]) ─────────────────
     window._smPoseFeed = function(landmarks) {
         if (!_open || !landmarks) return;
         var wrist = landmarks[16];
         if (wrist && wrist.visibility > 0.5) {
             _targetX = wrist.x;
             _targetY = wrist.y;
+            _handDetected = true;
+        } else {
+            _handDetected = false;
         }
     };
 
     function toggle() {
+        if (_closing) return; // block during 2s fade-out
         var cvs = document.getElementById('spatial-matrix');
+        var ovl = document.getElementById('sm-overlay');
         var btn = document.getElementById('btn-esx-launch');
         _open = !_open;
+
         if (_open) {
+            // ── ENTER SPATIAL MATRIX ──────────────────────────
             if (cvs) cvs.style.display = 'block';
+            if (ovl) ovl.style.display = 'flex';
             if (!SPATIAL_VISUALS.isRunning()) SPATIAL_VISUALS.init();
             if (!SPATIAL_AUDIO.isRunning())   SPATIAL_AUDIO.init();
             if (!_lerpId) _lerpLoop();
             if (btn) btn.classList.add('esx-open');
         } else {
-            if (cvs) cvs.style.display = 'none';
-            SPATIAL_VISUALS.stop();
-            SPATIAL_AUDIO.stop();
-            if (_lerpId) { cancelAnimationFrame(_lerpId); _lerpId = null; }
+            // ── EXIT: 2s exponential fade then teardown ────────
+            _closing = true;
+            if (ovl) ovl.style.display = 'none';
             if (btn) btn.classList.remove('esx-open');
+            SPATIAL_AUDIO.stop(); // starts 2s masterGain ramp → 0
+            setTimeout(function() {
+                if (cvs) cvs.style.display = 'none';
+                SPATIAL_VISUALS.stop();
+                if (_lerpId) { cancelAnimationFrame(_lerpId); _lerpId = null; }
+                _handDetected = false;
+                _closing = false;
+                // Reset Neural Link button for next session
+                var nlBtn = document.getElementById('sm-neural-btn');
+                if (nlBtn) {
+                    nlBtn.textContent = '[ INITIALIZE NEURAL LINK ]';
+                    nlBtn.style.color = '';
+                    nlBtn.style.borderColor = '';
+                    nlBtn.disabled = false;
+                }
+            }, 2200);
         }
     }
 
-    return { toggle };
+    // ── Neural Link swell (overlay button) ────────────────────
+    function neuralLink() {
+        if (!SPATIAL_AUDIO.isRunning()) return;
+        SPATIAL_AUDIO.swellDrone();
+        var nlBtn = document.getElementById('sm-neural-btn');
+        if (nlBtn) {
+            nlBtn.textContent = '[ NEURAL LINK ESTABLISHED ]';
+            nlBtn.style.color = '#00ff88';
+            nlBtn.style.borderColor = 'rgba(0,255,136,0.7)';
+            nlBtn.disabled = true;
+        }
+    }
+
+    return { toggle, neuralLink };
 })();
 
 
@@ -19323,13 +19464,24 @@ window._startPoseTracking = function() {
     _poseRunning = true;
     log('SPECTRAL_MOSH: Pose tracking ACTIVE');
 
-    // Feed frames to MediaPipe
-    function _sendFrame() {
-        if (!_poseRunning || !_pose) return;
-        if (videoEl.readyState >= 2) _pose.send({ image: videoEl }).catch(function(){});
-        setTimeout(_sendFrame, 80); // ~12 fps — sufficient for pose
+    // Feed frames — prefer MediaPipe Camera utility for reliability
+    if (typeof Camera !== 'undefined') {
+        var _mpCam = new Camera(videoEl, {
+            onFrame: async function() {
+                if (_poseRunning && _pose) await _pose.send({ image: videoEl });
+            },
+            width: 640,
+            height: 480
+        });
+        _mpCam.start();
+    } else {
+        // Fallback: setTimeout polling at ~12fps
+        (function _sendFrame() {
+            if (!_poseRunning || !_pose) return;
+            if (videoEl.readyState >= 2) _pose.send({ image: videoEl }).catch(function(){});
+            setTimeout(_sendFrame, 80);
+        })();
     }
-    _sendFrame();
 };
 
 window._stopPoseTracking = function() {
@@ -19535,6 +19687,18 @@ function _applyPoseToModel(lm) {
 
 <!-- ═══ SPATIAL MATRIX — Full-Screen WebGL Canvas ═══ -->
 <canvas id="spatial-matrix" style="display:none;position:fixed;top:0;left:0;width:100vw;height:100vh;z-index:9999;pointer-events:none;image-rendering:pixelated;"></canvas>
+
+<!-- ═══ SPATIAL MATRIX — UI Overlay: Close + Neural Link ═══ -->
+<div id="sm-overlay" style="display:none;position:fixed;inset:0;z-index:10000;pointer-events:none;">
+    <button id="sm-close-btn" onclick="SpatialMatrix.toggle()"
+        style="pointer-events:all;position:absolute;top:18px;right:22px;background:transparent;border:1px solid rgba(0,243,255,0.5);color:#00f3ff;font-family:'Orbitron',sans-serif;font-size:9px;letter-spacing:2.5px;padding:7px 16px;cursor:pointer;transition:all 0.15s;text-shadow:0 0 6px rgba(0,243,255,0.5);">
+        [ CLOSE ]
+    </button>
+    <button id="sm-neural-btn" onclick="SpatialMatrix.neuralLink()"
+        style="pointer-events:all;position:absolute;bottom:30px;left:50%;transform:translateX(-50%);background:transparent;border:1px solid rgba(0,243,255,0.6);color:#00f3ff;font-family:'Orbitron',sans-serif;font-size:10px;letter-spacing:3px;padding:11px 28px;cursor:pointer;transition:all 0.25s;text-shadow:0 0 10px rgba(0,243,255,0.6);white-space:nowrap;">
+        [ INITIALIZE NEURAL LINK ]
+    </button>
+</div>
 
 </body>
 </html>
