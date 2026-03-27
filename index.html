@@ -10036,19 +10036,34 @@ const NeuralCompiler = (() => {
     };
 
     // ── Async sequential demo — one cycle, auto-loops via temporal recursion ─
+    // ── Sonic Pi–style PRELOAD — breakcore/IDM/dark techno template ─────────
     var _PRELOAD =
-'// IDM CORE — one cycle, auto-loops (Shift+Enter to run)\n' +
-'bpm(124);\n' +
-'play(0, 0.9);              // Kick  (kit pad 0)\n' +
+'// ╔══════════════════════════════════════════════════════╗\n' +
+'// ║  NEURAL COMPILER — Sonic Pi style live coding       ║\n' +
+'// ║  Shift+Enter = RUN · re-run = hot-swap in-loop      ║\n' +
+'// ╠══════════════════════════════════════════════════════╣\n' +
+'// ║  bpm(n)           set tempo                         ║\n' +
+'// ║  await beat(n)    wait n beats                      ║\n' +
+'// ║  kit(n, vol)      DARK_MATTER pad 0-3               ║\n' +
+'// ║  synth(t,n,v)     sub/boom/sweep/metal/am/noise     ║\n' +
+'// ║  sm(note, vol)    Spatial Matrix supersaw synth     ║\n' +
+'// ║  smcc(cc, val)    SM CC (1=cutoff,91=delay,93=rev)  ║\n' +
+'// ╚══════════════════════════════════════════════════════╝\n' +
+'\n' +
+'bpm(140);\n' +
+'kit(0, 0.95);                   // seismic sub kick\n' +
+'sm("C-2", 0.6);                 // supersaw bass hit\n' +
 'await beat(1);\n' +
-'play(1, 0.65);             // Snare (kit pad 1)\n' +
-'synth(\'pluck\', \'E-4\', 0.5); // Luma_Bloom burst\n' +
-'await beat(1);\n' +
-'play(0, 0.8);\n' +
-'play(2, 0.4);              // Hat  (kit pad 2)\n' +
+'kit(1, 0.75);                   // cinematic impact\n' +
+'synth("sweep", "F-2", 0.5);     // atmospheric sweep\n' +
 'await beat(0.5);\n' +
-'play(1, 0.6);\n' +
-'synth(\'sub\', \'C-2\', 0.7);  // Sub bass → seismic\n' +
+'sm("G-2", 0.5);\n' +
+'await beat(0.5);\n' +
+'kit(0, 0.88);\n' +
+'await beat(0.5);\n' +
+'kit(1, 0.65);\n' +
+'sm("Eb-3", 0.45);\n' +
+'synth("metal", "A-3", 0.4);\n' +
 'await beat(0.5);';
 
     function _win() { return document.getElementById('nc-window'); }
@@ -10082,17 +10097,42 @@ const NeuralCompiler = (() => {
         };
     }
 
-    // synth(note, type) — routes through InternalSynth → analyser → seismic
-    function _ncSynth(note, type) {
+    // synth(type, note, vol) — cinematic InternalSynth engine
+    function _ncSynth(type, note, vol) {
         var freq = _noteToFreq(note);
+        var v = (typeof vol === 'number') ? vol : 0.8;
         var t = (type || 'sub').toLowerCase();
-        if (t === 'sub')        InternalSynth.triggerSub(freq, 0.8, 0x80);
-        else if (t === 'noise') InternalSynth.triggerNoise(freq, 0.7, 8, 0x80);
-        else if (t === 'sweep') InternalSynth.triggerSweep(freq, 0.8, 0x80);
-        else if (t === 'metal') InternalSynth.triggerMetal(freq, 0.75, freq * 3.1, 0x80);
-        else if (t === 'am')    InternalSynth.triggerAM(freq, 0.75, 8, 0x80);
-        else if (t === 'boom')  InternalSynth.triggerBoom(freq, 0.9, 0x80);
-        else                    InternalSynth.triggerSub(freq, 0.8, 0x80);
+        if (t === 'sub')        InternalSynth.triggerSub(freq, v, 0x80);
+        else if (t === 'noise') InternalSynth.triggerNoise(freq, v, 8, 0x80);
+        else if (t === 'sweep') InternalSynth.triggerSweep(freq, v, 0x80);
+        else if (t === 'metal') InternalSynth.triggerMetal(freq, v, null, 0x80);
+        else if (t === 'am')    InternalSynth.triggerAM(freq, v, 0.8, 0x80);
+        else if (t === 'boom')  InternalSynth.triggerBoom(freq, v, 0x80);
+        else                    InternalSynth.triggerSub(freq, v, 0x80);
+    }
+
+    // sm(note, vol) — play Spatial Matrix supersaw synth (short triggered note)
+    function _ncSM(note, vol) {
+        var freq = _noteToFreq(note);
+        var v = (typeof vol === 'number') ? vol : 0.75;
+        if (typeof SPATIAL_AUDIO === 'undefined') return;
+        if (!SPATIAL_AUDIO.isRunning()) SPATIAL_AUDIO.init();
+        SPATIAL_AUDIO.noteOn(freq, v);
+        // Auto-release after ~300ms for triggered mode
+        setTimeout(function() { SPATIAL_AUDIO.noteOff(freq); }, 300);
+        if (typeof SPATIAL_VISUALS !== 'undefined') SPATIAL_VISUALS.setTriggerPulse(0.7);
+    }
+
+    // smcc(cc, val0to127) — SM CC control from live code
+    function _ncSMcc(cc, val) {
+        if (typeof SPATIAL_AUDIO !== 'undefined') SPATIAL_AUDIO.handleCC(cc, val);
+    }
+
+    // kit(padIdx, vol) — trigger KitManager synthetic pad (DARK_MATTER by default)
+    function _ncKit(padIdx, vol) {
+        var v = (typeof vol === 'number') ? vol : 0.85;
+        KitManager.playBuffer(KitManager.getActiveKit(), padIdx | 0, 0, v);
+        _vjHeavySync();
     }
 
     // ── bpm(v) — sets global BPM and syncs tracker input ─────────────────
@@ -10140,8 +10180,8 @@ const NeuralCompiler = (() => {
             var transpiled = code.replace(/\bbeat\(/g, 'await beat(');
             var wrapped    = 'return (async () => {\n' + transpiled + '\n})();';
             // APIs exposed to user code: p, synth, play, beat, bpm, loop
-            var fn = new Function('p', 'synth', 'play', 'beat', 'bpm', 'loop', wrapped);
-            var promise = fn(_ncP, window.synth, window.play, window.beat, _ncBpmSet, _ncLoop);
+            var fn = new Function('p', 'synth', 'play', 'beat', 'bpm', 'loop', 'sm', 'smcc', 'kit', wrapped);
+            var promise = fn(_ncP, _ncSynth, window.play, window.beat, _ncBpmSet, _ncLoop, _ncSM, _ncSMcc, _ncKit);
             if (promise && typeof promise.then === 'function') {
                 promise
                     .then(function() {
@@ -10247,8 +10287,11 @@ const NeuralCompiler = (() => {
         if (_visible) {
             _initDrag();
             _initInput();
-            _ncLog('NEURAL_COMPILER v3 READY — Shift+Enter to run / re-run to hot-swap', 'nc-sys');
-            _ncLog('APIs: bpm(n) play(n,v) synth(t,n,v) beat(n) loop(bpm,fn) p(n).play(v)', 'nc-sys');
+            _ncLog('NEURAL_COMPILER v4 — Shift+Enter to run · re-run = hot-swap in-loop', 'nc-sys');
+            _ncLog('bpm(n) · await beat(n) · kit(n,vol) · synth(type,note,vol)', 'nc-sys');
+            _ncLog('sm(note,vol) · smcc(cc,val) · loop(bpm,fn) · p(n).play(vol)', 'nc-sys');
+            _ncLog('synth types: sub boom sweep metal am noise', 'nc-sys');
+            _ncLog('smcc CCs: 1=cutoff 7=vol 21=detune 74=res 91=delay 93=reverb', 'nc-sys');
             var ed = _editor(); if (ed) ed.focus();
         } else {
             _stopLoop();
@@ -11353,7 +11396,7 @@ const SPATIAL_AUDIO = (() => {
     'use strict';
     let ctx = null, masterGain = null, compressor = null;
     let delayNode = null, delayGain = null, distortion = null;
-    let reverbNode = null, reverbGain = null;
+    let reverbNode = null, reverbGain = null, _analyser = null;
     let _running = false;
 
     const P = {
@@ -11478,9 +11521,22 @@ const SPATIAL_AUDIO = (() => {
     function noteOn(freq, vel) {
         if (!ctx) { init(); }
         if (ctx.state === 'suspended') ctx.resume();
-        const v = _spawnVoice(freq, vel === undefined ? 1.0 : vel);
+        const vv = vel === undefined ? 1.0 : vel;
+        const v = _spawnVoice(freq, vv);
+        // Inject into VJ seismic + punch chain so FX respond to SM audio
+        if (window.APP && APP.vj) {
+            var isLow = freq < 400;
+            APP.vj._seismicVel = (APP.vj._seismicVel || 0) + vv * (isLow ? 0.9 : 0.45);
+            APP.vj._seismicDemoUntil = performance.now() + (isLow ? 1000 : 450);
+            APP.vj._punchSpring = Math.min(1.0, (APP.vj._punchSpring || 0) + vv * 0.6);
+            APP.vj._punchVel    = (APP.vj._punchVel || 0) + vv * 0.4;
+            APP.vj._punchDemoUntil = performance.now() + 700;
+            APP.vj._punchDemoBeat  = performance.now();
+        }
+        if (window.APP && APP.audio)
+            APP.audio.bassLevel = Math.max(APP.audio.bassLevel || 0, Math.floor(vv * 220));
         if (_loopRecording) {
-            _loopEvents.push({ type: 'on', freq, vel: vel || 1.0, t: performance.now() - _loopStart });
+            _loopEvents.push({ type: 'on', freq, vel: vv, t: performance.now() - _loopStart });
         }
         return v;
     }
@@ -11643,6 +11699,12 @@ const SPATIAL_AUDIO = (() => {
         reverbNode.connect(reverbGain);
         reverbGain.connect(masterGain);
 
+        // AnalyserNode for continuous VJ reactivity — tapped after compressor
+        _analyser = ctx.createAnalyser();
+        _analyser.fftSize = 256;
+        _analyser.smoothingTimeConstant = 0.75;
+        compressor.connect(_analyser);
+
         _running = true;
     }
 
@@ -11663,8 +11725,10 @@ const SPATIAL_AUDIO = (() => {
 
     function isRunning() { return _running; }
 
+    function getAnalyser() { return _analyser; }
+
     return { init, noteOn, noteOff, noteOnMidi, noteOffMidi, handleCC, setParam, stop, isRunning,
-             loopRecord, loopStop, loopPlay, loopClear };
+             loopRecord, loopStop, loopPlay, loopClear, getAnalyser };
 })();
 
 // ═══════════════════════════════════════════════════════════════
@@ -11835,10 +11899,29 @@ void main(){
         return true;
     }
 
+    // Freq buffer for continuous audio analysis
+    let _freqBuf = null;
+
     function _render() {
         if (!_running) return;
         _animId = requestAnimationFrame(_render);
-        _pulse *= 0.88; if (_pulse < 0.001) _pulse = 0;
+        // Continuously feed _pulse from SPATIAL_AUDIO analyser (music → visuals)
+        var _an = (typeof SPATIAL_AUDIO !== 'undefined') ? SPATIAL_AUDIO.getAnalyser() : null;
+        if (_an) {
+            if (!_freqBuf || _freqBuf.length !== _an.frequencyBinCount)
+                _freqBuf = new Uint8Array(_an.frequencyBinCount);
+            _an.getByteFrequencyData(_freqBuf);
+            // Bass bins (first 8) drive strong pulse; high bins add shimmer
+            var bass = (_freqBuf[0] + _freqBuf[1] + _freqBuf[2] + _freqBuf[3]) / 4;
+            var mid  = (_freqBuf[4] + _freqBuf[5] + _freqBuf[6] + _freqBuf[7]) / 4;
+            var audioLevel = (bass * 0.7 + mid * 0.3) / 255;
+            _pulse = Math.max(_pulse * 0.88, audioLevel * 1.1);
+            // Sync VJ bass level for FX reactivity
+            if (window.APP && APP.audio && audioLevel > 0.05)
+                APP.audio.bassLevel = Math.max(APP.audio.bassLevel || 0, (audioLevel * 245) | 0);
+        } else {
+            _pulse *= 0.88; if (_pulse < 0.001) _pulse = 0;
+        }
         const t = (performance.now() - _t0) * 0.001;
         gl.viewport(0, 0, canvas.width, canvas.height);
         gl.useProgram(program);
@@ -12112,8 +12195,52 @@ const SpatialMatrix = (() => {
     }
 
 
-    // ── MIDI listener ─────────────────────────────────────────
+    // ── MIDI listener — reuses global APP.midi + own fallback ─────────────
+    // SM message handler: routes note-on/off → SPATIAL_AUDIO, CC → setParam
+    function _smMidiMsg(msg) {
+        if (!_open) return;
+        var status = msg.data[0] & 0xF0;
+        var ch1    = msg.data[1];
+        var ch2    = msg.data[2];
+        if (!SPATIAL_AUDIO.isRunning()) SPATIAL_AUDIO.init();
+        if (status === 0x90 && ch2 > 0) {
+            SPATIAL_AUDIO.noteOnMidi(ch1, ch2);
+            SPATIAL_VISUALS.setTriggerPulse(0.9);
+            _activeNotes[ch1] = true;
+            document.getElementById('sm-status-midi') &&
+                (document.getElementById('sm-status-midi').textContent =
+                    'MIDI: N' + ch1 + ' v' + ch2);
+        } else if (status === 0x80 || (status === 0x90 && ch2 === 0)) {
+            SPATIAL_AUDIO.noteOffMidi(ch1);
+            delete _activeNotes[ch1];
+        } else if (status === 0xB0) {
+            SPATIAL_AUDIO.handleCC(ch1, ch2);
+            document.getElementById('sm-status-midi') &&
+                (document.getElementById('sm-status-midi').textContent =
+                    'MIDI: CC' + ch1 + '=' + ch2);
+        }
+    }
+
     function _initMIDI() {
+        // Primary: piggyback on the global MIDI system (APP.midi.inputs)
+        if (window.APP && APP.midi && APP.midi.inputs && APP.midi.inputs.length > 0) {
+            _midiAccess = APP.midi.access || null;
+            APP.midi.inputs.forEach(function(inp) {
+                var prev = inp.onmidimessage;
+                inp.onmidimessage = function(msg) {
+                    if (prev) prev(msg);
+                    _smMidiMsg(msg);
+                };
+            });
+            var devName = APP.midi.inputs[0].name || 'DEVICE';
+            document.getElementById('sm-midi-badge') &&
+                (document.getElementById('sm-midi-badge').className = 'sm-badge on');
+            document.getElementById('sm-status-midi') &&
+                (document.getElementById('sm-status-midi').textContent =
+                    'MIDI: ' + devName.substring(0, 18));
+            return;
+        }
+        // Fallback: own requestMIDIAccess
         if (!navigator.requestMIDIAccess) {
             document.getElementById('sm-status-midi') &&
                 (document.getElementById('sm-status-midi').textContent = 'MIDI: N/A');
@@ -12123,34 +12250,10 @@ const SpatialMatrix = (() => {
             _midiAccess = access;
             document.getElementById('sm-midi-badge') &&
                 (document.getElementById('sm-midi-badge').className = 'sm-badge on');
-            function wire(input) {
-                input.onmidimessage = function(msg) {
-                    if (!_open) return;
-                    var status = msg.data[0] & 0xF0;
-                    var ch1    = msg.data[1];
-                    var ch2    = msg.data[2];
-                    if (!SPATIAL_AUDIO.isRunning()) SPATIAL_AUDIO.init();
-                    if (status === 0x90 && ch2 > 0) {         // note-on
-                        SPATIAL_AUDIO.noteOnMidi(ch1, ch2);
-                        SPATIAL_VISUALS.setTriggerPulse(0.8);
-                        _activeNotes[ch1] = true;
-                        document.getElementById('sm-status-midi') &&
-                            (document.getElementById('sm-status-midi').textContent =
-                                'MIDI: NOTE ' + ch1 + ' v' + ch2);
-                    } else if (status === 0x80 || (status === 0x90 && ch2 === 0)) {
-                        SPATIAL_AUDIO.noteOffMidi(ch1);        // note-off
-                        delete _activeNotes[ch1];
-                    } else if (status === 0xB0) {              // CC
-                        SPATIAL_AUDIO.handleCC(ch1, ch2);
-                        document.getElementById('sm-status-midi') &&
-                            (document.getElementById('sm-status-midi').textContent =
-                                'MIDI: CC' + ch1 + '=' + ch2);
-                    }
-                };
-            }
-            access.inputs.forEach(wire);
+            access.inputs.forEach(function(inp) { inp.onmidimessage = _smMidiMsg; });
             access.onstatechange = function(e) {
-                if (e.port.type === 'input' && e.port.state === 'connected') wire(e.port);
+                if (e.port.type === 'input' && e.port.state === 'connected')
+                    e.port.onmidimessage = _smMidiMsg;
             };
             var inp = Array.from(access.inputs.values());
             document.getElementById('sm-status-midi') &&
@@ -12160,6 +12263,31 @@ const SpatialMatrix = (() => {
             document.getElementById('sm-status-midi') &&
                 (document.getElementById('sm-status-midi').textContent = 'MIDI: DENIED');
         });
+    }
+
+    // Exposed: toggle camera on/off from badge click
+    function toggleCam() {
+        if (window._smCamStream) {
+            // Stop camera
+            window._smCamStream.getTracks().forEach(function(t) { t.stop(); });
+            window._smCamStream = null;
+            window._smPose = null;
+            document.getElementById('sm-cam-badge') &&
+                (document.getElementById('sm-cam-badge').className = 'sm-badge');
+            document.getElementById('sm-hand-badge') &&
+                (document.getElementById('sm-hand-badge').className = 'sm-badge');
+            document.getElementById('sm-status-hand') &&
+                (document.getElementById('sm-status-hand').textContent = 'HAND: OFFLINE');
+        } else {
+            _startCamera();
+        }
+    }
+
+    // Exposed: show MIDI status / re-init MIDI from badge click
+    function toggleMidi() {
+        _initMIDI();
+        var badge = document.getElementById('sm-midi-badge');
+        if (badge) badge.classList.add('on');
     }
 
     // ── Auto-start camera + pose tracking ─────────────────────
@@ -12255,6 +12383,7 @@ const SpatialMatrix = (() => {
         var win = document.getElementById('sm-window');
         var btn = document.getElementById('btn-esx-launch');
         _open = !_open;
+        window._smOpen = _open; // expose for global MIDI router
         if (_open) {
             if (win) win.classList.add('sm-visible');
             if (!SPATIAL_AUDIO.isRunning()) SPATIAL_AUDIO.init();
@@ -12291,7 +12420,7 @@ const SpatialMatrix = (() => {
         _initDrag(); _buildXYPad(); _wireUI();
     });
 
-    return { toggle };
+    return { toggle, toggleCam, toggleMidi };
 })();
 
 
@@ -14567,6 +14696,24 @@ document.addEventListener('DOMContentLoaded', () => {
     function handleMidiMessage(msg) {
         const [status, note, velocity] = msg.data;
         const cmd = status >> 4;
+
+        // Route to Spatial Matrix when open — notes play supersaw, CCs map to SM params
+        if (window._smOpen && typeof SPATIAL_AUDIO !== 'undefined') {
+            if (!SPATIAL_AUDIO.isRunning()) SPATIAL_AUDIO.init();
+            if (cmd === 9 && velocity > 0) {
+                SPATIAL_AUDIO.noteOnMidi(note, velocity);
+                if (typeof SPATIAL_VISUALS !== 'undefined') SPATIAL_VISUALS.setTriggerPulse(0.9);
+            } else if (cmd === 8 || (cmd === 9 && velocity === 0)) {
+                SPATIAL_AUDIO.noteOffMidi(note);
+            } else if (cmd === 11) {
+                SPATIAL_AUDIO.handleCC(note, velocity);
+            }
+            const sms = document.getElementById('sm-status-midi');
+            if (sms && cmd === 9 && velocity > 0)
+                sms.textContent = 'MIDI: N' + note + ' v' + velocity;
+            else if (sms && cmd === 11)
+                sms.textContent = 'MIDI: CC' + note + '=' + velocity;
+        }
 
         // MIDI LEARN — capture next input for armed target
         if (APP.midi.learnMode && APP.midi.learnTarget && velocity > 0) {
@@ -20263,10 +20410,10 @@ function _applyPoseToModel(lm) {
     <div class="nc-toolbar">
         <button class="nc-run-btn" id="nc-run-btn">▶ RUN</button>
         <button class="nc-stop-btn" id="nc-stop-btn">■ STOP LOOP</button>
-        <span class="nc-hint">Shift+Enter to run · loop(bpm, fn) · p(n).play(vol) · synth(note, type)</span>
+        <span class="nc-hint">Shift+Enter=RUN · bpm(140) · kit(0,0.9) · sm("C-2",0.7) · synth("boom","C-1",0.9) · smcc(1,80) · await beat(1)</span>
     </div>
     <div class="nc-status-bar">
-        <span>OUTPUT ROUTED → ENGINE ANALYSER → SEISMIC/KINETIC</span>
+        <span>ROUTED: InternalSynth + KitManager + SPATIAL_AUDIO → VJ/SEISMIC/FRACTAL</span>
         <span style="margin-left:auto;" id="nc-clock-status">LOOP: IDLE</span>
     </div>
 </div>
@@ -20297,16 +20444,16 @@ function _applyPoseToModel(lm) {
     <div class="sm-titlebar" id="sm-titlebar">
         <div class="sm-dot" onclick="SpatialMatrix.toggle()" title="Close"></div>
         <span class="sm-title">◈ SPATIAL MATRIX // MERCURY FRACTAL</span>
-        <span class="sm-badge" id="sm-cam-badge">CAM</span>
-        <span class="sm-badge" id="sm-midi-badge">MIDI</span>
-        <span class="sm-badge" id="sm-hand-badge">HAND</span>
+        <span class="sm-badge" id="sm-cam-badge" onclick="SpatialMatrix.toggleCam()" title="Toggle camera / pose tracking" style="cursor:pointer">CAM</span>
+        <span class="sm-badge" id="sm-midi-badge" onclick="SpatialMatrix.toggleMidi()" title="MIDI: notes → synth · CCs → faders" style="cursor:pointer">MIDI</span>
+        <span class="sm-badge" id="sm-hand-badge" title="Hand tracking status">HAND</span>
     </div>
 
     <div class="sm-body">
         <!-- WebGL Viewport -->
         <div class="sm-viewport">
             <canvas id="spatial-matrix"></canvas>
-            <div class="sm-vp-hint">R-HAND=ORBIT · L-HAND=DISTORT · CLICK=PLAY</div>
+            <div class="sm-vp-hint">R-HAND=ORBIT · L-HAND=DISTORT · [CAM] click to enable pose · [MIDI] auto-maps notes+CCs</div>
         </div>
 
         <!-- Synth Panel -->
