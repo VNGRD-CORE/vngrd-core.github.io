@@ -13657,9 +13657,25 @@ async function executeWorkspaceExport() {
     snap.media       = [];
     snap.audioTracks = [];
 
+    var hasLogo = !!(snap.logo2d);
     var total = (APP.media && APP.media.queue ? APP.media.queue.length : 0)
-              + (APP.audio && APP.audio.playlist ? APP.audio.playlist.length : 0);
+              + (APP.audio && APP.audio.playlist ? APP.audio.playlist.length : 0)
+              + (hasLogo ? 1 : 0);
     var done = 0;
+
+    // ── Pin logo as binary (strip base64 from manifest) ─────────────
+    if (snap.logo2d) {
+        try {
+            var logoFetchResp = await fetch(snap.logo2d);
+            var logoBlob = await logoFetchResp.blob();
+            var logoCid = await _pinFile(logoBlob, 'logo.png', jwt);
+            snap.logoCid = logoCid;
+            log('IPFS: PINNED_LOGO ' + (++done) + '/' + total);
+        } catch(e) {
+            log('IPFS: LOGO_PIN_SKIP \u2014 ' + e.message);
+        }
+        delete snap.logo2d; // Remove base64 — manifest stays lightweight (<1MB)
+    }
 
     // ── Upload media files (images + videos) ────────────────────────
     if (APP.media && APP.media.queue && APP.media.queue.length) {
@@ -13675,7 +13691,10 @@ async function executeWorkspaceExport() {
                     blob = await new Promise(function(r) { c.toBlob(r, 'image/jpeg', 0.9); });
                 } else if (item.url) {
                     var resp = await fetch(item.url);
-                    blob = await resp.blob();
+                    var vext = (item.name || '').split('.').pop().toLowerCase();
+                    var videoMimes = { mp4: 'video/mp4', webm: 'video/webm', mov: 'video/quicktime', avi: 'video/x-msvideo', mkv: 'video/x-matroska' };
+                    var vmime = videoMimes[vext];
+                    blob = vmime ? new Blob([await resp.arrayBuffer()], { type: vmime }) : await resp.blob();
                 }
                 if (blob) {
                     var cid = await _pinFile(blob, item.name || ('media_' + i), jwt);
@@ -13694,7 +13713,10 @@ async function executeWorkspaceExport() {
             var track = APP.audio.playlist[i];
             try {
                 var resp = await fetch(track.url);
-                var blob = await resp.blob();
+                var aext = (track.name || '').split('.').pop().toLowerCase();
+                var audioMimes = { mp3: 'audio/mpeg', wav: 'audio/wav', ogg: 'audio/ogg', flac: 'audio/flac', aac: 'audio/aac', m4a: 'audio/mp4' };
+                var amime = audioMimes[aext];
+                var blob = amime ? new Blob([await resp.arrayBuffer()], { type: amime }) : await resp.blob();
                 var cid  = await _pinFile(blob, (track.name || 'track_' + i), jwt);
                 snap.audioTracks.push({ name: track.name, cid: cid });
                 log('IPFS: PINNED_AUDIO ' + (++done) + '/' + total + ' ' + (track.name || ''));
@@ -13860,8 +13882,29 @@ async function importFromIPFS(cid) {
             } else if (snap.audioTracks && snap.audioTracks[0] && snap.audioTracks[0].cid) {
                 var test = await fetch(gateways[g] + snap.audioTracks[0].cid, { method: 'HEAD' });
                 if (test.ok) { gateway = gateways[g]; break; }
+            } else if (snap.logoCid) {
+                var test = await fetch(gateways[g] + snap.logoCid, { method: 'HEAD' });
+                if (test.ok) { gateway = gateways[g]; break; }
             } else { break; }
         } catch(e) { continue; }
+    }
+
+    // 2b. Restore logo from IPFS CID (binary-first — no base64 in manifest)
+    if (snap.logoCid) {
+        try {
+            var logoResp = await fetch(gateway + snap.logoCid);
+            var logoBlob = await logoResp.blob();
+            var logoUrl = URL.createObjectURL(logoBlob);
+            var logoLayer = $('user-logo-layer');
+            if (logoLayer) {
+                logoLayer.src = logoUrl;
+                logoLayer.style.display = 'block';
+                APP.trinity.logo.visible = true;
+            }
+            log('IPFS: LOGO_RESTORED_FROM_CID');
+        } catch(e) {
+            log('IPFS: LOGO_CID_ERR \u2014 ' + e.message);
+        }
     }
 
     // 3. Load media files from IPFS → APP.media.queue
@@ -13871,7 +13914,10 @@ async function importFromIPFS(cid) {
             if (!m.cid) continue;
             try {
                 var resp = await fetch(gateway + m.cid);
-                var blob = await resp.blob();
+                var mext = (m.name || '').split('.').pop().toLowerCase();
+                var videoMimes = { mp4: 'video/mp4', webm: 'video/webm', mov: 'video/quicktime', avi: 'video/x-msvideo', mkv: 'video/x-matroska' };
+                var vmime = (m.type === 'video') ? videoMimes[mext] : null;
+                var blob = vmime ? new Blob([await resp.arrayBuffer()], { type: vmime }) : await resp.blob();
                 var url  = URL.createObjectURL(blob);
                 var item = { type: m.type, url: url, element: null, name: m.name };
 
@@ -13907,8 +13953,11 @@ async function importFromIPFS(cid) {
             if (!t.cid) continue;
             try {
                 var resp = await fetch(gateway + t.cid);
-                var blob = await resp.blob();
-                APP.audio.playlist.push({ url: URL.createObjectURL(blob), name: t.name });
+                var aext = (t.name || '').split('.').pop().toLowerCase();
+                var audioMimes = { mp3: 'audio/mpeg', wav: 'audio/wav', ogg: 'audio/ogg', flac: 'audio/flac', aac: 'audio/aac', m4a: 'audio/mp4' };
+                var amime = audioMimes[aext] || 'audio/mpeg';
+                var ablob = new Blob([await resp.arrayBuffer()], { type: amime });
+                APP.audio.playlist.push({ url: URL.createObjectURL(ablob), name: t.name });
                 log('IPFS: LOADED_AUDIO ' + (i + 1) + '/' + snap.audioTracks.length + ' ' + t.name);
             } catch(e) {
                 log('IPFS: AUDIO_ERR ' + t.name + ' \u2014 ' + e.message);
