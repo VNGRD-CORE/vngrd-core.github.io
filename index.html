@@ -4116,7 +4116,7 @@ body.fullscreen #transcription-hud { pointer-events: none !important; } /* keep 
    ═══════════════════════════════════════════════════════ */
 #sm-window {
     position: fixed; top: 60px; right: 22px;
-    width: 740px; min-width: 500px; min-height: 380px;
+    width: 740px; min-width: 480px; min-height: 360px;
     background: rgba(2,3,8,0.94);
     backdrop-filter: blur(24px) saturate(1.5);
     -webkit-backdrop-filter: blur(24px) saturate(1.5);
@@ -4126,8 +4126,16 @@ body.fullscreen #transcription-hud { pointer-events: none !important; } /* keep 
     z-index: 9800; display: none; flex-direction: column;
     font-family: 'JetBrains Mono', monospace;
     border-radius: 3px; overflow: hidden; resize: both; user-select: none;
+    transition: opacity 0.25s ease, box-shadow 0.25s ease;
+    opacity: 1;
 }
 #sm-window.sm-visible { display: flex; }
+/* Dimmed state when mouse is not hovering */
+#sm-window.sm-dimmed {
+    opacity: 0.42;
+    box-shadow: 0 0 20px rgba(0,243,255,0.04), 0 0 60px rgba(0,0,0,0.7);
+}
+#sm-window:hover { opacity: 1 !important; }
 .sm-titlebar {
     display: flex; align-items: center; gap: 7px;
     padding: 6px 10px; background: #000;
@@ -11523,18 +11531,24 @@ const SPATIAL_AUDIO = (() => {
         if (ctx.state === 'suspended') ctx.resume();
         const vv = vel === undefined ? 1.0 : vel;
         const v = _spawnVoice(freq, vv);
-        // Inject into VJ seismic + punch chain so FX respond to SM audio
+        // VJ reactivity: only inject seismic/punch if user has those FX active
+        // (fx-punch or fx-void classes on body — opt-in, not automatic)
+        if (window.APP && APP.audio)
+            APP.audio.bassLevel = Math.max(APP.audio.bassLevel || 0, Math.floor(vv * 200));
         if (window.APP && APP.vj) {
             var isLow = freq < 400;
-            APP.vj._seismicVel = (APP.vj._seismicVel || 0) + vv * (isLow ? 0.9 : 0.45);
-            APP.vj._seismicDemoUntil = performance.now() + (isLow ? 1000 : 450);
-            APP.vj._punchSpring = Math.min(1.0, (APP.vj._punchSpring || 0) + vv * 0.6);
-            APP.vj._punchVel    = (APP.vj._punchVel || 0) + vv * 0.4;
-            APP.vj._punchDemoUntil = performance.now() + 700;
-            APP.vj._punchDemoBeat  = performance.now();
+            // Only drive seismic if rumble is enabled or seismic FX is on
+            if (APP.vj.rumbleEnabled || document.body.classList.contains('fx-void')) {
+                APP.vj._seismicVel = (APP.vj._seismicVel || 0) + vv * (isLow ? 0.7 : 0.35);
+                APP.vj._seismicDemoUntil = performance.now() + (isLow ? 900 : 400);
+            }
+            // Only punch if fx-punch is on
+            if (document.body.classList.contains('fx-punch')) {
+                APP.vj._punchSpring = Math.min(1.0, (APP.vj._punchSpring || 0) + vv * 0.55);
+                APP.vj._punchVel    = (APP.vj._punchVel || 0) + vv * 0.35;
+                APP.vj._punchDemoUntil = performance.now() + 600;
+            }
         }
-        if (window.APP && APP.audio)
-            APP.audio.bassLevel = Math.max(APP.audio.bassLevel || 0, Math.floor(vv * 220));
         if (_loopRecording) {
             _loopEvents.push({ type: 'on', freq, vel: vv, t: performance.now() - _loopStart });
         }
@@ -11585,9 +11599,14 @@ const SPATIAL_AUDIO = (() => {
     }
 
     function loopStop() {
-        _loopLength = performance.now() - _loopStart;
+        var rawLen = performance.now() - _loopStart;
+        // Snap loop length to nearest beat multiple at current BPM
+        var bpm = window.currentBPM || 120;
+        var beatMs = 60000 / bpm;
+        var beats = Math.max(1, Math.round(rawLen / beatMs));
+        _loopLength = beats * beatMs;
         _loopRecording = false;
-        _flashStatus('■ STOP — ' + _loopEvents.length + ' events / ' + (_loopLength / 1000).toFixed(2) + 's');
+        _flashStatus('■ STOP — ' + _loopEvents.length + ' ev · ' + beats + ' beats @ ' + bpm + 'bpm');
         const el = document.getElementById('sm-loop-rec');
         if (el) el.classList.remove('active');
     }
@@ -11968,19 +11987,73 @@ const SpatialMatrix = (() => {
     }
 
     // ── MediaPipe: right wrist=16, left wrist=15 ──────────────
+    // Hand→music mapping:
+    //   Right hand X → scale-quantized pitch  (left=low, right=high)
+    //   Right hand Y → filter cutoff          (top=open, bottom=dark)
+    //   Left hand Y  → supersaw spread         (top=wide, bottom=tight)
+    //   Left hand X  → reverb/delay amount    (right=wet)
+    //   Motion: vertical gesture velocity triggers noteOn/noteOff
+    var _hPrevRY = 0.5, _hPrevLY = 0.5;
+    var _hNoteActive = null, _hNoteCooldown = false;
+    var _HAND_SCALE = [0,2,3,5,7,8,10]; // minor scale semitones
+
+    function _handFreq(x) {
+        // Map x(0-1) to 3 octaves of minor scale starting at C2
+        var sc = _HAND_SCALE, n = sc.length * 3;
+        var idx = Math.floor(x * n);
+        idx = Math.max(0, Math.min(n - 1, idx));
+        var oct = Math.floor(idx / sc.length);
+        var semi = sc[idx % sc.length];
+        var midi = 36 + oct * 12 + semi; // C2=36
+        return 440 * Math.pow(2, (midi - 69) / 12);
+    }
+
     window._smPoseFeed = function(lm) {
         if (!_open || !lm) return;
         var r = lm[16], l = lm[15];
-        if (r && r.visibility > 0.4) { _trRX = r.x; _trRY = r.y;
+
+        if (r && r.visibility > 0.4) {
+            _trRX = r.x; _trRY = r.y;
             document.getElementById('sm-hand-badge') &&
                 (document.getElementById('sm-hand-badge').className = 'sm-badge on');
+
+            if (SPATIAL_AUDIO.isRunning()) {
+                // Right hand X → pitch, Y → filter cutoff
+                var cutoff = 80 + (1 - r.y) * 14000;
+                SPATIAL_AUDIO.setParam('cutoff', cutoff);
+
+                // Vertical velocity → trigger note (conducting gesture)
+                var vy = Math.abs(r.y - _hPrevRY);
+                if (vy > 0.025 && !_hNoteCooldown) {
+                    _hNoteCooldown = true;
+                    setTimeout(function() { _hNoteCooldown = false; }, 180);
+                    var freq = _handFreq(r.x);
+                    if (_hNoteActive !== null) SPATIAL_AUDIO.noteOff(_hNoteActive);
+                    _hNoteActive = freq;
+                    SPATIAL_AUDIO.noteOn(freq, Math.min(1.0, vy * 20));
+                    SPATIAL_VISUALS.setTriggerPulse(Math.min(1.0, vy * 18));
+                    // Auto-release after 400ms
+                    var _f = freq;
+                    setTimeout(function() {
+                        if (_hNoteActive === _f) { SPATIAL_AUDIO.noteOff(_f); _hNoteActive = null; }
+                    }, 400);
+                }
+            }
+            _hPrevRY = r.y;
             document.getElementById('sm-status-hand') &&
                 (document.getElementById('sm-status-hand').textContent =
-                    'HAND: R(' + r.x.toFixed(2) + ',' + r.y.toFixed(2) + ')'); }
-        if (l && l.visibility > 0.4) { _trLX = l.x; _trLY = l.y;
-            // Left hand Y → filter cutoff via synth
-            if (SPATIAL_AUDIO.isRunning())
-                SPATIAL_AUDIO.setParam('cutoff', 80 + (1 - l.y) * 12000); }
+                    'HAND: R(' + r.x.toFixed(2) + ',' + r.y.toFixed(2) + ')');
+        }
+
+        if (l && l.visibility > 0.4) {
+            _trLX = l.x; _trLY = l.y;
+            if (SPATIAL_AUDIO.isRunning()) {
+                // Left hand X → reverb (dry→wet), Y → supersaw spread
+                SPATIAL_AUDIO.setParam('reverbAmt', l.x * 0.7);
+                SPATIAL_AUDIO.setParam('spread', l.y * 48);
+            }
+            _hPrevLY = l.y;
+        }
     };
 
     // ── Canvas click → play note at pitch mapped to X ─────────
@@ -12328,11 +12401,12 @@ const SpatialMatrix = (() => {
                 window._smPoseFeed(results.poseLandmarks);
         });
         window._smPose = pose;
-        // rAF-based frame sending — no Camera utility dependency
-        var _sending = false;
+        // rAF-based frame sending — throttle to every 3rd frame for performance
+        var _sending = false, _frameN = 0;
         (function _poseRaf() {
             if (!window._smPose) return;
-            if (!_sending && videoEl.readyState >= 2) {
+            _frameN++;
+            if (!_sending && _frameN % 3 === 0 && videoEl.readyState >= 2) {
                 _sending = true;
                 pose.send({ image: videoEl }).catch(function(){}).finally(function() {
                     _sending = false;
@@ -12363,20 +12437,61 @@ const SpatialMatrix = (() => {
         var bar = document.getElementById('sm-titlebar');
         if (!win || !bar) return;
         var ox = 0, oy = 0, sx = 0, sy = 0, dragging = false;
+        var SNAP = 24; // px from edge to snap
+
+        // Dimming: dim when not hovered, restore on hover
+        var _dimTimer = null;
+        function _scheduleDim() {
+            _dimTimer = setTimeout(function() { win.classList.add('sm-dimmed'); }, 3000);
+        }
+        function _undim() {
+            clearTimeout(_dimTimer); win.classList.remove('sm-dimmed');
+        }
+        win.addEventListener('mouseenter', _undim);
+        win.addEventListener('mouseleave', function() { if (!dragging) _scheduleDim(); });
+        _scheduleDim(); // start dim timer on init
+
         bar.addEventListener('mousedown', function(e) {
-            if (e.target.classList.contains('sm-dot')) return;
+            if (e.target.classList.contains('sm-dot') ||
+                e.target.classList.contains('sm-badge')) return;
             dragging = true;
             ox = win.offsetLeft; oy = win.offsetTop;
             sx = e.clientX; sy = e.clientY;
+            win.style.zIndex = 9850; // bring to front
+            _undim();
             e.preventDefault();
         });
+
         document.addEventListener('mousemove', function(e) {
             if (!dragging) return;
-            win.style.left = (ox + e.clientX - sx) + 'px';
-            win.style.top  = (oy + e.clientY - sy) + 'px';
+            var nx = ox + e.clientX - sx;
+            var ny = oy + e.clientY - sy;
+            var W = window.innerWidth, H = window.innerHeight;
+            var ww = win.offsetWidth, wh = win.offsetHeight;
+            // Snap to screen edges
+            if (nx < SNAP) nx = 0;
+            else if (nx + ww > W - SNAP) nx = W - ww;
+            if (ny < SNAP) ny = 0;
+            else if (ny + wh > H - SNAP) ny = H - wh;
+            win.style.left = nx + 'px';
+            win.style.top  = ny + 'px';
             win.style.right = 'auto';
         });
-        document.addEventListener('mouseup', function() { dragging = false; });
+
+        document.addEventListener('mouseup', function() {
+            if (dragging) { dragging = false; _scheduleDim(); }
+        });
+
+        // Double-click titlebar → collapse/expand (minimize)
+        bar.addEventListener('dblclick', function(e) {
+            if (e.target.classList.contains('sm-badge') || e.target.classList.contains('sm-dot')) return;
+            var body = document.getElementById('sm-window');
+            body.classList.toggle('sm-collapsed');
+            var smBody = body.querySelector('.sm-body');
+            var smStatus = body.querySelector('.sm-statusbar');
+            if (smBody) smBody.style.display = body.classList.contains('sm-collapsed') ? 'none' : '';
+            if (smStatus) smStatus.style.display = body.classList.contains('sm-collapsed') ? 'none' : '';
+        });
     }
 
     function toggle() {
