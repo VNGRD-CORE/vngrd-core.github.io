@@ -4111,6 +4111,103 @@ body.fullscreen #transcription-hud { pointer-events: none !important; } /* keep 
    Obsidian titlebar + Red-metal brushed chassis
    ═══════════════════════════════════════════════════════════════ */
 
+/* ═══════════════════════════════════════════════════════
+   SPATIAL MATRIX — Floating Instrument HUD
+   ═══════════════════════════════════════════════════════ */
+#sm-window {
+    position: fixed; top: 60px; right: 22px;
+    width: 740px; min-width: 500px; min-height: 380px;
+    background: rgba(2,3,8,0.94);
+    backdrop-filter: blur(24px) saturate(1.5);
+    -webkit-backdrop-filter: blur(24px) saturate(1.5);
+    border: 1px solid rgba(0,243,255,0.4);
+    box-shadow: 0 0 50px rgba(0,243,255,0.1), 0 0 120px rgba(0,0,0,0.85),
+                inset 0 1px 0 rgba(0,243,255,0.07);
+    z-index: 9800; display: none; flex-direction: column;
+    font-family: 'JetBrains Mono', monospace;
+    border-radius: 3px; overflow: hidden; resize: both; user-select: none;
+}
+#sm-window.sm-visible { display: flex; }
+.sm-titlebar {
+    display: flex; align-items: center; gap: 7px;
+    padding: 6px 10px; background: #000;
+    border-bottom: 1px solid rgba(0,243,255,0.22);
+    cursor: move; flex-shrink: 0;
+}
+.sm-dot {
+    width: 9px; height: 9px; border-radius: 50%; flex-shrink: 0; cursor: pointer;
+    background: #ff5f57; box-shadow: 0 0 5px rgba(255,95,87,0.6);
+}
+.sm-title {
+    font-family: 'Orbitron', sans-serif; font-size: 8px; font-weight: 700;
+    color: #00f3ff; letter-spacing: 2.5px; flex: 1;
+    text-shadow: 0 0 8px rgba(0,243,255,0.4);
+}
+.sm-badge {
+    font-size: 6px; padding: 2px 6px; letter-spacing: 1.5px;
+    border: 1px solid rgba(0,243,255,0.2); border-radius: 2px;
+    color: rgba(0,243,255,0.3); transition: all 0.3s; cursor: default;
+}
+.sm-badge.on { color: #00ff88; border-color: rgba(0,255,136,0.5);
+    box-shadow: 0 0 5px rgba(0,255,136,0.25); }
+.sm-body { display: flex; flex: 1; overflow: hidden; min-height: 0; }
+.sm-viewport {
+    position: relative; flex-shrink: 0; width: 300px;
+    background: #000; border-right: 1px solid rgba(0,243,255,0.18);
+    display: flex; flex-direction: column;
+}
+.sm-viewport canvas { width: 100%; flex: 1; display: block; cursor: crosshair;
+    image-rendering: pixelated; }
+.sm-vp-hint {
+    font-size: 5.5px; color: rgba(0,243,255,0.28); letter-spacing: 1.5px;
+    text-align: center; padding: 3px 4px;
+    border-top: 1px solid rgba(0,243,255,0.08); flex-shrink: 0;
+}
+.sm-synth { flex: 1; overflow-y: auto; padding: 7px; display: flex;
+    flex-direction: column; gap: 5px; }
+.sm-section {
+    border: 1px solid rgba(0,243,255,0.13); border-radius: 2px;
+    padding: 5px 7px; background: rgba(0,243,255,0.018); flex-shrink: 0;
+}
+.sm-sec-hd {
+    font-family: 'Orbitron', sans-serif; font-size: 6px; font-weight: 700;
+    color: rgba(0,243,255,0.55); letter-spacing: 2.5px; display: block; margin-bottom: 5px;
+}
+.sm-row { display: flex; gap: 5px; flex-wrap: wrap; align-items: flex-end; }
+.sm-knob { display: flex; flex-direction: column; align-items: center; gap: 2px; flex: 1; min-width: 38px; }
+.sm-knob > span:first-child { font-size: 5.5px; color: rgba(0,243,255,0.45); letter-spacing: 1px; }
+.sm-knob input[type=range] {
+    width: 100%; height: 3px; -webkit-appearance: none; appearance: none;
+    background: rgba(0,243,255,0.15); border-radius: 2px; outline: none; cursor: pointer;
+}
+.sm-knob input[type=range]::-webkit-slider-thumb {
+    -webkit-appearance: none; width: 10px; height: 10px; border-radius: 50%;
+    background: #00f3ff; box-shadow: 0 0 6px rgba(0,243,255,0.9); cursor: pointer;
+}
+.sm-knob .sv { font-size: 6.5px; color: #00f3ff; min-width: 28px; text-align: center; }
+.sm-sel {
+    background: rgba(0,243,255,0.04); border: 1px solid rgba(0,243,255,0.25);
+    color: #00f3ff; font-family: 'JetBrains Mono', monospace;
+    font-size: 9px; padding: 3px 5px; outline: none; cursor: pointer;
+}
+.sm-pads { display: flex; gap: 3px; }
+.sm-pad {
+    flex: 1; height: 30px; background: rgba(0,243,255,0.04);
+    border: 1px solid rgba(0,243,255,0.22); border-radius: 2px;
+    color: rgba(0,243,255,0.6); font-family: 'Orbitron', sans-serif; font-size: 6.5px;
+    cursor: pointer; transition: all 0.05s; display: flex;
+    align-items: center; justify-content: center; letter-spacing: 0.5px;
+}
+.sm-pad:active,.sm-pad.lit {
+    background: rgba(0,243,255,0.18); border-color: #00f3ff; color: #fff;
+    box-shadow: 0 0 10px rgba(0,243,255,0.4);
+}
+.sm-statusbar {
+    display: flex; gap: 10px; padding: 3px 8px; flex-shrink: 0;
+    background: rgba(0,0,0,0.6); border-top: 1px solid rgba(0,243,255,0.12);
+    font-size: 6px; color: rgba(0,243,255,0.38); letter-spacing: 1px; overflow: hidden;
+}
+
 /* ── Launch trigger button in sampler panel ── */
 #btn-esx-launch {
     width: 100%; margin-top: 5px;
@@ -11164,256 +11261,252 @@ var VFXLayer = (function() {
 document.addEventListener('DOMContentLoaded', function() { VFXLayer.init(); });
 
 // ═══════════════════════════════════════════════════════════════
-//  SPATIAL_AUDIO v2 — Techno DSP Engine (IIFE Module)
-//  135 BPM Scheduler · Auto-Kick beats 1&3 · Euclidean E(5,16)
-//  Lead synth: square + resonant bandpass (hand X→cutoff, Y→pitch)
-//  Master gain: silent until Neural Link swell · 2s fade-out
+//  SPATIAL_AUDIO v3 — Polyphonic Instrument Engine (IIFE)
+//  8-voice pool · ADSR · Multi-mode filter · Delay · Distortion
+//  MIDI note-on/CC · Hand-mapped filter + pitch · Master fade
 // ═══════════════════════════════════════════════════════════════
 const SPATIAL_AUDIO = (() => {
     'use strict';
-    let ctx = null, compressor = null, masterGain = null;
-    let droneOsc1 = null, droneOsc2 = null, droneGain = null, droneFilter = null;
-    let _leadOsc = null, _leadFilter = null, _leadGain = null, _leadActive = false;
-    let _seqTimer = null, _seqStep = 0;
-    let _running = false, _swelled = false;
+    let ctx = null, masterGain = null, compressor = null;
+    let delayNode = null, delayGain = null, distortion = null;
+    let _running = false;
 
-    // ── Euclidean rhythm E(5,16): hits at steps 3,6,9,12,15 ──
-    const GLITCH_PAT = Array.from({ length: 16 }, (_, i) =>
-        Math.floor((i + 1) * 5 / 16) > Math.floor(i * 5 / 16) ? 1 : 0);
+    // Synth params (read from UI)
+    const P = {
+        oscType: 'sawtooth', pitch: 220, detune: 0, oct: 0,
+        filterType: 'lowpass', cutoff: 800, res: 2,
+        atk: 0.01, dec: 0.1, sus: 0.7, rel: 0.3,
+        delayAmt: 0.2, delayTime: 0.25, dist: 0, vol: 0.8
+    };
+
+    // Voice pool
+    const VOICES = [];
+    const MAX_VOICES = 8;
+
+    function _makeDistCurve(amt) {
+        const n = 256, curve = new Float32Array(n);
+        const k = amt === 0 ? 0.001 : amt;
+        for (let i = 0; i < n; i++) {
+            const x = (i * 2) / n - 1;
+            curve[i] = (3 + k) * x * 20 * (Math.PI / 180) /
+                       (Math.PI + k * Math.abs(x));
+        }
+        return curve;
+    }
 
     function init() {
         if (_running) return;
         ctx = new (window.AudioContext || window.webkitAudioContext)();
 
-        // ── Master bus ─────────────────────────────────────────
+        // Master bus
         compressor = ctx.createDynamicsCompressor();
-        compressor.threshold.value = -16;
-        compressor.knee.value      = 8;
-        compressor.ratio.value     = 6;
-        compressor.attack.value    = 0.002;
-        compressor.release.value   = 0.2;
+        compressor.threshold.value = -14; compressor.ratio.value = 6;
+        compressor.knee.value = 8; compressor.attack.value = 0.003;
+        compressor.release.value = 0.15;
 
         masterGain = ctx.createGain();
-        masterGain.gain.value = 0.0;   // SILENT until Neural Link swell
+        masterGain.gain.value = P.vol;
         compressor.connect(masterGain);
         masterGain.connect(ctx.destination);
 
-        // ── Drone: dual detuned sawtooth → stereo width ────────
-        droneOsc1 = ctx.createOscillator();
-        droneOsc2 = ctx.createOscillator();
-        droneOsc1.type = droneOsc2.type = 'sawtooth';
-        droneOsc1.frequency.value = 55;
-        droneOsc2.frequency.value = 55.15; // slight detune
+        // Delay
+        delayNode = ctx.createDelay(1.0);
+        delayNode.delayTime.value = P.delayTime;
+        delayGain = ctx.createGain();
+        delayGain.gain.value = P.delayAmt;
+        delayNode.connect(delayGain);
+        delayGain.connect(compressor);
 
-        droneFilter = ctx.createBiquadFilter();
-        droneFilter.type            = 'lowpass';
-        droneFilter.frequency.value = 400;
-        droneFilter.Q.value         = 10;
-
-        droneGain = ctx.createGain();
-        droneGain.gain.value = 0.18;
-
-        droneOsc1.connect(droneFilter);
-        droneOsc2.connect(droneFilter);
-        droneFilter.connect(droneGain);
-        droneGain.connect(compressor);
-        droneOsc1.start();
-        droneOsc2.start();
+        // Distortion waveshaper
+        distortion = ctx.createWaveShaper();
+        distortion.curve = _makeDistCurve(P.dist);
+        distortion.oversample = '4x';
+        distortion.connect(compressor);
 
         _running = true;
-        _startSequencer();
     }
 
-    // ── 3-second Neural Link power-up swell ───────────────────
-    function swellDrone() {
-        if (!ctx || _swelled) return;
-        _swelled = true;
-        masterGain.gain.setValueAtTime(0.001, ctx.currentTime);
-        masterGain.gain.exponentialRampToValueAtTime(0.85, ctx.currentTime + 3.0);
-    }
-
-    // ── 135 BPM 16-step sequencer ─────────────────────────────
-    function _startSequencer() {
-        const stepMs = (60 / 135 / 4) * 1000; // ~111ms per 16th note
-        _seqStep = 0;
-        function tick() {
-            if (!_running) return;
-            // Auto-kick: beat 1 (step 0) and beat 3 (step 8)
-            if (_seqStep === 0 || _seqStep === 8) _triggerKick();
-            // Euclidean glitch rhythm
-            if (GLITCH_PAT[_seqStep]) {
-                _triggerGlitch();
-                if (typeof SPATIAL_VISUALS !== 'undefined' && SPATIAL_VISUALS.isRunning()) {
-                    SPATIAL_VISUALS.setTriggerPulse(_seqStep === 0 || _seqStep === 8 ? 1.0 : 0.35);
-                }
-            }
-            _seqStep = (_seqStep + 1) % 16;
-            _seqTimer = setTimeout(tick, stepMs);
+    // One polyphonic voice
+    function _spawnVoice(freq, vel) {
+        if (!ctx) return null;
+        // Steal oldest voice if pool full
+        if (VOICES.length >= MAX_VOICES) {
+            const old = VOICES.shift();
+            try { old.osc.stop(); old.osc2.stop(); } catch(e) {}
         }
-        _seqTimer = setTimeout(tick, stepMs);
-    }
 
-    // ── Sub-kick: 150Hz → 0.01Hz pitch drop ───────────────────
-    function _triggerKick() {
-        if (!ctx) return;
+        const osc  = ctx.createOscillator();
+        const osc2 = ctx.createOscillator();
+        const filt = ctx.createBiquadFilter();
+        const env  = ctx.createGain();
+
+        osc.type  = P.oscType;
+        osc2.type = P.oscType;
+        osc.frequency.value  = freq * Math.pow(2, P.oct);
+        osc2.frequency.value = freq * Math.pow(2, P.oct);
+        osc.detune.value  =  P.detune;
+        osc2.detune.value = -P.detune + 7; // slight chorus
+
+        filt.type            = P.filterType;
+        filt.frequency.value = P.cutoff;
+        filt.Q.value         = P.res;
+
+        env.gain.value = 0;
+
+        osc.connect(filt); osc2.connect(filt);
+        filt.connect(env);
+        env.connect(distortion.numberOfInputs > 0 ? distortion : compressor);
+        env.connect(delayNode);
+
         const now = ctx.currentTime;
-        const osc = ctx.createOscillator(), g = ctx.createGain();
-        osc.type = 'sine';
-        osc.frequency.setValueAtTime(150, now);
-        osc.frequency.exponentialRampToValueAtTime(0.01, now + 0.55);
-        g.gain.setValueAtTime(1.1, now);
-        g.gain.exponentialRampToValueAtTime(0.001, now + 0.55);
-        osc.connect(g); g.connect(compressor);
-        osc.start(now); osc.stop(now + 0.58);
+        const pk  = vel * 0.8;
+        // Attack
+        env.gain.setValueAtTime(0, now);
+        env.gain.linearRampToValueAtTime(pk, now + P.atk);
+        // Decay → sustain
+        env.gain.linearRampToValueAtTime(pk * P.sus, now + P.atk + P.dec);
+
+        osc.start(now); osc2.start(now);
+
+        const v = { osc, osc2, filt, env, freq };
+        VOICES.push(v);
+        return v;
     }
 
-    // ── Hyper-panned HPF noise burst ──────────────────────────
-    function _triggerGlitch() {
-        if (!ctx) return;
+    function noteOn(freq, vel) {
+        if (!ctx) { init(); }
+        if (ctx.state === 'suspended') ctx.resume();
+        return _spawnVoice(freq, vel === undefined ? 1.0 : vel);
+    }
+
+    function noteOff(freq) {
+        const idx = VOICES.findIndex(v => Math.abs(v.freq - freq) < 0.5);
+        if (idx === -1) return;
+        const v = VOICES.splice(idx, 1)[0];
         const now = ctx.currentTime;
-        const sz  = Math.floor(ctx.sampleRate * 0.055);
-        const buf = ctx.createBuffer(1, sz, ctx.sampleRate);
-        const d   = buf.getChannelData(0);
-        for (let i = 0; i < sz; i++) d[i] = Math.random() * 2 - 1;
-        const src = ctx.createBufferSource(); src.buffer = buf;
-        const hpf = ctx.createBiquadFilter();
-        hpf.type = 'highpass'; hpf.frequency.value = 9000;
-        const pan = ctx.createStereoPanner();
-        pan.pan.value = Math.random() * 2 - 1;
-        const g = ctx.createGain();
-        g.gain.setValueAtTime(0.5, now);
-        g.gain.exponentialRampToValueAtTime(0.001, now + 0.055);
-        src.connect(hpf); hpf.connect(pan); pan.connect(g); g.connect(compressor);
-        src.start(now);
+        v.env.gain.cancelScheduledValues(now);
+        v.env.gain.setValueAtTime(v.env.gain.value, now);
+        v.env.gain.linearRampToValueAtTime(0.0001, now + P.rel);
+        setTimeout(() => { try { v.osc.stop(); v.osc2.stop(); } catch(e) {} }, P.rel * 1000 + 100);
     }
 
-    // ── Lead synth: square wave + resonant bandpass ────────────
-    function _startLead() {
-        if (!ctx || _leadOsc) return;
-        _leadOsc              = ctx.createOscillator();
-        _leadFilter           = ctx.createBiquadFilter();
-        _leadGain             = ctx.createGain();
-        _leadOsc.type         = 'square';
-        _leadOsc.frequency.value = 220;
-        _leadFilter.type      = 'bandpass';
-        _leadFilter.frequency.value = 800;
-        _leadFilter.Q.value   = 14;
-        _leadGain.gain.value  = 0.35;
-        _leadOsc.connect(_leadFilter);
-        _leadFilter.connect(_leadGain);
-        _leadGain.connect(compressor);
-        _leadOsc.start();
-        _leadActive = true;
+    function noteOnMidi(midiNote, vel) {
+        const freq = 440 * Math.pow(2, (midiNote - 69) / 12);
+        noteOn(freq, vel / 127);
+        _flashStatus('NOTE: ' + midiNote + ' / ' + freq.toFixed(1) + 'Hz');
     }
 
-    function _stopLead() {
-        if (!_leadOsc) return;
-        try { _leadGain.gain.setTargetAtTime(0.001, ctx.currentTime, 0.03); } catch(e) {}
-        const o = _leadOsc;
-        setTimeout(() => { try { o.stop(); } catch(e) {} }, 100);
-        _leadOsc = null; _leadFilter = null; _leadGain = null; _leadActive = false;
+    function noteOffMidi(midiNote) {
+        const freq = 440 * Math.pow(2, (midiNote - 69) / 12);
+        noteOff(freq);
     }
 
-    // ── Public one-shot triggers (manual performance clicks) ───
-    function triggerKick()   { _triggerKick();   }
-    function triggerGlitch() { _triggerGlitch(); }
+    function _flashStatus(msg) {
+        const el = document.getElementById('sm-status-note');
+        if (el) el.textContent = msg;
+    }
 
-    // ── Unified update: mouse X→drone filter, hand→lead synth ─
-    function update(params) {
+    // CC handler — standard mappings
+    function handleCC(cc, val) {
+        const n = val / 127;
+        switch(cc) {
+            case 1:  setParam('cutoff', 20 + n * 14980); break;  // mod wheel → cutoff
+            case 7:  setParam('vol', n); break;                  // volume
+            case 11: setParam('pitch', 20 + n * 1980); break;    // expression → pitch
+            case 74: setParam('res', 0.1 + n * 24.9); break;     // filter resonance
+            case 21: setParam('detune', (n - 0.5) * 100); break; // detune
+            case 91: setParam('delayAmt', n); break;             // reverb send
+        }
+    }
+
+    function setParam(name, value) {
+        P[name] = value;
         if (!ctx) return;
-        if (droneFilter) {
-            droneFilter.frequency.setTargetAtTime(
-                200 + (params.x || 0.5) * 2400, ctx.currentTime, 0.06);
+        // Live-update running voices
+        if (name === 'cutoff' || name === 'res' || name === 'filterType') {
+            VOICES.forEach(v => {
+                if (name === 'filterType') v.filt.type = value;
+                else if (name === 'cutoff') v.filt.frequency.setTargetAtTime(value, ctx.currentTime, 0.05);
+                else v.filt.Q.setTargetAtTime(value, ctx.currentTime, 0.05);
+            });
         }
-        if (params.handActive) {
-            if (!_leadActive) _startLead();
-            if (_leadOsc && _leadFilter) {
-                // Hand X → cutoff (200–6000 Hz), Hand Y → pitch (55–440 Hz)
-                _leadFilter.frequency.setTargetAtTime(200 + params.x * 5800, ctx.currentTime, 0.02);
-                _leadOsc.frequency.setTargetAtTime(
-                    55 * Math.pow(8, 1.0 - params.y), ctx.currentTime, 0.02);
-            }
-        } else if (_leadActive) {
-            _stopLead();
-        }
+        if (name === 'vol' && masterGain)
+            masterGain.gain.setTargetAtTime(value, ctx.currentTime, 0.05);
+        if (name === 'delayAmt' && delayGain)
+            delayGain.gain.setTargetAtTime(value, ctx.currentTime, 0.05);
+        if (name === 'delayTime' && delayNode)
+            delayNode.delayTime.setTargetAtTime(value, ctx.currentTime, 0.05);
+        if (name === 'dist' && distortion)
+            distortion.curve = _makeDistCurve(value);
     }
 
-    // ── 2-second exponential fade-out on master gain ───────────
     function stop() {
         if (!ctx) return;
-        if (_seqTimer) { clearTimeout(_seqTimer); _seqTimer = null; }
-        _stopLead();
-        const savedCtx  = ctx;
-        const savedGain = masterGain;
-        ctx = null; _running = false; _swelled = false;
-        savedGain.gain.exponentialRampToValueAtTime(0.001, savedCtx.currentTime + 2.0);
-        setTimeout(() => { try { savedCtx.close(); } catch(e) {} }, 2200);
+        VOICES.forEach(v => { try { v.osc.stop(); v.osc2.stop(); } catch(e) {} });
+        VOICES.length = 0;
+        const g = masterGain, c = ctx;
+        ctx = null; _running = false;
+        g.gain.exponentialRampToValueAtTime(0.001, c.currentTime + 1.5);
+        setTimeout(() => { try { c.close(); } catch(e) {} }, 1600);
     }
 
     function isRunning() { return _running; }
-    function isSwelled() { return _swelled; }
 
-    return { init, swellDrone, triggerKick, triggerGlitch, update, stop, isRunning, isSwelled };
+    return { init, noteOn, noteOff, noteOnMidi, noteOffMidi, handleCC, setParam, stop, isRunning };
 })();
-
-
 // ═══════════════════════════════════════════════════════════════
-//  SPATIAL_VISUALS v2 — Mercury Fractal Raymarching Engine (IIFE)
-//  KIFS: 4-iter Mandelbox box-fold + sphere-inversion + rotation
-//  Infinite domain repetition · Dark chrome + Fresnel neon cyan
-//  Glitch distortion multiplied by u_triggerPulse · 0.5× scaler
+//  SPATIAL_VISUALS v3 — Mercury Fractal Engine (IIFE)
+//  KIFS fractal · Right hand = camera orbit · Left hand = distortion
+//  Smaller canvas embedded in HUD window · u_handR / u_handL uniforms
 // ═══════════════════════════════════════════════════════════════
 const SPATIAL_VISUALS = (() => {
     'use strict';
     let gl = null, program = null, canvas = null;
-    let uTime, uResolution, uMouse, uTriggerPulse;
+    let uTime, uResolution, uMouse, uTriggerPulse, uHandR, uHandL;
     let _pulse = 0.0, _animId = null, _t0 = 0, _running = false;
 
     const VS = `attribute vec2 a_position;void main(){gl_Position=vec4(a_position,0.0,1.0);}`;
 
-    // ── Fragment shader — Mercury Fractal ─────────────────────
     const FS = `precision highp float;
 uniform float u_time;
 uniform vec2  u_resolution;
-uniform vec2  u_mouse;
+uniform vec2  u_handR;
+uniform vec2  u_handL;
 uniform float u_triggerPulse;
 
 mat2 rot2(float a){return mat2(cos(a),-sin(a),sin(a),cos(a));}
 
-// ── KIFS: Mandelbox box-fold + sphere-inversion, 4 iterations ─
-// Creates complex interlocking sci-fi fractal architecture
 float kifs(vec3 pos){
     vec3 p=pos;
     float dr=1.0;
     for(int i=0;i<4;i++){
-        // Box fold: reflect components at ±1
         p=2.0*clamp(p,-1.0,1.0)-p;
-        // Sphere inversion: scale by 1/|p|^2 inside unit sphere
         float r2=dot(p,p);
         float k=max(1.2/r2,0.4);
         p*=k; dr*=abs(k);
-        // Animated rotation — golden-ratio phase offset per iter
         float ang=u_time*0.05+float(i)*0.7854;
         p.xz=rot2(ang)*p.xz;
         p.yz=rot2(ang*0.6180)*p.yz;
     }
-    // Box SDF cross-section gives architecture feel
     vec3 q=abs(p)-vec3(0.8);
     return (length(max(q,0.0))+min(max(q.x,max(q.y,q.z)),0.0))/abs(dr);
 }
 
 float scene(vec3 p){
-    // ── Glitch: pulse shatters geometry ───────────────────────
     float pulse=u_triggerPulse;
-    p.x+=pulse*0.25*sin(p.y*28.0+u_time*22.0);
-    p.z+=pulse*0.18*sin(p.x*22.0+u_time*18.0);
-    // ── Infinite repetition: tile space in 10-unit cells ──────
+    // Left hand: X distorts geometry, right hand controls camera (external)
+    float lx=u_handL.x;
+    p.x+=lx*0.3*sin(p.y*22.0+u_time*8.0);
+    p.z+=lx*0.2*cos(p.x*18.0+u_time*6.0);
+    // Pulse shatter
+    p.x+=pulse*0.2*sin(p.y*30.0+u_time*25.0);
+    p.z+=pulse*0.15*sin(p.x*25.0+u_time*20.0);
     vec3 q=mod(p+5.0,10.0)-5.0;
     float d=kifs(q);
-    // ── Mouse sphere carves liquid holes via smooth subtraction ─
-    vec2 mn=u_mouse*2.0-1.0;
-    vec3 mPos=vec3(mn.x*7.0,-mn.y*5.0,0.0);
-    float sph=length(p-mPos)-1.6;
+    // Mouse/right-wrist sphere carves holes
+    vec2 mn=u_handR*2.0-1.0;
+    vec3 mPos=vec3(mn.x*5.0,-mn.y*4.0,0.0);
+    float sph=length(p-mPos)-1.4;
     float k=0.7;
     float h=clamp(0.5-0.5*(d+sph)/k,0.0,1.0);
     return mix(d,-sph,h)+k*h*(1.0-h);
@@ -11421,10 +11514,10 @@ float scene(vec3 p){
 
 float march(vec3 ro,vec3 rd){
     float t=0.0;
-    for(int i=0;i<80;i++){
+    for(int i=0;i<72;i++){
         float d=scene(ro+rd*t);
         if(d<0.003)return t;
-        if(t>18.0)return -1.0;
+        if(t>16.0)return -1.0;
         t+=max(d*0.5,0.01);
     }
     return -1.0;
@@ -11441,12 +11534,13 @@ vec3 calcNormal(vec3 p){
 void main(){
     vec2 uv=(gl_FragCoord.xy/u_resolution)*2.0-1.0;
     uv.x*=u_resolution.x/u_resolution.y;
+    vec3 neon=vec3(0.0,0.95,1.0);
 
-    vec3 neon=vec3(0.0,0.95,1.0);  // #00f3ff — VNGRD cyan
-
-    // ── Orbiting camera ────────────────────────────────────────
-    float ca=u_time*0.07;
-    vec3 ro=vec3(sin(ca)*4.5,sin(u_time*0.05)*1.8,cos(ca)*4.5);
+    // RIGHT HAND directly orbits the camera — touch-designer style
+    float camH=(u_handR.x-0.5)*6.2832;   // full 360 horizontal
+    float camV=(u_handR.y-0.5)*-1.5708;  // ±90 vertical (inverted Y)
+    float camR=4.5;
+    vec3 ro=vec3(sin(camH)*cos(camV)*camR, sin(camV)*2.5, cos(camH)*cos(camV)*camR);
     vec3 fwd=normalize(vec3(0.0)-ro);
     vec3 right=normalize(cross(vec3(0.0,1.0,0.0),fwd));
     vec3 up=cross(fwd,right);
@@ -11458,235 +11552,400 @@ void main(){
     if(t>0.0){
         vec3 p=ro+rd*t;
         vec3 n=calcNormal(p);
-        // ── Dark chrome material ───────────────────────────────
         vec3 L=normalize(vec3(1.2,2.0,-1.5));
         float diff=max(dot(n,L),0.0)*0.25;
         float spec=pow(max(dot(reflect(-L,n),-rd),0.0),80.0);
-        // Near-black chrome base
         col=vec3(0.02,0.025,0.03)*(diff+0.04)+vec3(1.0)*spec;
-        // ── Fresnel: edges glow neon cyan, pulse→magenta ───────
+        // Fresnel rim: left hand Y shifts hue cyan→magenta
         float fr=pow(1.0-abs(dot(n,-rd)),3.5);
-        col+=mix(neon,vec3(1.0,0.0,0.5),u_triggerPulse)*fr*2.8;
-        // Depth fog
+        float lhue=u_handL.y;
+        vec3 edgeCol=mix(neon,mix(vec3(1.0,0.0,0.5),vec3(0.5,0.0,1.0),lhue),
+                         u_triggerPulse+lhue*0.4);
+        col+=edgeCol*fr*2.8;
         col*=exp(-t*0.055);
     } else {
-        // ── Background: deep void + neon grid + stars ──────────
         float gx=step(0.97,fract(uv.x*6.0+u_time*0.04));
         float gy=step(0.97,fract(uv.y*6.0-u_time*0.03));
-        col=neon*(gx+gy)*0.035;
+        col=neon*(gx+gy)*0.03;
         float s=step(0.998,fract(sin(dot(floor(uv*100.0),vec2(127.1,311.7)))*43758.5));
-        col+=vec3(0.7,0.9,1.0)*s*0.5;
+        col+=vec3(0.7,0.9,1.0)*s*0.4;
     }
-
-    // ── Glitch: high-freq sine noise multiplied on pulse beat ──
-    col*=1.0+u_triggerPulse*abs(sin(uv.y*300.0+u_time*60.0))*0.4;
-    // Vignette
+    col*=1.0+u_triggerPulse*abs(sin(uv.y*300.0+u_time*60.0))*0.35;
     col*=1.0-smoothstep(0.35,1.2,length(uv*0.7));
-    // Pulse cyan flash
-    col+=neon*u_triggerPulse*0.09;
+    col+=neon*u_triggerPulse*0.08;
     gl_FragColor=vec4(col,1.0);
 }`;
 
-    function _compileShader(src, type) {
+    function _sh(src, type) {
         const s = gl.createShader(type);
-        gl.shaderSource(s, src);
-        gl.compileShader(s);
+        gl.shaderSource(s, src); gl.compileShader(s);
         if (!gl.getShaderParameter(s, gl.COMPILE_STATUS)) {
-            console.error('[SPATIAL_VISUALS] Shader:', gl.getShaderInfoLog(s));
-            return null;
+            console.error('[SM_VIS]', gl.getShaderInfoLog(s)); return null;
         }
         return s;
     }
 
-    function init() {
-        canvas = document.getElementById('spatial-matrix');
+    function init(cvs) {
+        canvas = cvs || document.getElementById('spatial-matrix');
         if (!canvas) return false;
-
-        // ── 0.5× resolution scaler for 60fps performance ───────
-        canvas.width  = Math.floor(window.innerWidth  * 0.5);
-        canvas.height = Math.floor(window.innerHeight * 0.5);
-        canvas.style.width  = '100vw';
-        canvas.style.height = '100vh';
+        // Resolution: fill the canvas element at 0.5x for perf
+        canvas.width  = Math.floor(canvas.offsetWidth  * 0.5) || 160;
+        canvas.height = Math.floor(canvas.offsetHeight * 0.5) || 120;
 
         gl = canvas.getContext('webgl') || canvas.getContext('experimental-webgl');
-        if (!gl) { console.error('[SPATIAL_VISUALS] WebGL unavailable'); return false; }
+        if (!gl) return false;
 
-        const vs = _compileShader(VS, gl.VERTEX_SHADER);
-        const fs = _compileShader(FS, gl.FRAGMENT_SHADER);
+        const vs = _sh(VS, gl.VERTEX_SHADER), fs = _sh(FS, gl.FRAGMENT_SHADER);
         if (!vs || !fs) return false;
-
         program = gl.createProgram();
-        gl.attachShader(program, vs);
-        gl.attachShader(program, fs);
+        gl.attachShader(program, vs); gl.attachShader(program, fs);
         gl.linkProgram(program);
         if (!gl.getProgramParameter(program, gl.LINK_STATUS)) {
-            console.error('[SPATIAL_VISUALS] Link:', gl.getProgramInfoLog(program));
-            return false;
+            console.error('[SM_VIS] Link:', gl.getProgramInfoLog(program)); return false;
         }
         gl.useProgram(program);
 
         const buf = gl.createBuffer();
         gl.bindBuffer(gl.ARRAY_BUFFER, buf);
-        gl.bufferData(gl.ARRAY_BUFFER, new Float32Array([-1,-1, 1,-1, -1,1, 1,1]), gl.STATIC_DRAW);
-        const posLoc = gl.getAttribLocation(program, 'a_position');
-        gl.enableVertexAttribArray(posLoc);
-        gl.vertexAttribPointer(posLoc, 2, gl.FLOAT, false, 0, 0);
+        gl.bufferData(gl.ARRAY_BUFFER, new Float32Array([-1,-1,1,-1,-1,1,1,1]), gl.STATIC_DRAW);
+        const pl = gl.getAttribLocation(program, 'a_position');
+        gl.enableVertexAttribArray(pl);
+        gl.vertexAttribPointer(pl, 2, gl.FLOAT, false, 0, 0);
 
         uTime         = gl.getUniformLocation(program, 'u_time');
         uResolution   = gl.getUniformLocation(program, 'u_resolution');
-        uMouse        = gl.getUniformLocation(program, 'u_mouse');
+        uHandR        = gl.getUniformLocation(program, 'u_handR');
+        uHandL        = gl.getUniformLocation(program, 'u_handL');
         uTriggerPulse = gl.getUniformLocation(program, 'u_triggerPulse');
 
-        _t0 = performance.now();
-        _running = true;
-        _render();
+        _t0 = performance.now(); _running = true; _render();
         return true;
     }
 
     function _render() {
         if (!_running) return;
         _animId = requestAnimationFrame(_render);
-        _pulse *= 0.88;
-        if (_pulse < 0.001) _pulse = 0.0;
+        _pulse *= 0.88; if (_pulse < 0.001) _pulse = 0;
         const t = (performance.now() - _t0) * 0.001;
         gl.viewport(0, 0, canvas.width, canvas.height);
         gl.useProgram(program);
         gl.uniform1f(uTime, t);
         gl.uniform2f(uResolution, canvas.width, canvas.height);
-        gl.uniform2f(uMouse, window._smMouseX || 0.5, window._smMouseY || 0.5);
+        gl.uniform2f(uHandR, window._smRX || 0.5, window._smRY || 0.5);
+        gl.uniform2f(uHandL, window._smLX || 0.5, window._smLY || 0.5);
         gl.uniform1f(uTriggerPulse, _pulse);
         gl.drawArrays(gl.TRIANGLE_STRIP, 0, 4);
     }
 
     function setTriggerPulse(v) { _pulse = Math.max(_pulse, v); }
-
-    function stop() {
-        _running = false;
-        if (_animId) { cancelAnimationFrame(_animId); _animId = null; }
-    }
-
+    function stop() { _running = false; if (_animId) { cancelAnimationFrame(_animId); _animId = null; } }
     function isRunning() { return _running; }
-
     return { init, stop, setTriggerPulse, isRunning };
 })();
 
 
 // ═══════════════════════════════════════════════════════════════
-//  SPATIAL MATRIX v2 — Integration Controller (IIFE)
-//  Fade-out: 2s exponential masterGain ramp on close
-//  Neural Link: 3s power-up swell on first user gesture
-//  Kinematic: mouse + MediaPipe wrist (lm[16]) → lerp → uniforms
+//  SPATIAL MATRIX v3 — Floating Instrument HUD Controller (IIFE)
+//  Window drag · Auto-camera + pose · MIDI listener · UI wiring
+//  Right wrist → camera orbit · Left wrist → distortion + lead
 // ═══════════════════════════════════════════════════════════════
-window._smMouseX = 0.5;
-window._smMouseY = 0.5;
+window._smRX = 0.5; window._smRY = 0.5;  // right wrist (lerped)
+window._smLX = 0.5; window._smLY = 0.5;  // left wrist (lerped)
 
 const SpatialMatrix = (() => {
     'use strict';
-    let _open         = false;
-    let _closing      = false;
-    let _targetX      = 0.5, _targetY = 0.5;
-    let _lerpId       = null;
-    let _handDetected = false;
+    let _open = false, _lerpId = null;
+    let _trRX = 0.5, _trRY = 0.5, _trLX = 0.5, _trLY = 0.5;
+    let _midiAccess = null;
+    let _activeNotes = {};   // midiNote → true (for note-off tracking)
 
-    // ── Lerp: smooth glide for all inputs ─────────────────────
+    // ── Note frequency table (MIDI 0-127) ─────────────────────
+    function _midiFreq(n) { return 440 * Math.pow(2, (n - 69) / 12); }
+
+    // ── Lerp loop ─────────────────────────────────────────────
     function _lerpLoop() {
-        window._smMouseX += (_targetX - window._smMouseX) * 0.08;
-        window._smMouseY += (_targetY - window._smMouseY) * 0.08;
-        if (SPATIAL_AUDIO.isRunning()) {
-            SPATIAL_AUDIO.update({
-                x: window._smMouseX,
-                y: window._smMouseY,
-                handActive: _handDetected
-            });
-        }
+        window._smRX += (_trRX - window._smRX) * 0.08;
+        window._smRY += (_trRY - window._smRY) * 0.08;
+        window._smLX += (_trLX - window._smLX) * 0.08;
+        window._smLY += (_trLY - window._smLY) * 0.08;
         _lerpId = requestAnimationFrame(_lerpLoop);
     }
 
-    // ── Mouse input ───────────────────────────────────────────
-    window.addEventListener('mousemove', function(e) {
-        _targetX = e.clientX / window.innerWidth;
-        _targetY = e.clientY / window.innerHeight;
-    });
-
-    // ── Click: manual performance trigger ─────────────────────
-    // Ignored if click lands on the sm-overlay UI chrome
-    window.addEventListener('click', function(e) {
-        if (!_open) return;
-        var el = e.target;
-        while (el) { if (el.id === 'sm-overlay') return; el = el.parentElement; }
-        if (SPATIAL_AUDIO.isRunning()) {
-            SPATIAL_AUDIO.triggerKick();
-            SPATIAL_AUDIO.triggerGlitch();
-        }
-        SPATIAL_VISUALS.setTriggerPulse(1.0);
-    });
-
-    // ── MediaPipe Pose → right wrist (lm[16]) ─────────────────
-    window._smPoseFeed = function(landmarks) {
-        if (!_open || !landmarks) return;
-        var wrist = landmarks[16];
-        if (wrist && wrist.visibility > 0.5) {
-            _targetX = wrist.x;
-            _targetY = wrist.y;
-            _handDetected = true;
-        } else {
-            _handDetected = false;
-        }
+    // ── MediaPipe: right wrist=16, left wrist=15 ──────────────
+    window._smPoseFeed = function(lm) {
+        if (!_open || !lm) return;
+        var r = lm[16], l = lm[15];
+        if (r && r.visibility > 0.4) { _trRX = r.x; _trRY = r.y;
+            document.getElementById('sm-hand-badge') &&
+                (document.getElementById('sm-hand-badge').className = 'sm-badge on');
+            document.getElementById('sm-status-hand') &&
+                (document.getElementById('sm-status-hand').textContent =
+                    'HAND: R(' + r.x.toFixed(2) + ',' + r.y.toFixed(2) + ')'); }
+        if (l && l.visibility > 0.4) { _trLX = l.x; _trLY = l.y;
+            // Left hand Y → filter cutoff via synth
+            if (SPATIAL_AUDIO.isRunning())
+                SPATIAL_AUDIO.setParam('cutoff', 80 + (1 - l.y) * 12000); }
     };
 
-    function toggle() {
-        if (_closing) return; // block during 2s fade-out
+    // ── Canvas click → play note at pitch mapped to X ─────────
+    function _wireCanvasClick() {
         var cvs = document.getElementById('spatial-matrix');
-        var ovl = document.getElementById('sm-overlay');
+        if (!cvs) return;
+        cvs.style.pointerEvents = 'all';
+        cvs.addEventListener('mousedown', function(e) {
+            if (!SPATIAL_AUDIO.isRunning()) SPATIAL_AUDIO.init();
+            var x = e.offsetX / cvs.offsetWidth;
+            var y = e.offsetY / cvs.offsetHeight;
+            // X → pitch C2–C7 range (65–2093 Hz), Y → filter sweep
+            var freq = 65.4 * Math.pow(32, x);
+            SPATIAL_AUDIO.noteOn(freq, 0.8);
+            SPATIAL_VISUALS.setTriggerPulse(0.7);
+            SPATIAL_AUDIO.setParam('cutoff', 200 + (1 - y) * 8000);
+            cvs._smPlayFreq = freq;
+        });
+        cvs.addEventListener('mouseup', function() {
+            if (cvs._smPlayFreq) { SPATIAL_AUDIO.noteOff(cvs._smPlayFreq); cvs._smPlayFreq = null; }
+        });
+        cvs.addEventListener('mousemove', function(e) {
+            if (!cvs._smPlayFreq) return;
+            _trRX = e.offsetX / cvs.offsetWidth;
+            _trRY = e.offsetY / cvs.offsetHeight;
+        });
+    }
+
+    // ── Build trigger pads C D E F G A B C ───────────────────
+    function _buildPads() {
+        var el = document.getElementById('sm-pads');
+        if (!el) return;
+        var notes = [{n:'C3',f:130.8},{n:'D3',f:146.8},{n:'E3',f:164.8},
+                     {n:'F3',f:174.6},{n:'G3',f:196},{n:'A3',f:220},
+                     {n:'B3',f:246.9},{n:'C4',f:261.6}];
+        el.innerHTML = '';
+        notes.forEach(function(nd) {
+            var btn = document.createElement('button');
+            btn.className = 'sm-pad'; btn.textContent = nd.n;
+            btn.addEventListener('mousedown', function() {
+                if (!SPATIAL_AUDIO.isRunning()) SPATIAL_AUDIO.init();
+                SPATIAL_AUDIO.noteOn(nd.f, 0.9); btn.classList.add('lit');
+                SPATIAL_VISUALS.setTriggerPulse(0.6);
+            });
+            btn.addEventListener('mouseup', function() {
+                SPATIAL_AUDIO.noteOff(nd.f); btn.classList.remove('lit');
+            });
+            btn.addEventListener('mouseleave', function() {
+                SPATIAL_AUDIO.noteOff(nd.f); btn.classList.remove('lit');
+            });
+            el.appendChild(btn);
+        });
+    }
+
+    // ── Wire all UI sliders ───────────────────────────────────
+    function _wireUI() {
+        function bind(id, param, transform, valId, fmt) {
+            var el = document.getElementById(id);
+            if (!el) return;
+            el.addEventListener('input', function() {
+                var v = transform ? transform(+el.value) : +el.value;
+                SPATIAL_AUDIO.setParam(param, v);
+                if (valId) {
+                    var vEl = document.getElementById(valId);
+                    if (vEl) vEl.textContent = fmt ? fmt(v, +el.value) : v;
+                }
+                // Live update status bar for filter
+                if (param === 'cutoff') {
+                    var s = document.getElementById('sm-status-filter');
+                    if (s) s.textContent = 'CUTOFF: ' + Math.round(v) + 'Hz';
+                }
+            });
+        }
+        bind('sm-pitch',      'pitch',    null,              'sm-pitch-val',  function(v) { return Math.round(v)+'Hz'; });
+        bind('sm-detune',     'detune',   null,              'sm-det-val',    function(v) { return (v>0?'+':'')+v+'c'; });
+        bind('sm-oct',        'oct',      null,              'sm-oct-val',    function(v) { return (v>0?'+':'')+v; });
+        bind('sm-cutoff',     'cutoff',   null,              'sm-cut-val',    function(v) { return Math.round(v)+'Hz'; });
+        bind('sm-res',        'res',      null,              'sm-res-val',    function(v) { return v.toFixed(1); });
+        bind('sm-atk',        'atk',      function(v){return v/1000;}, 'sm-atk-val', function(v,r){return r+'ms';});
+        bind('sm-dec',        'dec',      function(v){return v/1000;}, 'sm-dec-val', function(v,r){return r+'ms';});
+        bind('sm-sus',        'sus',      function(v){return v/100;},  'sm-sus-val', function(v,r){return r+'%';});
+        bind('sm-rel',        'rel',      function(v){return v/1000;}, 'sm-rel-val', function(v,r){return r+'ms';});
+        bind('sm-delay-amt',  'delayAmt', function(v){return v/100;},  'sm-damt-val',function(v,r){return r+'%';});
+        bind('sm-delay-time', 'delayTime',function(v){return v/1000;}, 'sm-dtime-val',function(v,r){return r+'ms';});
+        bind('sm-dist',       'dist',     null,              'sm-dist-val',   null);
+        bind('sm-vol',        'vol',      function(v){return v/100;},  'sm-vol-val', function(v,r){return r+'%';});
+
+        // Selects
+        var oscSel = document.getElementById('sm-osc-type');
+        if (oscSel) oscSel.addEventListener('change', function() { SPATIAL_AUDIO.setParam('oscType', oscSel.value); });
+        var fltSel = document.getElementById('sm-flt-type');
+        if (fltSel) fltSel.addEventListener('change', function() { SPATIAL_AUDIO.setParam('filterType', fltSel.value); });
+    }
+
+    // ── MIDI listener ─────────────────────────────────────────
+    function _initMIDI() {
+        if (!navigator.requestMIDIAccess) {
+            document.getElementById('sm-status-midi') &&
+                (document.getElementById('sm-status-midi').textContent = 'MIDI: N/A');
+            return;
+        }
+        navigator.requestMIDIAccess({ sysex: false }).then(function(access) {
+            _midiAccess = access;
+            document.getElementById('sm-midi-badge') &&
+                (document.getElementById('sm-midi-badge').className = 'sm-badge on');
+            function wire(input) {
+                input.onmidimessage = function(msg) {
+                    if (!_open) return;
+                    var status = msg.data[0] & 0xF0;
+                    var ch1    = msg.data[1];
+                    var ch2    = msg.data[2];
+                    if (!SPATIAL_AUDIO.isRunning()) SPATIAL_AUDIO.init();
+                    if (status === 0x90 && ch2 > 0) {         // note-on
+                        SPATIAL_AUDIO.noteOnMidi(ch1, ch2);
+                        SPATIAL_VISUALS.setTriggerPulse(0.8);
+                        _activeNotes[ch1] = true;
+                        document.getElementById('sm-status-midi') &&
+                            (document.getElementById('sm-status-midi').textContent =
+                                'MIDI: NOTE ' + ch1 + ' v' + ch2);
+                    } else if (status === 0x80 || (status === 0x90 && ch2 === 0)) {
+                        SPATIAL_AUDIO.noteOffMidi(ch1);        // note-off
+                        delete _activeNotes[ch1];
+                    } else if (status === 0xB0) {              // CC
+                        SPATIAL_AUDIO.handleCC(ch1, ch2);
+                        document.getElementById('sm-status-midi') &&
+                            (document.getElementById('sm-status-midi').textContent =
+                                'MIDI: CC' + ch1 + '=' + ch2);
+                    }
+                };
+            }
+            access.inputs.forEach(wire);
+            access.onstatechange = function(e) {
+                if (e.port.type === 'input' && e.port.state === 'connected') wire(e.port);
+            };
+            var inp = Array.from(access.inputs.values());
+            document.getElementById('sm-status-midi') &&
+                (document.getElementById('sm-status-midi').textContent =
+                    'MIDI: ' + (inp.length ? inp[0].name.substring(0,18) : 'NO DEVICE'));
+        }).catch(function() {
+            document.getElementById('sm-status-midi') &&
+                (document.getElementById('sm-status-midi').textContent = 'MIDI: DENIED');
+        });
+    }
+
+    // ── Auto-start camera + pose tracking ─────────────────────
+    function _startCamera() {
+        // Reuse existing camera stream if already running
+        if (window.APP && APP.camera && APP.camera.stream) {
+            _startPoseFromStream(APP.camera.videoEl || null);
+            return;
+        }
+        navigator.mediaDevices.getUserMedia({ video: { width: 640, height: 480, facingMode: 'user' }, audio: false })
+        .then(function(stream) {
+            var vid = document.createElement('video');
+            vid.srcObject = stream; vid.muted = true;
+            vid.setAttribute('playsinline', ''); vid.play();
+            window._smCamStream = stream;
+            window._smCamVid    = vid;
+            document.getElementById('sm-cam-badge') &&
+                (document.getElementById('sm-cam-badge').className = 'sm-badge on');
+            _startPoseFromStream(vid);
+        }).catch(function(e) {
+            document.getElementById('sm-status-hand') &&
+                (document.getElementById('sm-status-hand').textContent = 'HAND: CAM DENIED');
+        });
+    }
+
+    function _startPoseFromStream(vid) {
+        if (typeof Pose === 'undefined') return;
+        if (window._smPose) return; // already running
+        var videoEl = vid || (APP.camera && APP.camera.videoEl);
+        if (!videoEl) return;
+        var pose = new Pose({ locateFile: function(f) {
+            return 'https://cdn.jsdelivr.net/npm/@mediapipe/pose@0.5.1675469404/' + f;
+        }});
+        pose.setOptions({ modelComplexity: 0, smoothLandmarks: true,
+            minDetectionConfidence: 0.5, minTrackingConfidence: 0.5 });
+        pose.onResults(function(results) {
+            if (results.poseLandmarks && window._smPoseFeed)
+                window._smPoseFeed(results.poseLandmarks);
+        });
+        window._smPose = pose;
+
+        if (typeof Camera !== 'undefined') {
+            var cam = new Camera(videoEl, {
+                onFrame: async function() { await pose.send({ image: videoEl }); },
+                width: 640, height: 480
+            });
+            cam.start();
+        } else {
+            (function feed() {
+                if (!window._smPose) return;
+                if (videoEl.readyState >= 2) pose.send({ image: videoEl }).catch(function(){});
+                setTimeout(feed, 80);
+            })();
+        }
+    }
+
+    // ── Window drag ───────────────────────────────────────────
+    function _initDrag() {
+        var win = document.getElementById('sm-window');
+        var bar = document.getElementById('sm-titlebar');
+        if (!win || !bar) return;
+        var ox = 0, oy = 0, sx = 0, sy = 0, dragging = false;
+        bar.addEventListener('mousedown', function(e) {
+            if (e.target.classList.contains('sm-dot')) return;
+            dragging = true;
+            ox = win.offsetLeft; oy = win.offsetTop;
+            sx = e.clientX; sy = e.clientY;
+            e.preventDefault();
+        });
+        document.addEventListener('mousemove', function(e) {
+            if (!dragging) return;
+            win.style.left = (ox + e.clientX - sx) + 'px';
+            win.style.top  = (oy + e.clientY - sy) + 'px';
+            win.style.right = 'auto';
+        });
+        document.addEventListener('mouseup', function() { dragging = false; });
+    }
+
+    function toggle() {
+        var win = document.getElementById('sm-window');
         var btn = document.getElementById('btn-esx-launch');
         _open = !_open;
-
         if (_open) {
-            // ── ENTER SPATIAL MATRIX ──────────────────────────
-            if (cvs) cvs.style.display = 'block';
-            if (ovl) ovl.style.display = 'flex';
-            if (!SPATIAL_VISUALS.isRunning()) SPATIAL_VISUALS.init();
-            if (!SPATIAL_AUDIO.isRunning())   SPATIAL_AUDIO.init();
+            if (win) win.classList.add('sm-visible');
+            if (!SPATIAL_AUDIO.isRunning()) SPATIAL_AUDIO.init();
+            var cvs = document.getElementById('spatial-matrix');
+            if (cvs && !SPATIAL_VISUALS.isRunning()) {
+                // Give layout a tick to resolve dimensions
+                requestAnimationFrame(function() { SPATIAL_VISUALS.init(cvs); });
+            }
             if (!_lerpId) _lerpLoop();
+            _startCamera();
+            _initMIDI();
             if (btn) btn.classList.add('esx-open');
         } else {
-            // ── EXIT: 2s exponential fade then teardown ────────
-            _closing = true;
-            if (ovl) ovl.style.display = 'none';
+            if (win) win.classList.remove('sm-visible');
+            SPATIAL_AUDIO.stop();
+            SPATIAL_VISUALS.stop();
+            if (_lerpId) { cancelAnimationFrame(_lerpId); _lerpId = null; }
+            // Stop dedicated SM camera if we started it
+            if (window._smCamStream) {
+                window._smCamStream.getTracks().forEach(function(t){ t.stop(); });
+                window._smCamStream = null;
+            }
+            window._smPose = null;
             if (btn) btn.classList.remove('esx-open');
-            SPATIAL_AUDIO.stop(); // starts 2s masterGain ramp → 0
-            setTimeout(function() {
-                if (cvs) cvs.style.display = 'none';
-                SPATIAL_VISUALS.stop();
-                if (_lerpId) { cancelAnimationFrame(_lerpId); _lerpId = null; }
-                _handDetected = false;
-                _closing = false;
-                // Reset Neural Link button for next session
-                var nlBtn = document.getElementById('sm-neural-btn');
-                if (nlBtn) {
-                    nlBtn.textContent = '[ INITIALIZE NEURAL LINK ]';
-                    nlBtn.style.color = '';
-                    nlBtn.style.borderColor = '';
-                    nlBtn.disabled = false;
-                }
-            }, 2200);
+            document.getElementById('sm-cam-badge') &&
+                (document.getElementById('sm-cam-badge').className = 'sm-badge');
+            document.getElementById('sm-hand-badge') &&
+                (document.getElementById('sm-hand-badge').className = 'sm-badge');
         }
     }
 
-    // ── Neural Link swell (overlay button) ────────────────────
-    function neuralLink() {
-        if (!SPATIAL_AUDIO.isRunning()) return;
-        SPATIAL_AUDIO.swellDrone();
-        var nlBtn = document.getElementById('sm-neural-btn');
-        if (nlBtn) {
-            nlBtn.textContent = '[ NEURAL LINK ESTABLISHED ]';
-            nlBtn.style.color = '#00ff88';
-            nlBtn.style.borderColor = 'rgba(0,255,136,0.7)';
-            nlBtn.disabled = true;
-        }
-    }
+    // Init drag + pads once DOM ready
+    document.addEventListener('DOMContentLoaded', function() {
+        _initDrag(); _buildPads(); _wireUI();
+    });
 
-    return { toggle, neuralLink };
+    return { toggle };
 })();
 
 
@@ -19685,20 +19944,87 @@ function _applyPoseToModel(lm) {
 
 </div><!-- /esx-hud -->
 
-<!-- ═══ SPATIAL MATRIX — Full-Screen WebGL Canvas ═══ -->
-<canvas id="spatial-matrix" style="display:none;position:fixed;top:0;left:0;width:100vw;height:100vh;z-index:9999;pointer-events:none;image-rendering:pixelated;"></canvas>
+<!-- ═══════════════════════════════════════════════════════════
+     SPATIAL MATRIX — Floating Instrument HUD
+     ═══════════════════════════════════════════════════════════ -->
+<div id="sm-window">
+    <div class="sm-titlebar" id="sm-titlebar">
+        <div class="sm-dot" onclick="SpatialMatrix.toggle()" title="Close"></div>
+        <span class="sm-title">◈ SPATIAL MATRIX // MERCURY FRACTAL</span>
+        <span class="sm-badge" id="sm-cam-badge">CAM</span>
+        <span class="sm-badge" id="sm-midi-badge">MIDI</span>
+        <span class="sm-badge" id="sm-hand-badge">HAND</span>
+    </div>
 
-<!-- ═══ SPATIAL MATRIX — UI Overlay: Close + Neural Link ═══ -->
-<div id="sm-overlay" style="display:none;position:fixed;inset:0;z-index:10000;pointer-events:none;">
-    <button id="sm-close-btn" onclick="SpatialMatrix.toggle()"
-        style="pointer-events:all;position:absolute;top:18px;right:22px;background:transparent;border:1px solid rgba(0,243,255,0.5);color:#00f3ff;font-family:'Orbitron',sans-serif;font-size:9px;letter-spacing:2.5px;padding:7px 16px;cursor:pointer;transition:all 0.15s;text-shadow:0 0 6px rgba(0,243,255,0.5);">
-        [ CLOSE ]
-    </button>
-    <button id="sm-neural-btn" onclick="SpatialMatrix.neuralLink()"
-        style="pointer-events:all;position:absolute;bottom:30px;left:50%;transform:translateX(-50%);background:transparent;border:1px solid rgba(0,243,255,0.6);color:#00f3ff;font-family:'Orbitron',sans-serif;font-size:10px;letter-spacing:3px;padding:11px 28px;cursor:pointer;transition:all 0.25s;text-shadow:0 0 10px rgba(0,243,255,0.6);white-space:nowrap;">
-        [ INITIALIZE NEURAL LINK ]
-    </button>
-</div>
+    <div class="sm-body">
+        <!-- WebGL Viewport -->
+        <div class="sm-viewport">
+            <canvas id="spatial-matrix"></canvas>
+            <div class="sm-vp-hint">R-HAND=ORBIT · L-HAND=DISTORT · CLICK=PLAY</div>
+        </div>
+
+        <!-- Synth Panel -->
+        <div class="sm-synth">
+            <div class="sm-section">
+                <span class="sm-sec-hd">OSCILLATOR</span>
+                <div class="sm-row">
+                    <select class="sm-sel" id="sm-osc-type">
+                        <option value="sawtooth">SAW</option>
+                        <option value="square">SQR</option>
+                        <option value="sine">SIN</option>
+                        <option value="triangle">TRI</option>
+                    </select>
+                    <div class="sm-knob"><span>PITCH</span><input type="range" id="sm-pitch" min="20" max="2000" value="220"><span class="sv" id="sm-pitch-val">220Hz</span></div>
+                    <div class="sm-knob"><span>DETUNE</span><input type="range" id="sm-detune" min="-50" max="50" value="0"><span class="sv" id="sm-det-val">0c</span></div>
+                    <div class="sm-knob"><span>OCT</span><input type="range" id="sm-oct" min="-3" max="3" step="1" value="0"><span class="sv" id="sm-oct-val">0</span></div>
+                </div>
+            </div>
+            <div class="sm-section">
+                <span class="sm-sec-hd">FILTER <small style="font-size:5px;color:rgba(0,243,255,0.3);margin-left:6px;">CC1=CUTOFF · CC74=RES · L-HAND-Y=SWEEP</small></span>
+                <div class="sm-row">
+                    <select class="sm-sel" id="sm-flt-type">
+                        <option value="lowpass">LP</option>
+                        <option value="highpass">HP</option>
+                        <option value="bandpass">BP</option>
+                        <option value="notch">NOTCH</option>
+                    </select>
+                    <div class="sm-knob"><span>CUTOFF</span><input type="range" id="sm-cutoff" min="20" max="15000" value="800"><span class="sv" id="sm-cut-val">800Hz</span></div>
+                    <div class="sm-knob"><span>RES</span><input type="range" id="sm-res" min="0.1" max="25" step="0.1" value="2"><span class="sv" id="sm-res-val">2.0</span></div>
+                </div>
+            </div>
+            <div class="sm-section">
+                <span class="sm-sec-hd">ENVELOPE</span>
+                <div class="sm-row">
+                    <div class="sm-knob"><span>ATK</span><input type="range" id="sm-atk" min="1" max="2000" value="10"><span class="sv" id="sm-atk-val">10ms</span></div>
+                    <div class="sm-knob"><span>DEC</span><input type="range" id="sm-dec" min="10" max="2000" value="100"><span class="sv" id="sm-dec-val">100ms</span></div>
+                    <div class="sm-knob"><span>SUS</span><input type="range" id="sm-sus" min="0" max="100" value="70"><span class="sv" id="sm-sus-val">70%</span></div>
+                    <div class="sm-knob"><span>REL</span><input type="range" id="sm-rel" min="10" max="4000" value="300"><span class="sv" id="sm-rel-val">300ms</span></div>
+                </div>
+            </div>
+            <div class="sm-section">
+                <span class="sm-sec-hd">FX <small style="font-size:5px;color:rgba(0,243,255,0.3);margin-left:6px;">CC91=DELAY · CC21=DETUNE · CC7=VOL</small></span>
+                <div class="sm-row">
+                    <div class="sm-knob"><span>DELAY</span><input type="range" id="sm-delay-amt" min="0" max="100" value="20"><span class="sv" id="sm-damt-val">20%</span></div>
+                    <div class="sm-knob"><span>D.TIME</span><input type="range" id="sm-delay-time" min="50" max="800" value="250"><span class="sv" id="sm-dtime-val">250ms</span></div>
+                    <div class="sm-knob"><span>DIST</span><input type="range" id="sm-dist" min="0" max="400" value="0"><span class="sv" id="sm-dist-val">0</span></div>
+                    <div class="sm-knob"><span>VOL</span><input type="range" id="sm-vol" min="0" max="100" value="80"><span class="sv" id="sm-vol-val">80%</span></div>
+                </div>
+            </div>
+            <div class="sm-section">
+                <span class="sm-sec-hd">TRIGGER PADS — CLICK / MIDI / HAND</span>
+                <div class="sm-pads" id="sm-pads"></div>
+            </div>
+        </div>
+    </div>
+
+    <div class="sm-statusbar">
+        <span id="sm-status-hand">HAND: OFFLINE</span>
+        <span id="sm-status-midi">MIDI: --</span>
+        <span id="sm-status-filter">CUTOFF: --</span>
+        <span id="sm-status-note">NOTE: --</span>
+    </div>
+</div><!-- /sm-window -->
+
 
 </body>
 </html>
