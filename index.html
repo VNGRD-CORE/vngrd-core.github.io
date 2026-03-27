@@ -4190,18 +4190,31 @@ body.fullscreen #transcription-hud { pointer-events: none !important; } /* keep 
     color: #00f3ff; font-family: 'JetBrains Mono', monospace;
     font-size: 9px; padding: 3px 5px; outline: none; cursor: pointer;
 }
-.sm-pads { display: flex; gap: 3px; }
-.sm-pad {
-    flex: 1; height: 30px; background: rgba(0,243,255,0.04);
-    border: 1px solid rgba(0,243,255,0.22); border-radius: 2px;
-    color: rgba(0,243,255,0.6); font-family: 'Orbitron', sans-serif; font-size: 6.5px;
-    cursor: pointer; transition: all 0.05s; display: flex;
-    align-items: center; justify-content: center; letter-spacing: 0.5px;
+.sm-xy-wrap { position: relative; width: 100%; margin-top: 4px; }
+#sm-xy-pad {
+    width: 100%; height: 90px; cursor: crosshair; display: block;
+    background: rgba(0,243,255,0.03); border: 1px solid rgba(0,243,255,0.25);
+    border-radius: 2px; touch-action: none;
 }
-.sm-pad:active,.sm-pad.lit {
-    background: rgba(0,243,255,0.18); border-color: #00f3ff; color: #fff;
-    box-shadow: 0 0 10px rgba(0,243,255,0.4);
+.sm-loop-row { display: flex; gap: 4px; margin-top: 4px; align-items: center; }
+.sm-loop-btn {
+    flex: 1; height: 22px; background: rgba(0,243,255,0.05);
+    border: 1px solid rgba(0,243,255,0.25); border-radius: 2px;
+    color: rgba(0,243,255,0.7); font-family: 'JetBrains Mono', monospace;
+    font-size: 7.5px; letter-spacing: 1px; cursor: pointer; transition: all 0.1s;
 }
+.sm-loop-btn:hover { background: rgba(0,243,255,0.12); color: #00f3ff; }
+.sm-loop-btn.active { background: rgba(0,243,255,0.2); border-color: #00f3ff; color: #fff;
+    box-shadow: 0 0 8px rgba(0,243,255,0.35); }
+.sm-loop-btn.rec-btn { border-color: rgba(255,60,60,0.5); color: rgba(255,100,100,0.8); }
+.sm-loop-btn.rec-btn.active { background: rgba(255,40,40,0.2); border-color: #ff4040; color: #ff4040;
+    box-shadow: 0 0 8px rgba(255,40,40,0.4); }
+.sm-scale-sel {
+    background: rgba(0,243,255,0.04); border: 1px solid rgba(0,243,255,0.25);
+    color: rgba(0,243,255,0.7); font-family: 'JetBrains Mono', monospace;
+    font-size: 7.5px; padding: 2px 4px; outline: none; cursor: pointer;
+}
+.sm-layer-row { display: flex; gap: 4px; margin-top: 4px; }
 .sm-statusbar {
     display: flex; gap: 10px; padding: 3px 8px; flex-shrink: 0;
     background: rgba(0,0,0,0.6); border-top: 1px solid rgba(0,243,255,0.12);
@@ -8947,10 +8960,11 @@ const SFX_ENGINE = (() => {
 })();
 
 // ═══════════════════════════════════════════════════════════════
-//  INTERNAL SYNTH v2 — Multi-Mode Oscillator Engine
+// ═══════════════════════════════════════════════════════════════
+//  INTERNAL SYNTH v3 — Cinematic Multi-Layer Oscillator Engine
 //  SUB / NOISE / SWEEP / METAL / AM / BOOM
-//  All modes route: gain → panner → analyser → masterGain
-//  Seismic & kinetic integration on every trigger.
+//  Breakcore · IDM · Ambient · Aphex Twin · Squarepusher aesthetic
+//  All modes: gain → panner → masterGain · seismic + kinetic on trigger
 // ═══════════════════════════════════════════════════════════════
 const InternalSynth = (() => {
     function _ctx() {
@@ -8960,177 +8974,298 @@ const InternalSynth = (() => {
         if (c && c.state === 'suspended') c.resume();
         return c;
     }
-    // Route: gain → panner → analyser → masterGain (Engineering Mode chain)
     function _outNode() { return APP.audio.panner || APP.audio.duckingGain || APP.audio.masterGain; }
 
-    // Apply 3D spatial panning (panVal 0x00=hard-left, 0x80=center, 0xFF=hard-right)
     function _applyPan(gainNode, panVal, ctx) {
         if (panVal === undefined || panVal === null) return gainNode;
-        var pan = (panVal / 127.5) - 1.0; // -1.0 to +1.0
+        var pan = (panVal / 127.5) - 1.0;
         try {
             var panNode = ctx.createStereoPanner();
             panNode.pan.setValueAtTime(Math.max(-1,Math.min(1,pan)), ctx.currentTime);
             gainNode.connect(panNode);
             panNode.connect(_outNode());
-            return null; // connected through panNode
+            return null;
         } catch(e) { return gainNode; }
     }
 
-    // Seismic + kinetic bounce on every trigger (CRITICAL integration)
     function _seismicKick(vol, freq) {
         if (typeof APP === 'undefined') return;
-        // Update audioReactiveData
         if (!window.audioReactiveData) window.audioReactiveData = {};
         window.audioReactiveData.lastSynthFreq  = freq;
         window.audioReactiveData.lastSynthVol   = vol;
         window.audioReactiveData.lastTriggerTs  = performance.now();
-        // Bass frequency (< 200Hz) or high volume triggers screenShake
         var isBass = freq < 200;
         var isLoud  = vol > 0.65;
         if (APP.vj && (isBass || isLoud)) {
             var scale = vol * (isBass ? 1.4 : 0.8);
             APP.vj._seismicVel      = (APP.vj._seismicVel || 0) + scale * 0.7;
             APP.vj._seismicDemoUntil = performance.now() + (isBass ? 1200 : 600);
-            // PUSH kinetic bounce on every transient
             APP.vj._punchSpring    = Math.min(1.0, (APP.vj._punchSpring || 0) + scale * 0.5);
             APP.vj._punchDemoUntil = performance.now() + 700;
             APP.vj._punchDemoBeat  = performance.now();
         }
-        // Bump bassLevel for VU/analyser visualization
         if (APP.audio) APP.audio.bassLevel = Math.max(APP.audio.bassLevel || 0, Math.floor(vol * 240));
     }
 
-    // ── SUB: Sine with pitch glide (808-style kick) ───────────────────────
+    // Waveshaper soft-clip saturation curve
+    function _satCurve(ctx, drive) {
+        var ws = ctx.createWaveShaper();
+        var n = 256, curve = new Float32Array(n);
+        drive = drive || 2.0;
+        for (var i = 0; i < n; i++) {
+            var x = (i * 2) / n - 1;
+            curve[i] = (Math.PI + drive) * x / (Math.PI + drive * Math.abs(x));
+        }
+        ws.curve = curve; ws.oversample = '2x';
+        return ws;
+    }
+
+    // Noise buffer helper
+    function _noiseBuf(ctx, dur) {
+        var frames = Math.ceil(ctx.sampleRate * dur);
+        var buf = ctx.createBuffer(1, frames, ctx.sampleRate);
+        var d = buf.getChannelData(0);
+        for (var i = 0; i < frames; i++) d[i] = Math.random() * 2 - 1;
+        return buf;
+    }
+
+    // ── SUB: Heavy 808-style kick — sub octave + transient click + saturation ─
     function triggerSub(freq, vol, panVal) {
         var ctx = _ctx(); if (!ctx) return;
         freq = Math.max(20, parseFloat(freq) || 80);
-        vol  = Math.min(1.0, parseFloat(vol) || 0.7);
-        var now = ctx.currentTime, dur = 0.7;
-        var osc  = ctx.createOscillator();
-        var gain = ctx.createGain();
-        osc.type = 'sine';
-        osc.frequency.setValueAtTime(freq * 2.2, now);
-        osc.frequency.exponentialRampToValueAtTime(Math.max(18, freq * 0.25), now + dur * 0.85);
-        gain.gain.setValueAtTime(vol, now);
-        gain.gain.exponentialRampToValueAtTime(0.0001, now + dur);
-        osc.connect(gain);
-        var out = _applyPan(gain, panVal, ctx);
+        vol  = Math.min(1.0, parseFloat(vol) || 0.8);
+        var now = ctx.currentTime, dur = 1.5;
+
+        var master = ctx.createGain();
+        master.gain.setValueAtTime(0, now);
+        master.gain.linearRampToValueAtTime(vol, now + 0.003);
+        master.gain.exponentialRampToValueAtTime(0.0001, now + dur);
+
+        // Main sine with deep pitch drop
+        var osc = ctx.createOscillator(); osc.type = 'sine';
+        osc.frequency.setValueAtTime(freq * 3.5, now);
+        osc.frequency.exponentialRampToValueAtTime(Math.max(16, freq * 0.22), now + dur * 0.8);
+        var sat = _satCurve(ctx, 4.0);
+        osc.connect(sat); sat.connect(master);
+
+        // Sub octave layer
+        var sub = ctx.createOscillator(); sub.type = 'sine';
+        sub.frequency.setValueAtTime(freq * 0.5, now);
+        var subG = ctx.createGain(); subG.gain.value = 0.55;
+        sub.connect(subG); subG.connect(master);
+
+        // Transient click (short HP noise burst)
+        var clickBuf = _noiseBuf(ctx, 0.015);
+        var clickSrc = ctx.createBufferSource(); clickSrc.buffer = clickBuf;
+        var clickHP = ctx.createBiquadFilter(); clickHP.type = 'highpass';
+        clickHP.frequency.value = 1200;
+        var clickG = ctx.createGain();
+        clickG.gain.setValueAtTime(vol * 0.6, now);
+        clickG.gain.exponentialRampToValueAtTime(0.0001, now + 0.012);
+        clickSrc.connect(clickHP); clickHP.connect(clickG); clickG.connect(master);
+
+        var out = _applyPan(master, panVal, ctx);
         if (out) out.connect(_outNode());
-        osc.start(now); osc.stop(now + dur + 0.06);
+        osc.start(now); sub.start(now); clickSrc.start(now);
+        osc.stop(now + dur + 0.05); sub.stop(now + dur + 0.05);
         _seismicKick(vol, freq);
     }
 
-    // ── NOISE: White noise + resonant lowpass (snare/clap) ───────────────
+    // ── NOISE: Cinematic textured impact — layered HP+LP noise bands ──────────
     function triggerNoise(cutoff, vol, resonance, panVal) {
         var ctx = _ctx(); if (!ctx) return;
-        cutoff    = Math.max(80, parseFloat(cutoff) || 400);
-        vol       = Math.min(1.0, parseFloat(vol) || 0.6);
-        resonance = parseFloat(resonance) || 8;
-        var now = ctx.currentTime, dur = 0.35;
-        var frames = Math.ceil(ctx.sampleRate * dur);
-        var buf    = ctx.createBuffer(1, frames, ctx.sampleRate);
-        var data   = buf.getChannelData(0);
-        for (var i = 0; i < frames; i++) data[i] = Math.random() * 2 - 1;
-        var src  = ctx.createBufferSource(); src.buffer = buf;
-        var filt = ctx.createBiquadFilter();
-        filt.type = 'bandpass';
-        filt.frequency.setValueAtTime(cutoff * 2.5, now);
-        filt.frequency.exponentialRampToValueAtTime(Math.max(80, cutoff * 0.6), now + dur * 0.75);
-        filt.Q.setValueAtTime(resonance, now);
-        var gain = ctx.createGain();
-        gain.gain.setValueAtTime(vol, now);
-        gain.gain.exponentialRampToValueAtTime(0.0001, now + dur);
-        src.connect(filt); filt.connect(gain);
-        var out = _applyPan(gain, panVal, ctx);
+        cutoff    = Math.max(80, parseFloat(cutoff) || 600);
+        vol       = Math.min(1.0, parseFloat(vol) || 0.7);
+        resonance = parseFloat(resonance) || 6;
+        var now = ctx.currentTime, dur = 2.0;
+
+        var master = ctx.createGain();
+        master.gain.setValueAtTime(vol, now);
+        master.gain.setTargetAtTime(0.0001, now + 0.04, 0.28);
+
+        // Body: LP-filtered noise with resonant sweep
+        var bodyBuf = _noiseBuf(ctx, dur + 0.1);
+        var bodySrc = ctx.createBufferSource(); bodySrc.buffer = bodyBuf;
+        var bodyLP = ctx.createBiquadFilter(); bodyLP.type = 'lowpass';
+        bodyLP.frequency.setValueAtTime(cutoff * 1.8, now);
+        bodyLP.frequency.exponentialRampToValueAtTime(Math.max(60, cutoff * 0.15), now + dur * 0.7);
+        bodyLP.Q.value = resonance;
+        var bodyG = ctx.createGain(); bodyG.gain.value = 0.7;
+        bodySrc.connect(bodyLP); bodyLP.connect(bodyG); bodyG.connect(master);
+
+        // Air: HP-filtered noise (transient crack)
+        var airBuf = _noiseBuf(ctx, 0.12);
+        var airSrc = ctx.createBufferSource(); airSrc.buffer = airBuf;
+        var airHP = ctx.createBiquadFilter(); airHP.type = 'highpass';
+        airHP.frequency.value = cutoff * 3;
+        var airG = ctx.createGain();
+        airG.gain.setValueAtTime(vol * 0.5, now);
+        airG.gain.exponentialRampToValueAtTime(0.0001, now + 0.1);
+        airSrc.connect(airHP); airHP.connect(airG); airG.connect(master);
+
+        var out = _applyPan(master, panVal, ctx);
         if (out) out.connect(_outNode());
-        src.start(now); src.stop(now + dur + 0.05);
+        bodySrc.start(now); airSrc.start(now);
+        bodySrc.stop(now + dur + 0.1);
         _seismicKick(vol, cutoff);
     }
 
-    // ── SWEEP: Pitched freq sweep (tom-style) ─────────────────────────────
+    // ── SWEEP: Atmospheric deep sweep — resonant LP noise + tuned sine tail ──
     function triggerSweep(freq, vol, panVal) {
         var ctx = _ctx(); if (!ctx) return;
         freq = Math.max(20, parseFloat(freq) || 120);
         vol  = Math.min(1.0, parseFloat(vol) || 0.65);
-        var now = ctx.currentTime, dur = 0.5;
-        var osc  = ctx.createOscillator(); osc.type = 'sawtooth';
-        var gain = ctx.createGain();
-        osc.frequency.setValueAtTime(freq * 1.8, now);
-        osc.frequency.exponentialRampToValueAtTime(Math.max(18, freq * 0.3), now + dur * 0.8);
-        gain.gain.setValueAtTime(vol, now);
-        gain.gain.exponentialRampToValueAtTime(0.0001, now + dur);
-        osc.connect(gain);
-        var out = _applyPan(gain, panVal, ctx);
+        var now = ctx.currentTime, dur = 2.5;
+
+        var master = ctx.createGain();
+        master.gain.setValueAtTime(vol * 0.9, now);
+        master.gain.setTargetAtTime(0.0001, now + 0.08, 0.5);
+
+        // Swept LP noise whoosh
+        var nBuf = _noiseBuf(ctx, dur + 0.1);
+        var nSrc = ctx.createBufferSource(); nSrc.buffer = nBuf;
+        var nLP = ctx.createBiquadFilter(); nLP.type = 'lowpass';
+        nLP.frequency.setValueAtTime(freq * 12, now);
+        nLP.frequency.exponentialRampToValueAtTime(Math.max(40, freq * 0.4), now + dur * 0.6);
+        nLP.Q.value = 14; // high resonance = tonal swoosh
+        nSrc.connect(nLP); nLP.connect(master);
+
+        // Sine tail at bottom frequency
+        var sine = ctx.createOscillator(); sine.type = 'sine';
+        sine.frequency.setValueAtTime(freq * 2.0, now + dur * 0.3);
+        sine.frequency.exponentialRampToValueAtTime(Math.max(16, freq * 0.5), now + dur * 0.9);
+        var sineG = ctx.createGain();
+        sineG.gain.setValueAtTime(0, now + dur * 0.2);
+        sineG.gain.linearRampToValueAtTime(vol * 0.4, now + dur * 0.5);
+        sineG.gain.exponentialRampToValueAtTime(0.0001, now + dur);
+        sine.connect(sineG); sineG.connect(master);
+
+        var out = _applyPan(master, panVal, ctx);
         if (out) out.connect(_outNode());
-        osc.start(now); osc.stop(now + dur + 0.05);
+        nSrc.start(now); sine.start(now); nSrc.stop(now + dur + 0.1); sine.stop(now + dur + 0.1);
         _seismicKick(vol, freq);
     }
 
-    // ── METAL: Two oscillators + ring mod (industrial clang) ─────────────
+    // ── METAL: Industrial resonant — inharmonic sine partials + HP click ─────
     function triggerMetal(freq, vol, ringFreq, panVal) {
         var ctx = _ctx(); if (!ctx) return;
-        freq    = Math.max(40, parseFloat(freq) || 200);
-        vol     = Math.min(1.0, parseFloat(vol) || 0.5);
-        ringFreq= parseFloat(ringFreq) || freq * 4.2;
-        var now = ctx.currentTime, dur = 0.8;
-        var osc1 = ctx.createOscillator(); osc1.type = 'square'; osc1.frequency.value = freq;
-        var osc2 = ctx.createOscillator(); osc2.type = 'square'; osc2.frequency.value = ringFreq;
-        var gainMod = ctx.createGain(); gainMod.gain.value = 0.4;
-        var gain    = ctx.createGain();
-        gain.gain.setValueAtTime(vol, now);
-        gain.gain.exponentialRampToValueAtTime(0.0001, now + dur);
-        osc1.connect(gainMod); osc2.connect(gainMod); gainMod.connect(gain);
-        var out = _applyPan(gain, panVal, ctx);
+        freq    = Math.max(40, parseFloat(freq) || 220);
+        vol     = Math.min(1.0, parseFloat(vol) || 0.55);
+        var now = ctx.currentTime, dur = 1.8;
+
+        var master = ctx.createGain();
+        master.gain.setValueAtTime(vol, now);
+        master.gain.exponentialRampToValueAtTime(0.0001, now + dur);
+
+        // Inharmonic partials for metallic ring
+        var ratios = [1.0, 2.756, 5.404, 8.933, 13.42, 18.01];
+        ratios.forEach(function(r, idx) {
+            var o = ctx.createOscillator(); o.type = 'sine';
+            o.frequency.value = freq * r;
+            var g = ctx.createGain();
+            var amp = vol * Math.pow(0.55, idx);
+            g.gain.setValueAtTime(amp, now);
+            g.gain.exponentialRampToValueAtTime(0.0001, now + dur * (0.3 + idx * 0.12));
+            o.connect(g); g.connect(master);
+            o.start(now); o.stop(now + dur + 0.05);
+        });
+
+        // HP noise transient
+        var clkBuf = _noiseBuf(ctx, 0.025);
+        var clkSrc = ctx.createBufferSource(); clkSrc.buffer = clkBuf;
+        var clkHP = ctx.createBiquadFilter(); clkHP.type = 'highpass';
+        clkHP.frequency.value = freq * 3;
+        var clkG = ctx.createGain();
+        clkG.gain.setValueAtTime(vol * 0.45, now);
+        clkG.gain.exponentialRampToValueAtTime(0.0001, now + 0.02);
+        clkSrc.connect(clkHP); clkHP.connect(clkG); clkG.connect(master);
+
+        var out = _applyPan(master, panVal, ctx);
         if (out) out.connect(_outNode());
-        osc1.start(now); osc2.start(now);
-        osc1.stop(now + dur + 0.05); osc2.stop(now + dur + 0.05);
+        clkSrc.start(now);
         _seismicKick(vol * 0.7, freq);
     }
 
-    // ── AM: Amplitude Modulation (pulsating texture) ──────────────────────
+    // ── AM: Evolving atmospheric pad — slow AM + warm detuned sines ───────────
     function triggerAM(freq, vol, lfoRate, panVal) {
         var ctx = _ctx(); if (!ctx) return;
-        freq    = Math.max(20, parseFloat(freq) || 80);
+        freq    = Math.max(20, parseFloat(freq) || 110);
         vol     = Math.min(1.0, parseFloat(vol) || 0.5);
-        lfoRate = parseFloat(lfoRate) || 4;
-        var now = ctx.currentTime, dur = 0.9;
-        var carr = ctx.createOscillator(); carr.type = 'sine'; carr.frequency.value = freq;
-        var lfo  = ctx.createOscillator(); lfo.type  = 'sine'; lfo.frequency.value  = lfoRate;
-        var lfoG = ctx.createGain(); lfoG.gain.value = 0.5;
-        var gain = ctx.createGain();
-        gain.gain.setValueAtTime(vol, now);
-        gain.gain.exponentialRampToValueAtTime(0.0001, now + dur);
-        lfo.connect(lfoG); lfoG.connect(gain.gain);
-        carr.connect(gain);
-        var out = _applyPan(gain, panVal, ctx);
+        lfoRate = parseFloat(lfoRate) || 0.8;
+        var now = ctx.currentTime, dur = 3.5;
+
+        var master = ctx.createGain();
+        master.gain.setValueAtTime(0, now);
+        master.gain.linearRampToValueAtTime(vol, now + 0.35); // slow attack
+        master.gain.setTargetAtTime(0.0001, now + 0.6, 0.7);
+
+        // Three detuned carriers for warmth
+        [-7, 0, 7].forEach(function(detCents) {
+            var carr = ctx.createOscillator(); carr.type = 'sine';
+            carr.frequency.value = freq;
+            carr.detune.value = detCents;
+            var cg = ctx.createGain(); cg.gain.value = 0.35;
+            carr.connect(cg); cg.connect(master);
+            carr.start(now); carr.stop(now + dur + 0.1);
+        });
+
+        // AM LFO
+        var lfo = ctx.createOscillator(); lfo.type = 'sine';
+        lfo.frequency.value = lfoRate;
+        var lfoG = ctx.createGain(); lfoG.gain.value = 0.4;
+        lfo.connect(lfoG); lfoG.connect(master.gain);
+        lfo.start(now); lfo.stop(now + dur + 0.1);
+
+        // Sub sine
+        var subO = ctx.createOscillator(); subO.type = 'sine';
+        subO.frequency.value = freq * 0.5;
+        var subG = ctx.createGain(); subG.gain.value = 0.25;
+        subO.connect(subG); subG.connect(master);
+        subO.start(now); subO.stop(now + dur + 0.1);
+
+        var out = _applyPan(master, panVal, ctx);
         if (out) out.connect(_outNode());
-        carr.start(now); lfo.start(now);
-        carr.stop(now + dur + 0.05); lfo.stop(now + dur + 0.05);
         _seismicKick(vol * 0.5, freq);
     }
 
-    // ── BOOM: Sub-bass impulse (cinematic impact) ─────────────────────────
+    // ── BOOM: Seismic cinematic — multi-layer sine + noise burst + sub tail ───
     function triggerBoom(freq, vol, panVal) {
         var ctx = _ctx(); if (!ctx) return;
         freq = Math.max(15, parseFloat(freq) || 45);
-        vol  = Math.min(1.0, parseFloat(vol) || 0.85);
-        var now = ctx.currentTime, dur = 1.2;
-        var osc  = ctx.createOscillator(); osc.type = 'sine';
-        var gain = ctx.createGain();
-        osc.frequency.setValueAtTime(freq * 3.0, now);
-        osc.frequency.exponentialRampToValueAtTime(Math.max(12, freq * 0.15), now + dur * 0.7);
-        gain.gain.setValueAtTime(vol, now);
-        gain.gain.setTargetAtTime(0.0001, now + 0.1, 0.25);
-        osc.connect(gain);
-        var out = _applyPan(gain, panVal, ctx);
+        vol  = Math.min(1.0, parseFloat(vol) || 0.9);
+        var now = ctx.currentTime, dur = 3.0;
+
+        var master = ctx.createGain();
+        master.gain.setValueAtTime(vol, now);
+        master.gain.setTargetAtTime(0.0001, now + 0.06, 0.55);
+
+        // Three sub layers (root + 5th + octave)
+        [[1.0, 0.85], [1.5, 0.5], [2.0, 0.35]].forEach(function(p) {
+            var o = ctx.createOscillator(); o.type = 'sine';
+            o.frequency.setValueAtTime(freq * p[0] * 2.8, now);
+            o.frequency.exponentialRampToValueAtTime(Math.max(10, freq * p[0] * 0.18), now + dur * 0.75);
+            var g = ctx.createGain(); g.gain.value = p[1];
+            o.connect(g); g.connect(master);
+            o.start(now); o.stop(now + dur + 0.1);
+        });
+
+        // Attack noise burst
+        var nBuf = _noiseBuf(ctx, 0.08);
+        var nSrc = ctx.createBufferSource(); nSrc.buffer = nBuf;
+        var nLP = ctx.createBiquadFilter(); nLP.type = 'lowpass';
+        nLP.frequency.value = freq * 8;
+        var nG = ctx.createGain();
+        nG.gain.setValueAtTime(vol * 0.7, now);
+        nG.gain.exponentialRampToValueAtTime(0.0001, now + 0.07);
+        nSrc.connect(nLP); nLP.connect(nG); nG.connect(master);
+        nSrc.start(now);
+
+        var out = _applyPan(master, panVal, ctx);
         if (out) out.connect(_outNode());
-        osc.start(now); osc.stop(now + dur + 0.1);
-        _seismicKick(vol, freq); // always triggers seismic for boom
+        _seismicKick(vol, freq);
     }
 
-    // ── Unified trigger — padNum nibble selects mode ──────────────────────
-    // 00–01: SUB   02–03: NOISE   04–05: SWEEP
-    // 06–07: METAL 08–09: AM      0A–0F: BOOM
+    // ── Unified trigger — padNum nibble selects mode ──────────────────────────
     function trigger(padNum, freq, vol, panVal, rtg) {
         padNum = parseInt(padNum) || 0;
         var mode;
@@ -9140,7 +9275,6 @@ const InternalSynth = (() => {
         else if (padNum <= 0x07) mode = 'METAL';
         else if (padNum <= 0x09) mode = 'AM';
         else                     mode = 'BOOM';
-        // Retrigger/ratchet: fire N times spaced evenly
         var count = Math.max(1, Math.min(16, parseInt(rtg) || 1));
         var ctx   = _ctx(); if (!ctx) return;
         for (var n = 0; n < count; n++) {
@@ -9159,16 +9293,17 @@ const InternalSynth = (() => {
         }
     }
 
-    // Expose waveform shape data for canvas rendering
     function getWaveShape(mode, samples) {
         samples = samples || 64;
         var out = new Float32Array(samples);
-        if (mode === 'SUB' || mode === 'BOOM' || mode === 'SWEEP') {
+        if (mode === 'SUB' || mode === 'BOOM') {
             for (var i = 0; i < samples; i++) out[i] = Math.sin(i / samples * Math.PI * 2) * Math.exp(-i / samples * 3);
         } else if (mode === 'NOISE') {
             for (var i = 0; i < samples; i++) out[i] = (Math.random() * 2 - 1) * Math.exp(-i / samples * 4);
+        } else if (mode === 'SWEEP') {
+            for (var i = 0; i < samples; i++) out[i] = Math.sin(i / samples * Math.PI * 3) * (1 - i/samples);
         } else if (mode === 'METAL') {
-            for (var i = 0; i < samples; i++) out[i] = ((i / samples * 4) % 1 < 0.5 ? 0.5 : -0.5) * Math.exp(-i / samples * 2);
+            for (var i = 0; i < samples; i++) out[i] = Math.sin(i / samples * Math.PI * 2) * Math.sin(i / samples * Math.PI * 5.5) * Math.exp(-i / samples * 2);
         } else {
             for (var i = 0; i < samples; i++) out[i] = Math.sin(i / samples * Math.PI * 4) * 0.5;
         }
@@ -9177,6 +9312,7 @@ const InternalSynth = (() => {
 
     return { triggerSub, triggerNoise, triggerSweep, triggerMetal, triggerAM, triggerBoom, trigger, getWaveShape };
 })();
+
 
 // ═══════════════════════════════════════════════════════════════
 //  VANGUARD TRACKER v3 — Polyphonic Brutalist Sequencer
@@ -9785,145 +9921,91 @@ const Sampler = (() => {
 })();
 
 // ═══════════════════════════════════════════════════════════════
-//  KIT MANAGER — 5-Kit PCM engine with FreeSound assets
-//  Fetches sample-accurate AudioBuffers from FreeSound CDN.
-//  URL pattern: cdn.freesound.org/previews/{floor(id/1000)*1000}/{id}-lq.mp3
-//  ADSR: 0.005s linear ramp-out per sample. Normalized to -3 dB (×0.708).
-//  KitManager.setKit(n) / KitManager.playBuffer(kit, pad, schedTime, vol)
+// ═══════════════════════════════════════════════════════════════
+//  KIT MANAGER v2 — 5 Fully Synthetic Atmospheric/Cinematic Kits
+//  No CDN dependencies. Pure InternalSynth — breakcore·IDM·ambient.
+//  DARK_MATTER / CINEMATIC / BREAKCORE / IDM_ACID / ETHER_VOID
+//  Each pad: {label, synth, freq, vol, p} — p={} extra params
 // ═══════════════════════════════════════════════════════════════
 const KitManager = (() => {
+    // p = optional extra params passed to InternalSynth trigger functions
     const KITS = [
-        { name: 'INDUSTRIAL_CORE', pads: [
-            { label: 'KICK',    id: 411088 },
-            { label: 'SNARE',   id: 209861 },
-            { label: 'METAL',   id: 387346 },
-            { label: 'STEAM',   id: 418045 }
+        { name: 'DARK_MATTER', pads: [
+            { label: 'SUB KICK',   synth:'SUB',   freq:55,   vol:0.92 },
+            { label: 'HVY IMPACT', synth:'NOISE', freq:280,  vol:0.8,  p:{res:10} },
+            { label: 'METAL SCR',  synth:'METAL', freq:180,  vol:0.65 },
+            { label: 'CRUNCH',     synth:'NOISE', freq:900,  vol:0.7,  p:{res:4} }
         ]},
-        { name: 'OBSIDIAN_BOOM', pads: [
-            { label: 'SUB BOOM', id: 538148 },
-            { label: 'IMPACT',   id: 659357 },
-            { label: 'ATMOS',    id: 484344 },
-            { label: 'PLUCK',    id: 360662 }
+        { name: 'CINEMATIC', pads: [
+            { label: 'SEISMIC',    synth:'BOOM',  freq:38,   vol:0.95 },
+            { label: 'ATMOS SWP',  synth:'SWEEP', freq:90,   vol:0.75 },
+            { label: 'BIG IMPACT', synth:'NOISE', freq:180,  vol:0.85, p:{res:8} },
+            { label: 'DEEP STING', synth:'AM',    freq:65,   vol:0.6,  p:{lfo:0.4} }
         ]},
-        { name: '808_PRIME', pads: [
-            { label: '808 KICK', id: 567563 },
-            { label: '808 SNARE',id: 387087 },
-            { label: '808 HAT',  id: 251961 },
-            { label: '808 CLAP', id: 448568 }
+        { name: 'BREAKCORE', pads: [
+            { label: 'TIGHT KICK', synth:'SUB',   freq:65,   vol:0.88 },
+            { label: 'SNARE CRCK', synth:'NOISE', freq:500,  vol:0.82, p:{res:12} },
+            { label: 'GLITCH HIT', synth:'METAL', freq:440,  vol:0.6 },
+            { label: 'BLAST',      synth:'BOOM',  freq:60,   vol:0.78 }
         ]},
-        { name: 'GLITCH_LAB', pads: [
-            { label: 'CLICK',   id: 204533 },
-            { label: 'SKIP',    id: 462264 },
-            { label: 'ZAP',     id: 243601 },
-            { label: 'BURST',   id: 262616 }
+        { name: 'IDM_ACID', pads: [
+            { label: 'ACID BASS',  synth:'SWEEP', freq:55,   vol:0.8 },
+            { label: 'TB ZAPP',    synth:'METAL', freq:110,  vol:0.65 },
+            { label: 'CLATTER',    synth:'NOISE', freq:2200, vol:0.55, p:{res:6} },
+            { label: 'D-ZAP',      synth:'AM',    freq:220,  vol:0.6,  p:{lfo:7.5} }
         ]},
-        { name: 'ETHER_PAD', pads: [
-            { label: 'PAD 1',   id: 447910 },
-            { label: 'PAD 2',   id: 396564 },
-            { label: 'SWIRL',   id: 415663 },
-            { label: 'DRONE',   id: 536095 }
+        { name: 'ETHER_VOID', pads: [
+            { label: 'DEEP DRONE', synth:'AM',    freq:41,   vol:0.7,  p:{lfo:0.25} },
+            { label: 'PAD SWIRL',  synth:'SWEEP', freq:65,   vol:0.65 },
+            { label: 'TEXTURE',    synth:'NOISE', freq:120,  vol:0.55, p:{res:3} },
+            { label: 'DEEP BELL',  synth:'METAL', freq:82,   vol:0.5 }
         ]}
     ];
 
     var _activeKit = 0;
-    var _buffers   = KITS.map(function() { return [null,null,null,null]; });
-    var _loading   = KITS.map(function() { return [null,null,null,null]; });
 
-    function _url(id) {
-        return 'https://cdn.freesound.org/previews/' +
-               (Math.floor(id / 1000) * 1000) + '/' + id + '-lq.mp3';
-    }
-
-    function _loadPad(kitIdx, padIdx) {
-        if (_loading[kitIdx][padIdx]) return _loading[kitIdx][padIdx];
-        var id  = KITS[kitIdx].pads[padIdx].id;
-        var url = _url(id);
-        _loading[kitIdx][padIdx] = fetch(url)
-            .then(function(r) {
-                if (!r.ok) throw new Error('HTTP ' + r.status);
-                return r.arrayBuffer();
-            })
-            .then(function(ab) {
-                var ctx = APP.audio && APP.audio.ctx;
-                if (!ctx) throw new Error('no AudioContext');
-                return ctx.decodeAudioData(ab);
-            })
-            .then(function(buf) {
-                _buffers[kitIdx][padIdx] = buf;
-                return buf;
-            })
-            .catch(function(e) {
-                log('KIT[' + KITS[kitIdx].name + '] pad' + padIdx + ': ' + e.message);
-                return null;
-            });
-        return _loading[kitIdx][padIdx];
-    }
-
-    function preload(kitIdx) {
-        for (var p = 0; p < 4; p++) _loadPad(kitIdx, p);
-    }
-
-    // Play PCM buffer at precise audioCtx time. Falls back to InternalSynth if not loaded.
+    // Pure synthetic playback via InternalSynth
     function playBuffer(kitIdx, padIdx, schedTime, vol) {
-        var ctx = APP.audio && APP.audio.ctx;
-        if (!ctx) return;
-        var buf = _buffers[kitIdx] && _buffers[kitIdx][padIdx];
-        if (!buf) {
-            // Trigger async load; InternalSynth fallback
-            _loadPad(kitIdx, padIdx);
-            var fallbackFreqs = [60, 110, 220, 440];
-            InternalSynth.triggerSweep(fallbackFreqs[padIdx] || 110, vol || 0.8, 0x80);
-            return;
-        }
-        var targetVol = (typeof vol === 'number' ? vol : 0.8) * 0.708; // -3 dB
-        var gain = ctx.createGain();
-        gain.gain.setValueAtTime(targetVol, schedTime);
-        // 5ms linear ramp-out at end to prevent digital click
-        var endTime = schedTime + buf.duration;
-        gain.gain.setValueAtTime(targetVol, endTime - 0.005);
-        gain.gain.linearRampToValueAtTime(0, endTime + 0.002);
-        gain.connect(APP.audio.masterGain || ctx.destination);
-
-        var src = ctx.createBufferSource();
-        src.buffer = buf;
-        src.connect(gain);
-        src.start(schedTime);
-        src.stop(endTime + 0.01);
+        var kit = KITS[kitIdx]; if (!kit) return;
+        var pad = kit.pads[padIdx]; if (!pad) return;
+        var v = (typeof vol === 'number') ? vol : pad.vol;
+        var f = pad.freq;
+        var p = pad.p || {};
+        var delay = schedTime && APP.audio && APP.audio.ctx
+            ? Math.max(0, (schedTime - APP.audio.ctx.currentTime) * 1000) : 0;
+        setTimeout(function() {
+            switch (pad.synth) {
+                case 'SUB':   InternalSynth.triggerSub(f, v); break;
+                case 'NOISE': InternalSynth.triggerNoise(f, v, p.res || 6); break;
+                case 'SWEEP': InternalSynth.triggerSweep(f, v); break;
+                case 'METAL': InternalSynth.triggerMetal(f, v); break;
+                case 'AM':    InternalSynth.triggerAM(f, v, p.lfo || 0.8); break;
+                case 'BOOM':  InternalSynth.triggerBoom(f, v); break;
+            }
+        }, delay);
 
         // audioReactiveData handshake
         if (!window.audioReactiveData) window.audioReactiveData = {};
-        window.audioReactiveData.padName      = KITS[kitIdx].name + ':' + KITS[kitIdx].pads[padIdx].label;
-        window.audioReactiveData.padVol       = targetVol;
+        window.audioReactiveData.padName       = kit.name + ':' + pad.label;
+        window.audioReactiveData.padVol        = v;
         window.audioReactiveData.lastTriggerTs = performance.now();
-        // Kick/sub pads (index 0) → seismic
-        if (padIdx === 0 && APP && APP.vj) {
-            APP.vj._seismicVel = (APP.vj._seismicVel || 0) + (vol || 0.8) * 1.4;
-            APP.vj._seismicDemoUntil = performance.now() + 1800;
-            APP.vj._punchSpring = Math.min(1, (APP.vj._punchSpring || 0) + 0.7 * (vol || 0.8));
-            APP.vj._punchDemoUntil = performance.now() + 1800;
-        } else { _vjHeavySync(); }
     }
+
+    function preload(kitIdx) { /* No-op: pure synthesis, nothing to preload */ }
 
     function setKit(idx) {
         _activeKit = Math.max(0, Math.min(KITS.length - 1, idx | 0));
-        preload(_activeKit);
         log('KITMAN: active=' + KITS[_activeKit].name);
     }
 
-    function getActiveKit()           { return _activeKit; }
-    function getKitName(idx)          { return KITS[idx != null ? idx : _activeKit].name; }
-    function getPadLabel(kit, pad)    { return (KITS[kit] && KITS[kit].pads[pad]) ? KITS[kit].pads[pad].label : '---'; }
-    function getKitCount()            { return KITS.length; }
-
-    // Auto-preload kit 0 when AudioContext becomes available
-    document.addEventListener('click', function _kitInit() {
-        document.removeEventListener('click', _kitInit);
-        if (APP.audio && APP.audio.ctx) preload(0);
-        else setTimeout(function() { if (APP.audio && APP.audio.ctx) preload(0); }, 500);
-    }, { once: false });
+    function getActiveKit()        { return _activeKit; }
+    function getKitName(idx)       { return KITS[idx != null ? idx : _activeKit].name; }
+    function getPadLabel(kit, pad) { return (KITS[kit] && KITS[kit].pads[pad]) ? KITS[kit].pads[pad].label : '---'; }
+    function getKitCount()         { return KITS.length; }
 
     return { preload, playBuffer, setKit, getActiveKit, getKitName, getPadLabel, getKitCount, KITS };
 })();
+
 
 // ═══════════════════════════════════════════════════════════════
 //  NEURAL COMPILER v3 — eval()-based Live-Coding Engine
@@ -11261,114 +11343,134 @@ var VFXLayer = (function() {
 document.addEventListener('DOMContentLoaded', function() { VFXLayer.init(); });
 
 // ═══════════════════════════════════════════════════════════════
-//  SPATIAL_AUDIO v3 — Polyphonic Instrument Engine (IIFE)
+// ═══════════════════════════════════════════════════════════════
+//  SPATIAL_AUDIO v4 — Supersaw + Sub + Noise + Reverb + Loop Recorder
+//  7-osc supersaw · Sub octave · HP noise texture · Convolver reverb
 //  8-voice pool · ADSR · Multi-mode filter · Delay · Distortion
-//  MIDI note-on/CC · Hand-mapped filter + pitch · Master fade
+//  Loop recorder: REC/PLAY/CLEAR with quantized loop length
 // ═══════════════════════════════════════════════════════════════
 const SPATIAL_AUDIO = (() => {
     'use strict';
     let ctx = null, masterGain = null, compressor = null;
     let delayNode = null, delayGain = null, distortion = null;
+    let reverbNode = null, reverbGain = null;
     let _running = false;
 
-    // Synth params (read from UI)
     const P = {
         oscType: 'sawtooth', pitch: 220, detune: 0, oct: 0,
         filterType: 'lowpass', cutoff: 800, res: 2,
         atk: 0.01, dec: 0.1, sus: 0.7, rel: 0.3,
-        delayAmt: 0.2, delayTime: 0.25, dist: 0, vol: 0.8
+        delayAmt: 0.2, delayTime: 0.25, dist: 0, vol: 0.8,
+        spread: 25,       // supersaw detune spread (cents per side)
+        subLevel: 0.4,    // sub oscillator level
+        noiseLevel: 0.04, // HP noise texture level
+        reverbAmt: 0.25   // reverb send level
     };
 
-    // Voice pool
     const VOICES = [];
     const MAX_VOICES = 8;
+
+    // Loop recorder state
+    const _loopEvents = [];
+    let _loopRecording = false, _loopPlaying = false;
+    let _loopStart = 0, _loopLength = 0, _loopTimer = null;
 
     function _makeDistCurve(amt) {
         const n = 256, curve = new Float32Array(n);
         const k = amt === 0 ? 0.001 : amt;
         for (let i = 0; i < n; i++) {
             const x = (i * 2) / n - 1;
-            curve[i] = (3 + k) * x * 20 * (Math.PI / 180) /
-                       (Math.PI + k * Math.abs(x));
+            curve[i] = (3 + k) * x * 20 * (Math.PI / 180) / (Math.PI + k * Math.abs(x));
         }
         return curve;
     }
 
-    function init() {
-        if (_running) return;
-        ctx = new (window.AudioContext || window.webkitAudioContext)();
-
-        // Master bus
-        compressor = ctx.createDynamicsCompressor();
-        compressor.threshold.value = -14; compressor.ratio.value = 6;
-        compressor.knee.value = 8; compressor.attack.value = 0.003;
-        compressor.release.value = 0.15;
-
-        masterGain = ctx.createGain();
-        masterGain.gain.value = P.vol;
-        compressor.connect(masterGain);
-        masterGain.connect(ctx.destination);
-
-        // Delay
-        delayNode = ctx.createDelay(1.0);
-        delayNode.delayTime.value = P.delayTime;
-        delayGain = ctx.createGain();
-        delayGain.gain.value = P.delayAmt;
-        delayNode.connect(delayGain);
-        delayGain.connect(compressor);
-
-        // Distortion waveshaper
-        distortion = ctx.createWaveShaper();
-        distortion.curve = _makeDistCurve(P.dist);
-        distortion.oversample = '4x';
-        distortion.connect(compressor);
-
-        _running = true;
+    // Synthetic room reverb IR: exponentially decaying stereo noise
+    function _makeReverbIR(dur, decay) {
+        if (!ctx) return null;
+        var sr = ctx.sampleRate, len = Math.ceil(sr * dur);
+        var buf = ctx.createBuffer(2, len, sr);
+        for (var ch = 0; ch < 2; ch++) {
+            var d = buf.getChannelData(ch);
+            for (var i = 0; i < len; i++) {
+                d[i] = (Math.random() * 2 - 1) * Math.pow(1 - i / len, decay);
+            }
+        }
+        return buf;
     }
 
-    // One polyphonic voice
+    // 7 detuned oscillators for supersaw (spread: ±3 values around centre)
+    const DETUNE_SPREAD = [-33, -22, -11, 0, 11, 22, 33];
+
     function _spawnVoice(freq, vel) {
         if (!ctx) return null;
-        // Steal oldest voice if pool full
         if (VOICES.length >= MAX_VOICES) {
             const old = VOICES.shift();
-            try { old.osc.stop(); old.osc2.stop(); } catch(e) {}
+            try { old.oscs.forEach(o => o.stop()); } catch(e) {}
+            try { if (old.sub)    old.sub.stop();    } catch(e) {}
+            try { if (old.noiseN) old.noiseN.stop(); } catch(e) {}
         }
 
-        const osc  = ctx.createOscillator();
-        const osc2 = ctx.createOscillator();
         const filt = ctx.createBiquadFilter();
-        const env  = ctx.createGain();
-
-        osc.type  = P.oscType;
-        osc2.type = P.oscType;
-        osc.frequency.value  = freq * Math.pow(2, P.oct);
-        osc2.frequency.value = freq * Math.pow(2, P.oct);
-        osc.detune.value  =  P.detune;
-        osc2.detune.value = -P.detune + 7; // slight chorus
-
         filt.type            = P.filterType;
         filt.frequency.value = P.cutoff;
         filt.Q.value         = P.res;
 
+        const env = ctx.createGain();
         env.gain.value = 0;
 
-        osc.connect(filt); osc2.connect(filt);
-        filt.connect(env);
-        env.connect(distortion.numberOfInputs > 0 ? distortion : compressor);
-        env.connect(delayNode);
+        // Per-oscillator mix gain (7 oscs × 0.14 ≈ 1.0 peak)
+        const oscMix = ctx.createGain();
+        oscMix.gain.value = 0.14;
 
-        const now = ctx.currentTime;
-        const pk  = vel * 0.8;
-        // Attack
+        // 7-oscillator supersaw
+        const baseFreq = freq * Math.pow(2, P.oct);
+        const oscs = DETUNE_SPREAD.map(d => {
+            const o = ctx.createOscillator();
+            o.type = P.oscType;
+            o.frequency.value = baseFreq;
+            o.detune.value    = P.detune + d * (P.spread / 33);
+            o.connect(oscMix);
+            o.start(ctx.currentTime);
+            return o;
+        });
+
+        // Sub oscillator (sine, -1 octave)
+        const subG = ctx.createGain();
+        subG.gain.value = P.subLevel * vel;
+        const sub = ctx.createOscillator();
+        sub.type = 'sine';
+        sub.frequency.value = baseFreq * 0.5;
+        sub.connect(subG); subG.connect(env);
+        sub.start(ctx.currentTime);
+
+        // HP noise texture
+        const noiseFrames = Math.ceil(ctx.sampleRate * 2.0);
+        const noiseBuf = ctx.createBuffer(1, noiseFrames, ctx.sampleRate);
+        const nd = noiseBuf.getChannelData(0);
+        for (let i = 0; i < noiseFrames; i++) nd[i] = Math.random() * 2 - 1;
+        const noiseN = ctx.createBufferSource();
+        noiseN.buffer = noiseBuf; noiseN.loop = true;
+        const noiseHP = ctx.createBiquadFilter();
+        noiseHP.type = 'highpass'; noiseHP.frequency.value = 4000;
+        const noiseG = ctx.createGain();
+        noiseG.gain.value = P.noiseLevel * vel;
+        noiseN.connect(noiseHP); noiseHP.connect(noiseG); noiseG.connect(env);
+        noiseN.start(ctx.currentTime);
+
+        // Route: oscMix → filt → env → distortion/compressor + delay + reverb
+        oscMix.connect(filt); filt.connect(env);
+        env.connect(distortion);
+        env.connect(delayNode);
+        env.connect(reverbNode);
+
+        // ADSR
+        const now = ctx.currentTime, pk = vel * 0.75;
         env.gain.setValueAtTime(0, now);
         env.gain.linearRampToValueAtTime(pk, now + P.atk);
-        // Decay → sustain
         env.gain.linearRampToValueAtTime(pk * P.sus, now + P.atk + P.dec);
 
-        osc.start(now); osc2.start(now);
-
-        const v = { osc, osc2, filt, env, freq };
+        const v = { oscs, sub, noiseN, filt, env, freq };
         VOICES.push(v);
         return v;
     }
@@ -11376,7 +11478,11 @@ const SPATIAL_AUDIO = (() => {
     function noteOn(freq, vel) {
         if (!ctx) { init(); }
         if (ctx.state === 'suspended') ctx.resume();
-        return _spawnVoice(freq, vel === undefined ? 1.0 : vel);
+        const v = _spawnVoice(freq, vel === undefined ? 1.0 : vel);
+        if (_loopRecording) {
+            _loopEvents.push({ type: 'on', freq, vel: vel || 1.0, t: performance.now() - _loopStart });
+        }
+        return v;
     }
 
     function noteOff(freq) {
@@ -11387,7 +11493,15 @@ const SPATIAL_AUDIO = (() => {
         v.env.gain.cancelScheduledValues(now);
         v.env.gain.setValueAtTime(v.env.gain.value, now);
         v.env.gain.linearRampToValueAtTime(0.0001, now + P.rel);
-        setTimeout(() => { try { v.osc.stop(); v.osc2.stop(); } catch(e) {} }, P.rel * 1000 + 100);
+        const rel = P.rel;
+        setTimeout(() => {
+            try { v.oscs.forEach(o => o.stop()); } catch(e) {}
+            try { v.sub.stop();    } catch(e) {}
+            try { v.noiseN.stop(); } catch(e) {}
+        }, rel * 1000 + 100);
+        if (_loopRecording) {
+            _loopEvents.push({ type: 'off', freq, t: performance.now() - _loopStart });
+        }
     }
 
     function noteOnMidi(midiNote, vel) {
@@ -11401,28 +11515,81 @@ const SPATIAL_AUDIO = (() => {
         noteOff(freq);
     }
 
+    // ── Loop Recorder ──────────────────────────────────────────────────────────
+    function loopRecord() {
+        _loopEvents.length = 0;
+        _loopRecording = true; _loopPlaying = false;
+        if (_loopTimer) { clearTimeout(_loopTimer); _loopTimer = null; }
+        _loopStart = performance.now();
+        _flashStatus('● REC');
+        const el = document.getElementById('sm-loop-rec');
+        if (el) el.classList.add('active');
+        const pl = document.getElementById('sm-loop-play');
+        if (pl) pl.classList.remove('active');
+    }
+
+    function loopStop() {
+        _loopLength = performance.now() - _loopStart;
+        _loopRecording = false;
+        _flashStatus('■ STOP — ' + _loopEvents.length + ' events / ' + (_loopLength / 1000).toFixed(2) + 's');
+        const el = document.getElementById('sm-loop-rec');
+        if (el) el.classList.remove('active');
+    }
+
+    function loopPlay() {
+        if (_loopEvents.length === 0) return;
+        _loopPlaying = true;
+        if (!ctx) init();
+        if (ctx && ctx.state === 'suspended') ctx.resume();
+        _flashStatus('▶ LOOP ' + (_loopLength / 1000).toFixed(2) + 's');
+        const el = document.getElementById('sm-loop-play');
+        if (el) el.classList.add('active');
+        (function playEvents() {
+            if (!_loopPlaying) return;
+            _loopEvents.forEach(ev => {
+                setTimeout(() => {
+                    if (!_loopPlaying) return;
+                    if (ev.type === 'on') noteOn(ev.freq, ev.vel);
+                    else noteOff(ev.freq);
+                }, ev.t);
+            });
+            if (_loopLength > 100) _loopTimer = setTimeout(playEvents, _loopLength);
+        })();
+    }
+
+    function loopClear() {
+        _loopPlaying = false; _loopRecording = false;
+        _loopEvents.length = 0;
+        if (_loopTimer) { clearTimeout(_loopTimer); _loopTimer = null; }
+        _flashStatus('LOOP CLEARED');
+        ['sm-loop-rec','sm-loop-play'].forEach(id => {
+            const el = document.getElementById(id);
+            if (el) el.classList.remove('active');
+        });
+    }
+
     function _flashStatus(msg) {
         const el = document.getElementById('sm-status-note');
         if (el) el.textContent = msg;
     }
 
-    // CC handler — standard mappings
+    // CC handler
     function handleCC(cc, val) {
         const n = val / 127;
         switch(cc) {
-            case 1:  setParam('cutoff', 20 + n * 14980); break;  // mod wheel → cutoff
-            case 7:  setParam('vol', n); break;                  // volume
-            case 11: setParam('pitch', 20 + n * 1980); break;    // expression → pitch
-            case 74: setParam('res', 0.1 + n * 24.9); break;     // filter resonance
-            case 21: setParam('detune', (n - 0.5) * 100); break; // detune
-            case 91: setParam('delayAmt', n); break;             // reverb send
+            case 1:  setParam('cutoff', 20 + n * 14980); break;
+            case 7:  setParam('vol', n); break;
+            case 11: setParam('pitch', 20 + n * 1980); break;
+            case 74: setParam('res', 0.1 + n * 24.9); break;
+            case 21: setParam('detune', (n - 0.5) * 100); break;
+            case 91: setParam('delayAmt', n); break;
+            case 93: setParam('reverbAmt', n); break;
         }
     }
 
     function setParam(name, value) {
         P[name] = value;
         if (!ctx) return;
-        // Live-update running voices
         if (name === 'cutoff' || name === 'res' || name === 'filterType') {
             VOICES.forEach(v => {
                 if (name === 'filterType') v.filt.type = value;
@@ -11438,11 +11605,55 @@ const SPATIAL_AUDIO = (() => {
             delayNode.delayTime.setTargetAtTime(value, ctx.currentTime, 0.05);
         if (name === 'dist' && distortion)
             distortion.curve = _makeDistCurve(value);
+        if (name === 'reverbAmt' && reverbGain)
+            reverbGain.gain.setTargetAtTime(value, ctx.currentTime, 0.05);
+    }
+
+    function init() {
+        if (_running) return;
+        ctx = new (window.AudioContext || window.webkitAudioContext)();
+
+        compressor = ctx.createDynamicsCompressor();
+        compressor.threshold.value = -12; compressor.ratio.value = 5;
+        compressor.knee.value = 10; compressor.attack.value = 0.003;
+        compressor.release.value = 0.2;
+
+        masterGain = ctx.createGain();
+        masterGain.gain.value = P.vol;
+        compressor.connect(masterGain);
+        masterGain.connect(ctx.destination);
+
+        delayNode = ctx.createDelay(1.0);
+        delayNode.delayTime.value = P.delayTime;
+        delayGain = ctx.createGain();
+        delayGain.gain.value = P.delayAmt;
+        delayNode.connect(delayGain);
+        delayGain.connect(compressor);
+
+        distortion = ctx.createWaveShaper();
+        distortion.curve = _makeDistCurve(P.dist);
+        distortion.oversample = '4x';
+        distortion.connect(compressor);
+
+        // Convolver reverb with synthetic IR
+        reverbNode = ctx.createConvolver();
+        reverbNode.buffer = _makeReverbIR(3.5, 3.0);
+        reverbGain = ctx.createGain();
+        reverbGain.gain.value = P.reverbAmt;
+        reverbNode.connect(reverbGain);
+        reverbGain.connect(masterGain);
+
+        _running = true;
     }
 
     function stop() {
+        loopClear();
         if (!ctx) return;
-        VOICES.forEach(v => { try { v.osc.stop(); v.osc2.stop(); } catch(e) {} });
+        VOICES.forEach(v => {
+            try { v.oscs.forEach(o => o.stop()); } catch(e) {}
+            try { v.sub.stop();    } catch(e) {}
+            try { v.noiseN.stop(); } catch(e) {}
+        });
         VOICES.length = 0;
         const g = masterGain, c = ctx;
         ctx = null; _running = false;
@@ -11452,8 +11663,10 @@ const SPATIAL_AUDIO = (() => {
 
     function isRunning() { return _running; }
 
-    return { init, noteOn, noteOff, noteOnMidi, noteOffMidi, handleCC, setParam, stop, isRunning };
+    return { init, noteOn, noteOff, noteOnMidi, noteOffMidi, handleCC, setParam, stop, isRunning,
+             loopRecord, loopStop, loopPlay, loopClear };
 })();
+
 // ═══════════════════════════════════════════════════════════════
 //  SPATIAL_VISUALS v3 — Mercury Fractal Engine (IIFE)
 //  KIFS fractal · Right hand = camera orbit · Left hand = distortion
@@ -11714,29 +11927,145 @@ const SpatialMatrix = (() => {
     }
 
     // ── Build trigger pads C D E F G A B C ───────────────────
-    function _buildPads() {
-        var el = document.getElementById('sm-pads');
-        if (!el) return;
-        var notes = [{n:'C3',f:130.8},{n:'D3',f:146.8},{n:'E3',f:164.8},
-                     {n:'F3',f:174.6},{n:'G3',f:196},{n:'A3',f:220},
-                     {n:'B3',f:246.9},{n:'C4',f:261.6}];
-        el.innerHTML = '';
-        notes.forEach(function(nd) {
-            var btn = document.createElement('button');
-            btn.className = 'sm-pad'; btn.textContent = nd.n;
-            btn.addEventListener('mousedown', function() {
-                if (!SPATIAL_AUDIO.isRunning()) SPATIAL_AUDIO.init();
-                SPATIAL_AUDIO.noteOn(nd.f, 0.9); btn.classList.add('lit');
-                SPATIAL_VISUALS.setTriggerPulse(0.6);
-            });
-            btn.addEventListener('mouseup', function() {
-                SPATIAL_AUDIO.noteOff(nd.f); btn.classList.remove('lit');
-            });
-            btn.addEventListener('mouseleave', function() {
-                SPATIAL_AUDIO.noteOff(nd.f); btn.classList.remove('lit');
-            });
-            el.appendChild(btn);
-        });
+    // ── Build XY Synth Pad ─────────────────────────────────────
+    function _buildXYPad() {
+        var cvs = document.getElementById('sm-xy-pad');
+        if (!cvs) return;
+        var ctx2 = cvs.getContext('2d');
+        var _activeFreq = null, _playing = false;
+
+        // Scale definitions (semitone intervals)
+        var SCALES = {
+            CHROMATIC:    [0,1,2,3,4,5,6,7,8,9,10,11],
+            MINOR:        [0,2,3,5,7,8,10],
+            PENTATONIC:   [0,2,4,7,9],
+            WHOLE_TONE:   [0,2,4,6,8,10],
+            PHRYGIAN:     [0,1,3,5,7,8,10]
+        };
+        var _scale = 'MINOR';
+        var _baseNote = 36; // C2 MIDI
+        var _octaves  = 3;
+
+        function _getScale() { return SCALES[_scale] || SCALES.MINOR; }
+
+        // Build all notes in range
+        function _buildNotes() {
+            var sc = _getScale(), notes = [];
+            for (var oct = 0; oct < _octaves; oct++) {
+                sc.forEach(function(semi) {
+                    var midi = _baseNote + oct * 12 + semi;
+                    notes.push({ midi: midi, freq: 440 * Math.pow(2, (midi - 69) / 12) });
+                });
+            }
+            return notes;
+        }
+
+        function _draw(mx, my) {
+            var W = cvs.offsetWidth, H = cvs.offsetHeight;
+            cvs.width = W; cvs.height = H;
+            var notes = _buildNotes();
+            var nCount = notes.length;
+            ctx2.clearRect(0, 0, W, H);
+            // Grid lines for each note slot
+            for (var i = 0; i <= nCount; i++) {
+                var x = (i / nCount) * W;
+                ctx2.strokeStyle = 'rgba(0,243,255,0.08)';
+                ctx2.lineWidth = 1;
+                ctx2.beginPath(); ctx2.moveTo(x, 0); ctx2.lineTo(x, H); ctx2.stroke();
+            }
+            // Y-axis gradient hint
+            var gy = ctx2.createLinearGradient(0, 0, 0, H);
+            gy.addColorStop(0,   'rgba(0,243,255,0.06)');
+            gy.addColorStop(0.5, 'rgba(0,243,255,0.02)');
+            gy.addColorStop(1,   'rgba(120,0,255,0.06)');
+            ctx2.fillStyle = gy;
+            ctx2.fillRect(0, 0, W, H);
+            // Axis labels
+            ctx2.fillStyle = 'rgba(0,243,255,0.3)';
+            ctx2.font = '6px monospace';
+            ctx2.fillText('CUTOFF ↑', 3, 10);
+            ctx2.fillText('PITCH →', 3, H - 4);
+            // Cursor glow
+            if (mx !== undefined && my !== undefined) {
+                var idx = Math.floor((mx / W) * nCount);
+                idx = Math.max(0, Math.min(nCount - 1, idx));
+                var slotX = ((idx + 0.5) / nCount) * W;
+                var grad = ctx2.createRadialGradient(slotX, my, 0, slotX, my, 28);
+                grad.addColorStop(0, _playing ? 'rgba(0,243,255,0.9)' : 'rgba(0,243,255,0.5)');
+                grad.addColorStop(1, 'rgba(0,243,255,0)');
+                ctx2.fillStyle = grad;
+                ctx2.beginPath(); ctx2.arc(slotX, my, 28, 0, Math.PI * 2); ctx2.fill();
+                // Note label
+                var noteNames = ['C','C#','D','D#','E','F','F#','G','G#','A','A#','B'];
+                var n = notes[idx];
+                ctx2.fillStyle = '#00f3ff'; ctx2.font = 'bold 8px monospace';
+                ctx2.fillText(noteNames[n.midi % 12] + Math.floor(n.midi / 12 - 1), slotX - 8, my - 14);
+            }
+        }
+
+        function _freqFromXY(x, y) {
+            var W = cvs.offsetWidth, H = cvs.offsetHeight;
+            var notes = _buildNotes();
+            var idx = Math.floor((x / W) * notes.length);
+            idx = Math.max(0, Math.min(notes.length - 1, idx));
+            // Y controls filter cutoff: top=16kHz, bottom=80Hz
+            var t = 1 - (y / H);
+            var cutoff = 80 * Math.pow(200, t); // 80Hz to 16kHz exponential
+            SPATIAL_AUDIO.setParam('cutoff', cutoff);
+            var sv = document.getElementById('sm-cut-val');
+            if (sv) sv.textContent = Math.round(cutoff) + 'Hz';
+            var cs = document.getElementById('sm-cutoff');
+            if (cs) cs.value = cutoff;
+            return notes[idx].freq;
+        }
+
+        function _onStart(e) {
+            e.preventDefault();
+            if (!SPATIAL_AUDIO.isRunning()) SPATIAL_AUDIO.init();
+            var r = cvs.getBoundingClientRect();
+            var cx = (e.touches ? e.touches[0].clientX : e.clientX) - r.left;
+            var cy = (e.touches ? e.touches[0].clientY : e.clientY) - r.top;
+            _activeFreq = _freqFromXY(cx, cy);
+            _playing = true;
+            SPATIAL_AUDIO.noteOn(_activeFreq, 0.85);
+            SPATIAL_VISUALS.setTriggerPulse(0.5);
+            _draw(cx, cy);
+        }
+        function _onMove(e) {
+            e.preventDefault();
+            var r = cvs.getBoundingClientRect();
+            var cx = (e.touches ? e.touches[0].clientX : e.clientX) - r.left;
+            var cy = (e.touches ? e.touches[0].clientY : e.clientY) - r.top;
+            _draw(cx, cy);
+            if (!_playing) return;
+            var newFreq = _freqFromXY(cx, cy);
+            if (Math.abs(newFreq - (_activeFreq || 0)) > 1) {
+                if (_activeFreq !== null) SPATIAL_AUDIO.noteOff(_activeFreq);
+                _activeFreq = newFreq;
+                SPATIAL_AUDIO.noteOn(_activeFreq, 0.85);
+                SPATIAL_VISUALS.setTriggerPulse(0.25);
+            }
+        }
+        function _onEnd(e) {
+            _playing = false;
+            if (_activeFreq !== null) { SPATIAL_AUDIO.noteOff(_activeFreq); _activeFreq = null; }
+            _draw();
+        }
+
+        cvs.addEventListener('mousedown',  _onStart);
+        cvs.addEventListener('mousemove',  _onMove);
+        cvs.addEventListener('mouseup',    _onEnd);
+        cvs.addEventListener('mouseleave', _onEnd);
+        cvs.addEventListener('touchstart', _onStart, { passive: false });
+        cvs.addEventListener('touchmove',  _onMove,  { passive: false });
+        cvs.addEventListener('touchend',   _onEnd);
+
+        // Wire scale selector
+        var scSel = document.getElementById('sm-scale-sel');
+        if (scSel) scSel.addEventListener('change', function() { _scale = scSel.value; _draw(); });
+
+        _draw();
+        window._smXYDraw = _draw; // expose for resize
     }
 
     // ── Wire all UI sliders ───────────────────────────────────
@@ -11751,26 +12080,29 @@ const SpatialMatrix = (() => {
                     var vEl = document.getElementById(valId);
                     if (vEl) vEl.textContent = fmt ? fmt(v, +el.value) : v;
                 }
-                // Live update status bar for filter
                 if (param === 'cutoff') {
                     var s = document.getElementById('sm-status-filter');
                     if (s) s.textContent = 'CUTOFF: ' + Math.round(v) + 'Hz';
                 }
             });
         }
-        bind('sm-pitch',      'pitch',    null,              'sm-pitch-val',  function(v) { return Math.round(v)+'Hz'; });
-        bind('sm-detune',     'detune',   null,              'sm-det-val',    function(v) { return (v>0?'+':'')+v+'c'; });
-        bind('sm-oct',        'oct',      null,              'sm-oct-val',    function(v) { return (v>0?'+':'')+v; });
-        bind('sm-cutoff',     'cutoff',   null,              'sm-cut-val',    function(v) { return Math.round(v)+'Hz'; });
-        bind('sm-res',        'res',      null,              'sm-res-val',    function(v) { return v.toFixed(1); });
-        bind('sm-atk',        'atk',      function(v){return v/1000;}, 'sm-atk-val', function(v,r){return r+'ms';});
-        bind('sm-dec',        'dec',      function(v){return v/1000;}, 'sm-dec-val', function(v,r){return r+'ms';});
-        bind('sm-sus',        'sus',      function(v){return v/100;},  'sm-sus-val', function(v,r){return r+'%';});
-        bind('sm-rel',        'rel',      function(v){return v/1000;}, 'sm-rel-val', function(v,r){return r+'ms';});
-        bind('sm-delay-amt',  'delayAmt', function(v){return v/100;},  'sm-damt-val',function(v,r){return r+'%';});
-        bind('sm-delay-time', 'delayTime',function(v){return v/1000;}, 'sm-dtime-val',function(v,r){return r+'ms';});
-        bind('sm-dist',       'dist',     null,              'sm-dist-val',   null);
-        bind('sm-vol',        'vol',      function(v){return v/100;},  'sm-vol-val', function(v,r){return r+'%';});
+        bind('sm-pitch',      'pitch',      null,              'sm-pitch-val',  function(v) { return Math.round(v)+'Hz'; });
+        bind('sm-detune',     'detune',     null,              'sm-det-val',    function(v) { return (v>0?'+':'')+v+'c'; });
+        bind('sm-oct',        'oct',        null,              'sm-oct-val',    function(v) { return (v>0?'+':'')+v; });
+        bind('sm-cutoff',     'cutoff',     null,              'sm-cut-val',    function(v) { return Math.round(v)+'Hz'; });
+        bind('sm-res',        'res',        null,              'sm-res-val',    function(v) { return v.toFixed(1); });
+        bind('sm-atk',        'atk',        function(v){return v/1000;}, 'sm-atk-val', function(v,r){return r+'ms';});
+        bind('sm-dec',        'dec',        function(v){return v/1000;}, 'sm-dec-val', function(v,r){return r+'ms';});
+        bind('sm-sus',        'sus',        function(v){return v/100;},  'sm-sus-val', function(v,r){return r+'%';});
+        bind('sm-rel',        'rel',        function(v){return v/1000;}, 'sm-rel-val', function(v,r){return r+'ms';});
+        bind('sm-delay-amt',  'delayAmt',   function(v){return v/100;},  'sm-damt-val',function(v,r){return r+'%';});
+        bind('sm-delay-time', 'delayTime',  function(v){return v/1000;}, 'sm-dtime-val',function(v,r){return r+'ms';});
+        bind('sm-dist',       'dist',       null,              'sm-dist-val',   null);
+        bind('sm-vol',        'vol',        function(v){return v/100;},  'sm-vol-val', function(v,r){return r+'%';});
+        bind('sm-spread',     'spread',     null,              'sm-spread-val', function(v){return Math.round(v)+'c';});
+        bind('sm-sub-lvl',    'subLevel',   function(v){return v/100;},  'sm-sub-val', function(v,r){return r+'%';});
+        bind('sm-noise-lvl',  'noiseLevel', function(v){return v/1000;}, 'sm-noise-val',function(v,r){return (v*1000|0)+'‰';});
+        bind('sm-reverb',     'reverbAmt',  function(v){return v/100;},  'sm-reverb-val',function(v,r){return r+'%';});
 
         // Selects
         var oscSel = document.getElementById('sm-osc-type');
@@ -11778,6 +12110,7 @@ const SpatialMatrix = (() => {
         var fltSel = document.getElementById('sm-flt-type');
         if (fltSel) fltSel.addEventListener('change', function() { SPATIAL_AUDIO.setParam('filterType', fltSel.value); });
     }
+
 
     // ── MIDI listener ─────────────────────────────────────────
     function _initMIDI() {
@@ -11854,34 +12187,47 @@ const SpatialMatrix = (() => {
 
     function _startPoseFromStream(vid) {
         if (typeof Pose === 'undefined') return;
-        if (window._smPose) return; // already running
+        if (window._smPose) return;
         var videoEl = vid || (APP.camera && APP.camera.videoEl);
         if (!videoEl) return;
         var pose = new Pose({ locateFile: function(f) {
             return 'https://cdn.jsdelivr.net/npm/@mediapipe/pose@0.5.1675469404/' + f;
         }});
         pose.setOptions({ modelComplexity: 0, smoothLandmarks: true,
-            minDetectionConfidence: 0.5, minTrackingConfidence: 0.5 });
+            minDetectionConfidence: 0.45, minTrackingConfidence: 0.45 });
         pose.onResults(function(results) {
             if (results.poseLandmarks && window._smPoseFeed)
                 window._smPoseFeed(results.poseLandmarks);
         });
         window._smPose = pose;
-
-        if (typeof Camera !== 'undefined') {
-            var cam = new Camera(videoEl, {
-                onFrame: async function() { await pose.send({ image: videoEl }); },
-                width: 640, height: 480
-            });
-            cam.start();
-        } else {
-            (function feed() {
-                if (!window._smPose) return;
-                if (videoEl.readyState >= 2) pose.send({ image: videoEl }).catch(function(){});
-                setTimeout(feed, 80);
-            })();
-        }
+        // rAF-based frame sending — no Camera utility dependency
+        var _sending = false;
+        (function _poseRaf() {
+            if (!window._smPose) return;
+            if (!_sending && videoEl.readyState >= 2) {
+                _sending = true;
+                pose.send({ image: videoEl }).catch(function(){}).finally(function() {
+                    _sending = false;
+                });
+            }
+            requestAnimationFrame(_poseRaf);
+        })();
+        // Badge: light up on first landmark result
+        (function patchFeed() {
+            var _orig = window._smPoseFeed, _done = false;
+            window._smPoseFeed = function(lms) {
+                if (!_done) {
+                    _done = true;
+                    var hb = document.getElementById('sm-hand-badge');
+                    if (hb) hb.className = 'sm-badge on';
+                    var sh = document.getElementById('sm-status-hand');
+                    if (sh) sh.textContent = 'HAND: LIVE';
+                }
+                if (_orig) _orig(lms);
+            };
+        })();
     }
+
 
     // ── Window drag ───────────────────────────────────────────
     function _initDrag() {
@@ -11942,7 +12288,7 @@ const SpatialMatrix = (() => {
 
     // Init drag + pads once DOM ready
     document.addEventListener('DOMContentLoaded', function() {
-        _initDrag(); _buildPads(); _wireUI();
+        _initDrag(); _buildXYPad(); _wireUI();
     });
 
     return { toggle };
@@ -20011,8 +20357,30 @@ function _applyPoseToModel(lm) {
                 </div>
             </div>
             <div class="sm-section">
-                <span class="sm-sec-hd">TRIGGER PADS — CLICK / MIDI / HAND</span>
-                <div class="sm-pads" id="sm-pads"></div>
+                <span class="sm-sec-hd">XY SYNTH PAD — DRAG=PLAY+FILTER · SCALE QUANTIZED</span>
+                <div class="sm-xy-wrap">
+                    <canvas id="sm-xy-pad"></canvas>
+                </div>
+                <div class="sm-loop-row">
+                    <button id="sm-loop-rec"  class="sm-loop-btn rec-btn" onclick="SPATIAL_AUDIO.loopRecord()">● REC</button>
+                    <button id="sm-loop-stop" class="sm-loop-btn"         onclick="SPATIAL_AUDIO.loopStop()">■ STOP</button>
+                    <button id="sm-loop-play" class="sm-loop-btn"         onclick="SPATIAL_AUDIO.loopPlay()">▶ LOOP</button>
+                    <button class="sm-loop-btn"                           onclick="SPATIAL_AUDIO.loopClear()">✕ CLEAR</button>
+                    <select id="sm-scale-sel" class="sm-scale-sel">
+                        <option value="MINOR">MINOR</option>
+                        <option value="PENTATONIC">PENTA</option>
+                        <option value="CHROMATIC">CHROM</option>
+                        <option value="WHOLE_TONE">WHOLE</option>
+                        <option value="PHRYGIAN">PHRYG</option>
+                    </select>
+                </div>
+                <div class="sm-row sm-layer-row">
+                    <div class="sm-knob"><span>SPREAD</span><input type="range" id="sm-spread" min="0" max="50" value="25"><span class="sv" id="sm-spread-val">25c</span></div>
+                    <div class="sm-knob"><span>SUB</span><input type="range" id="sm-sub-lvl" min="0" max="100" value="40"><span class="sv" id="sm-sub-val">40%</span></div>
+                    <div class="sm-knob"><span>NOISE</span><input type="range" id="sm-noise-lvl" min="0" max="100" value="40"><span class="sv" id="sm-noise-val">40‰</span></div>
+                    <div class="sm-knob"><span>REVERB</span><input type="range" id="sm-reverb" min="0" max="100" value="25"><span class="sv" id="sm-reverb-val">25%</span></div>
+                </div>
+            </div>
             </div>
         </div>
     </div>
