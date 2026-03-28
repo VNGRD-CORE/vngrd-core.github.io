@@ -9,7 +9,6 @@
     <meta name="apple-mobile-web-app-capable" content="yes">
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
     <link rel="manifest" href="manifest.json">
-    <link rel="stylesheet" href="./src/sonic-suite/sonic-suite.css">
 
    <title>DRIS//CORE VNGRD</title>
 <script>if('serviceWorker' in navigator){navigator.serviceWorker.register('sw.js').catch(function(){});}</script>
@@ -4900,50 +4899,6 @@ body.fullscreen #transcription-hud { pointer-events: none !important; } /* keep 
                     <button class="btn" id="btn-3d-x" title="Hide/Clear 3D">[X]</button>
                 </div>
                 <input type="file" id="file-3d-logo" accept=".obj,.fbx,.stl,.amf,.igs,.iges" style="display:none;">
-            </div>
-        </div>
-
-        <!-- ══════════════════════════════════════════════════════
-             KINETIC_INSTRUMENTS — VNGRD Sonic Suite v2
-             Unified Canvas · Triple-Alpha Glass · 2300s Workstation
-             ══════════════════════════════════════════════════════ -->
-        <div class="section" id="ki-section">
-            <div class="sec-head collapsible">
-                <span class="sec-title">KINETIC_INSTRUMENTS</span>
-                <span class="sec-arrow">&#x25B8;</span>
-                <div class="sec-dot off" id="ki-dot"></div>
-            </div>
-            <div class="sec-body">
-                <button class="ki-btn" id="ki-btn-cyber-hangdrum"
-                    onclick="SonicSuite.setInstrument('CYBER_HANGDRUM')">
-                    [ CYBER HANGDRUM v2 ]
-                </button>
-                <button class="ki-btn" id="ki-btn-neural-glitch"
-                    onclick="SonicSuite.setInstrument('NEURAL_GLITCH')">
-                    [ NEURAL_GLITCH ]
-                </button>
-                <button class="ki-btn" id="ki-btn-tether"
-                    onclick="SonicSuite.setInstrument('TETHER')">
-                    [ TETHER ]
-                </button>
-                <!-- Tether sub-modes — visible only when TETHER is active -->
-                <div id="ki-tether-modes">
-                    <button class="ki-tether-btn active" data-mode="TETHER_CORE"
-                        onclick="window._kiTether&&window._kiTether.setMode('TETHER_CORE')">
-                        [ TETHER_CORE ]
-                    </button>
-                    <button class="ki-tether-btn" data-mode="CONSTELLATION"
-                        onclick="window._kiTether&&window._kiTether.setMode('CONSTELLATION')">
-                        [ CONSTELLATION ]
-                    </button>
-                    <button class="ki-tether-btn" data-mode="FLOW"
-                        onclick="window._kiTether&&window._kiTether.setMode('FLOW')">
-                        [ FLOW ]
-                    </button>
-                </div>
-                <div id="ki-status">OFFLINE</div>
-                <div id="ki-hand-info"></div>
-                <button id="ki-launch-btn" onclick="SonicSuite.toggle()">[ LAUNCH SUITE ]</button>
             </div>
         </div>
 
@@ -19999,44 +19954,6 @@ function _applyPoseToModel(lm) {
     });
 })();
 </script>
-
-<!-- ══ VNGRD SONIC SUITE v2 — DOM Layer ════════════════════════════ -->
-<!-- Unified canvas: sits above stage, pointer-events:none by default -->
-<canvas id="sonic-canvas"></canvas>
-
-<!-- Glass camera dock: 320×240, bottom-right, shows hand tracking feed -->
-<div id="sonic-cam-preview">
-    <video id="sonic-cam-video" autoplay muted playsinline></video>
-    <div id="sonic-cam-label">HAND_CAM</div>
-    <div id="sonic-cam-corner">SONIC SUITE v2</div>
-</div>
-
-<!-- Sonic Suite modules — loaded after all inline scripts -->
-<script src="./src/sonic-suite/CyberHangdrum.js"></script>
-<script src="./src/sonic-suite/NeuralGlitch.js"></script>
-<script src="./src/sonic-suite/Tether.js"></script>
-<script src="./src/sonic-suite/SonicSuite.js"></script>
-<script>
-/* ── Sonic Suite Bootstrap ─────────────────────────────────────── */
-(function() {
-    var hangdrum = new CyberHangdrum();
-    var glitch   = new NeuralGlitch();
-    var tether   = new Tether();
-
-    // Expose tether for sub-mode buttons
-    window._kiTether = tether;
-
-    SonicSuite.registerInstrument('CYBER_HANGDRUM', hangdrum);
-    SonicSuite.registerInstrument('NEURAL_GLITCH',  glitch);
-    SonicSuite.registerInstrument('TETHER',         tether);
-
-    // Select default instrument (no audio/tracking started yet)
-    document.addEventListener('DOMContentLoaded', function() {
-        SonicSuite.setInstrument('CYBER_HANGDRUM');
-    });
-})();
-</script>
-<!-- ══════════════════════════════════════════════════════════════ -->
 
 <!-- FULLSCREEN H-HINT -->
 <div id="fs-hint">
