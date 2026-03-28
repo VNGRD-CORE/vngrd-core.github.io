@@ -11480,6 +11480,17 @@ const Hangdrum = (() => {
     let _canvas = null, _ctx2d = null;
     let _hitTime = {}; // track hit flash per pad
 
+    // ── Velocity Vector Smoothing (3-frame rolling window) ────────
+    var _posHistory = {};  // key: `${handIdx}_${tipIdx}` → [{x,y,t}, …]
+    var VEL_FRAMES    = 3;
+    var VEL_THRESHOLD = 0.008; // min velocity (normalised units/ms) to trigger
+
+    // ── Delta-Time Audio Scheduling ───────────────────────────────
+    var SCHED_AHEAD = 0.005; // 5 ms lookahead — keeps percussion on-beat under frame drops
+
+    // ── Ripple Feedback ───────────────────────────────────────────
+    var _ripples = []; // { cx, cy, t, color } — expanding rings on strike
+
     // ── Audio init ──────────────────────────────────────────────
     function _initAudio() {
         if (_audioCtx) return;
@@ -11506,7 +11517,12 @@ const Hangdrum = (() => {
         vel = Math.min(1, Math.max(0.25, vel || 0.85));
         _initAudio();
         if (_audioCtx.state === 'suspended') _audioCtx.resume();
-        const pad = PADS[padIdx], now = _audioCtx.currentTime;
+        const pad = PADS[padIdx];
+        // Delta-time scheduling: schedule slightly ahead so percussion stays
+        // on-beat even when the visual frame rate dips.
+        const now = _audioCtx.currentTime + SCHED_AHEAD;
+        // Push a ripple that _drawHangdrum will animate across the whole grid.
+        _ripples.push({ cx: pad.cx, cy: pad.cy, t: performance.now(), color: pad.color });
         PARTIALS.forEach(function(p) {
             const osc = _audioCtx.createOscillator();
             const env = _audioCtx.createGain();
@@ -11606,9 +11622,36 @@ const Hangdrum = (() => {
             ctx.fillText(pad.label, px, py + (i===0?1:0.5));
         });
 
-        // Keep animating while any pad glowing
-        const anyHit = Object.keys(_hitTime).some(function(k) { return performance.now() - _hitTime[k] < 350; });
-        if (anyHit) requestAnimationFrame(_drawHangdrum);
+        // ── Ripple rings (GPU-feel tactile feedback) ─────────────
+        var rNow = performance.now();
+        _ripples = _ripples.filter(function(rp) { return rNow - rp.t < 650; });
+        _ripples.forEach(function(rp) {
+            var age     = (rNow - rp.t) / 650;          // 0 → 1
+            var maxR    = Math.min(W, H) * 0.52;         // reaches instrument edge
+            var radius  = age * maxR;
+            var alpha   = (1 - age) * 0.55;
+            var rgb     = rp.color === '#00f3ff' ? '0,243,255' : '0,255,136';
+            // Primary ring
+            ctx.beginPath();
+            ctx.arc(rp.cx * W, rp.cy * H, radius, 0, Math.PI * 2);
+            ctx.strokeStyle = 'rgba(' + rgb + ',' + alpha + ')';
+            ctx.lineWidth   = 2.5 * (1 - age) + 0.5;
+            ctx.stroke();
+            // Secondary ring — trails 80 ms behind
+            if (age > 0.12) {
+                var r2 = (age - 0.12) * maxR;
+                ctx.beginPath();
+                ctx.arc(rp.cx * W, rp.cy * H, r2, 0, Math.PI * 2);
+                ctx.strokeStyle = 'rgba(' + rgb + ',' + ((1 - age) * 0.25) + ')';
+                ctx.lineWidth   = 1;
+                ctx.stroke();
+            }
+        });
+
+        // Keep animating while any pad glowing or ripples in flight
+        var anyHit    = Object.keys(_hitTime).some(function(k) { return performance.now() - _hitTime[k] < 350; });
+        var anyRipple = _ripples.length > 0;
+        if (anyHit || anyRipple) requestAnimationFrame(_drawHangdrum);
     }
 
     // ── Hand Tracking (MediaPipe Hands) ─────────────────────────
@@ -11657,6 +11700,7 @@ const Hangdrum = (() => {
         if (v && v.srcObject) { v.srcObject.getTracks().forEach(function(t){t.stop();}); v.srcObject=null; }
         var s = document.getElementById('hd-hand-status'); if(s) s.textContent='HAND: OFF';
         document.getElementById('hd-hand-badge') && document.getElementById('hd-hand-badge').classList.remove('on');
+        _posHistory = {}; // clear velocity history so stale data doesn't bleed into next session
     }
 
     function _onHandResults(results, ovl) {
@@ -11670,18 +11714,45 @@ const Hangdrum = (() => {
                 drawLandmarks(oc, lm, {color:'#00f3ff',lineWidth:0.5,radius:2});
             });
         }
-        // Map fingertips to pad zones (landmarks 4=thumb,8=index,12=middle)
-        var CW = _canvas.offsetWidth || _canvas.width;
-        var CH = _canvas.offsetHeight || _canvas.height;
-        results.multiHandLandmarks.forEach(function(lm) {
+        // Map fingertips to pad zones using Velocity Vector Smoothing.
+        // Positions are accumulated over VEL_FRAMES frames; the magnitude of
+        // the resulting displacement vector filters out camera jitter and maps
+        // naturally to strike velocity — slow drifts are ignored, intentional
+        // "heavy" strikes produce full velocity.
+        var tNow = performance.now();
+        results.multiHandLandmarks.forEach(function(lm, hIdx) {
             [8, 12, 4].forEach(function(ti) {
                 var tip = lm[ti]; if (!tip) return;
-                var nx = 1 - tip.x, ny = tip.y; // mirror x
+                var nx = 1 - tip.x, ny = tip.y; // mirror x for front-facing camera
+
+                // Rolling 3-frame position history
+                var key  = hIdx + '_' + ti;
+                var hist = _posHistory[key] || [];
+                hist.push({ x: nx, y: ny, t: tNow });
+                if (hist.length > VEL_FRAMES) hist.shift();
+                _posHistory[key] = hist;
+
+                // Need at least 2 frames to measure movement
+                if (hist.length < 2) return;
+
+                var oldest = hist[0], newest = hist[hist.length - 1];
+                var dvx = newest.x - oldest.x;
+                var dvy = newest.y - oldest.y;
+                var dt  = Math.max(1, newest.t - oldest.t); // ms, avoid ÷0
+                // Velocity in normalised units per millisecond
+                var velMag = Math.sqrt(dvx * dvx + dvy * dvy) / dt;
+
+                // Below threshold → jitter, ignore
+                if (velMag < VEL_THRESHOLD) return;
+
+                // Map velocity to audible range 0.3–1.0
+                var strikeVel = Math.min(1.0, 0.30 + velMag * 55);
+
                 PADS.forEach(function(pad, idx) {
                     if (_cooldown[idx]) return;
                     var dx = nx - pad.cx, dy = ny - pad.cy;
-                    if (Math.sqrt(dx*dx + dy*dy) < pad.r * 1.05) {
-                        strike(idx, 0.65 + Math.random() * 0.35);
+                    if (Math.sqrt(dx * dx + dy * dy) < pad.r * 1.05) {
+                        strike(idx, strikeVel);
                     }
                 });
             });
