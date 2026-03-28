@@ -956,14 +956,24 @@
         body.system-slide #stage { left: 0; right: 0; }
         /* Slide glow: canvas border pulses on expand */
         body.system-slide #stage { box-shadow: inset 0 0 0 1px rgba(0,243,255,0.12), 0 0 40px rgba(0,243,255,0.04); }
-        /* Hard divider between module blocks — dark gap above + white hairline below */
+        /* ── SECTION CARDS — sampler-rim treatment applied to all panels ── */
         .section {
-            position: relative; /* anchor for .section-help-overlay */
-            border-top: 4px solid rgba(0,0,0,0.9);
-            border-bottom: 1px solid rgba(255,255,255,0.04);
+            position: relative;
+            margin: 6px 6px 0;
+            background: linear-gradient(180deg, rgba(10,10,16,0.96) 0%, rgba(6,6,10,0.96) 100%);
+            border: 1px solid rgba(255,255,255,0.07);
+            border-top: 3px solid rgba(0,243,255,0.18);
+            border-radius: 4px;
+            box-shadow: 0 4px 18px rgba(0,0,0,0.75), inset 0 1px 0 rgba(255,255,255,0.05);
+            overflow: hidden;
             transition: var(--hud-transition);
         }
-        .section:first-child { border-top: none; }
+        .section:last-child { margin-bottom: 6px; }
+        .section:first-child { margin-top: 4px; border-top: 3px solid rgba(0,243,255,0.18); }
+        /* Themed top accent uses --accent so colour themes work */
+        .sec-head {
+            border-left: 3px solid rgba(0,243,255,0.22);
+        }
 
         /* ═══════════════════════════════════════════════════
            SECTION HELP OVERLAY — integrated HUD "How to Use"
@@ -4223,9 +4233,9 @@ body.fullscreen #transcription-hud { pointer-events: none !important; } /* keep 
    ═══════════════════════════════════════════════════════════════ */
 
 /* ═══════════════════════════════════════════════════════
-   SPATIAL MATRIX — Floating Instrument HUD
+   HANGDRUM — Professional Handpan HUD
    ═══════════════════════════════════════════════════════ */
-#sm-window {
+#hd-window {
     position: fixed; top: 60px; right: 22px;
     width: 740px; min-width: 500px; min-height: 380px;
     background: rgba(2,3,8,0.94);
@@ -4238,124 +4248,101 @@ body.fullscreen #transcription-hud { pointer-events: none !important; } /* keep 
     font-family: 'JetBrains Mono', monospace;
     border-radius: 3px; overflow: hidden; resize: both; user-select: none;
 }
-#sm-window.sm-visible { display: flex; }
-.sm-titlebar {
+#hd-window.hd-visible { display: flex; }
+.hd-titlebar {
     display: flex; align-items: center; gap: 7px;
     padding: 6px 10px; background: #000;
     border-bottom: 1px solid rgba(0,243,255,0.22);
     cursor: move; flex-shrink: 0;
 }
-.sm-dot {
+.hd-dot {
     width: 9px; height: 9px; border-radius: 50%; flex-shrink: 0; cursor: pointer;
     background: #ff5f57; box-shadow: 0 0 5px rgba(255,95,87,0.6);
 }
-.sm-title {
+.hd-title {
     font-family: 'Orbitron', sans-serif; font-size: 8px; font-weight: 700;
     color: #00f3ff; letter-spacing: 2.5px; flex: 1;
     text-shadow: 0 0 8px rgba(0,243,255,0.4);
 }
-.sm-badge {
+.hd-badge {
     font-size: 6px; padding: 2px 6px; letter-spacing: 1.5px;
     border: 1px solid rgba(0,243,255,0.2); border-radius: 2px;
-    color: rgba(0,243,255,0.3); transition: all 0.3s; cursor: default;
+    color: rgba(0,243,255,0.3); transition: all 0.3s; cursor: pointer;
 }
-.sm-badge.on { color: #00ff88; border-color: rgba(0,255,136,0.5);
-    box-shadow: 0 0 5px rgba(0,255,136,0.25); }
-.sm-body { display: flex; flex: 1; overflow: hidden; min-height: 0; }
-.sm-viewport {
-    position: relative; flex-shrink: 0; width: 300px;
-    background: #000; border-right: 1px solid rgba(0,243,255,0.18);
-    display: flex; flex-direction: column;
+.hd-badge.on { color: #00ff88; border-color: rgba(0,255,136,0.5); box-shadow: 0 0 5px rgba(0,255,136,0.25); }
+/* ── Hangdrum body ── */
+.hd-body { display: flex; flex: 1; overflow: hidden; min-height: 0; }
+.hd-instrument-pane {
+    position: relative; flex-shrink: 0; width: 320px;
+    background: #000; border-right: 1px solid rgba(0,243,255,0.15);
+    display: flex; flex-direction: column; align-items: center;
 }
-.sm-viewport canvas { width: 100%; flex: 1; display: block; cursor: crosshair;
-    image-rendering: pixelated; }
-.sm-vp-hint {
-    font-size: 5.5px; color: rgba(0,243,255,0.28); letter-spacing: 1.5px;
-    text-align: center; padding: 3px 4px;
-    border-top: 1px solid rgba(0,243,255,0.08); flex-shrink: 0;
+#hd-canvas { width: 100%; flex: 1; display: block; cursor: crosshair; touch-action: none; }
+.hd-cam-wrap {
+    position: relative; width: 100%; flex-shrink: 0; height: 90px;
+    background: #000; border-top: 1px solid rgba(0,243,255,0.10);
+    overflow: hidden;
 }
-.sm-synth { flex: 1; overflow-y: auto; padding: 7px; display: flex;
-    flex-direction: column; gap: 5px; }
-.sm-section {
-    border: 1px solid rgba(0,243,255,0.13); border-radius: 2px;
-    padding: 5px 7px; background: rgba(0,243,255,0.018); flex-shrink: 0;
+#hd-cam-video  { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; opacity: 0.7; transform: scaleX(-1); }
+#hd-cam-canvas { position: absolute; inset: 0; width: 100%; height: 100%; transform: scaleX(-1); }
+#hd-hand-status {
+    position: absolute; bottom: 3px; left: 5px;
+    font-size: 5.5px; color: rgba(0,243,255,0.5); letter-spacing: 1.5px;
+    font-family: 'JetBrains Mono', monospace; pointer-events: none;
 }
-.sm-sec-hd {
-    font-family: 'Orbitron', sans-serif; font-size: 6px; font-weight: 700;
-    color: rgba(0,243,255,0.55); letter-spacing: 2.5px; display: block; margin-bottom: 5px;
-}
-.sm-row { display: flex; gap: 5px; flex-wrap: wrap; align-items: flex-end; }
-.sm-knob { display: flex; flex-direction: column; align-items: center; gap: 2px; flex: 1; min-width: 38px; }
-.sm-knob > span:first-child { font-size: 5.5px; color: rgba(0,243,255,0.45); letter-spacing: 1px; }
-.sm-knob input[type=range] {
-    width: 100%; height: 3px; -webkit-appearance: none; appearance: none;
+/* ── Controls pane ── */
+.hd-ctrl-pane { flex: 1; overflow-y: auto; padding: 8px; display: flex; flex-direction: column; gap: 6px; background: rgba(2,4,10,0.92); }
+.hd-ctrl-row { display: flex; gap: 5px; align-items: center; }
+.hd-lbl { font-size: 6px; letter-spacing: 1.5px; color: rgba(0,243,255,0.45); font-family: 'Orbitron',sans-serif; flex-shrink: 0; }
+.hd-ctrl-pane input[type=range] {
+    flex: 1; height: 3px; -webkit-appearance: none; appearance: none;
     background: rgba(0,243,255,0.15); border-radius: 2px; outline: none; cursor: pointer;
 }
-.sm-knob input[type=range]::-webkit-slider-thumb {
-    -webkit-appearance: none; width: 10px; height: 10px; border-radius: 50%;
+.hd-ctrl-pane input[type=range]::-webkit-slider-thumb {
+    -webkit-appearance: none; width: 11px; height: 11px; border-radius: 50%;
     background: #00f3ff; box-shadow: 0 0 6px rgba(0,243,255,0.9); cursor: pointer;
 }
-.sm-knob .sv { font-size: 6.5px; color: #00f3ff; min-width: 28px; text-align: center; }
-.sm-sel {
-    background: rgba(0,243,255,0.04); border: 1px solid rgba(0,243,255,0.25);
-    color: #00f3ff; font-family: 'JetBrains Mono', monospace;
-    font-size: 9px; padding: 3px 5px; outline: none; cursor: pointer;
+.hd-val { font-size: 7px; color: #00f3ff; min-width: 30px; text-align: right; font-family: 'JetBrains Mono',monospace; }
+.hd-tuning-row { display: flex; flex-wrap: wrap; gap: 4px; }
+.hd-tuning-btn {
+    flex: 1; min-width: 60px; padding: 4px 3px; text-align: center;
+    background: rgba(0,243,255,0.04); border: 1px solid rgba(0,243,255,0.2);
+    color: rgba(0,243,255,0.65); font-family: 'JetBrains Mono',monospace; font-size: 7px;
+    letter-spacing: 1px; cursor: pointer; transition: all 0.12s; border-radius: 2px;
 }
-.sm-xy-wrap { position: relative; width: 100%; margin-top: 4px; }
-#sm-xy-pad {
-    width: 100%; height: 90px; cursor: crosshair; display: block;
-    background: rgba(0,243,255,0.03); border: 1px solid rgba(0,243,255,0.25);
-    border-radius: 2px; touch-action: none;
+.hd-tuning-btn:hover, .hd-tuning-btn.active { background: rgba(0,243,255,0.14); border-color: #00f3ff; color: #fff; }
+.hd-statusbar {
+    display: flex; gap: 8px; padding: 3px 8px; flex-shrink: 0;
+    background: rgba(0,0,0,0.65); border-top: 1px solid rgba(0,243,255,0.10);
+    font-size: 6px; color: rgba(0,243,255,0.38); letter-spacing: 1px;
 }
-.sm-loop-row { display: flex; gap: 4px; margin-top: 4px; align-items: center; }
-.sm-loop-btn {
-    flex: 1; height: 22px; background: rgba(0,243,255,0.05);
-    border: 1px solid rgba(0,243,255,0.25); border-radius: 2px;
-    color: rgba(0,243,255,0.7); font-family: 'JetBrains Mono', monospace;
-    font-size: 7.5px; letter-spacing: 1px; cursor: pointer; transition: all 0.1s;
-}
-.sm-loop-btn:hover { background: rgba(0,243,255,0.12); color: #00f3ff; }
-.sm-loop-btn.active { background: rgba(0,243,255,0.2); border-color: #00f3ff; color: #fff;
-    box-shadow: 0 0 8px rgba(0,243,255,0.35); }
-.sm-loop-btn.rec-btn { border-color: rgba(255,60,60,0.5); color: rgba(255,100,100,0.8); }
-.sm-loop-btn.rec-btn.active { background: rgba(255,40,40,0.2); border-color: #ff4040; color: #ff4040;
-    box-shadow: 0 0 8px rgba(255,40,40,0.4); }
-.sm-scale-sel {
-    background: rgba(0,243,255,0.04); border: 1px solid rgba(0,243,255,0.25);
-    color: rgba(0,243,255,0.7); font-family: 'JetBrains Mono', monospace;
-    font-size: 7.5px; padding: 2px 4px; outline: none; cursor: pointer;
-}
-.sm-layer-row { display: flex; gap: 4px; margin-top: 4px; }
-.sm-statusbar {
-    display: flex; gap: 10px; padding: 3px 8px; flex-shrink: 0;
-    background: rgba(0,0,0,0.6); border-top: 1px solid rgba(0,243,255,0.12);
-    font-size: 6px; color: rgba(0,243,255,0.38); letter-spacing: 1px; overflow: hidden;
-}
-
+/* ── Pad hit flash ── */
+.hd-pad-hit { animation: hd-pad-pulse 0.3s ease-out forwards; }
+@keyframes hd-pad-pulse { 0% { opacity: 1; } 100% { opacity: 0; } }
 /* ── Launch trigger button in sampler panel ── */
 #btn-esx-launch {
     width: 100%; margin-top: 5px;
-    background: linear-gradient(180deg, rgba(163,21,21,0.25) 0%, rgba(74,5,5,0.35) 100%);
-    border: 1px solid rgba(200,30,30,0.55);
-    color: rgba(255,120,120,0.95);
+    background: linear-gradient(180deg, rgba(0,40,50,0.5) 0%, rgba(0,20,30,0.6) 100%);
+    border: 1px solid rgba(0,243,255,0.45);
+    color: rgba(0,243,255,0.90);
     font-family: 'Orbitron', sans-serif; font-size: 7.5px; font-weight: 700;
     letter-spacing: 1.8px; padding: 5px 4px; text-align: center;
     cursor: pointer; transition: all 0.12s;
-    box-shadow: 0 0 10px rgba(163,21,21,0.2);
+    box-shadow: 0 0 12px rgba(0,243,255,0.15);
 }
 #btn-esx-launch:hover {
-    background: linear-gradient(180deg, rgba(200,40,40,0.4) 0%, rgba(100,10,10,0.5) 100%);
-    border-color: rgba(255,80,80,0.8); color: #ff6060;
-    box-shadow: 0 0 18px rgba(200,30,30,0.45);
+    background: linear-gradient(180deg, rgba(0,60,80,0.65) 0%, rgba(0,30,45,0.75) 100%);
+    border-color: #00f3ff; color: #fff;
+    box-shadow: 0 0 22px rgba(0,243,255,0.35);
 }
-#btn-esx-launch.esx-open {
-    border-color: rgba(255,60,60,0.9); color: #ff4040;
-    box-shadow: 0 0 16px rgba(255,40,40,0.5);
-    animation: esx-btn-pulse 1.2s ease-in-out infinite;
+#btn-esx-launch.hd-open {
+    border-color: #00f3ff; color: #00f3ff;
+    box-shadow: 0 0 18px rgba(0,243,255,0.4);
+    animation: hd-btn-pulse 1.8s ease-in-out infinite;
 }
-@keyframes esx-btn-pulse {
-    0%,100% { box-shadow: 0 0 10px rgba(200,30,30,0.4); }
-    50%      { box-shadow: 0 0 22px rgba(255,50,50,0.75); }
+@keyframes hd-btn-pulse {
+    0%,100% { box-shadow: 0 0 12px rgba(0,243,255,0.25); }
+    50%      { box-shadow: 0 0 28px rgba(0,243,255,0.6); }
 }
 
 /* ── ESX-1 Floating Window ── */
@@ -5441,8 +5428,8 @@ body.fullscreen #transcription-hud { pointer-events: none !important; } /* keep 
 
                     <!-- VNGRD // SONIC SUITE LAUNCH -->
                     <button class="btn" id="btn-init-vngrd-tracker" onclick="VanguardTracker.toggle()" style="width:100%;margin-top:5px;font-family:'Orbitron',sans-serif;font-size:7.5px;font-weight:700;color:#00f3ff;border-color:rgba(0,243,255,0.4);letter-spacing:1.5px;padding:5px 4px;text-align:center;box-shadow:0 0 10px rgba(0,243,255,0.1);transition:all 0.1s;">[ VNGRD // SONIC SUITE ]</button>
-                    <!-- VNGRD// ESX-1 LAUNCH TRIGGER -->
-                    <button id="btn-esx-launch" onclick="SpatialMatrix.toggle()">[ ENTER SPATIAL MATRIX ]</button>
+                    <!-- HANGDRUM LAUNCH -->
+                    <button id="btn-esx-launch" onclick="Hangdrum.toggle()">[ ◈ HANGDRUM // HAND PLAY ]</button>
 
                     <!-- SAMPLER HELP OVERLAY -->
                     <div id="sampler-help-modal">
@@ -11457,955 +11444,299 @@ var VFXLayer = (function() {
 document.addEventListener('DOMContentLoaded', function() { VFXLayer.init(); });
 
 // ═══════════════════════════════════════════════════════════════
+//  HANGDRUM v1 — Professional Handpan Instrument + Hand Tracking
+//  D Celtic Minor tuning · Inharmonic metallic synthesis · MediaPipe
 // ═══════════════════════════════════════════════════════════════
-//  SPATIAL_AUDIO v4 — Supersaw + Sub + Noise + Reverb + Loop Recorder
-//  7-osc supersaw · Sub octave · HP noise texture · Convolver reverb
-//  8-voice pool · ADSR · Multi-mode filter · Delay · Distortion
-//  Loop recorder: REC/PLAY/CLEAR with quantized loop length
-// ═══════════════════════════════════════════════════════════════
-const SPATIAL_AUDIO = (() => {
-    'use strict';
-    let ctx = null, masterGain = null, compressor = null;
-    let delayNode = null, delayGain = null, distortion = null;
-    let reverbNode = null, reverbGain = null;
-    let _running = false;
+const _SPATIAL_AUDIO_REMOVED = null; // nuked — replaced by Hangdrum
+const _SPATIAL_VISUALS_REMOVED = null;
+const _SpatialMatrix_REMOVED = null;
+const Hangdrum = (() => {
+'use strict';
 
-    const P = {
-        oscType: 'sawtooth', pitch: 220, detune: 0, oct: 0,
-        filterType: 'lowpass', cutoff: 800, res: 2,
-        atk: 0.01, dec: 0.1, sus: 0.7, rel: 0.3,
-        delayAmt: 0.2, delayTime: 0.25, dist: 0, vol: 0.8,
-        spread: 25,       // supersaw detune spread (cents per side)
-        subLevel: 0.4,    // sub oscillator level
-        noiseLevel: 0.04, // HP noise texture level
-        reverbAmt: 0.25   // reverb send level
-    };
+    // D Celtic Minor tuning — standard handpan layout
+    const PADS = [
+        { note:'D3',  freq:146.83, label:'●',   cx:0.50, cy:0.50, r:0.130, color:'#00f3ff' },
+        { note:'A3',  freq:220.00, label:'A3',  cx:0.73, cy:0.50, r:0.108, color:'#00ff88' },
+        { note:'Bb3', freq:233.08, label:'Bb3', cx:0.635,cy:0.285,r:0.108, color:'#00ff88' },
+        { note:'C4',  freq:261.63, label:'C4',  cx:0.50, cy:0.215,r:0.108, color:'#00ff88' },
+        { note:'D4',  freq:293.66, label:'D4',  cx:0.365,cy:0.285,r:0.108, color:'#00ff88' },
+        { note:'E4',  freq:329.63, label:'E4',  cx:0.27, cy:0.50, r:0.108, color:'#00ff88' },
+        { note:'F4',  freq:349.23, label:'F4',  cx:0.365,cy:0.715,r:0.108, color:'#00ff88' },
+        { note:'A4',  freq:440.00, label:'A4',  cx:0.50, cy:0.785,r:0.108, color:'#00ff88' },
+        { note:'C5',  freq:523.25, label:'C5',  cx:0.635,cy:0.715,r:0.108, color:'#00ff88' },
+    ];
 
-    const VOICES = [];
-    const MAX_VOICES = 8;
+    // Inharmonic partial ratios for metal-plate sound (based on circular plate modes)
+    const PARTIALS = [
+        { m:1.000, g:0.68, d:4.2 },
+        { m:2.756, g:0.18, d:2.6 },
+        { m:5.404, g:0.08, d:1.5 },
+        { m:8.933, g:0.03, d:0.8 },
+    ];
 
-    // Loop recorder state
-    const _loopEvents = [];
-    let _loopRecording = false, _loopPlaying = false;
-    let _loopStart = 0, _loopLength = 0, _loopTimer = null;
+    let _audioCtx = null, _masterGain = null, _dryGain = null, _convolver = null, _wetGain = null;
+    let _visible = false, _handActive = false, _mpCamera = null;
+    let _cooldown = {}; // per-pad strike cooldown
+    let _canvas = null, _ctx2d = null;
+    let _hitTime = {}; // track hit flash per pad
 
-    function _makeDistCurve(amt) {
-        const n = 256, curve = new Float32Array(n);
-        const k = amt === 0 ? 0.001 : amt;
-        for (let i = 0; i < n; i++) {
-            const x = (i * 2) / n - 1;
-            curve[i] = (3 + k) * x * 20 * (Math.PI / 180) / (Math.PI + k * Math.abs(x));
+    // ── Audio init ──────────────────────────────────────────────
+    function _initAudio() {
+        if (_audioCtx) return;
+        _audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+        _masterGain = _audioCtx.createGain(); _masterGain.gain.value = 0.8;
+        _dryGain    = _audioCtx.createGain(); _dryGain.gain.value    = 0.65;
+        _wetGain    = _audioCtx.createGain(); _wetGain.gain.value    = 0.35;
+        _convolver  = _audioCtx.createConvolver();
+        // Generate plate-reverb impulse (decaying noise)
+        const sr = _audioCtx.sampleRate, len = Math.floor(sr * 3.2);
+        const buf = _audioCtx.createBuffer(2, len, sr);
+        for (let c = 0; c < 2; c++) {
+            const d = buf.getChannelData(c);
+            for (let i = 0; i < len; i++)
+                d[i] = (Math.random() * 2 - 1) * Math.pow(1 - i / len, 2.5);
         }
-        return curve;
+        _convolver.buffer = buf;
+        _dryGain.connect(_masterGain);
+        _convolver.connect(_wetGain); _wetGain.connect(_masterGain);
+        _masterGain.connect(_audioCtx.destination);
     }
 
-    // Synthetic room reverb IR: exponentially decaying stereo noise
-    function _makeReverbIR(dur, decay) {
-        if (!ctx) return null;
-        var sr = ctx.sampleRate, len = Math.ceil(sr * dur);
-        var buf = ctx.createBuffer(2, len, sr);
-        for (var ch = 0; ch < 2; ch++) {
-            var d = buf.getChannelData(ch);
-            for (var i = 0; i < len; i++) {
-                d[i] = (Math.random() * 2 - 1) * Math.pow(1 - i / len, decay);
+    function strike(padIdx, vel) {
+        vel = Math.min(1, Math.max(0.25, vel || 0.85));
+        _initAudio();
+        if (_audioCtx.state === 'suspended') _audioCtx.resume();
+        const pad = PADS[padIdx], now = _audioCtx.currentTime;
+        PARTIALS.forEach(function(p) {
+            const osc = _audioCtx.createOscillator();
+            const env = _audioCtx.createGain();
+            osc.type = 'sine';
+            osc.frequency.setValueAtTime(pad.freq * p.m, now);
+            // Natural pitch sag — metal cools and drops slightly
+            osc.frequency.exponentialRampToValueAtTime(pad.freq * p.m * 0.9975, now + 0.12);
+            const peak = p.g * vel;
+            env.gain.setValueAtTime(0.0001, now);
+            env.gain.linearRampToValueAtTime(peak, now + 0.003);
+            env.gain.exponentialRampToValueAtTime(0.0001, now + p.d);
+            osc.connect(env);
+            env.connect(_dryGain); env.connect(_convolver);
+            osc.start(now); osc.stop(now + p.d + 0.05);
+        });
+        _hitTime[padIdx] = performance.now();
+        _cooldown[padIdx] = true;
+        setTimeout(function() { _cooldown[padIdx] = false; }, 300);
+        _drawHangdrum();
+    }
+
+    // ── Canvas drawing ──────────────────────────────────────────
+    function _drawHangdrum() {
+        if (!_canvas || !_ctx2d) return;
+        const W = _canvas.width, H = _canvas.height;
+        const ctx = _ctx2d;
+        ctx.clearRect(0, 0, W, H);
+
+        // Outer shell — dark bronze/steel gradient
+        const shell = ctx.createRadialGradient(W*0.5, H*0.48, W*0.08, W*0.5, H*0.5, W*0.52);
+        shell.addColorStop(0,   'rgba(28,22,16,0.0)');
+        shell.addColorStop(0.60,'rgba(18,15,12,0.85)');
+        shell.addColorStop(0.85,'rgba(30,24,18,0.95)');
+        shell.addColorStop(1.0, 'rgba(8,6,4,1)');
+        ctx.beginPath();
+        ctx.ellipse(W*0.5, H*0.5, W*0.48, H*0.48, 0, 0, Math.PI*2);
+        ctx.fillStyle = shell; ctx.fill();
+
+        // Outer rim highlight
+        ctx.beginPath();
+        ctx.ellipse(W*0.5, H*0.5, W*0.48, H*0.48, 0, 0, Math.PI*2);
+        ctx.strokeStyle = 'rgba(120,90,60,0.4)'; ctx.lineWidth = 3; ctx.stroke();
+
+        // Tone-field groove ring
+        ctx.beginPath();
+        ctx.ellipse(W*0.5, H*0.5, W*0.385, H*0.385, 0, 0, Math.PI*2);
+        ctx.strokeStyle = 'rgba(60,50,40,0.7)'; ctx.lineWidth = 6; ctx.stroke();
+        ctx.strokeStyle = 'rgba(180,140,90,0.12)'; ctx.lineWidth = 1; ctx.stroke();
+
+        // Draw each pad
+        const now = performance.now();
+        PADS.forEach(function(pad, i) {
+            const px = pad.cx * W, py = pad.cy * H;
+            const pr = pad.r * Math.min(W, H);
+            const hitAge = _hitTime[i] ? now - _hitTime[i] : 9999;
+            const hitT   = Math.max(0, 1 - hitAge / 320);
+
+            // Pad dent (sunken metallic ellipse)
+            const padGrad = ctx.createRadialGradient(px - pr*0.25, py - pr*0.25, pr*0.05, px, py, pr);
+            if (hitT > 0) {
+                const c = i === 0 ? '0,243,255' : '0,255,136';
+                padGrad.addColorStop(0, 'rgba('+c+','+(0.55+hitT*0.45)+')');
+                padGrad.addColorStop(0.5,'rgba('+c+','+(0.15+hitT*0.3)+')');
+                padGrad.addColorStop(1,  'rgba('+c+',0.04)');
+            } else {
+                padGrad.addColorStop(0,   'rgba(55,44,33,0.9)');
+                padGrad.addColorStop(0.55,'rgba(28,22,16,0.9)');
+                padGrad.addColorStop(1,   'rgba(12,10,8,0.95)');
             }
-        }
-        return buf;
-    }
+            ctx.beginPath();
+            ctx.ellipse(px, py, pr, pr*0.88, 0, 0, Math.PI*2);
+            ctx.fillStyle = padGrad; ctx.fill();
 
-    // 7 detuned oscillators for supersaw (spread: ±3 values around centre)
-    const DETUNE_SPREAD = [-33, -22, -11, 0, 11, 22, 33];
+            // Pad rim
+            ctx.strokeStyle = hitT > 0
+                ? ('rgba(0,'+(hitT > 0.5 ? '243,255' : '255,136')+','+(0.6+hitT*0.4)+')')
+                : 'rgba(120,90,55,0.45)';
+            ctx.lineWidth = hitT > 0 ? 2 : 1;
+            ctx.stroke();
 
-    function _spawnVoice(freq, vel) {
-        if (!ctx) return null;
-        if (VOICES.length >= MAX_VOICES) {
-            const old = VOICES.shift();
-            try { old.oscs.forEach(o => o.stop()); } catch(e) {}
-            try { if (old.sub)    old.sub.stop();    } catch(e) {}
-            try { if (old.noiseN) old.noiseN.stop(); } catch(e) {}
-        }
+            // Glow ring on hit
+            if (hitT > 0) {
+                const c = i === 0 ? '0,243,255' : '0,255,136';
+                ctx.shadowColor = 'rgba('+c+','+hitT+')';
+                ctx.shadowBlur  = 18 * hitT;
+                ctx.beginPath();
+                ctx.ellipse(px, py, pr, pr*0.88, 0, 0, Math.PI*2);
+                ctx.strokeStyle = 'rgba('+c+','+(hitT*0.9)+')';
+                ctx.lineWidth = 2; ctx.stroke();
+                ctx.shadowBlur = 0; ctx.shadowColor = 'transparent';
+            }
 
-        const filt = ctx.createBiquadFilter();
-        filt.type            = P.filterType;
-        filt.frequency.value = P.cutoff;
-        filt.Q.value         = P.res;
-
-        const env = ctx.createGain();
-        env.gain.value = 0;
-
-        // Per-oscillator mix gain (7 oscs × 0.14 ≈ 1.0 peak)
-        const oscMix = ctx.createGain();
-        oscMix.gain.value = 0.14;
-
-        // 7-oscillator supersaw
-        const baseFreq = freq * Math.pow(2, P.oct);
-        const oscs = DETUNE_SPREAD.map(d => {
-            const o = ctx.createOscillator();
-            o.type = P.oscType;
-            o.frequency.value = baseFreq;
-            o.detune.value    = P.detune + d * (P.spread / 33);
-            o.connect(oscMix);
-            o.start(ctx.currentTime);
-            return o;
+            // Note label
+            ctx.fillStyle = hitT > 0 ? '#ffffff' : (i === 0 ? 'rgba(0,243,255,0.8)' : 'rgba(0,255,136,0.7)');
+            ctx.font = 'bold ' + Math.round(pr * (i===0?0.42:0.34)) + 'px Orbitron, monospace';
+            ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+            ctx.fillText(pad.label, px, py + (i===0?1:0.5));
         });
 
-        // Sub oscillator (sine, -1 octave)
-        const subG = ctx.createGain();
-        subG.gain.value = P.subLevel * vel;
-        const sub = ctx.createOscillator();
-        sub.type = 'sine';
-        sub.frequency.value = baseFreq * 0.5;
-        sub.connect(subG); subG.connect(env);
-        sub.start(ctx.currentTime);
-
-        // HP noise texture
-        const noiseFrames = Math.ceil(ctx.sampleRate * 2.0);
-        const noiseBuf = ctx.createBuffer(1, noiseFrames, ctx.sampleRate);
-        const nd = noiseBuf.getChannelData(0);
-        for (let i = 0; i < noiseFrames; i++) nd[i] = Math.random() * 2 - 1;
-        const noiseN = ctx.createBufferSource();
-        noiseN.buffer = noiseBuf; noiseN.loop = true;
-        const noiseHP = ctx.createBiquadFilter();
-        noiseHP.type = 'highpass'; noiseHP.frequency.value = 4000;
-        const noiseG = ctx.createGain();
-        noiseG.gain.value = P.noiseLevel * vel;
-        noiseN.connect(noiseHP); noiseHP.connect(noiseG); noiseG.connect(env);
-        noiseN.start(ctx.currentTime);
-
-        // Route: oscMix → filt → env → distortion/compressor + delay + reverb
-        oscMix.connect(filt); filt.connect(env);
-        env.connect(distortion);
-        env.connect(delayNode);
-        env.connect(reverbNode);
-
-        // ADSR
-        const now = ctx.currentTime, pk = vel * 0.75;
-        env.gain.setValueAtTime(0, now);
-        env.gain.linearRampToValueAtTime(pk, now + P.atk);
-        env.gain.linearRampToValueAtTime(pk * P.sus, now + P.atk + P.dec);
-
-        const v = { oscs, sub, noiseN, filt, env, freq };
-        VOICES.push(v);
-        return v;
+        // Keep animating while any pad glowing
+        const anyHit = Object.keys(_hitTime).some(function(k) { return performance.now() - _hitTime[k] < 350; });
+        if (anyHit) requestAnimationFrame(_drawHangdrum);
     }
 
-    function noteOn(freq, vel) {
-        if (!ctx) { init(); }
-        if (ctx.state === 'suspended') ctx.resume();
-        const v = _spawnVoice(freq, vel === undefined ? 1.0 : vel);
-        if (_loopRecording) {
-            _loopEvents.push({ type: 'on', freq, vel: vel || 1.0, t: performance.now() - _loopStart });
-        }
-        return v;
-    }
+    // ── Hand Tracking (MediaPipe Hands) ─────────────────────────
+    function _startHand() {
+        const video  = document.getElementById('hd-cam-video');
+        const ovl    = document.getElementById('hd-cam-canvas');
+        const status = document.getElementById('hd-hand-status');
+        if (!video) return;
+        if (status) status.textContent = 'LOADING MODEL...';
 
-    function noteOff(freq) {
-        const idx = VOICES.findIndex(v => Math.abs(v.freq - freq) < 0.5);
-        if (idx === -1) return;
-        const v = VOICES.splice(idx, 1)[0];
-        const now = ctx.currentTime;
-        v.env.gain.cancelScheduledValues(now);
-        v.env.gain.setValueAtTime(v.env.gain.value, now);
-        v.env.gain.linearRampToValueAtTime(0.0001, now + P.rel);
-        const rel = P.rel;
-        setTimeout(() => {
-            try { v.oscs.forEach(o => o.stop()); } catch(e) {}
-            try { v.sub.stop();    } catch(e) {}
-            try { v.noiseN.stop(); } catch(e) {}
-        }, rel * 1000 + 100);
-        if (_loopRecording) {
-            _loopEvents.push({ type: 'off', freq, t: performance.now() - _loopStart });
-        }
-    }
-
-    function noteOnMidi(midiNote, vel) {
-        const freq = 440 * Math.pow(2, (midiNote - 69) / 12);
-        noteOn(freq, vel / 127);
-        _flashStatus('NOTE: ' + midiNote + ' / ' + freq.toFixed(1) + 'Hz');
-    }
-
-    function noteOffMidi(midiNote) {
-        const freq = 440 * Math.pow(2, (midiNote - 69) / 12);
-        noteOff(freq);
-    }
-
-    // ── Loop Recorder ──────────────────────────────────────────────────────────
-    function loopRecord() {
-        _loopEvents.length = 0;
-        _loopRecording = true; _loopPlaying = false;
-        if (_loopTimer) { clearTimeout(_loopTimer); _loopTimer = null; }
-        _loopStart = performance.now();
-        _flashStatus('● REC');
-        const el = document.getElementById('sm-loop-rec');
-        if (el) el.classList.add('active');
-        const pl = document.getElementById('sm-loop-play');
-        if (pl) pl.classList.remove('active');
-    }
-
-    function loopStop() {
-        _loopLength = performance.now() - _loopStart;
-        _loopRecording = false;
-        _flashStatus('■ STOP — ' + _loopEvents.length + ' events / ' + (_loopLength / 1000).toFixed(2) + 's');
-        const el = document.getElementById('sm-loop-rec');
-        if (el) el.classList.remove('active');
-    }
-
-    function loopPlay() {
-        if (_loopEvents.length === 0) return;
-        _loopPlaying = true;
-        if (!ctx) init();
-        if (ctx && ctx.state === 'suspended') ctx.resume();
-        _flashStatus('▶ LOOP ' + (_loopLength / 1000).toFixed(2) + 's');
-        const el = document.getElementById('sm-loop-play');
-        if (el) el.classList.add('active');
-        (function playEvents() {
-            if (!_loopPlaying) return;
-            _loopEvents.forEach(ev => {
-                setTimeout(() => {
-                    if (!_loopPlaying) return;
-                    if (ev.type === 'on') noteOn(ev.freq, ev.vel);
-                    else noteOff(ev.freq);
-                }, ev.t);
+        function _boot() {
+            const hands = new window.Hands({ locateFile: function(f) {
+                return 'https://cdn.jsdelivr.net/npm/@mediapipe/hands/' + f;
+            }});
+            hands.setOptions({ maxNumHands:2, modelComplexity:0, minDetectionConfidence:0.62, minTrackingConfidence:0.55 });
+            hands.onResults(function(res) { _onHandResults(res, ovl); });
+            _mpCamera = new window.Camera(video, {
+                onFrame: async function() { if (hands) await hands.send({ image: video }); },
+                width: 240, height: 180
             });
-            if (_loopLength > 100) _loopTimer = setTimeout(playEvents, _loopLength);
-        })();
-    }
-
-    function loopClear() {
-        _loopPlaying = false; _loopRecording = false;
-        _loopEvents.length = 0;
-        if (_loopTimer) { clearTimeout(_loopTimer); _loopTimer = null; }
-        _flashStatus('LOOP CLEARED');
-        ['sm-loop-rec','sm-loop-play'].forEach(id => {
-            const el = document.getElementById(id);
-            if (el) el.classList.remove('active');
-        });
-    }
-
-    function _flashStatus(msg) {
-        const el = document.getElementById('sm-status-note');
-        if (el) el.textContent = msg;
-    }
-
-    // CC handler
-    function handleCC(cc, val) {
-        const n = val / 127;
-        switch(cc) {
-            case 1:  setParam('cutoff', 20 + n * 14980); break;
-            case 7:  setParam('vol', n); break;
-            case 11: setParam('pitch', 20 + n * 1980); break;
-            case 74: setParam('res', 0.1 + n * 24.9); break;
-            case 21: setParam('detune', (n - 0.5) * 100); break;
-            case 91: setParam('delayAmt', n); break;
-            case 93: setParam('reverbAmt', n); break;
-        }
-    }
-
-    function setParam(name, value) {
-        P[name] = value;
-        if (!ctx) return;
-        if (name === 'cutoff' || name === 'res' || name === 'filterType') {
-            VOICES.forEach(v => {
-                if (name === 'filterType') v.filt.type = value;
-                else if (name === 'cutoff') v.filt.frequency.setTargetAtTime(value, ctx.currentTime, 0.05);
-                else v.filt.Q.setTargetAtTime(value, ctx.currentTime, 0.05);
+            _mpCamera.start().then(function() {
+                _handActive = true;
+                if (status) status.textContent = 'HAND: ONLINE';
+                document.getElementById('hd-hand-badge') && document.getElementById('hd-hand-badge').classList.add('on');
+            }).catch(function() {
+                if (status) status.textContent = 'CAM DENIED';
             });
         }
-        if (name === 'vol' && masterGain)
-            masterGain.gain.setTargetAtTime(value, ctx.currentTime, 0.05);
-        if (name === 'delayAmt' && delayGain)
-            delayGain.gain.setTargetAtTime(value, ctx.currentTime, 0.05);
-        if (name === 'delayTime' && delayNode)
-            delayNode.delayTime.setTargetAtTime(value, ctx.currentTime, 0.05);
-        if (name === 'dist' && distortion)
-            distortion.curve = _makeDistCurve(value);
-        if (name === 'reverbAmt' && reverbGain)
-            reverbGain.gain.setTargetAtTime(value, ctx.currentTime, 0.05);
+
+        if (!window.Hands || !window.Camera) {
+            var loaded = 0;
+            ['https://cdn.jsdelivr.net/npm/@mediapipe/camera_utils/camera_utils.js',
+             'https://cdn.jsdelivr.net/npm/@mediapipe/drawing_utils/drawing_utils.js',
+             'https://cdn.jsdelivr.net/npm/@mediapipe/hands/hands.js'].forEach(function(src) {
+                var s = document.createElement('script'); s.src = src; s.crossOrigin='anonymous';
+                s.onload = function() { if (++loaded === 3) _boot(); };
+                document.head.appendChild(s);
+            });
+        } else { _boot(); }
     }
 
-    function init() {
-        if (_running) return;
-        ctx = new (window.AudioContext || window.webkitAudioContext)();
-
-        compressor = ctx.createDynamicsCompressor();
-        compressor.threshold.value = -12; compressor.ratio.value = 5;
-        compressor.knee.value = 10; compressor.attack.value = 0.003;
-        compressor.release.value = 0.2;
-
-        masterGain = ctx.createGain();
-        masterGain.gain.value = P.vol;
-        compressor.connect(masterGain);
-        masterGain.connect(ctx.destination);
-
-        delayNode = ctx.createDelay(1.0);
-        delayNode.delayTime.value = P.delayTime;
-        delayGain = ctx.createGain();
-        delayGain.gain.value = P.delayAmt;
-        delayNode.connect(delayGain);
-        delayGain.connect(compressor);
-
-        distortion = ctx.createWaveShaper();
-        distortion.curve = _makeDistCurve(P.dist);
-        distortion.oversample = '4x';
-        distortion.connect(compressor);
-
-        // Convolver reverb with synthetic IR
-        reverbNode = ctx.createConvolver();
-        reverbNode.buffer = _makeReverbIR(3.5, 3.0);
-        reverbGain = ctx.createGain();
-        reverbGain.gain.value = P.reverbAmt;
-        reverbNode.connect(reverbGain);
-        reverbGain.connect(masterGain);
-
-        _running = true;
+    function _stopHand() {
+        _handActive = false;
+        if (_mpCamera) { try { _mpCamera.stop(); } catch(e){} _mpCamera = null; }
+        var v = document.getElementById('hd-cam-video');
+        if (v && v.srcObject) { v.srcObject.getTracks().forEach(function(t){t.stop();}); v.srcObject=null; }
+        var s = document.getElementById('hd-hand-status'); if(s) s.textContent='HAND: OFF';
+        document.getElementById('hd-hand-badge') && document.getElementById('hd-hand-badge').classList.remove('on');
     }
 
-    function stop() {
-        loopClear();
-        if (!ctx) return;
-        VOICES.forEach(v => {
-            try { v.oscs.forEach(o => o.stop()); } catch(e) {}
-            try { v.sub.stop();    } catch(e) {}
-            try { v.noiseN.stop(); } catch(e) {}
-        });
-        VOICES.length = 0;
-        const g = masterGain, c = ctx;
-        ctx = null; _running = false;
-        g.gain.exponentialRampToValueAtTime(0.001, c.currentTime + 1.5);
-        setTimeout(() => { try { c.close(); } catch(e) {} }, 1600);
-    }
-
-    function isRunning() { return _running; }
-
-    return { init, noteOn, noteOff, noteOnMidi, noteOffMidi, handleCC, setParam, stop, isRunning,
-             loopRecord, loopStop, loopPlay, loopClear };
-})();
-
-// ═══════════════════════════════════════════════════════════════
-//  SPATIAL_VISUALS v3 — Mercury Fractal Engine (IIFE)
-//  KIFS fractal · Right hand = camera orbit · Left hand = distortion
-//  Smaller canvas embedded in HUD window · u_handR / u_handL uniforms
-// ═══════════════════════════════════════════════════════════════
-const SPATIAL_VISUALS = (() => {
-    'use strict';
-    let gl = null, program = null, canvas = null;
-    let uTime, uResolution, uMouse, uTriggerPulse, uHandR, uHandL;
-    let _pulse = 0.0, _animId = null, _t0 = 0, _running = false;
-
-    const VS = `attribute vec2 a_position;void main(){gl_Position=vec4(a_position,0.0,1.0);}`;
-
-    const FS = `precision highp float;
-uniform float u_time;
-uniform vec2  u_resolution;
-uniform vec2  u_handR;
-uniform vec2  u_handL;
-uniform float u_triggerPulse;
-
-mat2 rot2(float a){return mat2(cos(a),-sin(a),sin(a),cos(a));}
-
-float kifs(vec3 pos){
-    vec3 p=pos;
-    float dr=1.0;
-    for(int i=0;i<4;i++){
-        p=2.0*clamp(p,-1.0,1.0)-p;
-        float r2=dot(p,p);
-        float k=max(1.2/r2,0.4);
-        p*=k; dr*=abs(k);
-        float ang=u_time*0.05+float(i)*0.7854;
-        p.xz=rot2(ang)*p.xz;
-        p.yz=rot2(ang*0.6180)*p.yz;
-    }
-    vec3 q=abs(p)-vec3(0.8);
-    return (length(max(q,0.0))+min(max(q.x,max(q.y,q.z)),0.0))/abs(dr);
-}
-
-float scene(vec3 p){
-    float pulse=u_triggerPulse;
-    // Left hand: X distorts geometry, right hand controls camera (external)
-    float lx=u_handL.x;
-    p.x+=lx*0.3*sin(p.y*22.0+u_time*8.0);
-    p.z+=lx*0.2*cos(p.x*18.0+u_time*6.0);
-    // Pulse shatter
-    p.x+=pulse*0.2*sin(p.y*30.0+u_time*25.0);
-    p.z+=pulse*0.15*sin(p.x*25.0+u_time*20.0);
-    vec3 q=mod(p+5.0,10.0)-5.0;
-    float d=kifs(q);
-    // Mouse/right-wrist sphere carves holes
-    vec2 mn=u_handR*2.0-1.0;
-    vec3 mPos=vec3(mn.x*5.0,-mn.y*4.0,0.0);
-    float sph=length(p-mPos)-1.4;
-    float k=0.7;
-    float h=clamp(0.5-0.5*(d+sph)/k,0.0,1.0);
-    return mix(d,-sph,h)+k*h*(1.0-h);
-}
-
-float march(vec3 ro,vec3 rd){
-    float t=0.0;
-    for(int i=0;i<72;i++){
-        float d=scene(ro+rd*t);
-        if(d<0.003)return t;
-        if(t>16.0)return -1.0;
-        t+=max(d*0.5,0.01);
-    }
-    return -1.0;
-}
-
-vec3 calcNormal(vec3 p){
-    vec2 e=vec2(0.003,0.0);
-    return normalize(vec3(
-        scene(p+e.xyy)-scene(p-e.xyy),
-        scene(p+e.yxy)-scene(p-e.yxy),
-        scene(p+e.yyx)-scene(p-e.yyx)));
-}
-
-void main(){
-    vec2 uv=(gl_FragCoord.xy/u_resolution)*2.0-1.0;
-    uv.x*=u_resolution.x/u_resolution.y;
-    vec3 neon=vec3(0.0,0.95,1.0);
-
-    // RIGHT HAND directly orbits the camera — touch-designer style
-    float camH=(u_handR.x-0.5)*6.2832;   // full 360 horizontal
-    float camV=(u_handR.y-0.5)*-1.5708;  // ±90 vertical (inverted Y)
-    float camR=4.5;
-    vec3 ro=vec3(sin(camH)*cos(camV)*camR, sin(camV)*2.5, cos(camH)*cos(camV)*camR);
-    vec3 fwd=normalize(vec3(0.0)-ro);
-    vec3 right=normalize(cross(vec3(0.0,1.0,0.0),fwd));
-    vec3 up=cross(fwd,right);
-    vec3 rd=normalize(uv.x*right+uv.y*up+1.3*fwd);
-
-    float t=march(ro,rd);
-    vec3 col=vec3(0.0);
-
-    if(t>0.0){
-        vec3 p=ro+rd*t;
-        vec3 n=calcNormal(p);
-        vec3 L=normalize(vec3(1.2,2.0,-1.5));
-        float diff=max(dot(n,L),0.0)*0.25;
-        float spec=pow(max(dot(reflect(-L,n),-rd),0.0),80.0);
-        col=vec3(0.02,0.025,0.03)*(diff+0.04)+vec3(1.0)*spec;
-        // Fresnel rim: left hand Y shifts hue cyan→magenta
-        float fr=pow(1.0-abs(dot(n,-rd)),3.5);
-        float lhue=u_handL.y;
-        vec3 edgeCol=mix(neon,mix(vec3(1.0,0.0,0.5),vec3(0.5,0.0,1.0),lhue),
-                         u_triggerPulse+lhue*0.4);
-        col+=edgeCol*fr*2.8;
-        col*=exp(-t*0.055);
-    } else {
-        float gx=step(0.97,fract(uv.x*6.0+u_time*0.04));
-        float gy=step(0.97,fract(uv.y*6.0-u_time*0.03));
-        col=neon*(gx+gy)*0.03;
-        float s=step(0.998,fract(sin(dot(floor(uv*100.0),vec2(127.1,311.7)))*43758.5));
-        col+=vec3(0.7,0.9,1.0)*s*0.4;
-    }
-    col*=1.0+u_triggerPulse*abs(sin(uv.y*300.0+u_time*60.0))*0.35;
-    col*=1.0-smoothstep(0.35,1.2,length(uv*0.7));
-    col+=neon*u_triggerPulse*0.08;
-    gl_FragColor=vec4(col,1.0);
-}`;
-
-    function _sh(src, type) {
-        const s = gl.createShader(type);
-        gl.shaderSource(s, src); gl.compileShader(s);
-        if (!gl.getShaderParameter(s, gl.COMPILE_STATUS)) {
-            console.error('[SM_VIS]', gl.getShaderInfoLog(s)); return null;
-        }
-        return s;
-    }
-
-    function init(cvs) {
-        canvas = cvs || document.getElementById('spatial-matrix');
-        if (!canvas) return false;
-        // Resolution: fill the canvas element at 0.5x for perf
-        canvas.width  = Math.floor(canvas.offsetWidth  * 0.5) || 160;
-        canvas.height = Math.floor(canvas.offsetHeight * 0.5) || 120;
-
-        gl = canvas.getContext('webgl') || canvas.getContext('experimental-webgl');
-        if (!gl) return false;
-
-        const vs = _sh(VS, gl.VERTEX_SHADER), fs = _sh(FS, gl.FRAGMENT_SHADER);
-        if (!vs || !fs) return false;
-        program = gl.createProgram();
-        gl.attachShader(program, vs); gl.attachShader(program, fs);
-        gl.linkProgram(program);
-        if (!gl.getProgramParameter(program, gl.LINK_STATUS)) {
-            console.error('[SM_VIS] Link:', gl.getProgramInfoLog(program)); return false;
-        }
-        gl.useProgram(program);
-
-        const buf = gl.createBuffer();
-        gl.bindBuffer(gl.ARRAY_BUFFER, buf);
-        gl.bufferData(gl.ARRAY_BUFFER, new Float32Array([-1,-1,1,-1,-1,1,1,1]), gl.STATIC_DRAW);
-        const pl = gl.getAttribLocation(program, 'a_position');
-        gl.enableVertexAttribArray(pl);
-        gl.vertexAttribPointer(pl, 2, gl.FLOAT, false, 0, 0);
-
-        uTime         = gl.getUniformLocation(program, 'u_time');
-        uResolution   = gl.getUniformLocation(program, 'u_resolution');
-        uHandR        = gl.getUniformLocation(program, 'u_handR');
-        uHandL        = gl.getUniformLocation(program, 'u_handL');
-        uTriggerPulse = gl.getUniformLocation(program, 'u_triggerPulse');
-
-        _t0 = performance.now(); _running = true; _render();
-        return true;
-    }
-
-    function _render() {
-        if (!_running) return;
-        _animId = requestAnimationFrame(_render);
-        _pulse *= 0.88; if (_pulse < 0.001) _pulse = 0;
-        const t = (performance.now() - _t0) * 0.001;
-        gl.viewport(0, 0, canvas.width, canvas.height);
-        gl.useProgram(program);
-        gl.uniform1f(uTime, t);
-        gl.uniform2f(uResolution, canvas.width, canvas.height);
-        gl.uniform2f(uHandR, window._smRX || 0.5, window._smRY || 0.5);
-        gl.uniform2f(uHandL, window._smLX || 0.5, window._smLY || 0.5);
-        gl.uniform1f(uTriggerPulse, _pulse);
-        gl.drawArrays(gl.TRIANGLE_STRIP, 0, 4);
-    }
-
-    function setTriggerPulse(v) { _pulse = Math.max(_pulse, v); }
-    function stop() { _running = false; if (_animId) { cancelAnimationFrame(_animId); _animId = null; } }
-    function isRunning() { return _running; }
-    return { init, stop, setTriggerPulse, isRunning };
-})();
-
-
-// ═══════════════════════════════════════════════════════════════
-//  SPATIAL MATRIX v3 — Floating Instrument HUD Controller (IIFE)
-//  Window drag · Auto-camera + pose · MIDI listener · UI wiring
-//  Right wrist → camera orbit · Left wrist → distortion + lead
-// ═══════════════════════════════════════════════════════════════
-window._smRX = 0.5; window._smRY = 0.5;  // right wrist (lerped)
-window._smLX = 0.5; window._smLY = 0.5;  // left wrist (lerped)
-
-const SpatialMatrix = (() => {
-    'use strict';
-    let _open = false, _lerpId = null;
-    let _trRX = 0.5, _trRY = 0.5, _trLX = 0.5, _trLY = 0.5;
-    let _midiAccess = null;
-    let _activeNotes = {};   // midiNote → true (for note-off tracking)
-
-    // ── Note frequency table (MIDI 0-127) ─────────────────────
-    function _midiFreq(n) { return 440 * Math.pow(2, (n - 69) / 12); }
-
-    // ── Lerp loop ─────────────────────────────────────────────
-    function _lerpLoop() {
-        window._smRX += (_trRX - window._smRX) * 0.08;
-        window._smRY += (_trRY - window._smRY) * 0.08;
-        window._smLX += (_trLX - window._smLX) * 0.08;
-        window._smLY += (_trLY - window._smLY) * 0.08;
-        _lerpId = requestAnimationFrame(_lerpLoop);
-    }
-
-    // ── MediaPipe: right wrist=16, left wrist=15 ──────────────
-    window._smPoseFeed = function(lm) {
-        if (!_open || !lm) return;
-        var r = lm[16], l = lm[15];
-        if (r && r.visibility > 0.4) { _trRX = r.x; _trRY = r.y;
-            document.getElementById('sm-hand-badge') &&
-                (document.getElementById('sm-hand-badge').className = 'sm-badge on');
-            document.getElementById('sm-status-hand') &&
-                (document.getElementById('sm-status-hand').textContent =
-                    'HAND: R(' + r.x.toFixed(2) + ',' + r.y.toFixed(2) + ')'); }
-        if (l && l.visibility > 0.4) { _trLX = l.x; _trLY = l.y;
-            // Left hand Y → filter cutoff via synth
-            if (SPATIAL_AUDIO.isRunning())
-                SPATIAL_AUDIO.setParam('cutoff', 80 + (1 - l.y) * 12000); }
-    };
-
-    // ── Canvas click → play note at pitch mapped to X ─────────
-    function _wireCanvasClick() {
-        var cvs = document.getElementById('spatial-matrix');
-        if (!cvs) return;
-        cvs.style.pointerEvents = 'all';
-        cvs.addEventListener('mousedown', function(e) {
-            if (!SPATIAL_AUDIO.isRunning()) SPATIAL_AUDIO.init();
-            var x = e.offsetX / cvs.offsetWidth;
-            var y = e.offsetY / cvs.offsetHeight;
-            // X → pitch C2–C7 range (65–2093 Hz), Y → filter sweep
-            var freq = 65.4 * Math.pow(32, x);
-            SPATIAL_AUDIO.noteOn(freq, 0.8);
-            SPATIAL_VISUALS.setTriggerPulse(0.7);
-            SPATIAL_AUDIO.setParam('cutoff', 200 + (1 - y) * 8000);
-            cvs._smPlayFreq = freq;
-        });
-        cvs.addEventListener('mouseup', function() {
-            if (cvs._smPlayFreq) { SPATIAL_AUDIO.noteOff(cvs._smPlayFreq); cvs._smPlayFreq = null; }
-        });
-        cvs.addEventListener('mousemove', function(e) {
-            if (!cvs._smPlayFreq) return;
-            _trRX = e.offsetX / cvs.offsetWidth;
-            _trRY = e.offsetY / cvs.offsetHeight;
-        });
-    }
-
-    // ── Build trigger pads C D E F G A B C ───────────────────
-    // ── Build XY Synth Pad ─────────────────────────────────────
-    function _buildXYPad() {
-        var cvs = document.getElementById('sm-xy-pad');
-        if (!cvs) return;
-        var ctx2 = cvs.getContext('2d');
-        var _activeFreq = null, _playing = false;
-
-        // Scale definitions (semitone intervals)
-        var SCALES = {
-            CHROMATIC:    [0,1,2,3,4,5,6,7,8,9,10,11],
-            MINOR:        [0,2,3,5,7,8,10],
-            PENTATONIC:   [0,2,4,7,9],
-            WHOLE_TONE:   [0,2,4,6,8,10],
-            PHRYGIAN:     [0,1,3,5,7,8,10]
-        };
-        var _scale = 'MINOR';
-        var _baseNote = 36; // C2 MIDI
-        var _octaves  = 3;
-
-        function _getScale() { return SCALES[_scale] || SCALES.MINOR; }
-
-        // Build all notes in range
-        function _buildNotes() {
-            var sc = _getScale(), notes = [];
-            for (var oct = 0; oct < _octaves; oct++) {
-                sc.forEach(function(semi) {
-                    var midi = _baseNote + oct * 12 + semi;
-                    notes.push({ midi: midi, freq: 440 * Math.pow(2, (midi - 69) / 12) });
-                });
-            }
-            return notes;
-        }
-
-        function _draw(mx, my) {
-            var W = cvs.offsetWidth, H = cvs.offsetHeight;
-            cvs.width = W; cvs.height = H;
-            var notes = _buildNotes();
-            var nCount = notes.length;
-            ctx2.clearRect(0, 0, W, H);
-            // Grid lines for each note slot
-            for (var i = 0; i <= nCount; i++) {
-                var x = (i / nCount) * W;
-                ctx2.strokeStyle = 'rgba(0,243,255,0.08)';
-                ctx2.lineWidth = 1;
-                ctx2.beginPath(); ctx2.moveTo(x, 0); ctx2.lineTo(x, H); ctx2.stroke();
-            }
-            // Y-axis gradient hint
-            var gy = ctx2.createLinearGradient(0, 0, 0, H);
-            gy.addColorStop(0,   'rgba(0,243,255,0.06)');
-            gy.addColorStop(0.5, 'rgba(0,243,255,0.02)');
-            gy.addColorStop(1,   'rgba(120,0,255,0.06)');
-            ctx2.fillStyle = gy;
-            ctx2.fillRect(0, 0, W, H);
-            // Axis labels
-            ctx2.fillStyle = 'rgba(0,243,255,0.3)';
-            ctx2.font = '6px monospace';
-            ctx2.fillText('CUTOFF ↑', 3, 10);
-            ctx2.fillText('PITCH →', 3, H - 4);
-            // Cursor glow
-            if (mx !== undefined && my !== undefined) {
-                var idx = Math.floor((mx / W) * nCount);
-                idx = Math.max(0, Math.min(nCount - 1, idx));
-                var slotX = ((idx + 0.5) / nCount) * W;
-                var grad = ctx2.createRadialGradient(slotX, my, 0, slotX, my, 28);
-                grad.addColorStop(0, _playing ? 'rgba(0,243,255,0.9)' : 'rgba(0,243,255,0.5)');
-                grad.addColorStop(1, 'rgba(0,243,255,0)');
-                ctx2.fillStyle = grad;
-                ctx2.beginPath(); ctx2.arc(slotX, my, 28, 0, Math.PI * 2); ctx2.fill();
-                // Note label
-                var noteNames = ['C','C#','D','D#','E','F','F#','G','G#','A','A#','B'];
-                var n = notes[idx];
-                ctx2.fillStyle = '#00f3ff'; ctx2.font = 'bold 8px monospace';
-                ctx2.fillText(noteNames[n.midi % 12] + Math.floor(n.midi / 12 - 1), slotX - 8, my - 14);
-            }
-        }
-
-        function _freqFromXY(x, y) {
-            var W = cvs.offsetWidth, H = cvs.offsetHeight;
-            var notes = _buildNotes();
-            var idx = Math.floor((x / W) * notes.length);
-            idx = Math.max(0, Math.min(notes.length - 1, idx));
-            // Y controls filter cutoff: top=16kHz, bottom=80Hz
-            var t = 1 - (y / H);
-            var cutoff = 80 * Math.pow(200, t); // 80Hz to 16kHz exponential
-            SPATIAL_AUDIO.setParam('cutoff', cutoff);
-            var sv = document.getElementById('sm-cut-val');
-            if (sv) sv.textContent = Math.round(cutoff) + 'Hz';
-            var cs = document.getElementById('sm-cutoff');
-            if (cs) cs.value = cutoff;
-            return notes[idx].freq;
-        }
-
-        function _onStart(e) {
-            e.preventDefault();
-            if (!SPATIAL_AUDIO.isRunning()) SPATIAL_AUDIO.init();
-            var r = cvs.getBoundingClientRect();
-            var cx = (e.touches ? e.touches[0].clientX : e.clientX) - r.left;
-            var cy = (e.touches ? e.touches[0].clientY : e.clientY) - r.top;
-            _activeFreq = _freqFromXY(cx, cy);
-            _playing = true;
-            SPATIAL_AUDIO.noteOn(_activeFreq, 0.85);
-            SPATIAL_VISUALS.setTriggerPulse(0.5);
-            _draw(cx, cy);
-        }
-        function _onMove(e) {
-            e.preventDefault();
-            var r = cvs.getBoundingClientRect();
-            var cx = (e.touches ? e.touches[0].clientX : e.clientX) - r.left;
-            var cy = (e.touches ? e.touches[0].clientY : e.clientY) - r.top;
-            _draw(cx, cy);
-            if (!_playing) return;
-            var newFreq = _freqFromXY(cx, cy);
-            if (Math.abs(newFreq - (_activeFreq || 0)) > 1) {
-                if (_activeFreq !== null) SPATIAL_AUDIO.noteOff(_activeFreq);
-                _activeFreq = newFreq;
-                SPATIAL_AUDIO.noteOn(_activeFreq, 0.85);
-                SPATIAL_VISUALS.setTriggerPulse(0.25);
-            }
-        }
-        function _onEnd(e) {
-            _playing = false;
-            if (_activeFreq !== null) { SPATIAL_AUDIO.noteOff(_activeFreq); _activeFreq = null; }
-            _draw();
-        }
-
-        cvs.addEventListener('mousedown',  _onStart);
-        cvs.addEventListener('mousemove',  _onMove);
-        cvs.addEventListener('mouseup',    _onEnd);
-        cvs.addEventListener('mouseleave', _onEnd);
-        cvs.addEventListener('touchstart', _onStart, { passive: false });
-        cvs.addEventListener('touchmove',  _onMove,  { passive: false });
-        cvs.addEventListener('touchend',   _onEnd);
-
-        // Wire scale selector
-        var scSel = document.getElementById('sm-scale-sel');
-        if (scSel) scSel.addEventListener('change', function() { _scale = scSel.value; _draw(); });
-
-        _draw();
-        window._smXYDraw = _draw; // expose for resize
-    }
-
-    // ── Wire all UI sliders ───────────────────────────────────
-    function _wireUI() {
-        function bind(id, param, transform, valId, fmt) {
-            var el = document.getElementById(id);
-            if (!el) return;
-            el.addEventListener('input', function() {
-                var v = transform ? transform(+el.value) : +el.value;
-                SPATIAL_AUDIO.setParam(param, v);
-                if (valId) {
-                    var vEl = document.getElementById(valId);
-                    if (vEl) vEl.textContent = fmt ? fmt(v, +el.value) : v;
-                }
-                if (param === 'cutoff') {
-                    var s = document.getElementById('sm-status-filter');
-                    if (s) s.textContent = 'CUTOFF: ' + Math.round(v) + 'Hz';
-                }
+    function _onHandResults(results, ovl) {
+        if (!ovl) return;
+        var oc = ovl.getContext('2d');
+        oc.clearRect(0, 0, ovl.width, ovl.height);
+        if (!results.multiHandLandmarks || !_canvas) return;
+        if (window.drawConnectors && window.HAND_CONNECTIONS) {
+            results.multiHandLandmarks.forEach(function(lm) {
+                drawConnectors(oc, lm, HAND_CONNECTIONS, {color:'rgba(0,243,255,0.3)',lineWidth:1});
+                drawLandmarks(oc, lm, {color:'#00f3ff',lineWidth:0.5,radius:2});
             });
         }
-        bind('sm-pitch',      'pitch',      null,              'sm-pitch-val',  function(v) { return Math.round(v)+'Hz'; });
-        bind('sm-detune',     'detune',     null,              'sm-det-val',    function(v) { return (v>0?'+':'')+v+'c'; });
-        bind('sm-oct',        'oct',        null,              'sm-oct-val',    function(v) { return (v>0?'+':'')+v; });
-        bind('sm-cutoff',     'cutoff',     null,              'sm-cut-val',    function(v) { return Math.round(v)+'Hz'; });
-        bind('sm-res',        'res',        null,              'sm-res-val',    function(v) { return v.toFixed(1); });
-        bind('sm-atk',        'atk',        function(v){return v/1000;}, 'sm-atk-val', function(v,r){return r+'ms';});
-        bind('sm-dec',        'dec',        function(v){return v/1000;}, 'sm-dec-val', function(v,r){return r+'ms';});
-        bind('sm-sus',        'sus',        function(v){return v/100;},  'sm-sus-val', function(v,r){return r+'%';});
-        bind('sm-rel',        'rel',        function(v){return v/1000;}, 'sm-rel-val', function(v,r){return r+'ms';});
-        bind('sm-delay-amt',  'delayAmt',   function(v){return v/100;},  'sm-damt-val',function(v,r){return r+'%';});
-        bind('sm-delay-time', 'delayTime',  function(v){return v/1000;}, 'sm-dtime-val',function(v,r){return r+'ms';});
-        bind('sm-dist',       'dist',       null,              'sm-dist-val',   null);
-        bind('sm-vol',        'vol',        function(v){return v/100;},  'sm-vol-val', function(v,r){return r+'%';});
-        bind('sm-spread',     'spread',     null,              'sm-spread-val', function(v){return Math.round(v)+'c';});
-        bind('sm-sub-lvl',    'subLevel',   function(v){return v/100;},  'sm-sub-val', function(v,r){return r+'%';});
-        bind('sm-noise-lvl',  'noiseLevel', function(v){return v/1000;}, 'sm-noise-val',function(v,r){return (v*1000|0)+'‰';});
-        bind('sm-reverb',     'reverbAmt',  function(v){return v/100;},  'sm-reverb-val',function(v,r){return r+'%';});
-
-        // Selects
-        var oscSel = document.getElementById('sm-osc-type');
-        if (oscSel) oscSel.addEventListener('change', function() { SPATIAL_AUDIO.setParam('oscType', oscSel.value); });
-        var fltSel = document.getElementById('sm-flt-type');
-        if (fltSel) fltSel.addEventListener('change', function() { SPATIAL_AUDIO.setParam('filterType', fltSel.value); });
-    }
-
-
-    // ── MIDI listener ─────────────────────────────────────────
-    function _initMIDI() {
-        if (!navigator.requestMIDIAccess) {
-            document.getElementById('sm-status-midi') &&
-                (document.getElementById('sm-status-midi').textContent = 'MIDI: N/A');
-            return;
-        }
-        navigator.requestMIDIAccess({ sysex: false }).then(function(access) {
-            _midiAccess = access;
-            document.getElementById('sm-midi-badge') &&
-                (document.getElementById('sm-midi-badge').className = 'sm-badge on');
-            function wire(input) {
-                input.onmidimessage = function(msg) {
-                    if (!_open) return;
-                    var status = msg.data[0] & 0xF0;
-                    var ch1    = msg.data[1];
-                    var ch2    = msg.data[2];
-                    if (!SPATIAL_AUDIO.isRunning()) SPATIAL_AUDIO.init();
-                    if (status === 0x90 && ch2 > 0) {         // note-on
-                        SPATIAL_AUDIO.noteOnMidi(ch1, ch2);
-                        SPATIAL_VISUALS.setTriggerPulse(0.8);
-                        _activeNotes[ch1] = true;
-                        document.getElementById('sm-status-midi') &&
-                            (document.getElementById('sm-status-midi').textContent =
-                                'MIDI: NOTE ' + ch1 + ' v' + ch2);
-                    } else if (status === 0x80 || (status === 0x90 && ch2 === 0)) {
-                        SPATIAL_AUDIO.noteOffMidi(ch1);        // note-off
-                        delete _activeNotes[ch1];
-                    } else if (status === 0xB0) {              // CC
-                        SPATIAL_AUDIO.handleCC(ch1, ch2);
-                        document.getElementById('sm-status-midi') &&
-                            (document.getElementById('sm-status-midi').textContent =
-                                'MIDI: CC' + ch1 + '=' + ch2);
+        // Map fingertips to pad zones (landmarks 4=thumb,8=index,12=middle)
+        var CW = _canvas.offsetWidth || _canvas.width;
+        var CH = _canvas.offsetHeight || _canvas.height;
+        results.multiHandLandmarks.forEach(function(lm) {
+            [8, 12, 4].forEach(function(ti) {
+                var tip = lm[ti]; if (!tip) return;
+                var nx = 1 - tip.x, ny = tip.y; // mirror x
+                PADS.forEach(function(pad, idx) {
+                    if (_cooldown[idx]) return;
+                    var dx = nx - pad.cx, dy = ny - pad.cy;
+                    if (Math.sqrt(dx*dx + dy*dy) < pad.r * 1.05) {
+                        strike(idx, 0.65 + Math.random() * 0.35);
                     }
-                };
-            }
-            access.inputs.forEach(wire);
-            access.onstatechange = function(e) {
-                if (e.port.type === 'input' && e.port.state === 'connected') wire(e.port);
-            };
-            var inp = Array.from(access.inputs.values());
-            document.getElementById('sm-status-midi') &&
-                (document.getElementById('sm-status-midi').textContent =
-                    'MIDI: ' + (inp.length ? inp[0].name.substring(0,18) : 'NO DEVICE'));
-        }).catch(function() {
-            document.getElementById('sm-status-midi') &&
-                (document.getElementById('sm-status-midi').textContent = 'MIDI: DENIED');
-        });
-    }
-
-    // ── Auto-start camera + pose tracking ─────────────────────
-    function _startCamera() {
-        // Reuse existing camera stream if already running
-        if (window.APP && APP.camera && APP.camera.stream) {
-            _startPoseFromStream(APP.camera.videoEl || null);
-            return;
-        }
-        navigator.mediaDevices.getUserMedia({ video: { width: 640, height: 480, facingMode: 'user' }, audio: false })
-        .then(function(stream) {
-            var vid = document.createElement('video');
-            vid.srcObject = stream; vid.muted = true;
-            vid.setAttribute('playsinline', ''); vid.play();
-            window._smCamStream = stream;
-            window._smCamVid    = vid;
-            document.getElementById('sm-cam-badge') &&
-                (document.getElementById('sm-cam-badge').className = 'sm-badge on');
-            _startPoseFromStream(vid);
-        }).catch(function(e) {
-            document.getElementById('sm-status-hand') &&
-                (document.getElementById('sm-status-hand').textContent = 'HAND: CAM DENIED');
-        });
-    }
-
-    function _startPoseFromStream(vid) {
-        if (typeof Pose === 'undefined') return;
-        if (window._smPose) return;
-        var videoEl = vid || (APP.camera && APP.camera.videoEl);
-        if (!videoEl) return;
-        var pose = new Pose({ locateFile: function(f) {
-            return 'https://cdn.jsdelivr.net/npm/@mediapipe/pose@0.5.1675469404/' + f;
-        }});
-        pose.setOptions({ modelComplexity: 0, smoothLandmarks: true,
-            minDetectionConfidence: 0.45, minTrackingConfidence: 0.45 });
-        pose.onResults(function(results) {
-            if (results.poseLandmarks && window._smPoseFeed)
-                window._smPoseFeed(results.poseLandmarks);
-        });
-        window._smPose = pose;
-        // rAF-based frame sending — no Camera utility dependency
-        var _sending = false;
-        (function _poseRaf() {
-            if (!window._smPose) return;
-            if (!_sending && videoEl.readyState >= 2) {
-                _sending = true;
-                pose.send({ image: videoEl }).catch(function(){}).finally(function() {
-                    _sending = false;
                 });
-            }
-            requestAnimationFrame(_poseRaf);
-        })();
-        // Badge: light up on first landmark result
-        (function patchFeed() {
-            var _orig = window._smPoseFeed, _done = false;
-            window._smPoseFeed = function(lms) {
-                if (!_done) {
-                    _done = true;
-                    var hb = document.getElementById('sm-hand-badge');
-                    if (hb) hb.className = 'sm-badge on';
-                    var sh = document.getElementById('sm-status-hand');
-                    if (sh) sh.textContent = 'HAND: LIVE';
-                }
-                if (_orig) _orig(lms);
-            };
-        })();
+            });
+        });
     }
 
-
-    // ── Window drag ───────────────────────────────────────────
-    function _initDrag() {
-        var win = document.getElementById('sm-window');
-        var bar = document.getElementById('sm-titlebar');
-        if (!win || !bar) return;
-        var ox = 0, oy = 0, sx = 0, sy = 0, dragging = false;
-        bar.addEventListener('mousedown', function(e) {
-            if (e.target.classList.contains('sm-dot')) return;
-            dragging = true;
-            ox = win.offsetLeft; oy = win.offsetTop;
-            sx = e.clientX; sy = e.clientY;
-            e.preventDefault();
-        });
-        document.addEventListener('mousemove', function(e) {
-            if (!dragging) return;
-            win.style.left = (ox + e.clientX - sx) + 'px';
-            win.style.top  = (oy + e.clientY - sy) + 'px';
-            win.style.right = 'auto';
-        });
-        document.addEventListener('mouseup', function() { dragging = false; });
-    }
-
+    // ── Toggle & Init ────────────────────────────────────────────
     function toggle() {
-        var win = document.getElementById('sm-window');
+        _visible = !_visible;
+        var win = document.getElementById('hd-window');
         var btn = document.getElementById('btn-esx-launch');
-        _open = !_open;
-        if (_open) {
-            if (win) win.classList.add('sm-visible');
-            if (!SPATIAL_AUDIO.isRunning()) SPATIAL_AUDIO.init();
-            var cvs = document.getElementById('spatial-matrix');
-            if (cvs && !SPATIAL_VISUALS.isRunning()) {
-                // Give layout a tick to resolve dimensions
-                requestAnimationFrame(function() { SPATIAL_VISUALS.init(cvs); });
-            }
-            if (!_lerpId) _lerpLoop();
-            _startCamera();
-            _initMIDI();
-            if (btn) btn.classList.add('esx-open');
-        } else {
-            if (win) win.classList.remove('sm-visible');
-            SPATIAL_AUDIO.stop();
-            SPATIAL_VISUALS.stop();
-            if (_lerpId) { cancelAnimationFrame(_lerpId); _lerpId = null; }
-            // Stop dedicated SM camera if we started it
-            if (window._smCamStream) {
-                window._smCamStream.getTracks().forEach(function(t){ t.stop(); });
-                window._smCamStream = null;
-            }
-            window._smPose = null;
-            if (btn) btn.classList.remove('esx-open');
-            document.getElementById('sm-cam-badge') &&
-                (document.getElementById('sm-cam-badge').className = 'sm-badge');
-            document.getElementById('sm-hand-badge') &&
-                (document.getElementById('sm-hand-badge').className = 'sm-badge');
-        }
+        if (win) win.classList.toggle('hd-visible', _visible);
+        if (btn) btn.classList.toggle('hd-open', _visible);
+        if (_visible && _canvas) { _canvas.width = _canvas.offsetWidth; _canvas.height = _canvas.offsetHeight; _drawHangdrum(); }
     }
 
-    // Init drag + pads once DOM ready
-    document.addEventListener('DOMContentLoaded', function() {
-        _initDrag(); _buildXYPad(); _wireUI();
-    });
+    function _init() {
+        _canvas = document.getElementById('hd-canvas');
+        if (_canvas) { _ctx2d = _canvas.getContext('2d'); _canvas.width = _canvas.offsetWidth || 300; _canvas.height = _canvas.offsetHeight || 300; _drawHangdrum(); }
 
-    return { toggle };
+        // Drag
+        var win = document.getElementById('hd-window'), bar = document.getElementById('hd-titlebar');
+        if (win && bar) {
+            var ox,oy,mx,my;
+            bar.onmousedown = function(e) {
+                e.preventDefault(); mx=e.clientX; my=e.clientY;
+                document.onmousemove = function(e) {
+                    ox=mx-e.clientX; oy=my-e.clientY; mx=e.clientX; my=e.clientY;
+                    win.style.top=(win.offsetTop-oy)+'px'; win.style.left=(win.offsetLeft-ox)+'px'; win.style.right='auto';
+                };
+                document.onmouseup = function(){document.onmousemove=null; document.onmouseup=null;};
+            };
+        }
+
+        // Mouse/touch on canvas
+        if (_canvas) {
+            _canvas.addEventListener('click', function(e) {
+                var r=_canvas.getBoundingClientRect(), nx=(e.clientX-r.left)/r.width, ny=(e.clientY-r.top)/r.height;
+                PADS.forEach(function(pad,i){ var dx=nx-pad.cx,dy=ny-pad.cy; if(Math.sqrt(dx*dx+dy*dy)<pad.r+0.02) strike(i,0.88); });
+            });
+            window.addEventListener('resize', function() { if(_visible){_canvas.width=_canvas.offsetWidth; _canvas.height=_canvas.offsetHeight; _drawHangdrum();} });
+        }
+
+        // Hand badge toggle
+        var hb = document.getElementById('hd-hand-badge');
+        if (hb) hb.addEventListener('click', function() { _handActive ? _stopHand() : _startHand(); });
+    }
+
+    document.addEventListener('DOMContentLoaded', function() { setTimeout(_init, 900); });
+
+    return { toggle, strike,
+        get _masterGain(){ return _masterGain; },
+        get _wetGain()   { return _wetGain; },
+        get _dryGain()   { return _dryGain; }
+    };
 })();
 
 
@@ -20470,105 +19801,88 @@ function _applyPoseToModel(lm) {
 <!-- ═══════════════════════════════════════════════════════════
      SPATIAL MATRIX — Floating Instrument HUD
      ═══════════════════════════════════════════════════════════ -->
-<div id="sm-window">
-    <div class="sm-titlebar" id="sm-titlebar">
-        <div class="sm-dot" onclick="SpatialMatrix.toggle()" title="Close"></div>
-        <span class="sm-title">◈ SPATIAL MATRIX // MERCURY FRACTAL</span>
-        <span class="sm-badge" id="sm-cam-badge">CAM</span>
-        <span class="sm-badge" id="sm-midi-badge">MIDI</span>
-        <span class="sm-badge" id="sm-hand-badge">HAND</span>
+<div id="hd-window">
+    <div class="hd-titlebar" id="hd-titlebar">
+        <div class="hd-dot" onclick="Hangdrum.toggle()" title="Close"></div>
+        <span class="hd-title">◈ HANGDRUM // D CELTIC MINOR</span>
+        <span class="hd-badge on" id="hd-tune-badge">D-CELTS</span>
+        <span class="hd-badge" id="hd-hand-badge" title="Click to toggle hand tracking">HAND</span>
     </div>
-
-    <div class="sm-body">
-        <!-- WebGL Viewport -->
-        <div class="sm-viewport">
-            <canvas id="spatial-matrix"></canvas>
-            <div class="sm-vp-hint">R-HAND=ORBIT · L-HAND=DISTORT · CLICK=PLAY</div>
+    <div class="hd-body">
+        <!-- Instrument canvas -->
+        <div class="hd-instrument-pane">
+            <canvas id="hd-canvas"></canvas>
+            <div class="hd-cam-wrap">
+                <video id="hd-cam-video" autoplay playsinline muted></video>
+                <canvas id="hd-cam-canvas"></canvas>
+                <span id="hd-hand-status">HAND: OFF — click HAND badge to activate</span>
+            </div>
         </div>
-
-        <!-- Synth Panel -->
-        <div class="sm-synth">
-            <div class="sm-section">
-                <span class="sm-sec-hd">OSCILLATOR</span>
-                <div class="sm-row">
-                    <select class="sm-sel" id="sm-osc-type">
-                        <option value="sawtooth">SAW</option>
-                        <option value="square">SQR</option>
-                        <option value="sine">SIN</option>
-                        <option value="triangle">TRI</option>
-                    </select>
-                    <div class="sm-knob"><span>PITCH</span><input type="range" id="sm-pitch" min="20" max="2000" value="220"><span class="sv" id="sm-pitch-val">220Hz</span></div>
-                    <div class="sm-knob"><span>DETUNE</span><input type="range" id="sm-detune" min="-50" max="50" value="0"><span class="sv" id="sm-det-val">0c</span></div>
-                    <div class="sm-knob"><span>OCT</span><input type="range" id="sm-oct" min="-3" max="3" step="1" value="0"><span class="sv" id="sm-oct-val">0</span></div>
-                </div>
+        <!-- Controls -->
+        <div class="hd-ctrl-pane">
+            <div style="font-family:'Orbitron',sans-serif;font-size:7px;color:rgba(0,243,255,0.55);letter-spacing:2px;padding:4px 2px 8px;border-bottom:1px solid rgba(0,243,255,0.1);">HANGDRUM // HANDPAN INSTRUMENT</div>
+            <div class="hd-ctrl-row" style="margin-top:4px;">
+                <span class="hd-lbl">VOLUME</span>
+                <input type="range" id="hd-vol" min="0" max="100" value="80">
+                <span class="hd-val" id="hd-vol-val">80%</span>
             </div>
-            <div class="sm-section">
-                <span class="sm-sec-hd">FILTER <small style="font-size:5px;color:rgba(0,243,255,0.3);margin-left:6px;">CC1=CUTOFF · CC74=RES · L-HAND-Y=SWEEP</small></span>
-                <div class="sm-row">
-                    <select class="sm-sel" id="sm-flt-type">
-                        <option value="lowpass">LP</option>
-                        <option value="highpass">HP</option>
-                        <option value="bandpass">BP</option>
-                        <option value="notch">NOTCH</option>
-                    </select>
-                    <div class="sm-knob"><span>CUTOFF</span><input type="range" id="sm-cutoff" min="20" max="15000" value="800"><span class="sv" id="sm-cut-val">800Hz</span></div>
-                    <div class="sm-knob"><span>RES</span><input type="range" id="sm-res" min="0.1" max="25" step="0.1" value="2"><span class="sv" id="sm-res-val">2.0</span></div>
-                </div>
+            <div class="hd-ctrl-row">
+                <span class="hd-lbl">REVERB</span>
+                <input type="range" id="hd-rev" min="0" max="100" value="35">
+                <span class="hd-val" id="hd-rev-val">35%</span>
             </div>
-            <div class="sm-section">
-                <span class="sm-sec-hd">ENVELOPE</span>
-                <div class="sm-row">
-                    <div class="sm-knob"><span>ATK</span><input type="range" id="sm-atk" min="1" max="2000" value="10"><span class="sv" id="sm-atk-val">10ms</span></div>
-                    <div class="sm-knob"><span>DEC</span><input type="range" id="sm-dec" min="10" max="2000" value="100"><span class="sv" id="sm-dec-val">100ms</span></div>
-                    <div class="sm-knob"><span>SUS</span><input type="range" id="sm-sus" min="0" max="100" value="70"><span class="sv" id="sm-sus-val">70%</span></div>
-                    <div class="sm-knob"><span>REL</span><input type="range" id="sm-rel" min="10" max="4000" value="300"><span class="sv" id="sm-rel-val">300ms</span></div>
-                </div>
+            <div style="margin-top:10px;font-family:'Orbitron',sans-serif;font-size:6px;color:rgba(0,243,255,0.4);letter-spacing:2px;">TUNING</div>
+            <div class="hd-tuning-row" style="margin-top:5px;">
+                <button class="hd-tuning-btn active" data-tuning="D_CELTIC">D Celtic</button>
+                <button class="hd-tuning-btn" data-tuning="E_PYGMY">E Pygmy</button>
+                <button class="hd-tuning-btn" data-tuning="F_MAJOR">F Major</button>
+                <button class="hd-tuning-btn" data-tuning="G_INTEGRAL">G Integral</button>
             </div>
-            <div class="sm-section">
-                <span class="sm-sec-hd">FX <small style="font-size:5px;color:rgba(0,243,255,0.3);margin-left:6px;">CC91=DELAY · CC21=DETUNE · CC7=VOL</small></span>
-                <div class="sm-row">
-                    <div class="sm-knob"><span>DELAY</span><input type="range" id="sm-delay-amt" min="0" max="100" value="20"><span class="sv" id="sm-damt-val">20%</span></div>
-                    <div class="sm-knob"><span>D.TIME</span><input type="range" id="sm-delay-time" min="50" max="800" value="250"><span class="sv" id="sm-dtime-val">250ms</span></div>
-                    <div class="sm-knob"><span>DIST</span><input type="range" id="sm-dist" min="0" max="400" value="0"><span class="sv" id="sm-dist-val">0</span></div>
-                    <div class="sm-knob"><span>VOL</span><input type="range" id="sm-vol" min="0" max="100" value="80"><span class="sv" id="sm-vol-val">80%</span></div>
-                </div>
+            <div style="margin-top:14px;font-family:'Orbitron',sans-serif;font-size:6px;color:rgba(0,243,255,0.4);letter-spacing:2px;">HAND TRACKING</div>
+            <div style="margin-top:6px;font-size:7px;color:rgba(255,255,255,0.45);line-height:1.7;letter-spacing:0.5px;">
+                1. Click <strong style="color:rgba(0,243,255,0.8)">HAND</strong> badge above<br>
+                2. Allow camera access<br>
+                3. Hold hands in front of camera<br>
+                4. Move fingers over the pads to play<br>
+                <span style="font-size:6px;color:rgba(0,243,255,0.3);margin-top:4px;display:block;">Index · Middle · Thumb tips trigger notes</span>
             </div>
-            <div class="sm-section">
-                <span class="sm-sec-hd">XY SYNTH PAD — DRAG=PLAY+FILTER · SCALE QUANTIZED</span>
-                <div class="sm-xy-wrap">
-                    <canvas id="sm-xy-pad"></canvas>
-                </div>
-                <div class="sm-loop-row">
-                    <button id="sm-loop-rec"  class="sm-loop-btn rec-btn" onclick="SPATIAL_AUDIO.loopRecord()">● REC</button>
-                    <button id="sm-loop-stop" class="sm-loop-btn"         onclick="SPATIAL_AUDIO.loopStop()">■ STOP</button>
-                    <button id="sm-loop-play" class="sm-loop-btn"         onclick="SPATIAL_AUDIO.loopPlay()">▶ LOOP</button>
-                    <button class="sm-loop-btn"                           onclick="SPATIAL_AUDIO.loopClear()">✕ CLEAR</button>
-                    <select id="sm-scale-sel" class="sm-scale-sel">
-                        <option value="MINOR">MINOR</option>
-                        <option value="PENTATONIC">PENTA</option>
-                        <option value="CHROMATIC">CHROM</option>
-                        <option value="WHOLE_TONE">WHOLE</option>
-                        <option value="PHRYGIAN">PHRYG</option>
-                    </select>
-                </div>
-                <div class="sm-row sm-layer-row">
-                    <div class="sm-knob"><span>SPREAD</span><input type="range" id="sm-spread" min="0" max="50" value="25"><span class="sv" id="sm-spread-val">25c</span></div>
-                    <div class="sm-knob"><span>SUB</span><input type="range" id="sm-sub-lvl" min="0" max="100" value="40"><span class="sv" id="sm-sub-val">40%</span></div>
-                    <div class="sm-knob"><span>NOISE</span><input type="range" id="sm-noise-lvl" min="0" max="100" value="40"><span class="sv" id="sm-noise-val">40‰</span></div>
-                    <div class="sm-knob"><span>REVERB</span><input type="range" id="sm-reverb" min="0" max="100" value="25"><span class="sv" id="sm-reverb-val">25%</span></div>
-                </div>
-            </div>
+            <div style="margin-top:14px;font-family:'Orbitron',sans-serif;font-size:6px;color:rgba(0,243,255,0.4);letter-spacing:2px;">NOTES — D CELTIC MINOR</div>
+            <div style="margin-top:6px;display:grid;grid-template-columns:1fr 1fr 1fr;gap:3px;" id="hd-note-grid">
+                <div style="font-size:7px;color:rgba(0,243,255,0.7);padding:3px 5px;border:1px solid rgba(0,243,255,0.15);border-radius:2px;text-align:center;cursor:pointer;" onclick="Hangdrum.strike(0,0.9)">D3 ●</div>
+                <div style="font-size:7px;color:rgba(0,255,136,0.7);padding:3px 5px;border:1px solid rgba(0,255,136,0.15);border-radius:2px;text-align:center;cursor:pointer;" onclick="Hangdrum.strike(1,0.85)">A3</div>
+                <div style="font-size:7px;color:rgba(0,255,136,0.7);padding:3px 5px;border:1px solid rgba(0,255,136,0.15);border-radius:2px;text-align:center;cursor:pointer;" onclick="Hangdrum.strike(2,0.85)">Bb3</div>
+                <div style="font-size:7px;color:rgba(0,255,136,0.7);padding:3px 5px;border:1px solid rgba(0,255,136,0.15);border-radius:2px;text-align:center;cursor:pointer;" onclick="Hangdrum.strike(3,0.85)">C4</div>
+                <div style="font-size:7px;color:rgba(0,255,136,0.7);padding:3px 5px;border:1px solid rgba(0,255,136,0.15);border-radius:2px;text-align:center;cursor:pointer;" onclick="Hangdrum.strike(4,0.85)">D4</div>
+                <div style="font-size:7px;color:rgba(0,255,136,0.7);padding:3px 5px;border:1px solid rgba(0,255,136,0.15);border-radius:2px;text-align:center;cursor:pointer;" onclick="Hangdrum.strike(5,0.85)">E4</div>
+                <div style="font-size:7px;color:rgba(0,255,136,0.7);padding:3px 5px;border:1px solid rgba(0,255,136,0.15);border-radius:2px;text-align:center;cursor:pointer;" onclick="Hangdrum.strike(6,0.85)">F4</div>
+                <div style="font-size:7px;color:rgba(0,255,136,0.7);padding:3px 5px;border:1px solid rgba(0,255,136,0.15);border-radius:2px;text-align:center;cursor:pointer;" onclick="Hangdrum.strike(7,0.85)">A4</div>
+                <div style="font-size:7px;color:rgba(0,255,136,0.7);padding:3px 5px;border:1px solid rgba(0,255,136,0.15);border-radius:2px;text-align:center;cursor:pointer;" onclick="Hangdrum.strike(8,0.85)">C5</div>
             </div>
         </div>
     </div>
-
-    <div class="sm-statusbar">
-        <span id="sm-status-hand">HAND: OFFLINE</span>
-        <span id="sm-status-midi">MIDI: --</span>
-        <span id="sm-status-filter">CUTOFF: --</span>
-        <span id="sm-status-note">NOTE: --</span>
+    <div class="hd-statusbar">
+        <span id="hd-status-note">NOTE: --</span>
+        <span id="hd-status-hand">HAND: --</span>
     </div>
-</div><!-- /sm-window -->
+</div><!-- /hd-window -->
+<script>
+(function() {
+    document.addEventListener('DOMContentLoaded', function() {
+        setTimeout(function() {
+            var volEl = document.getElementById('hd-vol');
+            var revEl = document.getElementById('hd-rev');
+            if (volEl) volEl.addEventListener('input', function() {
+                document.getElementById('hd-vol-val').textContent = this.value + '%';
+                if (window.Hangdrum && Hangdrum._masterGain) Hangdrum._masterGain.gain.value = this.value / 100;
+            });
+            if (revEl) revEl.addEventListener('input', function() {
+                document.getElementById('hd-rev-val').textContent = this.value + '%';
+                if (window.Hangdrum) { Hangdrum._wetGain && (Hangdrum._wetGain.gain.value = this.value/100); Hangdrum._dryGain && (Hangdrum._dryGain.gain.value = 1 - this.value/100); }
+            });
+        }, 1200);
+    });
+})();
+</script>
 
 <!-- FULLSCREEN H-HINT -->
 <div id="fs-hint">
