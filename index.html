@@ -84,6 +84,19 @@
             --radius: 0px;
             --border-style: 1px solid rgba(255,255,255,0.06);
             --shadow-style: 0 2px 8px rgba(0,0,0,0.7);
+            /* ── TRIPLE-ALPHA KINEMATIC HUD ── */
+            --ghost-opacity: 0.4;
+            --ghost-blur: 8px;
+            --ghost-border: rgba(0, 243, 255, 0.05);
+            --glass-opacity: 0.8;
+            --glass-blur: 20px;
+            --glass-border: rgba(0, 243, 255, 0.4);
+            --core-opacity: 1.0;
+            --core-blur: 30px;
+            --core-glow: 0 0 30px rgba(0, 243, 255, 0.35), inset 0 0 20px rgba(0, 243, 255, 0.07);
+            --hud-transition: opacity 0.5s cubic-bezier(0.19, 1, 0.22, 1), box-shadow 0.5s cubic-bezier(0.19, 1, 0.22, 1), border-color 0.5s cubic-bezier(0.19, 1, 0.22, 1), transform 0.5s cubic-bezier(0.19, 1, 0.22, 1), backdrop-filter 0.5s cubic-bezier(0.19, 1, 0.22, 1);
+            --rim-top: 1px solid rgba(255, 255, 255, 0.10);
+            --rim-left: 1px solid rgba(255, 255, 255, 0.10);
         }
 
         body.theme-magenta { --accent: #ff0055; --accent-dim: rgba(255,0,85,0.2); --accent-glow: rgba(255,0,85,0.5); --theme-color: #ff0055; --theme-bg-tint: rgba(255,0,85,0.05); --theme-glow: 0 0 20px rgba(255,0,85,0.15); --theme-border: rgba(255,0,85,0.3); }
@@ -475,6 +488,28 @@
 
         body.fullscreen #stage { position: fixed; inset: 0; z-index: 9999; border: none; }
         body.fullscreen .sidebar, body.fullscreen #top-bar, body.fullscreen #bottom-bar, body.fullscreen #ghost-terminal { opacity: 0; pointer-events: none; }
+        /* FULLSCREEN H-HINT — small persistent badge so performer remembers exit key */
+        #fs-hint {
+            display: none; position: fixed; bottom: 14px; right: 16px; z-index: 99998;
+            align-items: center; gap: 4px; padding: 3px 8px;
+            background: rgba(0,0,0,0.45); border: 1px solid rgba(0,243,255,0.20);
+            border-radius: 2px; pointer-events: none;
+            transition: opacity 0.8s ease;
+        }
+        body.fullscreen #fs-hint { display: flex; opacity: 0.55; }
+        body.fullscreen #fs-hint:hover { opacity: 0; }
+        /* ESC WARNING TOAST */
+        #esc-warn {
+            display: none; position: fixed; top: 50%; left: 50%; transform: translate(-50%,-50%);
+            z-index: 99999; padding: 10px 22px;
+            background: rgba(0,0,0,0.88); border: 1px solid rgba(255,80,0,0.7);
+            color: #ff5000; font-family: 'Orbitron', sans-serif; font-size: 10px;
+            letter-spacing: 2.5px; text-transform: uppercase; pointer-events: none;
+            box-shadow: 0 0 30px rgba(255,80,0,0.30); text-align: center;
+            animation: esc-warn-pulse 0.6s ease-in-out infinite;
+        }
+        #esc-warn.visible { display: block; }
+        @keyframes esc-warn-pulse { 0%,100% { border-color: rgba(255,80,0,0.7); box-shadow: 0 0 30px rgba(255,80,0,0.30); } 50% { border-color: rgba(255,140,0,1); box-shadow: 0 0 40px rgba(255,140,0,0.55); } }
 
         #lower-third {
             display: none !important;
@@ -832,15 +867,20 @@
         #cycle-badge.on { display: flex; }
 
         /* Sidebar: neutral borders — no theme color bleed, party mode animates border-color via console-breathe */
-        .sidebar { position: fixed; top: 45px; bottom: 55px; width: 200px; max-width: 320px !important; background: rgba(6,6,10,0.94); backdrop-filter: blur(20px) saturate(110%); -webkit-backdrop-filter: blur(20px) saturate(110%); border: 1px solid rgba(255,255,255,0.06); box-shadow: inset 0 0 20px rgba(0,0,0,0.65); overflow-y: auto; overflow-x: hidden; z-index: 4000; scrollbar-width: none; transition: transform 0.45s cubic-bezier(0.4, 0, 0.2, 1), opacity 0.35s ease, border-color 0.4s ease, box-shadow 0.4s ease; will-change: transform, opacity; }
+        .sidebar { position: fixed; top: 45px; bottom: 55px; width: 200px; max-width: 320px !important; background: rgba(6,6,10,0.94); backdrop-filter: blur(20px) saturate(110%); -webkit-backdrop-filter: blur(20px) saturate(110%); border: 1px solid rgba(255,255,255,0.06); border-top: var(--rim-top); box-shadow: inset 0 0 20px rgba(0,0,0,0.65); overflow-y: auto; overflow-x: hidden; z-index: 4000; scrollbar-width: none; transition: var(--hud-transition), transform 0.52s cubic-bezier(0.34,1.56,0.64,1); will-change: transform, opacity; }
+        /* TRIPLE-ALPHA KINEMATIC STATES */
+        .sidebar.hud-ghost { opacity: var(--ghost-opacity) !important; backdrop-filter: blur(var(--ghost-blur)) saturate(100%) !important; -webkit-backdrop-filter: blur(var(--ghost-blur)) saturate(100%) !important; border-top-color: rgba(255,255,255,0.06) !important; }
+        .sidebar.hud-glass { opacity: var(--glass-opacity) !important; backdrop-filter: blur(var(--glass-blur)) saturate(130%) !important; -webkit-backdrop-filter: blur(var(--glass-blur)) saturate(130%) !important; border-color: var(--glass-border) !important; border-top: var(--rim-top) !important; border-left: var(--rim-left) !important; box-shadow: 0 0 24px rgba(0,243,255,0.12), inset 0 0 24px rgba(0,0,0,0.55), inset 1px 0 0 rgba(255,255,255,0.04) !important; }
+        .sidebar.hud-glass, .sidebar:hover { transform: perspective(1000px) translateZ(5px); }
+        .sidebar.hud-core { opacity: var(--core-opacity) !important; backdrop-filter: blur(var(--core-blur)) saturate(150%) !important; -webkit-backdrop-filter: blur(var(--core-blur)) saturate(150%) !important; border-color: var(--glass-border) !important; border-top: var(--rim-top) !important; border-left: var(--rim-left) !important; box-shadow: var(--core-glow) !important; }
         /* Lock sidebars: no horizontal pan, no content drag */
         .sidebar, .sidebar * { overscroll-behavior-x: none; -webkit-user-drag: none; user-drag: none; }
-        #left-panel { left: 0; border-left: none; border-right: 1px solid rgba(255,255,255,0.07); transform: translateX(0); }
-        #right-panel { right: 0; border-right: none; border-left: 1px solid rgba(255,255,255,0.07); transform: translateX(0); }
+        #left-panel { left: 0; border-left: var(--rim-left); border-right: 1px solid rgba(255,255,255,0.07); transform: translateX(0); }
+        #right-panel { right: 0; border-right: var(--rim-top); border-left: 1px solid rgba(255,255,255,0.07); transform: translateX(0); }
 
-        /* SYSTEM SLIDE — panels out, stage expands — spring feel */
-        #left-panel  { transition: transform 0.52s cubic-bezier(0.34,1.56,0.64,1), opacity 0.35s ease; }
-        #right-panel { transition: transform 0.52s cubic-bezier(0.34,1.56,0.64,1), opacity 0.35s ease; }
+        /* SYSTEM SLIDE — panels out, stage expands — spring feel; includes HUD alpha transitions */
+        #left-panel  { transition: transform 0.52s cubic-bezier(0.34,1.56,0.64,1), opacity 0.5s cubic-bezier(0.19,1,0.22,1), box-shadow 0.5s cubic-bezier(0.19,1,0.22,1), border-color 0.5s cubic-bezier(0.19,1,0.22,1), backdrop-filter 0.5s cubic-bezier(0.19,1,0.22,1); }
+        #right-panel { transition: transform 0.52s cubic-bezier(0.34,1.56,0.64,1), opacity 0.5s cubic-bezier(0.19,1,0.22,1), box-shadow 0.5s cubic-bezier(0.19,1,0.22,1), border-color 0.5s cubic-bezier(0.19,1,0.22,1), backdrop-filter 0.5s cubic-bezier(0.19,1,0.22,1); }
         body.system-slide #left-panel  { transform: translateX(-102%); opacity: 0; pointer-events: none; }
         body.system-slide #right-panel { transform: translateX(102%);  opacity: 0; pointer-events: none; }
         #stage { transition: left 0.48s cubic-bezier(0.34,1.2,0.64,1), right 0.48s cubic-bezier(0.34,1.2,0.64,1); }
@@ -852,8 +892,18 @@
             position: relative; /* anchor for .section-help-overlay */
             border-top: 4px solid rgba(0,0,0,0.9);
             border-bottom: 1px solid rgba(255,255,255,0.04);
+            transition: var(--hud-transition);
         }
         .section:first-child { border-top: none; }
+        /* Section glows when sidebar is in glass/core state */
+        .sidebar.hud-glass .section, .sidebar.hud-core .section {
+            border-top-color: rgba(0,0,0,0.75);
+        }
+        .sidebar.hud-glass .sec-head, .sidebar.hud-core .sec-head {
+            border-left-color: rgba(0,243,255,0.15);
+            background: rgba(255,255,255,0.03);
+        }
+        .sidebar.hud-core .sec-head { border-left-color: var(--accent); }
 
         /* ═══════════════════════════════════════════════════
            SECTION HELP OVERLAY — integrated HUD "How to Use"
@@ -1084,24 +1134,25 @@
         }
         .btn:hover {
             background: linear-gradient(180deg, #1a1a26 0%, #111118 100%);
-            color: var(--text-bright); border-color: var(--accent);
-            box-shadow: var(--theme-glow), 0 0 0 1px var(--theme-border), inset 0 1px 0 rgba(255,255,255,0.06), 0 3px 8px rgba(0,0,0,0.6);
+            color: #ffffff; border-color: var(--accent);
+            box-shadow: var(--theme-glow), 0 0 0 1px var(--theme-border), inset 0 1px 0 rgba(255,255,255,0.06), 0 3px 8px rgba(0,0,0,0.6), 0 0 28px rgba(0,243,255,0.18);
             text-shadow: 0 0 8px var(--accent);
             transform: translateY(-1px);
         }
         .btn:active {
-            /* pressed in: top highlight inverts, drop-shadow collapses */
+            /* pressed in: top highlight inverts, drop-shadow collapses; CORE glow bleeds */
             background: linear-gradient(180deg, #070709 0%, #0d0d12 100%);
             border-top-color: rgba(0,0,0,0.5); border-bottom-color: rgba(255,255,255,0.05);
-            box-shadow: inset 0 2px 6px rgba(0,0,0,0.75);
+            box-shadow: inset 0 2px 6px rgba(0,0,0,0.75), 0 0 40px rgba(0,243,255,0.25), inset 0 0 12px rgba(0,243,255,0.10);
+            color: #ffffff;
             transform: translateY(1px);
         }
-        .btn.on { border-color: var(--accent); color: var(--accent); box-shadow: var(--theme-glow); }
+        .btn.on { border-color: var(--accent); color: var(--accent); box-shadow: var(--theme-glow), 0 0 22px rgba(0,243,255,0.20); }
         .btn.active-mode {
             background: var(--accent-dim) !important;
             border-color: var(--accent) !important;
-            color: var(--accent) !important;
-            box-shadow: var(--theme-glow), inset 0 0 15px var(--accent-dim);
+            color: #ffffff !important;
+            box-shadow: var(--theme-glow), inset 0 0 15px var(--accent-dim), 0 0 32px rgba(0,243,255,0.25);
             text-shadow: 0 0 8px var(--accent);
             font-weight: bold;
         }
@@ -13787,7 +13838,16 @@ function setTheme(theme) { const structClass = ['theme-broadcast','theme-etherea
 
 function toggleVHS() { if (APP.peer && APP.peer.call) { log('FX_BLOCKED: P2P active'); return; } document.body.classList.toggle('vhs'); $('btn-vhs').classList.toggle('on'); log('VHS'); }
 function toggleCRT() { document.body.classList.toggle('crt'); $('btn-crt').classList.toggle('on'); log('CRT'); }
-function toggleFullscreen() { APP.state.isFullscreen = !APP.state.isFullscreen; document.body.classList.toggle('fullscreen', APP.state.isFullscreen); log('FULLSCREEN'); }
+function toggleFullscreen() {
+    APP.state.isFullscreen = !APP.state.isFullscreen;
+    document.body.classList.toggle('fullscreen', APP.state.isFullscreen);
+    // Re-trigger H-hint fade-in each time we enter fullscreen
+    var hint = document.getElementById('fs-hint');
+    if (hint && APP.state.isFullscreen) {
+        hint.style.opacity = '0.55';
+    }
+    log('FULLSCREEN');
+}
 
 function toggleSystemSlide() {
     var isSlid = document.body.classList.toggle('system-slide');
@@ -14538,7 +14598,29 @@ document.addEventListener('DOMContentLoaded', () => {
         if (e.key === 'g' || e.key === 'G') toggleGhost();
         if (e.key === 'h' || e.key === 'H') toggleFullscreen();
         if (e.key === 'Tab') { e.preventDefault(); toggleSystemSlide(); }
-        if (e.key === 'Escape') { if ($('img-lightbox').style.display !== 'none') { closeLightbox(); } else { $('btn-panic').click(); } }
+        if (e.key === 'Escape') {
+            if ($('img-lightbox').style.display !== 'none') {
+                closeLightbox();
+            } else {
+                // ESC WARNING — require double-tap within 2s before panic reset
+                const warn = $('esc-warn');
+                if (window._escPrimed) {
+                    window._escPrimed = false;
+                    clearTimeout(window._escTimer);
+                    if (warn) { warn.classList.remove('visible'); }
+                    $('btn-panic').click();
+                } else {
+                    window._escPrimed = true;
+                    if (warn) { warn.classList.add('visible'); }
+                    window._escTimer = setTimeout(function() {
+                        window._escPrimed = false;
+                        if (warn) { warn.classList.remove('visible'); }
+                    }, 2000);
+                    if (typeof ghostLog === 'function') ghostLog('⚠ ESC ARMED — press again within 2s to PANIC RESET', 'warn');
+                    if (typeof log === 'function') log('ESC_PRIMED');
+                }
+            }
+        }
         if (e.key === ' ') { e.preventDefault(); rotateMedia(); }
         // S key — toggle Compositor source between local camera and P2P guest feed
         if (e.key === 's' || e.key === 'S') {
@@ -14546,6 +14628,49 @@ document.addEventListener('DOMContentLoaded', () => {
             log('SOURCE_SWITCH: ' + APP.state.activeSource.toUpperCase());
         }
     });
+
+    // ── TRIPLE-ALPHA HUD — Kinematic Alpha Switching ──
+    (function() {
+        var lp = document.getElementById('left-panel');
+        var rp = document.getElementById('right-panel');
+        if (!lp || !rp) return;
+        var SIDE_W = 200;
+        var APPROACH_ZONE = SIDE_W + 60; // pixels from edge that triggers glass state
+
+        function setGhost(panel) {
+            panel.classList.remove('hud-glass', 'hud-core');
+            panel.classList.add('hud-ghost');
+        }
+        function setGlass(panel) {
+            panel.classList.remove('hud-ghost', 'hud-core');
+            panel.classList.add('hud-glass');
+        }
+
+        // Start both panels in ghost state
+        setGhost(lp); setGhost(rp);
+
+        // Mouse proximity tracking — duck to ghost when performing centre-stage
+        document.addEventListener('mousemove', function(e) {
+            var W = window.innerWidth;
+            var x = e.clientX;
+            if (x <= APPROACH_ZONE) {
+                setGlass(lp);
+            } else if (!lp.matches(':hover')) {
+                setGhost(lp);
+            }
+            if (x >= W - APPROACH_ZONE) {
+                setGlass(rp);
+            } else if (!rp.matches(':hover')) {
+                setGhost(rp);
+            }
+        }, { passive: true });
+
+        // Hover overrides — instant glass on enter, ghost on leave
+        lp.addEventListener('mouseenter', function() { setGlass(lp); });
+        lp.addEventListener('mouseleave', function() { setGhost(lp); });
+        rp.addEventListener('mouseenter', function() { setGlass(rp); });
+        rp.addEventListener('mouseleave', function() { setGhost(rp); });
+    })();
 
     // Ensure uploaded logos are interactable
     $('file-layer-logo').onchange = e => {
@@ -20393,6 +20518,14 @@ function _applyPoseToModel(lm) {
     </div>
 </div><!-- /sm-window -->
 
+<!-- FULLSCREEN H-HINT -->
+<div id="fs-hint">
+    <span style="font-size:7px;color:rgba(0,243,255,0.7);font-family:'JetBrains Mono',monospace;letter-spacing:1px;">H</span>
+    <span style="font-size:7px;color:rgba(255,255,255,0.4);font-family:'JetBrains Mono',monospace;letter-spacing:1px;">FULL</span>
+</div>
+
+<!-- ESC WARNING TOAST -->
+<div id="esc-warn">⚠ ESC ARMED — PRESS AGAIN TO PANIC RESET</div>
 
 </body>
 </html>
