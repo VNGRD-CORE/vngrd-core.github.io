@@ -1,4 +1,3 @@
-<!DOCTYPE html>
 <html lang="en">
 <head>
     <meta charset="UTF-8">
@@ -9,11 +8,13 @@
     <meta name="apple-mobile-web-app-capable" content="yes">
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
     <link rel="manifest" href="manifest.json">
+    <link rel="stylesheet" href="./src/kinetic-rack/kinetic-rack.css">
 
    <title>DRIS//CORE VNGRD</title>
 <script>if('serviceWorker' in navigator){navigator.serviceWorker.register('sw.js').catch(function(){});}</script>
 <script src="https://unpkg.com/peerjs@1.5.2/dist/peerjs.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/@mediapipe/pose@0.5.1675469404/pose.js" crossorigin="anonymous"></script>
+<script src="https://cdn.jsdelivr.net/npm/@mediapipe/hands/hands.js" crossorigin="anonymous"></script>
 <script src="https://cdn.jsdelivr.net/npm/@mediapipe/camera_utils/camera_utils.js" crossorigin="anonymous"></script>
 <script src="https://cdn.jsdelivr.net/npm/@mediapipe/hands@0.4.1646424915/hands.js" crossorigin="anonymous"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/ethers/5.7.2/ethers.umd.min.js"></script>
@@ -3762,34 +3763,6 @@ body.fullscreen #transcription-hud { pointer-events: none !important; } /* keep 
     z-index: 2500;
 }
 
-/* ═══════════════════════════════════════════════════════════
-   VANGUARD TRACKER — Floating Pop-Out Window
-   ═══════════════════════════════════════════════════════════ */
-#btn-init-vngrd-tracker {
-    width: 100%;
-    font-family: 'Orbitron', sans-serif;
-    font-size: 8px;
-    font-weight: 700;
-    letter-spacing: 1.5px;
-    color: var(--g);
-    border-color: var(--g);
-    margin-top: 6px;
-    padding: 6px 4px;
-    text-align: center;
-    white-space: nowrap;
-    overflow: hidden;
-    text-overflow: ellipsis;
-}
-#btn-init-vngrd-tracker:hover {
-    background: rgba(0,255,136,0.12);
-    box-shadow: 0 0 10px rgba(0,255,136,0.25);
-}
-#btn-init-vngrd-tracker.active {
-    background: rgba(0,255,136,0.18);
-    color: #00ff88;
-    box-shadow: 0 0 14px rgba(0,255,136,0.4);
-}
-
 /* ═══ VANGUARD TRACKER — BRUTALIST GLASS EDITION ═══ */
 @keyframes vt-cursor-pulse {
     0%,100% { box-shadow: 0 0 0 1px rgba(0,243,255,0.9); }
@@ -4232,119 +4205,6 @@ body.fullscreen #transcription-hud { pointer-events: none !important; } /* keep 
    VNGRD// ESX-1 // DRIS CORE — Floating HUD Window
    Obsidian titlebar + Red-metal brushed chassis
    ═══════════════════════════════════════════════════════════════ */
-
-/* ═══════════════════════════════════════════════════════
-   HANGDRUM — Professional Handpan HUD
-   ═══════════════════════════════════════════════════════ */
-#hd-window {
-    position: fixed; top: 60px; right: 22px;
-    width: 740px; min-width: 500px; min-height: 380px;
-    background: rgba(2,3,8,0.94);
-    backdrop-filter: blur(24px) saturate(1.5);
-    -webkit-backdrop-filter: blur(24px) saturate(1.5);
-    border: 1px solid rgba(0,243,255,0.4);
-    box-shadow: 0 0 50px rgba(0,243,255,0.1), 0 0 120px rgba(0,0,0,0.85),
-                inset 0 1px 0 rgba(0,243,255,0.07);
-    z-index: 9800; display: none; flex-direction: column;
-    font-family: 'JetBrains Mono', monospace;
-    border-radius: 3px; overflow: hidden; resize: both; user-select: none;
-}
-#hd-window.hd-visible { display: flex; }
-.hd-titlebar {
-    display: flex; align-items: center; gap: 7px;
-    padding: 6px 10px; background: #000;
-    border-bottom: 1px solid rgba(0,243,255,0.22);
-    cursor: move; flex-shrink: 0;
-}
-.hd-dot {
-    width: 9px; height: 9px; border-radius: 50%; flex-shrink: 0; cursor: pointer;
-    background: #ff5f57; box-shadow: 0 0 5px rgba(255,95,87,0.6);
-}
-.hd-title {
-    font-family: 'Orbitron', sans-serif; font-size: 8px; font-weight: 700;
-    color: #00f3ff; letter-spacing: 2.5px; flex: 1;
-    text-shadow: 0 0 8px rgba(0,243,255,0.4);
-}
-.hd-badge {
-    font-size: 6px; padding: 2px 6px; letter-spacing: 1.5px;
-    border: 1px solid rgba(0,243,255,0.2); border-radius: 2px;
-    color: rgba(0,243,255,0.3); transition: all 0.3s; cursor: pointer;
-}
-.hd-badge.on { color: #00ff88; border-color: rgba(0,255,136,0.5); box-shadow: 0 0 5px rgba(0,255,136,0.25); }
-/* ── Hangdrum body ── */
-.hd-body { display: flex; flex: 1; overflow: hidden; min-height: 0; }
-.hd-instrument-pane {
-    position: relative; flex-shrink: 0; width: 320px;
-    background: #000; border-right: 1px solid rgba(0,243,255,0.15);
-    display: flex; flex-direction: column; align-items: center;
-}
-#hd-canvas { width: 100%; flex: 1; display: block; cursor: crosshair; touch-action: none; }
-.hd-cam-wrap {
-    position: relative; width: 100%; flex-shrink: 0; height: 90px;
-    background: #000; border-top: 1px solid rgba(0,243,255,0.10);
-    overflow: hidden;
-}
-#hd-cam-video  { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; opacity: 0.7; transform: scaleX(-1); }
-#hd-cam-canvas { position: absolute; inset: 0; width: 100%; height: 100%; transform: scaleX(-1); }
-#hd-hand-status {
-    position: absolute; bottom: 3px; left: 5px;
-    font-size: 5.5px; color: rgba(0,243,255,0.5); letter-spacing: 1.5px;
-    font-family: 'JetBrains Mono', monospace; pointer-events: none;
-}
-/* ── Controls pane ── */
-.hd-ctrl-pane { flex: 1; overflow-y: auto; padding: 8px; display: flex; flex-direction: column; gap: 6px; background: rgba(2,4,10,0.92); }
-.hd-ctrl-row { display: flex; gap: 5px; align-items: center; }
-.hd-lbl { font-size: 6px; letter-spacing: 1.5px; color: rgba(0,243,255,0.45); font-family: 'Orbitron',sans-serif; flex-shrink: 0; }
-.hd-ctrl-pane input[type=range] {
-    flex: 1; height: 3px; -webkit-appearance: none; appearance: none;
-    background: rgba(0,243,255,0.15); border-radius: 2px; outline: none; cursor: pointer;
-}
-.hd-ctrl-pane input[type=range]::-webkit-slider-thumb {
-    -webkit-appearance: none; width: 11px; height: 11px; border-radius: 50%;
-    background: #00f3ff; box-shadow: 0 0 6px rgba(0,243,255,0.9); cursor: pointer;
-}
-.hd-val { font-size: 7px; color: #00f3ff; min-width: 30px; text-align: right; font-family: 'JetBrains Mono',monospace; }
-.hd-tuning-row { display: flex; flex-wrap: wrap; gap: 4px; }
-.hd-tuning-btn {
-    flex: 1; min-width: 60px; padding: 4px 3px; text-align: center;
-    background: rgba(0,243,255,0.04); border: 1px solid rgba(0,243,255,0.2);
-    color: rgba(0,243,255,0.65); font-family: 'JetBrains Mono',monospace; font-size: 7px;
-    letter-spacing: 1px; cursor: pointer; transition: all 0.12s; border-radius: 2px;
-}
-.hd-tuning-btn:hover, .hd-tuning-btn.active { background: rgba(0,243,255,0.14); border-color: #00f3ff; color: #fff; }
-.hd-statusbar {
-    display: flex; gap: 8px; padding: 3px 8px; flex-shrink: 0;
-    background: rgba(0,0,0,0.65); border-top: 1px solid rgba(0,243,255,0.10);
-    font-size: 6px; color: rgba(0,243,255,0.38); letter-spacing: 1px;
-}
-/* ── Pad hit flash ── */
-.hd-pad-hit { animation: hd-pad-pulse 0.3s ease-out forwards; }
-@keyframes hd-pad-pulse { 0% { opacity: 1; } 100% { opacity: 0; } }
-/* ── Launch trigger button in sampler panel ── */
-#btn-esx-launch {
-    width: 100%; margin-top: 5px;
-    background: linear-gradient(180deg, rgba(0,40,50,0.5) 0%, rgba(0,20,30,0.6) 100%);
-    border: 1px solid rgba(0,243,255,0.45);
-    color: rgba(0,243,255,0.90);
-    font-family: 'Orbitron', sans-serif; font-size: 7.5px; font-weight: 700;
-    letter-spacing: 1.8px; padding: 5px 4px; text-align: center;
-    cursor: pointer; transition: all 0.12s;
-    box-shadow: 0 0 12px rgba(0,243,255,0.15);
-}
-#btn-esx-launch:hover {
-    background: linear-gradient(180deg, rgba(0,60,80,0.65) 0%, rgba(0,30,45,0.75) 100%);
-    border-color: #00f3ff; color: #fff;
-    box-shadow: 0 0 22px rgba(0,243,255,0.35);
-}
-#btn-esx-launch.hd-open {
-    border-color: #00f3ff; color: #00f3ff;
-    box-shadow: 0 0 18px rgba(0,243,255,0.4);
-    animation: hd-btn-pulse 1.8s ease-in-out infinite;
-}
-@keyframes hd-btn-pulse {
-    0%,100% { box-shadow: 0 0 12px rgba(0,243,255,0.25); }
-    50%      { box-shadow: 0 0 28px rgba(0,243,255,0.6); }
-}
 
 /* ── ESX-1 Floating Window ── */
 .esx-window {
@@ -5500,10 +5360,28 @@ body.fullscreen #transcription-hud { pointer-events: none !important; } /* keep 
                     <div id="sfx-midi-arm" style="font-size:7px;color:var(--text-dim);margin-top:6px;text-align:center;letter-spacing:1px;"></div>
                     </div><!-- /sfx-pad-body -->
 
-                    <!-- VNGRD // SONIC SUITE LAUNCH -->
-                    <button class="btn" id="btn-init-vngrd-tracker" onclick="VanguardTracker.toggle()" style="width:100%;margin-top:5px;font-family:'Orbitron',sans-serif;font-size:7.5px;font-weight:700;color:#00f3ff;border-color:rgba(0,243,255,0.4);letter-spacing:1.5px;padding:5px 4px;text-align:center;box-shadow:0 0 10px rgba(0,243,255,0.1);transition:all 0.1s;">[ VNGRD // SONIC SUITE ]</button>
-                    <!-- HANGDRUM LAUNCH -->
-                    <button id="btn-esx-launch" onclick="Hangdrum.toggle()">[ ◈ HANGDRUM // HAND PLAY ]</button>
+                    <!-- ══ KINETIC RACK ══════════════════════════════════ -->
+                    <div id="kr-rack">
+                        <div class="kr-rack-label">[ KINETIC RACK ]</div>
+                        <div class="kr-btn-row">
+                            <button class="kr-btn kr-sel" id="kr-btn-cyber-hangdrum"
+                                onclick="KineticRack.setInstrument('CYBER_HANGDRUM')">HANGDRUM</button>
+                            <button class="kr-btn" id="kr-btn-neural-glitch"
+                                onclick="KineticRack.setInstrument('NEURAL_GLITCH')">GLITCH</button>
+                            <button class="kr-btn" id="kr-btn-tether-verlet"
+                                onclick="KineticRack.setInstrument('TETHER_VERLET')">TETHER</button>
+                        </div>
+                        <div id="kr-tether-modes" style="display:none">
+                            <button class="kr-sub-btn kr-sel" data-mode="CORE"
+                                onclick="KineticRack.setTetherMode('CORE')">CORE</button>
+                            <button class="kr-sub-btn" data-mode="CONSTELLATION"
+                                onclick="KineticRack.setTetherMode('CONSTELLATION')">CONST</button>
+                            <button class="kr-sub-btn" data-mode="FLOW"
+                                onclick="KineticRack.setTetherMode('FLOW')">FLOW</button>
+                        </div>
+                        <div id="kr-status">OFFLINE</div>
+                        <button id="kr-launch-btn" onclick="KineticRack.toggle()">[ KINETIC RACK ]</button>
+                    </div>
 
                     <!-- ═══ KINETIC RACK ═══ -->
                     <div id="kinetic-rack">
@@ -11531,372 +11409,6 @@ var VFXLayer = (function() {
 
 document.addEventListener('DOMContentLoaded', function() { VFXLayer.init(); });
 
-// ═══════════════════════════════════════════════════════════════
-//  HANGDRUM v1 — Professional Handpan Instrument + Hand Tracking
-//  D Celtic Minor tuning · Inharmonic metallic synthesis · MediaPipe
-// ═══════════════════════════════════════════════════════════════
-const _SPATIAL_AUDIO_REMOVED = null; // nuked — replaced by Hangdrum
-const _SPATIAL_VISUALS_REMOVED = null;
-const _SpatialMatrix_REMOVED = null;
-const Hangdrum = (() => {
-'use strict';
-
-    // D Celtic Minor tuning — standard handpan layout
-    const PADS = [
-        { note:'D3',  freq:146.83, label:'●',   cx:0.50, cy:0.50, r:0.130, color:'#00f3ff' },
-        { note:'A3',  freq:220.00, label:'A3',  cx:0.73, cy:0.50, r:0.108, color:'#00ff88' },
-        { note:'Bb3', freq:233.08, label:'Bb3', cx:0.635,cy:0.285,r:0.108, color:'#00ff88' },
-        { note:'C4',  freq:261.63, label:'C4',  cx:0.50, cy:0.215,r:0.108, color:'#00ff88' },
-        { note:'D4',  freq:293.66, label:'D4',  cx:0.365,cy:0.285,r:0.108, color:'#00ff88' },
-        { note:'E4',  freq:329.63, label:'E4',  cx:0.27, cy:0.50, r:0.108, color:'#00ff88' },
-        { note:'F4',  freq:349.23, label:'F4',  cx:0.365,cy:0.715,r:0.108, color:'#00ff88' },
-        { note:'A4',  freq:440.00, label:'A4',  cx:0.50, cy:0.785,r:0.108, color:'#00ff88' },
-        { note:'C5',  freq:523.25, label:'C5',  cx:0.635,cy:0.715,r:0.108, color:'#00ff88' },
-    ];
-
-    // Inharmonic partial ratios for metal-plate sound (based on circular plate modes)
-    const PARTIALS = [
-        { m:1.000, g:0.68, d:4.2 },
-        { m:2.756, g:0.18, d:2.6 },
-        { m:5.404, g:0.08, d:1.5 },
-        { m:8.933, g:0.03, d:0.8 },
-    ];
-
-    let _audioCtx = null, _masterGain = null, _dryGain = null, _convolver = null, _wetGain = null;
-    let _visible = false, _handActive = false, _mpCamera = null;
-    let _cooldown = {}; // per-pad strike cooldown
-    let _canvas = null, _ctx2d = null;
-    let _hitTime = {}; // track hit flash per pad
-
-    // ── Velocity Vector Smoothing (3-frame rolling window) ────────
-    var _posHistory = {};  // key: `${handIdx}_${tipIdx}` → [{x,y,t}, …]
-    var VEL_FRAMES    = 3;
-    var VEL_THRESHOLD = 0.008; // min velocity (normalised units/ms) to trigger
-
-    // ── Delta-Time Audio Scheduling ───────────────────────────────
-    var SCHED_AHEAD = 0.005; // 5 ms lookahead — keeps percussion on-beat under frame drops
-
-    // ── Ripple Feedback ───────────────────────────────────────────
-    var _ripples = []; // { cx, cy, t, color } — expanding rings on strike
-
-    // ── Audio init ──────────────────────────────────────────────
-    function _initAudio() {
-        if (_audioCtx) return;
-        _audioCtx = new (window.AudioContext || window.webkitAudioContext)();
-        _masterGain = _audioCtx.createGain(); _masterGain.gain.value = 0.8;
-        _dryGain    = _audioCtx.createGain(); _dryGain.gain.value    = 0.65;
-        _wetGain    = _audioCtx.createGain(); _wetGain.gain.value    = 0.35;
-        _convolver  = _audioCtx.createConvolver();
-        // Generate plate-reverb impulse (decaying noise)
-        const sr = _audioCtx.sampleRate, len = Math.floor(sr * 3.2);
-        const buf = _audioCtx.createBuffer(2, len, sr);
-        for (let c = 0; c < 2; c++) {
-            const d = buf.getChannelData(c);
-            for (let i = 0; i < len; i++)
-                d[i] = (Math.random() * 2 - 1) * Math.pow(1 - i / len, 2.5);
-        }
-        _convolver.buffer = buf;
-        _dryGain.connect(_masterGain);
-        _convolver.connect(_wetGain); _wetGain.connect(_masterGain);
-        _masterGain.connect(_audioCtx.destination);
-    }
-
-    function strike(padIdx, vel) {
-        vel = Math.min(1, Math.max(0.25, vel || 0.85));
-        _initAudio();
-        if (_audioCtx.state === 'suspended') _audioCtx.resume();
-        const pad = PADS[padIdx];
-        // Delta-time scheduling: schedule slightly ahead so percussion stays
-        // on-beat even when the visual frame rate dips.
-        const now = _audioCtx.currentTime + SCHED_AHEAD;
-        // Push a ripple that _drawHangdrum will animate across the whole grid.
-        _ripples.push({ cx: pad.cx, cy: pad.cy, t: performance.now(), color: pad.color });
-        PARTIALS.forEach(function(p) {
-            const osc = _audioCtx.createOscillator();
-            const env = _audioCtx.createGain();
-            osc.type = 'sine';
-            osc.frequency.setValueAtTime(pad.freq * p.m, now);
-            // Natural pitch sag — metal cools and drops slightly
-            osc.frequency.exponentialRampToValueAtTime(pad.freq * p.m * 0.9975, now + 0.12);
-            const peak = p.g * vel;
-            env.gain.setValueAtTime(0.0001, now);
-            env.gain.linearRampToValueAtTime(peak, now + 0.003);
-            env.gain.exponentialRampToValueAtTime(0.0001, now + p.d);
-            osc.connect(env);
-            env.connect(_dryGain); env.connect(_convolver);
-            osc.start(now); osc.stop(now + p.d + 0.05);
-        });
-        _hitTime[padIdx] = performance.now();
-        _cooldown[padIdx] = true;
-        setTimeout(function() { _cooldown[padIdx] = false; }, 300);
-        _drawHangdrum();
-    }
-
-    // ── Canvas drawing ──────────────────────────────────────────
-    function _drawHangdrum() {
-        if (!_canvas || !_ctx2d) return;
-        const W = _canvas.width, H = _canvas.height;
-        const ctx = _ctx2d;
-        ctx.clearRect(0, 0, W, H);
-
-        // Outer shell — dark bronze/steel gradient
-        const shell = ctx.createRadialGradient(W*0.5, H*0.48, W*0.08, W*0.5, H*0.5, W*0.52);
-        shell.addColorStop(0,   'rgba(28,22,16,0.0)');
-        shell.addColorStop(0.60,'rgba(18,15,12,0.85)');
-        shell.addColorStop(0.85,'rgba(30,24,18,0.95)');
-        shell.addColorStop(1.0, 'rgba(8,6,4,1)');
-        ctx.beginPath();
-        ctx.ellipse(W*0.5, H*0.5, W*0.48, H*0.48, 0, 0, Math.PI*2);
-        ctx.fillStyle = shell; ctx.fill();
-
-        // Outer rim highlight
-        ctx.beginPath();
-        ctx.ellipse(W*0.5, H*0.5, W*0.48, H*0.48, 0, 0, Math.PI*2);
-        ctx.strokeStyle = 'rgba(120,90,60,0.4)'; ctx.lineWidth = 3; ctx.stroke();
-
-        // Tone-field groove ring
-        ctx.beginPath();
-        ctx.ellipse(W*0.5, H*0.5, W*0.385, H*0.385, 0, 0, Math.PI*2);
-        ctx.strokeStyle = 'rgba(60,50,40,0.7)'; ctx.lineWidth = 6; ctx.stroke();
-        ctx.strokeStyle = 'rgba(180,140,90,0.12)'; ctx.lineWidth = 1; ctx.stroke();
-
-        // Draw each pad
-        const now = performance.now();
-        PADS.forEach(function(pad, i) {
-            const px = pad.cx * W, py = pad.cy * H;
-            const pr = pad.r * Math.min(W, H);
-            const hitAge = _hitTime[i] ? now - _hitTime[i] : 9999;
-            const hitT   = Math.max(0, 1 - hitAge / 320);
-
-            // Pad dent (sunken metallic ellipse)
-            const padGrad = ctx.createRadialGradient(px - pr*0.25, py - pr*0.25, pr*0.05, px, py, pr);
-            if (hitT > 0) {
-                const c = i === 0 ? '0,243,255' : '0,255,136';
-                padGrad.addColorStop(0, 'rgba('+c+','+(0.55+hitT*0.45)+')');
-                padGrad.addColorStop(0.5,'rgba('+c+','+(0.15+hitT*0.3)+')');
-                padGrad.addColorStop(1,  'rgba('+c+',0.04)');
-            } else {
-                padGrad.addColorStop(0,   'rgba(55,44,33,0.9)');
-                padGrad.addColorStop(0.55,'rgba(28,22,16,0.9)');
-                padGrad.addColorStop(1,   'rgba(12,10,8,0.95)');
-            }
-            ctx.beginPath();
-            ctx.ellipse(px, py, pr, pr*0.88, 0, 0, Math.PI*2);
-            ctx.fillStyle = padGrad; ctx.fill();
-
-            // Pad rim
-            ctx.strokeStyle = hitT > 0
-                ? ('rgba(0,'+(hitT > 0.5 ? '243,255' : '255,136')+','+(0.6+hitT*0.4)+')')
-                : 'rgba(120,90,55,0.45)';
-            ctx.lineWidth = hitT > 0 ? 2 : 1;
-            ctx.stroke();
-
-            // Glow ring on hit
-            if (hitT > 0) {
-                const c = i === 0 ? '0,243,255' : '0,255,136';
-                ctx.shadowColor = 'rgba('+c+','+hitT+')';
-                ctx.shadowBlur  = 18 * hitT;
-                ctx.beginPath();
-                ctx.ellipse(px, py, pr, pr*0.88, 0, 0, Math.PI*2);
-                ctx.strokeStyle = 'rgba('+c+','+(hitT*0.9)+')';
-                ctx.lineWidth = 2; ctx.stroke();
-                ctx.shadowBlur = 0; ctx.shadowColor = 'transparent';
-            }
-
-            // Note label
-            ctx.fillStyle = hitT > 0 ? '#ffffff' : (i === 0 ? 'rgba(0,243,255,0.8)' : 'rgba(0,255,136,0.7)');
-            ctx.font = 'bold ' + Math.round(pr * (i===0?0.42:0.34)) + 'px Orbitron, monospace';
-            ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
-            ctx.fillText(pad.label, px, py + (i===0?1:0.5));
-        });
-
-        // ── Ripple rings (GPU-feel tactile feedback) ─────────────
-        var rNow = performance.now();
-        _ripples = _ripples.filter(function(rp) { return rNow - rp.t < 650; });
-        _ripples.forEach(function(rp) {
-            var age     = (rNow - rp.t) / 650;          // 0 → 1
-            var maxR    = Math.min(W, H) * 0.52;         // reaches instrument edge
-            var radius  = age * maxR;
-            var alpha   = (1 - age) * 0.55;
-            var rgb     = rp.color === '#00f3ff' ? '0,243,255' : '0,255,136';
-            // Primary ring
-            ctx.beginPath();
-            ctx.arc(rp.cx * W, rp.cy * H, radius, 0, Math.PI * 2);
-            ctx.strokeStyle = 'rgba(' + rgb + ',' + alpha + ')';
-            ctx.lineWidth   = 2.5 * (1 - age) + 0.5;
-            ctx.stroke();
-            // Secondary ring — trails 80 ms behind
-            if (age > 0.12) {
-                var r2 = (age - 0.12) * maxR;
-                ctx.beginPath();
-                ctx.arc(rp.cx * W, rp.cy * H, r2, 0, Math.PI * 2);
-                ctx.strokeStyle = 'rgba(' + rgb + ',' + ((1 - age) * 0.25) + ')';
-                ctx.lineWidth   = 1;
-                ctx.stroke();
-            }
-        });
-
-        // Keep animating while any pad glowing or ripples in flight
-        var anyHit    = Object.keys(_hitTime).some(function(k) { return performance.now() - _hitTime[k] < 350; });
-        var anyRipple = _ripples.length > 0;
-        if (anyHit || anyRipple) requestAnimationFrame(_drawHangdrum);
-    }
-
-    // ── Hand Tracking (MediaPipe Hands) ─────────────────────────
-    function _startHand() {
-        const video  = document.getElementById('hd-cam-video');
-        const ovl    = document.getElementById('hd-cam-canvas');
-        const status = document.getElementById('hd-hand-status');
-        if (!video) return;
-        if (status) status.textContent = 'LOADING MODEL...';
-
-        function _boot() {
-            const hands = new window.Hands({ locateFile: function(f) {
-                return 'https://cdn.jsdelivr.net/npm/@mediapipe/hands/' + f;
-            }});
-            hands.setOptions({ maxNumHands:2, modelComplexity:0, minDetectionConfidence:0.62, minTrackingConfidence:0.55 });
-            hands.onResults(function(res) { _onHandResults(res, ovl); });
-            _mpCamera = new window.Camera(video, {
-                onFrame: async function() { if (hands) await hands.send({ image: video }); },
-                width: 240, height: 180
-            });
-            _mpCamera.start().then(function() {
-                _handActive = true;
-                if (status) status.textContent = 'HAND: ONLINE';
-                document.getElementById('hd-hand-badge') && document.getElementById('hd-hand-badge').classList.add('on');
-            }).catch(function() {
-                if (status) status.textContent = 'CAM DENIED';
-            });
-        }
-
-        if (!window.Hands || !window.Camera) {
-            var loaded = 0;
-            ['https://cdn.jsdelivr.net/npm/@mediapipe/camera_utils/camera_utils.js',
-             'https://cdn.jsdelivr.net/npm/@mediapipe/drawing_utils/drawing_utils.js',
-             'https://cdn.jsdelivr.net/npm/@mediapipe/hands/hands.js'].forEach(function(src) {
-                var s = document.createElement('script'); s.src = src; s.crossOrigin='anonymous';
-                s.onload = function() { if (++loaded === 3) _boot(); };
-                document.head.appendChild(s);
-            });
-        } else { _boot(); }
-    }
-
-    function _stopHand() {
-        _handActive = false;
-        if (_mpCamera) { try { _mpCamera.stop(); } catch(e){} _mpCamera = null; }
-        var v = document.getElementById('hd-cam-video');
-        if (v && v.srcObject) { v.srcObject.getTracks().forEach(function(t){t.stop();}); v.srcObject=null; }
-        var s = document.getElementById('hd-hand-status'); if(s) s.textContent='HAND: OFF';
-        document.getElementById('hd-hand-badge') && document.getElementById('hd-hand-badge').classList.remove('on');
-        _posHistory = {}; // clear velocity history so stale data doesn't bleed into next session
-    }
-
-    function _onHandResults(results, ovl) {
-        if (!ovl) return;
-        var oc = ovl.getContext('2d');
-        oc.clearRect(0, 0, ovl.width, ovl.height);
-        if (!results.multiHandLandmarks || !_canvas) return;
-        if (window.drawConnectors && window.HAND_CONNECTIONS) {
-            results.multiHandLandmarks.forEach(function(lm) {
-                drawConnectors(oc, lm, HAND_CONNECTIONS, {color:'rgba(0,243,255,0.3)',lineWidth:1});
-                drawLandmarks(oc, lm, {color:'#00f3ff',lineWidth:0.5,radius:2});
-            });
-        }
-        // Map fingertips to pad zones using Velocity Vector Smoothing.
-        // Positions are accumulated over VEL_FRAMES frames; the magnitude of
-        // the resulting displacement vector filters out camera jitter and maps
-        // naturally to strike velocity — slow drifts are ignored, intentional
-        // "heavy" strikes produce full velocity.
-        var tNow = performance.now();
-        results.multiHandLandmarks.forEach(function(lm, hIdx) {
-            [8, 12, 4].forEach(function(ti) {
-                var tip = lm[ti]; if (!tip) return;
-                var nx = 1 - tip.x, ny = tip.y; // mirror x for front-facing camera
-
-                // Rolling 3-frame position history
-                var key  = hIdx + '_' + ti;
-                var hist = _posHistory[key] || [];
-                hist.push({ x: nx, y: ny, t: tNow });
-                if (hist.length > VEL_FRAMES) hist.shift();
-                _posHistory[key] = hist;
-
-                // Need at least 2 frames to measure movement
-                if (hist.length < 2) return;
-
-                var oldest = hist[0], newest = hist[hist.length - 1];
-                var dvx = newest.x - oldest.x;
-                var dvy = newest.y - oldest.y;
-                var dt  = Math.max(1, newest.t - oldest.t); // ms, avoid ÷0
-                // Velocity in normalised units per millisecond
-                var velMag = Math.sqrt(dvx * dvx + dvy * dvy) / dt;
-
-                // Below threshold → jitter, ignore
-                if (velMag < VEL_THRESHOLD) return;
-
-                // Map velocity to audible range 0.3–1.0
-                var strikeVel = Math.min(1.0, 0.30 + velMag * 55);
-
-                PADS.forEach(function(pad, idx) {
-                    if (_cooldown[idx]) return;
-                    var dx = nx - pad.cx, dy = ny - pad.cy;
-                    if (Math.sqrt(dx * dx + dy * dy) < pad.r * 1.05) {
-                        strike(idx, strikeVel);
-                    }
-                });
-            });
-        });
-    }
-
-    // ── Toggle & Init ────────────────────────────────────────────
-    function toggle() {
-        _visible = !_visible;
-        var win = document.getElementById('hd-window');
-        var btn = document.getElementById('btn-esx-launch');
-        if (win) win.classList.toggle('hd-visible', _visible);
-        if (btn) btn.classList.toggle('hd-open', _visible);
-        if (_visible && _canvas) { _canvas.width = _canvas.offsetWidth; _canvas.height = _canvas.offsetHeight; _drawHangdrum(); }
-    }
-
-    function _init() {
-        _canvas = document.getElementById('hd-canvas');
-        if (_canvas) { _ctx2d = _canvas.getContext('2d'); _canvas.width = _canvas.offsetWidth || 300; _canvas.height = _canvas.offsetHeight || 300; _drawHangdrum(); }
-
-        // Drag
-        var win = document.getElementById('hd-window'), bar = document.getElementById('hd-titlebar');
-        if (win && bar) {
-            var ox,oy,mx,my;
-            bar.onmousedown = function(e) {
-                e.preventDefault(); mx=e.clientX; my=e.clientY;
-                document.onmousemove = function(e) {
-                    ox=mx-e.clientX; oy=my-e.clientY; mx=e.clientX; my=e.clientY;
-                    win.style.top=(win.offsetTop-oy)+'px'; win.style.left=(win.offsetLeft-ox)+'px'; win.style.right='auto';
-                };
-                document.onmouseup = function(){document.onmousemove=null; document.onmouseup=null;};
-            };
-        }
-
-        // Mouse/touch on canvas
-        if (_canvas) {
-            _canvas.addEventListener('click', function(e) {
-                var r=_canvas.getBoundingClientRect(), nx=(e.clientX-r.left)/r.width, ny=(e.clientY-r.top)/r.height;
-                PADS.forEach(function(pad,i){ var dx=nx-pad.cx,dy=ny-pad.cy; if(Math.sqrt(dx*dx+dy*dy)<pad.r+0.02) strike(i,0.88); });
-            });
-            window.addEventListener('resize', function() { if(_visible){_canvas.width=_canvas.offsetWidth; _canvas.height=_canvas.offsetHeight; _drawHangdrum();} });
-        }
-
-        // Hand badge toggle
-        var hb = document.getElementById('hd-hand-badge');
-        if (hb) hb.addEventListener('click', function() { _handActive ? _stopHand() : _startHand(); });
-    }
-
-    document.addEventListener('DOMContentLoaded', function() { setTimeout(_init, 900); });
-
-    return { toggle, strike,
-        get _masterGain(){ return _masterGain; },
-        get _wetGain()   { return _wetGain; },
-        get _dryGain()   { return _dryGain; }
-    };
-})();
 
 
 function connectVideoAudio(vid) {
@@ -18986,7 +18498,47 @@ if (btn3dX) {
         'LIFE':'VITA','DEATH':'MORTE','GOD':'DDIO',
         'MADONNA':'MADONNA','SAINT':'SANTO',
         'NAPLES':'NAPULE','NEAPOLITAN':'NAPOLETANO',
-        'BEAUTIFUL NAPLES':'NAPULE BELLA','THE CITY':'A CITÀ'
+        'BEAUTIFUL NAPLES':'NAPULE BELLA','THE CITY':'A CITÀ',
+        /* ── Italian-source keys (spoken Italian → Neapolitan) ── */
+        'CIAO':'AJÒ','SALVE':'AJÒ','ARRIVEDERCI':'ARRIVEDERCI',
+        'BUONGIORNO':'BUONGIORNO','BUONASERA':'BONASERA','BUONANOTTE':'BUONANOTTE',
+        'GRAZIE':'GRAZIE ASSAJE','PREGO':'PREGO','SCUSA':'SCUSAME',
+        'PER FAVORE':'PE PIACERE','PER PIACERE':'PE PIACERE',
+        'SÌ':'SÌ','NO':'NÒ','FORSE':'FORZE','CERTO':'CERTAMENTE',
+        'RAGAZZO':'GUAGLIONE','RAGAZZA':'GUAGLIUNCELLA',
+        'BAMBINO':'PICCERILLO','BAMBINA':'PICCERELLA',
+        'UOMO':'OMO','DONNA':'FEMMENA','PERSONA':'PERSONA',
+        'MADRE':'MAMMETA','MAMMA':'MAMMA','PADRE':'TATÀ','PAPÀ':'TATÀ',
+        'FRATELLO':'FRATEMO','SORELLA':'SIEREMA',
+        'NONNA':'NONNA','NONNO':'NONNO','ZIA':'ZIA','ZIO':'ZIO',
+        'MARITO':'MARITO','MOGLIE':'MOGLIERA',
+        'AMICO':'AMICO MIO','AMICI':'AMICI',
+        'TESTA':'CAPO','FACCIA':'FACCIA','OCCHIO':'UOCCHIO','OCCHI':'UOCCHIE',
+        'BOCCA':'VOCCA','NASO':'NASO','MANO':'MANO','MANI':'MMANE',
+        'CUORE':'CORE','ANIMA':'ANEMA',
+        'BUONO':'BUONO','BELLO':'BELLISSIMO','BRUTTO':'BRUTTO',
+        'FELICE':'CUNTENTO','TRISTE':'MALANCUNICO','ARRABBIATO':'ARRABIATO',
+        'STANCO':'STANCO MUORTO','UBRIACO':'MBRIACO','PAZZO':'PAZZO',
+        'MOLTO':'ASSAJE','TANTO':'N\'SACCO','POCO':'N\'PO\'',
+        'TUTTO':'TUTTO','NIENTE':'NIENTE','QUALCOSA':'QUACOSA',
+        'MANGIARE':'MAGNÀ','BERE':'BEVÌ','PARLARE':'PARLA',
+        'ANDARE':'JÀ','VENIRE':'VENE','CORRERE':'SCAPPA',
+        'ASPETTARE':'ASPETTA','LAVORARE':'FATICÀ','DORMIRE':'DORMI',
+        'SAPERE':'SACCIO','VOLERE':'VOGLIO','CAPIRE':'CAPISCE',
+        'GUARDARE':'GUARDA','SENTIRE':'SENTE',
+        'CIBO':'ROBA DA MAGNÀ','PANE':'PANE','PIZZA':'PIZZA A VERACE',
+        'PASTA':'PASTA','PESCE':'PESCE','CARNE':'CARNE',
+        'CAFFÈ':'CAFÈ','ACQUA':'ACQUA','VINO':'VINO','BIRRA':'BIRRA',
+        'SOLDI':'SOLDE','CASA':'CASA','STRADA':'STRÀ',
+        'MARE':'MARE','SOLE':'SOLE','GIORNO':'JUORNO','NOTTE':'NOTTE',
+        'OGGI':'OGGI','DOMANI':'DIMANE','IERI':'IERI',
+        'NAPOLI':'NAPULE','CHE BELLO':'CHE BELLEZZA',
+        'CHE COSA':'CHE COSA','COME STAI':'COMM\' STAJE',
+        'TI VOGLIO BENE':'TE VOGLIO BENE','MI MANCHI':'ME MANCHI',
+        'ANDIAMO':'JÀ','VAI':'JÀ','VIENI':'VENE',
+        'ASPETTA':'ASPETTA','FERMATI':'FERMATE',
+        'CHE CASINO':'CHE CASINO','CHE PECCATO':'CHE PECCATO',
+        'BRAVO':'BRAVO','DAI':'AJÒ','MANNAGGIA':'MANNAGGIA'
     };
 
     function toNapoletano(text) {
@@ -19191,7 +18743,49 @@ if (btn3dX) {
         'NORMAL':'NORMALE','COMMON':'COMUNE',
         'TRUE':'VERO','FALSE':'FALSO','LIE':'BUGIA',
         'SECRET':'SEGRETO','PRIVATE':'PRIVATO',
-        'GENOA':'ZENOVA','GENOESE':'ZENEIZE','LIGURIAN':'LIGÛRE'
+        'GENOA':'ZENOVA','GENOESE':'ZENEIZE','LIGURIAN':'LIGÛRE',
+        /* ── Italian-source keys (spoken Italian → Genovese/Zeneize) ── */
+        'CIAO':'CIAU','SALVE':'CIAU','ARRIVEDERCI':'ARVEI',
+        'BUONGIORNO':'BONGIORNO','BUONASERA':'BONASEIA','BUONANOTTE':'BONANÖTTE',
+        'GRAZIE':'GRÂSCIE','PREGO':'PRE PIAXEI','SCUSA':'SCÛSEME',
+        'PER FAVORE':'PER PIAXEI','PER PIACERE':'PER PIAXEI',
+        'SÌ':'SÌ','NO':'NÒ','FORSE':'FORSE','CERTO':'CERTO',
+        'RAGAZZO':'TOSO','RAGAZZA':'TOSA','BAMBINO':'FIOLETTO',
+        'UOMO':'OMO','DONNA':'DONNA','PERSONA':'PERSONA','GENTE':'ZENTE',
+        'MADRE':'MOÆ','MAMMA':'MÆMA','PADRE':'PÂ','PAPÀ':'PÂ',
+        'FRATELLO':'FRÆ','SORELLA':'SÒRELLA',
+        'NONNA':'NONNA','NONNO':'NÒNNO','ZIA':'ZIA','ZIO':'ZIO',
+        'MARITO':'MÂRITO','MOGLIE':'MUGGÊ',
+        'AMICO':'AMIGO','AMICI':'AMIGHI','VICINO':'VESIN',
+        'TESTA':'TESTA','FACCIA':'FACIA','OCCHIO':'EUGGIO','OCCHI':'EUGGI',
+        'BOCCA':'BOCCA','NASO':'NÂSO','MANO':'MAN','MANI':'MANI',
+        'CUORE':'CHEU','ANIMA':'ANIMA',
+        'BUONO':'BEN','BELLO':'BELL-O','BRUTTO':'BRUTTO',
+        'FELICE':'CONTENTO','TRISTE':'TRIST','ARRABBIATO':'ARRABIÂ',
+        'STANCO':'STANCO','UBRIACO':'BRILLO','PAZZO':'MATO',
+        'MOLTO':'ASSÆ','TANTO':'ASSÆ TANTO','POCO':'POCO',
+        'TUTTO':'TUTTO','NIENTE':'GNENTE','QUALCOSA':'QUARCÖSA',
+        'MANGIARE':'MANGIÂ','BERE':'BEVVE','PARLARE':'PARLÂ',
+        'ANDARE':'ANDÂ','VENIRE':'VEGNÎ','CORRERE':'CÛRRE',
+        'ASPETTARE':'ASPETÂ','LAVORARE':'TRAVAGGIÂ','DORMIRE':'DORMÎ',
+        'SAPERE':'SÒ','VOLERE':'VÖGIO','CAPIRE':'CAPÎ',
+        'GUARDARE':'GARDÂ','SENTIRE':'SENTÎ','CANTARE':'CANTÂ',
+        'CIBO':'MANGIÂ','PANE':'PAN','PESCE':'PEXE','CARNE':'CARNE',
+        'PESTO':'PESTO','FOCACCIA':'FUGASSA','FARINATA':'FAINÂ',
+        'CAFFÈ':'CAFÈ','ACQUA':'ÆGUA','VINO':'VIÑN','BIRRA':'BIRRA',
+        'SOLDI':'SCHÈI','DENARO':'SCHÈI','CASA':'CAZA','STRADA':'CARROGGIO',
+        'VICOLO':'VICO','PIAZZA':'PIASSA','PORTO':'PORTO','CHIESA':'ÇEXA',
+        'MARE':'MÂ','SOLE':'SOÔ','LUNA':'LUNA','CIELO':'ÇIELO',
+        'VENTO':'VENTO','PIOGGIA':'PIOEUVA','NEVE':'NEIVE',
+        'GIORNO':'GIORNO','NOTTE':'NÖTTE','MATTINA':'MATTIN',
+        'OGGI':'ANCHEU','DOMANI':'DOMAN','IERI':'IERI',
+        'GENOVA':'ZENOVA','CHE BELLO':'BELIN CHE BELLO',
+        'CHE COSA':'BELIN CHE COZA','COME STAI':'COMM\' STÆ',
+        'TI VOGLIO BENE':'TI VÖGIO BEN','MI MANCHI':'ME MANCHIE',
+        'ANDIAMO':'ANDÂ','DAI':'CIAU','VIENI':'VEN CÂ',
+        'ASPETTA':'ASPETÂ','FERMATI':'FERMITE',
+        'CHE CASINO':'BELIN CHE CASINO','CHE PECCATO':'CHE PECCÂ',
+        'BRAVO':'BRAVO','BELIN':'BELIN'
     };
 
     function toGenovese(text) {
@@ -19496,19 +19090,19 @@ if (btn3dX) {
         p2pData[srcCode.toUpperCase()] = rawText;
 
         active.forEach(function(s) {
-            // Dialect transforms — local dictionary, only meaningful from English source
+            // Dialect transforms — local dictionary, works from English or Italian source
             if (s.lang === 'SCOUSE') {
                 slotTexts[s.idx] = (srcCode === 'en') ? toScouse(rawText) : rawText;
                 p2pData['SCOUSE'] = slotTexts[s.idx];
                 return;
             }
             if (s.lang === 'NAP') {
-                slotTexts[s.idx] = (srcCode === 'en') ? toNapoletano(rawText) : rawText;
+                slotTexts[s.idx] = (srcCode === 'en' || srcCode === 'it') ? toNapoletano(rawText) : rawText;
                 p2pData['NAP'] = slotTexts[s.idx];
                 return;
             }
             if (s.lang === 'GEN') {
-                slotTexts[s.idx] = (srcCode === 'en') ? toGenovese(rawText) : rawText;
+                slotTexts[s.idx] = (srcCode === 'en' || srcCode === 'it') ? toGenovese(rawText) : rawText;
                 p2pData['GEN'] = slotTexts[s.idx];
                 return;
             }
@@ -19546,11 +19140,11 @@ if (btn3dX) {
                 return;
             }
             if (s.lang === 'NAP') {
-                if (srcCode === 'en') slotTexts[s.idx] = toNapoletano(text);
+                if (srcCode === 'en' || srcCode === 'it') slotTexts[s.idx] = toNapoletano(text);
                 return;
             }
             if (s.lang === 'GEN') {
-                if (srcCode === 'en') slotTexts[s.idx] = toGenovese(text);
+                if (srcCode === 'en' || srcCode === 'it') slotTexts[s.idx] = toGenovese(text);
                 return;
             }
             var tgtCode = LANG_TARGETS[s.lang];

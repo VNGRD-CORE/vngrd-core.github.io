@@ -1,0 +1,122 @@
+/* ═══════════════════════════════════════════════════════════════════
+   VNGRD KINETIC RACK — CSS
+   TouchDesigner-grade WebGL pipeline UI · Triple-Alpha Glass
+═══════════════════════════════════════════════════════════════════ */
+#kinetic-canvas {
+    position: fixed;
+    top: 45px; left: 200px; right: 200px; bottom: 55px;
+    z-index: 3500;
+    display: none;
+    pointer-events: none;
+    background: #000;
+}
+#kinetic-canvas.kr-online { display: block; }
+
+#kinetic-cam-video {
+    position: fixed;
+    left: -9999px; top: -9999px;
+    width: 640px; height: 480px;
+    pointer-events: none;
+}
+
+#kr-rack { margin-top: 6px; }
+
+.kr-rack-label {
+    font-size: 7px;
+    color: rgba(0,243,255,0.28);
+    letter-spacing: 2.5px;
+    font-family: 'Orbitron',sans-serif;
+    text-align: center;
+    padding: 4px 0 3px;
+    border-top: 1px solid rgba(0,243,255,0.07);
+    border-bottom: 1px solid rgba(0,243,255,0.05);
+    margin-bottom: 5px;
+}
+
+.kr-btn-row { display:flex; gap:3px; margin-bottom:4px; }
+
+.kr-btn {
+    flex:1; padding:5px 3px;
+    font-family:'JetBrains Mono',monospace; font-size:7px; letter-spacing:.8px;
+    color:rgba(0,243,255,.4);
+    background:rgba(0,5,10,.4);
+    backdrop-filter:blur(8px); -webkit-backdrop-filter:blur(8px);
+    border:1px solid rgba(255,255,255,.06);
+    border-top:1px solid rgba(255,255,255,.14);
+    border-left:1px solid rgba(255,255,255,.09);
+    border-radius:2px; cursor:pointer; text-align:center;
+    transition:all .14s ease;
+}
+.kr-btn:hover {
+    color:#00f3ff; background:rgba(0,15,25,.55);
+    backdrop-filter:blur(20px); -webkit-backdrop-filter:blur(20px);
+    border-color:rgba(0,243,255,.28);
+    box-shadow:0 0 8px rgba(0,243,255,.1);
+}
+.kr-btn.kr-sel {
+    color:#00f3ff; background:rgba(0,22,38,.78);
+    backdrop-filter:blur(20px); -webkit-backdrop-filter:blur(20px);
+    border:1px solid rgba(0,243,255,.12);
+    border-top:1px solid rgba(0,243,255,.62);
+    border-left:1px solid rgba(0,243,255,.28);
+    box-shadow:0 0 12px rgba(0,243,255,.18),inset 0 0 8px rgba(0,243,255,.05);
+    text-shadow:0 0 8px rgba(0,243,255,.55);
+}
+
+#kr-tether-modes {
+    display:none; gap:2px; margin-bottom:4px;
+    padding-left:6px;
+    border-left:1px solid rgba(176,0,255,.18);
+}
+#kr-tether-modes.kr-visible { display:flex; }
+
+.kr-sub-btn {
+    flex:1; padding:4px 2px;
+    font-family:'JetBrains Mono',monospace; font-size:6.5px; letter-spacing:.5px;
+    color:rgba(176,0,255,.42);
+    background:rgba(5,0,12,.35);
+    backdrop-filter:blur(8px); -webkit-backdrop-filter:blur(8px);
+    border:1px solid rgba(255,255,255,.05);
+    border-top:1px solid rgba(255,255,255,.10);
+    border-left:1px solid rgba(255,255,255,.06);
+    border-radius:2px; cursor:pointer; text-align:center;
+    transition:all .12s ease;
+}
+.kr-sub-btn:hover { color:#b000ff; border-color:rgba(176,0,255,.25); backdrop-filter:blur(20px); }
+.kr-sub-btn.kr-sel {
+    color:#b000ff; background:rgba(14,0,26,.68);
+    border-top-color:rgba(176,0,255,.58);
+    border-left-color:rgba(176,0,255,.22);
+    text-shadow:0 0 7px rgba(176,0,255,.5);
+}
+
+#kr-status {
+    font-size:6.5px; color:rgba(0,243,255,.25); letter-spacing:1px;
+    text-align:center; padding:2px 0; min-height:12px;
+    font-family:'JetBrains Mono',monospace; transition:color .4s;
+}
+#kr-status.kr-live { color:rgba(0,255,136,.65); }
+
+#kr-launch-btn {
+    display:block; width:100%; margin-top:4px; padding:6px 4px;
+    font-family:'Orbitron',sans-serif; font-size:7.5px; font-weight:700; letter-spacing:2px;
+    color:rgba(0,243,255,.6);
+    background:rgba(0,5,10,.4);
+    backdrop-filter:blur(8px); -webkit-backdrop-filter:blur(8px);
+    border:1px solid rgba(0,243,255,.2);
+    border-top:1px solid rgba(255,255,255,.16);
+    border-left:1px solid rgba(255,255,255,.09);
+    border-radius:2px; cursor:pointer; text-align:center; transition:all .16s ease;
+}
+#kr-launch-btn:hover {
+    color:#00f3ff; backdrop-filter:blur(20px); box-shadow:0 0 14px rgba(0,243,255,.2);
+}
+#kr-launch-btn.kr-online {
+    color:#00f3ff; background:rgba(0,28,44,.82);
+    backdrop-filter:blur(20px); -webkit-backdrop-filter:blur(20px);
+    border:1px solid rgba(0,243,255,.15);
+    border-top:1px solid rgba(0,243,255,.65);
+    border-left:1px solid rgba(0,243,255,.28);
+    box-shadow:0 0 20px rgba(0,243,255,.3),inset 0 0 12px rgba(0,243,255,.07);
+    text-shadow:0 0 10px rgba(0,243,255,.65);
+}
