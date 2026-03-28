@@ -1,86 +1,59 @@
 import * as THREE from 'three';
-import { EffectComposer } from 'three/addons/postprocessing/EffectComposer.js';
-import { RenderPass }     from 'three/addons/postprocessing/RenderPass.js';
+import { EffectComposer }  from 'three/addons/postprocessing/EffectComposer.js';
+import { RenderPass }      from 'three/addons/postprocessing/RenderPass.js';
 import { UnrealBloomPass } from 'three/addons/postprocessing/UnrealBloomPass.js';
-import { SMAAPass }       from 'three/addons/postprocessing/SMAAPass.js';
-import { OutputPass }     from 'three/addons/postprocessing/OutputPass.js';
-import { CyberHangdrum } from './instruments/CyberHangdrum.js';
-import { NeuralGlitch }  from './instruments/NeuralGlitch.js';
-import { TetherVerlet }  from './instruments/TetherVerlet.js';
+import { ShaderPass }      from 'three/addons/postprocessing/ShaderPass.js';
+import { GammaCorrectionShader } from 'three/addons/shaders/GammaCorrectionShader.js';
+import { CyberHangdrum }   from './instruments/CyberHangdrum.js';
+import { NeuralGlitch }    from './instruments/NeuralGlitch.js';
+import { TetherVerlet }    from './instruments/TetherVerlet.js';
 
-// ─────────────────────────────────────────────────────────────────────────────
-// AR VOID SHADERS — webcam background with black-crush + phantom colorgrade
-// ─────────────────────────────────────────────────────────────────────────────
-const VOID_VERT = `
-varying vec2 vUv;
-void main(){
-    vUv = uv;
-    gl_Position = projectionMatrix * modelViewMatrix * vec4(position,1.0);
-}`;
+// ── AR Void shaders ────────────────────────────────────────────────────────────
+const VOID_VERT = `varying vec2 vUv;
+void main(){ vUv=uv; gl_Position=projectionMatrix*modelViewMatrix*vec4(position,1.0); }`;
 
-const VOID_FRAG = `
-uniform sampler2D uCam;
-uniform float uTime;
-varying vec2 vUv;
-
+const VOID_FRAG = `uniform sampler2D uCam; uniform float uTime; varying vec2 vUv;
 vec3 phantomGrade(vec3 c){
-    // Crush blacks — anything below 0.18 threshold goes near-black
-    float lum = dot(c, vec3(0.299,0.587,0.114));
-    float crush = smoothstep(0.0, 0.22, lum);
-    // Desaturate
-    vec3 grey = vec3(lum);
-    c = mix(grey, c, 0.25);
-    // Phantom tint: highlights → cyan, low-mids → magenta
-    vec3 cyan    = vec3(0.0, 0.9, 0.85);
-    vec3 magenta = vec3(0.85, 0.0, 0.75);
-    float t = smoothstep(0.35, 0.75, lum);
-    c = mix(c * magenta, c * cyan, t);
-    // Apply crush
-    c *= crush;
-    return c;
+    float lum=dot(c,vec3(0.299,0.587,0.114));
+    float crush=smoothstep(0.0,0.22,lum);
+    c=mix(vec3(lum),c,0.25);
+    vec3 cyan=vec3(0.0,0.9,0.85); vec3 mag=vec3(0.85,0.0,0.75);
+    c=mix(c*mag,c*cyan,smoothstep(0.35,0.75,lum));
+    return c*crush;
 }
-
 void main(){
-    // Mirror X for natural AR feel
-    vec2 uv = vec2(1.0 - vUv.x, vUv.y);
-    vec4 cam = texture2D(uCam, uv);
-    vec3 col = phantomGrade(cam.rgb);
-    gl_FragColor = vec4(col, 1.0);
+    vec4 cam=texture2D(uCam,vec2(1.0-vUv.x,vUv.y));
+    gl_FragColor=vec4(phantomGrade(cam.rgb),1.0);
 }`;
 
-// ─────────────────────────────────────────────────────────────────────────────
-// KINETIC RACK — Singleton orchestrator
-// ─────────────────────────────────────────────────────────────────────────────
+// ── Singleton ──────────────────────────────────────────────────────────────────
 const KineticRack = (() => {
     let _renderer, _scene, _camera, _composer, _clock;
-    let _bgMesh, _bgUniforms;
-    let _camVideo, _videoTex;
-    let _hands = null;
-    let _handsResults = null;
-    let _raf = null;
-    let _active = false;
-    let _currentInstr = null;
-    let _instruments = {};
-    let _instrName = 'CYBER_HANGDRUM';
-    let _tetherMode = 'CORE';
-    let _statusEl, _launchBtn;
+    let _bgMesh, _bgUniforms, _videoTex;
+    let _camVideo, _hands, _handsResults;
+    let _raf, _active = false;
+    let _instruments = {}, _currentInstr = null, _instrName = 'CYBER_HANGDRUM';
 
-    // ── DOM refs ──────────────────────────────────────────────────────────────
-    function _getDOM() {
-        _statusEl  = document.getElementById('kr-status');
-        _launchBtn = document.getElementById('kr-launch-btn');
+    function _status(msg, live) {
+        const el = document.getElementById('kr-status');
+        if (!el) return;
+        el.textContent = msg;
+        el.classList.toggle('kr-live', !!live);
     }
 
-    // ── Three.js setup ────────────────────────────────────────────────────────
+    function _getStageSize() {
+        return {
+            W: window.innerWidth  - 400,   // left:200 + right:200
+            H: window.innerHeight - 100    // top:45  + bottom:55
+        };
+    }
+
     function _setup() {
         const canvas = document.getElementById('kinetic-canvas');
-        const W = canvas.clientWidth  || (window.innerWidth  - 400);
-        const H = canvas.clientHeight || (window.innerHeight - 100);
-        canvas.width  = W;
-        canvas.height = H;
+        const { W, H } = _getStageSize();
 
         _renderer = new THREE.WebGLRenderer({ canvas, antialias: false, alpha: false });
-        _renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+        _renderer.setPixelRatio(Math.min(window.devicePixelRatio, 1.5));
         _renderer.setSize(W, H);
         _renderer.outputColorSpace = THREE.SRGBColorSpace;
         _renderer.toneMapping = THREE.ACESFilmicToneMapping;
@@ -91,179 +64,122 @@ const KineticRack = (() => {
 
         _scene = new THREE.Scene();
         _scene.background = new THREE.Color(0x000000);
-
         _clock = new THREE.Clock();
 
-        // Effect Composer
         _composer = new EffectComposer(_renderer);
         _composer.addPass(new RenderPass(_scene, _camera));
-
-        const bloom = new UnrealBloomPass(new THREE.Vector2(W, H), 2.2, 0.65, 0.12);
+        const bloom = new UnrealBloomPass(new THREE.Vector2(W, H), 1.8, 0.5, 0.15);
         _composer.addPass(bloom);
+        _composer.addPass(new ShaderPass(GammaCorrectionShader));
 
-        const smaa = new SMAAPass(W, H);
-        _composer.addPass(smaa);
-
-        _composer.addPass(new OutputPass());
-
-        // Resize handler
-        window.addEventListener('resize', _onResize);
-    }
-
-    function _onResize() {
-        if (!_renderer) return;
-        const canvas = document.getElementById('kinetic-canvas');
-        const W = canvas.clientWidth  || (window.innerWidth  - 400);
-        const H = canvas.clientHeight || (window.innerHeight - 100);
-        canvas.width  = W;
-        canvas.height = H;
-        _renderer.setSize(W, H);
-        _camera.aspect = W / H;
-        _camera.updateProjectionMatrix();
-        _composer.setSize(W, H);
-        _buildBg(W, H);
-    }
-
-    // ── AR Void background plane ──────────────────────────────────────────────
-    function _buildBg(W, H) {
-        if (_bgMesh) {
-            _scene.remove(_bgMesh);
-            _bgMesh.geometry.dispose();
-            _bgMesh.material.dispose();
-        }
-        const dist   = _camera.position.z - (-5); // camera at 5, plane at -5
-        const halfH  = Math.tan(THREE.MathUtils.degToRad(30)) * dist;
-        const halfW  = halfH * (W / H);
-        const geo    = new THREE.PlaneGeometry(halfW * 2 + 2, halfH * 2 + 2);
-
-        _bgUniforms = {
-            uCam:  { value: _videoTex },
-            uTime: { value: 0 }
-        };
-
-        const mat = new THREE.ShaderMaterial({
-            uniforms:       _bgUniforms,
-            vertexShader:   VOID_VERT,
-            fragmentShader: VOID_FRAG,
-            depthWrite: false
+        window.addEventListener('resize', () => {
+            if (!_renderer) return;
+            const { W: w, H: h } = _getStageSize();
+            _renderer.setSize(w, h);
+            _camera.aspect = w / h;
+            _camera.updateProjectionMatrix();
+            _composer.setSize(w, h);
+            _buildBg(w, h);
         });
+    }
 
-        _bgMesh = new THREE.Mesh(geo, mat);
+    function _buildBg(W, H) {
+        if (_bgMesh) { _scene.remove(_bgMesh); _bgMesh.geometry.dispose(); _bgMesh.material.dispose(); }
+        const dist  = _camera.position.z + 5; // camera z=5, plane z=-5
+        const halfH = Math.tan(THREE.MathUtils.degToRad(30)) * dist;
+        const halfW = halfH * (W / H);
+        _bgUniforms = { uCam: { value: _videoTex }, uTime: { value: 0 } };
+        _bgMesh = new THREE.Mesh(
+            new THREE.PlaneGeometry(halfW * 2 + 2, halfH * 2 + 2),
+            new THREE.ShaderMaterial({ uniforms: _bgUniforms, vertexShader: VOID_VERT, fragmentShader: VOID_FRAG, depthWrite: false })
+        );
         _bgMesh.position.z = -5;
         _bgMesh.renderOrder = -1;
         _scene.add(_bgMesh);
     }
 
-    // ── Webcam ────────────────────────────────────────────────────────────────
     async function _startCam() {
         _camVideo = document.getElementById('kinetic-cam-video');
-        const stream = await navigator.mediaDevices.getUserMedia({
-            video: { width: 1280, height: 720, facingMode: 'user' },
-            audio: false
-        });
+        const stream = await navigator.mediaDevices.getUserMedia({ video: { width: 1280, height: 720, facingMode: 'user' }, audio: false });
         _camVideo.srcObject = stream;
         await _camVideo.play();
         _videoTex = new THREE.VideoTexture(_camVideo);
         _videoTex.colorSpace = THREE.SRGBColorSpace;
     }
 
-    // ── MediaPipe Hands ───────────────────────────────────────────────────────
     async function _startHands() {
-        // Dynamically import MediaPipe
-        const script = document.createElement('script');
-        script.src = 'https://cdn.jsdelivr.net/npm/@mediapipe/hands/hands.js';
-        script.crossOrigin = 'anonymous';
-        await new Promise(r => { script.onload = r; document.head.appendChild(script); });
-
-        _hands = new window.Hands({
-            locateFile: f => `https://cdn.jsdelivr.net/npm/@mediapipe/hands/${f}`
+        await new Promise((res, rej) => {
+            if (window.Hands) return res();
+            const s = document.createElement('script');
+            s.src = 'https://cdn.jsdelivr.net/npm/@mediapipe/hands/hands.js';
+            s.crossOrigin = 'anonymous';
+            s.onload = res; s.onerror = rej;
+            document.head.appendChild(s);
         });
-        _hands.setOptions({
-            maxNumHands: 2,
-            modelComplexity: 1,
-            minDetectionConfidence: 0.7,
-            minTrackingConfidence: 0.5
-        });
+        _hands = new window.Hands({ locateFile: f => `https://cdn.jsdelivr.net/npm/@mediapipe/hands/${f}` });
+        _hands.setOptions({ maxNumHands: 2, modelComplexity: 1, minDetectionConfidence: 0.7, minTrackingConfidence: 0.5 });
         _hands.onResults(r => { _handsResults = r; });
-
-        // Feed camera frames to MediaPipe
-        const sendFrames = async () => {
+        const feed = async () => {
             if (!_active) return;
-            if (_camVideo && _camVideo.readyState >= 2) {
-                await _hands.send({ image: _camVideo });
-            }
-            requestAnimationFrame(sendFrames);
+            if (_camVideo && _camVideo.readyState >= 2) await _hands.send({ image: _camVideo }).catch(() => {});
+            requestAnimationFrame(feed);
         };
-        sendFrames();
+        feed();
     }
 
-    // ── Instruments ───────────────────────────────────────────────────────────
     async function _buildInstruments() {
-        const audioCtx = (window.APP && APP.audio && APP.audio.ctx)
-            ? APP.audio.ctx
-            : new (window.AudioContext || window.webkitAudioContext)();
-
-        _instruments.CYBER_HANGDRUM = new CyberHangdrum(_scene, audioCtx);
-        _instruments.NEURAL_GLITCH  = new NeuralGlitch(_scene, audioCtx);
-        _instruments.TETHER_VERLET  = new TetherVerlet(_scene, audioCtx);
-
+        const ctx = (window.APP && APP.audio && APP.audio.ctx) ? APP.audio.ctx : new (window.AudioContext || window.webkitAudioContext)();
+        _instruments = {
+            CYBER_HANGDRUM: new CyberHangdrum(_scene, ctx),
+            NEURAL_GLITCH:  new NeuralGlitch(_scene, ctx),
+            TETHER_VERLET:  new TetherVerlet(_scene, ctx)
+        };
         await Promise.all(Object.values(_instruments).map(i => i.init()));
-
-        // Activate default
         _currentInstr = _instruments[_instrName];
         _currentInstr.activate();
     }
 
-    // ── RAF loop ──────────────────────────────────────────────────────────────
     function _loop() {
         if (!_active) return;
         _raf = requestAnimationFrame(_loop);
-
         const t = _clock.getElapsedTime();
-
-        // Update BG texture time
         if (_bgUniforms) _bgUniforms.uTime.value = t;
-
-        // Update active instrument
         if (_currentInstr) _currentInstr.update(_handsResults, t, _camera);
-
         _composer.render();
     }
 
-    // ── Public API ────────────────────────────────────────────────────────────
+    // ── Public ─────────────────────────────────────────────────────────────────
     async function toggle() {
-        _getDOM();
         if (_active) {
             _active = false;
             cancelAnimationFrame(_raf);
-            _raf = null;
             Object.values(_instruments).forEach(i => i.deactivate && i.deactivate());
             document.getElementById('kinetic-canvas').classList.remove('kr-online');
-            _launchBtn && _launchBtn.classList.remove('kr-online');
-            if (_statusEl) _statusEl.textContent = 'OFFLINE';
+            document.getElementById('kr-launch-btn').classList.remove('kr-online');
+            document.getElementById('kr-rack').classList.remove('kr-online');
+            _status('OFFLINE');
             return;
         }
-
         _active = true;
-        if (_statusEl) _statusEl.textContent = 'INITIALIZING...';
-
+        _status('INIT CAMERA...');
         try {
             await _startCam();
+            _status('BUILDING PIPELINE...');
             _setup();
-            const W = _renderer.domElement.width;
-            const H = _renderer.domElement.height;
+            const { W, H } = _getStageSize();
             _buildBg(W, H);
+            _status('LOADING INSTRUMENTS...');
             await _buildInstruments();
+            _status('LOADING HANDS...');
             await _startHands();
-
             document.getElementById('kinetic-canvas').classList.add('kr-online');
-            _launchBtn && _launchBtn.classList.add('kr-online');
-            if (_statusEl) _statusEl.textContent = _instrName + ' // ONLINE';
-
+            document.getElementById('kr-launch-btn').classList.add('kr-online');
+            document.getElementById('kr-rack').classList.add('kr-online');
+            _status(_instrName + ' // ONLINE', true);
             _loop();
-        } catch(e) {
-            console.error('[KineticRack] init failed:', e);
-            if (_statusEl) _statusEl.textContent = 'ERROR: ' + e.message;
+        } catch (e) {
+            console.error('[KineticRack]', e);
+            _status('ERROR: ' + e.message);
             _active = false;
         }
     }
@@ -271,33 +187,19 @@ const KineticRack = (() => {
     function setInstrument(name) {
         if (!_instruments[name]) return;
         if (_currentInstr) _currentInstr.deactivate && _currentInstr.deactivate();
-        _instrName    = name;
+        _instrName = name;
         _currentInstr = _instruments[name];
         _currentInstr.activate();
-
-        // Update button states
         document.querySelectorAll('.kr-btn').forEach(b => b.classList.remove('kr-sel'));
-        const btnMap = {
-            CYBER_HANGDRUM: 'kr-btn-cyber-hangdrum',
-            NEURAL_GLITCH:  'kr-btn-neural-glitch',
-            TETHER_VERLET:  'kr-btn-tether-verlet'
-        };
-        const btn = document.getElementById(btnMap[name]);
-        if (btn) btn.classList.add('kr-sel');
-
-        // Show/hide tether sub-modes
-        const tetherModes = document.getElementById('kr-tether-modes');
-        if (tetherModes) tetherModes.style.display = name === 'TETHER_VERLET' ? 'flex' : 'none';
-
-        if (_statusEl && _active) _statusEl.textContent = name + ' // ONLINE';
+        const ids = { CYBER_HANGDRUM: 'kr-btn-cyber-hangdrum', NEURAL_GLITCH: 'kr-btn-neural-glitch', TETHER_VERLET: 'kr-btn-tether-verlet' };
+        document.getElementById(ids[name])?.classList.add('kr-sel');
+        document.getElementById('kr-tether-modes').style.display = name === 'TETHER_VERLET' ? 'flex' : 'none';
+        if (_active) _status(name + ' // ONLINE', true);
     }
 
     function setTetherMode(mode) {
-        _tetherMode = mode;
         if (_instruments.TETHER_VERLET) _instruments.TETHER_VERLET.setMode(mode);
-        document.querySelectorAll('.kr-sub-btn').forEach(b => {
-            b.classList.toggle('kr-sel', b.dataset.mode === mode);
-        });
+        document.querySelectorAll('.kr-sub-btn').forEach(b => b.classList.toggle('kr-sel', b.dataset.mode === mode));
     }
 
     return { toggle, setInstrument, setTetherMode };

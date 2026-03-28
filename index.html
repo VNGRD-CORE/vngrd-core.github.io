@@ -5362,16 +5362,17 @@ body.fullscreen #transcription-hud { pointer-events: none !important; } /* keep 
 
                     <!-- ══ KINETIC RACK ══════════════════════════════════ -->
                     <div id="kr-rack">
-                        <div class="kr-rack-label">[ KINETIC RACK ]</div>
-                        <div class="kr-btn-row">
+                        <button id="kr-launch-btn" onclick="window.KineticRack && KineticRack.toggle()">[ KINETIC RACK ]</button>
+                        <div id="kr-status">OFFLINE</div>
+                        <div class="kr-btn-row" id="kr-instr-row">
                             <button class="kr-btn kr-sel" id="kr-btn-cyber-hangdrum"
-                                onclick="KineticRack.setInstrument('CYBER_HANGDRUM')">HANGDRUM</button>
+                                onclick="KineticRack.setInstrument('CYBER_HANGDRUM')">DRUM</button>
                             <button class="kr-btn" id="kr-btn-neural-glitch"
                                 onclick="KineticRack.setInstrument('NEURAL_GLITCH')">GLITCH</button>
                             <button class="kr-btn" id="kr-btn-tether-verlet"
                                 onclick="KineticRack.setInstrument('TETHER_VERLET')">TETHER</button>
                         </div>
-                        <div id="kr-tether-modes" style="display:none">
+                        <div id="kr-tether-modes">
                             <button class="kr-sub-btn kr-sel" data-mode="CORE"
                                 onclick="KineticRack.setTetherMode('CORE')">CORE</button>
                             <button class="kr-sub-btn" data-mode="CONSTELLATION"
@@ -5379,8 +5380,6 @@ body.fullscreen #transcription-hud { pointer-events: none !important; } /* keep 
                             <button class="kr-sub-btn" data-mode="FLOW"
                                 onclick="KineticRack.setTetherMode('FLOW')">FLOW</button>
                         </div>
-                        <div id="kr-status">OFFLINE</div>
-                        <button id="kr-launch-btn" onclick="KineticRack.toggle()">[ KINETIC RACK ]</button>
                     </div>
 
                     <!-- ═══ KINETIC RACK ═══ -->
