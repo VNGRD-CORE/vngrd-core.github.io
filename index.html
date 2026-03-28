@@ -20473,5 +20473,30 @@ function _applyPoseToModel(lm) {
 <!-- ESC WARNING TOAST -->
 <div id="esc-warn">⚠ ESC ARMED — PRESS AGAIN TO PANIC RESET</div>
 
-</body>
+<script>
+    let wakeLockEnabled = false;
+    
+    // The browser requires a user interaction (like a click) to start audio.
+    // This listens for your FIRST click anywhere on the page (like clicking your boot button).
+    document.addEventListener('click', function initWakeLock() {
+        if (wakeLockEnabled) return;
+        wakeLockEnabled = true;
+
+        // Initialize a background Audio Context
+        const wakeCtx = new (window.AudioContext || window.webkitAudioContext)();
+        
+        // Create a basic tone but turn the volume to absolute zero
+        const oscillator = wakeCtx.createOscillator();
+        const gainNode = wakeCtx.createGain();
+        
+        gainNode.gain.value = 0.0; // Pure silence
+        oscillator.connect(gainNode);
+        gainNode.connect(wakeCtx.destination);
+        
+        // Loop it infinitely
+        oscillator.start();
+        
+        console.log("VNGRD // BACKGROUND WAKE-LOCK ENGAGED");
+    }, { once: true }); // The 'once: true' ensures this only fires exactly one time
+</script></body>
 </html>
