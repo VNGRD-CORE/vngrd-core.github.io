@@ -868,13 +868,50 @@
 
         /* Sidebar: neutral borders — no theme color bleed, party mode animates border-color via console-breathe */
         .sidebar { position: fixed; top: 45px; bottom: 55px; width: 200px; max-width: 320px !important; background: var(--core-bg); backdrop-filter: blur(var(--core-blur)) saturate(120%); -webkit-backdrop-filter: blur(var(--core-blur)) saturate(120%); border: 1px solid rgba(255,255,255,0.06); border-top: var(--rim-top); box-shadow: inset 0 0 20px rgba(0,0,0,0.65); overflow-y: auto; overflow-x: hidden; z-index: 4000; scrollbar-width: none; transition: var(--hud-transition), transform 0.52s cubic-bezier(0.34,1.56,0.64,1); will-change: transform, background; }
-        /* TRIPLE-ALPHA KINEMATIC STATES — driven by background+blur only; children stay 100% visible */
-        /* GHOST: ultra-transparent frosted glass — stage bleeds through, all text/buttons readable */
-        .sidebar.hud-ghost { background: var(--ghost-bg) !important; backdrop-filter: blur(var(--ghost-blur)) saturate(180%) brightness(1.1) !important; -webkit-backdrop-filter: blur(var(--ghost-blur)) saturate(180%) brightness(1.1) !important; border-color: var(--ghost-border) !important; border-top: var(--rim-top) !important; border-left: var(--rim-left) !important; box-shadow: inset 0 0 0 1px rgba(255,255,255,0.04) !important; }
-        /* GLASS: classic glassmorphism — frosted mid-opacity panel */
-        .sidebar.hud-glass { background: var(--glass-bg) !important; backdrop-filter: blur(var(--glass-blur)) saturate(160%) brightness(1.05) !important; -webkit-backdrop-filter: blur(var(--glass-blur)) saturate(160%) brightness(1.05) !important; border-color: var(--glass-border) !important; border-top: var(--rim-top) !important; border-left: var(--rim-left) !important; box-shadow: 0 0 28px rgba(0,243,255,0.10), inset 0 1px 0 rgba(255,255,255,0.08), inset 0 0 20px rgba(0,0,0,0.10) !important; transform: perspective(1000px) translateZ(4px); }
-        /* CORE: solid opaque — original hardware-style panel */
-        .sidebar.hud-core { background: var(--core-bg) !important; backdrop-filter: blur(var(--core-blur)) saturate(120%) !important; -webkit-backdrop-filter: blur(var(--core-blur)) saturate(120%) !important; border-color: rgba(255,255,255,0.06) !important; border-top: var(--rim-top) !important; box-shadow: inset 0 0 20px rgba(0,0,0,0.65) !important; transform: none; }
+        /* ═══ TRIPLE-ALPHA KINEMATIC STATES ═══
+           Per-element background overrides (same pattern as Tracker ghost mode).
+           Container opacity is NEVER touched — all text/buttons stay at 100% visible.
+           Only background rgba + backdrop-filter change per state.                   */
+
+        /* ── GLASS: frosted mid-opacity — video bleeds through, classic glassmorphism ── */
+        .sidebar.hud-glass {
+            background: rgba(6,6,10,0.20) !important;
+            backdrop-filter: blur(22px) saturate(180%) brightness(1.08) !important;
+            -webkit-backdrop-filter: blur(22px) saturate(180%) brightness(1.08) !important;
+            border-color: rgba(0,243,255,0.28) !important;
+            border-top: var(--rim-top) !important; border-left: var(--rim-left) !important;
+            box-shadow: 0 0 32px rgba(0,243,255,0.12), inset 0 1px 0 rgba(255,255,255,0.10) !important;
+            transform: perspective(1000px) translateZ(4px);
+        }
+        .sidebar.hud-glass .sec-head   { background: rgba(0,0,0,0.38) !important; border-left-color: rgba(0,243,255,0.30) !important; }
+        .sidebar.hud-glass .sec-body   { background: rgba(0,0,0,0.10) !important; }
+        .sidebar.hud-glass .section    { border-top-color: rgba(0,0,0,0.55) !important; border-bottom-color: rgba(255,255,255,0.07) !important; }
+        .sidebar.hud-glass .btn        { background: rgba(18,18,28,0.58) !important; }
+        .sidebar.hud-glass .btn:hover  { background: rgba(26,26,40,0.80) !important; }
+        /* sub-panels that carry their own bg */
+        .sidebar.hud-glass #sfx-sampler-wrap,
+        .sidebar.hud-glass .nc-section-inner { background: rgba(6,6,10,0.30) !important; }
+
+        /* ── GHOST: almost invisible lens — maximum stage visibility ── */
+        .sidebar.hud-ghost {
+            background: rgba(6,6,10,0.05) !important;
+            backdrop-filter: blur(14px) saturate(220%) brightness(1.12) !important;
+            -webkit-backdrop-filter: blur(14px) saturate(220%) brightness(1.12) !important;
+            border-color: rgba(0,243,255,0.10) !important;
+            border-top: var(--rim-top) !important; border-left: var(--rim-left) !important;
+            box-shadow: inset 0 0 0 1px rgba(255,255,255,0.04) !important;
+            transform: none;
+        }
+        .sidebar.hud-ghost .sec-head   { background: rgba(0,0,0,0.28) !important; border-left-color: rgba(0,243,255,0.15) !important; }
+        .sidebar.hud-ghost .sec-body   { background: rgba(0,0,0,0.05) !important; }
+        .sidebar.hud-ghost .section    { border-top-color: rgba(0,0,0,0.45) !important; border-bottom-color: rgba(255,255,255,0.05) !important; }
+        .sidebar.hud-ghost .btn        { background: rgba(10,10,18,0.45) !important; }
+        .sidebar.hud-ghost .btn:hover  { background: rgba(20,20,32,0.72) !important; }
+        .sidebar.hud-ghost #sfx-sampler-wrap,
+        .sidebar.hud-ghost .nc-section-inner { background: rgba(6,6,10,0.12) !important; }
+        /* keep text sharp with subtle backing shadow in ghost mode */
+        .sidebar.hud-ghost .btn, .sidebar.hud-ghost .sec-title,
+        .sidebar.hud-ghost label, .sidebar.hud-ghost .info-val { text-shadow: 0 1px 5px rgba(0,0,0,0.95); }
         /* HUD STATE PILL — sticky mini-toggle at top of each sidebar */
         .hud-state-pill {
             position: sticky; top: 0; z-index: 100;
@@ -927,15 +964,6 @@
             transition: var(--hud-transition);
         }
         .section:first-child { border-top: none; }
-        /* Glass/Ghost: sec-head gets a cyan rim accent since the bg is now transparent */
-        .sidebar.hud-glass .sec-head { border-left-color: rgba(0,243,255,0.25); background: rgba(0,243,255,0.04); }
-        .sidebar.hud-ghost .sec-head { border-left-color: rgba(0,243,255,0.15); background: rgba(0,0,0,0.25); }
-        /* Ghost: section dividers need a little more contrast since panel bg is gone */
-        .sidebar.hud-ghost .section { border-top-color: rgba(0,0,0,0.6); border-bottom-color: rgba(255,255,255,0.06); }
-        /* Ghost/Glass: ensure text stays readable with a subtle text shadow */
-        .sidebar.hud-ghost .btn, .sidebar.hud-ghost .sec-title,
-        .sidebar.hud-ghost .info-val, .sidebar.hud-ghost label { text-shadow: 0 1px 4px rgba(0,0,0,0.9); }
-        .sidebar.hud-glass .btn, .sidebar.hud-glass .sec-title { text-shadow: 0 1px 3px rgba(0,0,0,0.7); }
 
         /* ═══════════════════════════════════════════════════
            SECTION HELP OVERLAY — integrated HUD "How to Use"
@@ -5536,6 +5564,9 @@ body.fullscreen #transcription-hud { pointer-events: none !important; } /* keep 
                 <div onclick="if(typeof toggleFullscreen==='function')toggleFullscreen()" title="H — fullscreen" style="cursor:pointer;display:flex;align-items:center;gap:3px;padding:2px 5px;border:1px solid rgba(0,243,255,0.25);border-radius:2px;transition:all 0.15s;background:rgba(0,243,255,0.04);" onmouseenter="this.style.background='rgba(0,243,255,0.12)';this.style.borderColor='rgba(0,243,255,0.6)'" onmouseleave="this.style.background='rgba(0,243,255,0.04)';this.style.borderColor='rgba(0,243,255,0.25)'">
                     <span style="font-size:7px;color:rgba(0,243,255,0.7);font-family:'JetBrains Mono',monospace;letter-spacing:1px;">H</span>
                     <span style="font-size:7px;color:rgba(255,255,255,0.4);font-family:'JetBrains Mono',monospace;letter-spacing:1px;">FULL</span>
+                </div>
+                <div id="btn-hud-alpha" onclick="if(typeof toggleHudAlpha==='function')toggleHudAlpha()" title="Panel skin — SOLID / GLASS / GHOST" style="cursor:pointer;display:flex;align-items:center;gap:3px;padding:2px 5px;border:1px solid rgba(0,243,255,0.25);border-radius:2px;transition:all 0.15s;background:rgba(0,243,255,0.04);" onmouseenter="this.style.background='rgba(0,243,255,0.12)';this.style.borderColor='rgba(0,243,255,0.6)'" onmouseleave="this.style.background='rgba(0,243,255,0.04)';this.style.borderColor='rgba(0,243,255,0.25)'">
+                    <span id="hud-alpha-label" style="font-size:7px;color:rgba(0,243,255,0.7);font-family:'JetBrains Mono',monospace;letter-spacing:1px;">SOLID</span>
                 </div>
             </div>
         </div>
@@ -14661,48 +14692,36 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     });
 
-    // ── TRIPLE-ALPHA HUD — Manual State Pills ──
+    // ── TRIPLE-ALPHA HUD — single global toggle (footer button) ──
+    // Same pattern as Tracker ghost mode: cycles SOLID → GLASS → GHOST → SOLID
     (function() {
-        var panels = [
-            document.getElementById('left-panel'),
-            document.getElementById('right-panel')
+        var HUD_STATES = [
+            { name: 'SOLID', cls: null },
+            { name: 'GLASS', cls: 'hud-glass' },
+            { name: 'GHOST', cls: 'hud-ghost' }
         ];
-        var STATES = ['hud-core', 'hud-glass', 'hud-ghost'];
-        var LABELS = { 'hud-core': 'SOLID', 'hud-glass': 'GLASS', 'hud-ghost': 'GHOST' };
-        var COLORS = { 'hud-core': 'rgba(0,243,255,0.9)', 'hud-glass': 'rgba(0,243,255,0.65)', 'hud-ghost': 'rgba(0,243,255,0.35)' };
-
-        panels.forEach(function(panel) {
-            if (!panel) return;
-
-            // Inject pill as first child (sticky to top of scroll)
-            var pill = document.createElement('div');
-            pill.className = 'hud-state-pill';
-            pill.innerHTML =
-                '<span class="hud-pill-dot"></span>' +
-                '<span class="hud-pill-label">SOLID</span>' +
-                '<span class="hud-pill-arrow">›</span>';
-            panel.insertBefore(pill, panel.firstChild);
-
-            var dot   = pill.querySelector('.hud-pill-dot');
-            var label = pill.querySelector('.hud-pill-label');
-            var state = 'hud-core'; // start solid
-
-            function applyState(s) {
-                state = s;
-                STATES.forEach(function(c) { panel.classList.remove(c); });
-                panel.classList.add(s);
-                label.textContent = LABELS[s];
-                dot.style.background  = COLORS[s];
-                dot.style.boxShadow   = s !== 'hud-ghost' ? '0 0 5px ' + COLORS[s] : 'none';
-            }
-
-            pill.addEventListener('click', function(e) {
-                e.stopPropagation();
-                applyState(STATES[(STATES.indexOf(state) + 1) % STATES.length]);
+        var _idx = 0;
+        window.toggleHudAlpha = function() {
+            var lp  = document.getElementById('left-panel');
+            var rp  = document.getElementById('right-panel');
+            var lbl = document.getElementById('hud-alpha-label');
+            var btn = document.getElementById('btn-hud-alpha');
+            HUD_STATES.forEach(function(s) {
+                if (s.cls) {
+                    if (lp) lp.classList.remove(s.cls);
+                    if (rp) rp.classList.remove(s.cls);
+                }
             });
-
-            applyState('hud-core');
-        });
+            _idx = (_idx + 1) % HUD_STATES.length;
+            var st = HUD_STATES[_idx];
+            if (st.cls) {
+                if (lp) lp.classList.add(st.cls);
+                if (rp) rp.classList.add(st.cls);
+            }
+            if (lbl) lbl.textContent = st.name;
+            // Dim the button itself when panels are ghosted so it fits the aesthetic
+            if (btn) btn.style.opacity = st.name === 'GHOST' ? '0.55' : '1';
+        };
     })();
 
     // Ensure uploaded logos are interactable
