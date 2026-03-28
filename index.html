@@ -15,7 +15,6 @@
 <script src="https://unpkg.com/peerjs@1.5.2/dist/peerjs.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/@mediapipe/pose@0.5.1675469404/pose.js" crossorigin="anonymous"></script>
 <script src="https://cdn.jsdelivr.net/npm/@mediapipe/camera_utils/camera_utils.js" crossorigin="anonymous"></script>
-<script src="https://cdn.jsdelivr.net/npm/@mediapipe/hands@0.4.1646424915/hands.js" crossorigin="anonymous"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/ethers/5.7.2/ethers.umd.min.js"></script>
 <script src="https://js.puter.com/v2/"></script>
 <script>
@@ -3642,6 +3641,586 @@ body.fullscreen #transcription-hud { pointer-events: none !important; } /* keep 
 }
 
 /* ═══════════════════════════════════════════════════════════
+   VANGUARD TRACKER — Floating Pop-Out Window
+   ═══════════════════════════════════════════════════════════ */
+#btn-init-vngrd-tracker {
+    width: 100%;
+    font-family: 'Orbitron', sans-serif;
+    font-size: 8px;
+    font-weight: 700;
+    letter-spacing: 1.5px;
+    color: var(--g);
+    border-color: var(--g);
+    margin-top: 6px;
+    padding: 6px 4px;
+    text-align: center;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+#btn-init-vngrd-tracker:hover {
+    background: rgba(0,255,136,0.12);
+    box-shadow: 0 0 10px rgba(0,255,136,0.25);
+}
+#btn-init-vngrd-tracker.active {
+    background: rgba(0,255,136,0.18);
+    color: #00ff88;
+    box-shadow: 0 0 14px rgba(0,255,136,0.4);
+}
+
+/* ═══ VANGUARD TRACKER — BRUTALIST GLASS EDITION ═══ */
+@keyframes vt-cursor-pulse {
+    0%,100% { box-shadow: 0 0 0 1px rgba(0,243,255,0.9); }
+    50%      { box-shadow: 0 0 6px 2px rgba(0,243,255,0.5), 0 0 12px rgba(0,243,255,0.2); }
+}
+@keyframes vt-row-flash {
+    0%   { background: rgba(0,243,255,0.35); }
+    100% { background: rgba(0,243,255,0.08); }
+}
+@keyframes nc-blink { 0%,100%{opacity:1} 50%{opacity:0.3} }
+
+.vanguard-tracker-window {
+    position: fixed;
+    top: 55px;
+    left: 215px;
+    width: 660px;
+    min-width: 460px;
+    min-height: 320px;
+    height: 580px;
+    background: rgba(3, 4, 10, 0.82);
+    backdrop-filter: blur(30px) saturate(1.4);
+    -webkit-backdrop-filter: blur(30px) saturate(1.4);
+    border: 1px solid rgba(0,243,255,0.35);
+    box-shadow: 0 0 40px rgba(0,243,255,0.12), 0 0 80px rgba(0,0,0,0.7), inset 0 1px 0 rgba(0,243,255,0.1);
+    z-index: 9500;
+    display: none;
+    flex-direction: column;
+    font-family: 'JetBrains Mono', monospace;
+    resize: both;
+    overflow: hidden;
+    border-radius: 3px;
+}
+.vanguard-tracker-window.visible { display: flex; }
+
+.vt-titlebar {
+    display: flex;
+    align-items: center;
+    gap: 5px;
+    padding: 5px 8px;
+    background: #000000;
+    border-bottom: 1px solid rgba(0,243,255,0.2);
+    cursor: move;
+    user-select: none;
+    flex-shrink: 0;
+}
+.vt-titlebar-label {
+    font-family: 'Orbitron', sans-serif;
+    font-size: 8.5px;
+    font-weight: 700;
+    color: #00f3ff;
+    letter-spacing: 2px;
+    flex: 1;
+    text-shadow: 0 0 8px rgba(0,243,255,0.6);
+}
+.vt-transport { display: flex; align-items: center; gap: 3px; }
+
+.vt-btn {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 7.5px;
+    background: transparent;
+    border: 1px solid #333;
+    border-bottom: 3px solid #000;
+    box-shadow: inset 1px 1px 0px rgba(255,255,255,0.05);
+    color: rgba(0,243,255,0.65);
+    padding: 2px 6px;
+    cursor: pointer;
+    letter-spacing: 0.5px;
+    transition: all 0.08s;
+    white-space: nowrap;
+}
+.vt-btn:hover { background: rgba(0,243,255,0.1); color: #00f3ff; border-color: rgba(0,243,255,0.5); }
+.vt-btn.vt-play-btn.running { color: #ff3333; border-color: rgba(255,51,51,0.5); background: rgba(255,51,51,0.08); }
+.vt-btn.vt-compiler-btn { color: rgba(176,0,255,0.8); border-color: rgba(176,0,255,0.3); }
+.vt-btn.vt-compiler-btn:hover { background: rgba(176,0,255,0.12); color: #b000ff; border-color: rgba(176,0,255,0.6); }
+.vt-btn.vt-compiler-btn.active { background: rgba(176,0,255,0.18); color: #b000ff; box-shadow: 0 0 10px rgba(176,0,255,0.3); }
+.vt-bpm-wrap { display: flex; align-items: center; gap: 3px; font-size: 7.5px; color: rgba(0,243,255,0.55); letter-spacing: 1px; }
+.vt-bpm-input {
+    width: 34px;
+    background: rgba(0,243,255,0.04);
+    border: 1px solid rgba(0,243,255,0.18);
+    color: #00f3ff;
+    font-size: 9px;
+    font-family: 'JetBrains Mono', monospace;
+    text-align: center;
+    padding: 1px 2px;
+    outline: none;
+}
+.vt-close-btn { font-size: 10px; background: transparent; border: none; color: rgba(255,51,51,0.5); cursor: pointer; padding: 2px 4px; line-height: 1; }
+.vt-close-btn:hover { color: #ff3333; }
+
+/* ── Waveform canvas strip ── */
+.vt-wave-strip {
+    display: grid;
+    grid-template-columns: 28px repeat(4, 1fr);
+    gap: 2px;
+    padding: 3px 5px 0;
+    background: rgba(0,0,0,0.4);
+    border-bottom: 1px solid rgba(0,243,255,0.08);
+    flex-shrink: 0;
+    height: 40px;
+}
+.vt-wave-num-pad { display: flex; align-items: center; justify-content: flex-end; padding-right: 4px; }
+.vt-wave-canvas-wrap { position: relative; overflow: hidden; border: 1px solid rgba(0,243,255,0.1); border-radius: 1px; background: rgba(0,243,255,0.02); }
+.vt-wave-canvas { width: 100%; height: 100%; display: block; }
+.vt-wave-label {
+    position: absolute;
+    bottom: 1px; left: 3px;
+    font-size: 5.5px;
+    color: rgba(0,243,255,0.5);
+    letter-spacing: 0.5px;
+    pointer-events: none;
+    font-family: 'JetBrains Mono', monospace;
+}
+
+/* ── Column header labels ── */
+.vt-col-headers {
+    display: grid;
+    grid-template-columns: 28px 1fr 1fr 1fr 1fr;
+    padding: 2px 5px;
+    background: rgba(0,0,0,0.3);
+    border-bottom: 1px solid rgba(0,243,255,0.18);
+    flex-shrink: 0;
+}
+.vt-col-hdr {
+    font-size: 6.5px;
+    color: rgba(0,243,255,0.38);
+    letter-spacing: 1.5px;
+    text-align: center;
+    padding: 2px 0;
+    text-transform: uppercase;
+    border-right: 1px solid rgba(0,243,255,0.12);
+    position: relative;
+}
+.vt-col-hdr:last-child { border-right: none; }
+.vt-col-hdr:nth-child(2) { color: rgba(0,243,255,0.65); }
+/* Laser line glow under each header */
+.vt-col-hdr::after {
+    content: '';
+    position: absolute;
+    bottom: 0; left: 0; right: 0;
+    height: 1px;
+    background: rgba(0,243,255,0.2);
+    box-shadow: 0 0 4px rgba(0,243,255,0.4);
+}
+
+/* ── Track scroll ── */
+.vt-track-scroll {
+    flex: 1;
+    overflow-y: auto;
+    overflow-x: hidden;
+    scrollbar-width: thin;
+    scrollbar-color: rgba(0,243,255,0.15) transparent;
+    padding: 0 3px 4px;
+}
+.vt-track-scroll::-webkit-scrollbar { width: 3px; }
+.vt-track-scroll::-webkit-scrollbar-thumb { background: rgba(0,243,255,0.15); }
+
+/* ── Rows ── */
+.vt-row {
+    display: grid;
+    grid-template-columns: 28px 1fr 1fr 1fr 1fr;
+    padding: 0.5px 2px;
+    border-bottom: 1px solid rgba(255,255,255,0.02);
+    align-items: center;
+}
+.vt-row:hover { background: rgba(0,243,255,0.03); }
+.vt-row.vt-active-row { animation: vt-row-flash 0.15s ease-out forwards; border-left: 2px solid #00f3ff; }
+.vt-row.vt-beat-4 { border-top: 1px solid rgba(0,243,255,0.15); }
+.vt-row.vt-beat-16 { border-top: 2px solid rgba(0,243,255,0.3); }
+
+.vt-row-num {
+    font-size: 6.5px;
+    color: rgba(255,255,255,0.18);
+    text-align: right;
+    padding-right: 3px;
+    font-family: 'JetBrains Mono', monospace;
+    line-height: 1;
+}
+.vt-row.vt-active-row .vt-row-num { color: #00f3ff; font-weight: 700; }
+.vt-row.vt-beat-4 .vt-row-num { color: rgba(0,243,255,0.35); }
+
+/* ── Cells ── */
+.vt-cell { position: relative; border-right: 1px solid rgba(0,243,255,0.07); }
+.vt-cell:last-child { border-right: none; }
+.vt-cell input {
+    width: 100%;
+    background: transparent;
+    border: 1px solid transparent;
+    color: rgba(0,243,255,0.7);
+    font-size: 9px;
+    font-family: 'JetBrains Mono', monospace;
+    text-align: center;
+    padding: 2px 1px;
+    text-transform: uppercase;
+    outline: none;
+    transition: border-color 0.06s, background 0.06s;
+    user-select: text;
+    cursor: text;
+    caret-color: #00f3ff;
+    box-sizing: border-box;
+}
+.vt-cell input:focus {
+    border-color: rgba(0,243,255,0.8);
+    background: rgba(0,243,255,0.08);
+    color: #00f3ff;
+    box-shadow: 0 0 6px rgba(0,243,255,0.2);
+    animation: vt-cursor-pulse var(--vt-bpm-ms, 500ms) ease-in-out infinite;
+    position: relative; z-index: 2;
+}
+.vt-cell input.vt-synth  { color: rgba(176,0,255,0.9); }
+.vt-cell input.vt-synth:focus { border-color: rgba(176,0,255,0.7); background: rgba(176,0,255,0.08); }
+.vt-cell input.vt-sample { color: rgba(255,204,0,0.85); }
+.vt-cell input.vt-sample:focus { border-color: rgba(255,204,0,0.6); background: rgba(255,204,0,0.06); }
+.vt-cell input.vt-pan-l  { color: rgba(0,255,136,0.85); }
+.vt-cell input.vt-pan-r  { color: rgba(255,0,85,0.85); }
+.vt-cell input::placeholder { color: rgba(255,255,255,0.07); font-size: 7.5px; }
+
+/* ── Status bar ── */
+.vt-status-bar {
+    display: flex; align-items: center; gap: 8px; padding: 2px 8px;
+    background: #000000; border-top: 1px solid rgba(0,243,255,0.12);
+    flex-shrink: 0; font-size: 6.5px; color: rgba(0,243,255,0.38); letter-spacing: 1px;
+}
+.vt-status-pos { color: rgba(0,243,255,0.8); font-weight: 700; }
+.vt-mode-select {
+    background: transparent; border: 1px solid rgba(0,243,255,0.15);
+    color: rgba(0,243,255,0.6); font-size: 6.5px; font-family: 'JetBrains Mono', monospace;
+    padding: 1px 2px; cursor: pointer; outline: none;
+}
+.vt-mode-select option { background: #040408; color: #00f3ff; }
+
+/* ── HUD Overlay — full-screen glass morphism ── */
+.vt-hud-overlay {
+    position: fixed;
+    inset: 0;
+    z-index: 9800;
+    background: rgba(0, 4, 14, 0.75);
+    backdrop-filter: blur(20px) saturate(1.6);
+    -webkit-backdrop-filter: blur(20px) saturate(1.6);
+    display: none;
+    align-items: center;
+    justify-content: center;
+}
+.vt-hud-overlay.visible { display: flex; }
+.vt-hud-panel {
+    width: 480px;
+    max-width: 92vw;
+    background: rgba(2, 6, 18, 0.92);
+    border: 1px solid rgba(0,243,255,0.35);
+    box-shadow: 0 0 60px rgba(0,243,255,0.12), 0 0 120px rgba(0,0,0,0.8);
+    border-radius: 4px;
+    padding: 18px 20px;
+    display: flex; flex-direction: column; gap: 8px;
+}
+.vt-hud-title {
+    font-family: 'Orbitron', sans-serif; font-size: 10px; color: #00f3ff;
+    letter-spacing: 3px; text-shadow: 0 0 12px rgba(0,243,255,0.7);
+    border-bottom: 1px solid rgba(0,243,255,0.2); padding-bottom: 8px; margin-bottom: 4px;
+    text-align: center;
+}
+.vt-hud-grid {
+    display: grid; grid-template-columns: 1fr 1fr; gap: 10px;
+}
+.vt-hud-row { display: flex; flex-direction: column; gap: 2px; }
+.vt-hud-cmd  { font-size: 9.5px; color: #ffcc00; font-weight: 700; letter-spacing: 1px; }
+.vt-hud-desc { font-size: 7.5px; color: rgba(255,255,255,0.45); line-height: 1.5; }
+.vt-hud-sep  { height: 1px; background: rgba(0,243,255,0.1); grid-column: 1/-1; }
+.vt-hud-section-title {
+    font-size: 7px; letter-spacing: 2px; color: rgba(0,243,255,0.5);
+    text-transform: uppercase; grid-column: 1/-1; margin-top: 4px;
+    border-left: 2px solid rgba(0,243,255,0.4); padding-left: 6px;
+}
+.vt-hud-close {
+    font-size: 8px; color: rgba(0,243,255,0.7); background: transparent;
+    border: 1px solid rgba(0,243,255,0.25); cursor: pointer; padding: 4px 12px;
+    font-family: 'JetBrains Mono', monospace; letter-spacing: 2px; align-self: center;
+    margin-top: 6px; transition: all 0.1s;
+}
+.vt-hud-close:hover { background: rgba(0,243,255,0.1); color: #00f3ff; }
+
+/* ── Glowing NC launch button in tracker titlebar ── */
+.vt-btn-nc-launch {
+    font-family: 'Orbitron', sans-serif;
+    font-size: 7.5px; font-weight: 700;
+    background: rgba(176,0,255,0.12);
+    border: 1px solid rgba(176,0,255,0.5);
+    color: #b000ff;
+    padding: 3px 10px;
+    cursor: pointer;
+    letter-spacing: 1px;
+    white-space: nowrap;
+    box-shadow: 0 0 10px rgba(176,0,255,0.2), inset 0 0 8px rgba(176,0,255,0.05);
+    animation: nc-btn-pulse 2.5s ease-in-out infinite;
+    transition: all 0.1s;
+}
+.vt-btn-nc-launch:hover {
+    background: rgba(176,0,255,0.25);
+    box-shadow: 0 0 18px rgba(176,0,255,0.45), inset 0 0 12px rgba(176,0,255,0.1);
+    color: #cc44ff;
+}
+.vt-btn-nc-launch.active {
+    background: rgba(176,0,255,0.3);
+    box-shadow: 0 0 24px rgba(176,0,255,0.6);
+    animation: none;
+}
+@keyframes nc-btn-pulse {
+    0%,100% { box-shadow: 0 0 8px rgba(176,0,255,0.2), inset 0 0 6px rgba(176,0,255,0.05); }
+    50%      { box-shadow: 0 0 18px rgba(176,0,255,0.45), inset 0 0 10px rgba(176,0,255,0.12); }
+}
+
+/* ═══ GHOST MODE — panel backgrounds only, tracer borders unaffected ═══ */
+/* GLASS: 70% */
+#vanguard-tracker-window.vt-ghost-glass { background: rgba(3,4,10,0.57) !important; }
+#vanguard-tracker-window.vt-ghost-glass .vt-wave-strip { background: rgba(0,0,0,0.28) !important; }
+#vanguard-tracker-window.vt-ghost-glass .vt-col-headers { background: rgba(0,0,0,0.21) !important; }
+#vanguard-tracker-window.vt-ghost-glass .vt-status-bar { background: rgba(0,0,0,0.56) !important; }
+#nc-window.vt-ghost-glass { background: rgba(4,2,12,0.63) !important; }
+#nc-window.vt-ghost-glass .nc-output-panel { background: rgba(0,0,0,0.28) !important; }
+#nc-window.vt-ghost-glass .nc-toolbar { background: rgba(0,0,0,0.35) !important; }
+/* GHOST: 40% */
+#vanguard-tracker-window.vt-ghost-fade { background: rgba(3,4,10,0.33) !important; }
+#vanguard-tracker-window.vt-ghost-fade .vt-wave-strip { background: rgba(0,0,0,0.16) !important; }
+#vanguard-tracker-window.vt-ghost-fade .vt-col-headers { background: rgba(0,0,0,0.12) !important; }
+#vanguard-tracker-window.vt-ghost-fade .vt-status-bar { background: rgba(0,0,0,0.32) !important; }
+#nc-window.vt-ghost-fade { background: rgba(4,2,12,0.36) !important; }
+#nc-window.vt-ghost-fade .nc-output-panel { background: rgba(0,0,0,0.16) !important; }
+#nc-window.vt-ghost-fade .nc-toolbar { background: rgba(0,0,0,0.20) !important; }
+/* nc-editor NEVER changes opacity in any ghost state — code stays sharp */
+#nc-window.vt-ghost-glass .nc-editor,
+#nc-window.vt-ghost-fade .nc-editor { background: rgba(0,0,0,0.35) !important; }
+/* Tracer lines (cyan + purple borders) — explicit 1.0 opacity enforcement */
+#vanguard-tracker-window.vt-ghost-glass .vt-titlebar,
+#vanguard-tracker-window.vt-ghost-fade .vt-titlebar,
+#vanguard-tracker-window.vt-ghost-glass .vt-status-bar,
+#vanguard-tracker-window.vt-ghost-fade .vt-status-bar,
+#nc-window.vt-ghost-glass .nc-titlebar,
+#nc-window.vt-ghost-fade .nc-titlebar { opacity: 1 !important; }
+
+/* ═══ NEURAL COMPILER WINDOW ═══ */
+.nc-window {
+    position: fixed;
+    top: 80px;
+    left: 50%;
+    transform: translateX(-50%);
+    width: 580px;
+    min-width: 400px;
+    min-height: 240px;
+    height: 460px;
+    background: rgba(4, 2, 12, 0.90);
+    backdrop-filter: blur(30px) saturate(1.3);
+    -webkit-backdrop-filter: blur(30px) saturate(1.3);
+    border: 1px solid rgba(176,0,255,0.4);
+    box-shadow: 0 0 40px rgba(176,0,255,0.15), 0 0 80px rgba(0,0,0,0.7);
+    z-index: 9600;
+    display: none;
+    flex-direction: column;
+    font-family: 'JetBrains Mono', monospace;
+    resize: both;
+    overflow: hidden;
+    border-radius: 3px;
+}
+.nc-window.visible { display: flex; }
+.nc-titlebar {
+    display: flex; align-items: center; gap: 6px; padding: 5px 8px;
+    background: #000000;
+    border-bottom: 1px solid rgba(176,0,255,0.25);
+    cursor: move; user-select: none; flex-shrink: 0;
+}
+.nc-title {
+    font-family: 'Orbitron', sans-serif; font-size: 8.5px; font-weight: 700;
+    color: #b000ff; letter-spacing: 2px; flex: 1; text-shadow: 0 0 10px rgba(176,0,255,0.6);
+}
+.nc-body {
+    flex: 1; display: flex; flex-direction: column; overflow: hidden; min-height: 0;
+}
+.nc-editor-wrap {
+    flex: 1; position: relative; min-height: 0; border-bottom: 1px solid rgba(176,0,255,0.15);
+}
+.nc-editor {
+    position: absolute; inset: 0;
+    width: 100%; height: 100%;
+    background: rgba(0,0,0,0.35);
+    border: none; outline: none; resize: none;
+    color: rgba(176,0,255,0.85);
+    font-size: 10px; line-height: 1.6;
+    font-family: 'JetBrains Mono', monospace;
+    padding: 8px 10px;
+    caret-color: #b000ff;
+    user-select: text; cursor: text;
+    tab-size: 2;
+    scrollbar-width: thin;
+    scrollbar-color: rgba(176,0,255,0.2) transparent;
+    box-sizing: border-box;
+}
+.nc-editor::-webkit-scrollbar { width: 3px; }
+.nc-editor::-webkit-scrollbar-thumb { background: rgba(176,0,255,0.2); }
+.nc-editor::placeholder { color: rgba(176,0,255,0.2); }
+.nc-output-panel {
+    height: 100px; overflow-y: auto; overflow-x: hidden;
+    background: rgba(0,0,0,0.4); flex-shrink: 0;
+    padding: 4px 8px; display: flex; flex-direction: column; gap: 1px;
+    scrollbar-width: thin; scrollbar-color: rgba(176,0,255,0.15) transparent;
+}
+.nc-output-panel::-webkit-scrollbar { width: 3px; }
+.nc-output-panel::-webkit-scrollbar-thumb { background: rgba(176,0,255,0.15); }
+.nc-output-line {
+    font-size: 8.5px; line-height: 1.5; font-family: 'JetBrains Mono', monospace;
+    color: rgba(176,0,255,0.65); white-space: pre-wrap; word-break: break-all;
+}
+.nc-output-line.nc-ok  { color: rgba(0,255,136,0.8); }
+.nc-output-line.nc-err { color: rgba(255,51,51,0.85); }
+.nc-output-line.nc-sys { color: rgba(0,243,255,0.65); }
+.nc-toolbar {
+    display: flex; align-items: center; gap: 5px; padding: 4px 8px;
+    background: rgba(0,0,0,0.5); border-top: 1px solid rgba(176,0,255,0.12); flex-shrink: 0;
+}
+.nc-run-btn {
+    font-size: 7.5px; background: rgba(176,0,255,0.15); border: 1px solid rgba(176,0,255,0.4);
+    color: rgba(176,0,255,0.9); padding: 3px 10px; cursor: pointer;
+    font-family: 'JetBrains Mono', monospace; letter-spacing: 1px;
+    box-shadow: 0 0 8px rgba(176,0,255,0.15);
+}
+.nc-run-btn:hover { background: rgba(176,0,255,0.3); color: #b000ff; box-shadow: 0 0 14px rgba(176,0,255,0.3); }
+.nc-stop-btn {
+    font-size: 7.5px; background: rgba(255,51,51,0.1); border: 1px solid rgba(255,51,51,0.3);
+    color: rgba(255,51,51,0.7); padding: 3px 8px; cursor: pointer;
+    font-family: 'JetBrains Mono', monospace; letter-spacing: 1px;
+}
+.nc-stop-btn:hover { background: rgba(255,51,51,0.2); color: #ff3333; }
+.nc-hint {
+    font-size: 6.5px; color: rgba(176,0,255,0.35); letter-spacing: 0.5px; margin-left: auto;
+}
+.nc-status-bar {
+    display: flex; align-items: center; gap: 6px; padding: 2px 8px;
+    background: rgba(0,0,0,0.45); border-top: 1px solid rgba(176,0,255,0.1);
+    flex-shrink: 0; font-size: 6.5px; color: rgba(176,0,255,0.4); letter-spacing: 1px;
+}
+
+/* ═══════════════════════════════════════════════════════════════
+   VNGRD// ESX-1 // DRIS CORE — Floating HUD Window
+   Obsidian titlebar + Red-metal brushed chassis
+   ═══════════════════════════════════════════════════════════════ */
+
+/* ═══════════════════════════════════════════════════════
+   SPATIAL MATRIX — Floating Instrument HUD
+   ═══════════════════════════════════════════════════════ */
+#sm-window {
+    position: fixed; top: 60px; right: 22px;
+    width: 740px; min-width: 500px; min-height: 380px;
+    background: rgba(2,3,8,0.94);
+    backdrop-filter: blur(24px) saturate(1.5);
+    -webkit-backdrop-filter: blur(24px) saturate(1.5);
+    border: 1px solid rgba(0,243,255,0.4);
+    box-shadow: 0 0 50px rgba(0,243,255,0.1), 0 0 120px rgba(0,0,0,0.85),
+                inset 0 1px 0 rgba(0,243,255,0.07);
+    z-index: 9800; display: none; flex-direction: column;
+    font-family: 'JetBrains Mono', monospace;
+    border-radius: 3px; overflow: hidden; resize: both; user-select: none;
+}
+#sm-window.sm-visible { display: flex; }
+.sm-titlebar {
+    display: flex; align-items: center; gap: 7px;
+    padding: 6px 10px; background: #000;
+    border-bottom: 1px solid rgba(0,243,255,0.22);
+    cursor: move; flex-shrink: 0;
+}
+.sm-dot {
+    width: 9px; height: 9px; border-radius: 50%; flex-shrink: 0; cursor: pointer;
+    background: #ff5f57; box-shadow: 0 0 5px rgba(255,95,87,0.6);
+}
+.sm-title {
+    font-family: 'Orbitron', sans-serif; font-size: 8px; font-weight: 700;
+    color: #00f3ff; letter-spacing: 2.5px; flex: 1;
+    text-shadow: 0 0 8px rgba(0,243,255,0.4);
+}
+.sm-badge {
+    font-size: 6px; padding: 2px 6px; letter-spacing: 1.5px;
+    border: 1px solid rgba(0,243,255,0.2); border-radius: 2px;
+    color: rgba(0,243,255,0.3); transition: all 0.3s; cursor: default;
+}
+.sm-badge.on { color: #00ff88; border-color: rgba(0,255,136,0.5);
+    box-shadow: 0 0 5px rgba(0,255,136,0.25); }
+.sm-body { display: flex; flex: 1; overflow: hidden; min-height: 0; }
+.sm-viewport {
+    position: relative; flex-shrink: 0; width: 300px;
+    background: #000; border-right: 1px solid rgba(0,243,255,0.18);
+    display: flex; flex-direction: column;
+}
+.sm-viewport canvas { width: 100%; flex: 1; display: block; cursor: crosshair;
+    image-rendering: pixelated; }
+.sm-vp-hint {
+    font-size: 5.5px; color: rgba(0,243,255,0.28); letter-spacing: 1.5px;
+    text-align: center; padding: 3px 4px;
+    border-top: 1px solid rgba(0,243,255,0.08); flex-shrink: 0;
+}
+.sm-synth { flex: 1; overflow-y: auto; padding: 7px; display: flex;
+    flex-direction: column; gap: 5px; }
+.sm-section {
+    border: 1px solid rgba(0,243,255,0.13); border-radius: 2px;
+    padding: 5px 7px; background: rgba(0,243,255,0.018); flex-shrink: 0;
+}
+.sm-sec-hd {
+    font-family: 'Orbitron', sans-serif; font-size: 6px; font-weight: 700;
+    color: rgba(0,243,255,0.55); letter-spacing: 2.5px; display: block; margin-bottom: 5px;
+}
+.sm-row { display: flex; gap: 5px; flex-wrap: wrap; align-items: flex-end; }
+.sm-knob { display: flex; flex-direction: column; align-items: center; gap: 2px; flex: 1; min-width: 38px; }
+.sm-knob > span:first-child { font-size: 5.5px; color: rgba(0,243,255,0.45); letter-spacing: 1px; }
+.sm-knob input[type=range] {
+    width: 100%; height: 3px; -webkit-appearance: none; appearance: none;
+    background: rgba(0,243,255,0.15); border-radius: 2px; outline: none; cursor: pointer;
+}
+.sm-knob input[type=range]::-webkit-slider-thumb {
+    -webkit-appearance: none; width: 10px; height: 10px; border-radius: 50%;
+    background: #00f3ff; box-shadow: 0 0 6px rgba(0,243,255,0.9); cursor: pointer;
+}
+.sm-knob .sv { font-size: 6.5px; color: #00f3ff; min-width: 28px; text-align: center; }
+.sm-sel {
+    background: rgba(0,243,255,0.04); border: 1px solid rgba(0,243,255,0.25);
+    color: #00f3ff; font-family: 'JetBrains Mono', monospace;
+    font-size: 9px; padding: 3px 5px; outline: none; cursor: pointer;
+}
+.sm-xy-wrap { position: relative; width: 100%; margin-top: 4px; }
+#sm-xy-pad {
+    width: 100%; height: 90px; cursor: crosshair; display: block;
+    background: rgba(0,243,255,0.03); border: 1px solid rgba(0,243,255,0.25);
+    border-radius: 2px; touch-action: none;
+}
+.sm-loop-row { display: flex; gap: 4px; margin-top: 4px; align-items: center; }
+.sm-loop-btn {
+    flex: 1; height: 22px; background: rgba(0,243,255,0.05);
+    border: 1px solid rgba(0,243,255,0.25); border-radius: 2px;
+    color: rgba(0,243,255,0.7); font-family: 'JetBrains Mono', monospace;
+    font-size: 7.5px; letter-spacing: 1px; cursor: pointer; transition: all 0.1s;
+}
+.sm-loop-btn:hover { background: rgba(0,243,255,0.12); color: #00f3ff; }
+.sm-loop-btn.active { background: rgba(0,243,255,0.2); border-color: #00f3ff; color: #fff;
+    box-shadow: 0 0 8px rgba(0,243,255,0.35); }
+.sm-loop-btn.rec-btn { border-color: rgba(255,60,60,0.5); color: rgba(255,100,100,0.8); }
+.sm-loop-btn.rec-btn.active { background: rgba(255,40,40,0.2); border-color: #ff4040; color: #ff4040;
+    box-shadow: 0 0 8px rgba(255,40,40,0.4); }
+.sm-scale-sel {
+    background: rgba(0,243,255,0.04); border: 1px solid rgba(0,243,255,0.25);
+    color: rgba(0,243,255,0.7); font-family: 'JetBrains Mono', monospace;
+    font-size: 7.5px; padding: 2px 4px; outline: none; cursor: pointer;
+}
+.sm-layer-row { display: flex; gap: 4px; margin-top: 4px; }
+.sm-statusbar {
+    display: flex; gap: 10px; padding: 3px 8px; flex-shrink: 0;
+    background: rgba(0,0,0,0.6); border-top: 1px solid rgba(0,243,255,0.12);
+    font-size: 6px; color: rgba(0,243,255,0.38); letter-spacing: 1px; overflow: hidden;
+}
+
 /* ── Launch trigger button in sampler panel ── */
 #btn-esx-launch {
     width: 100%; margin-top: 5px;
@@ -4750,9 +5329,9 @@ body.fullscreen #transcription-hud { pointer-events: none !important; } /* keep 
                     </div><!-- /sfx-pad-body -->
 
                     <!-- VNGRD // SONIC SUITE LAUNCH -->
-                    <button class="btn" id="btn-init-vngrd-tracker" onclick="NeuralCompiler.toggle()" style="width:100%;margin-top:5px;font-family:'Orbitron',sans-serif;font-size:7.5px;font-weight:700;color:#00f3ff;border-color:rgba(0,243,255,0.4);letter-spacing:1.5px;padding:5px 4px;text-align:center;box-shadow:0 0 10px rgba(0,243,255,0.1);transition:all 0.1s;">[ VNGRD // SONIC SUITE ]</button>
+                    <button class="btn" id="btn-init-vngrd-tracker" onclick="VanguardTracker.toggle()" style="width:100%;margin-top:5px;font-family:'Orbitron',sans-serif;font-size:7.5px;font-weight:700;color:#00f3ff;border-color:rgba(0,243,255,0.4);letter-spacing:1.5px;padding:5px 4px;text-align:center;box-shadow:0 0 10px rgba(0,243,255,0.1);transition:all 0.1s;">[ VNGRD // SONIC SUITE ]</button>
                     <!-- VNGRD// ESX-1 LAUNCH TRIGGER -->
-                    <button id="btn-esx-launch" onclick="KinematicEngine.toggle()">[ ENTER SPATIAL MATRIX ]</button>
+                    <button id="btn-esx-launch" onclick="SpatialMatrix.toggle()">[ ENTER SPATIAL MATRIX ]</button>
 
                     <!-- SAMPLER HELP OVERLAY -->
                     <div id="sampler-help-modal">
@@ -8710,7 +9289,7 @@ const InternalSynth = (() => {
                         case 'BOOM':  triggerBoom(freq, vol, panVal);  break;
                     }
                 }, offset);
-            })(n * (60000 / ((window.currentBPM || 120) * 4) / count));
+            })(n * (60000 / ((typeof VanguardTracker !== 'undefined' ? VanguardTracker._bpm() : 120) * 4) / count));
         }
     }
 
@@ -8736,186 +9315,698 @@ const InternalSynth = (() => {
 
 
 // ═══════════════════════════════════════════════════════════════
-//  AUDIO RACK v1 — Modular DSP: Drone · Lead · Glitch · Sub
-//  Master Limiter · MediaPipe gesture control hooks
+//  VANGUARD TRACKER v3 — Polyphonic Brutalist Sequencer
+//  32 steps × 4 tracks  PAD|NOTE|VOL per track, FX on track-0
+//  PAD  00–0F InternalSynth  |  10–1F SFX_ENGINE samples
+//  NOTE C-2…B-6 chromatic  |  VOL 00–FF  |  FX 01-03
+//  Keyboard: Z-M = notes  |  ↑↓←→ = cell nav  |  MIDI-in live
 // ═══════════════════════════════════════════════════════════════
-const AudioRack = (() => {
-    'use strict';
-    let _ctx = null, _master = null, _limiter = null;
-    let _drone = null, _droneGain = null, _droneAm = null;
-    let _leadOsc = null, _leadFilter = null, _leadGain = null;
-    let _sub = null, _subGain = null;
-    let _running = false;
-
-    function _ensureCtx() {
-        if (_ctx) return;
-        _ctx = new (window.AudioContext || window.webkitAudioContext)();
-        // Master chain: gain → limiter → destination
-        _master = _ctx.createGain();
-        _master.gain.value = 0.75;
-        _limiter = _ctx.createDynamicsCompressor();
-        _limiter.threshold.value = -3;
-        _limiter.knee.value = 3;
-        _limiter.ratio.value = 20;
-        _limiter.attack.value = 0.001;
-        _limiter.release.value = 0.1;
-        _master.connect(_limiter);
-        _limiter.connect(_ctx.destination);
-    }
-
-    // ── Drone: AM oscillator ─────────────────────────────────
-    function startDrone(freq, amRate, amDepth) {
-        _ensureCtx();
-        if (_droneGain) return;
-        freq = freq || 55;
-        amRate = amRate || 0.25;
-        amDepth = amDepth || 0.6;
-
-        var carrier = _ctx.createOscillator();
-        carrier.type = 'sawtooth';
-        carrier.frequency.value = freq;
-
-        var amOsc = _ctx.createOscillator();
-        amOsc.type = 'sine';
-        amOsc.frequency.value = amRate;
-
-        var amGain = _ctx.createGain();
-        amGain.gain.value = amDepth;
-        amOsc.connect(amGain);
-        amGain.connect(carrier.frequency); // AM mod
-
-        _droneGain = _ctx.createGain();
-        _droneGain.gain.value = 0;
-        carrier.connect(_droneGain);
-        _droneGain.connect(_master);
-
-        carrier.start();
-        amOsc.start();
-        _drone = { carrier, amOsc, amGain };
-        _droneGain.gain.setTargetAtTime(0.3, _ctx.currentTime, 0.5);
-    }
-
-    function stopDrone() {
-        if (!_droneGain) return;
-        _droneGain.gain.setTargetAtTime(0, _ctx.currentTime, 0.3);
-        setTimeout(function() {
-            try { _drone.carrier.stop(); _drone.amOsc.stop(); } catch(e) {}
-            _drone = null; _droneGain = null;
-        }, 1200);
-    }
-
-    function setDroneFreq(freq) {
-        if (_drone) _drone.carrier.frequency.setTargetAtTime(freq, _ctx.currentTime, 0.05);
-    }
-
-    // ── Lead: sawtooth + biquad filter ────────────────────────
-    function playLead(freq, cutoff, dur) {
-        _ensureCtx();
-        freq = freq || 220;
-        cutoff = cutoff || 1200;
-        dur = dur || 0.3;
-
-        var osc = _ctx.createOscillator();
-        osc.type = 'sawtooth';
-        osc.frequency.value = freq;
-
-        var filt = _ctx.createBiquadFilter();
-        filt.type = 'lowpass';
-        filt.frequency.value = cutoff;
-        filt.Q.value = 4;
-
-        var env = _ctx.createGain();
-        env.gain.setValueAtTime(0, _ctx.currentTime);
-        env.gain.linearRampToValueAtTime(0.4, _ctx.currentTime + 0.005);
-        env.gain.exponentialRampToValueAtTime(0.001, _ctx.currentTime + dur);
-
-        osc.connect(filt);
-        filt.connect(env);
-        env.connect(_master);
-        osc.start();
-        osc.stop(_ctx.currentTime + dur + 0.05);
-    }
-
-    function setLeadCutoff(val) {
-        if (_leadFilter) _leadFilter.frequency.setTargetAtTime(val, _ctx.currentTime, 0.02);
-    }
-
-    // ── Glitch: noise burst ───────────────────────────────────
-    function triggerGlitch(dur, density) {
-        _ensureCtx();
-        dur = dur || 0.08;
-        density = density || 1.0;
-
-        var bufLen = Math.floor(_ctx.sampleRate * dur);
-        var buf = _ctx.createBuffer(1, bufLen, _ctx.sampleRate);
-        var data = buf.getChannelData(0);
-        for (var i = 0; i < bufLen; i++) {
-            data[i] = (Math.random() * 2 - 1) * (Math.random() < density ? 1 : 0);
-        }
-
-        var src = _ctx.createBufferSource();
-        src.buffer = buf;
-
-        var filt = _ctx.createBiquadFilter();
-        filt.type = 'bandpass';
-        filt.frequency.value = 2000 + Math.random() * 6000;
-        filt.Q.value = 2;
-
-        var g = _ctx.createGain();
-        g.gain.value = 0.35;
-
-        src.connect(filt);
-        filt.connect(g);
-        g.connect(_master);
-        src.start();
-    }
-
-    // ── Sub kick: synced to BPM ───────────────────────────────
-    function triggerSub(freq, vol) {
-        _ensureCtx();
-        freq = freq || 55;
-        vol = vol || 0.7;
-
-        var osc = _ctx.createOscillator();
-        osc.type = 'sine';
-        osc.frequency.setValueAtTime(freq * 4, _ctx.currentTime);
-        osc.frequency.exponentialRampToValueAtTime(freq, _ctx.currentTime + 0.08);
-
-        var env = _ctx.createGain();
-        env.gain.setValueAtTime(vol, _ctx.currentTime);
-        env.gain.exponentialRampToValueAtTime(0.001, _ctx.currentTime + 0.45);
-
-        osc.connect(env);
-        env.connect(_master);
-        osc.start();
-        osc.stop(_ctx.currentTime + 0.5);
-    }
-
-    // ── Master volume / limiter ────────────────────────────────
-    function setMasterVol(v) {
-        if (_master) _master.gain.setTargetAtTime(Math.max(0, Math.min(1, v)), _ctx.currentTime, 0.02);
-    }
-
-    function getCtx() { return _ctx; }
-    function getAnalyser() {
-        if (!_ctx) return null;
-        if (!AudioRack._analyser) {
-            AudioRack._analyser = _ctx.createAnalyser();
-            AudioRack._analyser.fftSize = 256;
-            _master.connect(AudioRack._analyser);
-        }
-        return AudioRack._analyser;
-    }
-
-    return {
-        startDrone, stopDrone, setDroneFreq,
-        playLead, setLeadCutoff,
-        triggerGlitch,
-        triggerSub,
-        setMasterVol,
-        getCtx, getAnalyser
+const VanguardTracker = (() => {
+    const ROWS   = 32;
+    const TRACKS = 4;
+    const SFX_NAMES = ['applause','cheer','horn','boom','custom1','custom2','custom3','custom4',
+                       'liq1','liq2','liq3','liq4','liq5','liq6','liq7','liq8'];
+    const NOTE_FREQS = {
+        'C-2':65.4,'C#-2':69.3,'D-2':73.4,'D#-2':77.8,'E-2':82.4,'F-2':87.3,'F#-2':92.5,
+        'G-2':98.0,'G#-2':103.8,'A-2':110,'A#-2':116.5,'B-2':123.5,
+        'C-3':130.8,'C#-3':138.6,'D-3':146.8,'D#-3':155.6,'E-3':164.8,'F-3':174.6,
+        'F#-3':185,'G-3':196,'G#-3':207.7,'A-3':220,'A#-3':233.1,'B-3':246.9,
+        'C-4':261.6,'C#-4':277.2,'D-4':293.7,'D#-4':311.1,'E-4':329.6,'F-4':349.2,
+        'F#-4':370,'G-4':392,'G#-4':415.3,'A-4':440,'A#-4':466.2,'B-4':493.9,
+        'C-5':523.3,'C#-5':554.4,'D-5':587.3,'D#-5':622.3,'E-5':659.3,'F-5':698.5,
+        'F#-5':740,'G-5':784,'G#-5':830.6,'A-5':880,'A#-5':932.3,'B-5':987.8,
+        'C-6':1046.5,'D-6':1174.7,'E-6':1318.5,'F-6':1397,'G-6':1568,'A-6':1760,'B-6':1975.5
     };
+    // Renoise chromatic piano map — two octaves, lower row + upper row
+    const RENOISE_MAP = {
+        'z':'C-3','s':'C#3','x':'D-3','d':'D#3','c':'E-3',
+        'v':'F-3','g':'F#3','b':'G-3','h':'G#3','n':'A-3','j':'A#3','m':'B-3',
+        'q':'C-4','2':'C#4','w':'D-4','3':'D#4','e':'E-4','r':'F-4',
+        '5':'F#4','t':'G-4','6':'G#4','y':'A-4','7':'A#4','u':'B-4'
+    };
+    // Normalise RENOISE_MAP value → canonical NOTE_FREQS key ('C#3' → 'C#-3')
+    function _rmNoteToFreq(rm) {
+        var n = rm.replace(/^([A-G]#?)(\d)$/, '$1-$2'); // 'C#3' → 'C#-3', 'C-3' stays
+        return NOTE_FREQS[n] || 220;
+    }
+    // Note string → MIDI note number (C4 = 60)
+    function _rmNoteToMidi(rm) {
+        var n = rm.replace(/^([A-G]#?)(\d)$/, '$1-$2');
+        var m = n.match(/^([A-G]#?)-(\d)$/);
+        if (!m) return 60;
+        var s = {'C':0,'C#':1,'D':2,'D#':3,'E':4,'F':5,'F#':6,'G':7,'G#':8,'A':9,'A#':10,'B':11};
+        return (parseInt(m[2]) + 1) * 12 + (s[m[1]] || 0);
+    }
+    // Preloaded "Cinematic Industrial" 16-step pattern
+    // [pad, note, vol, fx]  — fx: 01=seismic 02=punch 03=party
+    const INDUSTRIAL_PATTERN = [
+        ['18','C-3','D0','01'],  // 00 KICK (liq1)
+        ['00','C-3','80','--'],  // 01 SUB bass
+        ['--','---','--','--'],  // 02 rest
+        ['19','---','90','01'],  // 03 SNARE (liq2)
+        ['18','---','C0','01'],  // 04 KICK
+        ['00','G-2','70','--'],  // 05 SUB bass low
+        ['1A','---','50','02'],  // 06 RUMBLE (liq3) + punch
+        ['19','---','A0','01'],  // 07 SNARE
+        ['18','---','FF','01'],  // 08 KICK (downbeat, full vel)
+        ['02','A-3','60','01'],  // 09 NOISE burst
+        ['00','C-3','60','--'],  // 0A SUB
+        ['19','---','90','01'],  // 0B SNARE
+        ['18','---','C0','01'],  // 0C KICK
+        ['1B','---','80','01'],  // 0D SLAM (liq4)
+        ['19','---','B0','01'],  // 0E SNARE
+        ['02','E-4','90','01'],  // 0F NOISE ratchet
+        ['--','---','--','--'],  // 10 rest
+        ['--','---','--','--'],  // 11
+        ['--','---','--','--'],  // 12
+        ['--','---','--','--'],  // 13
+        ['--','---','--','--'],  // 14
+        ['--','---','--','--'],  // 15
+        ['--','---','--','--'],  // 16
+        ['--','---','--','--'],  // 17
+        ['--','---','--','--'],  // 18
+        ['--','---','--','--'],  // 19
+        ['--','---','--','--'],  // 1A
+        ['--','---','--','--'],  // 1B
+        ['--','---','--','--'],  // 1C
+        ['--','---','--','--'],  // 1D
+        ['--','---','--','--'],  // 1E
+        ['--','---','--','--'],  // 1F
+    ];
+
+    var _playing   = false;
+    var _step      = 0;
+    var _proTimer  = null;   // ProScheduler interval handle
+    var _visible   = false;
+    var _dragging  = false;
+    var _dragOffX  = 0, _dragOffY = 0;
+    var _bpmCache  = 120;
+    var _midiInit  = false;
+
+    // ── CSS for multi-track sub-rows (injected once) ──────────────────────
+    (function() {
+        if (document.getElementById('vt-multitrack-style')) return;
+        var s = document.createElement('style');
+        s.id = 'vt-multitrack-style';
+        s.textContent =
+            '.vt-step-group{border-bottom:1px solid rgba(0,243,255,0.06);}' +
+            '.vt-step-group.vt-beat-16{border-top:1px solid rgba(0,243,255,0.22);}' +
+            '.vt-subrow{opacity:0.55;}' +
+            '.vt-subrow .vt-row-num{visibility:hidden;}' +
+            '.vt-step-group.vt-active-group>.vt-row:first-child{background:rgba(0,243,255,0.09);}' +
+            '.vt-step-group.vt-active-group .vt-subrow{background:rgba(0,243,255,0.03);}' +
+            '.vt-cell-fx-placeholder{border-right:none;flex:1;}' +
+            '.vt-note-active{color:rgba(0,243,255,0.9)!important;}' +
+            '.vt-kbd-octave{font-size:6px;color:rgba(0,243,255,0.35);padding:0 6px;letter-spacing:1.5px;}';
+        document.head.appendChild(s);
+    })();
+
+    function _win() { return document.getElementById('vanguard-tracker-window'); }
+
+    // ── Cell access: (step, track, col) ──────────────────────────────────
+    function _cell(step, track, col) {
+        return document.querySelector(
+            'input[data-step="' + step + '"][data-track="' + track + '"][data-col="' + col + '"]'
+        );
+    }
+    function _val(step, track, col) {
+        var c = _cell(step, track, col);
+        return c ? c.value.trim().toUpperCase() : '';
+    }
+    function _setStatus(txt) {
+        var el = document.getElementById('vt-engine-status');
+        if (el) el.textContent = txt;
+    }
+    function _setPos(step) {
+        var pos = document.getElementById('vt-pos');
+        var stp = document.getElementById('vt-step');
+        if (pos) pos.textContent = step.toString(16).toUpperCase().padStart(2,'0');
+        if (stp) stp.textContent = (step + 1) + '/' + ROWS;
+    }
+    function _getBpm() {
+        var inp = document.getElementById('vt-bpm');
+        _bpmCache = Math.max(40, Math.min(300, parseFloat(inp ? inp.value : 120) || 120));
+        document.documentElement.style.setProperty('--vt-bpm-ms', (60000 / _bpmCache / 2) + 'ms');
+        return _bpmCache;
+    }
+    function _stepDur() { return 60 / _getBpm() / 4; } // 16th notes
+
+    // ── Note normaliser: 'C2','C-2','C#3' → Hz ───────────────────────────
+    function _noteToFreq(noteStr) {
+        if (!noteStr || noteStr === '---' || noteStr === '--') return null;
+        var n = noteStr.replace(/^([A-G]#?)(\d)$/, '$1-$2');
+        return NOTE_FREQS[n] || null;
+    }
+
+    // ── Build multi-track rows (32 steps × 4 tracks) ──────────────────────
+    function _buildRows(preload) {
+        var scroll = document.getElementById('vt-track-scroll');
+        if (!scroll) return;
+        scroll.innerHTML = '';
+        for (var i = 0; i < ROWS; i++) {
+            var pat = (preload && INDUSTRIAL_PATTERN[i]) ? INDUSTRIAL_PATTERN[i] : null;
+            var group = document.createElement('div');
+            group.className = 'vt-step-group' + (i > 0 && i % 16 === 0 ? ' vt-beat-16' : '');
+            group.id = 'vt-step-' + i;
+            var num = i.toString(16).toUpperCase().padStart(2,'0');
+            for (var t = 0; t < TRACKS; t++) {
+                var row = document.createElement('div');
+                row.className = 'vt-row' + (t > 0 ? ' vt-subrow' : '');
+                row.id = 'vt-row-' + i + '-' + t;
+                var cols = t === 0 ? ['pad','note','vol','fx'] : ['pad','note','vol'];
+                var phs  = t === 0 ? ['--','---','80','--']   : ['--','---','80'];
+                var html = '<div class="vt-row-num">' + (t === 0 ? num : '') + '</div>';
+                for (var c = 0; c < cols.length; c++) {
+                    var colName = cols[c];
+                    var val = (t === 0 && pat && pat[c] && pat[c] !== '--' && pat[c] !== '---') ? pat[c] : '';
+                    html += '<div class="vt-cell">' +
+                            '<input type="text" maxlength="4"' +
+                            ' data-step="' + i + '" data-track="' + t + '" data-col="' + colName + '"' +
+                            ' placeholder="' + phs[c] + '" title="' + colName.toUpperCase() + '"' +
+                            ' value="' + val + '"' +
+                            '></div>';
+                }
+                if (t > 0) html += '<div class="vt-cell vt-cell-fx-placeholder"></div>';
+                row.innerHTML = html;
+                group.appendChild(row);
+            }
+            scroll.appendChild(group);
+        }
+        scroll.querySelectorAll('input[data-col]').forEach(function(inp) {
+            inp.addEventListener('focus', function() { this.select(); });
+            inp.addEventListener('input', _onCellInput);
+            inp.addEventListener('keydown', _onCellKey);
+            if (inp.value) _styleCellInput(inp);
+        });
+        _drawWaveforms();
+    }
+
+    function _styleCellInput(inp) {
+        var v   = inp.value.trim().toUpperCase();
+        var col = inp.dataset.col;
+        inp.classList.remove('vt-synth','vt-sample','vt-note-active');
+        if (!v || v === '--' || v === '---') return;
+        if (col === 'pad') {
+            var hex = parseInt(v, 16);
+            if (!isNaN(hex)) {
+                inp.classList.add(hex <= 0x0F ? 'vt-synth' : 'vt-sample');
+            }
+        } else if (col === 'note') {
+            inp.classList.add('vt-note-active');
+        }
+    }
+
+    function _onCellInput(e) { _styleCellInput(e.target); }
+
+    // ── Keyboard handler: Z-M note entry + full arrow navigation ─────────
+    function _onCellKey(e) {
+        var step  = parseInt(e.target.dataset.step);
+        var track = parseInt(e.target.dataset.track);
+        var col   = e.target.dataset.col;
+        var cols  = track === 0 ? ['pad','note','vol','fx'] : ['pad','note','vol'];
+        var colIdx = cols.indexOf(col);
+
+        // ── RENOISE piano matrix (active when NOTE col is focused) ───────
+        if (col === 'note' && !e.ctrlKey && !e.altKey && !e.metaKey) {
+            var rmNote = RENOISE_MAP[e.key]; // exact key match (case-sensitive)
+            if (rmNote) {
+                e.preventDefault();
+                e.target.value = rmNote;
+                _styleCellInput(e.target);
+                // Ensure AudioContext is running
+                if (!APP.audio.ctx) igniteAudio();
+                if (APP.audio.ctx && APP.audio.ctx.state === 'suspended') APP.audio.ctx.resume();
+                var ctx = APP.audio.ctx;
+                // Schedule at nextNoteTime if tracker is running, else immediate
+                var schedTime = (window.nextNoteTime && ctx && window.nextNoteTime > ctx.currentTime)
+                    ? window.nextNoteTime
+                    : (ctx ? ctx.currentTime + 0.01 : 0);
+                // Map 24 RENOISE keys → 4 kit pads (6 keys per pad: lower to higher)
+                var _rmKeys = ['z','s','x','d','c','v','g','b','h','n','j','m',
+                               'q','2','w','3','e','r','5','t','6','y','7','u'];
+                var rmIdx  = _rmKeys.indexOf(e.key);
+                var padIdx = Math.min(3, Math.max(0, Math.floor(rmIdx / 6)));
+                // Play PCM kit sample; InternalSynth fallback handled inside playBuffer
+                if (typeof KitManager !== 'undefined' && ctx) {
+                    KitManager.playBuffer(KitManager.getActiveKit(), padIdx, schedTime, 0.65);
+                } else {
+                    var midi = _rmNoteToMidi(rmNote);
+                    if (typeof window.synth === 'function') window.synth('pluck', midi, 0.65);
+                    else InternalSynth.triggerSweep(_rmNoteToFreq(rmNote), 0.65, 0x80);
+                }
+                // Auto-advance: focus next row's NOTE cell
+                var nxt = _cell((step + 1) % ROWS, track, 'note');
+                if (nxt) { nxt.focus(); nxt.select(); }
+                return;
+            }
+        }
+
+        // ── Arrow navigation ──────────────────────────────────────────────
+        if (e.key === 'ArrowDown') {
+            e.preventDefault();
+            var ns = (step + 1) % ROWS;
+            var nxt = _cell(ns, track, col);
+            if (nxt) { nxt.focus(); nxt.select(); } return;
+        }
+        if (e.key === 'ArrowUp') {
+            e.preventDefault();
+            var ns = (step - 1 + ROWS) % ROWS;
+            var nxt = _cell(ns, track, col);
+            if (nxt) { nxt.focus(); nxt.select(); } return;
+        }
+        if (e.key === 'ArrowRight') {
+            e.preventDefault();
+            if (colIdx < cols.length - 1) {
+                var nxt = _cell(step, track, cols[colIdx + 1]);
+                if (nxt) { nxt.focus(); nxt.select(); }
+            } else if (track < TRACKS - 1) {
+                var nxt = _cell(step, track + 1, 'pad');
+                if (nxt) { nxt.focus(); nxt.select(); }
+            } return;
+        }
+        if (e.key === 'ArrowLeft') {
+            e.preventDefault();
+            if (colIdx > 0) {
+                var nxt = _cell(step, track, cols[colIdx - 1]);
+                if (nxt) { nxt.focus(); nxt.select(); }
+            } else if (track > 0) {
+                var prevCols = ['pad','note','vol'];
+                var nxt = _cell(step, track - 1, prevCols[prevCols.length - 1]);
+                if (nxt) { nxt.focus(); nxt.select(); }
+            } return;
+        }
+
+        // ── Enter / Tab: advance down same track ──────────────────────────
+        if (e.key === 'Enter' || (e.key === 'Tab' && !e.shiftKey)) {
+            e.preventDefault();
+            var ns = (step + 1) % ROWS;
+            var nxt = _cell(ns, track, col);
+            if (nxt) { nxt.focus(); nxt.select(); } return;
+        }
+        if (e.key === 'Tab' && e.shiftKey) {
+            e.preventDefault();
+            var ns = (step - 1 + ROWS) % ROWS;
+            var nxt = _cell(ns, track, col);
+            if (nxt) { nxt.focus(); nxt.select(); }
+        }
+    }
+
+    // ── Waveform canvas rendering ─────────────────────────────────────────
+    function _drawWaveforms() {
+        var canvases = document.querySelectorAll('.vt-wave-canvas');
+        var modes = ['SUB','NOISE','SWEEP','BOOM'];
+        canvases.forEach(function(cv, idx) {
+            var ctx2 = cv.getContext('2d');
+            if (!ctx2) return;
+            var W = cv.offsetWidth || 80, H = cv.offsetHeight || 34;
+            cv.width = W; cv.height = H;
+            ctx2.clearRect(0, 0, W, H);
+            var wave = InternalSynth.getWaveShape(modes[idx] || 'SUB', W);
+            ctx2.beginPath();
+            ctx2.strokeStyle = 'rgba(0,243,255,0.7)';
+            ctx2.lineWidth = 1;
+            var mid = H / 2;
+            for (var x = 0; x < wave.length; x++) {
+                var y = mid - wave[x] * mid * 0.85;
+                if (x === 0) ctx2.moveTo(x, y);
+                else ctx2.lineTo(x, y);
+            }
+            ctx2.stroke();
+            // Fill under curve
+            ctx2.lineTo(W, mid); ctx2.lineTo(0, mid); ctx2.closePath();
+            ctx2.fillStyle = 'rgba(0,243,255,0.06)';
+            ctx2.fill();
+        });
+    }
+
+    // ── MIDI initialisation ───────────────────────────────────────────────
+    function _initMIDI() {
+        if (_midiInit || !navigator.requestMIDIAccess) return;
+        _midiInit = true;
+        navigator.requestMIDIAccess().then(function(midi) {
+            log('MIDI: ACCESS_GRANTED inputs=' + midi.inputs.size);
+            function _wire(input) {
+                input.onmidimessage = function(msg) {
+                    var status = msg.data[0] & 0xF0;
+                    if (status !== 0x90 || msg.data[2] === 0) return; // note-on only
+                    var midiNote = msg.data[1];
+                    var vel      = msg.data[2] / 127;
+                    var oct      = Math.floor(midiNote / 12) - 1;
+                    var names    = ['C','C#','D','D#','E','F','F#','G','G#','A','A#','B'];
+                    var noteName = names[midiNote % 12] + '-' + oct;
+                    var freq     = NOTE_FREQS[noteName] || (440 * Math.pow(2, (midiNote - 69) / 12));
+                    if (!APP.audio.ctx) igniteAudio();
+                    InternalSynth.triggerSub(freq, vel, 0x80);
+                    // Auto-fill focused NOTE cell
+                    var focused = document.activeElement;
+                    if (focused && focused.dataset && focused.dataset.col === 'note') {
+                        focused.value = noteName;
+                        _styleCellInput(focused);
+                        var ns  = (parseInt(focused.dataset.step) + 1) % ROWS;
+                        var trk = parseInt(focused.dataset.track || 0);
+                        var nxt = _cell(ns, trk, 'note');
+                        if (nxt) { nxt.focus(); nxt.select(); }
+                    }
+                    _setStatus('MIDI:' + noteName + ' V=' + Math.round(vel * 100) + '%');
+                };
+            }
+            midi.inputs.forEach(_wire);
+            midi.onstatechange = function(e) {
+                if (e.port.type === 'input' && e.port.state === 'connected') _wire(e.port);
+            };
+        }).catch(function(e) { log('MIDI: DENIED ' + e.message); });
+    }
+
+    // ── SONIC-CORE ProScheduler — audioCtx.currentTime lookahead ─────────
+    // Runs every 25ms, queues all events within 100ms lookahead window.
+    // window.nextNoteTime is shared with NeuralCompiler so they never drift.
+    var SCHED_AHEAD = 0.10; // seconds to look ahead
+    var SCHED_TICK  = 25;   // ms between scheduler ticks
+
+    function _proTick() {
+        if (!_playing) return;
+        var ctx = APP.audio && APP.audio.ctx;
+        if (!ctx) return;
+        while (window.nextNoteTime < ctx.currentTime + SCHED_AHEAD) {
+            _scheduleStepAt(window.nextNoteTime, _step);
+            _step = (_step + 1) % ROWS;
+            window.nextNoteTime += _stepDur();
+        }
+        _setPos(_step);
+    }
+
+    function _scheduleStepAt(schedTime, stepIdx) {
+        var ctx = APP.audio.ctx;
+        var events = [];
+        for (var t = 0; t < TRACKS; t++) {
+            var padHex = _val(stepIdx, t, 'pad');
+            if (!padHex || padHex === '--') continue;
+            var volHex = _val(stepIdx, t, 'vol');
+            var fxHex  = t === 0 ? _val(stepIdx, 0, 'fx') : '--';
+            events.push({
+                padNum: parseInt(padHex, 16),
+                freq:   _noteToFreq(_val(stepIdx, t, 'note')) || 110,
+                vol:    volHex && volHex !== '--' ? parseInt(volHex, 16) / 255 : 0.7,
+                fx:     fxHex && fxHex !== '--' ? parseInt(fxHex, 16) : 0
+            });
+        }
+        if (events.length === 0) return;
+
+        // Schedule visual highlight via setTimeout (display only — OK to drift slightly)
+        var delay   = Math.max(0, (schedTime - ctx.currentTime) * 1000);
+        var stepSnap = stepIdx;
+        var evSnap   = events.slice();
+        setTimeout(function() {
+            if (!_playing) return;
+            _highlightRow(stepSnap);
+            for (var i = 0; i < evSnap.length; i++) {
+                var ev = evSnap[i];
+                _firePad(ev.padNum, ev.vol, ev.freq, 0x80, 1, 0);
+                if (i === 0) {
+                    if (ev.fx === 0x01) _vjHeavySync();
+                    else if (ev.fx === 0x02 && APP && APP.vj) {
+                        APP.vj._punchSpring = Math.min(1, (APP.vj._punchSpring||0) + 0.8);
+                        APP.vj._punchDemoUntil = performance.now() + 800;
+                    } else if (ev.fx === 0x03 && typeof _partyMode === 'function') _partyMode();
+                }
+            }
+        }, delay);
+    }
+
+    function _highlightRow(idx) {
+        var prev = document.querySelector('.vt-step-group.vt-active-group');
+        if (prev) prev.classList.remove('vt-active-group');
+        var grp = document.getElementById('vt-step-' + idx);
+        if (grp) {
+            grp.classList.add('vt-active-group');
+            var scroll = document.getElementById('vt-track-scroll');
+            if (scroll) {
+                var top = grp.offsetTop - scroll.clientHeight / 2;
+                scroll.scrollTo({ top: Math.max(0, top), behavior: 'auto' });
+            }
+        }
+    }
+
+    // ── Fire pad: InternalSynth or SFX_ENGINE + seismic/Luma_Bloom ───────
+    function _firePad(padNum, vol, freq, panVal, rtg, off) {
+        if (!window.audioReactiveData) window.audioReactiveData = {};
+        window.audioReactiveData.trackerStep   = _step;
+        window.audioReactiveData.trackerPad    = padNum;
+        window.audioReactiveData.trackerVol    = vol;
+        window.audioReactiveData.trackerFreq   = freq;
+        window.audioReactiveData.lastTriggerTs = performance.now();
+
+        if (padNum >= 0x00 && padNum <= 0x0F) {
+            InternalSynth.trigger(padNum, freq, vol, panVal, rtg);
+            var modeName = ['SUB','SUB','NOISE','NOISE','SWEEP','SWEEP','METAL','METAL',
+                            'AM','AM','BOOM','BOOM','BOOM','BOOM','BOOM','BOOM'][padNum] || 'SUB';
+            _setStatus('SYNTH:' + modeName + ' F=' + Math.round(freq) + ' V=' + Math.round(vol*100) + '%');
+            // Low-end → seismic/kinetic handshake (already inside InternalSynth._seismicKick)
+            // High-end transients → Luma_Bloom burst
+            if (freq > 800 && vol > 0.4 && typeof _vbActivate === 'function') {
+                if (typeof _setFXBank === 'function') _setFXBank('B');
+                _vbActivate('LUMA_BLOOM', false);
+            }
+        } else {
+            var sfxIdx  = padNum - 0x10;
+            var sfxName = SFX_NAMES[sfxIdx] || null;
+            if (sfxName) {
+                Sampler.trigger(sfxName, vol, off);
+                _vjHeavySync();
+                _setStatus('SFX:' + sfxName.toUpperCase() + ' V=' + Math.round(vol*100) + '%');
+            }
+        }
+    }
+
+    // ── Draggable ─────────────────────────────────────────────────────────
+    function _initDrag(titlebarId, winEl) {
+        var tb = document.getElementById(titlebarId);
+        if (!tb || !winEl) return;
+        tb.addEventListener('mousedown', function(e) {
+            if (e.target.tagName === 'BUTTON' || e.target.tagName === 'INPUT' || e.target.tagName === 'SELECT') return;
+            _dragging = true;
+            var rect  = winEl.getBoundingClientRect();
+            _dragOffX = e.clientX - rect.left;
+            _dragOffY = e.clientY - rect.top;
+            winEl.style.transition = 'none';
+            e.preventDefault();
+        });
+        document.addEventListener('mousemove', function(e) {
+            if (!_dragging) return;
+            var x = Math.max(0, Math.min(window.innerWidth - 120, e.clientX - _dragOffX));
+            var y = Math.max(0, Math.min(window.innerHeight - 50, e.clientY - _dragOffY));
+            winEl.style.left = x + 'px'; winEl.style.top = y + 'px'; winEl.style.right = 'auto';
+        });
+        document.addEventListener('mouseup', function() { _dragging = false; });
+    }
+
+    // ── Public API ────────────────────────────────────────────────────────
+    function init() {
+        _buildRows(true);
+        _initDrag('vt-titlebar', _win());
+        _getBpm();
+        _initMIDI();
+        // Inject kit label into status bar once
+        var sb = document.querySelector('.vt-status-bar');
+        if (sb && !document.getElementById('vt-kbd-octave')) {
+            var octEl = document.createElement('span');
+            octEl.id = 'vt-kbd-octave';
+            octEl.className = 'vt-kbd-octave';
+            octEl.textContent = 'Z-M:KEYS';
+            octEl.title = 'RENOISE piano matrix: Z-M lower octave, Q-U upper octave';
+            var autoRight = sb.querySelector('[style*="margin-left:auto"]');
+            sb.insertBefore(octEl, autoRight || null);
+        }
+    }
+
+    function toggle() {
+        var win = _win(); if (!win) return;
+        _visible = !_visible;
+        win.classList.toggle('visible', _visible);
+        var btn = document.getElementById('btn-init-vngrd-tracker');
+        if (btn) btn.classList.toggle('active', _visible);
+        if (_visible) { init(); log('VNGRD_TRACKER: OPEN'); }
+        else { stop(); }
+    }
+
+    function play() {
+        if (_playing) { stop(); return; }
+        if (!APP.audio.ctx) igniteAudio();
+        if (!APP.audio.masterGain) ensureAudioChain();
+        var ctx = APP.audio.ctx;
+        if (ctx && ctx.state === 'suspended') ctx.resume();
+        _playing = true;
+        _step    = 0;
+        window.nextNoteTime = ctx.currentTime + 0.04;
+        var playBtn = document.getElementById('vt-play-btn');
+        if (playBtn) { playBtn.textContent = '■ STOP'; playBtn.classList.add('running'); }
+        _setStatus('RUNNING');
+        _proTick(); // immediate first scan
+        _proTimer = setInterval(_proTick, SCHED_TICK);
+        log('VNGRD_TRACKER: PLAY ' + _getBpm() + 'BPM');
+    }
+
+    function stop() {
+        _playing = false;
+        if (_proTimer) { clearInterval(_proTimer); _proTimer = null; }
+        var prev = document.querySelector('.vt-step-group.vt-active-group');
+        if (prev) prev.classList.remove('vt-active-group');
+        var playBtn = document.getElementById('vt-play-btn');
+        if (playBtn) { playBtn.textContent = '▶ PLAY'; playBtn.classList.remove('running'); }
+        _setStatus('IDLE'); _setPos(0);
+        log('VNGRD_TRACKER: STOP');
+    }
+
+    function clear() {
+        stop();
+        _buildRows(false);
+        log('VNGRD_TRACKER: CLEAR');
+    }
+
+    // Public accessors used by InternalSynth._bpm() and NeuralCompiler
+    function _bpm()       { return _bpmCache; }
+    function isPlaying()  { return _playing; }
+    function currentStep(){ return _step; }
+
+    // Reload waveforms when window resizes
+    window.addEventListener('resize', function() {
+        if (_visible) _drawWaveforms();
+    });
+
+    return { init, toggle, play, stop, clear, _bpm, isPlaying, currentStep };
 })();
+
+// ═══════════════════════════════════════════════════════════════
+//  SAMPLER — Unified trigger handshake + PURGE
+//  Tracker and NeuralCompiler both call Sampler.trigger() so that
+//  every pad's gear-coupled VJ FX assignments stay intact.
+// ═══════════════════════════════════════════════════════════════
+const Sampler = (() => {
+    function trigger(sfxName, vol, offset) {
+        // Route through SFX_ENGINE with optional volume scaling
+        if (!sfxName) return;
+        // Temporarily patch the gain for this trigger if vol differs
+        SFX_ENGINE.play(sfxName);
+        // Fire coupled VJ FX (circle matching / gear assignments)
+        if (typeof _fireCoupledFX === 'function') _fireCoupledFX(sfxName);
+        // Pulse the pad button
+        var id = 'sfx-' + sfxName;
+        var btn = document.getElementById(id);
+        if (btn && typeof _pulsePad === 'function') _pulsePad(btn);
+    }
+
+    function purgePad(name) {
+        if (!name) return;
+        var bufs = SFX_ENGINE._buffers();
+        if (bufs[name]) {
+            delete bufs[name];
+            var btn = document.getElementById('sfx-' + name);
+            if (btn) {
+                var nm   = btn.querySelector('.pad-name');
+                var hint = btn.querySelector('.pad-hint');
+                if (nm)   nm.textContent   = name.replace('custom','C-0').replace('liq','L-0');
+                if (hint) hint.textContent  = 'LOAD';
+                btn.classList.remove('loaded','sfx-playing');
+            }
+        }
+        log('SAMPLER: PURGE:' + name.toUpperCase());
+    }
+
+    function purge() {
+        ['custom1','custom2','custom3','custom4'].forEach(purgePad);
+        log('SAMPLER: PURGE_COMPLETE');
+    }
+
+    return { trigger, purgePad, purge };
+})();
+
+// ═══════════════════════════════════════════════════════════════
+// ═══════════════════════════════════════════════════════════════
+//  KIT MANAGER v2 — 5 Fully Synthetic Atmospheric/Cinematic Kits
+//  No CDN dependencies. Pure InternalSynth — breakcore·IDM·ambient.
+//  DARK_MATTER / CINEMATIC / BREAKCORE / IDM_ACID / ETHER_VOID
+//  Each pad: {label, synth, freq, vol, p} — p={} extra params
+// ═══════════════════════════════════════════════════════════════
+const KitManager = (() => {
+    // p = optional extra params passed to InternalSynth trigger functions
+    const KITS = [
+        { name: 'DARK_MATTER', pads: [
+            { label: 'SUB KICK',   synth:'SUB',   freq:55,   vol:0.92 },
+            { label: 'HVY IMPACT', synth:'NOISE', freq:280,  vol:0.8,  p:{res:10} },
+            { label: 'METAL SCR',  synth:'METAL', freq:180,  vol:0.65 },
+            { label: 'CRUNCH',     synth:'NOISE', freq:900,  vol:0.7,  p:{res:4} }
+        ]},
+        { name: 'CINEMATIC', pads: [
+            { label: 'SEISMIC',    synth:'BOOM',  freq:38,   vol:0.95 },
+            { label: 'ATMOS SWP',  synth:'SWEEP', freq:90,   vol:0.75 },
+            { label: 'BIG IMPACT', synth:'NOISE', freq:180,  vol:0.85, p:{res:8} },
+            { label: 'DEEP STING', synth:'AM',    freq:65,   vol:0.6,  p:{lfo:0.4} }
+        ]},
+        { name: 'BREAKCORE', pads: [
+            { label: 'TIGHT KICK', synth:'SUB',   freq:65,   vol:0.88 },
+            { label: 'SNARE CRCK', synth:'NOISE', freq:500,  vol:0.82, p:{res:12} },
+            { label: 'GLITCH HIT', synth:'METAL', freq:440,  vol:0.6 },
+            { label: 'BLAST',      synth:'BOOM',  freq:60,   vol:0.78 }
+        ]},
+        { name: 'IDM_ACID', pads: [
+            { label: 'ACID BASS',  synth:'SWEEP', freq:55,   vol:0.8 },
+            { label: 'TB ZAPP',    synth:'METAL', freq:110,  vol:0.65 },
+            { label: 'CLATTER',    synth:'NOISE', freq:2200, vol:0.55, p:{res:6} },
+            { label: 'D-ZAP',      synth:'AM',    freq:220,  vol:0.6,  p:{lfo:7.5} }
+        ]},
+        { name: 'ETHER_VOID', pads: [
+            { label: 'DEEP DRONE', synth:'AM',    freq:41,   vol:0.7,  p:{lfo:0.25} },
+            { label: 'PAD SWIRL',  synth:'SWEEP', freq:65,   vol:0.65 },
+            { label: 'TEXTURE',    synth:'NOISE', freq:120,  vol:0.55, p:{res:3} },
+            { label: 'DEEP BELL',  synth:'METAL', freq:82,   vol:0.5 }
+        ]}
+    ];
+
+    var _activeKit = 0;
+
+    // Pure synthetic playback via InternalSynth
+    function playBuffer(kitIdx, padIdx, schedTime, vol) {
+        var kit = KITS[kitIdx]; if (!kit) return;
+        var pad = kit.pads[padIdx]; if (!pad) return;
+        var v = (typeof vol === 'number') ? vol : pad.vol;
+        var f = pad.freq;
+        var p = pad.p || {};
+        var delay = schedTime && APP.audio && APP.audio.ctx
+            ? Math.max(0, (schedTime - APP.audio.ctx.currentTime) * 1000) : 0;
+        setTimeout(function() {
+            switch (pad.synth) {
+                case 'SUB':   InternalSynth.triggerSub(f, v); break;
+                case 'NOISE': InternalSynth.triggerNoise(f, v, p.res || 6); break;
+                case 'SWEEP': InternalSynth.triggerSweep(f, v); break;
+                case 'METAL': InternalSynth.triggerMetal(f, v); break;
+                case 'AM':    InternalSynth.triggerAM(f, v, p.lfo || 0.8); break;
+                case 'BOOM':  InternalSynth.triggerBoom(f, v); break;
+            }
+        }, delay);
+
+        // audioReactiveData handshake
+        if (!window.audioReactiveData) window.audioReactiveData = {};
+        window.audioReactiveData.padName       = kit.name + ':' + pad.label;
+        window.audioReactiveData.padVol        = v;
+        window.audioReactiveData.lastTriggerTs = performance.now();
+    }
+
+    function preload(kitIdx) { /* No-op: pure synthesis, nothing to preload */ }
+
+    function setKit(idx) {
+        _activeKit = Math.max(0, Math.min(KITS.length - 1, idx | 0));
+        log('KITMAN: active=' + KITS[_activeKit].name);
+    }
+
+    function getActiveKit()        { return _activeKit; }
+    function getKitName(idx)       { return KITS[idx != null ? idx : _activeKit].name; }
+    function getPadLabel(kit, pad) { return (KITS[kit] && KITS[kit].pads[pad]) ? KITS[kit].pads[pad].label : '---'; }
+    function getKitCount()         { return KITS.length; }
+
+    return { preload, playBuffer, setKit, getActiveKit, getKitName, getPadLabel, getKitCount, KITS };
+})();
+
+
 // ═══════════════════════════════════════════════════════════════
 //  NEURAL COMPILER v3 — eval()-based Live-Coding Engine
 //  APIs: loop(bpm, fn)  p(n).play(vol)  synth(note, type)
@@ -8923,63 +10014,42 @@ const AudioRack = (() => {
 //  → Engineering Mode AnalyserNode → seismic/kinetic naturally.
 // ═══════════════════════════════════════════════════════════════
 const NeuralCompiler = (() => {
-    var _visible   = false;
-    var _drag      = false;
+    var _visible = false;
+    var _drag    = false;
     var _dx = 0, _dy = 0;
-    var _dragInit  = false;
+    var _loopId  = null;
+    var _ncBeat  = 0;
+    var _dragInit = false;
     var _inputInit = false;
 
-    // ── Sonic Pi–style API ────────────────────────────────────────────────
+    // p(n) pad names: liq1-8 for drums, custom1-4 for user samples
     var _PAD_NAMES = ['liq1','liq2','liq3','liq4','liq5','liq6','liq7','liq8',
                       'custom1','custom2','custom3','custom4',
                       'applause','cheer','horn','boom'];
 
     var _NOTE_MAP = {
-        'C-2':65.4,'C#-2':69.3,'D-2':73.4,'D#-2':77.8,'E-2':82.4,'F-2':87.3,
-        'F#-2':92.5,'G-2':98.0,'G#-2':103.8,'A-2':110,'A#-2':116.5,'B-2':123.5,
-        'C-3':130.8,'C#-3':138.6,'D-3':146.8,'D#-3':155.6,'E-3':164.8,'F-3':174.6,
-        'F#-3':185,'G-3':196,'G#-3':207.7,'A-3':220,'A#-3':233.1,'B-3':246.9,
-        'C-4':261.6,'C#-4':277.2,'D-4':293.7,'D#-4':311.1,'E-4':329.6,'F-4':349.2,
-        'F#-4':370,'G-4':392,'G#-4':415.3,'A-4':440,'A#-4':466.2,'B-4':493.9,
-        'C-5':523.3,'C#-5':554.4,'D-5':587.3,'D#-5':622.3,'E-5':659.3,'F-5':698.5,
-        'F#-5':740,'G-5':784,'G#-5':830.6,'A-5':880,'A#-5':932.3,'B-5':987.8,
+        'C-2':65.4,'D-2':73.4,'E-2':82.4,'F-2':87.3,'G-2':98.0,'A-2':110,'B-2':123.5,
+        'C-3':130.8,'D-3':146.8,'E-3':164.8,'F-3':174.6,'G-3':196,'A-3':220,'B-3':246.9,
+        'C-4':261.6,'D-4':293.7,'E-4':329.6,'F-4':349.2,'G-4':392,'A-4':440,'B-4':493.9,
+        'C-5':523.3,'D-5':587.3,'E-5':659.3,'F-5':698.5,'G-5':784,'A-5':880,'B-5':987.8,
         'C-6':1046.5,'D-6':1174.7,'E-6':1318.5
     };
 
-    // PRELOAD — Sonic Pi style (sleep() is transpiled → await sleep())
+    // ── Async sequential demo — one cycle, auto-loops via temporal recursion ─
     var _PRELOAD =
-'// ◈ NEURAL COMPILER — Sonic Pi style live coding\n' +
-'// Shift+Enter = RUN  |  re-run = hot-swap active loops  |  ■ = stop all\n' +
-'//\n' +
-'// live_loop("name", async () => { ... })  — parallel named loop\n' +
-'// sleep(beats)   wait (transpiled to await automatically)\n' +
-'// play("C-3")    synth note (use_synth sets type)\n' +
-'// sample(0, 0.9) trigger kit pad 0 of active kit\n' +
-'// use_bpm(140)   set tempo\n' +
-'// use_synth("sub") → sub / boom / sweep / metal / am / noise\n' +
-'// synth(type,note,vol)  raw InternalSynth\n' +
-'// sm(note,vol)   Spatial Matrix supersaw\n' +
-'\n' +
-'use_bpm(140)\n' +
-'\n' +
-'live_loop("kick", async () => {\n' +
-'  sample(0, 0.95)     // pad 0 = KICK of active kit\n' +
-'  sleep(1)\n' +
-'})\n' +
-'\n' +
-'live_loop("snare", async () => {\n' +
-'  sleep(0.5)\n' +
-'  sample(1, 0.78)     // pad 1 = SNARE / IMPACT\n' +
-'  sleep(0.5)\n' +
-'})\n' +
-'\n' +
-'live_loop("bass", async () => {\n' +
-'  use_synth("sub")\n' +
-'  play("C-2", {amp: 0.85})\n' +
-'  sleep(1)\n' +
-'  play("G-2", {amp: 0.65})\n' +
-'  sleep(1)\n' +
-'})';
+'// IDM CORE — one cycle, auto-loops (Shift+Enter to run)\n' +
+'bpm(124);\n' +
+'play(0, 0.9);              // Kick  (kit pad 0)\n' +
+'await beat(1);\n' +
+'play(1, 0.65);             // Snare (kit pad 1)\n' +
+'synth(\'pluck\', \'E-4\', 0.5); // Luma_Bloom burst\n' +
+'await beat(1);\n' +
+'play(0, 0.8);\n' +
+'play(2, 0.4);              // Hat  (kit pad 2)\n' +
+'await beat(0.5);\n' +
+'play(1, 0.6);\n' +
+'synth(\'sub\', \'C-2\', 0.7);  // Sub bass → seismic\n' +
+'await beat(0.5);';
 
     function _win() { return document.getElementById('nc-window'); }
     function _out() { return document.getElementById('nc-output'); }
@@ -8992,71 +10062,40 @@ const NeuralCompiler = (() => {
         line.textContent = msg;
         out.appendChild(line);
         out.scrollTop = out.scrollHeight;
-        // Keep log bounded
-        while (out.children.length > 120) out.removeChild(out.firstChild);
     }
 
     function _noteToFreq(note) {
         if (!note) return 110;
-        if (typeof note === 'number') return 440 * Math.pow(2, (note - 69) / 12);
         var n = String(note).replace(/^([A-G]#?)(\d)$/, '$1-$2');
         return _NOTE_MAP[n] || 110;
     }
 
-    // ── Internal synth API ────────────────────────────────────────────────
-    function _ncSynth(type, note, vol) {
-        var freq = _noteToFreq(note);
-        var v = typeof vol === 'number' ? vol : 0.8;
-        var t = (type || 'sub').toLowerCase();
-        if      (t === 'sub')   InternalSynth.triggerSub(freq, v, 0x80);
-        else if (t === 'noise') InternalSynth.triggerNoise(freq, v, 8, 0x80);
-        else if (t === 'sweep') InternalSynth.triggerSweep(freq, v, 0x80);
-        else if (t === 'metal') InternalSynth.triggerMetal(freq, v, null, 0x80);
-        else if (t === 'am')    InternalSynth.triggerAM(freq, v, 0.8, 0x80);
-        else if (t === 'boom')  InternalSynth.triggerBoom(freq, v, 0x80);
-        else if (t === 'drone') InternalSynth.triggerDrone(freq, v, 4, 0x80);
-        else if (t === 'pad')   InternalSynth.triggerPad(freq, v, 6, 0x80);
-        else                    InternalSynth.triggerSub(freq, v, 0x80);
-    }
-
-    var _ncDefaultSynth = 'sub';
-    function _ncSetSynth(type) { _ncDefaultSynth = (type || 'sub').toLowerCase(); }
-
-    // play(note, opts) — Sonic Pi style: play "C-3" or play 60 (MIDI)
-    function _ncPlay(note, opts) {
-        var v = (opts && (opts.amp !== undefined ? opts.amp : opts.vol)) || 0.8;
-        _ncSynth(_ncDefaultSynth, note, v);
-    }
-
-    // sample(padIdx, vol) — trigger active kit pad
-    function _ncSample(padIdx, vol) {
-        var v = typeof vol === 'number' ? vol : 0.85;
-        KitManager.playBuffer(KitManager.getActiveKit(), (padIdx | 0) % 4, 0, v);
-        _vjHeavySync();
-    }
-
-    // sm(note, vol) — Spatial Matrix supersaw
-    function _ncSM(note, vol) {
-        if (typeof AudioRack !== 'undefined') {
-            AudioRack.playLead(note || 220, 1200, 0.25);
-        }
-    }
-
-    function _ncSMcc(cc, val) {
-        if (typeof AudioRack !== 'undefined') {
-            AudioRack.setLeadCutoff(200 + val * 100);
-        }
-    }
+    // p(n) returns a pad proxy with .play(vol)
     function _ncP(n) {
-        return { play: function(vol) {
-            var name = _PAD_NAMES[n] || null;
-            if (!name) return;
-            Sampler.trigger(name, typeof vol === 'number' ? vol : 0.8);
-            _vjHeavySync();
-        }};
+        return {
+            play: function(vol) {
+                var name = _PAD_NAMES[n] || null;
+                if (!name) return;
+                Sampler.trigger(name, typeof vol === 'number' ? vol : 0.8);
+                _vjHeavySync();
+            }
+        };
     }
 
-    // ── BPM ───────────────────────────────────────────────────────────────
+    // synth(note, type) — routes through InternalSynth → analyser → seismic
+    function _ncSynth(note, type) {
+        var freq = _noteToFreq(note);
+        var t = (type || 'sub').toLowerCase();
+        if (t === 'sub')        InternalSynth.triggerSub(freq, 0.8, 0x80);
+        else if (t === 'noise') InternalSynth.triggerNoise(freq, 0.7, 8, 0x80);
+        else if (t === 'sweep') InternalSynth.triggerSweep(freq, 0.8, 0x80);
+        else if (t === 'metal') InternalSynth.triggerMetal(freq, 0.75, freq * 3.1, 0x80);
+        else if (t === 'am')    InternalSynth.triggerAM(freq, 0.75, 8, 0x80);
+        else if (t === 'boom')  InternalSynth.triggerBoom(freq, 0.9, 0x80);
+        else                    InternalSynth.triggerSub(freq, 0.8, 0x80);
+    }
+
+    // ── bpm(v) — sets global BPM and syncs tracker input ─────────────────
     function _ncBpmSet(v) {
         var b = Math.max(20, Math.min(300, v | 0));
         window.currentBPM = b;
@@ -9064,91 +10103,96 @@ const NeuralCompiler = (() => {
         if (inp) { inp.value = b; inp.dispatchEvent(new Event('change')); }
     }
 
-    // sleep(n) = wait n beats — used inside live_loop (transpiled to await sleep())
-    function _ncSleep(n) { return window.beat(n || 1); }
-
-    // ── Named parallel live_loop system ──────────────────────────────────
-    var _ncLoops = {};  // { name: { fn, active } }
-
-    function _ncLiveLoop(name, fn) {
-        var loopName = String(name);
-        if (_ncLoops[loopName]) {
-            // Hot-swap: update function, current iteration will use new one
-            _ncLoops[loopName].fn = fn;
-            _ncLog('↺ HOT [' + loopName + ']', 'nc-sys');
-            return;
-        }
-        _ncLoops[loopName] = { fn: fn, active: true };
-        _ncLog('▶ LOOP [' + loopName + ']', 'nc-ok');
-        _updateClockStatus();
-
-        (function _runLoop() {
-            var obj = _ncLoops[loopName];
-            if (!obj || !obj.active) { delete _ncLoops[loopName]; _updateClockStatus(); return; }
-            var p;
-            try { p = obj.fn(); } catch(e) {
-                _ncLog('[' + loopName + '] ERR: ' + e.message, 'nc-err');
-                delete _ncLoops[loopName]; _updateClockStatus(); return;
-            }
-            if (p && typeof p.then === 'function') {
-                p.then(function() { setTimeout(_runLoop, 0); })
-                 .catch(function(e) {
-                    _ncLog('[' + loopName + '] ERR: ' + e.message, 'nc-err');
-                    delete _ncLoops[loopName]; _updateClockStatus();
-                 });
-            } else {
-                setTimeout(_runLoop, 0);
-            }
-        })();
-    }
-
-    function _updateClockStatus() {
-        var names = Object.keys(_ncLoops);
+    // ── loop(bpm, fn) — beat-aligned callback loop (backward compat) ──────
+    function _ncLoop(bpm, fn) {
+        _stopLoop();
+        _ncBpmSet(bpm);
+        _ncBeat = 0;
+        var ms = Math.round(60000 / Math.max(20, Math.min(300, bpm)) / 4);
+        _loopId = setInterval(function() {
+            window.loopBeat = _ncBeat;
+            try { fn(_ncBeat); } catch(e) { _ncLog('ERR: ' + e.message, 'nc-err'); _stopLoop(); }
+            _ncBeat++;
+        }, ms);
+        _ncLog('LOOP @ ' + bpm + 'BPM', 'nc-ok');
         var cs = document.getElementById('nc-clock-status');
-        if (!cs) return;
-        cs.textContent = names.length > 0 ? 'LOOPS: [' + names.join('] [') + ']' : 'IDLE';
-        window._ncLoopActive = names.length > 0;
+        if (cs) cs.textContent = 'LOOP: ' + bpm + 'BPM';
     }
 
-    function _stopAllLoops() {
-        Object.keys(_ncLoops).forEach(function(n) { if (_ncLoops[n]) _ncLoops[n].active = false; });
-        _ncLoops = {};
+    function _stopLoop() {
         window._ncLoopActive = false;
-        _ncLog('■ ALL LOOPS STOPPED', 'nc-sys');
-        _updateClockStatus();
+        if (_loopId) { clearInterval(_loopId); _loopId = null; }
+        _ncBeat = 0; window.loopBeat = 0;
+        var cs = document.getElementById('nc-clock-status');
+        if (cs) cs.textContent = 'LOOP: IDLE';
     }
 
-    // ── _run(): execute code, launching live_loops ────────────────────────
-    function _run() {
-        var ed = _editor(); if (!ed) return;
-        var code = ed.value.trim(); if (!code) return;
-        if (!APP.audio.ctx) igniteAudio();
-        if (APP.audio.ctx && APP.audio.ctx.state === 'suspended') APP.audio.ctx.resume();
+    // ── Temporal recursion engine (Sonic Pi style) ────────────────────────
+    // Re-executes _ncCurrentCode after each async cycle completes.
+    // Hot-swap: updating _ncCurrentCode takes effect on the next iteration.
+    var _ncCurrentCode = null;
 
-        // Transpile: bare sleep( / beat( → await sleep( / await beat(
-        var transpiled = code
-            .replace(/(?<!await\s)\bsleep\(/g, 'await sleep(')
-            .replace(/(?<!await\s)\bbeat\(/g, 'await beat(');
-        var wrapped = 'return (async () => {\n' + transpiled + '\n})();';
-
-        _ncLog('─── RUN ──────────────────────────────', 'nc-sys');
+    function _ncTemporalLoop() {
+        if (!window._ncLoopActive) return;
+        var code = _ncCurrentCode;
+        if (!code) return;
         try {
-            var fn = new Function(
-                'live_loop','use_bpm','use_synth','sleep','beat',
-                'play','sample','synth','sm','smcc','kit','bpm','p',
-                wrapped
-            );
-            var promise = fn(
-                _ncLiveLoop, _ncBpmSet, _ncSetSynth, _ncSleep, window.beat,
-                _ncPlay, _ncSample, _ncSynth, _ncSM, _ncSMcc, _ncSample, _ncBpmSet, _ncP
-            );
+            var transpiled = code.replace(/\bbeat\(/g, 'await beat(');
+            var wrapped    = 'return (async () => {\n' + transpiled + '\n})();';
+            // APIs exposed to user code: p, synth, play, beat, bpm, loop
+            var fn = new Function('p', 'synth', 'play', 'beat', 'bpm', 'loop', wrapped);
+            var promise = fn(_ncP, window.synth, window.play, window.beat, _ncBpmSet, _ncLoop);
             if (promise && typeof promise.then === 'function') {
-                promise.catch(function(e) { _ncLog('ERR: ' + e.message, 'nc-err'); });
+                promise
+                    .then(function() {
+                        if (window._ncLoopActive) {
+                            _ncTemporalLoop(); // re-execute with latest _ncCurrentCode
+                        } else {
+                            _ncLog('✓ SEQUENCE COMPLETE', 'nc-ok');
+                            var cs = document.getElementById('nc-clock-status');
+                            if (cs) cs.textContent = 'LOOP: IDLE';
+                        }
+                    })
+                    .catch(function(e) {
+                        _ncLog('ERR: ' + e.message, 'nc-err');
+                        window._ncLoopActive = false;
+                        var cs = document.getElementById('nc-clock-status');
+                        if (cs) cs.textContent = 'LOOP: ERR';
+                    });
+            } else {
+                // Sync code — still recurse if active
+                if (window._ncLoopActive) _ncTemporalLoop();
             }
         } catch(e) {
             _ncLog('ERR: ' + e.message, 'nc-err');
+            window._ncLoopActive = false;
         }
-        _updateClockStatus();
+    }
+
+    // ── _run(): execute or hot-swap editor code ───────────────────────────
+    function _run() {
+        var ed = _editor(); if (!ed) return;
+        var code = ed.value.trim();
+        if (!code) return;
+        if (!APP.audio.ctx) igniteAudio();
+        if (APP.audio.ctx && APP.audio.ctx.state === 'suspended') APP.audio.ctx.resume();
+
+        if (window._ncLoopActive) {
+            // Hot-swap: update code; takes effect when current iteration ends
+            _ncCurrentCode = code;
+            _ncLog('↺ HOT-SWAP on next cycle', 'nc-sys');
+            return;
+        }
+
+        // Stop any legacy setInterval loop
+        if (_loopId) { clearInterval(_loopId); _loopId = null; }
+        _ncCurrentCode = code;
+        window._ncLoopActive = true;
+        _ncLog('─── RUN ───────────────────────────────', 'nc-sys');
+        _ncLog('✓ RUNNING (temporal recursion)...', 'nc-ok');
+        var cs = document.getElementById('nc-clock-status');
+        if (cs) cs.textContent = 'LOOP: RUN';
+        _ncTemporalLoop();
     }
 
     function _initDrag() {
@@ -9176,15 +10220,22 @@ const NeuralCompiler = (() => {
         if (_inputInit) return; _inputInit = true;
         var ed = _editor();
         if (ed) {
+            // Preload script on first open if editor is empty
             if (!ed.value.trim()) ed.value = _PRELOAD;
             ed.addEventListener('keydown', function(e) {
-                if (e.key === 'Enter' && e.shiftKey) { e.preventDefault(); _run(); }
+                if (e.key === 'Enter' && e.shiftKey) {
+                    e.preventDefault();
+                    _run();
+                }
             });
         }
         var runBtn = document.getElementById('nc-run-btn');
         if (runBtn) runBtn.addEventListener('click', _run);
         var stopBtn = document.getElementById('nc-stop-btn');
-        if (stopBtn) stopBtn.addEventListener('click', _stopAllLoops);
+        if (stopBtn) stopBtn.addEventListener('click', function() {
+            _stopLoop();
+            _ncLog('LOOP STOPPED', 'nc-sys');
+        });
     }
 
     function toggle() {
@@ -9196,17 +10247,15 @@ const NeuralCompiler = (() => {
         if (_visible) {
             _initDrag();
             _initInput();
-            _ncLog('◈ NEURAL COMPILER — Sonic Pi style · Shift+Enter=RUN', 'nc-sys');
-            _ncLog('live_loop("name", async()=>{...})  sleep(beats)  play("C-3")', 'nc-sys');
-            _ncLog('sample(0,0.9)  use_bpm(140)  use_synth("sub")  sm("C-2",0.7)', 'nc-sys');
-            _ncLog('synth types: sub · boom · sweep · metal · am · noise · drone · pad', 'nc-sys');
+            _ncLog('NEURAL_COMPILER v3 READY — Shift+Enter to run / re-run to hot-swap', 'nc-sys');
+            _ncLog('APIs: bpm(n) play(n,v) synth(t,n,v) beat(n) loop(bpm,fn) p(n).play(v)', 'nc-sys');
             var ed = _editor(); if (ed) ed.focus();
         } else {
-            _stopAllLoops();
+            _stopLoop();
         }
     }
 
-    return { toggle, run: _run, stopLoop: _stopAllLoops, _synth: _ncSynth };
+    return { toggle, run: _run, stopLoop: _stopLoop, _synth: _ncSynth };
 })();
 
 // ═══════════════════════════════════════════════════════════════
@@ -10294,275 +11343,956 @@ var VFXLayer = (function() {
 document.addEventListener('DOMContentLoaded', function() { VFXLayer.init(); });
 
 // ═══════════════════════════════════════════════════════════════
-//  KINEMATIC ENGINE v1 — Three.js Point Cloud + MediaPipe Hands
-//  12,000 instanced particles · gesture camera orbit · BPM react
 // ═══════════════════════════════════════════════════════════════
-const KinematicEngine = (() => {
+//  SPATIAL_AUDIO v4 — Supersaw + Sub + Noise + Reverb + Loop Recorder
+//  7-osc supersaw · Sub octave · HP noise texture · Convolver reverb
+//  8-voice pool · ADSR · Multi-mode filter · Delay · Distortion
+//  Loop recorder: REC/PLAY/CLEAR with quantized loop length
+// ═══════════════════════════════════════════════════════════════
+const SPATIAL_AUDIO = (() => {
     'use strict';
-    let _open = false;
-    let _scene = null, _camera = null, _renderer = null;
-    let _particles = null, _positions = null, _basePositions = null;
-    let _animId = null;
-    let _hands = null, _vidEl = null, _camRunning = false;
-    let _canvas = null;
-    const PARTICLE_COUNT = 12000;
+    let ctx = null, masterGain = null, compressor = null;
+    let delayNode = null, delayGain = null, distortion = null;
+    let reverbNode = null, reverbGain = null;
+    let _running = false;
 
-    // KINETIC_DATA: populated by MediaPipe in real-time
-    window.KINETIC_DATA = {
-        rightHand: null,   // { x, y, z, pinch, velocity }
-        leftHand: null,    // { x, y, z, pinch, cutoff }
-        head: null         // { x, y, z, rx, ry }
+    const P = {
+        oscType: 'sawtooth', pitch: 220, detune: 0, oct: 0,
+        filterType: 'lowpass', cutoff: 800, res: 2,
+        atk: 0.01, dec: 0.1, sus: 0.7, rel: 0.3,
+        delayAmt: 0.2, delayTime: 0.25, dist: 0, vol: 0.8,
+        spread: 25,       // supersaw detune spread (cents per side)
+        subLevel: 0.4,    // sub oscillator level
+        noiseLevel: 0.04, // HP noise texture level
+        reverbAmt: 0.25   // reverb send level
     };
 
-    // Camera orbit state
-    let _camTheta = 0, _camPhi = Math.PI / 4, _camRadius = 80;
-    let _targetTheta = 0, _targetPhi = Math.PI / 4;
+    const VOICES = [];
+    const MAX_VOICES = 8;
 
-    async function _initThree() {
-        var THREE = await import('three');
+    // Loop recorder state
+    const _loopEvents = [];
+    let _loopRecording = false, _loopPlaying = false;
+    let _loopStart = 0, _loopLength = 0, _loopTimer = null;
 
-        _canvas = document.getElementById('kinematic-canvas');
-        if (!_canvas) return;
-
-        _renderer = new THREE.WebGLRenderer({ canvas: _canvas, alpha: true, antialias: false });
-        _renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
-        _renderer.setSize(window.innerWidth, window.innerHeight);
-        _renderer.setClearColor(0x000000, 0);
-
-        _scene = new THREE.Scene();
-        _camera = new THREE.PerspectiveCamera(60, window.innerWidth / window.innerHeight, 0.1, 2000);
-        _camera.position.set(0, 0, _camRadius);
-
-        // Build particle field
-        var geo = new THREE.BufferGeometry();
-        _positions = new Float32Array(PARTICLE_COUNT * 3);
-        _basePositions = new Float32Array(PARTICLE_COUNT * 3);
-        var colors = new Float32Array(PARTICLE_COUNT * 3);
-
-        for (var i = 0; i < PARTICLE_COUNT; i++) {
-            var theta = Math.random() * Math.PI * 2;
-            var phi = Math.acos(2 * Math.random() - 1);
-            var r = 20 + Math.random() * 45;
-            var x = r * Math.sin(phi) * Math.cos(theta);
-            var y = r * Math.sin(phi) * Math.sin(theta);
-            var z = r * Math.cos(phi);
-
-            _positions[i * 3]     = x;
-            _positions[i * 3 + 1] = y;
-            _positions[i * 3 + 2] = z;
-            _basePositions[i * 3]     = x;
-            _basePositions[i * 3 + 1] = y;
-            _basePositions[i * 3 + 2] = z;
-
-            // Cyan-to-magenta gradient based on normalized y
-            var t = (y + 65) / 130;
-            colors[i * 3]     = 0.1 + t * 0.9;
-            colors[i * 3 + 1] = 0.9 - t * 0.8;
-            colors[i * 3 + 2] = 1.0;
+    function _makeDistCurve(amt) {
+        const n = 256, curve = new Float32Array(n);
+        const k = amt === 0 ? 0.001 : amt;
+        for (let i = 0; i < n; i++) {
+            const x = (i * 2) / n - 1;
+            curve[i] = (3 + k) * x * 20 * (Math.PI / 180) / (Math.PI + k * Math.abs(x));
         }
-
-        geo.setAttribute('position', new THREE.BufferAttribute(_positions, 3));
-        geo.setAttribute('color', new THREE.BufferAttribute(colors, 3));
-
-        var mat = new THREE.PointsMaterial({
-            size: 0.35,
-            vertexColors: true,
-            transparent: true,
-            opacity: 0.82,
-            sizeAttenuation: true,
-            blending: THREE.AdditiveBlending,
-            depthWrite: false
-        });
-
-        _particles = new THREE.Points(geo, mat);
-        _scene.add(_particles);
-
-        window.addEventListener('resize', function() {
-            _camera.aspect = window.innerWidth / window.innerHeight;
-            _camera.updateProjectionMatrix();
-            _renderer.setSize(window.innerWidth, window.innerHeight);
-        });
-
-        _animate(THREE);
+        return curve;
     }
 
-    function _animate(THREE) {
-        _animId = requestAnimationFrame(function() { _animate(THREE); });
-        var t = performance.now() * 0.001;
-        var kd = window.KINETIC_DATA;
-
-        // Camera orbit from head tracking or auto-rotate
-        if (kd.head) {
-            _targetTheta = kd.head.ry * 2.5;
-            _targetPhi = Math.PI / 4 + kd.head.rx * 1.2;
-        } else {
-            _targetTheta += 0.003;
-        }
-        _camTheta += (_targetTheta - _camTheta) * 0.04;
-        _camPhi += (_targetPhi - _camPhi) * 0.04;
-        _camPhi = Math.max(0.1, Math.min(Math.PI - 0.1, _camPhi));
-
-        _camera.position.x = _camRadius * Math.sin(_camPhi) * Math.cos(_camTheta);
-        _camera.position.y = _camRadius * Math.cos(_camPhi);
-        _camera.position.z = _camRadius * Math.sin(_camPhi) * Math.sin(_camTheta);
-        _camera.lookAt(0, 0, 0);
-
-        // BPM pulse
-        var bpmPulse = 1.0;
-        if (window.currentBPM) {
-            var period = 60 / window.currentBPM;
-            bpmPulse = 1.0 + 0.12 * Math.pow(Math.max(0, Math.sin(t * Math.PI * 2 / period)), 8);
-        }
-
-        // Left hand → filter / glitch on particles
-        var glitchAmt = 0;
-        if (kd.leftHand) {
-            glitchAmt = kd.leftHand.pinch || 0;
-            // Map left hand x→cutoff via AudioRack
-            if (typeof AudioRack !== 'undefined') {
-                AudioRack.setLeadCutoff(200 + kd.leftHand.x * 8000);
+    // Synthetic room reverb IR: exponentially decaying stereo noise
+    function _makeReverbIR(dur, decay) {
+        if (!ctx) return null;
+        var sr = ctx.sampleRate, len = Math.ceil(sr * dur);
+        var buf = ctx.createBuffer(2, len, sr);
+        for (var ch = 0; ch < 2; ch++) {
+            var d = buf.getChannelData(ch);
+            for (var i = 0; i < len; i++) {
+                d[i] = (Math.random() * 2 - 1) * Math.pow(1 - i / len, decay);
             }
         }
-
-        // Right hand velocity → glitch burst
-        if (kd.rightHand && kd.rightHand.velocity > 0.08) {
-            if (typeof AudioRack !== 'undefined') AudioRack.triggerGlitch(0.05, kd.rightHand.velocity);
-        }
-
-        // Animate particles
-        var pos = _particles.geometry.attributes.position.array;
-        for (var i = 0; i < PARTICLE_COUNT; i++) {
-            var bx = _basePositions[i * 3];
-            var by = _basePositions[i * 3 + 1];
-            var bz = _basePositions[i * 3 + 2];
-            var wave = Math.sin(t * 0.8 + bx * 0.04) * 0.8 + Math.cos(t * 0.5 + bz * 0.03) * 0.6;
-            var glitch = glitchAmt > 0.7 ? (Math.random() - 0.5) * glitchAmt * 12 : 0;
-            pos[i * 3]     = bx * bpmPulse + wave * 0.3 + glitch;
-            pos[i * 3 + 1] = by * bpmPulse + wave * 0.5 + glitch;
-            pos[i * 3 + 2] = bz * bpmPulse + glitch;
-        }
-        _particles.geometry.attributes.position.needsUpdate = true;
-        _particles.rotation.y = t * 0.015;
-
-        _renderer.render(_scene, _camera);
+        return buf;
     }
 
-    // ── MediaPipe Hands ───────────────────────────────────────
-    function _initHands() {
-        if (typeof Hands === 'undefined') return;
-        _hands = new Hands({ locateFile: function(f) {
-            return 'https://cdn.jsdelivr.net/npm/@mediapipe/hands@0.4.1646424915/' + f;
-        }});
-        _hands.setOptions({ maxNumHands: 2, modelComplexity: 0, minDetectionConfidence: 0.6, minTrackingConfidence: 0.5 });
-        _hands.onResults(_onHandResults);
+    // 7 detuned oscillators for supersaw (spread: ±3 values around centre)
+    const DETUNE_SPREAD = [-33, -22, -11, 0, 11, 22, 33];
 
-        _vidEl = document.createElement('video');
-        _vidEl.width = 320; _vidEl.height = 240;
-        _vidEl.style.display = 'none';
-        document.body.appendChild(_vidEl);
+    function _spawnVoice(freq, vel) {
+        if (!ctx) return null;
+        if (VOICES.length >= MAX_VOICES) {
+            const old = VOICES.shift();
+            try { old.oscs.forEach(o => o.stop()); } catch(e) {}
+            try { if (old.sub)    old.sub.stop();    } catch(e) {}
+            try { if (old.noiseN) old.noiseN.stop(); } catch(e) {}
+        }
 
-        navigator.mediaDevices.getUserMedia({ video: { width: 320, height: 240 } })
-            .then(function(stream) {
-                _vidEl.srcObject = stream;
-                _vidEl.play();
-                _camRunning = true;
-                _sendVideoFrames();
-            }).catch(function(e) { console.warn('KinematicEngine: camera denied', e); });
+        const filt = ctx.createBiquadFilter();
+        filt.type            = P.filterType;
+        filt.frequency.value = P.cutoff;
+        filt.Q.value         = P.res;
+
+        const env = ctx.createGain();
+        env.gain.value = 0;
+
+        // Per-oscillator mix gain (7 oscs × 0.14 ≈ 1.0 peak)
+        const oscMix = ctx.createGain();
+        oscMix.gain.value = 0.14;
+
+        // 7-oscillator supersaw
+        const baseFreq = freq * Math.pow(2, P.oct);
+        const oscs = DETUNE_SPREAD.map(d => {
+            const o = ctx.createOscillator();
+            o.type = P.oscType;
+            o.frequency.value = baseFreq;
+            o.detune.value    = P.detune + d * (P.spread / 33);
+            o.connect(oscMix);
+            o.start(ctx.currentTime);
+            return o;
+        });
+
+        // Sub oscillator (sine, -1 octave)
+        const subG = ctx.createGain();
+        subG.gain.value = P.subLevel * vel;
+        const sub = ctx.createOscillator();
+        sub.type = 'sine';
+        sub.frequency.value = baseFreq * 0.5;
+        sub.connect(subG); subG.connect(env);
+        sub.start(ctx.currentTime);
+
+        // HP noise texture
+        const noiseFrames = Math.ceil(ctx.sampleRate * 2.0);
+        const noiseBuf = ctx.createBuffer(1, noiseFrames, ctx.sampleRate);
+        const nd = noiseBuf.getChannelData(0);
+        for (let i = 0; i < noiseFrames; i++) nd[i] = Math.random() * 2 - 1;
+        const noiseN = ctx.createBufferSource();
+        noiseN.buffer = noiseBuf; noiseN.loop = true;
+        const noiseHP = ctx.createBiquadFilter();
+        noiseHP.type = 'highpass'; noiseHP.frequency.value = 4000;
+        const noiseG = ctx.createGain();
+        noiseG.gain.value = P.noiseLevel * vel;
+        noiseN.connect(noiseHP); noiseHP.connect(noiseG); noiseG.connect(env);
+        noiseN.start(ctx.currentTime);
+
+        // Route: oscMix → filt → env → distortion/compressor + delay + reverb
+        oscMix.connect(filt); filt.connect(env);
+        env.connect(distortion);
+        env.connect(delayNode);
+        env.connect(reverbNode);
+
+        // ADSR
+        const now = ctx.currentTime, pk = vel * 0.75;
+        env.gain.setValueAtTime(0, now);
+        env.gain.linearRampToValueAtTime(pk, now + P.atk);
+        env.gain.linearRampToValueAtTime(pk * P.sus, now + P.atk + P.dec);
+
+        const v = { oscs, sub, noiseN, filt, env, freq };
+        VOICES.push(v);
+        return v;
     }
 
-    var _lastWristR = null;
-    function _onHandResults(results) {
-        window.KINETIC_DATA.rightHand = null;
-        window.KINETIC_DATA.leftHand = null;
+    function noteOn(freq, vel) {
+        if (!ctx) { init(); }
+        if (ctx.state === 'suspended') ctx.resume();
+        const v = _spawnVoice(freq, vel === undefined ? 1.0 : vel);
+        if (_loopRecording) {
+            _loopEvents.push({ type: 'on', freq, vel: vel || 1.0, t: performance.now() - _loopStart });
+        }
+        return v;
+    }
 
-        if (!results.multiHandLandmarks) return;
-        results.multiHandLandmarks.forEach(function(lm, idx) {
-            var label = results.multiHandedness[idx] && results.multiHandedness[idx].label;
-            var wrist = lm[0];
-            var thumb = lm[4];
-            var index = lm[8];
-            var pinch = Math.hypot(thumb.x - index.x, thumb.y - index.y, thumb.z - index.z);
-            pinch = Math.max(0, Math.min(1, 1 - pinch * 10));
+    function noteOff(freq) {
+        const idx = VOICES.findIndex(v => Math.abs(v.freq - freq) < 0.5);
+        if (idx === -1) return;
+        const v = VOICES.splice(idx, 1)[0];
+        const now = ctx.currentTime;
+        v.env.gain.cancelScheduledValues(now);
+        v.env.gain.setValueAtTime(v.env.gain.value, now);
+        v.env.gain.linearRampToValueAtTime(0.0001, now + P.rel);
+        const rel = P.rel;
+        setTimeout(() => {
+            try { v.oscs.forEach(o => o.stop()); } catch(e) {}
+            try { v.sub.stop();    } catch(e) {}
+            try { v.noiseN.stop(); } catch(e) {}
+        }, rel * 1000 + 100);
+        if (_loopRecording) {
+            _loopEvents.push({ type: 'off', freq, t: performance.now() - _loopStart });
+        }
+    }
 
-            if (label === 'Right') {
-                var vel = 0;
-                if (_lastWristR) vel = Math.hypot(wrist.x - _lastWristR.x, wrist.y - _lastWristR.y);
-                _lastWristR = { x: wrist.x, y: wrist.y };
-                window.KINETIC_DATA.rightHand = { x: wrist.x, y: wrist.y, z: wrist.z, pinch: pinch, velocity: vel * 30 };
+    function noteOnMidi(midiNote, vel) {
+        const freq = 440 * Math.pow(2, (midiNote - 69) / 12);
+        noteOn(freq, vel / 127);
+        _flashStatus('NOTE: ' + midiNote + ' / ' + freq.toFixed(1) + 'Hz');
+    }
 
-                // Right pinch → sub kick synced to BPM
-                if (pinch > 0.85 && typeof AudioRack !== 'undefined') {
-                    AudioRack.triggerSub(55, 0.6);
-                }
-            } else {
-                window.KINETIC_DATA.leftHand = { x: wrist.x, y: wrist.y, z: wrist.z, pinch: pinch };
+    function noteOffMidi(midiNote) {
+        const freq = 440 * Math.pow(2, (midiNote - 69) / 12);
+        noteOff(freq);
+    }
 
-                // Left pinch → toggle main loop
-                if (pinch > 0.85 && window._ncLoopTogglePinch !== true) {
-                    window._ncLoopTogglePinch = true;
-                    if (typeof NeuralCompiler !== 'undefined') NeuralCompiler.toggle();
-                } else if (pinch < 0.3) {
-                    window._ncLoopTogglePinch = false;
-                }
-            }
+    // ── Loop Recorder ──────────────────────────────────────────────────────────
+    function loopRecord() {
+        _loopEvents.length = 0;
+        _loopRecording = true; _loopPlaying = false;
+        if (_loopTimer) { clearTimeout(_loopTimer); _loopTimer = null; }
+        _loopStart = performance.now();
+        _flashStatus('● REC');
+        const el = document.getElementById('sm-loop-rec');
+        if (el) el.classList.add('active');
+        const pl = document.getElementById('sm-loop-play');
+        if (pl) pl.classList.remove('active');
+    }
+
+    function loopStop() {
+        _loopLength = performance.now() - _loopStart;
+        _loopRecording = false;
+        _flashStatus('■ STOP — ' + _loopEvents.length + ' events / ' + (_loopLength / 1000).toFixed(2) + 's');
+        const el = document.getElementById('sm-loop-rec');
+        if (el) el.classList.remove('active');
+    }
+
+    function loopPlay() {
+        if (_loopEvents.length === 0) return;
+        _loopPlaying = true;
+        if (!ctx) init();
+        if (ctx && ctx.state === 'suspended') ctx.resume();
+        _flashStatus('▶ LOOP ' + (_loopLength / 1000).toFixed(2) + 's');
+        const el = document.getElementById('sm-loop-play');
+        if (el) el.classList.add('active');
+        (function playEvents() {
+            if (!_loopPlaying) return;
+            _loopEvents.forEach(ev => {
+                setTimeout(() => {
+                    if (!_loopPlaying) return;
+                    if (ev.type === 'on') noteOn(ev.freq, ev.vel);
+                    else noteOff(ev.freq);
+                }, ev.t);
+            });
+            if (_loopLength > 100) _loopTimer = setTimeout(playEvents, _loopLength);
+        })();
+    }
+
+    function loopClear() {
+        _loopPlaying = false; _loopRecording = false;
+        _loopEvents.length = 0;
+        if (_loopTimer) { clearTimeout(_loopTimer); _loopTimer = null; }
+        _flashStatus('LOOP CLEARED');
+        ['sm-loop-rec','sm-loop-play'].forEach(id => {
+            const el = document.getElementById(id);
+            if (el) el.classList.remove('active');
         });
     }
 
-    var _frameTimer = null;
-    function _sendVideoFrames() {
-        if (!_hands || !_camRunning || !_vidEl) return;
-        _hands.send({ image: _vidEl }).catch(function() {}).finally(function() {
-            if (_camRunning) _frameTimer = setTimeout(_sendVideoFrames, 100);
-        });
+    function _flashStatus(msg) {
+        const el = document.getElementById('sm-status-note');
+        if (el) el.textContent = msg;
     }
 
-    // ── Public API ─────────────────────────────────────────────
-    function toggle() {
-        _open = !_open;
-        var win = document.getElementById('kinematic-window');
-        var btn = document.getElementById('btn-esx-launch');
-        var cvs = document.getElementById('kinematic-canvas');
-
-        if (_open) {
-            if (!_scene) _initThree();
-            if (cvs) cvs.style.display = 'block';
-            if (win) { win.style.display = 'flex'; win.classList.add('visible'); }
-            if (btn) btn.classList.add('esx-open');
-            if (!_camRunning) _initHands();
-        } else {
-            if (cvs) cvs.style.display = 'none';
-            if (win) { win.classList.remove('visible'); win.style.display = 'none'; }
-            if (btn) btn.classList.remove('esx-open');
+    // CC handler
+    function handleCC(cc, val) {
+        const n = val / 127;
+        switch(cc) {
+            case 1:  setParam('cutoff', 20 + n * 14980); break;
+            case 7:  setParam('vol', n); break;
+            case 11: setParam('pitch', 20 + n * 1980); break;
+            case 74: setParam('res', 0.1 + n * 24.9); break;
+            case 21: setParam('detune', (n - 0.5) * 100); break;
+            case 91: setParam('delayAmt', n); break;
+            case 93: setParam('reverbAmt', n); break;
         }
     }
 
-    function isOpen() { return _open; }
+    function setParam(name, value) {
+        P[name] = value;
+        if (!ctx) return;
+        if (name === 'cutoff' || name === 'res' || name === 'filterType') {
+            VOICES.forEach(v => {
+                if (name === 'filterType') v.filt.type = value;
+                else if (name === 'cutoff') v.filt.frequency.setTargetAtTime(value, ctx.currentTime, 0.05);
+                else v.filt.Q.setTargetAtTime(value, ctx.currentTime, 0.05);
+            });
+        }
+        if (name === 'vol' && masterGain)
+            masterGain.gain.setTargetAtTime(value, ctx.currentTime, 0.05);
+        if (name === 'delayAmt' && delayGain)
+            delayGain.gain.setTargetAtTime(value, ctx.currentTime, 0.05);
+        if (name === 'delayTime' && delayNode)
+            delayNode.delayTime.setTargetAtTime(value, ctx.currentTime, 0.05);
+        if (name === 'dist' && distortion)
+            distortion.curve = _makeDistCurve(value);
+        if (name === 'reverbAmt' && reverbGain)
+            reverbGain.gain.setTargetAtTime(value, ctx.currentTime, 0.05);
+    }
 
-    return { toggle, isOpen };
+    function init() {
+        if (_running) return;
+        ctx = new (window.AudioContext || window.webkitAudioContext)();
+
+        compressor = ctx.createDynamicsCompressor();
+        compressor.threshold.value = -12; compressor.ratio.value = 5;
+        compressor.knee.value = 10; compressor.attack.value = 0.003;
+        compressor.release.value = 0.2;
+
+        masterGain = ctx.createGain();
+        masterGain.gain.value = P.vol;
+        compressor.connect(masterGain);
+        masterGain.connect(ctx.destination);
+
+        delayNode = ctx.createDelay(1.0);
+        delayNode.delayTime.value = P.delayTime;
+        delayGain = ctx.createGain();
+        delayGain.gain.value = P.delayAmt;
+        delayNode.connect(delayGain);
+        delayGain.connect(compressor);
+
+        distortion = ctx.createWaveShaper();
+        distortion.curve = _makeDistCurve(P.dist);
+        distortion.oversample = '4x';
+        distortion.connect(compressor);
+
+        // Convolver reverb with synthetic IR
+        reverbNode = ctx.createConvolver();
+        reverbNode.buffer = _makeReverbIR(3.5, 3.0);
+        reverbGain = ctx.createGain();
+        reverbGain.gain.value = P.reverbAmt;
+        reverbNode.connect(reverbGain);
+        reverbGain.connect(masterGain);
+
+        _running = true;
+    }
+
+    function stop() {
+        loopClear();
+        if (!ctx) return;
+        VOICES.forEach(v => {
+            try { v.oscs.forEach(o => o.stop()); } catch(e) {}
+            try { v.sub.stop();    } catch(e) {}
+            try { v.noiseN.stop(); } catch(e) {}
+        });
+        VOICES.length = 0;
+        const g = masterGain, c = ctx;
+        ctx = null; _running = false;
+        g.gain.exponentialRampToValueAtTime(0.001, c.currentTime + 1.5);
+        setTimeout(() => { try { c.close(); } catch(e) {} }, 1600);
+    }
+
+    function isRunning() { return _running; }
+
+    return { init, noteOn, noteOff, noteOnMidi, noteOffMidi, handleCC, setParam, stop, isRunning,
+             loopRecord, loopStop, loopPlay, loopClear };
 })();
 
-// ── Kinematic Window drag support ────────────────────────────────────
-document.addEventListener('DOMContentLoaded', function() {
-    var win = document.getElementById('kinematic-window');
-    var bar = document.getElementById('kinematic-titlebar');
-    if (!win || !bar) return;
-    var ox = 0, oy = 0, dx = 0, dy = 0;
-    bar.addEventListener('mousedown', function(e) {
-        e.preventDefault();
-        ox = e.clientX - win.offsetLeft;
-        oy = e.clientY - win.offsetTop;
-        document.addEventListener('mousemove', _keDrag);
-        document.addEventListener('mouseup', function() {
-            document.removeEventListener('mousemove', _keDrag);
-        }, { once: true });
-    });
-    function _keDrag(e) {
-        win.style.left = (e.clientX - ox) + 'px';
-        win.style.top  = (e.clientY - oy) + 'px';
-        win.style.right = 'auto';
-    }
-});
+// ═══════════════════════════════════════════════════════════════
+//  SPATIAL_VISUALS v3 — Mercury Fractal Engine (IIFE)
+//  KIFS fractal · Right hand = camera orbit · Left hand = distortion
+//  Smaller canvas embedded in HUD window · u_handR / u_handL uniforms
+// ═══════════════════════════════════════════════════════════════
+const SPATIAL_VISUALS = (() => {
+    'use strict';
+    let gl = null, program = null, canvas = null;
+    let uTime, uResolution, uMouse, uTriggerPulse, uHandR, uHandL;
+    let _pulse = 0.0, _animId = null, _t0 = 0, _running = false;
 
+    const VS = `attribute vec2 a_position;void main(){gl_Position=vec4(a_position,0.0,1.0);}`;
+
+    const FS = `precision highp float;
+uniform float u_time;
+uniform vec2  u_resolution;
+uniform vec2  u_handR;
+uniform vec2  u_handL;
+uniform float u_triggerPulse;
+
+mat2 rot2(float a){return mat2(cos(a),-sin(a),sin(a),cos(a));}
+
+float kifs(vec3 pos){
+    vec3 p=pos;
+    float dr=1.0;
+    for(int i=0;i<4;i++){
+        p=2.0*clamp(p,-1.0,1.0)-p;
+        float r2=dot(p,p);
+        float k=max(1.2/r2,0.4);
+        p*=k; dr*=abs(k);
+        float ang=u_time*0.05+float(i)*0.7854;
+        p.xz=rot2(ang)*p.xz;
+        p.yz=rot2(ang*0.6180)*p.yz;
+    }
+    vec3 q=abs(p)-vec3(0.8);
+    return (length(max(q,0.0))+min(max(q.x,max(q.y,q.z)),0.0))/abs(dr);
+}
+
+float scene(vec3 p){
+    float pulse=u_triggerPulse;
+    // Left hand: X distorts geometry, right hand controls camera (external)
+    float lx=u_handL.x;
+    p.x+=lx*0.3*sin(p.y*22.0+u_time*8.0);
+    p.z+=lx*0.2*cos(p.x*18.0+u_time*6.0);
+    // Pulse shatter
+    p.x+=pulse*0.2*sin(p.y*30.0+u_time*25.0);
+    p.z+=pulse*0.15*sin(p.x*25.0+u_time*20.0);
+    vec3 q=mod(p+5.0,10.0)-5.0;
+    float d=kifs(q);
+    // Mouse/right-wrist sphere carves holes
+    vec2 mn=u_handR*2.0-1.0;
+    vec3 mPos=vec3(mn.x*5.0,-mn.y*4.0,0.0);
+    float sph=length(p-mPos)-1.4;
+    float k=0.7;
+    float h=clamp(0.5-0.5*(d+sph)/k,0.0,1.0);
+    return mix(d,-sph,h)+k*h*(1.0-h);
+}
+
+float march(vec3 ro,vec3 rd){
+    float t=0.0;
+    for(int i=0;i<72;i++){
+        float d=scene(ro+rd*t);
+        if(d<0.003)return t;
+        if(t>16.0)return -1.0;
+        t+=max(d*0.5,0.01);
+    }
+    return -1.0;
+}
+
+vec3 calcNormal(vec3 p){
+    vec2 e=vec2(0.003,0.0);
+    return normalize(vec3(
+        scene(p+e.xyy)-scene(p-e.xyy),
+        scene(p+e.yxy)-scene(p-e.yxy),
+        scene(p+e.yyx)-scene(p-e.yyx)));
+}
+
+void main(){
+    vec2 uv=(gl_FragCoord.xy/u_resolution)*2.0-1.0;
+    uv.x*=u_resolution.x/u_resolution.y;
+    vec3 neon=vec3(0.0,0.95,1.0);
+
+    // RIGHT HAND directly orbits the camera — touch-designer style
+    float camH=(u_handR.x-0.5)*6.2832;   // full 360 horizontal
+    float camV=(u_handR.y-0.5)*-1.5708;  // ±90 vertical (inverted Y)
+    float camR=4.5;
+    vec3 ro=vec3(sin(camH)*cos(camV)*camR, sin(camV)*2.5, cos(camH)*cos(camV)*camR);
+    vec3 fwd=normalize(vec3(0.0)-ro);
+    vec3 right=normalize(cross(vec3(0.0,1.0,0.0),fwd));
+    vec3 up=cross(fwd,right);
+    vec3 rd=normalize(uv.x*right+uv.y*up+1.3*fwd);
+
+    float t=march(ro,rd);
+    vec3 col=vec3(0.0);
+
+    if(t>0.0){
+        vec3 p=ro+rd*t;
+        vec3 n=calcNormal(p);
+        vec3 L=normalize(vec3(1.2,2.0,-1.5));
+        float diff=max(dot(n,L),0.0)*0.25;
+        float spec=pow(max(dot(reflect(-L,n),-rd),0.0),80.0);
+        col=vec3(0.02,0.025,0.03)*(diff+0.04)+vec3(1.0)*spec;
+        // Fresnel rim: left hand Y shifts hue cyan→magenta
+        float fr=pow(1.0-abs(dot(n,-rd)),3.5);
+        float lhue=u_handL.y;
+        vec3 edgeCol=mix(neon,mix(vec3(1.0,0.0,0.5),vec3(0.5,0.0,1.0),lhue),
+                         u_triggerPulse+lhue*0.4);
+        col+=edgeCol*fr*2.8;
+        col*=exp(-t*0.055);
+    } else {
+        float gx=step(0.97,fract(uv.x*6.0+u_time*0.04));
+        float gy=step(0.97,fract(uv.y*6.0-u_time*0.03));
+        col=neon*(gx+gy)*0.03;
+        float s=step(0.998,fract(sin(dot(floor(uv*100.0),vec2(127.1,311.7)))*43758.5));
+        col+=vec3(0.7,0.9,1.0)*s*0.4;
+    }
+    col*=1.0+u_triggerPulse*abs(sin(uv.y*300.0+u_time*60.0))*0.35;
+    col*=1.0-smoothstep(0.35,1.2,length(uv*0.7));
+    col+=neon*u_triggerPulse*0.08;
+    gl_FragColor=vec4(col,1.0);
+}`;
+
+    function _sh(src, type) {
+        const s = gl.createShader(type);
+        gl.shaderSource(s, src); gl.compileShader(s);
+        if (!gl.getShaderParameter(s, gl.COMPILE_STATUS)) {
+            console.error('[SM_VIS]', gl.getShaderInfoLog(s)); return null;
+        }
+        return s;
+    }
+
+    function init(cvs) {
+        canvas = cvs || document.getElementById('spatial-matrix');
+        if (!canvas) return false;
+        // Resolution: fill the canvas element at 0.5x for perf
+        canvas.width  = Math.floor(canvas.offsetWidth  * 0.5) || 160;
+        canvas.height = Math.floor(canvas.offsetHeight * 0.5) || 120;
+
+        gl = canvas.getContext('webgl') || canvas.getContext('experimental-webgl');
+        if (!gl) return false;
+
+        const vs = _sh(VS, gl.VERTEX_SHADER), fs = _sh(FS, gl.FRAGMENT_SHADER);
+        if (!vs || !fs) return false;
+        program = gl.createProgram();
+        gl.attachShader(program, vs); gl.attachShader(program, fs);
+        gl.linkProgram(program);
+        if (!gl.getProgramParameter(program, gl.LINK_STATUS)) {
+            console.error('[SM_VIS] Link:', gl.getProgramInfoLog(program)); return false;
+        }
+        gl.useProgram(program);
+
+        const buf = gl.createBuffer();
+        gl.bindBuffer(gl.ARRAY_BUFFER, buf);
+        gl.bufferData(gl.ARRAY_BUFFER, new Float32Array([-1,-1,1,-1,-1,1,1,1]), gl.STATIC_DRAW);
+        const pl = gl.getAttribLocation(program, 'a_position');
+        gl.enableVertexAttribArray(pl);
+        gl.vertexAttribPointer(pl, 2, gl.FLOAT, false, 0, 0);
+
+        uTime         = gl.getUniformLocation(program, 'u_time');
+        uResolution   = gl.getUniformLocation(program, 'u_resolution');
+        uHandR        = gl.getUniformLocation(program, 'u_handR');
+        uHandL        = gl.getUniformLocation(program, 'u_handL');
+        uTriggerPulse = gl.getUniformLocation(program, 'u_triggerPulse');
+
+        _t0 = performance.now(); _running = true; _render();
+        return true;
+    }
+
+    function _render() {
+        if (!_running) return;
+        _animId = requestAnimationFrame(_render);
+        _pulse *= 0.88; if (_pulse < 0.001) _pulse = 0;
+        const t = (performance.now() - _t0) * 0.001;
+        gl.viewport(0, 0, canvas.width, canvas.height);
+        gl.useProgram(program);
+        gl.uniform1f(uTime, t);
+        gl.uniform2f(uResolution, canvas.width, canvas.height);
+        gl.uniform2f(uHandR, window._smRX || 0.5, window._smRY || 0.5);
+        gl.uniform2f(uHandL, window._smLX || 0.5, window._smLY || 0.5);
+        gl.uniform1f(uTriggerPulse, _pulse);
+        gl.drawArrays(gl.TRIANGLE_STRIP, 0, 4);
+    }
+
+    function setTriggerPulse(v) { _pulse = Math.max(_pulse, v); }
+    function stop() { _running = false; if (_animId) { cancelAnimationFrame(_animId); _animId = null; } }
+    function isRunning() { return _running; }
+    return { init, stop, setTriggerPulse, isRunning };
+})();
+
+
+// ═══════════════════════════════════════════════════════════════
+//  SPATIAL MATRIX v3 — Floating Instrument HUD Controller (IIFE)
+//  Window drag · Auto-camera + pose · MIDI listener · UI wiring
+//  Right wrist → camera orbit · Left wrist → distortion + lead
+// ═══════════════════════════════════════════════════════════════
+window._smRX = 0.5; window._smRY = 0.5;  // right wrist (lerped)
+window._smLX = 0.5; window._smLY = 0.5;  // left wrist (lerped)
+
+const SpatialMatrix = (() => {
+    'use strict';
+    let _open = false, _lerpId = null;
+    let _trRX = 0.5, _trRY = 0.5, _trLX = 0.5, _trLY = 0.5;
+    let _midiAccess = null;
+    let _activeNotes = {};   // midiNote → true (for note-off tracking)
+
+    // ── Note frequency table (MIDI 0-127) ─────────────────────
+    function _midiFreq(n) { return 440 * Math.pow(2, (n - 69) / 12); }
+
+    // ── Lerp loop ─────────────────────────────────────────────
+    function _lerpLoop() {
+        window._smRX += (_trRX - window._smRX) * 0.08;
+        window._smRY += (_trRY - window._smRY) * 0.08;
+        window._smLX += (_trLX - window._smLX) * 0.08;
+        window._smLY += (_trLY - window._smLY) * 0.08;
+        _lerpId = requestAnimationFrame(_lerpLoop);
+    }
+
+    // ── MediaPipe: right wrist=16, left wrist=15 ──────────────
+    window._smPoseFeed = function(lm) {
+        if (!_open || !lm) return;
+        var r = lm[16], l = lm[15];
+        if (r && r.visibility > 0.4) { _trRX = r.x; _trRY = r.y;
+            document.getElementById('sm-hand-badge') &&
+                (document.getElementById('sm-hand-badge').className = 'sm-badge on');
+            document.getElementById('sm-status-hand') &&
+                (document.getElementById('sm-status-hand').textContent =
+                    'HAND: R(' + r.x.toFixed(2) + ',' + r.y.toFixed(2) + ')'); }
+        if (l && l.visibility > 0.4) { _trLX = l.x; _trLY = l.y;
+            // Left hand Y → filter cutoff via synth
+            if (SPATIAL_AUDIO.isRunning())
+                SPATIAL_AUDIO.setParam('cutoff', 80 + (1 - l.y) * 12000); }
+    };
+
+    // ── Canvas click → play note at pitch mapped to X ─────────
+    function _wireCanvasClick() {
+        var cvs = document.getElementById('spatial-matrix');
+        if (!cvs) return;
+        cvs.style.pointerEvents = 'all';
+        cvs.addEventListener('mousedown', function(e) {
+            if (!SPATIAL_AUDIO.isRunning()) SPATIAL_AUDIO.init();
+            var x = e.offsetX / cvs.offsetWidth;
+            var y = e.offsetY / cvs.offsetHeight;
+            // X → pitch C2–C7 range (65–2093 Hz), Y → filter sweep
+            var freq = 65.4 * Math.pow(32, x);
+            SPATIAL_AUDIO.noteOn(freq, 0.8);
+            SPATIAL_VISUALS.setTriggerPulse(0.7);
+            SPATIAL_AUDIO.setParam('cutoff', 200 + (1 - y) * 8000);
+            cvs._smPlayFreq = freq;
+        });
+        cvs.addEventListener('mouseup', function() {
+            if (cvs._smPlayFreq) { SPATIAL_AUDIO.noteOff(cvs._smPlayFreq); cvs._smPlayFreq = null; }
+        });
+        cvs.addEventListener('mousemove', function(e) {
+            if (!cvs._smPlayFreq) return;
+            _trRX = e.offsetX / cvs.offsetWidth;
+            _trRY = e.offsetY / cvs.offsetHeight;
+        });
+    }
+
+    // ── Build trigger pads C D E F G A B C ───────────────────
+    // ── Build XY Synth Pad ─────────────────────────────────────
+    function _buildXYPad() {
+        var cvs = document.getElementById('sm-xy-pad');
+        if (!cvs) return;
+        var ctx2 = cvs.getContext('2d');
+        var _activeFreq = null, _playing = false;
+
+        // Scale definitions (semitone intervals)
+        var SCALES = {
+            CHROMATIC:    [0,1,2,3,4,5,6,7,8,9,10,11],
+            MINOR:        [0,2,3,5,7,8,10],
+            PENTATONIC:   [0,2,4,7,9],
+            WHOLE_TONE:   [0,2,4,6,8,10],
+            PHRYGIAN:     [0,1,3,5,7,8,10]
+        };
+        var _scale = 'MINOR';
+        var _baseNote = 36; // C2 MIDI
+        var _octaves  = 3;
+
+        function _getScale() { return SCALES[_scale] || SCALES.MINOR; }
+
+        // Build all notes in range
+        function _buildNotes() {
+            var sc = _getScale(), notes = [];
+            for (var oct = 0; oct < _octaves; oct++) {
+                sc.forEach(function(semi) {
+                    var midi = _baseNote + oct * 12 + semi;
+                    notes.push({ midi: midi, freq: 440 * Math.pow(2, (midi - 69) / 12) });
+                });
+            }
+            return notes;
+        }
+
+        function _draw(mx, my) {
+            var W = cvs.offsetWidth, H = cvs.offsetHeight;
+            cvs.width = W; cvs.height = H;
+            var notes = _buildNotes();
+            var nCount = notes.length;
+            ctx2.clearRect(0, 0, W, H);
+            // Grid lines for each note slot
+            for (var i = 0; i <= nCount; i++) {
+                var x = (i / nCount) * W;
+                ctx2.strokeStyle = 'rgba(0,243,255,0.08)';
+                ctx2.lineWidth = 1;
+                ctx2.beginPath(); ctx2.moveTo(x, 0); ctx2.lineTo(x, H); ctx2.stroke();
+            }
+            // Y-axis gradient hint
+            var gy = ctx2.createLinearGradient(0, 0, 0, H);
+            gy.addColorStop(0,   'rgba(0,243,255,0.06)');
+            gy.addColorStop(0.5, 'rgba(0,243,255,0.02)');
+            gy.addColorStop(1,   'rgba(120,0,255,0.06)');
+            ctx2.fillStyle = gy;
+            ctx2.fillRect(0, 0, W, H);
+            // Axis labels
+            ctx2.fillStyle = 'rgba(0,243,255,0.3)';
+            ctx2.font = '6px monospace';
+            ctx2.fillText('CUTOFF ↑', 3, 10);
+            ctx2.fillText('PITCH →', 3, H - 4);
+            // Cursor glow
+            if (mx !== undefined && my !== undefined) {
+                var idx = Math.floor((mx / W) * nCount);
+                idx = Math.max(0, Math.min(nCount - 1, idx));
+                var slotX = ((idx + 0.5) / nCount) * W;
+                var grad = ctx2.createRadialGradient(slotX, my, 0, slotX, my, 28);
+                grad.addColorStop(0, _playing ? 'rgba(0,243,255,0.9)' : 'rgba(0,243,255,0.5)');
+                grad.addColorStop(1, 'rgba(0,243,255,0)');
+                ctx2.fillStyle = grad;
+                ctx2.beginPath(); ctx2.arc(slotX, my, 28, 0, Math.PI * 2); ctx2.fill();
+                // Note label
+                var noteNames = ['C','C#','D','D#','E','F','F#','G','G#','A','A#','B'];
+                var n = notes[idx];
+                ctx2.fillStyle = '#00f3ff'; ctx2.font = 'bold 8px monospace';
+                ctx2.fillText(noteNames[n.midi % 12] + Math.floor(n.midi / 12 - 1), slotX - 8, my - 14);
+            }
+        }
+
+        function _freqFromXY(x, y) {
+            var W = cvs.offsetWidth, H = cvs.offsetHeight;
+            var notes = _buildNotes();
+            var idx = Math.floor((x / W) * notes.length);
+            idx = Math.max(0, Math.min(notes.length - 1, idx));
+            // Y controls filter cutoff: top=16kHz, bottom=80Hz
+            var t = 1 - (y / H);
+            var cutoff = 80 * Math.pow(200, t); // 80Hz to 16kHz exponential
+            SPATIAL_AUDIO.setParam('cutoff', cutoff);
+            var sv = document.getElementById('sm-cut-val');
+            if (sv) sv.textContent = Math.round(cutoff) + 'Hz';
+            var cs = document.getElementById('sm-cutoff');
+            if (cs) cs.value = cutoff;
+            return notes[idx].freq;
+        }
+
+        function _onStart(e) {
+            e.preventDefault();
+            if (!SPATIAL_AUDIO.isRunning()) SPATIAL_AUDIO.init();
+            var r = cvs.getBoundingClientRect();
+            var cx = (e.touches ? e.touches[0].clientX : e.clientX) - r.left;
+            var cy = (e.touches ? e.touches[0].clientY : e.clientY) - r.top;
+            _activeFreq = _freqFromXY(cx, cy);
+            _playing = true;
+            SPATIAL_AUDIO.noteOn(_activeFreq, 0.85);
+            SPATIAL_VISUALS.setTriggerPulse(0.5);
+            _draw(cx, cy);
+        }
+        function _onMove(e) {
+            e.preventDefault();
+            var r = cvs.getBoundingClientRect();
+            var cx = (e.touches ? e.touches[0].clientX : e.clientX) - r.left;
+            var cy = (e.touches ? e.touches[0].clientY : e.clientY) - r.top;
+            _draw(cx, cy);
+            if (!_playing) return;
+            var newFreq = _freqFromXY(cx, cy);
+            if (Math.abs(newFreq - (_activeFreq || 0)) > 1) {
+                if (_activeFreq !== null) SPATIAL_AUDIO.noteOff(_activeFreq);
+                _activeFreq = newFreq;
+                SPATIAL_AUDIO.noteOn(_activeFreq, 0.85);
+                SPATIAL_VISUALS.setTriggerPulse(0.25);
+            }
+        }
+        function _onEnd(e) {
+            _playing = false;
+            if (_activeFreq !== null) { SPATIAL_AUDIO.noteOff(_activeFreq); _activeFreq = null; }
+            _draw();
+        }
+
+        cvs.addEventListener('mousedown',  _onStart);
+        cvs.addEventListener('mousemove',  _onMove);
+        cvs.addEventListener('mouseup',    _onEnd);
+        cvs.addEventListener('mouseleave', _onEnd);
+        cvs.addEventListener('touchstart', _onStart, { passive: false });
+        cvs.addEventListener('touchmove',  _onMove,  { passive: false });
+        cvs.addEventListener('touchend',   _onEnd);
+
+        // Wire scale selector
+        var scSel = document.getElementById('sm-scale-sel');
+        if (scSel) scSel.addEventListener('change', function() { _scale = scSel.value; _draw(); });
+
+        _draw();
+        window._smXYDraw = _draw; // expose for resize
+    }
+
+    // ── Wire all UI sliders ───────────────────────────────────
+    function _wireUI() {
+        function bind(id, param, transform, valId, fmt) {
+            var el = document.getElementById(id);
+            if (!el) return;
+            el.addEventListener('input', function() {
+                var v = transform ? transform(+el.value) : +el.value;
+                SPATIAL_AUDIO.setParam(param, v);
+                if (valId) {
+                    var vEl = document.getElementById(valId);
+                    if (vEl) vEl.textContent = fmt ? fmt(v, +el.value) : v;
+                }
+                if (param === 'cutoff') {
+                    var s = document.getElementById('sm-status-filter');
+                    if (s) s.textContent = 'CUTOFF: ' + Math.round(v) + 'Hz';
+                }
+            });
+        }
+        bind('sm-pitch',      'pitch',      null,              'sm-pitch-val',  function(v) { return Math.round(v)+'Hz'; });
+        bind('sm-detune',     'detune',     null,              'sm-det-val',    function(v) { return (v>0?'+':'')+v+'c'; });
+        bind('sm-oct',        'oct',        null,              'sm-oct-val',    function(v) { return (v>0?'+':'')+v; });
+        bind('sm-cutoff',     'cutoff',     null,              'sm-cut-val',    function(v) { return Math.round(v)+'Hz'; });
+        bind('sm-res',        'res',        null,              'sm-res-val',    function(v) { return v.toFixed(1); });
+        bind('sm-atk',        'atk',        function(v){return v/1000;}, 'sm-atk-val', function(v,r){return r+'ms';});
+        bind('sm-dec',        'dec',        function(v){return v/1000;}, 'sm-dec-val', function(v,r){return r+'ms';});
+        bind('sm-sus',        'sus',        function(v){return v/100;},  'sm-sus-val', function(v,r){return r+'%';});
+        bind('sm-rel',        'rel',        function(v){return v/1000;}, 'sm-rel-val', function(v,r){return r+'ms';});
+        bind('sm-delay-amt',  'delayAmt',   function(v){return v/100;},  'sm-damt-val',function(v,r){return r+'%';});
+        bind('sm-delay-time', 'delayTime',  function(v){return v/1000;}, 'sm-dtime-val',function(v,r){return r+'ms';});
+        bind('sm-dist',       'dist',       null,              'sm-dist-val',   null);
+        bind('sm-vol',        'vol',        function(v){return v/100;},  'sm-vol-val', function(v,r){return r+'%';});
+        bind('sm-spread',     'spread',     null,              'sm-spread-val', function(v){return Math.round(v)+'c';});
+        bind('sm-sub-lvl',    'subLevel',   function(v){return v/100;},  'sm-sub-val', function(v,r){return r+'%';});
+        bind('sm-noise-lvl',  'noiseLevel', function(v){return v/1000;}, 'sm-noise-val',function(v,r){return (v*1000|0)+'‰';});
+        bind('sm-reverb',     'reverbAmt',  function(v){return v/100;},  'sm-reverb-val',function(v,r){return r+'%';});
+
+        // Selects
+        var oscSel = document.getElementById('sm-osc-type');
+        if (oscSel) oscSel.addEventListener('change', function() { SPATIAL_AUDIO.setParam('oscType', oscSel.value); });
+        var fltSel = document.getElementById('sm-flt-type');
+        if (fltSel) fltSel.addEventListener('change', function() { SPATIAL_AUDIO.setParam('filterType', fltSel.value); });
+    }
+
+
+    // ── MIDI listener ─────────────────────────────────────────
+    function _initMIDI() {
+        if (!navigator.requestMIDIAccess) {
+            document.getElementById('sm-status-midi') &&
+                (document.getElementById('sm-status-midi').textContent = 'MIDI: N/A');
+            return;
+        }
+        navigator.requestMIDIAccess({ sysex: false }).then(function(access) {
+            _midiAccess = access;
+            document.getElementById('sm-midi-badge') &&
+                (document.getElementById('sm-midi-badge').className = 'sm-badge on');
+            function wire(input) {
+                input.onmidimessage = function(msg) {
+                    if (!_open) return;
+                    var status = msg.data[0] & 0xF0;
+                    var ch1    = msg.data[1];
+                    var ch2    = msg.data[2];
+                    if (!SPATIAL_AUDIO.isRunning()) SPATIAL_AUDIO.init();
+                    if (status === 0x90 && ch2 > 0) {         // note-on
+                        SPATIAL_AUDIO.noteOnMidi(ch1, ch2);
+                        SPATIAL_VISUALS.setTriggerPulse(0.8);
+                        _activeNotes[ch1] = true;
+                        document.getElementById('sm-status-midi') &&
+                            (document.getElementById('sm-status-midi').textContent =
+                                'MIDI: NOTE ' + ch1 + ' v' + ch2);
+                    } else if (status === 0x80 || (status === 0x90 && ch2 === 0)) {
+                        SPATIAL_AUDIO.noteOffMidi(ch1);        // note-off
+                        delete _activeNotes[ch1];
+                    } else if (status === 0xB0) {              // CC
+                        SPATIAL_AUDIO.handleCC(ch1, ch2);
+                        document.getElementById('sm-status-midi') &&
+                            (document.getElementById('sm-status-midi').textContent =
+                                'MIDI: CC' + ch1 + '=' + ch2);
+                    }
+                };
+            }
+            access.inputs.forEach(wire);
+            access.onstatechange = function(e) {
+                if (e.port.type === 'input' && e.port.state === 'connected') wire(e.port);
+            };
+            var inp = Array.from(access.inputs.values());
+            document.getElementById('sm-status-midi') &&
+                (document.getElementById('sm-status-midi').textContent =
+                    'MIDI: ' + (inp.length ? inp[0].name.substring(0,18) : 'NO DEVICE'));
+        }).catch(function() {
+            document.getElementById('sm-status-midi') &&
+                (document.getElementById('sm-status-midi').textContent = 'MIDI: DENIED');
+        });
+    }
+
+    // ── Auto-start camera + pose tracking ─────────────────────
+    function _startCamera() {
+        // Reuse existing camera stream if already running
+        if (window.APP && APP.camera && APP.camera.stream) {
+            _startPoseFromStream(APP.camera.videoEl || null);
+            return;
+        }
+        navigator.mediaDevices.getUserMedia({ video: { width: 640, height: 480, facingMode: 'user' }, audio: false })
+        .then(function(stream) {
+            var vid = document.createElement('video');
+            vid.srcObject = stream; vid.muted = true;
+            vid.setAttribute('playsinline', ''); vid.play();
+            window._smCamStream = stream;
+            window._smCamVid    = vid;
+            document.getElementById('sm-cam-badge') &&
+                (document.getElementById('sm-cam-badge').className = 'sm-badge on');
+            _startPoseFromStream(vid);
+        }).catch(function(e) {
+            document.getElementById('sm-status-hand') &&
+                (document.getElementById('sm-status-hand').textContent = 'HAND: CAM DENIED');
+        });
+    }
+
+    function _startPoseFromStream(vid) {
+        if (typeof Pose === 'undefined') return;
+        if (window._smPose) return;
+        var videoEl = vid || (APP.camera && APP.camera.videoEl);
+        if (!videoEl) return;
+        var pose = new Pose({ locateFile: function(f) {
+            return 'https://cdn.jsdelivr.net/npm/@mediapipe/pose@0.5.1675469404/' + f;
+        }});
+        pose.setOptions({ modelComplexity: 0, smoothLandmarks: true,
+            minDetectionConfidence: 0.45, minTrackingConfidence: 0.45 });
+        pose.onResults(function(results) {
+            if (results.poseLandmarks && window._smPoseFeed)
+                window._smPoseFeed(results.poseLandmarks);
+        });
+        window._smPose = pose;
+        // rAF-based frame sending — no Camera utility dependency
+        var _sending = false;
+        (function _poseRaf() {
+            if (!window._smPose) return;
+            if (!_sending && videoEl.readyState >= 2) {
+                _sending = true;
+                pose.send({ image: videoEl }).catch(function(){}).finally(function() {
+                    _sending = false;
+                });
+            }
+            requestAnimationFrame(_poseRaf);
+        })();
+        // Badge: light up on first landmark result
+        (function patchFeed() {
+            var _orig = window._smPoseFeed, _done = false;
+            window._smPoseFeed = function(lms) {
+                if (!_done) {
+                    _done = true;
+                    var hb = document.getElementById('sm-hand-badge');
+                    if (hb) hb.className = 'sm-badge on';
+                    var sh = document.getElementById('sm-status-hand');
+                    if (sh) sh.textContent = 'HAND: LIVE';
+                }
+                if (_orig) _orig(lms);
+            };
+        })();
+    }
+
+
+    // ── Window drag ───────────────────────────────────────────
+    function _initDrag() {
+        var win = document.getElementById('sm-window');
+        var bar = document.getElementById('sm-titlebar');
+        if (!win || !bar) return;
+        var ox = 0, oy = 0, sx = 0, sy = 0, dragging = false;
+        bar.addEventListener('mousedown', function(e) {
+            if (e.target.classList.contains('sm-dot')) return;
+            dragging = true;
+            ox = win.offsetLeft; oy = win.offsetTop;
+            sx = e.clientX; sy = e.clientY;
+            e.preventDefault();
+        });
+        document.addEventListener('mousemove', function(e) {
+            if (!dragging) return;
+            win.style.left = (ox + e.clientX - sx) + 'px';
+            win.style.top  = (oy + e.clientY - sy) + 'px';
+            win.style.right = 'auto';
+        });
+        document.addEventListener('mouseup', function() { dragging = false; });
+    }
+
+    function toggle() {
+        var win = document.getElementById('sm-window');
+        var btn = document.getElementById('btn-esx-launch');
+        _open = !_open;
+        if (_open) {
+            if (win) win.classList.add('sm-visible');
+            if (!SPATIAL_AUDIO.isRunning()) SPATIAL_AUDIO.init();
+            var cvs = document.getElementById('spatial-matrix');
+            if (cvs && !SPATIAL_VISUALS.isRunning()) {
+                // Give layout a tick to resolve dimensions
+                requestAnimationFrame(function() { SPATIAL_VISUALS.init(cvs); });
+            }
+            if (!_lerpId) _lerpLoop();
+            _startCamera();
+            _initMIDI();
+            if (btn) btn.classList.add('esx-open');
+        } else {
+            if (win) win.classList.remove('sm-visible');
+            SPATIAL_AUDIO.stop();
+            SPATIAL_VISUALS.stop();
+            if (_lerpId) { cancelAnimationFrame(_lerpId); _lerpId = null; }
+            // Stop dedicated SM camera if we started it
+            if (window._smCamStream) {
+                window._smCamStream.getTracks().forEach(function(t){ t.stop(); });
+                window._smCamStream = null;
+            }
+            window._smPose = null;
+            if (btn) btn.classList.remove('esx-open');
+            document.getElementById('sm-cam-badge') &&
+                (document.getElementById('sm-cam-badge').className = 'sm-badge');
+            document.getElementById('sm-hand-badge') &&
+                (document.getElementById('sm-hand-badge').className = 'sm-badge');
+        }
+    }
+
+    // Init drag + pads once DOM ready
+    document.addEventListener('DOMContentLoaded', function() {
+        _initDrag(); _buildXYPad(); _wireUI();
+    });
+
+    return { toggle };
+})();
 
 
 function connectVideoAudio(vid) {
@@ -11505,25 +13235,9 @@ async function executeWorkspaceExport() {
     snap.media       = [];
     snap.audioTracks = [];
 
-    var hasLogo = !!(snap.logo2d);
     var total = (APP.media && APP.media.queue ? APP.media.queue.length : 0)
-              + (APP.audio && APP.audio.playlist ? APP.audio.playlist.length : 0)
-              + (hasLogo ? 1 : 0);
+              + (APP.audio && APP.audio.playlist ? APP.audio.playlist.length : 0);
     var done = 0;
-
-    // ── Pin logo as binary (strip base64 from manifest) ─────────────
-    if (snap.logo2d) {
-        try {
-            var logoFetchResp = await fetch(snap.logo2d);
-            var logoBlob = await logoFetchResp.blob();
-            var logoCid = await _pinFile(logoBlob, 'logo.png', jwt);
-            snap.logoCid = logoCid;
-            log('IPFS: PINNED_LOGO ' + (++done) + '/' + total);
-        } catch(e) {
-            log('IPFS: LOGO_PIN_SKIP \u2014 ' + e.message);
-        }
-        delete snap.logo2d; // Remove base64 — manifest stays lightweight (<1MB)
-    }
 
     // ── Upload media files (images + videos) ────────────────────────
     if (APP.media && APP.media.queue && APP.media.queue.length) {
@@ -11539,10 +13253,7 @@ async function executeWorkspaceExport() {
                     blob = await new Promise(function(r) { c.toBlob(r, 'image/jpeg', 0.9); });
                 } else if (item.url) {
                     var resp = await fetch(item.url);
-                    var vext = (item.name || '').split('.').pop().toLowerCase();
-                    var videoMimes = { mp4: 'video/mp4', webm: 'video/webm', mov: 'video/quicktime', avi: 'video/x-msvideo', mkv: 'video/x-matroska' };
-                    var vmime = videoMimes[vext];
-                    blob = vmime ? new Blob([await resp.arrayBuffer()], { type: vmime }) : await resp.blob();
+                    blob = await resp.blob();
                 }
                 if (blob) {
                     var cid = await _pinFile(blob, item.name || ('media_' + i), jwt);
@@ -11561,10 +13272,7 @@ async function executeWorkspaceExport() {
             var track = APP.audio.playlist[i];
             try {
                 var resp = await fetch(track.url);
-                var aext = (track.name || '').split('.').pop().toLowerCase();
-                var audioMimes = { mp3: 'audio/mpeg', wav: 'audio/wav', ogg: 'audio/ogg', flac: 'audio/flac', aac: 'audio/aac', m4a: 'audio/mp4' };
-                var amime = audioMimes[aext];
-                var blob = amime ? new Blob([await resp.arrayBuffer()], { type: amime }) : await resp.blob();
+                var blob = await resp.blob();
                 var cid  = await _pinFile(blob, (track.name || 'track_' + i), jwt);
                 snap.audioTracks.push({ name: track.name, cid: cid });
                 log('IPFS: PINNED_AUDIO ' + (++done) + '/' + total + ' ' + (track.name || ''));
@@ -11730,29 +13438,8 @@ async function importFromIPFS(cid) {
             } else if (snap.audioTracks && snap.audioTracks[0] && snap.audioTracks[0].cid) {
                 var test = await fetch(gateways[g] + snap.audioTracks[0].cid, { method: 'HEAD' });
                 if (test.ok) { gateway = gateways[g]; break; }
-            } else if (snap.logoCid) {
-                var test = await fetch(gateways[g] + snap.logoCid, { method: 'HEAD' });
-                if (test.ok) { gateway = gateways[g]; break; }
             } else { break; }
         } catch(e) { continue; }
-    }
-
-    // 2b. Restore logo from IPFS CID (binary-first — no base64 in manifest)
-    if (snap.logoCid) {
-        try {
-            var logoResp = await fetch(gateway + snap.logoCid);
-            var logoBlob = await logoResp.blob();
-            var logoUrl = URL.createObjectURL(logoBlob);
-            var logoLayer = $('user-logo-layer');
-            if (logoLayer) {
-                logoLayer.src = logoUrl;
-                logoLayer.style.display = 'block';
-                APP.trinity.logo.visible = true;
-            }
-            log('IPFS: LOGO_RESTORED_FROM_CID');
-        } catch(e) {
-            log('IPFS: LOGO_CID_ERR \u2014 ' + e.message);
-        }
     }
 
     // 3. Load media files from IPFS → APP.media.queue
@@ -11762,10 +13449,7 @@ async function importFromIPFS(cid) {
             if (!m.cid) continue;
             try {
                 var resp = await fetch(gateway + m.cid);
-                var mext = (m.name || '').split('.').pop().toLowerCase();
-                var videoMimes = { mp4: 'video/mp4', webm: 'video/webm', mov: 'video/quicktime', avi: 'video/x-msvideo', mkv: 'video/x-matroska' };
-                var vmime = (m.type === 'video') ? videoMimes[mext] : null;
-                var blob = vmime ? new Blob([await resp.arrayBuffer()], { type: vmime }) : await resp.blob();
+                var blob = await resp.blob();
                 var url  = URL.createObjectURL(blob);
                 var item = { type: m.type, url: url, element: null, name: m.name };
 
@@ -11801,11 +13485,8 @@ async function importFromIPFS(cid) {
             if (!t.cid) continue;
             try {
                 var resp = await fetch(gateway + t.cid);
-                var aext = (t.name || '').split('.').pop().toLowerCase();
-                var audioMimes = { mp3: 'audio/mpeg', wav: 'audio/wav', ogg: 'audio/ogg', flac: 'audio/flac', aac: 'audio/aac', m4a: 'audio/mp4' };
-                var amime = audioMimes[aext] || 'audio/mpeg';
-                var ablob = new Blob([await resp.arrayBuffer()], { type: amime });
-                APP.audio.playlist.push({ url: URL.createObjectURL(ablob), name: t.name });
+                var blob = await resp.blob();
+                APP.audio.playlist.push({ url: URL.createObjectURL(blob), name: t.name });
                 log('IPFS: LOADED_AUDIO ' + (i + 1) + '/' + snap.audioTracks.length + ' ' + t.name);
             } catch(e) {
                 log('IPFS: AUDIO_ERR ' + t.name + ' \u2014 ' + e.message);
@@ -12091,7 +13772,7 @@ function setTheme(theme) { const structClass = ['theme-broadcast','theme-etherea
   ];
   let _ghostIdx = 0;
   window.toggleGhostMode = function() {
-    const vt = document.getElementById('nc-window');
+    const vt = document.getElementById('vanguard-tracker-window');
     const nc = document.getElementById('nc-window');
     const btn = document.getElementById('vt-alpha-btn');
     GHOST_STATES.forEach(function(s) {
@@ -12887,24 +14568,6 @@ document.addEventListener('DOMContentLoaded', () => {
         const [status, note, velocity] = msg.data;
         const cmd = status >> 4;
 
-        // Route to Spatial Matrix when open — notes play supersaw, CCs map to SM params
-        if (window._keOpen && typeof AudioRack !== 'undefined') {
-        // REMOVED: if (!SPATIAL_AUDIO.isRunning()) SPATIAL_AUDIO.init();
-            if (cmd === 9 && velocity > 0) {
-        // REMOVED: SPATIAL_AUDIO.noteOnMidi(note, velocity);
-        // REMOVED: if (typeof SPATIAL_VISUALS !== 'undefined') // AudioRack pulse removed;
-            } else if (cmd === 8 || (cmd === 9 && velocity === 0)) {
-        // REMOVED: SPATIAL_AUDIO.noteOffMidi(note);
-            } else if (cmd === 11) {
-        // REMOVED: SPATIAL_AUDIO.handleCC(note, velocity);
-            }
-            const sms = document.getElementById('sm-status-midi');
-            if (sms && cmd === 9 && velocity > 0)
-                sms.textContent = 'MIDI: N' + note + ' v' + velocity;
-            else if (sms && cmd === 11)
-                sms.textContent = 'MIDI: CC' + note + '=' + velocity;
-        }
-
         // MIDI LEARN — capture next input for armed target
         if (APP.midi.learnMode && APP.midi.learnTarget && velocity > 0) {
             const key = (cmd === 11) ? 'cc' + note : 'note' + note;
@@ -13320,7 +14983,6 @@ document.addEventListener('DOMContentLoaded', () => {
         (function() {
             function _switchKit(packIdx) {
                 _liqCurrentPack = packIdx;
-                if (typeof KitManager !== 'undefined') KitManager.setKit(packIdx % KitManager.getKitCount());
                 // Invalidate buffer cache for old kit so new synth fires fresh
                 Object.keys(_liqBufCache).forEach(function(k) {
                     if (k.startsWith(packIdx + '_')) delete _liqBufCache[k];
@@ -16102,8 +17764,8 @@ var isVideo = nft.forceVideo || (imageUrl.toLowerCase().match(/\.(mp4|webm|mov|o
     setInterval(function() {
         var el = document.getElementById('nc-clock-status');
         if (!el) return;
-        el.textContent = 'CLOCK: ' + (false
-            ? 'NEURAL: ' + (window.currentBPM || 120) + 'BPM'
+        el.textContent = 'CLOCK: ' + (VanguardTracker.isPlaying()
+            ? 'PLAY ' + VanguardTracker._bpm() + 'BPM ROW:' + VanguardTracker.currentStep().toString(16).toUpperCase()
             : 'IDLE');
     }, 100);
 
@@ -16755,9 +18417,6 @@ window.initAudioReactor = function() {
 // Auto-init the bass reactor engine when audio is ready
 setTimeout(() => { if (!window.audioReactorActive) window.initAudioReactor(); }, 3000);
 </script>
-
-<!-- KINEMATIC ENGINE: fullscreen particle canvas -->
-<canvas id="kinematic-canvas" style="position:fixed;top:0;left:0;width:100%;height:100%;z-index:999;display:none;pointer-events:none;"></canvas>
 
 <!-- 3D LOGO: offscreen WebGL canvas for Three.js rendering -->
 <canvas id="three-canvas" width="512" height="512" style="position:fixed;left:-9999px;top:-9999px;width:512px;height:512px;pointer-events:none;z-index:-1;"></canvas>
@@ -18466,6 +20125,125 @@ function _applyPoseToModel(lm) {
 <!-- ═══════════════════════════════════════════════════════════
      VNGRD // SONIC SUITE — VERTICAL TRACKER WINDOW
      ═══════════════════════════════════════════════════════════ -->
+<div id="vanguard-tracker-window" class="vanguard-tracker-window">
+
+    <!-- Title bar / Transport -->
+    <div class="vt-titlebar" id="vt-titlebar">
+        <span class="vt-titlebar-label">◈ VNGRD // SONIC SUITE</span>
+        <div class="vt-transport">
+            <div class="vt-bpm-wrap">BPM <input class="vt-bpm-input" id="vt-bpm" type="number" min="40" max="300" value="120"></div>
+            <button class="vt-btn vt-play-btn" id="vt-play-btn" onclick="VanguardTracker.play()">▶ PLAY</button>
+            <button class="vt-btn" onclick="VanguardTracker.stop()">■ STOP</button>
+            <button class="vt-btn" onclick="VanguardTracker.clear()" style="color:rgba(255,120,0,0.65);border-color:rgba(255,120,0,0.25);">CLR</button>
+            <button class="vt-btn-nc-launch" id="nc-toggle-btn" onclick="NeuralCompiler.toggle()">[ OPEN NEURAL COMPILER ]</button>
+            <button class="vt-btn" onclick="_vtToggleHud()" style="color:rgba(255,204,0,0.65);border-color:rgba(255,204,0,0.22);font-size:7px;">? HUD</button>
+            <button class="vt-btn" id="vt-alpha-btn" onclick="toggleGhostMode()" style="color:rgba(255,255,255,0.45);border-color:#333;font-size:7px;letter-spacing:0.5px;">[ ALPHA ]</button>
+        </div>
+        <button class="vt-close-btn" onclick="VanguardTracker.toggle()">✕</button>
+    </div>
+
+    <!-- Waveform canvas strip -->
+    <div class="vt-wave-strip">
+        <div class="vt-wave-num-pad" style="font-size:5.5px;color:rgba(0,243,255,0.28);letter-spacing:1px;">WAVE</div>
+        <div class="vt-wave-canvas-wrap">
+            <canvas class="vt-wave-canvas" id="vt-wave-0"></canvas>
+            <span class="vt-wave-label">SUB 00-01</span>
+        </div>
+        <div class="vt-wave-canvas-wrap">
+            <canvas class="vt-wave-canvas" id="vt-wave-1"></canvas>
+            <span class="vt-wave-label">NOISE 02-03</span>
+        </div>
+        <div class="vt-wave-canvas-wrap">
+            <canvas class="vt-wave-canvas" id="vt-wave-2"></canvas>
+            <span class="vt-wave-label">SWEEP 04-05</span>
+        </div>
+        <div class="vt-wave-canvas-wrap">
+            <canvas class="vt-wave-canvas" id="vt-wave-3"></canvas>
+            <span class="vt-wave-label">BOOM 0A-0F</span>
+        </div>
+    </div>
+
+    <!-- Column headers (PAD | NOTE | VOL | FX) with laser lines -->
+    <div class="vt-col-headers">
+        <div class="vt-col-hdr">#</div>
+        <div class="vt-col-hdr" title="00-0F = InternalSynth  10-1F = Sampler Pads">PAD</div>
+        <div class="vt-col-hdr" title="Chromatic note: C-3…B-6">NOTE</div>
+        <div class="vt-col-hdr" title="Velocity 00=off FF=max">VOL</div>
+        <div class="vt-col-hdr" title="VJ FX code: 01=seismic 02=punch 03=party">FX</div>
+    </div>
+
+    <!-- Scrollable rows (built by VanguardTracker.init) -->
+    <div class="vt-track-scroll" id="vt-track-scroll"></div>
+
+    <!-- Status bar -->
+    <div class="vt-status-bar">
+        <span>POS:</span><span class="vt-status-pos" id="vt-pos">00</span>
+        <span style="margin-left:5px;">ROW:</span><span class="vt-status-pos" id="vt-step">1/32</span>
+        <span style="margin-left:5px;color:rgba(0,243,255,0.55);" id="vt-engine-status">IDLE</span>
+        <span style="margin-left:auto;color:rgba(0,243,255,0.2);">SYNTH:00-0F · SFX:10-1F</span>
+    </div>
+</div>
+
+<!-- ═══════════════════════════════════════════════════════════
+     HUD CRYSTAL OVERLAY — glass morphism
+     ═══════════════════════════════════════════════════════════ -->
+<div class="vt-hud-overlay" id="vt-hud-overlay">
+    <div class="vt-hud-panel">
+        <div class="vt-hud-title">◈ VNGRD // SONIC SUITE — MANUAL</div>
+        <div class="vt-hud-grid">
+            <div class="vt-hud-section-title">[ TRACKER ] — HEX SEQUENCER</div>
+            <div class="vt-hud-row">
+                <span class="vt-hud-cmd">PAD  00–0F</span>
+                <span class="vt-hud-desc">Internal Synth engine<br>SUB / NOISE / SWEEP / METAL / AM / BOOM</span>
+            </div>
+            <div class="vt-hud-row">
+                <span class="vt-hud-cmd">PAD  10–1F</span>
+                <span class="vt-hud-desc">Sampler Pads (SFX library)<br>10=applause 11=cheer 12=horn 13=boom</span>
+            </div>
+            <div class="vt-hud-row">
+                <span class="vt-hud-cmd">NOTE  C-3…B-6</span>
+                <span class="vt-hud-desc">Chromatic pitch for synth<br>Sets oscillator frequency</span>
+            </div>
+            <div class="vt-hud-row">
+                <span class="vt-hud-cmd">VOL  00–FF</span>
+                <span class="vt-hud-desc">Velocity. High VOL + low freq<br>auto-triggers seismic screen shake</span>
+            </div>
+            <div class="vt-hud-sep"></div>
+            <div class="vt-hud-section-title">[ FX ] — VJ VISUAL CODES</div>
+            <div class="vt-hud-row">
+                <span class="vt-hud-cmd">FX  01</span>
+                <span class="vt-hud-desc">SEISMIC — screen shake</span>
+            </div>
+            <div class="vt-hud-row">
+                <span class="vt-hud-cmd">FX  02</span>
+                <span class="vt-hud-desc">PUNCH — kinetic bounce</span>
+            </div>
+            <div class="vt-hud-row">
+                <span class="vt-hud-cmd">FX  03</span>
+                <span class="vt-hud-desc">PARTY — beat-reactive mode</span>
+            </div>
+            <div class="vt-hud-sep"></div>
+            <div class="vt-hud-section-title">[ COMPILER ] — NEURAL SCRIPTING</div>
+            <div class="vt-hud-row">
+                <span class="vt-hud-cmd">loop(bpm, () =&gt; { })</span>
+                <span class="vt-hud-desc">Live loop. 'beat' is auto-injected.<br>Output routes through master analyser.</span>
+            </div>
+            <div class="vt-hud-row">
+                <span class="vt-hud-cmd">p(n).play(vol)</span>
+                <span class="vt-hud-desc">Fire Sampler pad n (0–11)<br>Triggers gear-coupled VJ FX</span>
+            </div>
+            <div class="vt-hud-row">
+                <span class="vt-hud-cmd">synth(note, type)</span>
+                <span class="vt-hud-desc">Play note via InternalSynth<br>type: sub / noise / boom / metal / sweep</span>
+            </div>
+            <div class="vt-hud-row">
+                <span class="vt-hud-cmd">Shift+Enter</span>
+                <span class="vt-hud-desc">Execute script. Hot-swap — no clock stop.</span>
+            </div>
+        </div>
+        <button class="vt-hud-close" onclick="_vtToggleHud()">[ CLOSE ]</button>
+    </div>
+</div>
 
 <!-- ═══════════════════════════════════════════════════════════
      NEURAL COMPILER — DRIS-STYLE IDE WINDOW
@@ -18485,11 +20263,11 @@ function _applyPoseToModel(lm) {
     <div class="nc-toolbar">
         <button class="nc-run-btn" id="nc-run-btn">▶ RUN</button>
         <button class="nc-stop-btn" id="nc-stop-btn">■ STOP LOOP</button>
-        <span class="nc-hint">Shift+Enter=RUN · live_loop("x",async()=>{...}) · sleep(1) · play("C-3") · sample(0,0.9) · use_bpm(140)</span>
+        <span class="nc-hint">Shift+Enter to run · loop(bpm, fn) · p(n).play(vol) · synth(note, type)</span>
     </div>
     <div class="nc-status-bar">
-        <span>ROUTED → InternalSynth · KitManager · AudioRack · KinematicEngine</span>
-        <span style="margin-left:auto;" id="nc-clock-status">IDLE</span>
+        <span>OUTPUT ROUTED → ENGINE ANALYSER → SEISMIC/KINETIC</span>
+        <span style="margin-left:auto;" id="nc-clock-status">LOOP: IDLE</span>
     </div>
 </div>
 
@@ -18515,44 +20293,105 @@ function _applyPoseToModel(lm) {
 <!-- ═══════════════════════════════════════════════════════════
      SPATIAL MATRIX — Floating Instrument HUD
      ═══════════════════════════════════════════════════════════ -->
-<!-- ═══════════════════════════════════════════════════════════
-     KINEMATIC ENGINE — Floating Instrument HUD
-     ═══════════════════════════════════════════════════════════ -->
-<div id="kinematic-window" style="display:none;position:fixed;top:60px;right:22px;width:360px;background:rgba(2,3,8,0.94);backdrop-filter:blur(24px) saturate(1.5);-webkit-backdrop-filter:blur(24px) saturate(1.5);border:1px solid rgba(0,243,255,0.4);box-shadow:0 0 50px rgba(0,243,255,0.1),0 0 120px rgba(0,0,0,0.85);z-index:9600;flex-direction:column;font-family:'JetBrains Mono',monospace;border-radius:4px;resize:both;overflow:hidden;">
-    <div style="display:flex;align-items:center;gap:6px;padding:6px 10px;background:#000;border-bottom:1px solid rgba(0,243,255,0.2);cursor:move;user-select:none;" id="kinematic-titlebar">
-        <div style="width:10px;height:10px;border-radius:50%;background:rgba(0,243,255,0.7);box-shadow:0 0 8px rgba(0,243,255,0.5);cursor:pointer;" onclick="KinematicEngine.toggle()" title="Close"></div>
-        <span style="font-family:'Orbitron',sans-serif;font-size:8px;font-weight:700;color:rgba(0,243,255,0.9);letter-spacing:2px;flex:1;">◈ KINEMATIC ENGINE</span>
-        <span style="font-size:6.5px;color:rgba(0,243,255,0.4);letter-spacing:1px;">PARTICLE FIELD v1</span>
+<div id="sm-window">
+    <div class="sm-titlebar" id="sm-titlebar">
+        <div class="sm-dot" onclick="SpatialMatrix.toggle()" title="Close"></div>
+        <span class="sm-title">◈ SPATIAL MATRIX // MERCURY FRACTAL</span>
+        <span class="sm-badge" id="sm-cam-badge">CAM</span>
+        <span class="sm-badge" id="sm-midi-badge">MIDI</span>
+        <span class="sm-badge" id="sm-hand-badge">HAND</span>
     </div>
-    <div style="padding:10px;display:flex;flex-direction:column;gap:8px;">
-        <div style="background:rgba(0,243,255,0.04);border:1px solid rgba(0,243,255,0.12);border-radius:3px;padding:8px 10px;">
-            <div style="font-size:7px;color:rgba(0,243,255,0.5);letter-spacing:1.5px;margin-bottom:6px;">GESTURE MAPPING</div>
-            <div style="font-size:6.5px;color:rgba(0,243,255,0.7);line-height:1.8;">
-                <span style="color:rgba(0,255,136,0.8);">LEFT HAND X</span> → Filter Cutoff<br>
-                <span style="color:rgba(0,255,136,0.8);">LEFT PINCH</span> → Toggle Neural Compiler<br>
-                <span style="color:rgba(255,0,85,0.8);">RIGHT VELOCITY</span> → Glitch Burst<br>
-                <span style="color:rgba(255,0,85,0.8);">RIGHT PINCH</span> → Sub Kick<br>
-                <span style="color:rgba(255,215,0,0.8);">HEAD TILT</span> → Camera Orbit
+
+    <div class="sm-body">
+        <!-- WebGL Viewport -->
+        <div class="sm-viewport">
+            <canvas id="spatial-matrix"></canvas>
+            <div class="sm-vp-hint">R-HAND=ORBIT · L-HAND=DISTORT · CLICK=PLAY</div>
+        </div>
+
+        <!-- Synth Panel -->
+        <div class="sm-synth">
+            <div class="sm-section">
+                <span class="sm-sec-hd">OSCILLATOR</span>
+                <div class="sm-row">
+                    <select class="sm-sel" id="sm-osc-type">
+                        <option value="sawtooth">SAW</option>
+                        <option value="square">SQR</option>
+                        <option value="sine">SIN</option>
+                        <option value="triangle">TRI</option>
+                    </select>
+                    <div class="sm-knob"><span>PITCH</span><input type="range" id="sm-pitch" min="20" max="2000" value="220"><span class="sv" id="sm-pitch-val">220Hz</span></div>
+                    <div class="sm-knob"><span>DETUNE</span><input type="range" id="sm-detune" min="-50" max="50" value="0"><span class="sv" id="sm-det-val">0c</span></div>
+                    <div class="sm-knob"><span>OCT</span><input type="range" id="sm-oct" min="-3" max="3" step="1" value="0"><span class="sv" id="sm-oct-val">0</span></div>
+                </div>
+            </div>
+            <div class="sm-section">
+                <span class="sm-sec-hd">FILTER <small style="font-size:5px;color:rgba(0,243,255,0.3);margin-left:6px;">CC1=CUTOFF · CC74=RES · L-HAND-Y=SWEEP</small></span>
+                <div class="sm-row">
+                    <select class="sm-sel" id="sm-flt-type">
+                        <option value="lowpass">LP</option>
+                        <option value="highpass">HP</option>
+                        <option value="bandpass">BP</option>
+                        <option value="notch">NOTCH</option>
+                    </select>
+                    <div class="sm-knob"><span>CUTOFF</span><input type="range" id="sm-cutoff" min="20" max="15000" value="800"><span class="sv" id="sm-cut-val">800Hz</span></div>
+                    <div class="sm-knob"><span>RES</span><input type="range" id="sm-res" min="0.1" max="25" step="0.1" value="2"><span class="sv" id="sm-res-val">2.0</span></div>
+                </div>
+            </div>
+            <div class="sm-section">
+                <span class="sm-sec-hd">ENVELOPE</span>
+                <div class="sm-row">
+                    <div class="sm-knob"><span>ATK</span><input type="range" id="sm-atk" min="1" max="2000" value="10"><span class="sv" id="sm-atk-val">10ms</span></div>
+                    <div class="sm-knob"><span>DEC</span><input type="range" id="sm-dec" min="10" max="2000" value="100"><span class="sv" id="sm-dec-val">100ms</span></div>
+                    <div class="sm-knob"><span>SUS</span><input type="range" id="sm-sus" min="0" max="100" value="70"><span class="sv" id="sm-sus-val">70%</span></div>
+                    <div class="sm-knob"><span>REL</span><input type="range" id="sm-rel" min="10" max="4000" value="300"><span class="sv" id="sm-rel-val">300ms</span></div>
+                </div>
+            </div>
+            <div class="sm-section">
+                <span class="sm-sec-hd">FX <small style="font-size:5px;color:rgba(0,243,255,0.3);margin-left:6px;">CC91=DELAY · CC21=DETUNE · CC7=VOL</small></span>
+                <div class="sm-row">
+                    <div class="sm-knob"><span>DELAY</span><input type="range" id="sm-delay-amt" min="0" max="100" value="20"><span class="sv" id="sm-damt-val">20%</span></div>
+                    <div class="sm-knob"><span>D.TIME</span><input type="range" id="sm-delay-time" min="50" max="800" value="250"><span class="sv" id="sm-dtime-val">250ms</span></div>
+                    <div class="sm-knob"><span>DIST</span><input type="range" id="sm-dist" min="0" max="400" value="0"><span class="sv" id="sm-dist-val">0</span></div>
+                    <div class="sm-knob"><span>VOL</span><input type="range" id="sm-vol" min="0" max="100" value="80"><span class="sv" id="sm-vol-val">80%</span></div>
+                </div>
+            </div>
+            <div class="sm-section">
+                <span class="sm-sec-hd">XY SYNTH PAD — DRAG=PLAY+FILTER · SCALE QUANTIZED</span>
+                <div class="sm-xy-wrap">
+                    <canvas id="sm-xy-pad"></canvas>
+                </div>
+                <div class="sm-loop-row">
+                    <button id="sm-loop-rec"  class="sm-loop-btn rec-btn" onclick="SPATIAL_AUDIO.loopRecord()">● REC</button>
+                    <button id="sm-loop-stop" class="sm-loop-btn"         onclick="SPATIAL_AUDIO.loopStop()">■ STOP</button>
+                    <button id="sm-loop-play" class="sm-loop-btn"         onclick="SPATIAL_AUDIO.loopPlay()">▶ LOOP</button>
+                    <button class="sm-loop-btn"                           onclick="SPATIAL_AUDIO.loopClear()">✕ CLEAR</button>
+                    <select id="sm-scale-sel" class="sm-scale-sel">
+                        <option value="MINOR">MINOR</option>
+                        <option value="PENTATONIC">PENTA</option>
+                        <option value="CHROMATIC">CHROM</option>
+                        <option value="WHOLE_TONE">WHOLE</option>
+                        <option value="PHRYGIAN">PHRYG</option>
+                    </select>
+                </div>
+                <div class="sm-row sm-layer-row">
+                    <div class="sm-knob"><span>SPREAD</span><input type="range" id="sm-spread" min="0" max="50" value="25"><span class="sv" id="sm-spread-val">25c</span></div>
+                    <div class="sm-knob"><span>SUB</span><input type="range" id="sm-sub-lvl" min="0" max="100" value="40"><span class="sv" id="sm-sub-val">40%</span></div>
+                    <div class="sm-knob"><span>NOISE</span><input type="range" id="sm-noise-lvl" min="0" max="100" value="40"><span class="sv" id="sm-noise-val">40‰</span></div>
+                    <div class="sm-knob"><span>REVERB</span><input type="range" id="sm-reverb" min="0" max="100" value="25"><span class="sv" id="sm-reverb-val">25%</span></div>
+                </div>
+            </div>
             </div>
         </div>
-        <div style="background:rgba(0,243,255,0.04);border:1px solid rgba(0,243,255,0.12);border-radius:3px;padding:8px 10px;">
-            <div style="font-size:7px;color:rgba(0,243,255,0.5);letter-spacing:1.5px;margin-bottom:6px;">AUDIO RACK</div>
-            <div style="display:flex;gap:6px;flex-wrap:wrap;">
-                <button onclick="AudioRack.startDrone()" style="background:rgba(0,243,255,0.08);border:1px solid rgba(0,243,255,0.3);color:rgba(0,243,255,0.85);font-family:'JetBrains Mono',monospace;font-size:6.5px;padding:4px 7px;cursor:pointer;border-radius:2px;">▶ DRONE</button>
-                <button onclick="AudioRack.stopDrone()" style="background:rgba(255,0,85,0.08);border:1px solid rgba(255,0,85,0.3);color:rgba(255,0,85,0.85);font-family:'JetBrains Mono',monospace;font-size:6.5px;padding:4px 7px;cursor:pointer;border-radius:2px;">■ DRONE</button>
-                <button onclick="AudioRack.triggerGlitch()" style="background:rgba(255,215,0,0.08);border:1px solid rgba(255,215,0,0.3);color:rgba(255,215,0,0.85);font-family:'JetBrains Mono',monospace;font-size:6.5px;padding:4px 7px;cursor:pointer;border-radius:2px;">⚡ GLITCH</button>
-                <button onclick="AudioRack.triggerSub()" style="background:rgba(0,255,136,0.08);border:1px solid rgba(0,255,136,0.3);color:rgba(0,255,136,0.85);font-family:'JetBrains Mono',monospace;font-size:6.5px;padding:4px 7px;cursor:pointer;border-radius:2px;">◈ SUB</button>
-            </div>
-        </div>
-        <div style="display:flex;align-items:center;gap:8px;">
-            <span style="font-size:6.5px;color:rgba(0,243,255,0.4);letter-spacing:1px;">MASTER VOL</span>
-            <input type="range" min="0" max="100" value="75" oninput="AudioRack.setMasterVol(this.value/100)" style="flex:1;accent-color:rgba(0,243,255,0.7);">
-        </div>
     </div>
-    <div style="padding:4px 10px;border-top:1px solid rgba(0,243,255,0.1);background:rgba(0,0,0,0.45);font-size:6px;color:rgba(0,243,255,0.3);letter-spacing:1px;">
-        12,000 PARTICLES · MEDIAPIPE HANDS · BPM-SYNCED
+
+    <div class="sm-statusbar">
+        <span id="sm-status-hand">HAND: OFFLINE</span>
+        <span id="sm-status-midi">MIDI: --</span>
+        <span id="sm-status-filter">CUTOFF: --</span>
+        <span id="sm-status-note">NOTE: --</span>
     </div>
-</div>
+</div><!-- /sm-window -->
 
 
 </body>
