@@ -86,7 +86,11 @@ const KineticRack = (() => {
     _rafId = requestAnimationFrame(_renderLoop);
 
     _setStatus('LIVE');
+    document.getElementById('kr-status').classList.add('kr-live');
     document.getElementById('kr-stage-hud').classList.add('kr-live');
+    document.getElementById('kr-rack').classList.add('kr-online');
+    document.getElementById('kinetic-canvas').classList.add('kr-online');
+    _videoEl.classList.add('kr-online');
     document.getElementById('kr-launch-btn').textContent = '[ STOP ]';
   }
 
@@ -100,7 +104,11 @@ const KineticRack = (() => {
     _clearSkeleton();
 
     _setStatus('OFFLINE');
+    document.getElementById('kr-status').classList.remove('kr-live');
     document.getElementById('kr-stage-hud').classList.remove('kr-live');
+    document.getElementById('kr-rack').classList.remove('kr-online');
+    document.getElementById('kinetic-canvas').classList.remove('kr-online');
+    if (_videoEl) _videoEl.classList.remove('kr-online');
     document.getElementById('kr-launch-btn').textContent = '[ NEURAL TETHER ]';
   }
 
@@ -258,23 +266,34 @@ const KineticRack = (() => {
 
   // ── Camera ────────────────────────────────────────────────────────────────
   async function _initCamera() {
-    if (_videoEl.srcObject) { _camStream = _videoEl.srcObject; return; }
-    const stream = window.APP?.camera ?? await navigator.mediaDevices.getUserMedia({
-      video: { width: { ideal: 3840 }, height: { ideal: 2160 }, facingMode: 'user' },
-    }).catch(() =>
-      navigator.mediaDevices.getUserMedia({ video: { width: 1280, height: 720, facingMode: 'user' } })
-    );
+    // Reuse a shared stream if the main app already has one open
+    const existingStream = window.APP?.camera instanceof MediaStream ? window.APP.camera : null;
+    const stream = existingStream ?? await navigator.mediaDevices.getUserMedia({
+      video: { width: 1280, height: 720, facingMode: 'user' },
+    });
     _camStream = stream;
     _videoEl.srcObject = stream;
-    await new Promise(res => { _videoEl.onloadedmetadata = res; });
+    if (_videoEl.readyState < 2) {
+      await new Promise(res => { _videoEl.onloadedmetadata = res; });
+    }
     await _videoEl.play().catch(() => {});
   }
 
   // ── MediaPipe ─────────────────────────────────────────────────────────────
   async function _initMediaPipe() {
     const CDN = 'https://cdn.jsdelivr.net/npm/@mediapipe/hands@0.4.1646424915/';
-    const { Hands } = await import(`${CDN}hands.js`);
-    _hands = new Hands({ locateFile: f => `${CDN}${f}` });
+    // MediaPipe hands.js is UMD — load via <script> tag, not import()
+    if (!window.Hands) {
+      await new Promise((resolve, reject) => {
+        const s = document.createElement('script');
+        s.src = `${CDN}hands.js`;
+        s.crossOrigin = 'anonymous';
+        s.onload = resolve;
+        s.onerror = reject;
+        document.head.appendChild(s);
+      });
+    }
+    _hands = new window.Hands({ locateFile: f => `${CDN}${f}` });
     _hands.setOptions({ maxNumHands: 2, modelComplexity: 1, minDetectionConfidence: 0.72, minTrackingConfidence: 0.65 });
     _hands.onResults(r => { _handResults = r; });
     await _hands.initialize();
