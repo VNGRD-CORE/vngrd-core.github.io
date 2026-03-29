@@ -12,11 +12,11 @@
 // NO TubeGeometry creation per frame — uses Line with position updates (performant)
 
 export class TetherVerlet {
-    constructor(scene, audioCtx, THREE, recDest) {
-        this._scene   = scene;
-        this._ctx     = audioCtx;
-        this._T       = THREE;
-        this._recDest = recDest;
+    constructor(scene, audioCtx, THREE, masterDest) {
+        this._scene      = scene;
+        this._ctx        = audioCtx;
+        this._T          = THREE;
+        this._masterDest = masterDest;
         this._mode   = 'CORE';
         this._active = false;
 
@@ -303,8 +303,7 @@ export class TetherVerlet {
 
         this._masterGain = ctx.createGain();
         this._masterGain.gain.value = 0;
-        this._masterGain.connect(ctx.destination);
-        if (this._recDest) this._masterGain.connect(this._recDest);
+        this._masterGain.connect(this._masterDest || ctx.destination);
 
         // Resonant lowpass filter (LP ladder-style via Q)
         this._filter = ctx.createBiquadFilter();

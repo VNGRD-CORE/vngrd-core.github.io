@@ -1,8 +1,7 @@
-// KineticRack — Three.js ONLY. Zero 2D canvas context. 60fps.
-// Architecture:
-//   z:3499 — #kinetic-cam-video (CSS, brightness(0.35) dark cinema)
-//   z:3500 — #kinetic-canvas (Three.js alpha:true, 3D skeleton INSIDE scene)
-// 3D hand skeleton as LineSegments inside Three.js — NO 2D drawing, NO lag
+// KineticRack — Three.js ONLY. Zero 2D canvas. 60fps.
+// Skeleton: TubeGeometry-style cylinder bones + IcosahedronGeometry joints (Liquid Chrome)
+//           Fingertip PointLights illuminate instrument pads
+// Architecture: z:3499 camera (CSS dark-cinema) → z:3500 Three.js alpha canvas
 
 const HAND_CONNECTIONS = [
     [0,1],[1,2],[2,3],[3,4],
@@ -13,28 +12,31 @@ const HAND_CONNECTIONS = [
     [5,9],[9,13],[13,17]
 ];
 
+const FINGERTIP_IDX = [4, 8, 12, 16, 20];
+const N_CONN        = HAND_CONNECTIONS.length;
+const N_JOINTS      = 21;
+const MAX_HANDS     = 2;
+const HAND_COLORS   = [0x00f3ff, 0xff00cc];
+
 const HELP_TEXT = {
     CYBER_HANGDRUM: [
-        'RAYCAST triggers — fingertip enters 3D hex prism',
+        'RAYCAST — fingertip enters 3D frosted-glass hex',
         'Center pad (D3) — deep bass Ding',
-        '8 ring pads — D Kurd scale notes',
-        'All 5 fingertips active simultaneously',
-        'Pads sit lower screen — natural hand position',
+        '8 ring pads — D Kurd scale',
+        'Pad physically dips + ripple on hit',
     ],
     NEURAL_GLITCH: [
-        'PINCH (index+thumb) → Bitcrush depth',
-        '  Harder pinch = more bit-destruction',
-        'FIST (close all fingers) → Sub-bass hit + filter close',
-        'OPEN PALM → Reverb wash flood',
+        'PINCH (index+thumb) → Granular bitcrush depth',
+        'FIST (all closed) → Sub-grain cloud + filter close',
+        'OPEN PALM → Granular reverb shimmer',
         'Right wrist height → Master filter cutoff',
     ],
     TETHER_VERLET: [
-        'CORE: stretch plasma string between both wrists',
-        '  Distance → Pitch (55Hz–880Hz log)',
-        '  Left wrist height → Filter sweep',
-        '  Sharp pull-apart → Pluck trigger',
-        'CONSTELLATION: landmark neural web',
-        'FLOW: theremin — Right X/Y = Pitch/Vol',
+        'CORE: plasma string between both wrists',
+        '  Distance → Pitch (55–880 Hz log)',
+        '  Left wrist → Filter sweep',
+        '  Sharp pull → Pluck trigger',
+        'CONSTELLATION / FLOW modes',
     ],
 };
 
@@ -46,21 +48,19 @@ const KineticRack = (() => {
     let _raf, _active = false;
     let _instruments = {}, _currentInstr = null, _instrName = 'CYBER_HANGDRUM';
 
-    // 3D skeleton — LineSegments per hand (max 2)
-    const MAX_HANDS = 2;
-    const N_CONN    = HAND_CONNECTIONS.length;
-    let _skelLines  = [];
-    let _skelGeos   = [];
+    // 3D skeleton structures
+    let _skelBones  = [];   // [hand][conn] = Mesh (cylinder)
+    let _skelJoints = [];   // [hand][joint] = Mesh (icosahedron)
+    let _skelLights = [];   // [hand][tip] = PointLight (fingertips only)
+
+    // Master audio chain
+    let _masterChainIn = null;
+    let _masterGainOut = null;
+    let _recDest = null;
+    let _recorder = null, _recChunks = [];
 
     // MIDI
-    let _midi = null;
-    let _midiLearnTarget = null;
-    let _ctrlBindings = {};
-
-    // Recording
-    let _recorder  = null;
-    let _recChunks = [];
-    let _recDest   = null;
+    let _midi = null, _midiLearnTarget = null, _ctrlBindings = {};
 
     function _status(msg, live) {
         const el = document.getElementById('kr-status');
@@ -78,23 +78,36 @@ const KineticRack = (() => {
         return { W: window.innerWidth - 400, H: window.innerHeight - 100 };
     }
 
-    // ── Renderer (alpha:true, no bloom, no background plane) ──────────────────
+    // ── Renderer + Scene Setup ────────────────────────────────────────────────
     function _setup() {
         const canvas = document.getElementById('kinetic-canvas');
         const { W, H } = _stageSize();
+
         _renderer = new T.WebGLRenderer({ canvas, antialias: true, alpha: true });
         _renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
         _renderer.setSize(W, H);
         _renderer.setClearColor(0x000000, 0);
-        _renderer.outputColorSpace = T.SRGBColorSpace;
-        _renderer.toneMapping = T.ACESFilmicToneMapping;
-        _renderer.toneMappingExposure = 1.2;
+        _renderer.outputColorSpace  = T.SRGBColorSpace;
+        _renderer.toneMapping       = T.ACESFilmicToneMapping;
+        _renderer.toneMappingExposure = 1.1;
+        _renderer.useLegacyLights   = false; // physically correct for MeshPhysicalMaterial
 
         _camera = new T.PerspectiveCamera(60, W / H, 0.1, 200);
         _camera.position.set(0, 0, 5);
+
         _scene = new T.Scene();
         _scene.background = null;
         _clock = new T.Clock();
+
+        // Scene lighting — drives frosted glass reflections + skeleton chrome
+        const ambient = new T.AmbientLight(0x0a0f22, 1.2);
+        const rim1    = new T.DirectionalLight(0x00f3ff, 0.55);
+        rim1.position.set(3, 4, 5);
+        const rim2    = new T.DirectionalLight(0xff00cc, 0.35);
+        rim2.position.set(-4, 2, 3);
+        const top     = new T.DirectionalLight(0x4488ff, 0.25);
+        top.position.set(0, 8, 2);
+        _scene.add(ambient, rim1, rim2, top);
 
         window.addEventListener('resize', () => {
             const { W: w, H: h } = _stageSize();
@@ -104,36 +117,73 @@ const KineticRack = (() => {
         });
     }
 
-    // ── 3D Hand Skeleton (inside Three.js, NOT 2D canvas) ─────────────────────
+    // ── 3D Hand Skeleton (cylinder bones + icosahedron joints) ───────────────
     function _buildSkeleton3D() {
-        const HAND_COLORS = [0x00f3ff, 0xff00cc];
         for (let h = 0; h < MAX_HANDS; h++) {
-            const pos = new Float32Array(N_CONN * 2 * 3);
-            const geo = new T.BufferGeometry();
-            geo.setAttribute('position', new T.BufferAttribute(pos, 3));
-            const mat = new T.LineBasicMaterial({
-                color:       HAND_COLORS[h],
-                transparent: true,
-                opacity:     0.88,
-                blending:    T.AdditiveBlending,
-                depthWrite:  false,
-                depthTest:   false   // always visible through any geometry
+            const col = new T.Color(HAND_COLORS[h]);
+
+            // Liquid Chrome bone material
+            const boneMat = new T.MeshStandardMaterial({
+                color:             new T.Color(0xb8d4ff),
+                emissive:          col,
+                emissiveIntensity: 0.38,
+                metalness:         1.0,
+                roughness:         0.04,
             });
-            const lines = new T.LineSegments(geo, mat);
-            lines.renderOrder = 999;
-            lines.visible = false;
-            _scene.add(lines);
-            _skelLines.push(lines);
-            _skelGeos.push(geo);
+
+            // Brighter chrome for joint icosahedra
+            const jointMat = new T.MeshStandardMaterial({
+                color:             new T.Color(0xffffff),
+                emissive:          col,
+                emissiveIntensity: 1.1,
+                metalness:         1.0,
+                roughness:         0.02,
+            });
+
+            // Bone cylinders — unit height (scaled per frame to match bone length)
+            const boneGeo = new T.CylinderGeometry(0.01, 0.01, 1, 7);
+            const bones = [];
+            for (let c = 0; c < N_CONN; c++) {
+                const bone = new T.Mesh(boneGeo, boneMat);
+                bone.renderOrder = 998;
+                bone.visible = false;
+                _scene.add(bone);
+                bones.push(bone);
+            }
+            _skelBones.push(bones);
+
+            // Icosahedron joints
+            const joints = [];
+            for (let j = 0; j < N_JOINTS; j++) {
+                const isTip = FINGERTIP_IDX.includes(j);
+                const r = isTip ? 0.052 : 0.032;
+                const jGeo = new T.IcosahedronGeometry(r, 1);
+                const jMat = jointMat.clone();
+                jMat.emissiveIntensity = isTip ? 1.6 : 0.7;
+                const jMesh = new T.Mesh(jGeo, jMat);
+                jMesh.renderOrder = 999;
+                jMesh.visible = false;
+                _scene.add(jMesh);
+                joints.push(jMesh);
+            }
+            _skelJoints.push(joints);
+
+            // Fingertip PointLights — cast faint glow on instrument pads
+            const lights = [];
+            FINGERTIP_IDX.forEach(() => {
+                const light = new T.PointLight(HAND_COLORS[h], 0, 2.8, 2);
+                _scene.add(light);
+                lights.push(light);
+            });
+            _skelLights.push(lights);
         }
     }
 
-    // MediaPipe [0,1] + depth → Three.js world coordinates (camera-space unproject)
+    // MediaPipe [0,1] + z-depth → Three.js world coords
     function _lm2world(lm) {
-        const ndcX  = -(lm.x * 2 - 1);   // mirror X for webcam
+        const ndcX  = -(lm.x * 2 - 1);
         const ndcY  = -(lm.y * 2 - 1);
-        const depthZ = (lm.z || 0) * -4;  // MediaPipe z → world depth
-
+        const depthZ = (lm.z || 0) * -4;
         const ndc = new T.Vector3(ndcX, ndcY, 0.5);
         ndc.unproject(_camera);
         const dir = ndc.sub(_camera.position).normalize();
@@ -141,30 +191,53 @@ const KineticRack = (() => {
         return _camera.position.clone().add(dir.multiplyScalar(t));
     }
 
-    function _updateSkeleton3D(hr) {
-        if (!hr || !hr.multiHandLandmarks) {
-            _skelLines.forEach(l => { l.visible = false; });
-            return;
-        }
-        const hands = hr.multiHandLandmarks;
-        for (let h = 0; h < MAX_HANDS; h++) {
-            if (h >= hands.length) { _skelLines[h].visible = false; continue; }
-            const lms = hands[h];
-            const pos = _skelGeos[h].attributes.position.array;
-            let ptr = 0;
-            HAND_CONNECTIONS.forEach(([a, b]) => {
-                const wa = _lm2world(lms[a]);
-                const wb = _lm2world(lms[b]);
-                pos[ptr++] = wa.x; pos[ptr++] = wa.y; pos[ptr++] = wa.z;
-                pos[ptr++] = wb.x; pos[ptr++] = wb.y; pos[ptr++] = wb.z;
-            });
-            _skelGeos[h].attributes.position.needsUpdate = true;
-            _skelLines[h].visible = true;
-        }
-        for (let h = hands.length; h < MAX_HANDS; h++) _skelLines[h].visible = false;
+    // Align a cylinder bone between world points pA and pB
+    const _boneUp = new T.Vector3(0, 1, 0);
+    function _alignBone(bone, pA, pB) {
+        const dir = new T.Vector3().subVectors(pB, pA);
+        const len = dir.length();
+        if (len < 1e-4) { bone.visible = false; return; }
+        bone.position.addVectors(pA, pB).multiplyScalar(0.5);
+        bone.scale.y = len;
+        bone.quaternion.setFromUnitVectors(_boneUp, dir.normalize());
+        bone.visible = true;
     }
 
-    // ── Camera (reuse APP.camera stream to prevent double-capture lag) ────────
+    function _updateSkeleton3D(hr) {
+        const noHands = !hr || !hr.multiHandLandmarks || !hr.multiHandLandmarks.length;
+        for (let h = 0; h < MAX_HANDS; h++) {
+            const hasHand = !noHands && h < hr.multiHandLandmarks.length;
+            if (!hasHand) {
+                _skelBones[h].forEach(b => { b.visible = false; });
+                _skelJoints[h].forEach(j => { j.visible = false; });
+                _skelLights[h].forEach(l => { l.intensity = 0; });
+                continue;
+            }
+
+            const lms = hr.multiHandLandmarks[h];
+            // Compute world positions for all 21 landmarks
+            const pts = lms.map(lm => _lm2world(lm));
+
+            // Update joints
+            pts.forEach((wp, j) => {
+                _skelJoints[h][j].position.copy(wp);
+                _skelJoints[h][j].visible = true;
+            });
+
+            // Update bones (cylinder between two joints)
+            HAND_CONNECTIONS.forEach(([a, b], ci) => {
+                _alignBone(_skelBones[h][ci], pts[a], pts[b]);
+            });
+
+            // Update fingertip lights
+            FINGERTIP_IDX.forEach((tipIdx, li) => {
+                _skelLights[h][li].position.copy(pts[tipIdx]);
+                _skelLights[h][li].intensity = 0.28;
+            });
+        }
+    }
+
+    // ── Camera ────────────────────────────────────────────────────────────────
     async function _startCam() {
         _status('CAMERA...');
         _camVideo = document.getElementById('kinetic-cam-video');
@@ -185,7 +258,7 @@ const KineticRack = (() => {
         _camVideo.classList.add('kr-online');
     }
 
-    // ── MediaPipe (throttled to ~20fps) ───────────────────────────────────────
+    // ── MediaPipe (~20fps throttle) ───────────────────────────────────────────
     async function _startHands() {
         _status('LOADING MEDIAPIPE...');
         if (!window.Hands) {
@@ -205,12 +278,42 @@ const KineticRack = (() => {
         let fc = 0;
         const feed = async () => {
             if (!_active) return;
-            if (++fc % 3 === 0 && _camVideo && _camVideo.readyState >= 2) {
+            if (++fc % 3 === 0 && _camVideo && _camVideo.readyState >= 2)
                 await _hands.send({ image: _camVideo }).catch(() => {});
-            }
             requestAnimationFrame(feed);
         };
         feed();
+    }
+
+    // ── Master Audio Chain ────────────────────────────────────────────────────
+    function _buildMasterChain(ctx) {
+        // Glue compressor
+        const comp = ctx.createDynamicsCompressor();
+        comp.threshold.value = -18; comp.ratio.value = 3.5;
+        comp.attack.value = 0.005;  comp.release.value = 0.15;
+        comp.knee.value = 8;
+
+        // Brickwall limiter
+        const limiter = ctx.createDynamicsCompressor();
+        limiter.threshold.value = -2; limiter.ratio.value = 20;
+        limiter.attack.value = 0.001; limiter.release.value = 0.05;
+        limiter.knee.value = 2;
+
+        // Master output gain
+        _masterGainOut = ctx.createGain();
+        _masterGainOut.gain.value = 0.9;
+
+        comp.connect(limiter);
+        limiter.connect(_masterGainOut);
+        _masterGainOut.connect(ctx.destination);
+
+        _masterChainIn = comp;
+        return comp;
+    }
+
+    function _setupRecording(ctx) {
+        _recDest = ctx.createMediaStreamDestination();
+        if (_masterGainOut) _masterGainOut.connect(_recDest); // record after master processing
     }
 
     // ── MIDI ──────────────────────────────────────────────────────────────────
@@ -261,11 +364,7 @@ const KineticRack = (() => {
         }
     }
 
-    // ── Recording engine ──────────────────────────────────────────────────────
-    function _setupRecording(audioCtx) {
-        _recDest = audioCtx.createMediaStreamDestination();
-    }
-
+    // ── Recording ─────────────────────────────────────────────────────────────
     function toggleRecording() {
         if (_recorder && _recorder.state === 'recording') {
             _recorder.stop();
@@ -273,15 +372,13 @@ const KineticRack = (() => {
             document.getElementById('kr-rec-btn')?.classList.remove('kr-recording');
             return;
         }
-        const canvas = document.getElementById('kinetic-canvas');
-        const tracks = [...canvas.captureStream(30).getVideoTracks()];
+        const canvas  = document.getElementById('kinetic-canvas');
+        const tracks  = [...canvas.captureStream(30).getVideoTracks()];
         if (_recDest) tracks.push(..._recDest.stream.getAudioTracks());
-        const mime = MediaRecorder.isTypeSupported('video/webm;codecs=vp9,opus')
+        const mime    = MediaRecorder.isTypeSupported('video/webm;codecs=vp9,opus')
             ? 'video/webm;codecs=vp9,opus' : 'video/webm';
         _recChunks = [];
-        _recorder = new MediaRecorder(new MediaStream(tracks), {
-            mimeType: mime, videoBitsPerSecond: 8_000_000
-        });
+        _recorder  = new MediaRecorder(new MediaStream(tracks), { mimeType: mime, videoBitsPerSecond: 8_000_000 });
         _recorder.ondataavailable = e => { if (e.data.size > 0) _recChunks.push(e.data); };
         _recorder.onstop = () => {
             const url = URL.createObjectURL(new Blob(_recChunks, { type: mime }));
@@ -301,11 +398,14 @@ const KineticRack = (() => {
         const { TetherVerlet }  = await import('./instruments/TetherVerlet.js');
         const ctx = (window.APP && APP.audio && APP.audio.ctx) ? APP.audio.ctx
             : new (window.AudioContext || window.webkitAudioContext)();
+
+        const masterNode = _buildMasterChain(ctx);
         _setupRecording(ctx);
+
         _instruments = {
-            CYBER_HANGDRUM: new CyberHangdrum(_scene, ctx, T, _camera, _recDest),
-            NEURAL_GLITCH:  new NeuralGlitch(_scene, ctx, T, _recDest),
-            TETHER_VERLET:  new TetherVerlet(_scene, ctx, T, _recDest)
+            CYBER_HANGDRUM: new CyberHangdrum(_scene, ctx, T, _camera, masterNode),
+            NEURAL_GLITCH:  new NeuralGlitch(_scene, ctx, T, masterNode),
+            TETHER_VERLET:  new TetherVerlet(_scene, ctx, T, masterNode)
         };
         await Promise.all(Object.values(_instruments).map(i => i.init()));
         _currentInstr = _instruments[_instrName];
@@ -329,7 +429,9 @@ const KineticRack = (() => {
             cancelAnimationFrame(_raf);
             if (_recorder && _recorder.state === 'recording') _recorder.stop();
             Object.values(_instruments).forEach(i => i.deactivate && i.deactivate());
-            _skelLines.forEach(l => { l.visible = false; });
+            _skelBones.forEach(h => h.forEach(b => { b.visible = false; }));
+            _skelJoints.forEach(h => h.forEach(j => { j.visible = false; }));
+            _skelLights.forEach(h => h.forEach(l => { l.intensity = 0; }));
             ['kinetic-canvas','kr-launch-btn','kr-rack','kinetic-cam-video'].forEach(id => {
                 document.getElementById(id)?.classList.remove('kr-online');
             });
@@ -373,8 +475,8 @@ const KineticRack = (() => {
         document.getElementById(ids[name])?.classList.add('kr-sel');
         const tm = document.getElementById('kr-tether-modes');
         if (tm) tm.style.display = name === 'TETHER_VERLET' ? 'flex' : 'none';
-        const hudTitle = document.getElementById('kr-hud-title');
-        if (hudTitle) hudTitle.textContent = name.replace('_', ' ');
+        const ht = document.getElementById('kr-hud-title');
+        if (ht) ht.textContent = name.replace(/_/g, ' ');
         if (_active) _status(name + ' // ONLINE', true);
         _updateHelp(name);
     }

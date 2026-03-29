@@ -25,7 +25,7 @@
     height: calc(100vh - 100px);
     object-fit: cover;
     transform: scaleX(-1);
-    filter: brightness(0.35) contrast(1.2) saturate(0.7);
+    filter: brightness(0.55) contrast(1.15) saturate(1.2);
     z-index: 3499;
     pointer-events: none;
 }
