@@ -1,24 +1,47 @@
 /* ═══ VNGRD KINETIC RACK — CSS ═══════════════════════════════════════════════ */
 
+/* Three.js canvas — alpha:true, transparent, instruments float over video */
 #kinetic-canvas {
     position: fixed;
     top: 45px; left: 200px; right: 200px; bottom: 55px;
     z-index: 3500;
     display: none;
     pointer-events: none;
-    background: #000;
+    /* NO background — transparent, video CSS layer shows through */
 }
 #kinetic-canvas.kr-online { display: block; }
 
+/* Camera feed — CSS layer BEHIND the canvas */
 #kinetic-cam-video {
     position: fixed;
     left: -9999px; top: -9999px;
-    width: 640px; height: 480px;
+    width: 1px; height: 1px;
     pointer-events: none;
+    display: none;
+}
+#kinetic-cam-video.kr-online {
+    display: block;
+    top: 45px; left: 200px; right: 200px; bottom: 55px;
+    width: calc(100vw - 400px);
+    height: calc(100vh - 100px);
+    left: 200px;
+    object-fit: cover;
+    transform: scaleX(-1);   /* mirror — natural for webcam */
+    z-index: 3499;
 }
 
+/* 2D skeleton overlay — drawn on top of Three.js canvas */
+#kinetic-skel {
+    position: fixed;
+    top: 45px; left: 200px; right: 200px; bottom: 55px;
+    z-index: 3501;
+    display: none;
+    pointer-events: none;
+}
+#kinetic-skel.kr-online { display: block; }
+
 /* ── Rack container ── */
-#kr-rack { margin-top: 6px; }
+#kr-rack { margin-top: 6px; position: relative; }
 
 /* ── Launch button ── */
 #kr-launch-btn {
@@ -43,6 +66,22 @@
     box-shadow: 0 0 20px rgba(0,243,255,.3), inset 0 0 12px rgba(0,243,255,.07);
     text-shadow: 0 0 10px rgba(0,243,255,.65);
 }
+
+/* ── Help (?) button ── */
+.kr-help-btn {
+    position: absolute; right: 0; top: 0;
+    width: 16px; height: 16px;
+    font-size: 7px; font-family: 'JetBrains Mono', monospace; font-weight: 700;
+    color: rgba(0,243,255,.35);
+    background: rgba(0,5,10,.5);
+    border: 1px solid rgba(0,243,255,.15);
+    border-radius: 50%;
+    cursor: pointer; padding: 0;
+    display: none; align-items: center; justify-content: center;
+    transition: all .14s ease;
+}
+#kr-rack.kr-online .kr-help-btn { display: flex; }
+.kr-help-btn:hover { color: #00f3ff; border-color: rgba(0,243,255,.5); box-shadow: 0 0 8px rgba(0,243,255,.2); }
 
 /* ── Status line ── */
 #kr-status {
@@ -105,3 +144,123 @@
     border-top-color: rgba(176,0,255,.58);
     text-shadow: 0 0 7px rgba(176,0,255,.5);
 }
+
+/* ── Controls panel (MIDI-assignable sliders) ── */
+#kr-ctrl-panel {
+    display: none;
+    flex-direction: column;
+    gap: 4px;
+    margin-top: 5px;
+    padding: 5px 4px;
+    background: rgba(0,5,10,.3);
+    border: 1px solid rgba(0,243,255,.08);
+    border-top: 1px solid rgba(255,255,255,.07);
+    border-radius: 2px;
+}
+#kr-rack.kr-online #kr-ctrl-panel { display: flex; }
+
+.kr-ctrl-row {
+    display: flex;
+    align-items: center;
+    gap: 4px;
+}
+.kr-ctrl-label {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 6px; letter-spacing: .5px;
+    color: rgba(0,243,255,.35);
+    width: 24px;
+    flex-shrink: 0;
+}
+.kr-ctrl-slider {
+    flex: 1;
+    height: 2px;
+    -webkit-appearance: none;
+    appearance: none;
+    background: rgba(0,243,255,.12);
+    outline: none;
+    border-radius: 1px;
+    cursor: pointer;
+}
+.kr-ctrl-slider::-webkit-slider-thumb {
+    -webkit-appearance: none;
+    appearance: none;
+    width: 9px; height: 9px;
+    border-radius: 50%;
+    background: rgba(0,243,255,.75);
+    cursor: pointer;
+    box-shadow: 0 0 4px rgba(0,243,255,.4);
+}
+.kr-ctrl-slider::-moz-range-thumb {
+    width: 9px; height: 9px;
+    border-radius: 50%;
+    background: rgba(0,243,255,.75);
+    cursor: pointer;
+    border: none;
+}
+.kr-ctrl-learn {
+    width: 13px; height: 13px;
+    font-size: 5.5px; font-family: 'JetBrains Mono', monospace; font-weight: 700;
+    color: rgba(0,243,255,.28);
+    background: rgba(0,5,10,.5);
+    border: 1px solid rgba(0,243,255,.12);
+    border-radius: 1px;
+    cursor: pointer; padding: 0;
+    flex-shrink: 0;
+    display: flex; align-items: center; justify-content: center;
+    transition: all .12s ease;
+}
+.kr-ctrl-learn:hover { color: rgba(0,243,255,.7); border-color: rgba(0,243,255,.3); }
+.kr-ctrl-learn.kr-learning {
+    color: #ff8800;
+    border-color: rgba(255,136,0,.6);
+    box-shadow: 0 0 5px rgba(255,136,0,.3);
+    animation: kr-blink .4s infinite;
+}
+@keyframes kr-blink { 0%,100%{opacity:1} 50%{opacity:.25} }
+
+/* ── Help modal ── */
+#kr-help-modal {
+    position: fixed;
+    top: 55px; left: 210px;
+    width: 250px;
+    background: rgba(0,4,12,.94);
+    backdrop-filter: blur(18px); -webkit-backdrop-filter: blur(18px);
+    border: 1px solid rgba(0,243,255,.22);
+    border-top: 1px solid rgba(255,255,255,.14);
+    border-radius: 3px;
+    z-index: 3620;
+    display: none;
+    flex-direction: column;
+    box-shadow: 0 8px 32px rgba(0,0,0,.6), 0 0 20px rgba(0,243,255,.06);
+}
+#kr-help-modal.kr-visible { display: flex; }
+
+#kr-help-header {
+    display: flex; justify-content: space-between; align-items: center;
+    padding: 7px 9px 5px;
+    border-bottom: 1px solid rgba(0,243,255,.10);
+}
+#kr-help-header span {
+    font-family: 'Orbitron', sans-serif;
+    font-size: 6.5px; font-weight: 700; letter-spacing: 2px;
+    color: rgba(0,243,255,.65);
+}
+#kr-help-header button {
+    background: none; border: none;
+    color: rgba(0,243,255,.4); cursor: pointer;
+    font-size: 9px; line-height: 1; padding: 0;
+    transition: color .12s;
+}
+#kr-help-header button:hover { color: #00f3ff; }
+
+#kr-help-body {
+    padding: 8px 10px 10px;
+}
+.kr-help-line {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 6.5px; letter-spacing: .4px;
+    color: rgba(0,243,255,.52);
+    line-height: 1.8;
+    padding: 0;
+}
+.kr-help-line:empty { height: 4px; }

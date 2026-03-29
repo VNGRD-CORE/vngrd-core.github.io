@@ -5292,6 +5292,7 @@ body.fullscreen #transcription-hud { pointer-events: none !important; } /* keep 
                     <!-- ══ KINETIC RACK ══════════════════════════════════ -->
                     <div id="kr-rack">
                         <button id="kr-launch-btn" onclick="window.KineticRack && KineticRack.toggle()">[ KINETIC RACK ]</button>
+                        <button class="kr-help-btn" onclick="window.KineticRack && KineticRack.toggleHelp()" title="How to play">?</button>
                         <div id="kr-status">OFFLINE</div>
                         <div class="kr-btn-row" id="kr-instr-row">
                             <button class="kr-btn kr-sel" id="kr-btn-cyber-hangdrum"
@@ -5308,6 +5309,32 @@ body.fullscreen #transcription-hud { pointer-events: none !important; } /* keep 
                                 onclick="KineticRack.setTetherMode('CONSTELLATION')">CONST</button>
                             <button class="kr-sub-btn" data-mode="FLOW"
                                 onclick="KineticRack.setTetherMode('FLOW')">FLOW</button>
+                        </div>
+                        <div id="kr-ctrl-panel">
+                            <div class="kr-ctrl-row">
+                                <span class="kr-ctrl-label">VOL</span>
+                                <input type="range" class="kr-ctrl-slider" data-ctrl="vol"
+                                    min="0" max="1" step="0.01" value="0.8"
+                                    oninput="KineticRack.ctrlChange('vol', this.value)">
+                                <button class="kr-ctrl-learn" data-ctrl="vol"
+                                    onclick="KineticRack.midiLearn('vol')">M</button>
+                            </div>
+                            <div class="kr-ctrl-row">
+                                <span class="kr-ctrl-label">RVB</span>
+                                <input type="range" class="kr-ctrl-slider" data-ctrl="reverb"
+                                    min="0" max="1" step="0.01" value="0.5"
+                                    oninput="KineticRack.ctrlChange('reverb', this.value)">
+                                <button class="kr-ctrl-learn" data-ctrl="reverb"
+                                    onclick="KineticRack.midiLearn('reverb')">M</button>
+                            </div>
+                            <div class="kr-ctrl-row">
+                                <span class="kr-ctrl-label">FILT</span>
+                                <input type="range" class="kr-ctrl-slider" data-ctrl="filter"
+                                    min="0" max="1" step="0.01" value="0.5"
+                                    oninput="KineticRack.ctrlChange('filter', this.value)">
+                                <button class="kr-ctrl-learn" data-ctrl="filter"
+                                    onclick="KineticRack.midiLearn('filter')">M</button>
+                            </div>
                         </div>
                     </div>
 
@@ -19989,6 +20016,14 @@ function _applyPoseToModel(lm) {
 <!-- KINETIC RACK — Three.js WebGL canvas + hidden cam -->
 <canvas id="kinetic-canvas"></canvas>
 <video id="kinetic-cam-video" autoplay muted playsinline></video>
+<canvas id="kinetic-skel"></canvas>
+<div id="kr-help-modal">
+    <div id="kr-help-header">
+        <span>HOW TO PLAY</span>
+        <button onclick="window.KineticRack && KineticRack.toggleHelp()">✕</button>
+    </div>
+    <div id="kr-help-body"></div>
+</div>
 <script type="module" src="./src/kinetic-rack/KineticRack.js"></script>
 
 </body>

@@ -3,21 +3,21 @@
 // No THREE static imports — receives T (THREE namespace) as constructor arg
 
 // Classic hangdrum: 1 center Ding + 8 tonefields in ring
-const R = 0.21; // ring radius in normalized screen space
-const CX = 0.5, CY = 0.5; // center of hangdrum on screen
+const R = 0.28; // ring radius in normalized screen space — wider spacing
+const CX = 0.5, CY = 0.72; // lower screen where hands naturally rest
 
 function ringPad(angle, note, freq, color) {
     return {
         cx: CX + R * Math.cos(angle),
         cy: CY + R * Math.sin(angle),
         freq, note, color,
-        hitR: 0.07   // hit radius
+        hitR: 0.09   // hit radius
     };
 }
 
 const PADS = [
     // Center Ding (D3 - deep bass)
-    { cx: CX, cy: CY, freq: 146.83, note: 'D3', color: 0x00ffcc, hitR: 0.10, isCenter: true },
+    { cx: CX, cy: CY, freq: 146.83, note: 'D3', color: 0x00ffcc, hitR: 0.12, isCenter: true },
     // Ring — 8 pads clockwise from top
     ringPad(-Math.PI/2,        'A3',  220.00, 0x00ccff),   // top
     ringPad(-Math.PI/2 + Math.PI/4, 'Bb3', 233.08, 0x4488ff),
