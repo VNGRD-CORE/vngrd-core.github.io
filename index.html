@@ -5289,16 +5289,32 @@ body.fullscreen #transcription-hud { pointer-events: none !important; } /* keep 
                     <div id="sfx-midi-arm" style="font-size:7px;color:var(--text-dim);margin-top:6px;text-align:center;letter-spacing:1px;"></div>
                     </div><!-- /sfx-pad-body -->
 
-                    <!-- ══ NEURAL TETHER ═════════════════════════════════ -->
+                    <!-- ══ KINETIC RACK ══════════════════════════════════ -->
                     <div id="kr-rack">
-                        <button id="kr-launch-btn" onclick="window.KineticRack && KineticRack.toggle()">[ NEURAL TETHER ]</button>
+                        <button id="kr-launch-btn" onclick="window.KineticRack && KineticRack.toggle()">[ KINETIC RACK ]</button>
                         <button class="kr-help-btn" onclick="window.KineticRack && KineticRack.toggleHelp()" title="How to play">?</button>
                         <div id="kr-status">OFFLINE</div>
+                        <div class="kr-btn-row" id="kr-instr-row">
+                            <button class="kr-btn" id="kr-btn-cyber-hangdrum"
+                                onclick="KineticRack.setInstrument('CYBER_HANGDRUM')">DRUM</button>
+                            <button class="kr-btn" id="kr-btn-neural-glitch"
+                                onclick="KineticRack.setInstrument('NEURAL_GLITCH')">GLITCH</button>
+                            <button class="kr-btn kr-sel" id="kr-btn-tether-verlet"
+                                onclick="KineticRack.setInstrument('TETHER_VERLET')">TETHER</button>
+                        </div>
+                        <div id="kr-tether-modes">
+                            <button class="kr-sub-btn kr-sel" data-mode="CORE"
+                                onclick="KineticRack.setTetherMode('CORE')">CORE</button>
+                            <button class="kr-sub-btn" data-mode="CONSTELLATION"
+                                onclick="KineticRack.setTetherMode('CONSTELLATION')">CONST</button>
+                            <button class="kr-sub-btn" data-mode="FLOW"
+                                onclick="KineticRack.setTetherMode('FLOW')">FLOW</button>
+                        </div>
                     </div>
 
-                    <!-- Floating HUD — VOL + TENSION, MIDI-assignable -->
+                    <!-- Floating glassmorphism HUD (renders over stage when online) -->
                     <div id="kr-stage-hud">
-                        <div id="kr-hud-title">NEURAL TETHER</div>
+                        <div id="kr-hud-title">TETHER VERLET</div>
                         <div class="kr-ctrl-row">
                             <span class="kr-ctrl-label">VOL</span>
                             <input type="range" class="kr-ctrl-slider" data-ctrl="vol"
@@ -5308,12 +5324,20 @@ body.fullscreen #transcription-hud { pointer-events: none !important; } /* keep 
                                 onclick="KineticRack.midiLearn('vol')">M</button>
                         </div>
                         <div class="kr-ctrl-row">
-                            <span class="kr-ctrl-label">TENSION</span>
-                            <input type="range" class="kr-ctrl-slider" data-ctrl="tension"
+                            <span class="kr-ctrl-label">RVB</span>
+                            <input type="range" class="kr-ctrl-slider" data-ctrl="reverb"
                                 min="0" max="1" step="0.01" value="0.5"
-                                oninput="KineticRack.ctrlChange('tension', this.value)">
-                            <button class="kr-ctrl-learn" data-ctrl="tension"
-                                onclick="KineticRack.midiLearn('tension')">M</button>
+                                oninput="KineticRack.ctrlChange('reverb', this.value)">
+                            <button class="kr-ctrl-learn" data-ctrl="reverb"
+                                onclick="KineticRack.midiLearn('reverb')">M</button>
+                        </div>
+                        <div class="kr-ctrl-row">
+                            <span class="kr-ctrl-label">FILT</span>
+                            <input type="range" class="kr-ctrl-slider" data-ctrl="filter"
+                                min="0" max="1" step="0.01" value="0.5"
+                                oninput="KineticRack.ctrlChange('filter', this.value)">
+                            <button class="kr-ctrl-learn" data-ctrl="filter"
+                                onclick="KineticRack.midiLearn('filter')">M</button>
                         </div>
                         <button id="kr-rec-btn" onclick="window.KineticRack && KineticRack.toggleRecording()">⏺ REC</button>
                     </div>
@@ -19995,7 +20019,7 @@ function _applyPoseToModel(lm) {
 
 <!-- NEURAL TETHER — Three.js WebGL canvas + 4K camera feed -->
 <canvas id="kinetic-canvas"></canvas>
-<video id="video-preview" autoplay muted playsinline></video>
+<video id="kinetic-cam-video" autoplay muted playsinline></video>
 <div id="kr-help-modal">
     <div id="kr-help-header">
         <span>HOW TO PLAY</span>
