@@ -49,17 +49,6 @@ const PAD_DEFS = [
 
 const ALL_TIPS = [4, 8, 12, 16, 20];
 
-// Build a hexagon Shape for ExtrudeGeometry
-function _hexShape(r) {
-    const s = new THREE_placeholder.Shape();
-    for (let i = 0; i < 6; i++) {
-        const a = (i / 6) * Math.PI * 2 + Math.PI / 6; // flat-top hex
-        const x = Math.cos(a) * r, y = Math.sin(a) * r;
-        i === 0 ? s.moveTo(x, y) : s.lineTo(x, y);
-    }
-    s.closePath();
-    return s;
-}
 
 export class CyberHangdrum {
     constructor(scene, audioCtx, THREE, camera, masterDest) {
