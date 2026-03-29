@@ -100,12 +100,10 @@ const KineticRack = (() => {
         _clock = new T.Clock();
 
         // Scene lights — drive MeshPhysicalMaterial reflections + chrome skeleton
-        _scene.add(
-            new T.AmbientLight(0x0a0f22, 1.2),
-            Object.assign(new T.DirectionalLight(0x00f3ff, 0.55), { position: new T.Vector3(3, 4, 5) }),
-            Object.assign(new T.DirectionalLight(0xff00cc, 0.35), { position: new T.Vector3(-4, 2, 3) }),
-            Object.assign(new T.DirectionalLight(0x4488ff, 0.25), { position: new T.Vector3(0, 8, 2) })
-        );
+        const _rim1 = new T.DirectionalLight(0x00f3ff, 0.55); _rim1.position.set( 3,  4, 5);
+        const _rim2 = new T.DirectionalLight(0xff00cc, 0.35); _rim2.position.set(-4,  2, 3);
+        const _top  = new T.DirectionalLight(0x4488ff, 0.25); _top.position.set(  0,  8, 2);
+        _scene.add(new T.AmbientLight(0x0a0f22, 1.2), _rim1, _rim2, _top);
 
         window.addEventListener('resize', () => {
             const { W: w, H: h } = _stageSize();
