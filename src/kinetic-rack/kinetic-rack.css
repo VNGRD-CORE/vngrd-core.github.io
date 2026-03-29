@@ -1,6 +1,6 @@
-/* ═══ VNGRD KINETIC RACK — CSS ═══════════════════════════════════════════════ */
+/* ═══ NEURAL TETHER — kinetic-rack.css ══════════════════════════════════════ */
 
-/* Three.js canvas — alpha:true, fully transparent, instruments float above dark camera */
+/* Three.js canvas — transparent overlay; #video-preview provides the 4K background */
 #kinetic-canvas {
     position: fixed;
     top: 45px; left: 200px; right: 200px; bottom: 55px;
@@ -10,33 +10,34 @@
 }
 #kinetic-canvas.kr-online { display: block; }
 
-/* Camera feed — dark cinema mode: room disappears, neon instruments pop */
-#kinetic-cam-video {
+/* 4K Camera feed — darkened, full-bleed, behind the 3D scene */
+#video-preview {
     position: fixed;
     left: -9999px; top: -9999px;
     width: 1px; height: 1px;
     pointer-events: none;
     display: none;
 }
-#kinetic-cam-video.kr-online {
+#video-preview.kr-online {
     display: block;
     top: 45px; left: 200px;
-    width: calc(100vw - 400px);
+    width:  calc(100vw - 400px);
     height: calc(100vh - 100px);
     object-fit: cover;
     transform: scaleX(-1);
-    filter: brightness(0.55) contrast(1.15) saturate(1.2);
+    filter: brightness(0.55) saturate(1.2);
     z-index: 3499;
     pointer-events: none;
 }
 
-/* ── Rack container (sidebar) ── */
+/* ── Rack container (sidebar) ───────────────────────────────────────────── */
 #kr-rack { margin-top: 6px; position: relative; }
 
-/* ── Launch button ── */
+/* ── Launch button ───────────────────────────────────────────────────────── */
 #kr-launch-btn {
     display: block; width: 100%; padding: 6px 4px;
-    font-family: 'Orbitron', sans-serif; font-size: 7.5px; font-weight: 700; letter-spacing: 2px;
+    font-family: 'Orbitron', sans-serif;
+    font-size: 7.5px; font-weight: 700; letter-spacing: 2px;
     color: rgba(0,243,255,.6);
     background: rgba(0,5,10,.4);
     backdrop-filter: blur(8px); -webkit-backdrop-filter: blur(8px);
@@ -54,7 +55,7 @@
     text-shadow: 0 0 10px rgba(0,243,255,.65);
 }
 
-/* ── Help (?) button ── */
+/* ── Help (?) button ─────────────────────────────────────────────────────── */
 .kr-help-btn {
     position: absolute; right: 0; top: 0;
     width: 16px; height: 16px;
@@ -62,15 +63,13 @@
     color: rgba(0,243,255,.35);
     background: rgba(0,5,10,.5);
     border: 1px solid rgba(0,243,255,.15);
-    border-radius: 50%;
-    cursor: pointer; padding: 0;
-    display: none; align-items: center; justify-content: center;
-    transition: all .14s;
+    border-radius: 50%; cursor: pointer; padding: 0;
+    display: none; align-items: center; justify-content: center; transition: all .14s;
 }
 #kr-rack.kr-online .kr-help-btn { display: flex; }
 .kr-help-btn:hover { color: #00f3ff; border-color: rgba(0,243,255,.5); box-shadow: 0 0 8px rgba(0,243,255,.2); }
 
-/* ── Status line ── */
+/* ── Status line ─────────────────────────────────────────────────────────── */
 #kr-status {
     font-size: 6.5px; color: rgba(0,243,255,.25); letter-spacing: 1px;
     text-align: center; padding: 3px 0;
@@ -78,108 +77,64 @@
 }
 #kr-status.kr-live { color: rgba(0,255,136,.65); }
 
-/* ── Instrument row ── */
-#kr-instr-row { display: none; gap: 3px; margin-top: 3px; }
-#kr-rack.kr-online #kr-instr-row { display: flex; }
-
-.kr-btn {
-    flex: 1; padding: 5px 3px;
-    font-family: 'JetBrains Mono', monospace; font-size: 7px; letter-spacing: .8px;
-    color: rgba(0,243,255,.4);
-    background: rgba(0,5,10,.4);
-    backdrop-filter: blur(8px); -webkit-backdrop-filter: blur(8px);
-    border: 1px solid rgba(255,255,255,.06);
-    border-top: 1px solid rgba(255,255,255,.14);
-    border-left: 1px solid rgba(255,255,255,.09);
-    border-radius: 2px; cursor: pointer; text-align: center; transition: all .14s;
-}
-.kr-btn:hover { color: #00f3ff; border-color: rgba(0,243,255,.28); }
-.kr-btn.kr-sel {
-    color: #00f3ff; background: rgba(0,22,38,.78);
-    border-top-color: rgba(0,243,255,.62); border-left-color: rgba(0,243,255,.28);
-    box-shadow: 0 0 12px rgba(0,243,255,.18); text-shadow: 0 0 8px rgba(0,243,255,.55);
-}
-
-/* ── Tether sub-modes ── */
-#kr-tether-modes {
-    display: none; gap: 2px; margin-top: 3px;
-    padding-left: 6px; border-left: 1px solid rgba(176,0,255,.18);
-}
-.kr-sub-btn {
-    flex: 1; padding: 4px 2px;
-    font-family: 'JetBrains Mono', monospace; font-size: 6.5px; letter-spacing: .5px;
-    color: rgba(176,0,255,.42); background: rgba(5,0,12,.35);
-    backdrop-filter: blur(8px); -webkit-backdrop-filter: blur(8px);
-    border: 1px solid rgba(255,255,255,.05);
-    border-top: 1px solid rgba(255,255,255,.10);
-    border-radius: 2px; cursor: pointer; text-align: center; transition: all .12s;
-}
-.kr-sub-btn:hover { color: #b000ff; }
-.kr-sub-btn.kr-sel { color: #b000ff; border-top-color: rgba(176,0,255,.58); text-shadow: 0 0 7px rgba(176,0,255,.5); }
-
-/* ═══ FLOATING GLASSMORPHISM HUD (over stage) ════════════════════════════════ */
+/* ═══ FLOATING HUD (Neural Tether controls) ══════════════════════════════════ */
 #kr-stage-hud {
     position: fixed;
-    bottom: 65px;
-    left: 215px;
+    bottom: 65px; left: 215px;
     z-index: 3550;
-    display: none;
-    flex-direction: column;
-    gap: 5px;
+    display: none; flex-direction: column; gap: 5px;
     padding: 10px 14px 12px;
-    background: rgba(0,4,12,.74);
+    background: rgba(0,4,12,.76);
     backdrop-filter: blur(24px) saturate(1.8);
     -webkit-backdrop-filter: blur(24px) saturate(1.8);
     border: 1px solid rgba(0,243,255,.15);
     border-top: 1px solid rgba(255,255,255,.14);
     border-left: 1px solid rgba(255,255,255,.07);
-    border-radius: 4px;
-    min-width: 196px;
-    box-shadow: 0 8px 48px rgba(0,0,0,.8), 0 0 30px rgba(0,243,255,.04);
+    border-radius: 4px; min-width: 196px;
+    box-shadow: 0 8px 48px rgba(0,0,0,.82), 0 0 30px rgba(0,243,255,.05);
     pointer-events: all;
 }
-#kr-rack.kr-online #kr-stage-hud { display: flex; }
+#kr-stage-hud.kr-live { display: flex; }
 
 #kr-hud-title {
     font-family: 'Orbitron', sans-serif;
     font-size: 7px; font-weight: 700; letter-spacing: 2.5px;
-    color: rgba(0,243,255,.55);
+    color: rgba(0,243,255,.6);
     padding-bottom: 5px;
     border-bottom: 1px solid rgba(0,243,255,.10);
     text-transform: uppercase;
 }
 
-/* ── Controls (shared sidebar + HUD) ── */
+/* ── Control rows ────────────────────────────────────────────────────────── */
 .kr-ctrl-row { display: flex; align-items: center; gap: 4px; }
 
 .kr-ctrl-label {
     font-family: 'JetBrains Mono', monospace;
     font-size: 6px; letter-spacing: .5px;
-    color: rgba(0,243,255,.35);
-    width: 24px; flex-shrink: 0;
+    color: rgba(0,243,255,.35); width: 32px; flex-shrink: 0;
 }
 
 .kr-ctrl-slider {
     flex: 1; height: 2px;
     -webkit-appearance: none; appearance: none;
-    background: rgba(0,243,255,.12); outline: none; border-radius: 1px; cursor: pointer;
+    background: rgba(0,243,255,.12); outline: none;
+    border-radius: 1px; cursor: pointer;
 }
 .kr-ctrl-slider::-webkit-slider-thumb {
     -webkit-appearance: none; appearance: none;
     width: 10px; height: 10px; border-radius: 50%;
-    background: rgba(0,243,255,.78); cursor: pointer;
-    box-shadow: 0 0 5px rgba(0,243,255,.45);
+    background: rgba(0,243,255,.82); cursor: pointer;
+    box-shadow: 0 0 6px rgba(0,243,255,.5);
 }
 .kr-ctrl-slider::-moz-range-thumb {
     width: 10px; height: 10px; border-radius: 50%;
-    background: rgba(0,243,255,.78); cursor: pointer; border: none;
+    background: rgba(0,243,255,.82); cursor: pointer; border: none;
 }
 
 .kr-ctrl-learn {
     width: 14px; height: 14px;
     font-size: 5.5px; font-family: 'JetBrains Mono', monospace; font-weight: 700;
-    color: rgba(0,243,255,.28);
-    background: rgba(0,5,10,.55);
+    color: rgba(0,243,255,.28); background: rgba(0,5,10,.55);
     border: 1px solid rgba(0,243,255,.12);
     border-radius: 1px; cursor: pointer; padding: 0; flex-shrink: 0;
     display: flex; align-items: center; justify-content: center; transition: all .12s;
@@ -191,12 +146,12 @@
     animation: kr-blink .4s infinite;
 }
 
-/* ── Record button ── */
+/* ── Record button ───────────────────────────────────────────────────────── */
 #kr-rec-btn {
     margin-top: 3px; padding: 5px 6px;
-    font-family: 'JetBrains Mono', monospace; font-size: 6.5px; letter-spacing: 1.5px;
-    color: rgba(255,55,55,.65);
-    background: rgba(8,0,0,.45);
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 6.5px; letter-spacing: 1.5px;
+    color: rgba(255,55,55,.65); background: rgba(8,0,0,.45);
     border: 1px solid rgba(255,55,55,.2);
     border-radius: 2px; cursor: pointer; text-align: center; transition: all .14s;
 }
@@ -210,21 +165,17 @@
 
 @keyframes kr-blink { 0%,100%{opacity:1} 50%{opacity:.25} }
 
-/* ═══ HELP MODAL ═════════════════════════════════════════════════════════════ */
+/* ═══ HELP MODAL ══════════════════════════════════════════════════════════════ */
 #kr-help-modal {
-    position: fixed;
-    top: 55px; left: 210px;
-    width: 258px;
+    position: fixed; top: 55px; left: 210px; width: 272px;
     background: rgba(0,4,12,.94);
     backdrop-filter: blur(20px); -webkit-backdrop-filter: blur(20px);
     border: 1px solid rgba(0,243,255,.22);
     border-top: 1px solid rgba(255,255,255,.14);
-    border-radius: 3px;
-    z-index: 3620;
+    border-radius: 3px; z-index: 3620;
     display: none; flex-direction: column;
     box-shadow: 0 8px 40px rgba(0,0,0,.65), 0 0 22px rgba(0,243,255,.05);
 }
-#kr-help-modal.kr-visible { display: flex; }
 #kr-help-header {
     display: flex; justify-content: space-between; align-items: center;
     padding: 7px 9px 5px;
@@ -244,5 +195,5 @@
 .kr-help-line {
     font-family: 'JetBrains Mono', monospace;
     font-size: 6.5px; letter-spacing: .4px;
-    color: rgba(0,243,255,.52); line-height: 1.85;
+    color: rgba(0,243,255,.52); line-height: 1.9;
 }
