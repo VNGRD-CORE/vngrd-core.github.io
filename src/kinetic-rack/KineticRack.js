@@ -1,12 +1,4 @@
-import * as THREE from 'three';
-import { EffectComposer }  from 'three/addons/postprocessing/EffectComposer.js';
-import { RenderPass }      from 'three/addons/postprocessing/RenderPass.js';
-import { UnrealBloomPass } from 'three/addons/postprocessing/UnrealBloomPass.js';
-import { ShaderPass }      from 'three/addons/postprocessing/ShaderPass.js';
-import { GammaCorrectionShader } from 'three/addons/shaders/GammaCorrectionShader.js';
-import { CyberHangdrum }   from './instruments/CyberHangdrum.js';
-import { NeuralGlitch }    from './instruments/NeuralGlitch.js';
-import { TetherVerlet }    from './instruments/TetherVerlet.js';
+// KineticRack — dynamic imports, no static deps, sets window.KineticRack immediately
 
 // ── AR Void shaders ────────────────────────────────────────────────────────────
 const VOID_VERT = `varying vec2 vUv;
@@ -26,8 +18,8 @@ void main(){
     gl_FragColor=vec4(phantomGrade(cam.rgb),1.0);
 }`;
 
-// ── Singleton ──────────────────────────────────────────────────────────────────
 const KineticRack = (() => {
+    let T   // THREE namespace
     let _renderer, _scene, _camera, _composer, _clock;
     let _bgMesh, _bgUniforms, _videoTex;
     let _camVideo, _hands, _handsResults;
@@ -41,40 +33,54 @@ const KineticRack = (() => {
         el.classList.toggle('kr-live', !!live);
     }
 
-    function _getStageSize() {
-        return {
-            W: window.innerWidth  - 400,   // left:200 + right:200
-            H: window.innerHeight - 100    // top:45  + bottom:55
+    async function _loadDeps() {
+        _status('LOADING THREE.JS...');
+        T = await import('three');
+        const { EffectComposer }  = await import('three/addons/postprocessing/EffectComposer.js');
+        const { RenderPass }      = await import('three/addons/postprocessing/RenderPass.js');
+        const { UnrealBloomPass } = await import('three/addons/postprocessing/UnrealBloomPass.js');
+        const { ShaderPass }      = await import('three/addons/postprocessing/ShaderPass.js');
+
+        // Simple linear→sRGB pass (inline, no external file dep)
+        const GammaShader = {
+            uniforms: { tDiffuse: { value: null } },
+            vertexShader:   `varying vec2 vUv; void main(){ vUv=uv; gl_Position=projectionMatrix*modelViewMatrix*vec4(position,1.0); }`,
+            fragmentShader: `uniform sampler2D tDiffuse; varying vec2 vUv;
+                void main(){ vec4 c=texture2D(tDiffuse,vUv); gl_FragColor=vec4(pow(max(c.rgb,vec3(0.0)),vec3(1.0/2.2)),c.a); }`
         };
+
+        return { EffectComposer, RenderPass, UnrealBloomPass, ShaderPass, GammaShader };
     }
 
-    function _setup() {
-        const canvas = document.getElementById('kinetic-canvas');
-        const { W, H } = _getStageSize();
+    function _stageSize() {
+        return { W: window.innerWidth - 400, H: window.innerHeight - 100 };
+    }
 
-        _renderer = new THREE.WebGLRenderer({ canvas, antialias: false, alpha: false });
+    function _setup({ EffectComposer, RenderPass, UnrealBloomPass, ShaderPass, GammaShader }) {
+        const canvas = document.getElementById('kinetic-canvas');
+        const { W, H } = _stageSize();
+
+        _renderer = new T.WebGLRenderer({ canvas, antialias: false, alpha: false });
         _renderer.setPixelRatio(Math.min(window.devicePixelRatio, 1.5));
         _renderer.setSize(W, H);
-        _renderer.outputColorSpace = THREE.SRGBColorSpace;
-        _renderer.toneMapping = THREE.ACESFilmicToneMapping;
+        _renderer.outputColorSpace = T.SRGBColorSpace;
+        _renderer.toneMapping = T.ACESFilmicToneMapping;
         _renderer.toneMappingExposure = 1.1;
 
-        _camera = new THREE.PerspectiveCamera(60, W / H, 0.1, 200);
+        _camera = new T.PerspectiveCamera(60, W / H, 0.1, 200);
         _camera.position.set(0, 0, 5);
 
-        _scene = new THREE.Scene();
-        _scene.background = new THREE.Color(0x000000);
-        _clock = new THREE.Clock();
+        _scene = new T.Scene();
+        _scene.background = new T.Color(0x000000);
+        _clock = new T.Clock();
 
         _composer = new EffectComposer(_renderer);
         _composer.addPass(new RenderPass(_scene, _camera));
-        const bloom = new UnrealBloomPass(new THREE.Vector2(W, H), 1.8, 0.5, 0.15);
-        _composer.addPass(bloom);
-        _composer.addPass(new ShaderPass(GammaCorrectionShader));
+        _composer.addPass(new UnrealBloomPass(new T.Vector2(W, H), 1.8, 0.5, 0.15));
+        _composer.addPass(new ShaderPass(GammaShader));
 
         window.addEventListener('resize', () => {
-            if (!_renderer) return;
-            const { W: w, H: h } = _getStageSize();
+            const { W: w, H: h } = _stageSize();
             _renderer.setSize(w, h);
             _camera.aspect = w / h;
             _camera.updateProjectionMatrix();
@@ -85,13 +91,13 @@ const KineticRack = (() => {
 
     function _buildBg(W, H) {
         if (_bgMesh) { _scene.remove(_bgMesh); _bgMesh.geometry.dispose(); _bgMesh.material.dispose(); }
-        const dist  = _camera.position.z + 5; // camera z=5, plane z=-5
-        const halfH = Math.tan(THREE.MathUtils.degToRad(30)) * dist;
+        const dist  = 10; // camera z=5, plane z=-5
+        const halfH = Math.tan(T.MathUtils.degToRad(30)) * dist;
         const halfW = halfH * (W / H);
         _bgUniforms = { uCam: { value: _videoTex }, uTime: { value: 0 } };
-        _bgMesh = new THREE.Mesh(
-            new THREE.PlaneGeometry(halfW * 2 + 2, halfH * 2 + 2),
-            new THREE.ShaderMaterial({ uniforms: _bgUniforms, vertexShader: VOID_VERT, fragmentShader: VOID_FRAG, depthWrite: false })
+        _bgMesh = new T.Mesh(
+            new T.PlaneGeometry(halfW * 2 + 2, halfH * 2 + 2),
+            new T.ShaderMaterial({ uniforms: _bgUniforms, vertexShader: VOID_VERT, fragmentShader: VOID_FRAG, depthWrite: false })
         );
         _bgMesh.position.z = -5;
         _bgMesh.renderOrder = -1;
@@ -99,23 +105,26 @@ const KineticRack = (() => {
     }
 
     async function _startCam() {
+        _status('CAMERA...');
         _camVideo = document.getElementById('kinetic-cam-video');
-        const stream = await navigator.mediaDevices.getUserMedia({ video: { width: 1280, height: 720, facingMode: 'user' }, audio: false });
+        const stream = await navigator.mediaDevices.getUserMedia({ video: { width: 1280, height: 720 }, audio: false });
         _camVideo.srcObject = stream;
         await _camVideo.play();
-        _videoTex = new THREE.VideoTexture(_camVideo);
-        _videoTex.colorSpace = THREE.SRGBColorSpace;
+        _videoTex = new T.VideoTexture(_camVideo);
+        _videoTex.colorSpace = T.SRGBColorSpace;
     }
 
     async function _startHands() {
-        await new Promise((res, rej) => {
-            if (window.Hands) return res();
-            const s = document.createElement('script');
-            s.src = 'https://cdn.jsdelivr.net/npm/@mediapipe/hands/hands.js';
-            s.crossOrigin = 'anonymous';
-            s.onload = res; s.onerror = rej;
-            document.head.appendChild(s);
-        });
+        _status('LOADING MEDIAPIPE...');
+        if (!window.Hands) {
+            await new Promise((res, rej) => {
+                const s = document.createElement('script');
+                s.src = 'https://cdn.jsdelivr.net/npm/@mediapipe/hands/hands.js';
+                s.crossOrigin = 'anonymous';
+                s.onload = res; s.onerror = rej;
+                document.head.appendChild(s);
+            });
+        }
         _hands = new window.Hands({ locateFile: f => `https://cdn.jsdelivr.net/npm/@mediapipe/hands/${f}` });
         _hands.setOptions({ maxNumHands: 2, modelComplexity: 1, minDetectionConfidence: 0.7, minTrackingConfidence: 0.5 });
         _hands.onResults(r => { _handsResults = r; });
@@ -128,11 +137,18 @@ const KineticRack = (() => {
     }
 
     async function _buildInstruments() {
-        const ctx = (window.APP && APP.audio && APP.audio.ctx) ? APP.audio.ctx : new (window.AudioContext || window.webkitAudioContext)();
+        _status('LOADING INSTRUMENTS...');
+        const { CyberHangdrum } = await import('./instruments/CyberHangdrum.js');
+        const { NeuralGlitch }  = await import('./instruments/NeuralGlitch.js');
+        const { TetherVerlet }  = await import('./instruments/TetherVerlet.js');
+
+        const ctx = (window.APP && APP.audio && APP.audio.ctx) ? APP.audio.ctx
+            : new (window.AudioContext || window.webkitAudioContext)();
+
         _instruments = {
-            CYBER_HANGDRUM: new CyberHangdrum(_scene, ctx),
-            NEURAL_GLITCH:  new NeuralGlitch(_scene, ctx),
-            TETHER_VERLET:  new TetherVerlet(_scene, ctx)
+            CYBER_HANGDRUM: new CyberHangdrum(_scene, ctx, T),
+            NEURAL_GLITCH:  new NeuralGlitch(_scene, ctx, T),
+            TETHER_VERLET:  new TetherVerlet(_scene, ctx, T)
         };
         await Promise.all(Object.values(_instruments).map(i => i.init()));
         _currentInstr = _instruments[_instrName];
@@ -148,7 +164,6 @@ const KineticRack = (() => {
         _composer.render();
     }
 
-    // ── Public ─────────────────────────────────────────────────────────────────
     async function toggle() {
         if (_active) {
             _active = false;
@@ -160,27 +175,27 @@ const KineticRack = (() => {
             _status('OFFLINE');
             return;
         }
+
         _active = true;
-        _status('INIT CAMERA...');
+        document.getElementById('kr-launch-btn').classList.add('kr-online');
         try {
+            const deps = await _loadDeps();
             await _startCam();
             _status('BUILDING PIPELINE...');
-            _setup();
-            const { W, H } = _getStageSize();
+            _setup(deps);
+            const { W, H } = _stageSize();
             _buildBg(W, H);
-            _status('LOADING INSTRUMENTS...');
             await _buildInstruments();
-            _status('LOADING HANDS...');
             await _startHands();
             document.getElementById('kinetic-canvas').classList.add('kr-online');
-            document.getElementById('kr-launch-btn').classList.add('kr-online');
             document.getElementById('kr-rack').classList.add('kr-online');
             _status(_instrName + ' // ONLINE', true);
             _loop();
         } catch (e) {
             console.error('[KineticRack]', e);
-            _status('ERROR: ' + e.message);
+            _status('ERR: ' + e.message.slice(0, 40));
             _active = false;
+            document.getElementById('kr-launch-btn').classList.remove('kr-online');
         }
     }
 
@@ -193,7 +208,8 @@ const KineticRack = (() => {
         document.querySelectorAll('.kr-btn').forEach(b => b.classList.remove('kr-sel'));
         const ids = { CYBER_HANGDRUM: 'kr-btn-cyber-hangdrum', NEURAL_GLITCH: 'kr-btn-neural-glitch', TETHER_VERLET: 'kr-btn-tether-verlet' };
         document.getElementById(ids[name])?.classList.add('kr-sel');
-        document.getElementById('kr-tether-modes').style.display = name === 'TETHER_VERLET' ? 'flex' : 'none';
+        const tm = document.getElementById('kr-tether-modes');
+        if (tm) tm.style.display = name === 'TETHER_VERLET' ? 'flex' : 'none';
         if (_active) _status(name + ' // ONLINE', true);
     }
 
