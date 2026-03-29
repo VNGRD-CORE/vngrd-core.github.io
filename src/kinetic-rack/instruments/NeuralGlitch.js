@@ -1,169 +1,88 @@
-// NeuralGlitch — Hand-controlled IDM/industrial glitch machine
-// NO auto-loop. Each gesture triggers specific sounds.
-// Right hand: wrist height = filter, pinch = effect depth
-// Left hand: each finger triggers a different industrial sound
+// NeuralGlitch — Gesture-Commanded IDM Machine
+// THREE precise gestures → THREE distinct sound textures. Zero random triggers.
+//
+// PINCH  (index+thumb close)   → Bitcrush depth — continuous, progressive
+// FIST   (all fingers closed)  → LP filter close + Sub-bass hit
+// PALM   (hand fully open)     → Reverb wash / spectral shimmer
+// Right wrist height           → Master filter cutoff (always active)
 
 const SPHERE_VERT = `
-uniform float uTime; uniform float uDisplace; uniform float uBeat;
+uniform float uTime; uniform float uMorph; uniform float uBeat;
 varying vec3 vNormal; varying float vNoise;
-float hash(vec3 p){ p=fract(p*vec3(443.8975,397.2973,491.1871)); p+=dot(p.zxy,p.yxz+19.19); return fract(p.x*p.y*p.z); }
+float h31(vec3 p){ p=fract(p*vec3(443.8975,397.2973,491.1871)); p+=dot(p.zxy,p.yxz+19.19); return fract(p.x*p.y*p.z); }
 void main(){
     vNormal = normalMatrix * normal;
     vec3 pos = position;
-    // Subtle procedural displacement — controlled by uDisplace, NOT constant
-    float n = hash(pos * 1.8 + uTime * 0.3) * uDisplace;
-    n += uBeat * 0.4 * sin(pos.y * 6.0 + uTime * 10.0);
+    float n = h31(pos * 2.2 + uTime * 0.2) * uMorph * 0.85;
+    n += uBeat * 0.6 * sin(pos.y * 8.0 + uTime * 12.0);
     pos *= 1.0 + n;
     vNoise = n;
     gl_Position = projectionMatrix * modelViewMatrix * vec4(pos, 1.0);
 }`;
 
 const SPHERE_FRAG = `
-uniform float uTime; uniform float uBeat; uniform float uCutoff; uniform float uDisplace;
+uniform float uTime; uniform float uBeat; uniform float uCutoff;
+uniform float uMorph; uniform float uPinch; uniform float uReverb;
 varying vec3 vNormal; varying float vNoise;
 void main(){
     vec3 N = normalize(vNormal);
-    // Dark base that only glows on beat — prevents white blowout
-    float rim = pow(1.0 - abs(dot(N, vec3(0.0,0.0,1.0))), 2.8);
-    vec3 dark  = vec3(0.02, 0.04, 0.08);
-    vec3 glitch = mix(vec3(0.0, 0.5, 0.9), vec3(0.9, 0.0, 0.7), vNoise * 4.0);
-    glitch = mix(glitch, vec3(1.0, 0.4, 0.0), uCutoff);
-    // Only light up on rim + beat flash — rest stays dark
-    vec3 col = dark + rim * glitch * (0.6 + uBeat * 1.5);
-    col += glitch * uBeat * 0.4;  // inner flash on beat
-    // Hard cap to prevent bloom blowout
-    col = min(col, vec3(1.8));
+    float rim = pow(1.0 - abs(dot(N, vec3(0.0,0.0,1.0))), 2.5);
+    vec3 dark = vec3(0.01, 0.02, 0.05);
+    // Pinch → cyan-to-orange crush palette
+    vec3 crushCol = mix(vec3(0.0, 0.65, 1.0), vec3(1.0, 0.28, 0.0), uPinch);
+    // Reverb → purple shimmer
+    vec3 washCol = mix(vec3(0.5, 0.0, 1.0), vec3(0.0, 1.0, 0.8), uReverb);
+    vec3 glitch = mix(crushCol, washCol, uReverb * 0.6);
+    vec3 col = dark + rim * glitch * (0.45 + uBeat * 2.2 + uMorph * 0.5);
+    col += glitch * uBeat * 0.55 + glitch * uPinch * 0.12;
+    col = min(col, vec3(1.6));
     gl_FragColor = vec4(col, 1.0);
 }`;
 
-// Extended finger detection: tip further from base joint = extended
-function isExtended(lms, tip, base) {
-    if (!lms[tip] || !lms[base]) return false;
-    // Tip Y < base Y in screen space (MediaPipe) means finger pointing up
-    return lms[tip].y < lms[base].y - 0.04;
+// ── Precise gesture detectors ──────────────────────────────────────────────
+function pinchAmt(lms) {
+    if (!lms[4] || !lms[8]) return 0;
+    return Math.max(0, Math.min(1, 1 - Math.hypot(lms[4].x-lms[8].x, lms[4].y-lms[8].y) * 8));
 }
 
-// Industrial sound design
-const SOUNDS = {
-    // Industrial kick: punch with frequency drop
-    kick: (ctx, dest, cutoff) => {
-        const osc = ctx.createOscillator(), env = ctx.createGain();
-        const filter = ctx.createBiquadFilter();
-        filter.type = 'lowpass';
-        filter.frequency.value = 200 + cutoff * 3000;
-        osc.type = 'sine';
-        const now = ctx.currentTime;
-        osc.frequency.setValueAtTime(200, now);
-        osc.frequency.exponentialRampToValueAtTime(38, now + 0.18);
-        env.gain.setValueAtTime(1.1, now);
-        env.gain.exponentialRampToValueAtTime(0.001, now + 0.35);
-        osc.connect(env); env.connect(filter); filter.connect(dest);
-        osc.start(now); osc.stop(now + 0.4);
-    },
-    // Metallic snare: noise + ring mod
-    snare: (ctx, dest, cutoff) => {
-        const now = ctx.currentTime;
-        const buf = ctx.createBuffer(1, ctx.sampleRate * 0.2, ctx.sampleRate);
-        const d = buf.getChannelData(0);
-        for (let i = 0; i < d.length; i++) d[i] = Math.random() * 2 - 1;
-        const noise = ctx.createBufferSource();
-        noise.buffer = buf;
-        const bp = ctx.createBiquadFilter();
-        bp.type = 'bandpass';
-        bp.frequency.value = 800 + cutoff * 2000;
-        bp.Q.value = 0.8;
-        const env = ctx.createGain();
-        env.gain.setValueAtTime(0.55, now);
-        env.gain.exponentialRampToValueAtTime(0.001, now + 0.18);
-        // Ring mod click at start
-        const ring = ctx.createOscillator();
-        ring.type = 'triangle';
-        ring.frequency.value = 180;
-        const ringEnv = ctx.createGain();
-        ringEnv.gain.setValueAtTime(0.4, now);
-        ringEnv.gain.exponentialRampToValueAtTime(0.001, now + 0.06);
-        ring.connect(ringEnv); ringEnv.connect(dest);
-        ring.start(now); ring.stop(now + 0.08);
-        noise.connect(bp); bp.connect(env); env.connect(dest);
-        noise.start(now); noise.stop(now + 0.22);
-    },
-    // Industrial hihat: ultra-high freq noise burst
-    hat: (ctx, dest) => {
-        const now = ctx.currentTime;
-        const buf = ctx.createBuffer(1, Math.floor(ctx.sampleRate * 0.06), ctx.sampleRate);
-        const d = buf.getChannelData(0);
-        for (let i = 0; i < d.length; i++) d[i] = Math.random() * 2 - 1;
-        const src = ctx.createBufferSource();
-        src.buffer = buf;
-        const hp = ctx.createBiquadFilter();
-        hp.type = 'highpass';
-        hp.frequency.value = 9000;
-        const env = ctx.createGain();
-        env.gain.setValueAtTime(0.28, now);
-        env.gain.exponentialRampToValueAtTime(0.001, now + 0.055);
-        src.connect(hp); hp.connect(env); env.connect(dest);
-        src.start(now); src.stop(now + 0.07);
-    },
-    // Glitch burst: bit-crushed chaos + detuned noise
-    glitch: (ctx, dest) => {
-        const now = ctx.currentTime;
-        const duration = 0.28;
-        const sr = ctx.sampleRate;
-        const buf = ctx.createBuffer(1, Math.floor(sr * duration), sr);
-        const d = buf.getChannelData(0);
-        const bits = 3;
-        const steps = Math.pow(2, bits);
-        let phase = 0;
-        const pitchJump = 440 * (1 + Math.random() * 8);
-        for (let i = 0; i < d.length; i++) {
-            phase += pitchJump / sr;
-            const raw = Math.sin(phase * Math.PI * 2) * (Math.random() > 0.3 ? 1 : -1);
-            d[i] = Math.round(raw * steps) / steps * (1 - i / d.length);
-        }
-        const src = ctx.createBufferSource();
-        src.buffer = buf;
-        const env = ctx.createGain();
-        env.gain.setValueAtTime(0.6, now);
-        env.gain.exponentialRampToValueAtTime(0.001, now + duration);
-        src.connect(env); env.connect(dest);
-        src.start(now); src.stop(now + duration + 0.05);
-    },
-    // Deep industrial rumble / sub drone
-    sub: (ctx, dest, cutoff) => {
-        const now = ctx.currentTime;
-        const osc1 = ctx.createOscillator(), osc2 = ctx.createOscillator();
-        osc1.type = 'sawtooth'; osc1.frequency.value = 40 + cutoff * 60;
-        osc2.type = 'sawtooth'; osc2.frequency.value = 40.3 + cutoff * 60; // detuned
-        const filter = ctx.createBiquadFilter();
-        filter.type = 'lowpass'; filter.frequency.value = 120 + cutoff * 400;
-        const env = ctx.createGain();
-        env.gain.setValueAtTime(0, now);
-        env.gain.linearRampToValueAtTime(0.45, now + 0.02);
-        env.gain.setValueAtTime(0.45, now + 0.08);
-        env.gain.exponentialRampToValueAtTime(0.001, now + 0.9);
-        osc1.connect(env); osc2.connect(env); env.connect(filter); filter.connect(dest);
-        osc1.start(now); osc2.start(now);
-        osc1.stop(now + 1.0); osc2.stop(now + 1.0);
-    }
-};
+function fistAmt(lms) {
+    // Each fingertip Y > base Y = closed (screen Y increases downward)
+    let closed = 0;
+    [[8,5],[12,9],[16,13],[20,17]].forEach(([tip, base]) => {
+        if (lms[tip] && lms[base] && lms[tip].y > lms[base].y - 0.02) closed++;
+    });
+    return closed / 4;
+}
+
+function palmOpenness(lms) {
+    if (!lms[5] || !lms[17]) return 0;
+    return Math.max(0, Math.min(1, Math.hypot(lms[5].x-lms[17].x, lms[5].y-lms[17].y) * 3.8));
+}
 
 export class NeuralGlitch {
-    constructor(scene, audioCtx, THREE) {
-        this._scene  = scene;
-        this._ctx    = audioCtx;
-        this._T      = THREE;
-        this._mesh   = null;
-        this._uni    = null;
-        this._active = false;
-        this._mGain  = null;
-        this._compressor = null;
-        this._beatFlash = 0;
-        this._cutoff = 0.2;    // 0-1, controlled by wrist height
-        this._displace = 0.06; // controlled by right hand pinch
+    constructor(scene, audioCtx, THREE, recDest) {
+        this._scene   = scene;
+        this._ctx     = audioCtx;
+        this._T       = THREE;
+        this._recDest = recDest;
+        this._mesh    = null;
+        this._uni     = null;
+        this._active  = false;
+        this._masterGain = null;
+        this._mGain   = null;
+        this._filter  = null;
+        this._reverbGain = null;
+        this._crushOsc = null;
+        this._crushGain = null;
 
-        // Finger state tracking (prevent re-triggering while held)
-        this._fingerWasExtended = [false, false, false, false]; // index,mid,ring,pinky
-        this._cool = [0, 0, 0, 0, 0];
+        // Smoothed gesture values
+        this._pinch = 0;
+        this._fist  = 0;
+        this._palm  = 0;
+
+        // Cool-downs (ms)
+        this._fistCool = 0;
+        this._palmCool = 0;
     }
 
     async init() {
@@ -174,112 +93,162 @@ export class NeuralGlitch {
     _buildMesh() {
         const T = this._T;
         this._uni = {
-            uTime:     { value: 0 },
-            uBeat:     { value: 0 },
-            uCutoff:   { value: 0.2 },
-            uDisplace: { value: 0.06 }
+            uTime:   { value: 0 },
+            uBeat:   { value: 0 },
+            uCutoff: { value: 0.3 },
+            uMorph:  { value: 0 },
+            uPinch:  { value: 0 },
+            uReverb: { value: 0 }
         };
-        const geo = new T.SphereGeometry(2.0, 64, 64);
-        const mat = new T.ShaderMaterial({
-            uniforms: this._uni,
-            vertexShader:   SPHERE_VERT,
-            fragmentShader: SPHERE_FRAG,
-            side: T.DoubleSide
-        });
-        this._mesh = new T.Mesh(geo, mat);
+        this._mesh = new T.Mesh(
+            new T.SphereGeometry(1.9, 80, 80),
+            new T.ShaderMaterial({
+                uniforms: this._uni,
+                vertexShader:   SPHERE_VERT,
+                fragmentShader: SPHERE_FRAG,
+                side: T.DoubleSide
+            })
+        );
         this._mesh.visible = false;
         this._scene.add(this._mesh);
     }
 
     _buildAudio() {
         const ctx = this._ctx;
-        this._compressor = ctx.createDynamicsCompressor();
-        this._compressor.threshold.value = -14;
-        this._compressor.ratio.value = 4;
-        this._compressor.attack.value = 0.003;
-        this._compressor.release.value = 0.12;
 
-        this._mGain = ctx.createGain();
-        this._mGain.gain.value = 0;
-        this._compressor.connect(this._mGain);
-        this._mGain.connect(ctx.destination);
+        this._masterGain = ctx.createGain();
+        this._masterGain.gain.value = 0;
+        this._masterGain.connect(ctx.destination);
+        if (this._recDest) this._masterGain.connect(this._recDest);
+
+        // Master LP filter — wrist height controls
+        this._filter = ctx.createBiquadFilter();
+        this._filter.type = 'lowpass';
+        this._filter.frequency.value = 1200;
+        this._filter.Q.value = 5;
+        this._filter.connect(this._masterGain);
+
+        // Dynamics compressor for industrial punch
+        const comp = ctx.createDynamicsCompressor();
+        comp.threshold.value = -14; comp.ratio.value = 4;
+        comp.attack.value = 0.003; comp.release.value = 0.12;
+        comp.connect(this._filter);
+        this._mGain = comp;
+
+        // Live bitcrusher oscillator — pinch controls gain + frequency
+        this._crushOsc  = ctx.createOscillator();
+        this._crushOsc.type = 'sawtooth';
+        this._crushOsc.frequency.value = 220;
+        this._crushGain = ctx.createGain();
+        this._crushGain.gain.value = 0;
+        this._crushOsc.connect(this._crushGain);
+        this._crushGain.connect(this._mGain);
+        this._crushOsc.start();
+
+        // Reverb convolver for palm wash
+        const len = Math.floor(ctx.sampleRate * 2.8);
+        const ir  = ctx.createBuffer(2, len, ctx.sampleRate);
+        for (let c = 0; c < 2; c++) {
+            const d = ir.getChannelData(c);
+            for (let i = 0; i < len; i++)
+                d[i] = (Math.random()*2-1) * Math.pow(1-i/len, 0.75);
+        }
+        const reverb = ctx.createConvolver();
+        reverb.buffer = ir;
+        this._reverbGain = ctx.createGain();
+        this._reverbGain.gain.value = 0;
+        reverb.connect(this._reverbGain);
+        this._reverbGain.connect(this._masterGain);
+        this._reverb = reverb;
+    }
+
+    _triggerSubBass() {
+        const ctx = this._ctx, now = ctx.currentTime;
+        const sub = ctx.createOscillator();
+        sub.type = 'sine';
+        sub.frequency.setValueAtTime(65, now);
+        sub.frequency.exponentialRampToValueAtTime(28, now + 0.3);
+        const env = ctx.createGain();
+        env.gain.setValueAtTime(0.9, now);
+        env.gain.exponentialRampToValueAtTime(0.001, now + 0.9);
+        sub.connect(env); env.connect(this._mGain);
+        sub.start(now); sub.stop(now + 1.0);
+        this._uni.uBeat.value = 1.0;
+    }
+
+    _triggerPalmWash() {
+        const ctx = this._ctx, now = ctx.currentTime;
+        const len = Math.floor(ctx.sampleRate * 0.06);
+        const buf = ctx.createBuffer(1, len, ctx.sampleRate);
+        const d   = buf.getChannelData(0);
+        for (let i = 0; i < len; i++) d[i] = (Math.random()*2-1) * (1 - i/len);
+        const src = ctx.createBufferSource();
+        src.buffer = buf;
+        const g = ctx.createGain(); g.gain.value = 0.75;
+        src.connect(g); g.connect(this._reverb);
+        src.start(now); src.stop(now + 0.08);
     }
 
     _processHands(hr) {
-        if (!hr || !hr.multiHandLandmarks) return;
+        if (!hr || !hr.multiHandLandmarks || !hr.multiHandLandmarks.length) return;
         const now = performance.now();
+        const ctx = this._ctx;
+        const lms = hr.multiHandLandmarks[0];
+        if (!lms) return;
 
-        for (let hi = 0; hi < hr.multiHandLandmarks.length; hi++) {
-            const lms  = hr.multiHandLandmarks[hi];
-            const side = hr.multiHandedness?.[hi]?.label;
+        // PINCH → bitcrusher (smooth, continuous)
+        const p = pinchAmt(lms);
+        this._pinch += (p - this._pinch) * 0.15;
+        this._crushOsc.frequency.setTargetAtTime(80 + this._pinch * this._pinch * 1600, ctx.currentTime, 0.02);
+        this._crushGain.gain.setTargetAtTime(this._pinch * 0.5, ctx.currentTime, 0.02);
+        this._uni.uPinch.value = this._pinch;
+        this._uni.uMorph.value = this._pinch * 0.45;
 
-            if (side === 'Right' || (!side && hi === 0)) {
-                // Right hand = parameter control
-                const wrist = lms[0];
-                if (wrist) {
-                    // Wrist Y in [0,1] → cutoff [0,1] (hand up = open filter)
-                    this._cutoff = Math.max(0, Math.min(1, 1 - wrist.y));
-                    this._uni.uCutoff.value = this._cutoff;
-                }
-                // Pinch (index tip to thumb tip) = displacement amount
-                const idx = lms[8], thm = lms[4];
-                if (idx && thm) {
-                    const pinch = Math.max(0, Math.min(1, 1 - Math.hypot(idx.x - thm.x, idx.y - thm.y) * 7));
-                    this._displace = 0.02 + pinch * 0.22;
-                    this._uni.uDisplace.value = this._displace;
-                }
-
-            } else {
-                // Left hand = trigger different sounds on finger extension
-                const triggers = [
-                    { tip: 8,  base: 5,  sound: 'kick',  coolMs: 180 },  // index  → kick
-                    { tip: 12, base: 9,  sound: 'snare', coolMs: 180 },  // middle → snare
-                    { tip: 16, base: 13, sound: 'hat',   coolMs: 80  },  // ring   → hat
-                    { tip: 20, base: 17, sound: 'glitch',coolMs: 220 },  // pinky  → glitch
-                ];
-
-                triggers.forEach((tr, i) => {
-                    const ext = isExtended(lms, tr.tip, tr.base);
-                    if (ext && !this._fingerWasExtended[i] && now > this._cool[i]) {
-                        this._cool[i] = now + tr.coolMs;
-                        SOUNDS[tr.sound](this._ctx, this._compressor, this._cutoff);
-                        this._beatFlash = 1.0;
-                    }
-                    this._fingerWasExtended[i] = ext;
-                });
-
-                // Sub drone when all fingers closed (fist)
-                const allClosed = [8,12,16,20].every(tip => !isExtended(lms, tip, tip-2));
-                if (allClosed && now > this._cool[4]) {
-                    this._cool[4] = now + 900;
-                    SOUNDS.sub(this._ctx, this._compressor, this._cutoff);
-                    this._beatFlash = 0.5;
-                }
-            }
+        // FIST → sub-bass hit + close LP filter
+        const f = fistAmt(lms);
+        this._fist += (f - this._fist) * 0.12;
+        if (f > 0.85 && now > this._fistCool) {
+            this._fistCool = now + 500;
+            this._triggerSubBass();
         }
+        // Fist closes filter, open hand opens it
+        const filterFreq = 180 + (1 - this._fist) * 3600;
+        this._filter.frequency.setTargetAtTime(filterFreq, ctx.currentTime, 0.04);
+
+        // PALM → reverb wash flood
+        const op = palmOpenness(lms);
+        this._palm += (op - this._palm) * 0.10;
+        if (op > 0.78 && now > this._palmCool) {
+            this._palmCool = now + 180;
+            this._triggerPalmWash();
+        }
+        this._reverbGain.gain.setTargetAtTime(this._palm * 0.75, ctx.currentTime, 0.04);
+        this._uni.uReverb.value = this._palm;
+
+        // Wrist height → filter display uniform
+        if (lms[0]) this._uni.uCutoff.value = 1 - lms[0].y;
     }
 
     activate() {
         this._active = true;
         this._mesh.visible = true;
-        if (this._mGain) this._mGain.gain.setTargetAtTime(0.8, this._ctx.currentTime, 0.1);
+        if (this._masterGain) this._masterGain.gain.setTargetAtTime(0.82, this._ctx.currentTime, 0.1);
     }
 
     deactivate() {
         this._active = false;
         this._mesh.visible = false;
-        if (this._mGain) this._mGain.gain.setTargetAtTime(0, this._ctx.currentTime, 0.1);
-        this._fingerWasExtended = [false, false, false, false];
+        if (this._masterGain) this._masterGain.gain.setTargetAtTime(0, this._ctx.currentTime, 0.1);
+        if (this._crushGain)  this._crushGain.gain.setTargetAtTime(0, this._ctx.currentTime, 0.08);
+        if (this._reverbGain) this._reverbGain.gain.setTargetAtTime(0, this._ctx.currentTime, 0.1);
     }
 
     update(hr, t) {
         if (!this._active) return;
-        this._uni.uTime.value  = t;
-        this._beatFlash = Math.max(0, this._beatFlash - 0.04);
-        this._uni.uBeat.value  = this._beatFlash;
-        // Gentle rotation — stops when no hands
-        this._mesh.rotation.y = t * 0.12;
-        this._mesh.rotation.x = Math.sin(t * 0.07) * 0.15;
+        this._uni.uTime.value = t;
+        this._uni.uBeat.value = Math.max(0, this._uni.uBeat.value - 0.028);
+        this._mesh.rotation.y = t * 0.07;
+        this._mesh.rotation.x = Math.sin(t * 0.045) * 0.10;
         this._processHands(hr);
     }
 }

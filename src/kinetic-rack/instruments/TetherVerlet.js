@@ -12,17 +12,18 @@
 // NO TubeGeometry creation per frame — uses Line with position updates (performant)
 
 export class TetherVerlet {
-    constructor(scene, audioCtx, THREE) {
-        this._scene  = scene;
-        this._ctx    = audioCtx;
-        this._T      = THREE;
+    constructor(scene, audioCtx, THREE, recDest) {
+        this._scene   = scene;
+        this._ctx     = audioCtx;
+        this._T       = THREE;
+        this._recDest = recDest;
         this._mode   = 'CORE';
         this._active = false;
 
         // CORE string visuals — 3 parallel plasma lines
         this._stringLines  = [];
         this._stringGeos   = [];
-        this._STRING_PTS   = 48; // points per line
+        this._STRING_PTS   = 96; // 2× resolution for smooth physics
 
         // CONSTELLATION
         this._constGeo   = null;
@@ -303,6 +304,7 @@ export class TetherVerlet {
         this._masterGain = ctx.createGain();
         this._masterGain.gain.value = 0;
         this._masterGain.connect(ctx.destination);
+        if (this._recDest) this._masterGain.connect(this._recDest);
 
         // Resonant lowpass filter (LP ladder-style via Q)
         this._filter = ctx.createBiquadFilter();
