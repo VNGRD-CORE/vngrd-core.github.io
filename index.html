@@ -14,9 +14,7 @@
 <script>if('serviceWorker' in navigator){navigator.serviceWorker.register('sw.js').catch(function(){});}</script>
 <script src="https://unpkg.com/peerjs@1.5.2/dist/peerjs.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/@mediapipe/pose@0.5.1675469404/pose.js" crossorigin="anonymous"></script>
-<script src="https://cdn.jsdelivr.net/npm/@mediapipe/hands/hands.js" crossorigin="anonymous"></script>
-<script src="https://cdn.jsdelivr.net/npm/@mediapipe/camera_utils/camera_utils.js" crossorigin="anonymous"></script>
-<script src="https://cdn.jsdelivr.net/npm/@mediapipe/hands@0.4.1646424915/hands.js" crossorigin="anonymous"></script>
+<script src="https://unpkg.com/tone@14.8.49/build/Tone.js" crossorigin="anonymous"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/ethers/5.7.2/ethers.umd.min.js"></script>
 <script src="https://js.puter.com/v2/"></script>
 <script>
@@ -5289,19 +5287,16 @@ body.fullscreen #transcription-hud { pointer-events: none !important; } /* keep 
                     <div id="sfx-midi-arm" style="font-size:7px;color:var(--text-dim);margin-top:6px;text-align:center;letter-spacing:1px;"></div>
                     </div><!-- /sfx-pad-body -->
 
-                    <!-- ══ FLUID TETHER ══════════════════════════════════ -->
+                    <!-- ══ GRAVITY TETHER ════════════════════════════════ -->
                     <div id="kr-rack">
-                        <button id="kr-launch-btn" onclick="window.KineticRack && KineticRack.toggle()">[ FLUID TETHER ]</button>
+                        <button id="kr-launch-btn" onclick="window.KineticRack && KineticRack.toggle()">[ GRAVITY TETHER ]</button>
                         <button class="kr-help-btn" onclick="window.KineticRack && KineticRack.toggleHelp()" title="How to play">?</button>
                         <div id="kr-status">OFFLINE</div>
-                        <button class="kr-sub-btn" id="kr-composer-btn"
-                            onclick="window.KineticRack && KineticRack.toggleComposer()"
-                            style="margin-top:4px;width:100%">COMPOSER</button>
                     </div>
 
                     <!-- Floating HUD — VOL RVB FILT, all MIDI-assignable -->
                     <div id="kr-stage-hud">
-                        <div id="kr-hud-title">FLUID TETHER</div>
+                        <div id="kr-hud-title">GRAVITY TETHER</div>
                         <div class="kr-ctrl-row">
                             <span class="kr-ctrl-label">VOL</span>
                             <input type="range" class="kr-ctrl-slider" data-ctrl="vol"
@@ -20004,9 +19999,12 @@ function _applyPoseToModel(lm) {
 <div id="esc-warn">⚠ ESC ARMED — PRESS AGAIN TO PANIC RESET</div>
 
 
-<!-- NEURAL TETHER — Three.js WebGL canvas + 4K camera feed -->
+<!-- GRAVITY TETHER — Three.js WebGL canvas + camera feeds -->
 <canvas id="kinetic-canvas"></canvas>
 <video id="kinetic-cam-video" autoplay muted playsinline></video>
+<!-- Hidden 256×256 video strictly for AI inference (HandLandmarker GPU) -->
+<video id="kr-ai-video" width="256" height="256" autoplay muted playsinline
+    style="position:fixed;left:-9999px;top:-9999px;width:256px;height:256px;pointer-events:none;"></video>
 <div id="kr-help-modal">
     <div id="kr-help-header">
         <span>HOW TO PLAY</span>
