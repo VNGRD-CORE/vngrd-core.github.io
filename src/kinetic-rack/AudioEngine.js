@@ -1,253 +1,233 @@
 /**
- * AudioEngine.js — Tone.js audio graph
+ * AudioEngine.js — Pro master audio chain
  *
- * Requires: window.Tone  (Tone.js UMD, loaded via <script> tag before this module)
+ * Signal flow:
+ *   instruments → masterIn → [dry | reverbSend → convolver] → compressor → LIMITER → destination
  *
- * Instruments:
- *   MembraneSynth  — heavy kick  (right-hand index velocity → triggerKick)
- *   FMSynth        — deep drone  (left-hand XY → setDronePitch / setAutoFilterFreq)
- *   AutoFilter LFO — wraps drone
- *   Kit synths × 3 — glitch / hi-hat / metal  (pinch → switchKit / triggerKit)
- *
- * TetherVerlet compatibility:
- *   .ctx        → raw AudioContext (from Tone.js)
- *   .synthInput → native GainNode that routes into the final chain
+ * The hard limiter (ratio 20, threshold -3 dB) is the last node before the
+ * AudioDestinationNode. Nothing can clip.
  */
-
-const KIT_NAMES   = ['HI-HAT', 'METAL', 'GLITCH'];
-// Drone pitch table mapped to left-hand X position
-const DRONE_NOTES = ['A1','C2','D2','F2','G2','A2','C3','D3','F3','G3','A3'];
-
 export class AudioEngine {
     constructor() {
         this.ctx          = null;
-
-        // Tone.js nodes
-        this._masterVol   = null;
-        this._kick        = null;
-        this._drone       = null;
-        this._autoFilter  = null;
-        this._kits        = [];
-        this._kitIndex    = 0;
-
-        // Native Web Audio nodes (for TetherVerlet compatibility + recording)
-        this._synthInput  = null;   // TetherVerlet connects here
-        this._synthLimiter = null;
-        this._recDest     = null;
+        this._masterIn    = null;   // all sound sources connect here
+        this._synthFilter = null;   // shared LP filter, controlled by right hand
+        this._reverb      = null;
+        this._reverbSend  = null;
+        this._dryGain     = null;
+        this._limiter     = null;
+        this._irCache     = null;
     }
 
-    async init() {
-        const Tone = window.Tone;
-        if (!Tone) throw new Error('Tone.js not loaded — add <script src="tone.js"> before KineticRack');
+    async init(existingCtx = null) {
+        this.ctx = existingCtx || new (window.AudioContext || window.webkitAudioContext)();
+        await this.ctx.resume().catch(() => {});
 
-        await Tone.start();
-        this.ctx = Tone.getContext().rawContext;
+        const ctx = this.ctx;
 
-        // ── Master volume (Tone.js chain → ctx.destination) ───────────────────
-        this._masterVol = new Tone.Volume(-6).toDestination();
+        // ── Glue compressor (gentle)  ─────────────────────────────────────────
+        const comp = ctx.createDynamicsCompressor();
+        comp.threshold.value = -12;
+        comp.knee.value      = 6;
+        comp.ratio.value     = 4;
+        comp.attack.value    = 0.003;
+        comp.release.value   = 0.12;
 
-        // ── Kick: MembraneSynth ───────────────────────────────────────────────
-        this._kick = new Tone.MembraneSynth({
-            pitchDecay:  0.07,
-            octaves:     5,
-            oscillator:  { type: 'sine' },
-            envelope: {
-                attack:  0.001,
-                decay:   0.4,
-                sustain: 0,
-                release: 0.14,
-            },
-        }).connect(this._masterVol);
-        this._kick.volume.value = -4;
+        // ── Hard limiter (as spec'd) ──────────────────────────────────────────
+        this._limiter = ctx.createDynamicsCompressor();
+        this._limiter.threshold.value = -3;
+        this._limiter.knee.value      = 0;
+        this._limiter.ratio.value     = 20;
+        this._limiter.attack.value    = 0.005;
+        this._limiter.release.value   = 0.05;
 
-        // ── AutoFilter (drone → LFO → output) ────────────────────────────────
-        this._autoFilter = new Tone.AutoFilter({
-            frequency:     0.5,
-            baseFrequency: 200,
-            octaves:       3.5,
-            filter: { type: 'lowpass', rolloff: -12 },
-        }).connect(this._masterVol);
-        this._autoFilter.start();
+        // ── Convolution reverb ────────────────────────────────────────────────
+        this._reverb     = ctx.createConvolver();
+        this._reverb.buffer = this._makeIR(2.8);
+        this._reverbSend = ctx.createGain();
+        this._reverbSend.gain.value = 0.28;
+        this._dryGain    = ctx.createGain();
+        this._dryGain.gain.value = 0.82;
 
-        // ── Drone: FMSynth ────────────────────────────────────────────────────
-        this._drone = new Tone.FMSynth({
-            harmonicity:     0.5,
-            modulationIndex: 3,
-            oscillator:      { type: 'sawtooth' },
-            envelope: {
-                attack:  0.8,
-                decay:   0.2,
-                sustain: 0.85,
-                release: 2.5,
-            },
-            modulation:         { type: 'sine' },
-            modulationEnvelope: { attack: 0.5, decay: 0, sustain: 1, release: 2 },
-        }).connect(this._autoFilter);
-        this._drone.volume.value = -14;
-        this._drone.triggerAttack('A1');
+        // ── Master input gain ─────────────────────────────────────────────────
+        this._masterIn = ctx.createGain();
+        this._masterIn.gain.value = 0.82;
 
-        // ── Kit synths (3 kits, cycled by pinch) ─────────────────────────────
-        // Kit 0: closed hi-hat
-        const hihat = new Tone.NoiseSynth({
-            noise:    { type: 'white' },
-            envelope: { attack: 0.001, decay: 0.065, sustain: 0, release: 0.01 },
-        }).connect(this._masterVol);
-        hihat.volume.value = -8;
+        // ── Shared synth LP filter (right-hand controlled) ────────────────────
+        this._synthFilter = ctx.createBiquadFilter();
+        this._synthFilter.type = 'lowpass';
+        this._synthFilter.frequency.value = 900;
+        this._synthFilter.Q.value = 4;
+        // Synth filter feeds masterIn so reverb/limiter wraps it
+        this._synthFilter.connect(this._masterIn);
 
-        // Kit 1: metallic / industrial cymbal
-        const metal = new Tone.MetalSynth({
-            frequency:      400,
-            envelope:       { attack: 0.001, decay: 0.14, release: 0.02 },
-            harmonicity:    5.1,
-            modulationIndex: 32,
-            resonance:      4200,
-            octaves:        1.5,
-        }).connect(this._masterVol);
-        metal.volume.value = -12;
-
-        // Kit 2: pluck / glitch
-        const glitch = new Tone.PluckSynth({
-            attackNoise: 2,
-            dampening:   3800,
-            resonance:   0.98,
-        }).connect(this._masterVol);
-        glitch.volume.value = -6;
-
-        this._kits = [hihat, metal, glitch];
-        this._kitIndex = 0;
-
-        // ── Native Web Audio path for TetherVerlet ────────────────────────────
-        // Tether connects its oscillators to this._synthInput.
-        // They flow: synthInput → synthLimiter → ctx.destination
-        // (separate from Tone.js path to avoid double-routing)
-        this._synthLimiter = this.ctx.createDynamicsCompressor();
-        this._synthLimiter.threshold.value = -3;
-        this._synthLimiter.knee.value      = 0;
-        this._synthLimiter.ratio.value     = 20;
-        this._synthLimiter.attack.value    = 0.005;
-        this._synthLimiter.release.value   = 0.05;
-        this._synthLimiter.connect(this.ctx.destination);
-
-        this._synthInput = this.ctx.createGain();
-        this._synthInput.gain.value = 0.5;
-        this._synthInput.connect(this._synthLimiter);
+        // ── Routing: masterIn → dry + reverb → comp → limiter → out ──────────
+        this._masterIn.connect(this._dryGain);
+        this._masterIn.connect(this._reverbSend);
+        this._reverbSend.connect(this._reverb);
+        this._dryGain.connect(comp);
+        this._reverb.connect(comp);
+        comp.connect(this._limiter);
+        this._limiter.connect(ctx.destination);
     }
 
-    // ── TetherVerlet compatibility ────────────────────────────────────────────
-    /** Native GainNode — TetherVerlet connects its oscs here. */
-    get synthInput() { return this._synthInput; }
+    // ── Public accessors ──────────────────────────────────────────────────────
 
-    // ── Instruments ───────────────────────────────────────────────────────────
+    /** All raw sound sources (drums, synth osc, etc.) connect here. */
+    get input()       { return this._masterIn; }
 
-    /** Trigger kick drum at velocity 0..1. */
-    triggerKick(vel = 1.0) {
-        try {
-            this._kick?.triggerAttackRelease('C1', '8n', undefined, Math.min(1, vel));
-        } catch (_) {}
-    }
+    /**
+     * Tether oscillators connect here.
+     * Flows: synthFilter → masterIn (so reverb and limiter wrap it)
+     */
+    get synthInput()  { return this._synthFilter; }
 
-    /** Trigger the currently selected kit sound at velocity 0..1. */
-    triggerKit(vel = 0.7) {
-        try {
-            const kit = this._kits[this._kitIndex];
-            if (!kit) return;
-            if (kit instanceof window.Tone.PluckSynth) {
-                const notes = ['C3', 'D#3', 'F#3', 'G#3', 'A#3'];
-                kit.triggerAttack(notes[Math.floor(Math.random() * notes.length)]);
-            } else if (kit instanceof window.Tone.NoiseSynth) {
-                kit.triggerAttackRelease('32n', undefined, vel);
-            } else {
-                kit.triggerAttackRelease('32n', undefined, vel);
+    // ── Impulse response (synthesised cinematic hall) ─────────────────────────
+    _makeIR(dur) {
+        const rate = this.ctx.sampleRate;
+        const len  = Math.floor(rate * dur);
+        const buf  = this.ctx.createBuffer(2, len, rate);
+        for (let ch = 0; ch < 2; ch++) {
+            const d = buf.getChannelData(ch);
+            for (let i = 0; i < len; i++) {
+                const t   = i / len;
+                const env = Math.pow(1 - t, 1.9);
+                // Pre-delay spike at ~20ms
+                const preDelay = i === Math.floor(rate * 0.02) ? 0.6 : 0;
+                d[i] = (Math.random() * 2 - 1) * env + preDelay * (ch === 0 ? 1 : -1);
             }
-        } catch (_) {}
+        }
+        return buf;
     }
 
-    /** Cycle to the next kit (hi-hat → metal → glitch → …). */
-    switchKit() {
-        this._kitIndex = (this._kitIndex + 1) % this._kits.length;
-        const el = document.getElementById('kr-status');
-        if (el) el.textContent = 'KIT: ' + KIT_NAMES[this._kitIndex];
-    }
-
-    // ── Left-hand continuous control ──────────────────────────────────────────
+    // ── Drum synthesis ────────────────────────────────────────────────────────
 
     /**
-     * Set drone pitch from left-hand X position.
-     * @param {number} x  normalised 0..1
+     * Deep 808-style kick. Pitch sweeps 150 Hz → 20 Hz.
+     * @param {number} vel  0..1 velocity
      */
-    setDronePitch(x) {
-        try {
-            const idx  = Math.round(x * (DRONE_NOTES.length - 1));
-            const note = DRONE_NOTES[Math.max(0, Math.min(DRONE_NOTES.length - 1, idx))];
-            this._drone?.setNote(note);
-        } catch (_) {}
+    triggerKick(vel = 1.0) {
+        if (!this.ctx) return;
+        const ctx = this.ctx, now = ctx.currentTime;
+
+        // Body (sine sweep)
+        const osc  = ctx.createOscillator();
+        const oEnv = ctx.createGain();
+        osc.frequency.setValueAtTime(150, now);
+        osc.frequency.exponentialRampToValueAtTime(20, now + 0.48);
+        oEnv.gain.setValueAtTime(0, now);
+        oEnv.gain.linearRampToValueAtTime(vel * 0.78, now + 0.002);
+        oEnv.gain.exponentialRampToValueAtTime(0.0001, now + 0.52);
+        osc.connect(oEnv);
+        oEnv.connect(this._masterIn);
+        osc.start(now);
+        osc.stop(now + 0.55);
+
+        // Click transient
+        const nLen = Math.floor(ctx.sampleRate * 0.014);
+        const nBuf = ctx.createBuffer(1, nLen, ctx.sampleRate);
+        const nd   = nBuf.getChannelData(0);
+        for (let i = 0; i < nLen; i++) nd[i] = (Math.random() * 2 - 1) * (1 - i / nLen);
+        const noise = ctx.createBufferSource();
+        const nEnv  = ctx.createGain();
+        nEnv.gain.setValueAtTime(vel * 0.42, now);
+        nEnv.gain.exponentialRampToValueAtTime(0.0001, now + 0.018);
+        noise.buffer = nBuf;
+        noise.connect(nEnv);
+        nEnv.connect(this._masterIn);
+        noise.start(now);
     }
 
     /**
-     * Set AutoFilter base frequency from left-hand Y position.
-     * @param {number} y  normalised 0..1  (hand high = 1)
+     * Closed hi-hat: filtered white noise burst.
+     * @param {number} vel  0..1
      */
-    setAutoFilterFreq(y) {
-        if (!this._autoFilter) return;
-        try {
-            this._autoFilter.baseFrequency = 80 + y * 4000;
-        } catch (_) {}
+    triggerHihat(vel = 0.5) {
+        if (!this.ctx) return;
+        const ctx = this.ctx, now = ctx.currentTime;
+        const nLen = Math.floor(ctx.sampleRate * 0.04);
+        const nBuf = ctx.createBuffer(1, nLen, ctx.sampleRate);
+        const nd   = nBuf.getChannelData(0);
+        for (let i = 0; i < nLen; i++) nd[i] = Math.random() * 2 - 1;
+        const noise = ctx.createBufferSource();
+        const hpf   = ctx.createBiquadFilter();
+        const env   = ctx.createGain();
+        hpf.type = 'highpass';
+        hpf.frequency.value = 7500;
+        env.gain.setValueAtTime(vel * 0.22, now);
+        env.gain.exponentialRampToValueAtTime(0.0001, now + 0.038);
+        noise.buffer = nBuf;
+        noise.connect(hpf);
+        hpf.connect(env);
+        env.connect(this._masterIn);
+        noise.start(now);
     }
 
-    // ── HUD slider controls ───────────────────────────────────────────────────
+    /**
+     * Short detuned synth stab (for NeuralComposer notes).
+     * @param {number} freq   Hz
+     * @param {number} dur    seconds
+     * @param {number} vel    0..1
+     * @param {string} type   'pluck'|'pad'|'bass'
+     */
+    triggerSynth(freq, dur = 0.18, vel = 0.5, type = 'pluck') {
+        if (!this.ctx) return;
+        const ctx = this.ctx, now = ctx.currentTime;
+        const detunes = type === 'pad' ? [-8, 0, 8] : [-5, 0, 5];
 
-    /** Master volume 0..1. */
+        const merge = ctx.createGain();
+        const attack  = type === 'pad'  ? 0.08 : 0.004;
+        const release = type === 'pad'  ? 1.2  : dur * 0.9;
+        merge.gain.setValueAtTime(0, now);
+        merge.gain.linearRampToValueAtTime(vel * 0.3, now + attack);
+        merge.gain.setValueAtTime(vel * 0.3, now + dur - 0.01);
+        merge.gain.exponentialRampToValueAtTime(0.0001, now + dur + release);
+        merge.connect(this._synthFilter);
+
+        detunes.forEach(dt => {
+            const o = ctx.createOscillator();
+            o.type = 'sawtooth';
+            o.frequency.value = freq;
+            o.detune.value = dt;
+            o.connect(merge);
+            o.start(now);
+            o.stop(now + dur + release + 0.05);
+        });
+    }
+
+    // ── Right-hand continuous modulation ──────────────────────────────────────
+
+    /** Y-axis → master volume (0 = silent, 1 = full) */
     setVolume(v) {
-        if (!this._masterVol) return;
-        try {
-            this._masterVol.volume.rampTo(
-                window.Tone.gainToDb(Math.max(0.001, v)),
-                0.06
-            );
-        } catch (_) {}
+        if (!this.ctx) return;
+        this._masterIn.gain.setTargetAtTime(Math.max(0.001, v * 0.82), this.ctx.currentTime, 0.04);
     }
 
-    /** Reverb mix 0..1 — controls AutoFilter LFO rate as a proxy effect. */
+    /** X-axis → filter cutoff (50..14000 Hz) */
+    setFilterCutoff(hz) {
+        if (!this.ctx) return;
+        this._synthFilter.frequency.setTargetAtTime(
+            Math.max(50, Math.min(14000, hz)), this.ctx.currentTime, 0.03
+        );
+    }
+
+    /** Depth/Z → filter resonance (0.5..22) */
+    setFilterResonance(q) {
+        if (!this.ctx) return;
+        this._synthFilter.Q.setTargetAtTime(
+            Math.max(0.5, Math.min(22, q)), this.ctx.currentTime, 0.05
+        );
+    }
+
+    /** RVB slider → reverb mix (0..1) */
     setReverbMix(v) {
-        if (!this._autoFilter) return;
-        try {
-            this._autoFilter.frequency.value = 0.2 + v * 4;
-        } catch (_) {}
+        if (!this.ctx) return;
+        this._reverbSend.gain.setTargetAtTime(v * 0.55, this.ctx.currentTime, 0.06);
+        this._dryGain.gain.setTargetAtTime(Math.max(0.2, 1 - v * 0.3), this.ctx.currentTime, 0.06);
     }
 
-    /** Manual filter cutoff from slider 0..1. */
-    setManualFilter(v) {
-        if (!this._autoFilter) return;
-        try {
-            this._autoFilter.baseFrequency = 80 + v * 7920;
-        } catch (_) {}
-    }
-
-    // ── Recording helper ──────────────────────────────────────────────────────
-    /** Returns a MediaStreamAudioDestinationNode tapping the native synth path. */
-    getRecordingDest() {
-        if (!this.ctx) return null;
-        this._recDest = this.ctx.createMediaStreamDestination();
-        this._synthLimiter?.connect(this._recDest);
-        return this._recDest;
-    }
-
-    releaseRecordingDest(dest) {
-        try { this._synthLimiter?.disconnect(dest); } catch (_) {}
-        this._recDest = null;
-    }
-
-    // ── Cleanup ───────────────────────────────────────────────────────────────
     dispose() {
-        try {
-            this._drone?.triggerRelease();
-            this._kick?.dispose();
-            this._drone?.dispose();
-            this._autoFilter?.dispose();
-            this._kits.forEach(k => k.dispose());
-            this._masterVol?.dispose();
-            this._synthInput?.disconnect();
-            this._synthLimiter?.disconnect();
-        } catch (_) {}
+        try { this._masterIn?.disconnect(); } catch {}
+        try { this._limiter?.disconnect(); } catch {}
     }
 }
