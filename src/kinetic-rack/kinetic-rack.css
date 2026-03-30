@@ -1,39 +1,111 @@
-/* ═══ FLUID TETHER — kinetic-rack.css ══════════════════════════════════════ */
+/* ═══ 4-PAD SAMPLER — kinetic-rack.css ══════════════════════════════════════
+   All Three.js / Tone.js / NeuralComposer styles removed.
+   Full-screen 2×2 grid with neon flash on hit.
+═══════════════════════════════════════════════════════════════════════════ */
 
-/* Three.js canvas — full-viewport, transparent over live camera */
-#kinetic-canvas {
+/* ── Sampler grid (hidden until .kr-online) ──────────────────────────────── */
+#kr-sampler-grid {
     position: fixed;
-    top: 0; left: 0; right: 0; bottom: 0;
+    top: 0; left: 0;
     width: 100vw; height: 100vh;
-    z-index: 3500;
     display: none;
-    pointer-events: none;
+    grid-template-columns: 1fr 1fr;
+    grid-template-rows: 1fr 1fr;
+    overflow: hidden;
+    z-index: 3500;
+}
+#kr-sampler-grid.kr-online { display: grid; }
+
+/* ── Pads ────────────────────────────────────────────────────────────────── */
+.kr-pad {
+    position: relative;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    border: 1px solid rgba(255,255,255,0.05);
+    cursor: pointer;
+    transition: background 0.06s ease, box-shadow 0.06s ease;
+    user-select: none;
+    -webkit-user-select: none;
     overflow: hidden;
 }
-#kinetic-canvas.kr-online { display: block; }
 
-/* 4K camera feed — darkened cinema mode */
-#kinetic-cam-video {
-    position: fixed;
-    left: -9999px; top: -9999px;
-    width: 1px; height: 1px;
+/* Pad resting colours — deep, desaturated */
+#kr-pad-0 { background: rgba(70, 0, 20, 0.90); }   /* KICK  — dark crimson   */
+#kr-pad-1 { background: rgba(0, 18, 42, 0.90); }   /* SNARE — deep navy      */
+#kr-pad-2 { background: rgba(28, 14, 0, 0.90); }   /* HAT   — near-black amber */
+#kr-pad-3 { background: rgba(0, 28, 12, 0.90); }   /* BASS  — dark forest    */
+
+/* Pad inner grid line — subtle cross */
+#kr-pad-0::after, #kr-pad-1::after,
+#kr-pad-2::after, #kr-pad-3::after {
+    content: '';
+    position: absolute;
+    inset: 0;
+    background:
+        linear-gradient(to right, rgba(255,255,255,0.03) 1px, transparent 1px),
+        linear-gradient(to bottom, rgba(255,255,255,0.03) 1px, transparent 1px);
+    background-size: 40px 40px;
     pointer-events: none;
-    display: none;
 }
-#kinetic-cam-video.kr-online {
-    display: block;
-    top: 0; left: 0;
-    width:  100vw;
-    height: 100vh;
+
+/* Neon hit states */
+#kr-pad-0.kr-pad-hit {
+    background: rgba(255, 0, 60, 0.60);
+    box-shadow: inset 0 0 100px rgba(255, 0, 60, 0.75), 0 0 60px rgba(255, 0, 60, 0.45);
+}
+#kr-pad-1.kr-pad-hit {
+    background: rgba(0, 200, 255, 0.50);
+    box-shadow: inset 0 0 100px rgba(0, 200, 255, 0.75), 0 0 60px rgba(0, 200, 255, 0.45);
+}
+#kr-pad-2.kr-pad-hit {
+    background: rgba(255, 155, 0, 0.50);
+    box-shadow: inset 0 0 100px rgba(255, 155, 0, 0.75), 0 0 60px rgba(255, 155, 0, 0.45);
+}
+#kr-pad-3.kr-pad-hit {
+    background: rgba(0, 255, 90, 0.40);
+    box-shadow: inset 0 0 100px rgba(0, 255, 90, 0.75), 0 0 60px rgba(0, 255, 90, 0.45);
+}
+
+/* Pad label */
+.kr-pad-label {
+    font-family: 'Orbitron', sans-serif;
+    font-size: clamp(20px, 4.5vw, 64px);
+    font-weight: 700;
+    letter-spacing: 0.2em;
+    color: rgba(255, 255, 255, 0.12);
+    transition: color 0.06s ease, text-shadow 0.06s ease;
+    pointer-events: none;
+}
+.kr-pad-hit .kr-pad-label {
+    color: rgba(255, 255, 255, 0.95);
+    text-shadow: 0 0 24px currentColor, 0 0 48px currentColor;
+}
+
+/* Pad corner note — top-left badge */
+.kr-pad[data-note]::before {
+    content: attr(data-note);
+    position: absolute;
+    top: 14px; left: 18px;
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 9px; letter-spacing: 1.5px;
+    color: rgba(255, 255, 255, 0.15);
+    pointer-events: none;
+    text-transform: uppercase;
+}
+
+/* Any background images inside pads must not overflow */
+.kr-pad img {
+    width: 100%; height: 100%;
     object-fit: cover;
-    transform: scaleX(-1);
-    filter: brightness(0.45) contrast(1.15) saturate(1.2);
-    z-index: 3499;
+    position: absolute;
+    inset: 0;
     pointer-events: none;
+    opacity: 0.22;
 }
 
-/* ── Rack sidebar ─────────────────────────────────────────────────────────── */
-#kr-rack { margin-top: 6px; position: relative; }
+/* ── Rack sidebar (must stay above grid) ─────────────────────────────────── */
+#kr-rack { margin-top: 6px; position: relative; z-index: 9000; }
 
 #kr-launch-btn {
     display: block; width: 100%; padding: 6px 4px;
@@ -73,21 +145,9 @@
 }
 #kr-status.kr-live { color: rgba(0,255,136,.68); }
 
-.kr-sub-btn {
-    padding: 4px 2px;
-    font-family: 'JetBrains Mono', monospace; font-size: 6.5px; letter-spacing: .5px;
-    color: rgba(176,0,255,.5); background: rgba(5,0,12,.35);
-    backdrop-filter: blur(8px); -webkit-backdrop-filter: blur(8px);
-    border: 1px solid rgba(255,255,255,.05);
-    border-top: 1px solid rgba(255,255,255,.12);
-    border-radius: 2px; cursor: pointer; text-align: center; transition: all .12s;
-}
-.kr-sub-btn:hover { color: #b000ff; border-color: rgba(176,0,255,.35); }
-.kr-sub-btn.kr-sel { color: #b000ff; border-top-color: rgba(176,0,255,.58); text-shadow: 0 0 7px rgba(176,0,255,.5); }
-
-/* ── Floating HUD ────────────────────────────────────────────────────────── */
+/* ── Floating HUD (VOL slider + close) ───────────────────────────────────── */
 #kr-stage-hud {
-    position: fixed; bottom: 65px; left: 215px; z-index: 3550;
+    position: fixed; bottom: 65px; left: 215px; z-index: 9100;
     display: none; flex-direction: column; gap: 5px;
     padding: 10px 14px 12px;
     background: rgba(0,4,12,.76);
@@ -153,7 +213,7 @@
     border: 1px solid rgba(255,55,55,.2);
     border-radius: 2px; cursor: pointer; text-align: center; transition: all .14s;
 }
-#kr-rec-btn:hover { color: #ff3737; border-color: rgba(255,55,55,.5); box-shadow: 0 0 10px rgba(255,55,55,.18); }
+#kr-rec-btn:hover { color: #ff3737; border-color: rgba(255,55,55,.5); }
 #kr-rec-btn.kr-recording {
     color: #ff3737; background: rgba(30,0,0,.65);
     border-color: rgba(255,55,55,.75); box-shadow: 0 0 16px rgba(255,55,55,.28);
@@ -169,7 +229,7 @@
     backdrop-filter: blur(20px); -webkit-backdrop-filter: blur(20px);
     border: 1px solid rgba(0,243,255,.22);
     border-top: 1px solid rgba(255,255,255,.14);
-    border-radius: 3px; z-index: 3620;
+    border-radius: 3px; z-index: 9200;
     display: none; flex-direction: column;
     box-shadow: 0 8px 40px rgba(0,0,0,.65), 0 0 22px rgba(0,243,255,.05);
 }
@@ -191,5 +251,3 @@
     font-family: 'JetBrains Mono', monospace;
     font-size: 6.5px; letter-spacing: .4px; color: rgba(0,243,255,.52); line-height: 1.9;
 }
-
-/* NeuralComposer panel removed — replaced by Tone.js audio engine */
