@@ -192,4 +192,140 @@
     font-size: 6.5px; letter-spacing: .4px; color: rgba(0,243,255,.52); line-height: 1.9;
 }
 
-/* NeuralComposer panel removed — replaced by Tone.js audio engine */
+/* ── SONIC SUITE launch button ───────────────────────────────────────────── */
+#nc-launch-btn {
+    display: block; width: 100%; padding: 6px 4px; margin-top: 4px;
+    font-family: 'Orbitron', sans-serif; font-size: 7px; font-weight: 700; letter-spacing: 2px;
+    color: rgba(176,0,255,.65);
+    background: rgba(5,0,12,.4);
+    backdrop-filter: blur(8px); -webkit-backdrop-filter: blur(8px);
+    border: 1px solid rgba(176,0,255,.2);
+    border-top: 1px solid rgba(255,255,255,.12);
+    border-radius: 2px; cursor: pointer; text-align: center; transition: all .16s ease;
+}
+#nc-launch-btn:hover { color: #b000ff; box-shadow: 0 0 14px rgba(176,0,255,.2); }
+#nc-launch-btn.kr-online {
+    color: #cc44ff; background: rgba(18,0,36,.82);
+    border-top-color: rgba(176,0,255,.65);
+    box-shadow: 0 0 20px rgba(176,0,255,.3), inset 0 0 12px rgba(176,0,255,.07);
+    text-shadow: 0 0 10px rgba(176,0,255,.65);
+}
+
+/* ── Neural Composer floating panel ──────────────────────────────────────── */
+#nc-panel {
+    position: fixed;
+    bottom: 65px; left: 215px;
+    z-index: 3560;
+    display: none;
+    flex-direction: column;
+    gap: 6px;
+    padding: 10px 12px 12px;
+    background: rgba(2,0,8,.88);
+    backdrop-filter: blur(28px) saturate(1.8); -webkit-backdrop-filter: blur(28px) saturate(1.8);
+    border: 1px solid rgba(176,0,255,.2);
+    border-top: 1px solid rgba(255,255,255,.14);
+    border-radius: 4px;
+    min-width: 340px;
+    box-shadow: 0 8px 48px rgba(0,0,0,.85), 0 0 30px rgba(176,0,255,.06);
+    pointer-events: all;
+}
+#nc-panel.nc-visible { display: flex; }
+
+#nc-panel-title {
+    font-family: 'Orbitron', sans-serif;
+    font-size: 7px; font-weight: 700; letter-spacing: 2.5px;
+    color: rgba(176,0,255,.7);
+    padding-bottom: 5px;
+    border-bottom: 1px solid rgba(176,0,255,.12);
+    display: flex; align-items: center; justify-content: space-between;
+}
+#nc-panel-title span { color: rgba(0,243,255,.4); font-size: 6px; letter-spacing: 1px; }
+
+/* ── Transport bar ────────────────────────────────────────────────────────── */
+.nc-transport {
+    display: flex; align-items: center; gap: 5px;
+}
+#nc-play-btn {
+    font-family: 'Orbitron', sans-serif; font-size: 6.5px; letter-spacing: 1px;
+    padding: 4px 8px;
+    color: rgba(0,255,136,.65); background: rgba(0,12,6,.5);
+    border: 1px solid rgba(0,255,136,.2); border-radius: 2px;
+    cursor: pointer; transition: all .12s;
+}
+#nc-play-btn:hover { color: #00ff88; border-color: rgba(0,255,136,.5); }
+#nc-play-btn.nc-active {
+    color: #00ff88; background: rgba(0,30,14,.8);
+    border-color: rgba(0,255,136,.7);
+    box-shadow: 0 0 12px rgba(0,255,136,.25);
+    animation: kr-blink .6s infinite;
+}
+.nc-bpm-wrap {
+    display: flex; align-items: center; gap: 3px;
+    font-family: 'JetBrains Mono', monospace; font-size: 6.5px;
+    color: rgba(176,0,255,.55);
+}
+.nc-bpm-wrap input[type=range] {
+    width: 56px; height: 2px; -webkit-appearance: none; appearance: none;
+    background: rgba(176,0,255,.18); border-radius: 1px; outline: none; cursor: pointer;
+}
+.nc-bpm-wrap input[type=range]::-webkit-slider-thumb {
+    -webkit-appearance: none; width: 9px; height: 9px; border-radius: 50%;
+    background: rgba(176,0,255,.8); cursor: pointer;
+}
+#nc-bpm-val { color: rgba(0,243,255,.65); min-width: 24px; }
+.nc-preset-sel {
+    font-family: 'JetBrains Mono', monospace; font-size: 6px; letter-spacing: .5px;
+    color: rgba(176,0,255,.6); background: rgba(5,0,12,.6);
+    border: 1px solid rgba(176,0,255,.18); border-radius: 2px;
+    padding: 3px 4px; cursor: pointer; flex: 1;
+}
+#nc-status { font-size: 6px; color: rgba(0,255,136,.3); letter-spacing: 1px; font-family: 'JetBrains Mono', monospace; }
+#nc-status[data-playing] { color: rgba(0,255,136,.75); }
+
+/* ── Step grid ────────────────────────────────────────────────────────────── */
+#nc-grid {
+    display: flex; flex-direction: column; gap: 2px;
+}
+
+.nc-row {
+    display: flex; align-items: center; gap: 2px;
+}
+
+.nc-track-lbl {
+    font-family: 'JetBrains Mono', monospace; font-size: 5.5px; letter-spacing: .5px;
+    color: color-mix(in srgb, var(--tc) 55%, transparent);
+    background: color-mix(in srgb, var(--tc) 8%, rgba(0,0,0,.5));
+    border: 1px solid color-mix(in srgb, var(--tc) 18%, transparent);
+    border-radius: 2px; width: 28px; flex-shrink: 0;
+    padding: 3px 0; text-align: center; cursor: pointer; transition: all .1s;
+}
+.nc-track-lbl:hover { color: var(--tc); border-color: color-mix(in srgb, var(--tc) 45%, transparent); }
+.nc-track-lbl.nc-armed {
+    color: var(--tc); background: color-mix(in srgb, var(--tc) 18%, rgba(0,0,0,.6));
+    border-color: color-mix(in srgb, var(--tc) 60%, transparent);
+    box-shadow: 0 0 6px color-mix(in srgb, var(--tc) 35%, transparent);
+}
+
+.nc-step {
+    flex: 1; height: 10px;
+    background: rgba(255,255,255,.04);
+    border: 1px solid rgba(255,255,255,.06);
+    border-radius: 1px; cursor: pointer; transition: background .08s, box-shadow .08s;
+    padding: 0;
+}
+.nc-step.nc-bar { border-left-color: rgba(255,255,255,.15); }
+.nc-step.nc-on {
+    background: color-mix(in srgb, var(--tc) 45%, rgba(0,0,0,.3));
+    border-color: color-mix(in srgb, var(--tc) 55%, transparent);
+    box-shadow: 0 0 4px color-mix(in srgb, var(--tc) 30%, transparent);
+}
+.nc-step.nc-play {
+    background: rgba(255,255,255,.55) !important;
+    border-color: rgba(255,255,255,.8) !important;
+    box-shadow: 0 0 6px rgba(255,255,255,.4) !important;
+}
+.nc-step.nc-on.nc-play {
+    background: var(--tc) !important;
+    box-shadow: 0 0 8px var(--tc) !important;
+}
+

@@ -1,89 +1,96 @@
 /**
- * FluidHands.js — Gravity-Well Particle System
+ * FluidHands.js — GPU Particle Trail System
  *
- * 3 000 particles fill a 3D volume and behave like magnetised dust.
- * Each hand landmark acts as a GRAVITY WELL attracting nearby particles.
- * The result: hands "shape space" rather than drawing literal fingers.
+ * Each active hand emits a continuous stream of particles that fade out
+ * over their lifetime, leaving luminous trails.
+ *
+ * NO stick-figure skeletons. NO 2D canvas. WebGL only.
+ *
+ * Architecture:
+ *   - Fixed pool of POOL_SIZE particles (ring-buffer allocation)
+ *   - Each particle has: position, velocity, life (0→1→0), color, size
+ *   - On every frame, N_EMIT new particles spawn at each palm center
+ *   - Gravity-well attraction: palms pull nearby living particles
+ *   - Custom GLSL: soft radial circles, additive blend
  *
  * Visual signature:
- *   • Resting field   → cold indigo/deep-blue, gently drifting
- *   • Near left hand  → warm magenta (#ff00cc) burst
- *   • Near right hand → cool cyan (#00f3ff) burst
- *   • Overlap zone    → white hot core
- *
- * Rendered with a custom GLSL ShaderMaterial + AdditiveBlending so
- * particle density builds naturally into HDR bloom.
+ *   Right hand → cyan trails  (#00f3ff)
+ *   Left hand  → magenta/violet trails  (#cc00ff)
+ *   Overlap    → white-hot core
  */
 
-const N          = 3_000;   // total particle count
-const SPREAD_X   = 2.2;
-const SPREAD_Y   = 1.4;
-const SPREAD_Z   = 0.5;
+import * as THREE from 'three';
 
-const SPRING     = 0.55;    // restoring force toward home position
-const GRAVITY    = 0.18;    // gravity-well strength
-const WELL_RANGE = 1.0;     // max influence radius
-const DAMPING    = 0.88;
-const MAX_SPEED  = 2.2;
-
-// ── GLSL ─────────────────────────────────────────────────────────────────────
+const POOL_SIZE  = 4_000;   // total particle pool
+const N_EMIT     = 6;       // particles spawned per hand per frame
+const LIFE_MAX   = 1.2;     // seconds before full fade
+const EMIT_SPEED = 0.4;     // initial scatter speed
+const GRAVITY    = 0.08;    // palm attraction strength
+const WELL_RANGE = 1.2;
+const DAMPING    = 0.94;
 
 const vertexShader = /* glsl */`
 attribute float aLife;
+attribute float aMaxLife;
 attribute float aSize;
 attribute vec3  aColor;
 
-varying float vLife;
+varying float vAlpha;
 varying vec3  vColor;
 
 void main() {
-    vLife  = aLife;
     vColor = aColor;
 
-    vec4 mvPos = modelViewMatrix * vec4(position, 1.0);
+    // Life curve: ramp in quickly, fade out slowly
+    float t     = aLife / aMaxLife;          // 0..1 normalized age
+    float fade  = t < 0.1
+                    ? t * 10.0               // fast ramp-in
+                    : 1.0 - (t - 0.1) / 0.9; // slow fade-out
+    vAlpha = clamp(fade, 0.0, 1.0);
 
-    // Perspective-correct point size; max 64 px to avoid GPU caps issues
-    float sz = aSize * (280.0 / -mvPos.z) * aLife;
-    gl_PointSize = clamp(sz, 0.5, 64.0);
+    vec4 mvPos = modelViewMatrix * vec4(position, 1.0);
+    float sz   = aSize * (300.0 / -mvPos.z) * vAlpha;
+    gl_PointSize = clamp(sz, 0.5, 72.0);
     gl_Position  = projectionMatrix * mvPos;
 }
 `;
 
 const fragmentShader = /* glsl */`
-varying float vLife;
+varying float vAlpha;
 varying vec3  vColor;
 
 void main() {
-    // Radial soft circle from point centre
     vec2  uv   = gl_PointCoord - 0.5;
     float dist = length(uv);
     if (dist > 0.5) discard;
 
-    float alpha = pow(1.0 - dist * 2.0, 1.8) * vLife;
-    // Additive blend: multiply colour so bright = white core
-    gl_FragColor = vec4(vColor * alpha * 2.4, alpha);
+    // Soft core glow
+    float core  = pow(1.0 - dist * 2.0, 2.5);
+    float halo  = pow(1.0 - dist * 1.6, 1.2) * 0.35;
+    float alpha = (core + halo) * vAlpha;
+
+    gl_FragColor = vec4(vColor * (core * 2.2 + halo), alpha);
 }
 `;
 
-// ── GravityParticles class ────────────────────────────────────────────────────
-
 export class GravityParticles {
-    constructor(scene, THREE) {
+    constructor(scene, THREE_) {
         this._scene = scene;
-        this._T     = THREE;
+        this._T     = THREE_ || THREE;
 
-        // Typed-array particle state
-        this._pos   = new Float32Array(N * 3);   // current world positions
-        this._vel   = new Float32Array(N * 3);   // velocities
-        this._home  = new Float32Array(N * 3);   // resting / equilibrium positions
-        this._life  = new Float32Array(N);       // 0..1 brightness life flicker
-        this._size  = new Float32Array(N);       // per-particle base size
-        this._color = new Float32Array(N * 3);   // RGB live color
+        // Per-particle typed arrays (ring buffer)
+        this._pos     = new Float32Array(POOL_SIZE * 3);  // world XYZ
+        this._vel     = new Float32Array(POOL_SIZE * 3);  // velocity XYZ
+        this._life    = new Float32Array(POOL_SIZE);      // current life (counts up)
+        this._maxLife = new Float32Array(POOL_SIZE);      // max life for this particle
+        this._size    = new Float32Array(POOL_SIZE);      // point size factor
+        this._color   = new Float32Array(POOL_SIZE * 3);  // RGB
 
-        // BufferGeometry attributes (set after _build)
-        this._geo   = null;
-        this._mat   = null;
-        this._mesh  = null;
+        this._head    = 0;   // ring-buffer write head
+
+        this._geo  = null;
+        this._mat  = null;
+        this._mesh = null;
 
         this._build();
     }
@@ -91,35 +98,19 @@ export class GravityParticles {
     _build() {
         const T = this._T;
 
-        // Initialise particle home positions + defaults
-        for (let i = 0; i < N; i++) {
-            const x = (Math.random() - 0.5) * SPREAD_X * 2;
-            const y = (Math.random() - 0.5) * SPREAD_Y * 2;
-            const z = (Math.random() - 0.5) * SPREAD_Z * 2;
-
-            const p = i * 3;
-            this._pos[p]     = x;
-            this._pos[p + 1] = y;
-            this._pos[p + 2] = z;
-            this._home[p]    = x;
-            this._home[p + 1]= y;
-            this._home[p + 2]= z;
-
-            this._life[i] = 0.3 + Math.random() * 0.7;
-            this._size[i] = 0.003 + Math.random() * 0.009;
-
-            // Cold blue-indigo base colour
-            const t = Math.random();
-            this._color[p]     = 0.04 + t * 0.10;   // R
-            this._color[p + 1] = 0.06 + t * 0.14;   // G
-            this._color[p + 2] = 0.30 + t * 0.30;   // B
+        // All particles start dead (life = maxLife → fully faded)
+        for (let i = 0; i < POOL_SIZE; i++) {
+            this._life[i]    = 1.0;
+            this._maxLife[i] = 1.0;
+            this._size[i]    = 0.006;
         }
 
         const geo = new T.BufferGeometry();
-        geo.setAttribute('position', new T.BufferAttribute(this._pos,   3));
-        geo.setAttribute('aLife',    new T.BufferAttribute(this._life,   1));
-        geo.setAttribute('aSize',    new T.BufferAttribute(this._size,   1));
-        geo.setAttribute('aColor',   new T.BufferAttribute(this._color,  3));
+        geo.setAttribute('position', new T.BufferAttribute(this._pos,     3));
+        geo.setAttribute('aLife',    new T.BufferAttribute(this._life,    1));
+        geo.setAttribute('aMaxLife', new T.BufferAttribute(this._maxLife, 1));
+        geo.setAttribute('aSize',    new T.BufferAttribute(this._size,    1));
+        geo.setAttribute('aColor',   new T.BufferAttribute(this._color,   3));
 
         const mat = new T.ShaderMaterial({
             vertexShader,
@@ -136,95 +127,100 @@ export class GravityParticles {
         this._scene.add(this._mesh);
     }
 
+    // ── Emit ──────────────────────────────────────────────────────────────────
+
     /**
-     * Called every frame.
-     *
+     * Spawn N particles at a given world position.
+     * @param {THREE.Vector3} origin
+     * @param {'left'|'right'} hand
+     */
+    _emit(origin, hand) {
+        for (let k = 0; k < N_EMIT; k++) {
+            const i  = this._head % POOL_SIZE;
+            this._head++;
+
+            const p = i * 3;
+
+            // Scatter from origin with random velocity
+            const theta = Math.random() * Math.PI * 2;
+            const phi   = Math.random() * Math.PI;
+            const spd   = (0.3 + Math.random() * 0.7) * EMIT_SPEED;
+
+            this._pos[p]     = origin.x + (Math.random() - 0.5) * 0.04;
+            this._pos[p + 1] = origin.y + (Math.random() - 0.5) * 0.04;
+            this._pos[p + 2] = origin.z + (Math.random() - 0.5) * 0.02;
+
+            this._vel[p]     = Math.sin(phi) * Math.cos(theta) * spd;
+            this._vel[p + 1] = Math.sin(phi) * Math.sin(theta) * spd;
+            this._vel[p + 2] = Math.cos(phi) * spd * 0.3;
+
+            this._life[i]    = 0;
+            this._maxLife[i] = 0.6 + Math.random() * LIFE_MAX;
+            this._size[i]    = 0.004 + Math.random() * 0.010;
+
+            // Color: left=magenta-violet, right=cyan
+            if (hand === 'left') {
+                this._color[p]     = 0.6 + Math.random() * 0.4;
+                this._color[p + 1] = 0.0 + Math.random() * 0.1;
+                this._color[p + 2] = 0.9 + Math.random() * 0.1;
+            } else {
+                this._color[p]     = 0.0 + Math.random() * 0.1;
+                this._color[p + 1] = 0.85 + Math.random() * 0.15;
+                this._color[p + 2] = 0.95 + Math.random() * 0.05;
+            }
+        }
+    }
+
+    // ── Update ────────────────────────────────────────────────────────────────
+
+    /**
      * @param {Array<{pos: THREE.Vector3, hand: 'left'|'right'}>} wells
-     *        Gravity-well positions and their hand side.
-     * @param {number} dt       Delta time in seconds.
-     * @param {number} elapsed  Total elapsed time (for ambient flicker).
+     * @param {number} dt       Delta time in seconds
+     * @param {number} elapsed  Total elapsed time
      */
     update(wells, dt, elapsed) {
-        for (let i = 0; i < N; i++) {
-            const p  = i * 3;
-            let px = this._pos[p],     py = this._pos[p + 1], pz = this._pos[p + 2];
-            let vx = this._vel[p],     vy = this._vel[p + 1], vz = this._vel[p + 2];
-            const hx = this._home[p], hy = this._home[p + 1], hz = this._home[p + 2];
+        // Emit new particles at each palm (index 0 = wrist/palm)
+        for (const { pos, hand } of wells) {
+            this._emit(pos, hand);
+        }
 
-            // Spring: pull toward resting position
-            vx += (hx - px) * SPRING * dt;
-            vy += (hy - py) * SPRING * dt;
-            vz += (hz - pz) * SPRING * dt;
+        // Update all particles
+        for (let i = 0; i < POOL_SIZE; i++) {
+            if (this._life[i] >= this._maxLife[i]) continue;  // dead
 
-            // Gravity wells from hand positions
-            let pullL = 0, pullR = 0;
-            for (const { pos: w, hand } of wells) {
+            this._life[i] += dt;
+
+            const p = i * 3;
+            let vx = this._vel[p], vy = this._vel[p + 1], vz = this._vel[p + 2];
+            let px = this._pos[p], py = this._pos[p + 1], pz = this._pos[p + 2];
+
+            // Gravity well attraction toward active hands
+            for (const { pos: w } of wells) {
                 const dx = w.x - px;
                 const dy = w.y - py;
                 const dz = w.z - pz;
-                const d2  = dx * dx + dy * dy + dz * dz;
-                const d   = Math.sqrt(d2) + 1e-4;
+                const d2 = dx * dx + dy * dy + dz * dz;
+                const d  = Math.sqrt(d2) + 1e-4;
                 if (d < WELL_RANGE) {
-                    const strength = GRAVITY / (d2 + 0.06);
-                    vx += (dx / d) * strength * dt;
-                    vy += (dy / d) * strength * dt;
-                    vz += (dz / d) * strength * dt;
-                    const pull = Math.min(1, strength * 0.6);
-                    if (hand === 'left')  pullL = Math.max(pullL, pull);
-                    else                  pullR = Math.max(pullR, pull);
+                    const str = GRAVITY / (d2 + 0.05);
+                    vx += (dx / d) * str * dt;
+                    vy += (dy / d) * str * dt;
+                    vz += (dz / d) * str * dt;
                 }
             }
 
-            // Velocity damping
+            // Damping
             vx *= DAMPING;
             vy *= DAMPING;
             vz *= DAMPING;
 
-            // Speed clamp
-            const spd = Math.sqrt(vx * vx + vy * vy + vz * vz);
-            if (spd > MAX_SPEED) {
-                const s = MAX_SPEED / spd;
-                vx *= s; vy *= s; vz *= s;
-            }
-
-            // Integrate position
-            px += vx * dt;
-            py += vy * dt;
-            pz += vz * dt;
-
-            // Store
-            this._pos[p]     = px;
-            this._pos[p + 1] = py;
-            this._pos[p + 2] = pz;
             this._vel[p]     = vx;
             this._vel[p + 1] = vy;
             this._vel[p + 2] = vz;
 
-            // Colour blend:
-            //  cold indigo ──(left pull)──► magenta  (#ff00cc → 1.0, 0.0, 0.8)
-            //               ──(right pull)─► cyan    (#00f3ff → 0.0, 0.95, 1.0)
-            //  both hands  ──────────────── white hot
-            const energy  = Math.min(1, spd / MAX_SPEED * 2);
-            const cold    = 1 - Math.max(pullL, pullR);
-            const hotMix  = Math.min(pullL, pullR);             // overlap → white
-
-            let cr = 0.04 * cold + 1.0  * pullL + 0.0  * pullR + hotMix;
-            let cg = 0.06 * cold + 0.0  * pullL + 0.95 * pullR + hotMix;
-            let cb = 0.30 * cold + 0.80 * pullL + 1.0  * pullR + hotMix;
-
-            // Boost by kinetic energy
-            cr = Math.min(1, cr + energy * 0.3);
-            cg = Math.min(1, cg + energy * 0.15);
-            cb = Math.min(1, cb + energy * 0.2);
-
-            // Smooth toward target (avoid hard popping)
-            const c = this._color;
-            c[p]     = c[p]     * 0.92 + cr * 0.08;
-            c[p + 1] = c[p + 1] * 0.92 + cg * 0.08;
-            c[p + 2] = c[p + 2] * 0.92 + cb * 0.08;
-
-            // Ambient life flicker (slow sine per particle)
-            this._life[i] = 0.25 + 0.75 * (0.5 + 0.5 * Math.sin(elapsed * 1.1 + i * 0.073));
+            this._pos[p]     = px + vx * dt;
+            this._pos[p + 1] = py + vy * dt;
+            this._pos[p + 2] = pz + vz * dt;
         }
 
         this._geo.attributes.position.needsUpdate = true;
@@ -232,9 +228,13 @@ export class GravityParticles {
         this._geo.attributes.aColor.needsUpdate   = true;
     }
 
-    /** Stop all particle motion (keep mesh visible). */
     clear() {
         this._vel.fill(0);
+        // Kill all particles
+        for (let i = 0; i < POOL_SIZE; i++) {
+            this._life[i] = this._maxLife[i];
+        }
+        this._geo.attributes.aLife.needsUpdate = true;
     }
 
     dispose() {

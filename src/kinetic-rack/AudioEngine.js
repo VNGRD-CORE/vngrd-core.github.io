@@ -1,180 +1,243 @@
 /**
- * AudioEngine.js — Tone.js audio graph
+ * AudioEngine.js — Master Audio Graph
  *
- * Requires: window.Tone  (Tone.js UMD, loaded via <script> tag before this module)
+ * Signal flow:
+ *   Tone.js instruments → toneOut (GainNode)
+ *                                        \
+ *   SpatialSynth oscs  → synthInput ─────┴→ masterGain → hardLimiter(-3dB/20:1) → destination
+ *
+ * Hard Limiter is the FINAL node before ctx.destination. No clipping.
  *
  * Instruments:
- *   MembraneSynth  — heavy kick  (right-hand index velocity → triggerKick)
- *   FMSynth        — deep drone  (left-hand XY → setDronePitch / setAutoFilterFreq)
- *   AutoFilter LFO — wraps drone
- *   Kit synths × 3 — glitch / hi-hat / metal  (pinch → switchKit / triggerKit)
+ *   MembraneSynth  — 808 kick  (triggerKick)
+ *   FMSynth        — drone     (setDronePitch / setFilterCutoff)
+ *   AutoFilter     — wraps drone
+ *   Kit × 3        — hihat / metal / glitch  (triggerKit / switchKit)
  *
- * TetherVerlet compatibility:
- *   .ctx        → raw AudioContext (from Tone.js)
- *   .synthInput → native GainNode that routes into the final chain
+ * NeuralComposer integration:
+ *   triggerSequencerNote(trackIdx, note, vel)
  */
 
 const KIT_NAMES   = ['HI-HAT', 'METAL', 'GLITCH'];
-// Drone pitch table mapped to left-hand X position
 const DRONE_NOTES = ['A1','C2','D2','F2','G2','A2','C3','D3','F3','G3','A3'];
 
 export class AudioEngine {
     constructor() {
-        this.ctx          = null;
+        this.ctx           = null;
 
-        // Tone.js nodes
-        this._masterVol   = null;
-        this._kick        = null;
-        this._drone       = null;
-        this._autoFilter  = null;
-        this._kits        = [];
-        this._kitIndex    = 0;
+        // Native Web Audio master chain
+        this._hardLimiter  = null;
+        this._masterGain   = null;  // native gain before limiter (volume control)
+        this._toneOut      = null;  // Tone.js instruments feed here
+        this._synthInput   = null;  // SpatialSynth oscillators feed here
 
-        // Native Web Audio nodes (for TetherVerlet compatibility + recording)
-        this._synthInput  = null;   // TetherVerlet connects here
-        this._synthLimiter = null;
-        this._recDest     = null;
+        // Tone.js instruments
+        this._kick         = null;
+        this._drone        = null;
+        this._autoFilter   = null;
+        this._reverb       = null;
+        this._kits         = [];
+        this._kitIndex     = 0;
+
+        this._recDest      = null;
     }
 
     async init() {
         const Tone = window.Tone;
-        if (!Tone) throw new Error('Tone.js not loaded — add <script src="tone.js"> before KineticRack');
+        if (!Tone) throw new Error('Tone.js not loaded');
 
         await Tone.start();
         this.ctx = Tone.getContext().rawContext;
 
-        // ── Master volume (Tone.js chain → ctx.destination) ───────────────────
-        this._masterVol = new Tone.Volume(-6).toDestination();
+        // ── Hard Limiter — absolute final node ───────────────────────────────
+        this._hardLimiter = this.ctx.createDynamicsCompressor();
+        this._hardLimiter.threshold.value = -3;
+        this._hardLimiter.knee.value      = 0;
+        this._hardLimiter.ratio.value     = 20;
+        this._hardLimiter.attack.value    = 0.001;
+        this._hardLimiter.release.value   = 0.05;
+        this._hardLimiter.connect(this.ctx.destination);
 
-        // ── Kick: MembraneSynth ───────────────────────────────────────────────
-        this._kick = new Tone.MembraneSynth({
-            pitchDecay:  0.07,
-            octaves:     5,
-            oscillator:  { type: 'sine' },
-            envelope: {
-                attack:  0.001,
-                decay:   0.4,
-                sustain: 0,
-                release: 0.14,
-            },
-        }).connect(this._masterVol);
-        this._kick.volume.value = -4;
+        // ── Master gain (volume slider target) ───────────────────────────────
+        this._masterGain = this.ctx.createGain();
+        this._masterGain.gain.value = 0.7;
+        this._masterGain.connect(this._hardLimiter);
 
-        // ── AutoFilter (drone → LFO → output) ────────────────────────────────
+        // ── Tone.js output bridge ─────────────────────────────────────────────
+        // Tone instruments connect to a native GainNode that feeds masterGain.
+        // We do this by overriding Tone's final connection using a MediaStreamDest
+        // approach — simpler: use Tone.Destination.input directly.
+        this._toneOut = this.ctx.createGain();
+        this._toneOut.gain.value = 1.0;
+        this._toneOut.connect(this._masterGain);
+
+        // Bridge Tone's output chain into toneOut:
+        // Tone.Destination is a ToneAudioNode; we connect it to toneOut
+        // by disconnecting from ctx.destination and reconnecting to toneOut.
+        try {
+            const toneDest = Tone.getDestination();
+            toneDest.disconnect();
+            toneDest.connect(this._toneOut);
+        } catch (_) {
+            // Fallback: Tone routes directly to ctx.destination, keep going
+        }
+
+        // ── Reverb ────────────────────────────────────────────────────────────
+        this._reverb = new Tone.Reverb({ decay: 3.2, wet: 0.0 });
+        await this._reverb.ready;
+        this._reverb.toDestination();
+
+        // ── AutoFilter (drone path) ───────────────────────────────────────────
         this._autoFilter = new Tone.AutoFilter({
             frequency:     0.5,
-            baseFrequency: 200,
+            baseFrequency: 300,
             octaves:       3.5,
             filter: { type: 'lowpass', rolloff: -12 },
-        }).connect(this._masterVol);
+        }).toDestination();
         this._autoFilter.start();
+
+        // ── 808 Kick ──────────────────────────────────────────────────────────
+        this._kick = new Tone.MembraneSynth({
+            pitchDecay:  0.09,
+            octaves:     8,
+            oscillator:  { type: 'sine' },
+            envelope: { attack: 0.001, decay: 0.45, sustain: 0, release: 0.18 },
+        }).toDestination();
+        this._kick.volume.value = -2;
 
         // ── Drone: FMSynth ────────────────────────────────────────────────────
         this._drone = new Tone.FMSynth({
             harmonicity:     0.5,
             modulationIndex: 3,
             oscillator:      { type: 'sawtooth' },
-            envelope: {
-                attack:  0.8,
-                decay:   0.2,
-                sustain: 0.85,
-                release: 2.5,
-            },
-            modulation:         { type: 'sine' },
+            envelope:        { attack: 0.8, decay: 0.2, sustain: 0.85, release: 2.5 },
+            modulation:      { type: 'sine' },
             modulationEnvelope: { attack: 0.5, decay: 0, sustain: 1, release: 2 },
         }).connect(this._autoFilter);
         this._drone.volume.value = -14;
         this._drone.triggerAttack('A1');
 
-        // ── Kit synths (3 kits, cycled by pinch) ─────────────────────────────
-        // Kit 0: closed hi-hat
+        // ── Kit synths ────────────────────────────────────────────────────────
         const hihat = new Tone.NoiseSynth({
             noise:    { type: 'white' },
             envelope: { attack: 0.001, decay: 0.065, sustain: 0, release: 0.01 },
-        }).connect(this._masterVol);
+        }).toDestination();
         hihat.volume.value = -8;
 
-        // Kit 1: metallic / industrial cymbal
         const metal = new Tone.MetalSynth({
-            frequency:      400,
-            envelope:       { attack: 0.001, decay: 0.14, release: 0.02 },
-            harmonicity:    5.1,
-            modulationIndex: 32,
-            resonance:      4200,
-            octaves:        1.5,
-        }).connect(this._masterVol);
+            frequency: 400, envelope: { attack: 0.001, decay: 0.14, release: 0.02 },
+            harmonicity: 5.1, modulationIndex: 32, resonance: 4200, octaves: 1.5,
+        }).toDestination();
         metal.volume.value = -12;
 
-        // Kit 2: pluck / glitch
         const glitch = new Tone.PluckSynth({
-            attackNoise: 2,
-            dampening:   3800,
-            resonance:   0.98,
-        }).connect(this._masterVol);
+            attackNoise: 2, dampening: 3800, resonance: 0.98,
+        }).toDestination();
         glitch.volume.value = -6;
 
         this._kits = [hihat, metal, glitch];
-        this._kitIndex = 0;
 
-        // ── Native Web Audio path for TetherVerlet ────────────────────────────
-        // Tether connects its oscillators to this._synthInput.
-        // They flow: synthInput → synthLimiter → ctx.destination
-        // (separate from Tone.js path to avoid double-routing)
-        this._synthLimiter = this.ctx.createDynamicsCompressor();
-        this._synthLimiter.threshold.value = -3;
-        this._synthLimiter.knee.value      = 0;
-        this._synthLimiter.ratio.value     = 20;
-        this._synthLimiter.attack.value    = 0.005;
-        this._synthLimiter.release.value   = 0.05;
-        this._synthLimiter.connect(this.ctx.destination);
-
+        // ── SpatialSynth input ────────────────────────────────────────────────
+        // SpatialSynth oscillators connect here → masterGain → hardLimiter
         this._synthInput = this.ctx.createGain();
-        this._synthInput.gain.value = 0.5;
-        this._synthInput.connect(this._synthLimiter);
+        this._synthInput.gain.value = 0.55;
+        this._synthInput.connect(this._masterGain);
     }
 
-    // ── TetherVerlet compatibility ────────────────────────────────────────────
-    /** Native GainNode — TetherVerlet connects its oscs here. */
+    // ── SpatialSynth compatibility ─────────────────────────────────────────────
     get synthInput() { return this._synthInput; }
 
     // ── Instruments ───────────────────────────────────────────────────────────
 
-    /** Trigger kick drum at velocity 0..1. */
+    /** 808-style kick at velocity 0..1 */
     triggerKick(vel = 1.0) {
         try {
             this._kick?.triggerAttackRelease('C1', '8n', undefined, Math.min(1, vel));
         } catch (_) {}
     }
 
-    /** Trigger the currently selected kit sound at velocity 0..1. */
+    /** Trigger active kit sound */
     triggerKit(vel = 0.7) {
         try {
             const kit = this._kits[this._kitIndex];
             if (!kit) return;
             if (kit instanceof window.Tone.PluckSynth) {
-                const notes = ['C3', 'D#3', 'F#3', 'G#3', 'A#3'];
+                const notes = ['C3','D#3','F#3','G#3','A#3'];
                 kit.triggerAttack(notes[Math.floor(Math.random() * notes.length)]);
-            } else if (kit instanceof window.Tone.NoiseSynth) {
-                kit.triggerAttackRelease('32n', undefined, vel);
             } else {
                 kit.triggerAttackRelease('32n', undefined, vel);
             }
         } catch (_) {}
     }
 
-    /** Cycle to the next kit (hi-hat → metal → glitch → …). */
+    /** Cycle kit: hi-hat → metal → glitch */
     switchKit() {
         this._kitIndex = (this._kitIndex + 1) % this._kits.length;
         const el = document.getElementById('kr-status');
         if (el) el.textContent = 'KIT: ' + KIT_NAMES[this._kitIndex];
     }
 
-    // ── Left-hand continuous control ──────────────────────────────────────────
-
     /**
-     * Set drone pitch from left-hand X position.
-     * @param {number} x  normalised 0..1
+     * Fire a NeuralComposer sequencer step.
+     * @param {number} trackIdx  0-7
+     * @param {string} note      Tone.js note e.g. 'C2'
+     * @param {number} vel       0..1
      */
+    triggerSequencerNote(trackIdx, note, vel = 0.85) {
+        const Tone = window.Tone;
+        if (!Tone) return;
+        try {
+            switch (trackIdx) {
+                case 0: this.triggerKick(vel); break;
+                case 1: this._kits[0]?.triggerAttackRelease('32n', undefined, vel * 0.6); break;
+                case 2: this._kits[1]?.triggerAttackRelease('32n', undefined, vel * 0.7); break;
+                case 3: this._kits[2]?.triggerAttack(note); break;
+                case 4: {
+                    const s = new Tone.Synth({
+                        oscillator: { type: 'triangle' },
+                        envelope: { attack: 0.01, decay: 0.12, sustain: 0.3, release: 0.4 },
+                    }).toDestination();
+                    s.volume.value = -10;
+                    s.triggerAttackRelease(note, '8n', undefined, vel);
+                    setTimeout(() => { try { s.dispose(); } catch (_) {} }, 1200);
+                    break;
+                }
+                case 5: {
+                    const s = new Tone.Synth({
+                        oscillator: { type: 'square' },
+                        envelope: { attack: 0.005, decay: 0.08, sustain: 0.1, release: 0.2 },
+                    }).toDestination();
+                    s.volume.value = -14;
+                    s.triggerAttackRelease(note, '16n', undefined, vel * 0.7);
+                    setTimeout(() => { try { s.dispose(); } catch (_) {} }, 700);
+                    break;
+                }
+                case 6: {
+                    const s = new Tone.FMSynth({
+                        harmonicity: 3, modulationIndex: 10,
+                        envelope: { attack: 0.001, decay: 0.2, sustain: 0, release: 0.1 },
+                    }).toDestination();
+                    s.volume.value = -12;
+                    s.triggerAttackRelease(note, '8n', undefined, vel * 0.8);
+                    setTimeout(() => { try { s.dispose(); } catch (_) {} }, 900);
+                    break;
+                }
+                case 7: {
+                    const s = new Tone.Synth({
+                        oscillator: { type: 'sawtooth' },
+                        envelope: { attack: 0.01, decay: 0.3, sustain: 0.5, release: 1.2 },
+                    }).connect(this._reverb).toDestination();
+                    s.volume.value = -18;
+                    s.triggerAttackRelease(note, '4n', undefined, vel * 0.6);
+                    setTimeout(() => { try { s.dispose(); } catch (_) {} }, 2500);
+                    break;
+                }
+            }
+        } catch (_) {}
+    }
+
+    // ── Continuous controls ───────────────────────────────────────────────────
+
     setDronePitch(x) {
         try {
             const idx  = Math.round(x * (DRONE_NOTES.length - 1));
@@ -183,57 +246,46 @@ export class AudioEngine {
         } catch (_) {}
     }
 
-    /**
-     * Set AutoFilter base frequency from left-hand Y position.
-     * @param {number} y  normalised 0..1  (hand high = 1)
-     */
-    setAutoFilterFreq(y) {
+    setFilterCutoff(y) {
         if (!this._autoFilter) return;
-        try {
-            this._autoFilter.baseFrequency = 80 + y * 4000;
-        } catch (_) {}
+        try { this._autoFilter.baseFrequency = 80 + y * 4000; } catch (_) {}
     }
 
-    // ── HUD slider controls ───────────────────────────────────────────────────
+    setAutoFilterFreq(y) { this.setFilterCutoff(y); }
 
-    /** Master volume 0..1. */
+    // ── HUD sliders ───────────────────────────────────────────────────────────
+
     setVolume(v) {
-        if (!this._masterVol) return;
-        try {
-            this._masterVol.volume.rampTo(
-                window.Tone.gainToDb(Math.max(0.001, v)),
-                0.06
-            );
-        } catch (_) {}
+        if (!this._masterGain) return;
+        this._masterGain.gain.setTargetAtTime(
+            Math.max(0.001, v) * 0.85,
+            this.ctx.currentTime,
+            0.06
+        );
     }
 
-    /** Reverb mix 0..1 — controls AutoFilter LFO rate as a proxy effect. */
     setReverbMix(v) {
-        if (!this._autoFilter) return;
         try {
-            this._autoFilter.frequency.value = 0.2 + v * 4;
+            if (this._reverb) this._reverb.wet.rampTo(v * 0.7, 0.1);
+            if (this._autoFilter) this._autoFilter.frequency.value = 0.2 + v * 4;
         } catch (_) {}
     }
 
-    /** Manual filter cutoff from slider 0..1. */
     setManualFilter(v) {
         if (!this._autoFilter) return;
-        try {
-            this._autoFilter.baseFrequency = 80 + v * 7920;
-        } catch (_) {}
+        try { this._autoFilter.baseFrequency = 80 + v * 7920; } catch (_) {}
     }
 
-    // ── Recording helper ──────────────────────────────────────────────────────
-    /** Returns a MediaStreamAudioDestinationNode tapping the native synth path. */
+    // ── Recording ─────────────────────────────────────────────────────────────
     getRecordingDest() {
         if (!this.ctx) return null;
         this._recDest = this.ctx.createMediaStreamDestination();
-        this._synthLimiter?.connect(this._recDest);
+        this._hardLimiter.connect(this._recDest);
         return this._recDest;
     }
 
     releaseRecordingDest(dest) {
-        try { this._synthLimiter?.disconnect(dest); } catch (_) {}
+        try { this._hardLimiter.disconnect(dest); } catch (_) {}
         this._recDest = null;
     }
 
@@ -241,13 +293,18 @@ export class AudioEngine {
     dispose() {
         try {
             this._drone?.triggerRelease();
-            this._kick?.dispose();
-            this._drone?.dispose();
-            this._autoFilter?.dispose();
-            this._kits.forEach(k => k.dispose());
-            this._masterVol?.dispose();
+            [this._kick, this._drone, this._autoFilter, this._reverb, ...this._kits]
+                .forEach(n => { try { n?.dispose(); } catch (_) {} });
             this._synthInput?.disconnect();
-            this._synthLimiter?.disconnect();
+            this._toneOut?.disconnect();
+            this._masterGain?.disconnect();
+            this._hardLimiter?.disconnect();
+            // Restore Tone destination to ctx.destination
+            try {
+                window.Tone?.getDestination().connect(
+                    new window.Tone.ToneAudioNode({ context: window.Tone.getContext() })
+                );
+            } catch (_) {}
         } catch (_) {}
     }
 }
