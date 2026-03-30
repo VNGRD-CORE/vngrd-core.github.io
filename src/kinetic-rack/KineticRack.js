@@ -1,474 +1,421 @@
-// KineticRack — sets window.KineticRack immediately (IIFE, no T.* at top level)
-// ALL Three.js usage is deferred inside functions called AFTER _loadDeps()
+/**
+ * KineticRack.js — Fluid Tether orchestrator
+ *
+ * SPLIT-HAND CONTROL
+ *   Left  hand  (MediaPipe 'Right' label in mirrored view)
+ *     • Rapid downward snap → triggerKick
+ *     • Thumb-index pinch   → fire armed NeuralComposer block
+ *   Right hand  (MediaPipe 'Left' label in mirrored view)
+ *     • Y position → master volume
+ *     • X position → filter cutoff
+ *     • Depth (Z)  → filter resonance
+ *
+ * MODULES
+ *   AudioEngine   — master limiter chain, drum synthesis
+ *   FluidHands    — GPU particle emitter (replaces stick skeleton)
+ *   TetherVerlet  — 128-pt Verlet string + 3-osc detuned synth
+ *   NeuralComposer — 8-track step sequencer
+ */
 
-const HAND_CONNECTIONS = [
-    [0,1],[1,2],[2,3],[3,4],
-    [0,5],[5,6],[6,7],[7,8],
-    [0,9],[9,10],[10,11],[11,12],
-    [0,13],[13,14],[14,15],[15,16],
-    [0,17],[17,18],[18,19],[19,20],
-    [5,9],[9,13],[13,17]
-];
-
-const FINGERTIP_IDX = [4, 8, 12, 16, 20];
-const N_CONN        = HAND_CONNECTIONS.length;
-const N_JOINTS      = 21;
-const MAX_HANDS     = 2;
-const HAND_COLORS   = [0x00f3ff, 0xff00cc];
-
-const HELP_TEXT = {
-    CYBER_HANGDRUM: [
-        'FINGERTIP → 3D frosted-glass hex triggers sound',
-        'Center pad — D3 deep bass Ding',
-        '8 ring pads — D Kurd scale (A3→A4)',
-        'Pad dips + ripple on every hit',
-    ],
-    NEURAL_GLITCH: [
-        'PINCH index+thumb → Granular bitcrush depth',
-        'FIST all fingers closed → Sub-grain hit + filter',
-        'OPEN PALM → Granular reverb shimmer',
-        'Wrist height → Filter cutoff (always live)',
-    ],
-    TETHER_VERLET: [
-        'CORE: plasma string between both wrists',
-        '  Distance → Pitch  |  Left wrist → Filter',
-        '  Sharp pull → Pluck trigger',
-        'CONSTELLATION / FLOW — sub-modes below',
-    ],
-};
+import * as THREE from 'three';
+import { AudioEngine }    from './AudioEngine.js';
+import { FluidHands }     from './FluidHands.js';
+import { TetherVerlet }   from './TetherVerlet.js';
+import { NeuralComposer } from './NeuralComposer.js';
 
 const KineticRack = (() => {
+    'use strict';
+
     // ── State ─────────────────────────────────────────────────────────────────
-    let T = null;                    // ← only set AFTER _loadDeps(). NEVER use T at IIFE init.
+    let _active   = false;
+    let _raf      = null;
     let _renderer, _scene, _camera, _clock;
-    let _camVideo;
-    let _hands, _handsResults;
-    let _raf, _active = false;
-    let _instruments = {}, _currentInstr = null, _instrName = 'TETHER_VERLET';
 
-    // Skeleton — arrays populated in _buildSkeleton3D() (after T is loaded)
-    let _skelBones  = [];   // [h][c] = Mesh
-    let _skelJoints = [];   // [h][j] = Mesh
-    let _skelLights = [];   // [h][i] = PointLight
+    let _ae       = null;   // AudioEngine
+    let _fluid    = null;   // FluidHands
+    let _tether   = null;   // TetherVerlet
+    let _composer = null;   // NeuralComposer
 
-    // Audio master chain
-    let _masterChainIn = null;
-    let _masterGainOut = null;
-    let _recDest       = null;
-    let _recorder = null, _recChunks = [];
+    let _camVideo = null;
+    let _hands    = null;
+    let _hrLatest = null;
+    let _frameN   = 0;
+
+    // Gesture state
+    let _prevLeftY   = null;
+    let _strikeCool  = 0;
+    let _prevPinchD  = 1;
+    let _pinchCool   = 0;
 
     // MIDI
-    let _midi = null, _midiLearnTarget = null, _ctrlBindings = {};
+    let _midiLearning  = null;
+    const _midiBindings = {};
+
+    // Recording
+    let _recorder  = null;
+    let _recording = false;
 
     // ── Helpers ───────────────────────────────────────────────────────────────
-    function _status(msg, live) {
+    function _status(msg, live = false) {
         const el = document.getElementById('kr-status');
         if (!el) return;
         el.textContent = msg;
-        el.classList.toggle('kr-live', !!live);
+        el.classList.toggle('kr-live', live);
     }
 
-    function _stageSize() {
-        return { W: window.innerWidth - 400, H: window.innerHeight - 100 };
+    function _lm2w(lm, cam) {
+        const ndc = new THREE.Vector3(-(lm.x * 2 - 1), -(lm.y * 2 - 1), 0.5);
+        ndc.unproject(cam);
+        const dir  = ndc.sub(cam.position).normalize();
+        const dist = -cam.position.z / dir.z;
+        return cam.position.clone().add(dir.multiplyScalar(dist));
     }
 
-    // ── Deps (Three.js dynamic import) ────────────────────────────────────────
-    async function _loadDeps() {
-        _status('LOADING...');
-        T = await import('three');
+    /** Convert all landmarks for one hand to world space. */
+    function _handWorld(lms, cam) {
+        return lms.map(lm => _lm2w(lm, cam));
     }
 
-    // ── Renderer ──────────────────────────────────────────────────────────────
-    function _setup() {
-        const { W, H } = _stageSize();
+    /**
+     * Extract left/right world-space landmark arrays from MediaPipe results.
+     * In mirrored-camera view: MediaPipe 'Right' = real left, 'Left' = real right.
+     */
+    function _extractHands(hr, cam) {
+        if (!hr?.multiHandLandmarks?.length) return [null, null];
+        let leftW = null, rightW = null;
+        hr.multiHandLandmarks.forEach((lms, i) => {
+            const label = hr.multiHandedness?.[i]?.label;
+            // 'Right' in MP = user's left hand (after mirror)
+            if (label === 'Right') leftW  = _handWorld(lms, cam);
+            else                   rightW = _handWorld(lms, cam);
+        });
+        // Fallback: if only one hand, treat it as right (modulate)
+        if (!leftW && !rightW && hr.multiHandLandmarks[0]) {
+            rightW = _handWorld(hr.multiHandLandmarks[0], cam);
+        }
+        return [leftW, rightW];
+    }
+
+    // ── Three.js setup ────────────────────────────────────────────────────────
+    function _setupScene() {
         const canvas = document.getElementById('kinetic-canvas');
-
-        _renderer = new T.WebGLRenderer({ canvas, antialias: true, alpha: true });
-        _renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
-        _renderer.setSize(W, H);
+        _renderer = new THREE.WebGLRenderer({ canvas, alpha: true, antialias: true, powerPreference: 'high-performance' });
+        _renderer.setPixelRatio(Math.min(devicePixelRatio, 2));
+        _renderer.setSize(window.innerWidth, window.innerHeight);
+        _renderer.toneMapping         = THREE.ACESFilmicToneMapping;
+        _renderer.toneMappingExposure = 1.5;
         _renderer.setClearColor(0x000000, 0);
-        _renderer.outputColorSpace  = T.SRGBColorSpace;
-        _renderer.toneMapping       = T.ACESFilmicToneMapping;
-        _renderer.toneMappingExposure = 1.1;
-        _renderer.useLegacyLights   = false;
 
-        _camera = new T.PerspectiveCamera(60, W / H, 0.1, 200);
-        _camera.position.set(0, 0, 5);
+        _scene  = new THREE.Scene();
+        _camera = new THREE.PerspectiveCamera(62, window.innerWidth / window.innerHeight, 0.01, 100);
+        _camera.position.set(0, 0, 2);
 
-        _scene = new T.Scene();
-        _scene.background = null;
-        _clock = new T.Clock();
-
-        // Scene lights — drive MeshPhysicalMaterial reflections + chrome skeleton
-        const _rim1 = new T.DirectionalLight(0x00f3ff, 0.55); _rim1.position.set( 3,  4, 5);
-        const _rim2 = new T.DirectionalLight(0xff00cc, 0.35); _rim2.position.set(-4,  2, 3);
-        const _top  = new T.DirectionalLight(0x4488ff, 0.25); _top.position.set(  0,  8, 2);
-        _scene.add(new T.AmbientLight(0x0a0f22, 1.2), _rim1, _rim2, _top);
+        // Ambient + rim lights
+        _scene.add(new THREE.AmbientLight(0x0a0a1a, 1.0));
+        const r1 = new THREE.DirectionalLight(0x00f3ff, 2.5); r1.position.set(-2,  2, 1.5); _scene.add(r1);
+        const r2 = new THREE.DirectionalLight(0xff00cc, 2.0); r2.position.set( 2, -1, 1.5); _scene.add(r2);
+        const r3 = new THREE.DirectionalLight(0xffffff, 1.0); r3.position.set( 0,  3, 2.0); _scene.add(r3);
 
         window.addEventListener('resize', () => {
-            const { W: w, H: h } = _stageSize();
-            _renderer.setSize(w, h);
-            _camera.aspect = w / h;
+            _camera.aspect = window.innerWidth / window.innerHeight;
             _camera.updateProjectionMatrix();
+            _renderer.setSize(window.innerWidth, window.innerHeight);
         });
-    }
-
-    // ── 3D Skeleton ──────────────────────────────────────────────────────────
-    // Called AFTER _setup() so T is defined
-    function _buildSkeleton3D() {
-        for (let h = 0; h < MAX_HANDS; h++) {
-            const col = new T.Color(HAND_COLORS[h]);
-
-            const boneMat = new T.MeshStandardMaterial({
-                color: new T.Color(0xb8d4ff), emissive: col,
-                emissiveIntensity: 0.38, metalness: 1.0, roughness: 0.04,
-            });
-            const jointMat = new T.MeshStandardMaterial({
-                color: new T.Color(0xffffff), emissive: col,
-                emissiveIntensity: 1.1, metalness: 1.0, roughness: 0.02,
-            });
-
-            // Shared cylinder geometry — scale.y = bone length each frame
-            const boneGeo = new T.CylinderGeometry(0.01, 0.01, 1, 7);
-            const bones = [];
-            for (let c = 0; c < N_CONN; c++) {
-                const b = new T.Mesh(boneGeo, boneMat);
-                b.renderOrder = 998; b.visible = false;
-                _scene.add(b); bones.push(b);
-            }
-            _skelBones.push(bones);
-
-            const joints = [];
-            for (let j = 0; j < N_JOINTS; j++) {
-                const tip = FINGERTIP_IDX.includes(j);
-                const jm  = jointMat.clone();
-                jm.emissiveIntensity = tip ? 1.6 : 0.7;
-                const mesh = new T.Mesh(new T.IcosahedronGeometry(tip ? 0.052 : 0.032, 1), jm);
-                mesh.renderOrder = 999; mesh.visible = false;
-                _scene.add(mesh); joints.push(mesh);
-            }
-            _skelJoints.push(joints);
-
-            // Fingertip lights illuminate pads
-            const lights = [];
-            FINGERTIP_IDX.forEach(() => {
-                const l = new T.PointLight(HAND_COLORS[h], 0, 2.8, 2);
-                _scene.add(l); lights.push(l);
-            });
-            _skelLights.push(lights);
-        }
-    }
-
-    // MediaPipe lm → Three.js world (with depth)
-    function _lm2world(lm) {
-        const ndcX = -(lm.x * 2 - 1);
-        const ndcY = -(lm.y * 2 - 1);
-        const depZ = (lm.z || 0) * -4;
-        const v    = new T.Vector3(ndcX, ndcY, 0.5).unproject(_camera);
-        const dir  = v.sub(_camera.position).normalize();
-        const t    = (depZ - _camera.position.z) / dir.z;
-        return _camera.position.clone().add(dir.multiplyScalar(t));
-    }
-
-    // Orient a unit-cylinder bone between two world points
-    function _alignBone(bone, pA, pB) {
-        const dir = new T.Vector3().subVectors(pB, pA);
-        const len = dir.length();
-        if (len < 1e-4) { bone.visible = false; return; }
-        bone.position.addVectors(pA, pB).multiplyScalar(0.5);
-        bone.scale.y = len;
-        bone.quaternion.setFromUnitVectors(new T.Vector3(0, 1, 0), dir.normalize());
-        bone.visible = true;
-    }
-
-    function _updateSkeleton3D(hr) {
-        for (let h = 0; h < MAX_HANDS; h++) {
-            const lms = hr?.multiHandLandmarks?.[h];
-            if (!lms) {
-                _skelBones[h]?.forEach(b => { b.visible = false; });
-                _skelJoints[h]?.forEach(j => { j.visible = false; });
-                _skelLights[h]?.forEach(l => { l.intensity = 0; });
-                continue;
-            }
-            const pts = lms.map(lm => _lm2world(lm));
-            pts.forEach((wp, j) => {
-                _skelJoints[h][j].position.copy(wp);
-                _skelJoints[h][j].visible = true;
-            });
-            HAND_CONNECTIONS.forEach(([a, b], ci) => _alignBone(_skelBones[h][ci], pts[a], pts[b]));
-            FINGERTIP_IDX.forEach((ti, li) => {
-                _skelLights[h][li].position.copy(pts[ti]);
-                _skelLights[h][li].intensity = 0.28;
-            });
-        }
     }
 
     // ── Camera ────────────────────────────────────────────────────────────────
     async function _startCam() {
         _status('CAMERA...');
         _camVideo = document.getElementById('kinetic-cam-video');
-        // Prefer reusing existing APP.camera stream — no second capture device
-        if (window.APP?.camera) {
-            const src = APP.camera.stream ?? APP.camera.videoEl?.srcObject;
-            if (src) {
-                _camVideo.srcObject = src;
-                await _camVideo.play().catch(() => {});
-                _camVideo.classList.add('kr-online');
-                return;
-            }
+        const stream = window.APP?.camera?.stream
+            ?? window.APP?.camera
+            ?? await navigator.mediaDevices.getUserMedia({ video: { width: 1280, height: 720, facingMode: 'user' }, audio: false });
+        _camVideo.srcObject = stream instanceof MediaStream ? stream : null;
+        if (!(_camVideo.srcObject)) {
+            // APP.camera might be a video element
+            const s = await navigator.mediaDevices.getUserMedia({ video: { width: 1280, height: 720, facingMode: 'user' }, audio: false });
+            _camVideo.srcObject = s;
         }
-        const stream = await navigator.mediaDevices.getUserMedia({
-            video: { width: 1280, height: 720, facingMode: 'user' }, audio: false
-        });
-        _camVideo.srcObject = stream;
-        await _camVideo.play();
+        if (_camVideo.readyState < 2) {
+            await new Promise(res => { _camVideo.onloadedmetadata = res; });
+        }
+        await _camVideo.play().catch(() => {});
         _camVideo.classList.add('kr-online');
     }
 
-    // ── MediaPipe (~20fps throttle) ───────────────────────────────────────────
+    // ── MediaPipe ─────────────────────────────────────────────────────────────
     async function _startHands() {
-        _status('LOADING MEDIAPIPE...');
+        _status('LOADING HANDS MODEL...');
+        const CDN = 'https://cdn.jsdelivr.net/npm/@mediapipe/hands@0.4.1646424915/';
         if (!window.Hands) {
             await new Promise((res, rej) => {
                 const s = document.createElement('script');
-                s.src = 'https://cdn.jsdelivr.net/npm/@mediapipe/hands/hands.js';
-                s.crossOrigin = 'anonymous'; s.onload = res; s.onerror = rej;
+                s.src = `${CDN}hands.js`;
+                s.crossOrigin = 'anonymous';
+                s.onload = res; s.onerror = rej;
                 document.head.appendChild(s);
             });
         }
-        _hands = new window.Hands({ locateFile: f => `https://cdn.jsdelivr.net/npm/@mediapipe/hands/${f}` });
-        _hands.setOptions({ maxNumHands: 2, modelComplexity: 1, minDetectionConfidence: 0.72, minTrackingConfidence: 0.52 });
-        _hands.onResults(r => { _handsResults = r; });
-        let fc = 0;
-        const feed = async () => {
-            if (!_active) return;
-            if (++fc % 3 === 0 && _camVideo?.readyState >= 2)
-                await _hands.send({ image: _camVideo }).catch(() => {});
-            requestAnimationFrame(feed);
-        };
-        feed();
+        _hands = new window.Hands({ locateFile: f => `${CDN}${f}` });
+        _hands.setOptions({
+            maxNumHands:             2,
+            modelComplexity:         1,
+            minDetectionConfidence:  0.72,
+            minTrackingConfidence:   0.60,
+        });
+        _hands.onResults(r => { _hrLatest = r; });
+        await _hands.initialize();
     }
 
-    // ── Master audio chain ────────────────────────────────────────────────────
-    function _buildMasterChain(ctx) {
-        const comp = ctx.createDynamicsCompressor();
-        comp.threshold.value = -18; comp.ratio.value = 3.5;
-        comp.attack.value = 0.005;  comp.release.value = 0.15; comp.knee.value = 8;
+    // ── Gesture detection (left hand) ─────────────────────────────────────────
+    function _processGestures(leftW) {
+        if (!leftW) {
+            _prevLeftY = null;
+            return;
+        }
+        const wrist = leftW[0];
+        const now   = performance.now();
 
-        const limiter = ctx.createDynamicsCompressor();
-        limiter.threshold.value = -2;  limiter.ratio.value = 20;
-        limiter.attack.value = 0.001;  limiter.release.value = 0.05; limiter.knee.value = 2;
+        // ── Strike: rapid downward wrist velocity ──────────────────────────
+        if (_prevLeftY !== null) {
+            const deltaY = wrist.y - _prevLeftY; // positive = wrist moved down
+            if (deltaY > 0.032 && now > _strikeCool) {
+                _strikeCool = now + 260;
+                _ae.triggerKick(Math.min(1, deltaY * 20));
+            }
+        }
+        _prevLeftY = wrist.y;
 
-        _masterGainOut = ctx.createGain();
-        _masterGainOut.gain.value = 0.9;
-
-        comp.connect(limiter);
-        limiter.connect(_masterGainOut);
-        _masterGainOut.connect(ctx.destination);
-        _masterChainIn = comp;
-        return comp;
+        // ── Pinch: thumb-index tip distance ────────────────────────────────
+        const thumb = leftW[4];
+        const index = leftW[8];
+        const d     = thumb.distanceTo(index);
+        if (_prevPinchD > 0.12 && d < 0.07 && now > _pinchCool) {
+            _pinchCool = now + 500;
+            _composer?.onPinch();
+        }
+        _prevPinchD = d;
     }
 
-    function _setupRecording(ctx) {
-        _recDest = ctx.createMediaStreamDestination();
-        _masterGainOut?.connect(_recDest);
+    // ── Right-hand continuous modulation ─────────────────────────────────────
+    function _processModulate(rightW) {
+        if (!rightW || !_ae) return;
+        const w = rightW[0]; // wrist
+        // Y position (0=top, 1=bottom) → volume: high hand = loud
+        _ae.setVolume(1 - w.y * 0.9);
+        // X position (0=left, 1=right) → filter cutoff 200–12000 Hz
+        _ae.setFilterCutoff(200 + w.x * 11800);
+        // Z depth → resonance 0.5..18
+        const depth = Math.abs(w.z ?? 0);
+        _ae.setFilterResonance(0.5 + depth * 22);
+    }
+
+    // ── Main render loop ──────────────────────────────────────────────────────
+    async function _loop() {
+        if (!_active) return;
+        _raf = requestAnimationFrame(_loop);
+
+        const dt      = _clock.getDelta();
+        const elapsed = _clock.getElapsedTime();
+
+        // MediaPipe inference every 3rd frame (~20fps)
+        if (_hands && _camVideo?.readyState === 4 && _frameN % 3 === 0) {
+            await _hands.send({ image: _camVideo });
+        }
+        _frameN++;
+
+        const [leftW, rightW] = _extractHands(_hrLatest, _camera);
+
+        // Gesture detection
+        _processGestures(leftW);
+        _processModulate(rightW);
+
+        // Update modules
+        _fluid.update([leftW, rightW], dt);
+        _tether.update(
+            leftW  ? leftW[0]  : null,
+            rightW ? rightW[0] : null,
+            dt,
+            elapsed
+        );
+
+        _renderer.render(_scene, _camera);
     }
 
     // ── MIDI ──────────────────────────────────────────────────────────────────
-    async function _initMidi() {
+    function _initMidi() {
         if (!navigator.requestMIDIAccess) return;
-        try {
-            _midi = await navigator.requestMIDIAccess();
-            const bind = () => _midi.inputs.forEach(i => { i.onmidimessage = _onMidi; });
-            bind(); _midi.onstatechange = bind;
-        } catch (_) {}
+        navigator.requestMIDIAccess().then(access => {
+            access.inputs.forEach(p => { p.onmidimessage = _onMIDI; });
+            access.onstatechange = e => {
+                if (e.port.type === 'input' && e.port.state === 'connected') e.port.onmidimessage = _onMIDI;
+            };
+        }).catch(() => {});
     }
 
-    function _onMidi(msg) {
-        if (!msg.data || msg.data.length < 3) return;
-        const [st, cc, val] = msg.data;
+    function _onMIDI(e) {
+        const [st, cc, val] = e.data;
         if ((st & 0xf0) !== 0xb0) return;
-        if (_midiLearnTarget) {
-            _ctrlBindings[cc] = _midiLearnTarget;
-            document.querySelectorAll('.kr-ctrl-learn').forEach(b => b.classList.remove('kr-learning'));
-            _midiLearnTarget = null;
-            _status('CC' + cc + ' → ' + _ctrlBindings[cc].toUpperCase(), true);
-            setTimeout(() => { if (_active) _status(_instrName + ' // LIVE', true); }, 2000);
+        const v = val / 127;
+        if (_midiLearning) {
+            _midiBindings[_midiLearning] = cc;
+            document.querySelector(`.kr-ctrl-learn[data-ctrl="${_midiLearning}"]`)?.classList.remove('kr-learning');
+            _midiLearning = null;
             return;
         }
-        const id = _ctrlBindings[cc]; if (!id) return;
-        const n  = val / 127;
-        document.querySelector(`.kr-ctrl-slider[data-ctrl="${id}"]`)?.setAttribute('value', n);
-        _applyCtrl(id, n);
-    }
-
-    function _applyCtrl(id, val) {
-        const instr = _currentInstr; if (!instr) return;
-        if (id === 'vol') {
-            const g = instr._masterGain ?? instr._mGain;
-            g?.gain.setTargetAtTime(val * 0.9 + 0.05, instr._ctx.currentTime, 0.05);
-        } else if (id === 'reverb') {
-            instr._reverbGain?.gain.setTargetAtTime(val, instr._ctx.currentTime, 0.05);
-        } else if (id === 'filter') {
-            instr._filter?.frequency.setTargetAtTime(80 + val * 3400, instr._ctx.currentTime, 0.03);
+        for (const [ctrl, bcc] of Object.entries(_midiBindings)) {
+            if (bcc === cc) {
+                ctrlChange(ctrl, v);
+                const s = document.querySelector(`.kr-ctrl-slider[data-ctrl="${ctrl}"]`);
+                if (s) s.value = v;
+            }
         }
     }
 
     // ── Recording ─────────────────────────────────────────────────────────────
-    function toggleRecording() {
-        if (_recorder?.state === 'recording') {
-            _recorder.stop();
-            _status(_instrName + ' // LIVE', true);
-            document.getElementById('kr-rec-btn')?.classList.remove('kr-recording');
-            return;
-        }
-        const tracks = [...document.getElementById('kinetic-canvas').captureStream(30).getVideoTracks()];
-        if (_recDest) tracks.push(..._recDest.stream.getAudioTracks());
-        const mime = MediaRecorder.isTypeSupported('video/webm;codecs=vp9,opus') ? 'video/webm;codecs=vp9,opus' : 'video/webm';
-        _recChunks = [];
-        _recorder  = new MediaRecorder(new MediaStream(tracks), { mimeType: mime, videoBitsPerSecond: 8_000_000 });
-        _recorder.ondataavailable = e => { if (e.data.size > 0) _recChunks.push(e.data); };
+    function _startRec() {
+        const vs  = document.getElementById('kinetic-canvas').captureStream(60);
+        const dest = _ae.ctx.createMediaStreamDestination();
+        _ae._limiter.connect(dest);  // tap after limiter
+        dest.stream.getAudioTracks().forEach(t => vs.addTrack(t));
+        const mime = MediaRecorder.isTypeSupported('video/webm;codecs=vp9,opus')
+            ? 'video/webm;codecs=vp9,opus' : 'video/webm';
+        _recorder = new MediaRecorder(vs, { mimeType: mime, videoBitsPerSecond: 12e6 });
+        const chunks = [];
+        _recorder.ondataavailable = e => e.data.size && chunks.push(e.data);
         _recorder.onstop = () => {
-            const url = URL.createObjectURL(new Blob(_recChunks, { type: mime }));
-            Object.assign(document.createElement('a'), { href: url, download: `vngrd-${Date.now()}.webm` }).click();
-            URL.revokeObjectURL(url);
+            const a = Object.assign(document.createElement('a'), {
+                href: URL.createObjectURL(new Blob(chunks, { type: mime })),
+                download: `vngrd-${Date.now()}.webm`,
+            });
+            a.click();
+            URL.revokeObjectURL(a.href);
+            _ae._limiter.disconnect(dest);
         };
-        _recorder.start(1000);
-        _status('● REC', true);
+        _recorder.start();
+        _recording = true;
         document.getElementById('kr-rec-btn')?.classList.add('kr-recording');
     }
 
-    // ── Instruments ───────────────────────────────────────────────────────────
-    async function _buildInstruments() {
-        _status('LOADING INSTRUMENTS...');
-        const [{ CyberHangdrum }, { NeuralGlitch }, { TetherVerlet }] = await Promise.all([
-            import('./instruments/CyberHangdrum.js'),
-            import('./instruments/NeuralGlitch.js'),
-            import('./instruments/TetherVerlet.js'),
-        ]);
-        let ctx;
-        if (window.APP?.audio?.ctx) {
-            ctx = APP.audio.ctx;
-        } else {
-            ctx = new (window.AudioContext || window.webkitAudioContext)();
-        }
-        await ctx.resume().catch(() => {}); // ensure AudioContext is running
-
-        const masterNode = _buildMasterChain(ctx);
-        _setupRecording(ctx);
-
-        _instruments = {
-            CYBER_HANGDRUM: new CyberHangdrum(_scene, ctx, T, _camera, masterNode),
-            NEURAL_GLITCH:  new NeuralGlitch(_scene, ctx, T, masterNode),
-            TETHER_VERLET:  new TetherVerlet(_scene, ctx, T, masterNode),
-        };
-        await Promise.all(Object.values(_instruments).map(i => i.init()));
-        _currentInstr = _instruments[_instrName];
-        _currentInstr.activate();
+    function _stopRec() {
+        if (_recorder?.state !== 'inactive') _recorder.stop();
+        _recording = false;
+        document.getElementById('kr-rec-btn')?.classList.remove('kr-recording');
     }
 
-    // ── Render loop ───────────────────────────────────────────────────────────
-    function _loop() {
-        if (!_active) return;
-        _raf = requestAnimationFrame(_loop);
-        const t = _clock.getElapsedTime();
-        _updateSkeleton3D(_handsResults);
-        _currentInstr?.update(_handsResults, t, _camera);
-        _renderer.render(_scene, _camera);
-    }
-
-    // ── Toggle (main entry point) ─────────────────────────────────────────────
+    // ── Toggle ────────────────────────────────────────────────────────────────
     async function toggle() {
         if (_active) {
-            // Shut down
             _active = false;
             cancelAnimationFrame(_raf);
-            if (_recorder?.state === 'recording') _recorder.stop();
-            Object.values(_instruments).forEach(i => i.deactivate?.());
-            _skelBones.forEach(h  => h.forEach(b => { b.visible = false; }));
-            _skelJoints.forEach(h => h.forEach(j => { j.visible = false; }));
-            _skelLights.forEach(h => h.forEach(l => { l.intensity = 0; }));
-            ['kinetic-canvas','kr-launch-btn','kr-rack','kinetic-cam-video'].forEach(id =>
+            if (_recording) _stopRec();
+            _tether?.deactivate();
+            _fluid?.clear();
+            _composer?.stop();
+            _hands?.close();
+            ['kinetic-canvas', 'kr-launch-btn', 'kr-rack', 'kinetic-cam-video'].forEach(id =>
                 document.getElementById(id)?.classList.remove('kr-online')
             );
-            document.getElementById('kr-help-modal')?.classList.remove('kr-visible');
+            document.getElementById('kr-stage-hud')?.classList.remove('kr-live');
             _status('OFFLINE');
             return;
         }
 
-        // Launch
         _active = true;
         document.getElementById('kr-launch-btn')?.classList.add('kr-online');
         _status('STARTING...');
 
         try {
-            await _loadDeps();                    // T is now loaded
-            await _startCam();                    // camera feed visible
-            _setup();                             // renderer + scene + lights
-            _buildSkeleton3D();                   // skeleton meshes (T now safe)
-            await _buildInstruments();            // audio chain + instruments
-            await _startHands();                  // MediaPipe
-            _initMidi();                          // non-blocking
+            // Audio
+            _ae = new AudioEngine();
+            await _ae.init(window.APP?.audio?.ctx);
+
+            // Three.js scene
+            _setupScene();
+
+            // Camera
+            await _startCam();
+
+            // Modules
+            _fluid    = new FluidHands(_scene, THREE);
+            _tether   = new TetherVerlet(_scene, _ae);
+            _tether.init();
+            _tether.activate();
+
+            _composer = new NeuralComposer(_ae);
+            _composer.start();
+
+            // MediaPipe
+            await _startHands();
+
+            // MIDI
+            _initMidi();
 
             document.getElementById('kinetic-canvas')?.classList.add('kr-online');
             document.getElementById('kr-rack')?.classList.add('kr-online');
-            _status(_instrName + ' // LIVE', true);
-            _updateHelp(_instrName);
+            document.getElementById('kr-stage-hud')?.classList.add('kr-live');
+            _status('FLUID TETHER // LIVE', true);
+
+            _clock = new THREE.Clock();
             _loop();
         } catch (err) {
             console.error('[KineticRack]', err);
-            _status('ERR: ' + String(err.message).slice(0, 44));
+            _status('ERROR: ' + err.message);
             _active = false;
             document.getElementById('kr-launch-btn')?.classList.remove('kr-online');
-            document.getElementById('kinetic-cam-video')?.classList.remove('kr-online');
         }
     }
 
     // ── Public API ────────────────────────────────────────────────────────────
-    function setInstrument(name) {
-        if (!_instruments[name]) return;
-        _currentInstr?.deactivate?.();
-        _instrName    = name;
-        _currentInstr = _instruments[name];
-        _currentInstr.activate();
-        document.querySelectorAll('.kr-btn').forEach(b => b.classList.remove('kr-sel'));
-        const ids = { CYBER_HANGDRUM:'kr-btn-cyber-hangdrum', NEURAL_GLITCH:'kr-btn-neural-glitch', TETHER_VERLET:'kr-btn-tether-verlet' };
-        document.getElementById(ids[name])?.classList.add('kr-sel');
-        document.getElementById('kr-tether-modes').style.display = name === 'TETHER_VERLET' ? 'flex' : 'none';
-        const ht = document.getElementById('kr-hud-title');
-        if (ht) ht.textContent = name.replace(/_/g, ' ');
-        if (_active) _status(name + ' // LIVE', true);
-        _updateHelp(name);
+    function ctrlChange(id, val) {
+        const v = parseFloat(val);
+        if (id === 'vol')    _ae?.setVolume(v);
+        if (id === 'reverb') _ae?.setReverbMix(v);
+        if (id === 'filter') _ae?.setFilterCutoff(200 + v * 11800);
     }
-
-    function setTetherMode(mode) {
-        _instruments.TETHER_VERLET?.setMode(mode);
-        document.querySelectorAll('.kr-sub-btn').forEach(b =>
-            b.classList.toggle('kr-sel', b.dataset.mode === mode)
-        );
-    }
-
-    function toggleHelp() {
-        document.getElementById('kr-help-modal')?.classList.toggle('kr-visible');
-        _updateHelp(_instrName);
-    }
-
-    function _updateHelp(name) {
-        const body = document.getElementById('kr-help-body');
-        if (!body) return;
-        body.innerHTML = (HELP_TEXT[name] || []).map(l => `<div class="kr-help-line">${l}</div>`).join('');
-    }
-
-    function ctrlChange(id, val) { _applyCtrl(id, parseFloat(val)); }
 
     function midiLearn(ctrlId) {
-        _midiLearnTarget = ctrlId;
+        _midiLearning = ctrlId;
         document.querySelectorAll('.kr-ctrl-learn').forEach(b => b.classList.remove('kr-learning'));
         document.querySelector(`.kr-ctrl-learn[data-ctrl="${ctrlId}"]`)?.classList.add('kr-learning');
-        _status('MIDI: TURN KNOB FOR ' + ctrlId.toUpperCase(), true);
+        setTimeout(() => {
+            if (_midiLearning === ctrlId) {
+                _midiLearning = null;
+                document.querySelector(`.kr-ctrl-learn[data-ctrl="${ctrlId}"]`)?.classList.remove('kr-learning');
+            }
+        }, 10_000);
     }
 
-    return { toggle, setInstrument, setTetherMode, toggleHelp, ctrlChange, midiLearn, toggleRecording };
+    function toggleRecording() { _recording ? _stopRec() : _startRec(); }
+
+    function toggleHelp() {
+        const m = document.getElementById('kr-help-modal');
+        if (!m) return;
+        document.getElementById('kr-help-body').innerHTML = `
+          <div class="kr-help-line">FLUID TETHER — AR Instrument</div>
+          <div class="kr-help-line">────────────────────────────────</div>
+          <div class="kr-help-line">LEFT HAND  →  triggers</div>
+          <div class="kr-help-line">  Snap down   →  kick drum</div>
+          <div class="kr-help-line">  Pinch ✌     →  fire composer block</div>
+          <div class="kr-help-line">RIGHT HAND →  modulators</div>
+          <div class="kr-help-line">  Y-axis  →  master volume</div>
+          <div class="kr-help-line">  X-axis  →  filter cutoff</div>
+          <div class="kr-help-line">  Depth   →  resonance</div>
+          <div class="kr-help-line">TETHER     →  stretch both hands apart</div>
+          <div class="kr-help-line">────────────────────────────────</div>
+          <div class="kr-help-line">COMPOSER   →  click blocks to edit steps</div>
+          <div class="kr-help-line">           ●  = armed  (pinch to fire)</div>
+        `;
+        m.style.display = (!m.style.display || m.style.display === 'none') ? 'flex' : 'none';
+    }
+
+    function toggleComposer() {
+        const p = document.getElementById('nc-panel');
+        if (!p) return;
+        p.style.display = p.style.display === 'none' ? 'flex' : 'none';
+    }
+
+    return { toggle, ctrlChange, midiLearn, toggleRecording, toggleHelp, toggleComposer };
 })();
 
 window.KineticRack = KineticRack;
