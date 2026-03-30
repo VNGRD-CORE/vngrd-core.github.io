@@ -5287,16 +5287,17 @@ body.fullscreen #transcription-hud { pointer-events: none !important; } /* keep 
                     <div id="sfx-midi-arm" style="font-size:7px;color:var(--text-dim);margin-top:6px;text-align:center;letter-spacing:1px;"></div>
                     </div><!-- /sfx-pad-body -->
 
-                    <!-- ══ GRAVITY TETHER ════════════════════════════════ -->
+                    <!-- ══ SPATIAL SYNTH ════════════════════════════════ -->
                     <div id="kr-rack">
-                        <button id="kr-launch-btn" onclick="window.KineticRack && KineticRack.toggle()">[ GRAVITY TETHER ]</button>
+                        <button id="kr-launch-btn" onclick="window.KineticRack && KineticRack.toggle()">[ SPATIAL SYNTH ]</button>
                         <button class="kr-help-btn" onclick="window.KineticRack && KineticRack.toggleHelp()" title="How to play">?</button>
                         <div id="kr-status">OFFLINE</div>
+                        <button id="nc-launch-btn" onclick="window.KineticRack && KineticRack.toggleSonicSuite()">[ SONIC SUITE ]</button>
                     </div>
 
                     <!-- Floating HUD — VOL RVB FILT, all MIDI-assignable -->
                     <div id="kr-stage-hud">
-                        <div id="kr-hud-title">GRAVITY TETHER</div>
+                        <div id="kr-hud-title">SPATIAL SYNTH</div>
                         <div class="kr-ctrl-row">
                             <span class="kr-ctrl-label">VOL</span>
                             <input type="range" class="kr-ctrl-slider" data-ctrl="vol"
@@ -20012,6 +20013,29 @@ function _applyPoseToModel(lm) {
     </div>
     <div id="kr-help-body"></div>
 </div>
+<!-- SONIC SUITE — Neural Composer 8×16 grid HUD -->
+<div id="nc-panel">
+    <div id="nc-panel-title">
+        SONIC SUITE // NEURAL COMPOSER
+        <span id="nc-status">STOPPED</span>
+    </div>
+    <div class="nc-transport">
+        <button id="nc-play-btn" onclick="window._NC?.toggleTransport()">&#x25B6; PLAY</button>
+        <div class="nc-bpm-wrap">
+            BPM
+            <input type="range" min="60" max="200" value="128" step="1"
+                oninput="window._NC?.setBPM(+this.value)">
+            <span id="nc-bpm-val">128</span>
+        </div>
+        <select class="nc-preset-sel" onchange="window._NC?.loadPreset(+this.value)">
+            <option value="0">4-ON-THE-FLOOR</option>
+            <option value="1">TRAP STORM</option>
+            <option value="2">IDM BRKCORE</option>
+        </select>
+    </div>
+    <div id="nc-grid"></div>
+</div>
+
 <script type="module" src="./src/kinetic-rack/KineticRack.js"></script>
 
 </body>
