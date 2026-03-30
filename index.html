@@ -19820,220 +19820,25 @@ function _applyPoseToModel(lm) {
 })();
 </script>
 
-<!-- ═══════════════════════════════════════════════════════════
-     VNGRD // SONIC SUITE — VERTICAL TRACKER WINDOW
-     ═══════════════════════════════════════════════════════════ -->
-<div id="vanguard-tracker-window" class="vanguard-tracker-window">
-
-    <!-- Title bar / Transport -->
-    <div class="vt-titlebar" id="vt-titlebar">
-        <span class="vt-titlebar-label">◈ VNGRD // SONIC SUITE</span>
-        <div class="vt-transport">
-            <div class="vt-bpm-wrap">BPM <input class="vt-bpm-input" id="vt-bpm" type="number" min="40" max="300" value="120"></div>
-            <button class="vt-btn vt-play-btn" id="vt-play-btn" onclick="VanguardTracker.play()">▶ PLAY</button>
-            <button class="vt-btn" onclick="VanguardTracker.stop()">■ STOP</button>
-            <button class="vt-btn" onclick="VanguardTracker.clear()" style="color:rgba(255,120,0,0.65);border-color:rgba(255,120,0,0.25);">CLR</button>
-            <button class="vt-btn-nc-launch" id="nc-toggle-btn" onclick="NeuralCompiler.toggle()">[ OPEN NEURAL COMPILER ]</button>
-            <button class="vt-btn" onclick="_vtToggleHud()" style="color:rgba(255,204,0,0.65);border-color:rgba(255,204,0,0.22);font-size:7px;">? HUD</button>
-            <button class="vt-btn" id="vt-alpha-btn" onclick="toggleGhostMode()" style="color:rgba(255,255,255,0.45);border-color:#333;font-size:7px;letter-spacing:0.5px;">[ ALPHA ]</button>
-        </div>
-        <button class="vt-close-btn" onclick="VanguardTracker.toggle()">✕</button>
-    </div>
-
-    <!-- Waveform canvas strip -->
-    <div class="vt-wave-strip">
-        <div class="vt-wave-num-pad" style="font-size:5.5px;color:rgba(0,243,255,0.28);letter-spacing:1px;">WAVE</div>
-        <div class="vt-wave-canvas-wrap">
-            <canvas class="vt-wave-canvas" id="vt-wave-0"></canvas>
-            <span class="vt-wave-label">SUB 00-01</span>
-        </div>
-        <div class="vt-wave-canvas-wrap">
-            <canvas class="vt-wave-canvas" id="vt-wave-1"></canvas>
-            <span class="vt-wave-label">NOISE 02-03</span>
-        </div>
-        <div class="vt-wave-canvas-wrap">
-            <canvas class="vt-wave-canvas" id="vt-wave-2"></canvas>
-            <span class="vt-wave-label">SWEEP 04-05</span>
-        </div>
-        <div class="vt-wave-canvas-wrap">
-            <canvas class="vt-wave-canvas" id="vt-wave-3"></canvas>
-            <span class="vt-wave-label">BOOM 0A-0F</span>
-        </div>
-    </div>
-
-    <!-- Column headers (PAD | NOTE | VOL | FX) with laser lines -->
-    <div class="vt-col-headers">
-        <div class="vt-col-hdr">#</div>
-        <div class="vt-col-hdr" title="00-0F = InternalSynth  10-1F = Sampler Pads">PAD</div>
-        <div class="vt-col-hdr" title="Chromatic note: C-3…B-6">NOTE</div>
-        <div class="vt-col-hdr" title="Velocity 00=off FF=max">VOL</div>
-        <div class="vt-col-hdr" title="VJ FX code: 01=seismic 02=punch 03=party">FX</div>
-    </div>
-
-    <!-- Scrollable rows (built by VanguardTracker.init) -->
-    <div class="vt-track-scroll" id="vt-track-scroll"></div>
-
-    <!-- Status bar -->
-    <div class="vt-status-bar">
-        <span>POS:</span><span class="vt-status-pos" id="vt-pos">00</span>
-        <span style="margin-left:5px;">ROW:</span><span class="vt-status-pos" id="vt-step">1/32</span>
-        <span style="margin-left:5px;color:rgba(0,243,255,0.55);" id="vt-engine-status">IDLE</span>
-        <span style="margin-left:auto;color:rgba(0,243,255,0.2);">SYNTH:00-0F · SFX:10-1F</span>
-    </div>
-</div>
-
-<!-- ═══════════════════════════════════════════════════════════
-     HUD CRYSTAL OVERLAY — glass morphism
-     ═══════════════════════════════════════════════════════════ -->
-<div class="vt-hud-overlay" id="vt-hud-overlay">
-    <div class="vt-hud-panel">
-        <div class="vt-hud-title">◈ VNGRD // SONIC SUITE — MANUAL</div>
-        <div class="vt-hud-grid">
-            <div class="vt-hud-section-title">[ TRACKER ] — HEX SEQUENCER</div>
-            <div class="vt-hud-row">
-                <span class="vt-hud-cmd">PAD  00–0F</span>
-                <span class="vt-hud-desc">Internal Synth engine<br>SUB / NOISE / SWEEP / METAL / AM / BOOM</span>
-            </div>
-            <div class="vt-hud-row">
-                <span class="vt-hud-cmd">PAD  10–1F</span>
-                <span class="vt-hud-desc">Sampler Pads (SFX library)<br>10=applause 11=cheer 12=horn 13=boom</span>
-            </div>
-            <div class="vt-hud-row">
-                <span class="vt-hud-cmd">NOTE  C-3…B-6</span>
-                <span class="vt-hud-desc">Chromatic pitch for synth<br>Sets oscillator frequency</span>
-            </div>
-            <div class="vt-hud-row">
-                <span class="vt-hud-cmd">VOL  00–FF</span>
-                <span class="vt-hud-desc">Velocity. High VOL + low freq<br>auto-triggers seismic screen shake</span>
-            </div>
-            <div class="vt-hud-sep"></div>
-            <div class="vt-hud-section-title">[ FX ] — VJ VISUAL CODES</div>
-            <div class="vt-hud-row">
-                <span class="vt-hud-cmd">FX  01</span>
-                <span class="vt-hud-desc">SEISMIC — screen shake</span>
-            </div>
-            <div class="vt-hud-row">
-                <span class="vt-hud-cmd">FX  02</span>
-                <span class="vt-hud-desc">PUNCH — kinetic bounce</span>
-            </div>
-            <div class="vt-hud-row">
-                <span class="vt-hud-cmd">FX  03</span>
-                <span class="vt-hud-desc">PARTY — beat-reactive mode</span>
-            </div>
-            <div class="vt-hud-sep"></div>
-            <div class="vt-hud-section-title">[ COMPILER ] — NEURAL SCRIPTING</div>
-            <div class="vt-hud-row">
-                <span class="vt-hud-cmd">loop(bpm, () =&gt; { })</span>
-                <span class="vt-hud-desc">Live loop. 'beat' is auto-injected.<br>Output routes through master analyser.</span>
-            </div>
-            <div class="vt-hud-row">
-                <span class="vt-hud-cmd">p(n).play(vol)</span>
-                <span class="vt-hud-desc">Fire Sampler pad n (0–11)<br>Triggers gear-coupled VJ FX</span>
-            </div>
-            <div class="vt-hud-row">
-                <span class="vt-hud-cmd">synth(note, type)</span>
-                <span class="vt-hud-desc">Play note via InternalSynth<br>type: sub / noise / boom / metal / sweep</span>
-            </div>
-            <div class="vt-hud-row">
-                <span class="vt-hud-cmd">Shift+Enter</span>
-                <span class="vt-hud-desc">Execute script. Hot-swap — no clock stop.</span>
-            </div>
-        </div>
-        <button class="vt-hud-close" onclick="_vtToggleHud()">[ CLOSE ]</button>
-    </div>
-</div>
-
-<!-- ═══════════════════════════════════════════════════════════
-     NEURAL COMPILER — DRIS-STYLE IDE WINDOW
-     ═══════════════════════════════════════════════════════════ -->
-<div id="nc-window" class="nc-window">
-    <div class="nc-titlebar" id="nc-titlebar">
-        <span class="nc-title">⟨/⟩ NEURAL_COMPILER</span>
-        <span style="font-size:6.5px;color:rgba(176,0,255,0.4);letter-spacing:1px;">SONIC SUITE v3</span>
-        <button class="vt-close-btn" onclick="NeuralCompiler.toggle()" style="color:rgba(176,0,255,0.5);">✕</button>
-    </div>
-    <div class="nc-body">
-        <div class="nc-editor-wrap">
-            <textarea class="nc-editor" id="nc-editor" spellcheck="false" autocomplete="off" autocorrect="off" autocapitalize="off"></textarea>
-        </div>
-        <div class="nc-output-panel" id="nc-output"></div>
-    </div>
-    <div class="nc-toolbar">
-        <button class="nc-run-btn" id="nc-run-btn">▶ RUN</button>
-        <button class="nc-stop-btn" id="nc-stop-btn">■ STOP LOOP</button>
-        <span class="nc-hint">Shift+Enter to run · loop(bpm, fn) · p(n).play(vol) · synth(note, type)</span>
-    </div>
-    <div class="nc-status-bar">
-        <span>OUTPUT ROUTED → ENGINE ANALYSER → SEISMIC/KINETIC</span>
-        <span style="margin-left:auto;" id="nc-clock-status">LOOP: IDLE</span>
-    </div>
-</div>
-
-<!-- ═══════════════════════════════════════════════════════════
-     VNGRD// ESX-1 // DRIS CORE — Floating Hardware Sequencer HUD
-     Obsidian titlebar + red brushed-metal chassis
-     Master Clock: Scheduler._tick() via ESX_State.scheduleStep()
-     ═══════════════════════════════════════════════════════════ -->
-<div id="esx-hud" class="esx-window">
-
-    <!-- Obsidian titlebar — drag handle, traffic-light, minimize -->
-    <div class="esx-titlebar" id="esx-titlebar">
-        <div class="esx-tb-dot esx-close" title="Close ESX-1"
-             onclick="ESX.toggle()"></div>
-        <div class="esx-tb-dot esx-min"   title="Minimize ESX-1"
-             onclick="ESX.toggle()"></div>
-        <span class="esx-tb-title">⚡ VNGRD// ESX-1 // DRIS CORE</span>
-        <span class="esx-tb-sub">ELECTRIBE · SX · ROM SYNTH</span>
-    </div>
-
-</div><!-- /esx-hud -->
-
-<!-- hd-window removed — replaced by KINETIC RACK -->
-
-<!-- FULLSCREEN H-HINT -->
 <div id="fs-hint">
     <span style="font-size:7px;color:rgba(0,243,255,0.7);font-family:'JetBrains Mono',monospace;letter-spacing:1px;">H</span>
     <span style="font-size:7px;color:rgba(255,255,255,0.4);font-family:'JetBrains Mono',monospace;letter-spacing:1px;">FULL</span>
 </div>
 
-<!-- ESC WARNING TOAST -->
 <div id="esc-warn">⚠ ESC ARMED — PRESS AGAIN TO PANIC RESET</div>
 
-
-<!-- GRAVITY TETHER — Three.js WebGL canvas + camera feeds -->
 <canvas id="kinetic-canvas"></canvas>
 <video id="kinetic-cam-video" autoplay muted playsinline></video>
-<!-- Hidden 256×256 video strictly for AI inference (HandLandmarker GPU) -->
+
 <video id="kr-ai-video" width="256" height="256" autoplay muted playsinline
     style="position:fixed;left:-9999px;top:-9999px;width:256px;height:256px;pointer-events:none;"></video>
+
 <div id="kr-help-modal">
     <div id="kr-help-header">
         <span>HOW TO PLAY</span>
         <button onclick="window.KineticRack && KineticRack.toggleHelp()">✕</button>
     </div>
     <div id="kr-help-body"></div>
-</div>
-<!-- SONIC SUITE — Neural Composer 8×16 grid HUD -->
-<div id="nc-panel">
-    <div id="nc-panel-title">
-        SONIC SUITE // NEURAL COMPOSER
-        <span id="nc-status">STOPPED</span>
-    </div>
-    <div class="nc-transport">
-        <button id="nc-play-btn" onclick="window._NC?.toggleTransport()">&#x25B6; PLAY</button>
-        <div class="nc-bpm-wrap">
-            BPM
-            <input type="range" min="60" max="200" value="128" step="1"
-                oninput="window._NC?.setBPM(+this.value)">
-            <span id="nc-bpm-val">128</span>
-        </div>
-        <select class="nc-preset-sel" onchange="window._NC?.loadPreset(+this.value)">
-            <option value="0">4-ON-THE-FLOOR</option>
-            <option value="1">TRAP STORM</option>
-            <option value="2">IDM BRKCORE</option>
-        </select>
-    </div>
-    <div id="nc-grid"></div>
 </div>
 
 <script type="module" src="./src/kinetic-rack/KineticRack.js"></script>
