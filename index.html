@@ -14,7 +14,7 @@
 <script>if('serviceWorker' in navigator){navigator.serviceWorker.register('sw.js').catch(function(){});}</script>
 <script src="https://unpkg.com/peerjs@1.5.2/dist/peerjs.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/@mediapipe/pose@0.5.1675469404/pose.js" crossorigin="anonymous"></script>
-<script src="https://unpkg.com/tone@14.8.49/build/Tone.js" crossorigin="anonymous"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/howler/2.2.4/howler.min.js" crossorigin="anonymous"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/ethers/5.7.2/ethers.umd.min.js"></script>
 <script src="https://js.puter.com/v2/"></script>
 <script>
@@ -5296,7 +5296,7 @@ body.fullscreen #transcription-hud { pointer-events: none !important; } /* keep 
 
                     <!-- Floating HUD — VOL RVB FILT, all MIDI-assignable -->
                     <div id="kr-stage-hud">
-                        <div id="kr-hud-title">GRAVITY TETHER</div>
+                        <div id="kr-hud-title">4-PAD SAMPLER</div>
                         <div class="kr-ctrl-row">
                             <span class="kr-ctrl-label">VOL</span>
                             <input type="range" class="kr-ctrl-slider" data-ctrl="vol"
@@ -19999,10 +19999,30 @@ function _applyPoseToModel(lm) {
 <div id="esc-warn">⚠ ESC ARMED — PRESS AGAIN TO PANIC RESET</div>
 
 
-<!-- GRAVITY TETHER — Three.js WebGL canvas + camera feeds -->
-<canvas id="kinetic-canvas"></canvas>
-<video id="kinetic-cam-video" autoplay muted playsinline></video>
-<!-- Hidden 256×256 video strictly for AI inference (HandLandmarker GPU) -->
+<!-- 4-PAD SAMPLER — hand-tracking grid -->
+<div id="kr-sampler-grid">
+    <div class="kr-pad" id="kr-pad-0" data-note="01 / KICK"
+         onclick="window.KineticRack?.triggerPad(0)"
+         ontouchstart="event.preventDefault();window.KineticRack?.triggerPad(0)">
+        <span class="kr-pad-label">KICK</span>
+    </div>
+    <div class="kr-pad" id="kr-pad-1" data-note="02 / SNARE"
+         onclick="window.KineticRack?.triggerPad(1)"
+         ontouchstart="event.preventDefault();window.KineticRack?.triggerPad(1)">
+        <span class="kr-pad-label">SNARE</span>
+    </div>
+    <div class="kr-pad" id="kr-pad-2" data-note="03 / HAT"
+         onclick="window.KineticRack?.triggerPad(2)"
+         ontouchstart="event.preventDefault();window.KineticRack?.triggerPad(2)">
+        <span class="kr-pad-label">HAT</span>
+    </div>
+    <div class="kr-pad" id="kr-pad-3" data-note="04 / BASS"
+         onclick="window.KineticRack?.triggerPad(3)"
+         ontouchstart="event.preventDefault();window.KineticRack?.triggerPad(3)">
+        <span class="kr-pad-label">BASS</span>
+    </div>
+</div>
+<!-- Hidden 256×256 video strictly for HandLandmarker GPU inference -->
 <video id="kr-ai-video" width="256" height="256" autoplay muted playsinline
     style="position:fixed;left:-9999px;top:-9999px;width:256px;height:256px;pointer-events:none;"></video>
 <div id="kr-help-modal">
