@@ -4238,74 +4238,9 @@ body.fullscreen #transcription-hud { pointer-events: none !important; } /* keep 
 .sfx-pad.pad-muted .pad-name { opacity: 0.3 !important; }
 .sfx-pad.pad-muted .pad-lcd  { opacity: 0.1 !important; }
 
-#bug-style-select, #bug-mode-select {
-    /* 1. Nuke the browser's messy arrow icon */
-    appearance: none !important;
-    -webkit-appearance: none !important;
-    
-    /* 2. Restoration of the "Larger Look" */
-    height: 32px !important; /* Chunky hardware height */
-    background: #0a0a0a !important;
-    border: 2px solid rgba(0, 243, 255, 0.5) !important; /* Thicker neon border */
-    border-radius: 4px !important;
-    
-    /* 3. Text Alignment (The most important part) */
-    color: #00f3ff !important;
-    font-family: 'JetBrains Mono', monospace !important;
-    font-size: 11px !important;
-    font-weight: bold !important;
-    text-align: center !important;
-    text-align-last: center !important;
-    line-height: 28px !important; /* Centers text vertically in the big box */
-    
-    /* 4. Layout */
-    flex: 1;
-    margin: 0 4px !important;
-    cursor: pointer;
-    outline: none;
-}
 
-/* Ensure the dropdown options themselves are readable */
-#bug-style-select option, #bug-mode-select option {
-    background: #111;
-    color: #00f3ff;
-    padding: 10px;
-}/* ═══════════════════════════════════════════════════════════
-   RESTORE: IDENTITY DROPDOWN TEXT VISIBILITY
-   ═══════════════════════════════════════════════════════════ */
-#bug-style-select, #bug-mode-select {
-    /* 1. Delete the overlapping arrow icon */
-    appearance: none !important;
-    -webkit-appearance: none !important;
-    
-    /* 2. Restore your original hardware look */
-    background: #0a0a0a !important;
-    border: 1px solid rgba(0, 243, 255, 0.4) !important;
-    color: #00f3ff !important;
-    font-family: 'JetBrains Mono', monospace !important;
-    font-size: 11px !important; /* Original bold size */
-    font-weight: bold !important;
-    
-    /* 3. The centering "Magic" */
-    padding: 0 !important;      /* Removes the "shove" from the top */
-    margin: 0 2px !important;
-    text-align: center !important;
-    text-align-last: center !important;
-    
-    /* Match this height to your "SET BUG" button exactly */
-    height: 32px !important;    
-    line-height: 32px !important; /* This shoves text to the vertical middle */
-    
-    flex: 1;
-    cursor: pointer;
-    outline: none;
-}
 
-/* Ensure the text is visible when you actually click the dropdown */
-#bug-style-select option {
-    background: #111;
-    color: #00f3ff;
-}</style>
+    </style>
 </head>
 <body oncontextmenu="return false;">
     <!-- PORTRAIT ORIENTATION LOCK -->
