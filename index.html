@@ -4238,7 +4238,23 @@ body.fullscreen #transcription-hud { pointer-events: none !important; } /* keep 
 .sfx-pad.pad-muted .pad-name { opacity: 0.3 !important; }
 .sfx-pad.pad-muted .pad-lcd  { opacity: 0.1 !important; }
 
-</style>
+/* ═══════════════════════════════════════════════════════════
+   FIX: IDENTITY DROPDOWN TEXT CLIPPING
+   ═══════════════════════════════════════════════════════════ */
+#bug-style-select, #bug-mode-select {
+    padding: 0 !important;
+    line-height: 1 !important;
+    height: 22px !important; /* Adjust this to match the height of your 'SET BUG' button */
+    font-family: 'JetBrains Mono', monospace !important;
+    font-size: 9px !important;
+    text-align: center !important;
+    text-align-last: center !important;
+    background-color: #0a0a0a !important; /* Match your panel background */
+    color: #00f3ff !important;
+    border: 1px solid rgba(0, 243, 255, 0.3) !important;
+    appearance: none; /* Removes the default browser arrow for a cleaner look */
+    -webkit-appearance: none;
+}</style>
 </head>
 <body oncontextmenu="return false;">
     <!-- PORTRAIT ORIENTATION LOCK -->
