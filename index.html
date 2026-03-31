@@ -4270,6 +4270,41 @@ body.fullscreen #transcription-hud { pointer-events: none !important; } /* keep 
     background: #111;
     color: #00f3ff;
     padding: 10px;
+}/* ═══════════════════════════════════════════════════════════
+   RESTORE: IDENTITY DROPDOWN TEXT VISIBILITY
+   ═══════════════════════════════════════════════════════════ */
+#bug-style-select, #bug-mode-select {
+    /* 1. Delete the overlapping arrow icon */
+    appearance: none !important;
+    -webkit-appearance: none !important;
+    
+    /* 2. Restore your original hardware look */
+    background: #0a0a0a !important;
+    border: 1px solid rgba(0, 243, 255, 0.4) !important;
+    color: #00f3ff !important;
+    font-family: 'JetBrains Mono', monospace !important;
+    font-size: 11px !important; /* Original bold size */
+    font-weight: bold !important;
+    
+    /* 3. The centering "Magic" */
+    padding: 0 !important;      /* Removes the "shove" from the top */
+    margin: 0 2px !important;
+    text-align: center !important;
+    text-align-last: center !important;
+    
+    /* Match this height to your "SET BUG" button exactly */
+    height: 32px !important;    
+    line-height: 32px !important; /* This shoves text to the vertical middle */
+    
+    flex: 1;
+    cursor: pointer;
+    outline: none;
+}
+
+/* Ensure the text is visible when you actually click the dropdown */
+#bug-style-select option {
+    background: #111;
+    color: #00f3ff;
 }</style>
 </head>
 <body oncontextmenu="return false;">
