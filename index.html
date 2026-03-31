@@ -4238,22 +4238,38 @@ body.fullscreen #transcription-hud { pointer-events: none !important; } /* keep 
 .sfx-pad.pad-muted .pad-name { opacity: 0.3 !important; }
 .sfx-pad.pad-muted .pad-lcd  { opacity: 0.1 !important; }
 
-/* ═══════════════════════════════════════════════════════════
-   FIX: IDENTITY DROPDOWN TEXT CLIPPING
-   ═══════════════════════════════════════════════════════════ */
 #bug-style-select, #bug-mode-select {
-    padding: 0 !important;
-    line-height: 1 !important;
-    height: 22px !important; /* Adjust this to match the height of your 'SET BUG' button */
+    /* 1. Nuke the browser's messy arrow icon */
+    appearance: none !important;
+    -webkit-appearance: none !important;
+    
+    /* 2. Restoration of the "Larger Look" */
+    height: 32px !important; /* Chunky hardware height */
+    background: #0a0a0a !important;
+    border: 2px solid rgba(0, 243, 255, 0.5) !important; /* Thicker neon border */
+    border-radius: 4px !important;
+    
+    /* 3. Text Alignment (The most important part) */
+    color: #00f3ff !important;
     font-family: 'JetBrains Mono', monospace !important;
-    font-size: 9px !important;
+    font-size: 11px !important;
+    font-weight: bold !important;
     text-align: center !important;
     text-align-last: center !important;
-    background-color: #0a0a0a !important; /* Match your panel background */
-    color: #00f3ff !important;
-    border: 1px solid rgba(0, 243, 255, 0.3) !important;
-    appearance: none; /* Removes the default browser arrow for a cleaner look */
-    -webkit-appearance: none;
+    line-height: 28px !important; /* Centers text vertically in the big box */
+    
+    /* 4. Layout */
+    flex: 1;
+    margin: 0 4px !important;
+    cursor: pointer;
+    outline: none;
+}
+
+/* Ensure the dropdown options themselves are readable */
+#bug-style-select option, #bug-mode-select option {
+    background: #111;
+    color: #00f3ff;
+    padding: 10px;
 }</style>
 </head>
 <body oncontextmenu="return false;">
