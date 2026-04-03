@@ -23,6 +23,7 @@ import { GravityParticles } from './FluidHands.js';
 import { SpatialSynth }     from './SpatialSynth.js';
 import { AudioEngine }      from './AudioEngine.js';
 import { NeuralComposer }   from './NeuralComposer.js';
+import { GestureLooper }    from './GestureLooper.js';
 
 const KineticRack = (() => {
     'use strict';
@@ -44,6 +45,7 @@ const KineticRack = (() => {
     let _nc         = null;   // NeuralComposer
     let _spatial    = null;   // SpatialSynth
     let _particles  = null;   // GravityParticles
+    let _looper     = null;   // GestureLooper
 
     let _camVideo   = null;
     let _aiVideo    = null;
@@ -270,6 +272,9 @@ const KineticRack = (() => {
         // ── Gesture processing (uses raw lms for velocity, but reads _smooth) ─
         _processGestures(leftLms, rightLms);
 
+        // ── GestureLooper: right hand index pinch → record/replay loops ────
+        _looper?.update(rightLms, _camera);
+
         // ── SpatialSynth: smoothed right palm XY + left gate ───────────────
         _spatial?.update(
             _smooth.rightVisible ? _smooth.rightPalmX : null,
@@ -366,6 +371,7 @@ const KineticRack = (() => {
             window.removeEventListener('resize', _onResize);
             if (_recording) _stopRec();
 
+            _looper?.dispose();
             _nc?.dispose();
             _spatial?.dispose();
             _particles?.dispose();
@@ -411,6 +417,10 @@ const KineticRack = (() => {
             // Particle trails
             _particles = new GravityParticles(_scene, THREE);
 
+            // Gesture Looper
+            _looper = new GestureLooper(_scene, _ae.getLoopBus());
+            window._GestureLooper = _looper;   // expose for Tweak UI
+
             // Hand tracking
             await _startHandLandmarker();
 
@@ -454,9 +464,15 @@ const KineticRack = (() => {
     // ── Public API ────────────────────────────────────────────────────────────
     function ctrlChange(id, val) {
         const v = parseFloat(val);
-        if (id === 'vol')    _ae?.setVolume(v);
-        if (id === 'reverb') _ae?.setReverbMix(v);
-        if (id === 'filter') _ae?.setManualFilter(v);
+        if (id === 'vol')        _ae?.setVolume(v);
+        if (id === 'reverb')     _ae?.setReverbMix(v);
+        if (id === 'filter')     _ae?.setManualFilter(v);
+        if (id === 'loopDelay')  _ae?.setLoopDelayWet(v);
+        if (id === 'loopWave')   _looper?.setWaveform(val);
+    }
+
+    function clearLoops() {
+        _looper?.clearAll();
     }
 
     function midiLearn(ctrlId) {
@@ -496,7 +512,7 @@ const KineticRack = (() => {
         m.style.display = (!m.style.display || m.style.display === 'none') ? 'flex' : 'none';
     }
 
-    return { toggle, ctrlChange, midiLearn, toggleRecording, toggleHelp, toggleSonicSuite };
+    return { toggle, ctrlChange, midiLearn, toggleRecording, toggleHelp, toggleSonicSuite, clearLoops };
 })();
 
 window.KineticRack = KineticRack;

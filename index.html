@@ -19611,5 +19611,244 @@ function _applyPoseToModel(lm) {
 
 <script type="module" src="./src/kinetic-rack/KineticRack.js"></script>
 
+<!-- ══════════════════════════════════════════════════════════════════════════
+     GESTURE LOOPER — TWEAK PANEL
+     Brutalist overlay; z-index 9999; does NOT touch clock/ticker/HUD.
+     ══════════════════════════════════════════════════════════════════════════ -->
+<div id="gl-tweak-panel">
+    <div id="gl-tweak-header">
+        <span id="gl-tweak-title">GESTURE LOOPER</span>
+        <span id="loop-count-badge">0</span>
+    </div>
+
+    <!-- Recording indicator -->
+    <div id="gl-rec-indicator">
+        <span id="gl-rec-dot"></span>
+        <span id="gl-rec-label">PINCH RIGHT HAND TO RECORD</span>
+    </div>
+
+    <!-- Delay Amount -->
+    <div class="gl-ctrl-row">
+        <label class="gl-ctrl-label" for="gl-delay-slider">DELAY</label>
+        <input id="gl-delay-slider" type="range" class="gl-ctrl-slider"
+               min="0" max="1" step="0.01" value="0.28"
+               oninput="window.KineticRack&&KineticRack.ctrlChange('loopDelay',this.value)">
+        <span class="gl-ctrl-val" id="gl-delay-val">28%</span>
+    </div>
+
+    <!-- Synth Waveform -->
+    <div class="gl-ctrl-row">
+        <label class="gl-ctrl-label" for="gl-wave-select">WAVE</label>
+        <select id="gl-wave-select" class="gl-wave-select"
+                onchange="window.KineticRack&&KineticRack.ctrlChange('loopWave',this.value)">
+            <option value="sine"     selected>SINE</option>
+            <option value="square"          >SQUARE</option>
+            <option value="sawtooth"        >SAWTOOTH</option>
+            <option value="triangle"        >TRIANGLE</option>
+        </select>
+    </div>
+
+    <!-- Clear All -->
+    <button id="gl-clear-btn"
+            onclick="window.KineticRack&&KineticRack.clearLoops()">
+        ✕ CLEAR ALL LOOPS
+    </button>
+</div>
+
+<style>
+/* ── Gesture Looper Tweak Panel ───────────────────────────────────────────── */
+#gl-tweak-panel {
+    position: fixed;
+    bottom: 18px;
+    right: 18px;
+    z-index: 9999;
+    width: 220px;
+    background: #07070a;
+    border: 1px solid rgba(0,243,255,0.25);
+    padding: 10px 12px 12px;
+    font-family: 'JetBrains Mono', 'Share Tech Mono', monospace;
+    pointer-events: all;
+    box-shadow: 0 0 18px rgba(0,243,255,0.08), inset 0 0 30px rgba(0,0,0,0.6);
+}
+
+#gl-tweak-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 8px;
+    border-bottom: 1px solid rgba(0,243,255,0.15);
+    padding-bottom: 6px;
+}
+
+#gl-tweak-title {
+    font-size: 9px;
+    letter-spacing: 2px;
+    color: #00f3ff;
+    font-weight: 600;
+}
+
+#loop-count-badge {
+    font-size: 10px;
+    font-weight: 700;
+    color: #00ff88;
+    background: rgba(0,255,136,0.12);
+    border: 1px solid rgba(0,255,136,0.3);
+    padding: 0 6px;
+    min-width: 20px;
+    text-align: center;
+    line-height: 18px;
+}
+
+/* Recording indicator */
+#gl-rec-indicator {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    margin-bottom: 8px;
+    min-height: 14px;
+}
+
+#gl-rec-dot {
+    width: 7px;
+    height: 7px;
+    border-radius: 50%;
+    background: rgba(255,51,68,0.3);
+    border: 1px solid rgba(255,51,68,0.4);
+    flex-shrink: 0;
+    transition: background 0.15s, box-shadow 0.15s;
+}
+
+#gl-rec-dot.gl-recording {
+    background: #ff3344;
+    box-shadow: 0 0 8px #ff3344;
+    animation: gl-rec-pulse 0.9s ease-in-out infinite;
+}
+
+@keyframes gl-rec-pulse {
+    0%, 100% { opacity: 1; }
+    50%       { opacity: 0.35; }
+}
+
+#gl-rec-label {
+    font-size: 7px;
+    letter-spacing: 1px;
+    color: rgba(160,160,168,0.55);
+    text-transform: uppercase;
+}
+
+/* Control rows */
+.gl-ctrl-row {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    margin-bottom: 7px;
+}
+
+.gl-ctrl-label {
+    font-size: 7px;
+    letter-spacing: 1.5px;
+    color: rgba(0,243,255,0.65);
+    width: 36px;
+    flex-shrink: 0;
+    text-transform: uppercase;
+}
+
+.gl-ctrl-slider {
+    flex: 1;
+    -webkit-appearance: none;
+    appearance: none;
+    height: 2px;
+    background: rgba(0,243,255,0.18);
+    outline: none;
+    cursor: pointer;
+}
+
+.gl-ctrl-slider::-webkit-slider-thumb {
+    -webkit-appearance: none;
+    width: 10px;
+    height: 10px;
+    border-radius: 50%;
+    background: #00f3ff;
+    cursor: pointer;
+    box-shadow: 0 0 6px rgba(0,243,255,0.7);
+}
+
+.gl-ctrl-val {
+    font-size: 7px;
+    color: rgba(0,243,255,0.5);
+    width: 28px;
+    text-align: right;
+    flex-shrink: 0;
+}
+
+.gl-wave-select {
+    flex: 1;
+    background: #0a0a10;
+    border: 1px solid rgba(0,243,255,0.2);
+    color: #00f3ff;
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 8px;
+    letter-spacing: 1px;
+    padding: 3px 5px;
+    cursor: pointer;
+    outline: none;
+}
+
+.gl-wave-select:focus {
+    border-color: rgba(0,243,255,0.5);
+}
+
+/* CLEAR ALL button */
+#gl-clear-btn {
+    width: 100%;
+    margin-top: 4px;
+    padding: 8px 0;
+    background: rgba(255,51,68,0.08);
+    border: 1px solid rgba(255,51,68,0.45);
+    color: #ff3344;
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 9px;
+    font-weight: 700;
+    letter-spacing: 2px;
+    text-transform: uppercase;
+    cursor: pointer;
+    transition: background 0.15s, box-shadow 0.15s;
+}
+
+#gl-clear-btn:hover {
+    background: rgba(255,51,68,0.18);
+    box-shadow: 0 0 12px rgba(255,51,68,0.25);
+}
+
+#gl-clear-btn:active {
+    background: rgba(255,51,68,0.32);
+}
+</style>
+
+<script>
+// ── Tweak panel live feedback ─────────────────────────────────────────────────
+(function() {
+    // Delay slider → show percentage
+    const delaySlider = document.getElementById('gl-delay-slider');
+    const delayVal    = document.getElementById('gl-delay-val');
+    if (delaySlider && delayVal) {
+        delaySlider.addEventListener('input', function() {
+            delayVal.textContent = Math.round(this.value * 100) + '%';
+        });
+    }
+
+    // Poll GestureLooper for recording state → animate dot
+    const dot   = document.getElementById('gl-rec-dot');
+    const label = document.getElementById('gl-rec-label');
+    setInterval(function() {
+        const looper = window._GestureLooper;
+        if (!looper) return;
+        const rec = looper.isRecording;
+        dot.classList.toggle('gl-recording', rec);
+        label.textContent = rec ? 'RECORDING...' : 'PINCH RIGHT HAND TO RECORD';
+    }, 80);
+})();
+</script>
+
 </body>
 </html>
