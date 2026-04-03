@@ -4419,7 +4419,6 @@ body.fullscreen #transcription-hud { pointer-events: none !important; } /* keep 
                     <button class="btn btn-compact panic" id="btn-panic" style="font-size:8px;" title="PANIC KILL [ESC]">[ESC]</button>
                 </div>
                 <button class="btn btn-compact" id="btn-zoom-img" style="width:100%;margin-top:4px;font-size:8px;display:none;" title="View current image full screen">&#x1F50D; ZOOM IMAGE</button>
-                <button class="btn btn-compact" id="btn-audio-sync" style="width:100%;margin-top:4px;font-size:8px;" title="Beat-reactive auto-edit: triggers transition on audio peak">&#9836; AUDIO_SYNC: OFF</button>
             </div>
         </div>
          <div class="section">
@@ -6801,49 +6800,26 @@ function drawMediaQueue(ctx, w, h, bottomY) {
     if (!APP.state.showMediaStrips) return;
 
     var thumbSize = Math.round(h * 0.065);
-    var padding   = Math.round(thumbSize * 0.15);
-    // Extra height for the controls row below each thumb
-    var ctrlRowH  = Math.round(thumbSize * 0.22);
-    var barH = thumbSize + padding * 2 + ctrlRowH;
+    var padding = Math.round(thumbSize * 0.15);
+    var barH = thumbSize + padding * 2;
     var barY = bottomY - barH;
 
     ctx.save();
     ctx.globalCompositeOperation = 'source-over';
-    ctx.fillStyle = 'rgba(4,4,8,0.88)';
+    ctx.fillStyle = 'rgba(4,4,8,0.80)';
     ctx.fillRect(0, barY, w, barH);
 
-    // Top accent line — violet (media queue) + AUDIO_SYNC indicator bleed
-    var _syncOn = APP.media.beatSyncMode;
-    ctx.fillStyle = _syncOn ? 'rgba(255,0,204,0.7)' : 'rgba(160,80,255,0.5)';
-    ctx.fillRect(0, barY, w, 2);
+    // Top accent line — violet to distinguish from NFT vault (cyan)
+    ctx.fillStyle = 'rgba(160,80,255,0.5)';
+    ctx.fillRect(0, barY, w, 1);
 
     // Init hit areas
     if (!APP.media.queueStrip) APP.media.queueStrip = {};
-    APP.media.queueStrip.thumbnails  = [];
+    APP.media.queueStrip.thumbnails = [];
     APP.media.queueStrip.durationZones = [];
-    APP.media.queueStrip.txZones     = [];
-    APP.media.queueStrip.beatZones   = [];
-    APP.media.queueStrip.audioSyncZone = null;
 
     var totalW = queue.length * (thumbSize + padding) - padding;
     var startX = Math.max(padding, (w - totalW) / 2);
-
-    // ── AUDIO_SYNC master pill — right edge of bar ────────────────────
-    var _asW = Math.max(70, Math.round(thumbSize * 0.95));
-    var _asH = Math.round(thumbSize * 0.22);
-    var _asX = w - _asW - padding;
-    var _asY = barY + Math.round(padding * 0.6);
-    ctx.fillStyle = _syncOn ? 'rgba(255,0,204,0.25)' : 'rgba(0,0,0,0.55)';
-    ctx.fillRect(_asX, _asY, _asW, _asH);
-    ctx.strokeStyle = _syncOn ? 'rgba(255,0,204,0.9)' : 'rgba(160,80,255,0.4)';
-    ctx.lineWidth = 1;
-    ctx.strokeRect(_asX, _asY, _asW, _asH);
-    var _asFS = Math.max(8, Math.round(_asH * 0.62));
-    ctx.font = '600 ' + _asFS + 'px monospace';
-    ctx.fillStyle = _syncOn ? '#ff00cc' : 'rgba(200,160,255,0.7)';
-    ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
-    ctx.fillText('\u266B ' + (_syncOn ? 'SYNC:ON' : 'SYNC'), _asX + _asW / 2, _asY + _asH / 2);
-    APP.media.queueStrip.audioSyncZone = { x: _asX, y: _asY, w: _asW, h: _asH };
 
     for (var i = 0; i < queue.length; i++) {
         var item = queue[i];
@@ -6859,78 +6835,40 @@ function drawMediaQueue(ctx, w, h, bottomY) {
 
         try { ctx.drawImage(el, tx, ty, thumbSize, thumbSize); } catch(e) { continue; }
 
-        // Border — red for current, magenta-pulse for incoming, violet otherwise
-        var isActive   = (APP.media.currentIndex === i);
-        var isIncoming = APP.media.isTransitioning && item.element === APP.media.incomingElement;
-        ctx.strokeStyle = isIncoming ? '#ff00cc' : isActive ? '#ff3333' : 'rgba(160,80,255,0.7)';
-        ctx.lineWidth   = (isActive || isIncoming) ? 2 : 1;
+        // Border — red for active, violet for inactive
+        var isActive = (APP.media.currentIndex === i);
+        ctx.strokeStyle = isActive ? '#ff3333' : 'rgba(160,80,255,0.7)';
+        ctx.lineWidth = isActive ? 2 : 1;
         ctx.strokeRect(tx, ty, thumbSize, thumbSize);
 
         // Name label
         var labelFS = Math.max(8, Math.round(thumbSize * 0.14));
         ctx.font = '700 ' + labelFS + 'px Orbitron, sans-serif';
         ctx.fillStyle = 'rgba(255,255,255,0.65)';
-        ctx.textAlign = 'center'; ctx.textBaseline = 'top';
+        ctx.textAlign = 'center';
+        ctx.textBaseline = 'top';
         ctx.fillText((item.name || 'FILE').substring(0, 10), tx + thumbSize / 2, ty + thumbSize + 2);
 
         // Store thumbnail hit zone
         APP.media.queueStrip.thumbnails.push({ x: tx, y: ty, w: thumbSize, h: thumbSize, index: i });
 
-        // ── DURATION BADGE — top-right, violet ──────────────────────────
+        // Duration badge — images only (videos play full length)
         if (!isVid) {
-            var dur    = item.duration;
-            var durTxt = (dur === null || dur === Infinity) ? '\u221E' : (dur + 's');
-            var bFS    = Math.max(9, Math.round(thumbSize * 0.13));
-            var bW     = Math.max(22, Math.round(thumbSize * 0.32));
-            var bH     = Math.round(thumbSize * 0.2);
-            var bX     = tx + thumbSize - bW - 2;
-            var bY     = ty + 2;
-            ctx.fillStyle = 'rgba(0,0,0,0.82)';
-            ctx.fillRect(bX, bY, bW, bH);
+            var dur = item.duration != null ? item.duration : 8;
+            var badgeFS = Math.max(9, Math.round(thumbSize * 0.13));
+            var badgeW = Math.max(22, Math.round(thumbSize * 0.3));
+            var badgeH = Math.round(thumbSize * 0.19);
+            var badgeX = tx + thumbSize - badgeW - 2;
+            var badgeY = ty + 2;
+            ctx.fillStyle = 'rgba(0,0,0,0.78)';
+            ctx.fillRect(badgeX, badgeY, badgeW, badgeH);
             ctx.fillStyle = 'rgba(160,80,255,0.95)';
-            ctx.font = '600 ' + bFS + 'px monospace';
-            ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
-            ctx.fillText(durTxt, bX + bW / 2, bY + bH / 2);
-            APP.media.queueStrip.durationZones.push({ x: bX, y: bY, w: bW, h: bH, index: i });
+            ctx.font = '600 ' + badgeFS + 'px monospace';
+            ctx.textAlign = 'center';
+            ctx.textBaseline = 'middle';
+            ctx.fillText(dur + 's', badgeX + badgeW / 2, badgeY + badgeH / 2);
+            APP.media.queueStrip.durationZones.push({ x: badgeX, y: badgeY, w: badgeW, h: badgeH, index: i });
         }
-
-        // ── TRANSITION TYPE BADGE — bottom control row ───────────────────
-        var ctrlY  = ty + thumbSize + labelFS + 4;
-        var txType = item.transitionType || 'glitch';
-        var txLabel = txType === 'scanline' ? 'SCN' : txType === 'fade' ? 'FDE' : 'GLT';
-        var txColor = txType === 'scanline' ? 'rgba(0,243,255,0.9)' : txType === 'fade' ? 'rgba(180,100,255,0.9)' : 'rgba(255,60,120,0.9)';
-        var txBG    = txType === 'scanline' ? 'rgba(0,243,255,0.12)' : txType === 'fade' ? 'rgba(180,100,255,0.12)' : 'rgba(255,60,120,0.12)';
-        var txW = Math.max(24, Math.round(thumbSize * 0.44));
-        var txH = Math.round(ctrlRowH * 0.72);
-        var txX = tx;
-        var txY = barY + barH - txH - Math.round(padding * 0.4);
-        ctx.fillStyle = txBG;
-        ctx.fillRect(txX, txY, txW, txH);
-        ctx.strokeStyle = txColor;
-        ctx.lineWidth = 1;
-        ctx.strokeRect(txX, txY, txW, txH);
-        var txFS = Math.max(7, Math.round(txH * 0.62));
-        ctx.font = '700 ' + txFS + 'px monospace';
-        ctx.fillStyle = txColor;
-        ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
-        ctx.fillText(txLabel, txX + txW / 2, txY + txH / 2);
-        APP.media.queueStrip.txZones.push({ x: txX, y: txY, w: txW, h: txH, index: i });
-
-        // ── BEAT SYNC DOT — next to transition badge ─────────────────────
-        var beatOn = !!item.beatSync;
-        var btW = txH; var btH = txH;
-        var btX = txX + txW + 3;
-        var btY = txY;
-        ctx.fillStyle = beatOn ? 'rgba(255,0,204,0.22)' : 'rgba(0,0,0,0.5)';
-        ctx.fillRect(btX, btY, btW, btH);
-        ctx.strokeStyle = beatOn ? 'rgba(255,0,204,0.9)' : 'rgba(160,80,255,0.3)';
-        ctx.lineWidth = 1;
-        ctx.strokeRect(btX, btY, btW, btH);
-        ctx.font = '700 ' + Math.max(7, Math.round(btH * 0.7)) + 'px monospace';
-        ctx.fillStyle = beatOn ? '#ff00cc' : 'rgba(200,160,255,0.35)';
-        ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
-        ctx.fillText('\u266B', btX + btW / 2, btY + btH / 2);
-        APP.media.queueStrip.beatZones.push({ x: btX, y: btY, w: btW, h: btH, index: i });
     }
 
     ctx.restore();
@@ -6947,8 +6885,7 @@ function initSummonerLogic() {
     var canvas = APP.render.canvas;
     if (!stage || !canvas) return;
 
-    var _durSteps = [3, 5, 8, 10, 15, 20, 30, null]; // null = ∞ infinite hold
-    var _txSteps  = ['glitch', 'scanline', 'fade'];
+    var _durSteps = [3, 5, 8, 10, 15, 20, 30];
 
     stage.addEventListener('click', function(e) {
         var rect = canvas.getBoundingClientRect();
@@ -6964,47 +6901,8 @@ function initSummonerLogic() {
             return;
         }
 
-        // ── AUDIO_SYNC master pill ──
-        var qs = APP.media.queueStrip;
-        var az = qs && qs.audioSyncZone;
-        if (az && cx >= az.x && cx <= az.x + az.w && cy >= az.y && cy <= az.y + az.h) {
-            APP.media.beatSyncMode = !APP.media.beatSyncMode;
-            var asBtn = $('btn-audio-sync');
-            if (asBtn) {
-                asBtn.innerHTML = '\u266B AUDIO_SYNC: ' + (APP.media.beatSyncMode ? 'ON' : 'OFF');
-                asBtn.classList.toggle('sync-on', APP.media.beatSyncMode);
-            }
-            log('BEAT_SYNC: ' + (APP.media.beatSyncMode ? 'ENGAGED' : 'OFF'));
-            return;
-        }
-
-        // ── MEDIA QUEUE STRIP — transition type badge ──
-        var txZones = (qs && qs.txZones) || [];
-        for (var tt = 0; tt < txZones.length; tt++) {
-            var tz2 = txZones[tt];
-            if (cx >= tz2.x && cx <= tz2.x + tz2.w && cy >= tz2.y && cy <= tz2.y + tz2.h) {
-                var tqitem = APP.media.queue[tz2.index];
-                if (tqitem) {
-                    var curTx = _txSteps.indexOf(tqitem.transitionType || 'glitch');
-                    tqitem.transitionType = _txSteps[(curTx + 1) % _txSteps.length];
-                }
-                return;
-            }
-        }
-
-        // ── MEDIA QUEUE STRIP — beat sync toggle ──
-        var beatZones = (qs && qs.beatZones) || [];
-        for (var bt = 0; bt < beatZones.length; bt++) {
-            var bz = beatZones[bt];
-            if (cx >= bz.x && cx <= bz.x + bz.w && cy >= bz.y && cy <= bz.y + bz.h) {
-                var bqitem = APP.media.queue[bz.index];
-                if (bqitem) bqitem.beatSync = !bqitem.beatSync;
-                return;
-            }
-        }
-
         // ── MEDIA QUEUE STRIP — duration badge (violet, above vault) ──
-        var mqDz = (qs && qs.durationZones) || [];
+        var mqDz = (APP.media.queueStrip && APP.media.queueStrip.durationZones) || [];
         for (var md = 0; md < mqDz.length; md++) {
             var mz = mqDz[md];
             if (cx >= mz.x && cx <= mz.x + mz.w && cy >= mz.y && cy <= mz.y + mz.h) {
@@ -7012,23 +6910,24 @@ function initSummonerLogic() {
                 if (qitem && qitem.type !== 'video') {
                     var mCur = _durSteps.indexOf(qitem.duration);
                     qitem.duration = _durSteps[(mCur + 1) % _durSteps.length];
-                    if (APP.state.isCycle && mz.index === APP.media.currentIndex) checkCycleLogic();
                 }
                 return;
             }
         }
 
         // ── MEDIA QUEUE STRIP — thumbnail click (navigate to item) ──
-        var mqTh = (qs && qs.thumbnails) || [];
+        var mqTh = (APP.media.queueStrip && APP.media.queueStrip.thumbnails) || [];
         for (var mt = 0; mt < mqTh.length; mt++) {
             var mthumb = mqTh[mt];
             if (cx >= mthumb.x && cx <= mthumb.x + mthumb.w && cy >= mthumb.y && cy <= mthumb.y + mthumb.h) {
-                if (!APP.media.isTransitioning) {
-                    var qi = APP.media.queue[mthumb.index];
-                    if (qi && mthumb.index !== APP.media.currentIndex) {
-                        // Set index one behind so rotateMedia advances correctly
-                        APP.media.currentIndex = (mthumb.index - 1 + APP.media.queue.length) % APP.media.queue.length;
-                        rotateMedia();
+                var qi = APP.media.queue[mthumb.index];
+                if (qi) {
+                    if (APP.media.currentElement && APP.media.currentElement.tagName === 'VIDEO') APP.media.currentElement.pause();
+                    APP.media.currentIndex = mthumb.index;
+                    APP.media.currentElement = qi.element;
+                    if (qi.element && qi.element.tagName === 'VIDEO') {
+                        qi.element.currentTime = 0;
+                        qi.element.play().catch(function(){});
                     }
                 }
                 return;
@@ -7385,33 +7284,34 @@ function renderLoop(timestamp) {
     const isIdentityFilter = _punchBright <= 1.001 && !_fxDrawFilter && APP.vj.brightness === 1.0 && APP.vj.contrast === 1.0 && APP.vj.saturation === 1.0 && APP.vj.hue === 0 && !APP.vj.invert;
     ctx.filter = isIdentityFilter ? 'none' : filterStr;
     
-    // ════════════════════════════════════════════════════════════════════════
-    // A/B TRANSITION ENGINE — Cross-Buffer Rendering (never blocks RAF)
-    // ════════════════════════════════════════════════════════════════════════
-    var _mediaTxActive = APP.media.isTransitioning && APP.media.outgoingElement && APP.media.incomingElement;
-    if (_mediaTxActive) {
-        try {
-            var _txNow = performance.now();
-            var _txProg = Math.min(1.0, (_txNow - APP.media.transitionStartTime) / Math.max(50, APP.media.transitionDurationMs));
-            APP.media.transitionProgress = _txProg;
-            var _outEl = APP.media.outgoingElement;
-            var _inEl  = APP.media.incomingElement;
-            var _txType = APP.media.transitionType || 'glitch';
+    let source = null;
+    if (APP.render.source) source = APP.render.source;
+    else if (APP.guest && APP.guest.isActive && APP.guest.videoElement) source = APP.guest.videoElement;
+    else if (APP.state.isLive && APP.camera.stream && APP.camera.videoEl) source = APP.camera.videoEl;
+    else if (APP.media.currentElement) source = APP.media.currentElement;
+    
+    if (source) {
+        const ready = source.tagName === 'VIDEO' ? source.readyState >= 2 : (source.complete && source.naturalWidth > 0);
+        if (ready) {
 
-            // Helper: is element ready to draw?
-            var _txReady = function(el) {
-                if (!el) return false;
-                return el.tagName === 'VIDEO' ? el.readyState >= 2 : (el.complete && el.naturalWidth > 0);
-            };
-            // Helper: cover-fit rect for any element
-            var _txRect = function(el) {
-                var sW = el.videoWidth || el._effectiveWidth || el.naturalWidth || w;
-                var sH = el.videoHeight || el._effectiveHeight || el.naturalHeight || h;
-                if (!sW || !sH) return { x:0, y:0, w:w, h:h };
-                var ar = sW / sH, car = w / h;
-                if (ar > car) return { x:(w - h*ar)*0.5, y:0, w:h*ar, h:h };
-                return { x:0, y:(h - w/ar)*0.5, w:w, h:w/ar };
-            };
+            // --- VIEWPORT-FIT: object-fit:cover for canvas ---
+            // Fills the canvas completely — crops edges to maintain aspect ratio.
+            // No letterbox, no pillarbox. Standard for live VJ performance.
+            // _effectiveWidth/_effectiveHeight = EXIF-corrected (mobile photo orientation)
+            var srcW = source.videoWidth || source._effectiveWidth || source.naturalWidth || w;
+            var srcH = source.videoHeight || source._effectiveHeight || source.naturalHeight || h;
+            var srcAR = srcW / srcH;
+            var canvasAR = w / h;
+            var drawW, drawH, drawX, drawY;
+            if (srcAR > canvasAR) {
+                // Source is wider than canvas — fit height, crop left/right equally
+                drawH = h; drawW = h * srcAR;
+                drawX = (w - drawW) / 2; drawY = 0;
+            } else {
+                // Source is taller than canvas — fit width, crop top/bottom equally
+                drawW = w; drawH = w / srcAR;
+                drawX = 0; drawY = (h - drawH) / 2;
+            }
 
             if (_voidTiltAngle !== 0) {
                 ctx.save();
@@ -11251,81 +11151,22 @@ function disconnectVideoAudio() {
 
 function rotateMedia() {
     if (APP.media.queue.length === 0) return;
-    if (APP.media.isTransitioning) return; // already mid-transition — ignore double-fire
-    try {
-        APP.render.source = null; // Clear any source override
-        APP.vj.glitchSnap = 3;
-
-        // Capture outgoing element BEFORE advancing index
-        var _outgoingEl = APP.media.currentElement;
-
-        // Advance to next item
-        var _nextIdx = (APP.media.currentIndex + 1) % APP.media.queue.length;
-        APP.media.currentIndex = _nextIdx;
-        var _nextItem = APP.media.queue[_nextIdx];
-        if (!_nextItem) return;
-
-        var gifOverlay = document.getElementById('gif-overlay');
-
-        // GIF type: bypass canvas entirely — instant DOM swap, no A/B engine
-        if (_nextItem.type === 'gif') {
-            if (_outgoingEl && _outgoingEl.tagName === 'VIDEO') { _outgoingEl.pause(); disconnectVideoAudio(); }
-            if (gifOverlay) gifOverlay.innerHTML = '';
-            var _gifImg = document.createElement('img');
-            _gifImg.src = _nextItem.url;
-            _gifImg.style.cssText = 'width:100%;height:100%;object-fit:cover;';
-            if (gifOverlay) gifOverlay.appendChild(_gifImg);
-            _nextItem.element = _gifImg;
-            APP.media.currentElement = null;
-            console.warn('[VNGRD] GIF "' + _nextItem.name + '" renders as DOM — not captured by captureStream(). Use .webm for recording.');
-            updateMediaControls(); checkCycleLogic(); return;
-        }
-
-        // Non-GIF: clear any previous GIF overlay
+    APP.render.source = null; // Clear override so queue takes priority
+    APP.vj.glitchSnap = 3;
+    if (APP.media.currentElement?.tagName === 'VIDEO') APP.media.currentElement.pause(); disconnectVideoAudio();
+    APP.media.currentIndex = (APP.media.currentIndex + 1) % APP.media.queue.length;
+    const item = APP.media.queue[APP.media.currentIndex];
+    const gifOverlay = document.getElementById('gif-overlay');
+    // GIF: bypass canvas entirely — render as DOM overlay so animation plays
+    if (item.type === 'gif') {
         if (gifOverlay) gifOverlay.innerHTML = '';
-        if (!_nextItem.element) { APP.media.currentElement = null; return; }
-
-        // Boot incoming video element before transition starts
-        if (_nextItem.type === 'video') {
-            _nextItem.element.loop = !APP.state.isCycle;
-            _nextItem.element.currentTime = 0;
-            _nextItem.element.play().catch(function(){});
-        }
-
-        // ── FIRST LOAD (no outgoing element): instant show, skip transition ──
-        if (!_outgoingEl) {
-            APP.media.currentElement = _nextItem.element;
-            if (_nextItem.type === 'video') connectVideoAudio(_nextItem.element);
-            updateMediaControls(); checkCycleLogic(); return;
-        }
-
-        // Determine transition type and duration from incoming item
-        var _txType = _nextItem.transitionType || 'glitch';
-        var _txDur  = _txType === 'fade' ? 900 : _txType === 'scanline' ? 700 : 550;
-
-        // ── ENGAGE A/B TRANSITION ────────────────────────────────────────
-        APP.media.isTransitioning      = true;
-        APP.media.outgoingElement      = _outgoingEl;
-        APP.media.incomingElement      = _nextItem.element;
-        APP.media.transitionType       = _txType;
-        APP.media.transitionDurationMs = _txDur;
-        APP.media.transitionStartTime  = performance.now();
-        APP.media.transitionProgress   = 0;
-        // currentElement NOT set here — render loop sets it when transition completes
-
-        // Audio crossfade at 40% through the transition
-        var _audioDelay = Math.floor(_txDur * 0.4);
-        if (_nextItem.type === 'video') {
-            setTimeout(function() {
-                if (_outgoingEl && _outgoingEl.tagName === 'VIDEO') { try { _outgoingEl.pause(); disconnectVideoAudio(); } catch(e){} }
-                connectVideoAudio(_nextItem.element);
-            }, _audioDelay);
-        } else {
-            if (_outgoingEl && _outgoingEl.tagName === 'VIDEO') {
-                setTimeout(function() { try { _outgoingEl.pause(); disconnectVideoAudio(); } catch(e){} }, _audioDelay);
-            }
-        }
-
+        const img = document.createElement('img');
+        img.src = item.url;
+        img.style.cssText = 'width:100%;height:100%;object-fit:cover;';
+        if (gifOverlay) gifOverlay.appendChild(img);
+        item.element = img;
+        APP.media.currentElement = null; // GIFs do not render to vj-canvas
+        console.warn('[VNGRD] GIF asset "' + item.name + '" is rendered as a DOM element and will NOT be captured by vj-canvas.captureStream(). Convert animated assets to .webm for full recording compatibility.');
         updateMediaControls();
         checkCycleLogic();
         return;
