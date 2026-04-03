@@ -866,29 +866,6 @@
         #cycle-badge { border-color: var(--y); color: var(--y); background: rgba(255,204,0,0.05); display: none; }
         #cycle-badge.on { display: flex; }
 
-        /* ── MEDIA ENGINE v2: QUEUE EDITOR CARDS ──────────────────────── */
-        #q-list { display:flex; flex-direction:column; gap:3px; max-height:180px; overflow-y:auto; margin-top:6px; scrollbar-width:thin; scrollbar-color:rgba(0,243,255,0.2) transparent; }
-        .q-card { background:rgba(0,243,255,0.04); border:1px solid rgba(0,243,255,0.12); border-left:2px solid rgba(0,243,255,0.25); padding:4px 5px; cursor:pointer; transition:background 0.12s, border-color 0.12s; font-family:'JetBrains Mono',monospace; }
-        .q-card:hover { background:rgba(0,243,255,0.10); border-color:rgba(0,243,255,0.35); }
-        .q-card.q-card-current { border-left-color:var(--c); background:rgba(0,243,255,0.10); box-shadow:inset 0 0 8px rgba(0,243,255,0.08); }
-        .q-card.q-card-incoming { border-left-color:#ff00cc; background:rgba(255,0,204,0.07); animation:q-card-pulse 0.4s infinite alternate; }
-        @keyframes q-card-pulse { from { opacity:0.7; } to { opacity:1; } }
-        .q-card-name { font-size:7px; color:rgba(255,255,255,0.7); letter-spacing:0.5px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; max-width:100%; margin-bottom:3px; }
-        .q-card-current .q-card-name { color:var(--c); }
-        .q-card-controls { display:flex; gap:3px; align-items:center; }
-        .q-dur-badge { font-size:7px; padding:1px 4px; border:1px solid rgba(255,204,0,0.4); color:var(--y); background:rgba(255,204,0,0.06); cursor:pointer; border-radius:1px; letter-spacing:0.5px; white-space:nowrap; transition:background 0.1s; }
-        .q-dur-badge:hover { background:rgba(255,204,0,0.18); }
-        .q-tx-toggle { font-size:6px; padding:1px 4px; border:1px solid rgba(0,243,255,0.35); color:var(--c); background:rgba(0,243,255,0.06); cursor:pointer; border-radius:1px; letter-spacing:0.5px; white-space:nowrap; transition:background 0.1s; }
-        .q-tx-toggle:hover { background:rgba(0,243,255,0.18); }
-        .q-tx-toggle[data-tx="scanline"] { border-color:rgba(0,255,136,0.4); color:var(--g); background:rgba(0,255,136,0.05); }
-        .q-tx-toggle[data-tx="fade"] { border-color:rgba(160,100,255,0.4); color:#aa66ff; background:rgba(160,100,255,0.05); }
-        .q-beat-badge { font-size:9px; padding:1px 4px; border:1px solid rgba(255,0,204,0.25); color:rgba(255,0,204,0.45); background:transparent; cursor:pointer; border-radius:1px; transition:all 0.1s; line-height:1; }
-        .q-beat-badge.active { border-color:#ff00cc; color:#ff00cc; background:rgba(255,0,204,0.14); box-shadow:0 0 6px rgba(255,0,204,0.3); }
-        .q-card-idx { font-size:6px; color:rgba(255,255,255,0.25); margin-left:auto; padding-left:3px; }
-        /* AUDIO_SYNC master toggle */
-        #btn-audio-sync { font-size:7px; padding:2px 5px; letter-spacing:0.5px; margin-left:auto; }
-        #btn-audio-sync.sync-on { border-color:#ff00cc !important; color:#ff00cc !important; background:rgba(255,0,204,0.10) !important; box-shadow:0 0 8px rgba(255,0,204,0.25); }
-
         /* Sidebar: neutral borders — no theme color bleed, party mode animates border-color via console-breathe */
         .sidebar { position: fixed; top: 45px; bottom: 55px; width: 200px; max-width: 320px !important; background: var(--core-bg); backdrop-filter: blur(var(--core-blur)) saturate(120%); -webkit-backdrop-filter: blur(var(--core-blur)) saturate(120%); border: 1px solid rgba(255,255,255,0.06); border-top: var(--rim-top); box-shadow: inset 0 0 20px rgba(0,0,0,0.65); overflow-y: auto; overflow-x: hidden; z-index: 4000; scrollbar-width: none; transition: var(--hud-transition), transform 0.52s cubic-bezier(0.34,1.56,0.64,1); will-change: transform, background; }
         /* ═══ TRIPLE-ALPHA KINEMATIC STATES ═══
@@ -4423,10 +4400,10 @@ body.fullscreen #transcription-hud { pointer-events: none !important; } /* keep 
         </div>
         
         <div class="section">
-            <div class="sec-head" id="media-header" style="display:flex;align-items:center;"><span class="sec-title">MEDIA_DECK</span><button class="btn btn-compact" id="btn-audio-sync" title="Toggle beat-reactive auto-edit mode">&#9836; AUDIO_SYNC</button><div class="sec-dot off" id="media-dot" style="margin-left:6px;"></div></div>
+            <div class="sec-head" id="media-header"><span class="sec-title">MEDIA_DECK</span><div class="sec-dot off" id="media-dot"></div></div>
             <div class="sec-body">
                 <button class="btn" id="btn-load-media">LOAD MEDIA</button>
-
+                
                 <div class="audio-ctrl-row">
                     <button class="btn btn-compact" id="btn-prev"><svg width="10" height="10" viewBox="0 0 12 12"><path fill="currentColor" d="M2 2h2v8H2zm2 4l6 4V2z"/></svg></button>
                     <button class="btn btn-compact" id="btn-cycle-toggle" style="flex:3; font-size:9px;">CYCLE: OFF</button>
@@ -4442,7 +4419,6 @@ body.fullscreen #transcription-hud { pointer-events: none !important; } /* keep 
                     <button class="btn btn-compact panic" id="btn-panic" style="font-size:8px;" title="PANIC KILL [ESC]">[ESC]</button>
                 </div>
                 <button class="btn btn-compact" id="btn-zoom-img" style="width:100%;margin-top:4px;font-size:8px;display:none;" title="View current image full screen">&#x1F50D; ZOOM IMAGE</button>
-                <div id="q-list"></div>
             </div>
         </div>
          <div class="section">
@@ -5370,7 +5346,7 @@ const APP = {
         brightness: 1.0, contrast: 1.0, saturation: 1.0, hue: 0, trailsEnabled: false, trailAlpha: 0.92, rgbEnabled: false, rgbIntensity: 0, rgbBassLink: false, pixelateEnabled: false, pixelSize: 1, rumbleEnabled: false, invert: false, uiReactivity: false, shakeIntensity: 0, shockwave: 0, lastBassLevel: 0, avgVol: 0, maskMode: false, glitchSnap: 0,
         seismicVelocity: 0, seismicPosition: 0, springConstant: 0.8, damping: 0.9
     },
-    media: { queue: [], currentIndex: -1, currentElement: null, isTransitioning: false, outgoingElement: null, incomingElement: null, transitionProgress: 0, transitionStartTime: 0, transitionDurationMs: 600, transitionType: 'glitch', beatSyncMode: false },
+    media: { queue: [], currentIndex: -1, currentElement: null },
     fx: { stutter: false, crush: false, invert: false, echo: false, rgbSplit: 0, freezeFrame: null },
     audio: { ctx: null, analyzer: null, source: null, element: null, playlist: [], currentTrack: -1, currentTrackName: '', bassLevel: 0, vuData: new Uint8Array(32), isPlaying: false, isConnected: false, videoSource: null, videoMuted: false, videoGain: null, spatialMode: 'stereo', panner: null, compressor: null, masterGain: null, lowShelf: null, highShelf: null, spatialInterval: null, recorderDest: null },
 
@@ -7208,17 +7184,6 @@ function renderLoop(timestamp) {
     if (_bassRise > 12 && _bassNow > 40 && !window._punchCooldown) {
         window._punchCooldown = true;
         setTimeout(function() { window._punchCooldown = false; }, 100);
-        // ── AUDIO_SYNC AUTO-EDIT: trigger media transition on audio peak ──
-        // Only fires when beatSyncMode is active, queue has items, and the
-        // current item has beatSync=true — cooldown prevents double-fires.
-        if (APP.media.beatSyncMode && !APP.media.isTransitioning && APP.media.queue.length > 1 && !window._beatSyncCooldown) {
-            var _bsCurrent = APP.media.queue[APP.media.currentIndex];
-            if (_bsCurrent && _bsCurrent.beatSync && _bassNow > 90) {
-                window._beatSyncCooldown = true;
-                setTimeout(function() { window._beatSyncCooldown = false; }, 900);
-                if (typeof rotateMedia === 'function') rotateMedia();
-            }
-        }
         if (_bpmModel.lastBeat > 0) {
             var _dt = _nowMs - _bpmModel.lastBeat;
             if (_dt > 230 && _dt < 2000) {          // valid: 30–260 BPM
@@ -7319,192 +7284,65 @@ function renderLoop(timestamp) {
     const isIdentityFilter = _punchBright <= 1.001 && !_fxDrawFilter && APP.vj.brightness === 1.0 && APP.vj.contrast === 1.0 && APP.vj.saturation === 1.0 && APP.vj.hue === 0 && !APP.vj.invert;
     ctx.filter = isIdentityFilter ? 'none' : filterStr;
     
-    // ════════════════════════════════════════════════════════════════════════
-    // A/B TRANSITION ENGINE — Cross-Buffer Rendering (never blocks RAF)
-    // ════════════════════════════════════════════════════════════════════════
-    var _mediaTxActive = APP.media.isTransitioning && APP.media.outgoingElement && APP.media.incomingElement;
-    if (_mediaTxActive) {
-        try {
-            var _txNow = performance.now();
-            var _txProg = Math.min(1.0, (_txNow - APP.media.transitionStartTime) / Math.max(50, APP.media.transitionDurationMs));
-            APP.media.transitionProgress = _txProg;
-            var _outEl = APP.media.outgoingElement;
-            var _inEl  = APP.media.incomingElement;
-            var _txType = APP.media.transitionType || 'glitch';
+    let source = null;
+    if (APP.render.source) source = APP.render.source;
+    else if (APP.guest && APP.guest.isActive && APP.guest.videoElement) source = APP.guest.videoElement;
+    else if (APP.state.isLive && APP.camera.stream && APP.camera.videoEl) source = APP.camera.videoEl;
+    else if (APP.media.currentElement) source = APP.media.currentElement;
+    
+    if (source) {
+        const ready = source.tagName === 'VIDEO' ? source.readyState >= 2 : (source.complete && source.naturalWidth > 0);
+        if (ready) {
 
-            // Helper: is element ready to draw?
-            function _txReady(el) {
-                if (!el) return false;
-                return el.tagName === 'VIDEO' ? el.readyState >= 2 : (el.complete && el.naturalWidth > 0);
-            }
-            // Helper: cover-fit rect for any element
-            function _txRect(el) {
-                var sW = el.videoWidth || el._effectiveWidth || el.naturalWidth || w;
-                var sH = el.videoHeight || el._effectiveHeight || el.naturalHeight || h;
-                if (!sW || !sH) return { x:0, y:0, w:w, h:h };
-                var ar = sW / sH, car = w / h;
-                if (ar > car) return { x:(w - h*ar)*0.5, y:0, w:h*ar, h:h };
-                return { x:0, y:(h - w/ar)*0.5, w:w, h:w/ar };
-            }
-
-            ctx.filter = isIdentityFilter ? 'none' : filterStr;
-
-            if (_txType === 'fade') {
-                // ── CROSS-DISSOLVE: linear alpha fade ──────────────────────
-                if (_txReady(_outEl)) {
-                    var _or = _txRect(_outEl);
-                    ctx.save(); ctx.globalAlpha = Math.max(0, 1 - _txProg);
-                    ctx.drawImage(_outEl, _or.x, _or.y, _or.w, _or.h); ctx.restore();
-                }
-                if (_txReady(_inEl)) {
-                    var _ir = _txRect(_inEl);
-                    ctx.save(); ctx.globalAlpha = Math.min(1, _txProg);
-                    ctx.drawImage(_inEl, _ir.x, _ir.y, _ir.w, _ir.h); ctx.restore();
-                }
-
-            } else if (_txType === 'scanline') {
-                // ── VGD SCANLINE WIPE: neon-cyan bar sweeps top→bottom ─────
-                if (_txReady(_outEl)) {
-                    var _or2 = _txRect(_outEl);
-                    ctx.save(); ctx.globalAlpha = 1;
-                    ctx.drawImage(_outEl, _or2.x, _or2.y, _or2.w, _or2.h); ctx.restore();
-                }
-                if (_txReady(_inEl)) {
-                    var _ir2 = _txRect(_inEl);
-                    var _wipeY = Math.floor(_txProg * h);
-                    ctx.save();
-                    ctx.beginPath(); ctx.rect(0, 0, w, _wipeY); ctx.clip();
-                    ctx.drawImage(_inEl, _ir2.x, _ir2.y, _ir2.w, _ir2.h);
-                    ctx.restore();
-                    // High-contrast neon-cyan bar at the wipe boundary
-                    var _barAlpha = 1 - Math.pow(Math.abs(_txProg - 0.5) * 2, 1.5);
-                    if (_barAlpha > 0.02 && _wipeY > 0 && _wipeY < h) {
-                        ctx.save();
-                        ctx.globalAlpha = _barAlpha;
-                        ctx.shadowColor = '#00f3ff'; ctx.shadowBlur = 28;
-                        ctx.fillStyle = '#00f3ff';
-                        ctx.fillRect(0, _wipeY - 2, w, 5);
-                        ctx.globalAlpha = _barAlpha * 0.5;
-                        ctx.fillStyle = '#ffffff';
-                        ctx.fillRect(0, _wipeY, w, 1);
-                        ctx.shadowBlur = 0; ctx.restore();
-                    }
-                }
-
+            // --- VIEWPORT-FIT: object-fit:cover for canvas ---
+            // Fills the canvas completely — crops edges to maintain aspect ratio.
+            // No letterbox, no pillarbox. Standard for live VJ performance.
+            // _effectiveWidth/_effectiveHeight = EXIF-corrected (mobile photo orientation)
+            var srcW = source.videoWidth || source._effectiveWidth || source.naturalWidth || w;
+            var srcH = source.videoHeight || source._effectiveHeight || source.naturalHeight || h;
+            var srcAR = srcW / srcH;
+            var canvasAR = w / h;
+            var drawW, drawH, drawX, drawY;
+            if (srcAR > canvasAR) {
+                // Source is wider than canvas — fit height, crop left/right equally
+                drawH = h; drawW = h * srcAR;
+                drawX = (w - drawW) / 2; drawY = 0;
             } else {
-                // ── HEAVY GLITCH: horizontal slicing + RGB channel split + jitter ──
-                // Intensity peaks at progress=0.5 (the "drop") and fades on both sides
-                var _intensity = _txProg < 0.5 ? _txProg * 2 : (1 - _txProg) * 2;
-                var _rgbOff = Math.floor(_intensity * 32);
-                var _sliceCount = 14;
-                var _sliceH = h / _sliceCount;
+                // Source is taller than canvas — fit width, crop top/bottom equally
+                drawW = w; drawH = w / srcAR;
+                drawX = 0; drawY = (h - drawH) / 2;
+            }
 
-                // Lazy-create shared scratch buffer
-                if (!APP.render.rgbCanvas) { APP.render.rgbCanvas = document.createElement('canvas'); APP.render.rgbCtx = APP.render.rgbCanvas.getContext('2d'); }
-                if (APP.render.rgbCanvas.width !== w || APP.render.rgbCanvas.height !== h) { APP.render.rgbCanvas.width = w; APP.render.rgbCanvas.height = h; }
-
-                // Draw sliced composite — each slice randomly picks outgoing or incoming,
-                // weighted by progress so we start all-outgoing and end all-incoming
+            if (_voidTiltAngle !== 0) {
                 ctx.save();
-                for (var _si = 0; _si < _sliceCount; _si++) {
-                    var _sy = _si * _sliceH;
-                    var _jitter = (Math.random() - 0.5) * _intensity * 52;
-                    var _pickIn = Math.random() < _txProg;
-                    var _drawEl = _pickIn ? (_txReady(_inEl) ? _inEl : _outEl) : (_txReady(_outEl) ? _outEl : _inEl);
-                    if (!_txReady(_drawEl)) continue;
-                    var _sr = _txRect(_drawEl);
-                    ctx.save();
-                    ctx.beginPath(); ctx.rect(0, _sy, w, _sliceH + 1); ctx.clip();
-                    ctx.drawImage(_drawEl, _sr.x + _jitter, _sr.y, _sr.w, _sr.h);
-                    ctx.restore();
-                }
-                ctx.restore();
-
-                // RGB channel split — screen-blend shifted copies at intensity peak
-                if (_intensity > 0.06 && _rgbOff > 0) {
-                    APP.render.rgbCtx.clearRect(0, 0, w, h);
-                    APP.render.rgbCtx.drawImage(APP.render.canvas, 0, 0);
-                    ctx.save();
-                    ctx.globalCompositeOperation = 'screen';
-                    ctx.globalAlpha = _intensity * 0.62;
-                    ctx.drawImage(APP.render.rgbCanvas,  _rgbOff, 0); // red ghost
-                    ctx.drawImage(APP.render.rgbCanvas, -_rgbOff, 0); // blue ghost
-                    ctx.globalAlpha = 1; ctx.globalCompositeOperation = 'source-over';
-                    ctx.restore();
-                }
+                ctx.translate(w / 2, h / 2);
+                ctx.rotate(_voidTiltAngle);
+                ctx.scale(_voidTiltScale, _voidTiltScale);
+                ctx.translate(-w / 2, -h / 2);
             }
+            if (APP.vj.pixelateEnabled && APP.vj.pixelSize > 1) {
+                // OFF-SCREEN BUFFER RENDER
+                const size = APP.vj.pixelSize;
+                const sw = Math.ceil(drawW / size);
+                const sh = Math.ceil(drawH / size);
 
-            // ── Finalize transition when progress reaches 1.0 ─────────────
-            if (_txProg >= 1.0) {
-                APP.media.isTransitioning = false;
-                APP.media.currentElement  = APP.media.incomingElement;
-                APP.media.outgoingElement = null;
-                APP.media.incomingElement = null;
-                if (typeof updateQueueDisplay === 'function') updateQueueDisplay();
-                if (typeof checkCycleLogic   === 'function') checkCycleLogic();
+                if(APP.render.pixelCanvas.width !== sw) { APP.render.pixelCanvas.width = sw; APP.render.pixelCanvas.height = sh; }
+
+                APP.render.pixelCtx.drawImage(source, 0, 0, sw, sh);
+                ctx.drawImage(APP.render.pixelCanvas, 0, 0, sw, sh, drawX, drawY, drawW, drawH);
+            } else {
+                ctx.drawImage(source, drawX, drawY, drawW, drawH);
             }
-        } catch(_txErr) {
-            // Safety: never let a transition error kill the render loop
-            APP.media.isTransitioning = false;
-            APP.media.outgoingElement = null;
-            APP.media.incomingElement = null;
-        }
+            if (_voidTiltAngle !== 0) { ctx.restore(); }
 
-    } else {
-        // ════════════════════════════════════════════════════════════════════
-        // NORMAL SOURCE RENDERING (no active transition)
-        // ════════════════════════════════════════════════════════════════════
-        let source = null;
-        if (APP.render.source) source = APP.render.source;
-        else if (APP.guest && APP.guest.isActive && APP.guest.videoElement) source = APP.guest.videoElement;
-        else if (APP.state.isLive && APP.camera.stream && APP.camera.videoEl) source = APP.camera.videoEl;
-        else if (APP.media.currentElement) source = APP.media.currentElement;
-
-        if (source) {
-            const ready = source.tagName === 'VIDEO' ? source.readyState >= 2 : (source.complete && source.naturalWidth > 0);
-            if (ready) {
-                // VIEWPORT-FIT: object-fit:cover — fills canvas, crops edges
-                var srcW = source.videoWidth || source._effectiveWidth || source.naturalWidth || w;
-                var srcH = source.videoHeight || source._effectiveHeight || source.naturalHeight || h;
-                var srcAR = srcW / srcH;
-                var canvasAR = w / h;
-                var drawW, drawH, drawX, drawY;
-                if (srcAR > canvasAR) {
-                    drawH = h; drawW = h * srcAR;
-                    drawX = (w - drawW) / 2; drawY = 0;
-                } else {
-                    drawW = w; drawH = w / srcAR;
-                    drawX = 0; drawY = (h - drawH) / 2;
-                }
-
-                if (_voidTiltAngle !== 0) {
-                    ctx.save();
-                    ctx.translate(w / 2, h / 2);
-                    ctx.rotate(_voidTiltAngle);
-                    ctx.scale(_voidTiltScale, _voidTiltScale);
-                    ctx.translate(-w / 2, -h / 2);
-                }
-                if (APP.vj.pixelateEnabled && APP.vj.pixelSize > 1) {
-                    const size = APP.vj.pixelSize;
-                    const sw = Math.ceil(drawW / size);
-                    const sh = Math.ceil(drawH / size);
-                    if (APP.render.pixelCanvas.width !== sw) { APP.render.pixelCanvas.width = sw; APP.render.pixelCanvas.height = sh; }
-                    APP.render.pixelCtx.drawImage(source, 0, 0, sw, sh);
-                    ctx.drawImage(APP.render.pixelCanvas, 0, 0, sw, sh, drawX, drawY, drawW, drawH);
-                } else {
-                    ctx.drawImage(source, drawX, drawY, drawW, drawH);
-                }
-                if (_voidTiltAngle !== 0) { ctx.restore(); }
-
-                if (APP.vj.maskMode) {
-                    const pulse = 1 + (APP.audio.bassLevel / 255) * 0.5;
-                    ctx.globalCompositeOperation = 'destination-in';
-                    ctx.beginPath(); ctx.arc(w/2, h/2, (h/3) * pulse, 0, Math.PI * 2); ctx.fill();
-                    ctx.globalCompositeOperation = 'source-over';
-                }
+            if (APP.vj.maskMode) {
+                const pulse = 1 + (APP.audio.bassLevel / 255) * 0.5;
+                ctx.globalCompositeOperation = 'destination-in';
+                ctx.beginPath(); ctx.arc(w/2, h/2, (h/3) * pulse, 0, Math.PI * 2); ctx.fill();
+                ctx.globalCompositeOperation = 'source-over';
             }
         }
-    } // end A/B transition / normal render branch
+    }
 
     // --- RGB SHIFT (only when reactor/FX active — expensive canvas read-back) ---
     if (_fxActive && APP.vj.rgbEnabled && APP.vj.rgbIntensity > 0) {
@@ -8548,7 +8386,7 @@ function loadMediaFiles(input) {
     Array.from(input.files).forEach((file, idx) => {
         const url = URL.createObjectURL(file);
         const type = file.type.startsWith('video') ? 'video' : (file.type === 'image/gif' ? 'gif' : 'image');
-        const item = { type, url, element: null, name: file.name, duration: type === 'video' ? null : 8, transitionType: 'glitch', beatSync: false };
+        const item = { type, url, element: null, name: file.name, duration: type === 'video' ? null : 8 };
         if (type === 'video') {
             const vid = document.createElement('video'); vid.src = url; vid.muted = true; vid.loop = !APP.state.isCycle; vid.playsInline = true; vid.preload = 'auto'; item.element = vid; $('media-container').appendChild(vid);
         } else if (type === 'image') {
@@ -11313,87 +11151,34 @@ function disconnectVideoAudio() {
 
 function rotateMedia() {
     if (APP.media.queue.length === 0) return;
-    if (APP.media.isTransitioning) return; // already mid-transition — ignore double-fire
-    try {
-        APP.render.source = null; // Clear any source override
-        APP.vj.glitchSnap = 3;
-
-        // Capture outgoing element BEFORE advancing index
-        var _outgoingEl = APP.media.currentElement;
-        var _outgoingItem = APP.media.queue[APP.media.currentIndex];
-
-        // Advance to next item
-        var _nextIdx = (APP.media.currentIndex + 1) % APP.media.queue.length;
-        APP.media.currentIndex = _nextIdx;
-        var _nextItem = APP.media.queue[_nextIdx];
-        if (!_nextItem) return;
-
-        var gifOverlay = document.getElementById('gif-overlay');
-
-        // GIF type: bypass canvas entirely — instant DOM swap, no A/B engine
-        if (_nextItem.type === 'gif') {
-            if (_outgoingEl?.tagName === 'VIDEO') { _outgoingEl.pause(); disconnectVideoAudio(); }
-            if (gifOverlay) gifOverlay.innerHTML = '';
-            var _gifImg = document.createElement('img');
-            _gifImg.src = _nextItem.url;
-            _gifImg.style.cssText = 'width:100%;height:100%;object-fit:cover;';
-            if (gifOverlay) gifOverlay.appendChild(_gifImg);
-            _nextItem.element = _gifImg;
-            APP.media.currentElement = null;
-            console.warn('[VNGRD] GIF "' + _nextItem.name + '" renders as DOM — not captured by captureStream(). Use .webm for recording.');
-            updateMediaControls(); checkCycleLogic(); return;
-        }
-
-        // Non-GIF: clear any previous GIF overlay
+    APP.render.source = null; // Clear override so queue takes priority
+    APP.vj.glitchSnap = 3;
+    if (APP.media.currentElement?.tagName === 'VIDEO') APP.media.currentElement.pause(); disconnectVideoAudio();
+    APP.media.currentIndex = (APP.media.currentIndex + 1) % APP.media.queue.length;
+    const item = APP.media.queue[APP.media.currentIndex];
+    const gifOverlay = document.getElementById('gif-overlay');
+    // GIF: bypass canvas entirely — render as DOM overlay so animation plays
+    if (item.type === 'gif') {
         if (gifOverlay) gifOverlay.innerHTML = '';
-        if (!_nextItem.element) { APP.media.currentElement = null; return; }
-
-        // Determine transition type and duration from incoming item
-        var _txType = _nextItem.transitionType || 'glitch';
-        var _txDur  = _txType === 'fade' ? 900 : _txType === 'scanline' ? 700 : 550;
-
-        // Boot incoming video element before transition starts
-        if (_nextItem.type === 'video') {
-            _nextItem.element.loop = !APP.state.isCycle;
-            _nextItem.element.currentTime = 0;
-            _nextItem.element.play().catch(() => {});
-        }
-
-        // ── ENGAGE A/B TRANSITION ────────────────────────────────────────
-        APP.media.isTransitioning   = true;
-        APP.media.outgoingElement   = _outgoingEl;
-        APP.media.incomingElement   = _nextItem.element;
-        APP.media.transitionType    = _txType;
-        APP.media.transitionDurationMs = _txDur;
-        APP.media.transitionStartTime  = performance.now();
-        APP.media.transitionProgress   = 0;
-        // currentElement intentionally NOT set here — render loop sets it on completion
-
-        // Audio crossfade: switch at 40% through the transition
-        var _audioDelay = Math.floor(_txDur * 0.4);
-        if (_nextItem.type === 'video') {
-            setTimeout(function() {
-                if (_outgoingEl?.tagName === 'VIDEO') { try { _outgoingEl.pause(); disconnectVideoAudio(); } catch(e){} }
-                connectVideoAudio(_nextItem.element);
-            }, _audioDelay);
-        } else {
-            if (_outgoingEl?.tagName === 'VIDEO') {
-                setTimeout(function() { try { _outgoingEl.pause(); disconnectVideoAudio(); } catch(e){} }, _audioDelay);
-            }
-        }
-
+        const img = document.createElement('img');
+        img.src = item.url;
+        img.style.cssText = 'width:100%;height:100%;object-fit:cover;';
+        if (gifOverlay) gifOverlay.appendChild(img);
+        item.element = img;
+        APP.media.currentElement = null; // GIFs do not render to vj-canvas
+        console.warn('[VNGRD] GIF asset "' + item.name + '" is rendered as a DOM element and will NOT be captured by vj-canvas.captureStream(). Convert animated assets to .webm for full recording compatibility.');
         updateMediaControls();
-    } catch(_rotErr) {
-        // Fallback: instant swap so the deck is never stuck
-        APP.media.isTransitioning = false;
-        APP.media.outgoingElement = null; APP.media.incomingElement = null;
-        var _fi = (APP.media.currentIndex + 1) % Math.max(1, APP.media.queue.length);
-        APP.media.currentIndex = _fi;
-        var _fItem = APP.media.queue[_fi];
-        APP.media.currentElement = _fItem ? _fItem.element : null;
-        if (_fItem?.type === 'video') { _fItem.element.currentTime = 0; _fItem.element.play().catch(()=>{}); }
-        updateMediaControls(); checkCycleLogic();
+        checkCycleLogic();
+        return;
     }
+    // Non-GIF: clear any previous GIF overlay
+    if (gifOverlay) gifOverlay.innerHTML = '';
+    // Guard: skip items still loading (async FileReader not done yet)
+    if (!item.element) { APP.media.currentElement = null; return; }
+    APP.media.currentElement = item.element;
+    if (item.type === 'video') { item.element.loop = !APP.state.isCycle; item.element.currentTime = 0; item.element.play().catch(() => {});  connectVideoAudio(item.element); }
+    updateMediaControls();
+    checkCycleLogic();
 }
 
 function previousMedia() {
@@ -11482,115 +11267,27 @@ function checkCycleLogic() {
     if (!APP.state.isCycle || APP.media.currentIndex === -1) return;
     const current = APP.media.queue[APP.media.currentIndex];
     if (!current) return;
-
-    if (current.type === 'video') {
-        // VIDEO: play full length then auto-next (unless beatSync overrides)
-        if (current.element) {
-            current.element.loop = false;
-            current.element.onended = function() {
-                if (APP.state.isCycle && !APP.media.isTransitioning) rotateMedia();
-            };
-        }
-    } else {
-        // IMAGE: respect per-item duration
-        var _dur = (current.duration != null) ? current.duration : (parseInt($('sl-cycle').value) || 8);
-        // null or Infinity = manual hold — never auto-advance on timer
-        if (_dur === null || _dur === Infinity || _dur === 'infinite') return;
-        var _secs = Math.max(0.5, Math.min(120, Number(_dur) || 8));
-        APP.state.cycleTimer = setTimeout(function() {
-            if (APP.state.isCycle && !APP.media.isTransitioning) rotateMedia();
-        }, _secs * 1000);
+    if (current.type === 'video') { if (current.element) { current.element.loop = false; current.element.onended = () => { if (APP.state.isCycle) rotateMedia(); }; } }
+    else {
+        var _qi = APP.media.queue[APP.media.currentIndex];
+        var secs = (_qi && _qi.duration != null) ? _qi.duration : (parseInt($('sl-cycle').value) || 8);
+        APP.state.cycleTimer = setTimeout(function() { if (APP.state.isCycle) rotateMedia(); }, secs * 1000);
     }
 }
 
 function updateQueueDisplay() {
-    var count = APP.media.queue.length;
-    if ($('q-info')) $('q-info').textContent = count;
-    var btn = $('btn-load-media');
-    if (btn) {
-        if (count > 0) {
-            btn.innerHTML = 'MEDIA LOADED [ ' + count + ' ]';
-            btn.classList.add('active-mode');
-            $('media-dot').classList.remove('off');
-        } else {
-            btn.innerHTML = 'LOAD MEDIA';
-            btn.classList.remove('active-mode');
-            $('media-dot').classList.add('off');
-        }
+    const count = APP.media.queue.length;
+    if($('q-info')) $('q-info').textContent = count;
+    const btn = $('btn-load-media');
+    if (count > 0) {
+        btn.innerHTML = `MEDIA LOADED [ ${count} ]`;
+        btn.classList.add('active-mode');
+        $('media-dot').classList.remove('off');
+    } else {
+        btn.innerHTML = 'LOAD MEDIA';
+        btn.classList.remove('active-mode');
+        $('media-dot').classList.add('off');
     }
-
-    // ── RENDER EDITOR CARDS ──────────────────────────────────────────────
-    var qList = $('q-list');
-    if (!qList) { updateMediaControls(); return; }
-    qList.innerHTML = '';
-
-    var DUR_STEPS = [4, 8, 16, 30, null]; // null = ∞ Infinite
-    var TX_STEPS  = ['glitch', 'scanline', 'fade'];
-
-    APP.media.queue.forEach(function(item, idx) {
-        var isCurrent  = idx === APP.media.currentIndex;
-        var isIncoming = APP.media.isTransitioning && item.element === APP.media.incomingElement;
-        var dur    = item.duration;
-        var durLbl = (dur === null || dur === Infinity || dur === 'infinite') ? '&#x221E;' : (dur + 's');
-        var txType = item.transitionType || 'glitch';
-        var beatOn = !!item.beatSync;
-
-        var card = document.createElement('div');
-        card.className = 'q-card' + (isCurrent ? ' q-card-current' : '') + (isIncoming ? ' q-card-incoming' : '');
-
-        // Sanitise name for innerHTML
-        var safeName = (item.name || 'UNTITLED').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
-
-        card.innerHTML =
-            '<div class="q-card-name">' + safeName + '</div>' +
-            '<div class="q-card-controls">' +
-            '  <span class="q-dur-badge" title="Duration — click to cycle (0.5s–120s, ∞)">' + durLbl + '</span>' +
-            '  <span class="q-tx-toggle" data-tx="' + txType + '" title="Transition — click to cycle">' + txType.toUpperCase() + '</span>' +
-            '  <span class="q-beat-badge' + (beatOn ? ' active' : '') + '" title="Toggle beat-sync auto-edit">&#9836;</span>' +
-            '  <span class="q-card-idx">' + (idx + 1) + '</span>' +
-            '</div>';
-
-        // Duration badge — cycle through DUR_STEPS
-        card.querySelector('.q-dur-badge').addEventListener('click', function(e) {
-            e.stopPropagation();
-            var curPos = DUR_STEPS.indexOf(item.duration);
-            item.duration = DUR_STEPS[(curPos + 1) % DUR_STEPS.length];
-            updateQueueDisplay();
-            if (isCurrent && APP.state.isCycle) checkCycleLogic();
-        });
-
-        // Transition toggle — cycle through TX_STEPS
-        var txToggle = card.querySelector('.q-tx-toggle');
-        txToggle.addEventListener('click', function(e) {
-            e.stopPropagation();
-            var curTx = TX_STEPS.indexOf(item.transitionType || 'glitch');
-            item.transitionType = TX_STEPS[(curTx + 1) % TX_STEPS.length];
-            updateQueueDisplay();
-        });
-
-        // Beat-sync toggle
-        card.querySelector('.q-beat-badge').addEventListener('click', function(e) {
-            e.stopPropagation();
-            item.beatSync = !item.beatSync;
-            updateQueueDisplay();
-        });
-
-        // Click card body → jump to that item
-        card.addEventListener('click', function() {
-            if (APP.media.isTransitioning) return;
-            if (idx === APP.media.currentIndex) return;
-            // Set index one behind so rotateMedia advances to it
-            APP.media.currentIndex = (idx - 1 + APP.media.queue.length) % APP.media.queue.length;
-            rotateMedia();
-        });
-
-        qList.appendChild(card);
-    });
-
-    // Scroll active card into view without jumping the whole sidebar
-    var activeCard = qList.querySelector('.q-card-current, .q-card-incoming');
-    if (activeCard) { try { activeCard.scrollIntoView({ block:'nearest', behavior:'smooth' }); } catch(e){} }
-
     updateMediaControls();
 }
 
@@ -13389,23 +13086,6 @@ document.addEventListener('DOMContentLoaded', () => {
     $('btn-rotate').onclick = rotateMedia;
     $('btn-prev').onclick = previousMedia;
     $('file-media').onchange = e => loadMediaFiles(e.target);
-
-    // AUDIO_SYNC master toggle
-    var _audioSyncBtn = $('btn-audio-sync');
-    if (_audioSyncBtn) {
-        _audioSyncBtn.onclick = function() {
-            APP.media.beatSyncMode = !APP.media.beatSyncMode;
-            if (APP.media.beatSyncMode) {
-                _audioSyncBtn.classList.add('sync-on');
-                _audioSyncBtn.innerHTML = '&#9836; AUDIO_SYNC: ON';
-                log('BEAT_SYNC: ENGAGED');
-            } else {
-                _audioSyncBtn.classList.remove('sync-on');
-                _audioSyncBtn.innerHTML = '&#9836; AUDIO_SYNC';
-                log('BEAT_SYNC: OFF');
-            }
-        };
-    }
     
     // Live Time Update
     // Cycle slider handler
