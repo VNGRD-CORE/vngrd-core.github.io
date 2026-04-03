@@ -39,10 +39,6 @@ export class AudioEngine {
         this._kits         = [];
         this._kitIndex     = 0;
 
-        // Loop effects bus (GestureLooper synths route here)
-        this._loopDelay    = null;   // Tone.PingPongDelay  — entry point for loops
-        this._loopReverb   = null;   // Tone.Reverb         — tail for loops
-
         this._recDest      = null;
     }
 
@@ -146,33 +142,10 @@ export class AudioEngine {
         this._synthInput = this.ctx.createGain();
         this._synthInput.gain.value = 0.55;
         this._synthInput.connect(this._masterGain);
-
-        // ── Loop effects bus (GestureLooper) ──────────────────────────────────
-        // Signal chain: FMSynth → _loopDelay → _loopReverb → Tone.Destination
-        this._loopReverb = new Tone.Reverb({ decay: 4.0, wet: 0.35 });
-        await this._loopReverb.ready;
-        this._loopReverb.toDestination();
-
-        this._loopDelay = new Tone.PingPongDelay({
-            delayTime: '8n',
-            feedback:  0.35,
-            wet:       0.28,
-        });
-        this._loopDelay.connect(this._loopReverb);
     }
 
     // ── SpatialSynth compatibility ─────────────────────────────────────────────
     get synthInput() { return this._synthInput; }
-
-    // ── Loop bus (GestureLooper synths connect here) ───────────────────────────
-    /** Returns the Tone node that is the entry point for loop synths. */
-    getLoopBus() { return this._loopDelay; }
-
-    /** Set the wet amount on the loop PingPongDelay (0..1). */
-    setLoopDelayWet(v) {
-        try { if (this._loopDelay) this._loopDelay.wet.rampTo(Math.max(0, Math.min(1, v)), 0.1); }
-        catch (_) {}
-    }
 
     // ── Instruments ───────────────────────────────────────────────────────────
 
@@ -320,8 +293,7 @@ export class AudioEngine {
     dispose() {
         try {
             this._drone?.triggerRelease();
-            [this._kick, this._drone, this._autoFilter, this._reverb,
-             this._loopDelay, this._loopReverb, ...this._kits]
+            [this._kick, this._drone, this._autoFilter, this._reverb, ...this._kits]
                 .forEach(n => { try { n?.dispose(); } catch (_) {} });
             this._synthInput?.disconnect();
             this._toneOut?.disconnect();
