@@ -11633,8 +11633,9 @@ function rotateMedia() {
     // Set up A/B transition — snap/glitch = instant cut (glitch fires system FX), no A/B animation
     var _txDurSec = item.transitionDuration != null ? item.transitionDuration : 0.8;
     if (item.transitionType === 'glitch' && _outgoingEl && _outgoingEl !== item.element) {
-        // Use the same _summonGlitch system as the NFT carousel launcher — instant cut + system glitch FX
-        try { _summonGlitch(); } catch(e) {}
+        // Chromatic aberration CSS filter + impact flash — same as NFT carousel launcher
+        // but WITHOUT rgbIntensity canvas rendering which destroys the thumbnail strip
+        try { triggerChromaticAberration(); triggerImpact(); APP.vj.glitchSnap = 5; setTimeout(function(){ APP.vj.glitchSnap = 0; }, 300); } catch(e) {}
     }
     if (_outgoingEl && _outgoingEl !== item.element && item.transitionType !== 'snap' && item.transitionType !== 'glitch') {
         APP.media._tx = {
