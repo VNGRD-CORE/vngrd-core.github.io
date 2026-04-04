@@ -6983,51 +6983,67 @@ function drawMediaQueue(ctx, w, h, bottomY) {
         var _toItem = _seam ? APP.media.queue[_seam.toIndex] : null;
         if (_toItem) {
             var _tY   = barY + barH; // top of expansion track
-            var _fade = Math.min(1, (_eH - 8) / 20); // fade in content as it opens
+            var _fade = Math.min(1, (_eH - 8) / 18);
             ctx.globalAlpha = _fade;
 
-            var _lpad = 16, _rpad = 16 + asPW + 8;
+            var _lpad = 18, _rpad = 18 + asPW + 10;
             var _midY = _tY + _eH / 2;
-            var _fs8  = Math.max(8, Math.round(h * 0.0075));
-            var _fs7  = Math.max(7, Math.round(_fs8 * 0.88));
+            var _fs9  = Math.max(9,  Math.round(h * 0.0085));  // main control font
+            var _fs8  = Math.max(8,  Math.round(_fs9 * 0.88)); // label font
 
-            // ── TYPE section (left) ──
-            var _types = [
-                { id: 'optical-fade', label: 'OPTICAL FADE' },
-                { id: 'luma-wipe',    label: 'LUMA WIPE'    },
-                { id: 'dip-black',    label: 'DIP BLACK'    }
-            ];
-            var _typeW = 88, _typeGap = 10;
-            var _typeSectW = _types.length * _typeW + (_types.length - 1) * _typeGap;
-            var _typeX0 = _lpad + Math.round(_fs8 * 3.5) + 8; // offset after seam label
-
-            // Seam label
-            ctx.font = '600 ' + _fs7 + 'px monospace';
-            ctx.textAlign    = 'left';
-            ctx.textBaseline = 'middle';
-            ctx.fillStyle    = 'rgba(130,55,255,0.6)';
+            // ── SEAM label ──
+            ctx.font = '600 ' + _fs8 + 'px monospace';
+            ctx.textAlign = 'left'; ctx.textBaseline = 'middle';
+            ctx.fillStyle = 'rgba(160,100,255,0.72)';
             ctx.fillText('S' + APP.media._activeSeam, _lpad + 3, _midY);
+            var _seamLblW = ctx.measureText('S' + APP.media._activeSeam).width;
+
+            // section divider helper
+            var _div = function(x) {
+                ctx.save();
+                ctx.strokeStyle = 'rgba(130,55,255,0.22)';
+                ctx.lineWidth   = 1;
+                ctx.beginPath(); ctx.moveTo(x, _tY + 10); ctx.lineTo(x, _tY + _eH - 10); ctx.stroke();
+                ctx.restore();
+            };
+
+            // ── TYPE section ──
+            var _types = [
+                { id: 'optical-fade', label: 'FADE'    },
+                { id: 'glitch',       label: 'GLITCH'  },
+                { id: 'dip-black',    label: 'DIP BLK' },
+                { id: 'snap',         label: 'SNAP'    }
+            ];
+            var _typeW = 70, _typeGap = 14;
+            var _typeSectW = _types.length * _typeW + (_types.length - 1) * _typeGap;
+            var _typeX0 = _lpad + _seamLblW + 18;
+
+            _div(_typeX0 - 9);
 
             for (var _ti = 0; _ti < _types.length; _ti++) {
-                var _t    = _types[_ti];
-                var _tX   = _typeX0 + _ti * (_typeW + _typeGap);
+                var _t      = _types[_ti];
+                var _tX     = _typeX0 + _ti * (_typeW + _typeGap);
                 var _tActive = (_toItem.transitionType === _t.id);
-                ctx.font         = '700 ' + _fs7 + 'px monospace';
+                ctx.font         = '700 ' + _fs9 + 'px monospace';
                 ctx.textAlign    = 'left';
                 ctx.textBaseline = 'middle';
-                ctx.fillStyle    = _tActive ? 'rgba(220,180,255,1.0)' : 'rgba(160,130,200,0.38)';
-                ctx.fillText(_t.label, _tX, _midY);
-                // Active underline
+                // Active: bright white with a subtle bg; inactive: dim violet
                 if (_tActive) {
-                    var _tw = ctx.measureText(_t.label).width;
-                    ctx.fillStyle = 'rgba(160,80,255,0.8)';
-                    ctx.fillRect(_tX, _midY + _fs7 * 0.7, _tw, 1);
+                    var _tlW = ctx.measureText(_t.label).width;
+                    ctx.fillStyle = 'rgba(160,80,255,0.18)';
+                    ctx.fillRect(_tX - 4, _midY - _fs9 * 0.72, _tlW + 8, _fs9 * 1.44);
+                    ctx.fillStyle = 'rgba(230,200,255,1.0)';
+                } else {
+                    ctx.fillStyle = 'rgba(185,155,220,0.5)';
                 }
+                ctx.fillText(_t.label, _tX, _midY);
                 APP.media.queueStrip.ctrlZones.push({
                     type: 'tx-type', value: _t.id,
-                    x: _tX, y: _tY, w: _typeW, h: _eH
+                    x: _tX - 4, y: _tY, w: _typeW, h: _eH
                 });
             }
+
+            _div(_typeX0 + _typeSectW + 9);
 
             // ── DURATION scrubber (center) ──
             var _durLblX = _typeX0 + _typeSectW + 18;
@@ -7035,71 +7051,68 @@ function drawMediaQueue(ctx, w, h, bottomY) {
             var _durVal = _toItem.transitionDuration != null ? _toItem.transitionDuration : 0.8;
             var _durPct = (_durVal - _durMin) / (_durMax - _durMin);
 
-            // DUR label
-            ctx.font         = '600 ' + _fs7 + 'px monospace';
+            // ── DUR label ──
+            ctx.font         = '600 ' + _fs8 + 'px monospace';
             ctx.textAlign    = 'left';
             ctx.textBaseline = 'middle';
-            ctx.fillStyle    = 'rgba(130,55,255,0.55)';
+            ctx.fillStyle    = 'rgba(160,100,255,0.72)';
             ctx.fillText('DUR', _durLblX, _midY);
-            var _durLblW = ctx.measureText('DUR').width;
+            var _durLblW2 = ctx.measureText('DUR').width;
 
-            // Scrubber track
-            var _scrX = _durLblX + _durLblW + 8;
-            var _scrW = Math.round(w * 0.18);
+            // Scrubber
+            var _scrX = _durLblX + _durLblW2 + 9;
+            var _scrW = Math.round(w * 0.17);
             var _scrY = _midY;
-            var _scrH = 2;
             ctx.fillStyle = 'rgba(60,35,100,0.8)';
-            ctx.fillRect(_scrX, _scrY - 1, _scrW, _scrH);
-            // Filled portion
-            ctx.fillStyle = 'rgba(140,70,255,0.7)';
-            ctx.fillRect(_scrX, _scrY - 1, Math.round(_durPct * _scrW), _scrH);
-            // Handle
+            ctx.fillRect(_scrX, _scrY - 1, _scrW, 2);
+            ctx.fillStyle = 'rgba(150,80,255,0.75)';
+            ctx.fillRect(_scrX, _scrY - 1, Math.round(_durPct * _scrW), 2);
             var _hX = _scrX + Math.round(_durPct * _scrW);
-            ctx.beginPath();
-            ctx.arc(_hX, _scrY, 5, 0, Math.PI * 2);
-            ctx.fillStyle   = 'rgba(190,130,255,0.95)';
-            ctx.shadowColor = 'rgba(160,80,255,0.6)';
-            ctx.shadowBlur  = 6;
-            ctx.fill();
-            ctx.shadowBlur = 0;
+            ctx.beginPath(); ctx.arc(_hX, _scrY, 5, 0, Math.PI * 2);
+            ctx.fillStyle = 'rgba(200,145,255,0.97)';
+            ctx.shadowColor = 'rgba(160,80,255,0.6)'; ctx.shadowBlur = 7;
+            ctx.fill(); ctx.shadowBlur = 0;
 
             // Value label
             var _durValStr = _durVal.toFixed(1) + 's';
-            ctx.font         = '600 ' + _fs7 + 'px monospace';
+            ctx.font         = '700 ' + _fs9 + 'px monospace';
             ctx.textAlign    = 'left';
             ctx.textBaseline = 'middle';
-            ctx.fillStyle    = 'rgba(200,170,255,0.6)';
-            ctx.fillText(_durValStr, _scrX + _scrW + 7, _midY);
+            ctx.fillStyle    = 'rgba(210,185,255,0.85)';
+            ctx.fillText(_durValStr, _scrX + _scrW + 9, _midY);
 
             APP.media.queueStrip.ctrlZones.push({
                 type: 'dur-track', min: _durMin, max: _durMax,
                 x: _scrX - 4, y: _tY, w: _scrW + 8, h: _eH
             });
 
-            // ── EASING selector (right of scrubber) ──
+            // ── EASING selector ──
+            var _easeX0 = _scrX + _scrW + 9 + ctx.measureText(_durValStr).width + 18;
+            _div(_easeX0 - 9);
             var _easings = [
                 { id: 'linear',   label: 'LINEAR'   },
                 { id: 'ease-in',  label: 'EASE IN'  },
                 { id: 'ease-out', label: 'EASE OUT' }
             ];
-            var _easeX0 = _scrX + _scrW + 8 + ctx.measureText(_durValStr).width + 18;
             for (var _ei = 0; _ei < _easings.length; _ei++) {
-                var _ea = _easings[_ei];
-                var _eX = _easeX0 + _ei * 68;
+                var _ea     = _easings[_ei];
+                var _eX     = _easeX0 + _ei * 72;
                 var _eActive = (_toItem.easing === _ea.id);
-                ctx.font         = '700 ' + _fs7 + 'px monospace';
+                ctx.font         = '700 ' + _fs9 + 'px monospace';
                 ctx.textAlign    = 'left';
                 ctx.textBaseline = 'middle';
-                ctx.fillStyle    = _eActive ? 'rgba(220,180,255,1.0)' : 'rgba(160,130,200,0.35)';
-                ctx.fillText(_ea.label, _eX, _midY);
                 if (_eActive) {
-                    var _ew = ctx.measureText(_ea.label).width;
-                    ctx.fillStyle = 'rgba(160,80,255,0.7)';
-                    ctx.fillRect(_eX, _midY + _fs7 * 0.7, _ew, 1);
+                    var _eW2 = ctx.measureText(_ea.label).width;
+                    ctx.fillStyle = 'rgba(160,80,255,0.18)';
+                    ctx.fillRect(_eX - 4, _midY - _fs9 * 0.72, _eW2 + 8, _fs9 * 1.44);
+                    ctx.fillStyle = 'rgba(230,200,255,1.0)';
+                } else {
+                    ctx.fillStyle = 'rgba(185,155,220,0.5)';
                 }
+                ctx.fillText(_ea.label, _eX, _midY);
                 APP.media.queueStrip.ctrlZones.push({
                     type: 'easing', value: _ea.id,
-                    x: _eX, y: _tY, w: 65, h: _eH
+                    x: _eX - 4, y: _tY, w: 70, h: _eH
                 });
             }
 
@@ -7706,49 +7719,48 @@ function renderLoop(timestamp) {
             var _txType = _mediaTx.type || 'optical-fade';
 
             if (_txType === 'dip-black') {
-                // Fade outgoing to black (0→0.5), then fade incoming from black (0.5→1)
+                // Fade outgoing to black (0→0.5), fade incoming from black (0.5→1)
                 if (_txProg < 0.5) {
                     if (_ro) { ctx.globalAlpha = 1 - _txProg * 2; ctx.drawImage(_mediaTx.out, _ro.x, _ro.y, _ro.w, _ro.h); ctx.globalAlpha = 1; }
                 } else {
                     if (_ri) { ctx.globalAlpha = (_txProg - 0.5) * 2; ctx.drawImage(_mediaTx.in, _ri.x, _ri.y, _ri.w, _ri.h); ctx.globalAlpha = 1; }
                 }
-            } else {
-                // All other types: outgoing as base, incoming blended on top
+            } else if (_txType === 'glitch') {
+                // Glitch reveal: incoming sliced in with horizontal jitter + RGB split peaking at midpoint
                 if (_ro) { ctx.globalAlpha = 1; ctx.drawImage(_mediaTx.out, _ro.x, _ro.y, _ro.w, _ro.h); }
                 if (_ri) {
-                    if (_txType === 'optical-fade' || _txType === 'fade') {
-                        ctx.globalAlpha = _txProg;
+                    var _gi = Math.sin(_txProg * Math.PI); // 0→1→0, peaks at 0.5
+                    var _gSlices = Math.floor(8 + _gi * 14);
+                    var _gSlH   = Math.ceil(h / _gSlices);
+                    for (var _gsi = 0; _gsi < _gSlices; _gsi++) {
+                        var _gsy  = _gsi * _gSlH;
+                        var _joff = (Math.random() - 0.5) * _gi * 60;
+                        // Visibility of each slice grows with progress
+                        if (Math.random() > _txProg + _gi * 0.3) continue;
+                        if (_gsi % 4 === 0 && _gi > 0.2) {
+                            // RGB split on some slices
+                            ctx.globalAlpha = 0.45;
+                            ctx.drawImage(_mediaTx.in, _ri.x + _joff + 12, _ri.y, _ri.w, _ri.h, 0, _gsy, w, _gSlH);
+                            ctx.drawImage(_mediaTx.in, _ri.x + _joff - 12, _ri.y, _ri.w, _ri.h, 0, _gsy, w, _gSlH);
+                            ctx.globalAlpha = 1;
+                        }
+                        ctx.drawImage(_mediaTx.in, _ri.x + _joff, _ri.y, _ri.w, _ri.h, 0, _gsy, w, _gSlH);
+                    }
+                    // Final snap: once progress > 0.88 draw clean incoming over everything
+                    if (_txProg > 0.88) {
+                        ctx.globalAlpha = (_txProg - 0.88) / 0.12;
                         ctx.drawImage(_mediaTx.in, _ri.x, _ri.y, _ri.w, _ri.h);
                         ctx.globalAlpha = 1;
-                    } else if (_txType === 'luma-wipe' || _txType === 'scanline') {
-                        var _scanLn = Math.round(_txProg * h);
-                        ctx.save();
-                        ctx.beginPath(); ctx.rect(0, 0, w, _scanLn); ctx.clip();
-                        ctx.drawImage(_mediaTx.in, _ri.x, _ri.y, _ri.w, _ri.h);
-                        ctx.restore();
-                        ctx.save();
-                        ctx.strokeStyle = 'rgba(0,255,255,0.85)';
-                        ctx.lineWidth = 2;
-                        ctx.shadowColor = '#00ffff'; ctx.shadowBlur = 12;
-                        ctx.beginPath(); ctx.moveTo(0, _scanLn); ctx.lineTo(w, _scanLn); ctx.stroke();
-                        ctx.restore();
-                    } else {
-                        // HEAVY GLITCH (fallback + legacy 'glitch')
-                        var _gi = Math.sin(_txProg * Math.PI);
-                        var _gSlices = Math.floor(6 + _gi * 10);
-                        var _gSlH = Math.ceil(h / _gSlices);
-                        for (var _gsi = 0; _gsi < _gSlices; _gsi++) {
-                            var _gsy = _gsi * _gSlH;
-                            var _joff = (Math.random() - 0.5) * _gi * 50;
-                            if (_gsi % 3 === 0 && Math.random() < _gi * 0.7) {
-                                ctx.globalAlpha = 0.5;
-                                ctx.drawImage(_mediaTx.in, _ri.x + _joff + 10, _ri.y, _ri.w, _ri.h, 0, _gsy, w, _gSlH);
-                                ctx.drawImage(_mediaTx.in, _ri.x + _joff - 10, _ri.y, _ri.w, _ri.h, 0, _gsy, w, _gSlH);
-                                ctx.globalAlpha = 1;
-                            }
-                            ctx.drawImage(_mediaTx.in, _ri.x + _joff, _ri.y, _ri.w, _ri.h, 0, _gsy, w, _gSlH);
-                        }
                     }
+                }
+            } else {
+                // optical-fade (default) + snap both render as cross-dissolve here
+                // (snap never reaches this code because _tx is null for snap)
+                if (_ro) { ctx.globalAlpha = 1; ctx.drawImage(_mediaTx.out, _ro.x, _ro.y, _ro.w, _ro.h); }
+                if (_ri) {
+                    ctx.globalAlpha = _txProg;
+                    ctx.drawImage(_mediaTx.in, _ri.x, _ri.y, _ri.w, _ri.h);
+                    ctx.globalAlpha = 1;
                 }
             }
             if (_txProg >= 1.0) APP.media._tx = null;
@@ -11646,9 +11658,9 @@ function rotateMedia() {
     if (!item.element) { APP.media.currentElement = null; return; }
     APP.media.currentElement = item.element;
     if (item.type === 'video') { item.element.loop = !APP.state.isCycle; item.element.currentTime = 0; item.element.play().catch(() => {});  connectVideoAudio(item.element); }
-    // Set up A/B transition (only when there's a real outgoing element to transition from)
+    // Set up A/B transition — snap = instant cut, no animation
     var _txDurSec = item.transitionDuration != null ? item.transitionDuration : 0.8;
-    if (_outgoingEl && _outgoingEl !== item.element) {
+    if (_outgoingEl && _outgoingEl !== item.element && item.transitionType !== 'snap') {
         APP.media._tx = {
             active: true,
             type:   item.transitionType   || 'optical-fade',
