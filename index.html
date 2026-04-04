@@ -4242,6 +4242,95 @@ body.fullscreen #transcription-hud { pointer-events: none !important; } /* keep 
 /* Cursor override when hovering seam zones */
 #stage.seam-hover { cursor: col-resize !important; }
 
+/* ─────────────────────────────────────────────────────────────────────────── */
+/* VOICE_LAB  //  SYNESTHESIA VOICE ENGINE                                    */
+/* ─────────────────────────────────────────────────────────────────────────── */
+#sve-script {
+    width: 100%;
+    min-height: 72px;
+    resize: vertical;
+    background: #040406;
+    border: 1px solid var(--border);
+    border-left: 2px solid rgba(0,243,255,0.25);
+    color: var(--text-bright);
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 9px;
+    line-height: 1.55;
+    padding: 6px 8px;
+    box-sizing: border-box;
+    outline: none;
+    transition: border-color 0.2s;
+    margin-bottom: 6px;
+}
+#sve-script:focus { border-left-color: var(--accent); }
+#sve-script::placeholder { color: var(--text-dim); opacity: 0.6; }
+
+.sve-mood-row {
+    display: grid;
+    grid-template-columns: 1fr 1fr 1fr;
+    gap: 4px;
+    margin-bottom: 6px;
+}
+.sve-mood-btn {
+    font-family: 'Orbitron', sans-serif;
+    font-size: 8px;
+    font-weight: 700;
+    letter-spacing: 1.5px;
+    padding: 7px 2px;
+    background: rgba(255,255,255,0.03);
+    border: 1px solid var(--border);
+    color: var(--text-dim);
+    cursor: pointer;
+    text-align: center;
+    transition: all 0.18s;
+    text-transform: uppercase;
+}
+.sve-mood-btn:hover { color: var(--text-bright); border-color: var(--accent); background: rgba(0,243,255,0.06); }
+.sve-mood-btn.active-mode { color: var(--accent); border-color: var(--accent); background: rgba(0,243,255,0.12); box-shadow: 0 0 6px rgba(0,243,255,0.25); }
+#sve-mood-monster.active-mode { color: #ff4444; border-color: #ff4444; background: rgba(255,60,60,0.12); box-shadow: 0 0 6px rgba(255,60,60,0.3); }
+#sve-mood-ghost.active-mode   { color: var(--v);   border-color: var(--v);   background: rgba(176,0,255,0.12); box-shadow: 0 0 6px rgba(176,0,255,0.3); }
+
+.sve-ctrl-row { display: flex; gap: 4px; margin-bottom: 5px; }
+.sve-ctrl-row .btn { flex: 1; font-size: 8px; letter-spacing: 1px; }
+#sve-render-btn {
+    width: 100%;
+    font-family: 'Orbitron', sans-serif;
+    font-size: 8px;
+    font-weight: 700;
+    letter-spacing: 1.5px;
+    padding: 8px;
+    background: rgba(0,243,255,0.08);
+    border: 1px solid rgba(0,243,255,0.35);
+    color: var(--accent);
+    cursor: pointer;
+    text-transform: uppercase;
+    transition: all 0.18s;
+    margin-top: 2px;
+}
+#sve-render-btn:hover  { background: rgba(0,243,255,0.18); box-shadow: 0 0 10px rgba(0,243,255,0.3); }
+#sve-render-btn:disabled { opacity: 0.45; cursor: not-allowed; }
+
+#sve-status {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 7.5px;
+    color: var(--accent);
+    letter-spacing: 1px;
+    padding: 4px 0 0;
+    min-height: 14px;
+    opacity: 0.8;
+    word-break: break-all;
+    text-transform: uppercase;
+}
+
+.sve-mood-label {
+    font-size: 6.5px;
+    letter-spacing: 2px;
+    color: var(--text-dim);
+    text-transform: uppercase;
+    margin-bottom: 4px;
+    opacity: 0.7;
+}
+
     </style>
 </head>
 <body oncontextmenu="return false;">
@@ -5186,6 +5275,98 @@ body.fullscreen #transcription-hud { pointer-events: none !important; } /* keep 
             </div>
         </div>
 
+        <!-- ── VOICE_LAB // SYNESTHESIA VOICE ENGINE ─────────────────────── -->
+        <div class="section" id="sve-section">
+            <div class="sec-head">
+                <span class="sec-title">VOICE_LAB</span>
+                <button class="sampler-help-btn" onclick="event.stopPropagation();_toggleSectionHelp(this,'voice-lab')">?</button>
+                <div class="sec-dot off" id="sve-dot"></div>
+                <div class="section-help-overlay">
+                    <div style="position:absolute;top:4px;right:4px;">
+                        <button style="background:none;border:none;color:var(--text-dim);cursor:pointer;font-size:10px;" onclick="this.closest('.section-help-overlay').classList.remove('visible')">✕</button>
+                    </div>
+                    <div style="font-family:'Orbitron',sans-serif;font-size:8px;color:var(--accent);letter-spacing:2px;margin-bottom:8px;padding-right:16px;">VOICE_LAB // HELP</div>
+                    <div style="font-size:8px;color:var(--text);line-height:1.6;margin-bottom:5px;"><span style="color:var(--accent);">SYNTH VOICE</span> — Speaks your script via Web Speech API with word-sync glitch triggers in Tone.js. No external APIs, zero latency.</div>
+                    <div style="font-size:8px;color:var(--text);line-height:1.6;margin-bottom:5px;"><span style="color:#ff4444;">MONSTER</span> — PitchShift -12 semitones, heavy Distortion, crushed 4-bit crunch.</div>
+                    <div style="font-size:8px;color:var(--text);line-height:1.6;margin-bottom:5px;"><span style="color:var(--accent);">CYBER</span> — HighPass filter, PingPong delay, 8-bit crusher.</div>
+                    <div style="font-size:8px;color:var(--text);line-height:1.6;margin-bottom:5px;"><span style="color:var(--v);">GHOST</span> — AutoWah + massive 8-second Reverb + 10-bit crusher.</div>
+                    <div style="font-size:8px;color:var(--text);line-height:1.6;"><span style="color:var(--g);">RENDER</span> — Renders glitch FX layer offline to 44.1kHz WAV, saves to Puter.fs, and queues in AUDIO_ENGINE.</div>
+                </div>
+            </div>
+            <div class="sec-body">
+
+                <!-- Script input -->
+                <div class="lbl" style="font-size:6.5px;opacity:0.4;letter-spacing:2px;margin-bottom:4px;">SCRIPT INPUT</div>
+                <textarea
+                    id="sve-script"
+                    placeholder="Enter trailer narration script here...&#10;&#10;e.g. In a world where silence is forbidden, one voice breaks through the static."
+                    spellcheck="false"
+                ></textarea>
+
+                <!-- Mood selector -->
+                <div class="sve-mood-label">MOOD SELECTOR</div>
+                <div class="sve-mood-row">
+                    <button
+                        id="sve-mood-monster"
+                        class="sve-mood-btn"
+                        title="PitchShift -12 · Heavy Distortion · 4-bit Crush"
+                        onclick="window.SVE && SVE.setMood('MONSTER')"
+                    >MONSTER</button>
+                    <button
+                        id="sve-mood-cyber"
+                        class="sve-mood-btn active-mode"
+                        title="PingPong Delay · HighPass · 8-bit Crush"
+                        onclick="window.SVE && SVE.setMood('CYBER')"
+                    >CYBER</button>
+                    <button
+                        id="sve-mood-ghost"
+                        class="sve-mood-btn"
+                        title="AutoWah · Massive Reverb · 10-bit Crush"
+                        onclick="window.SVE && SVE.setMood('GHOST')"
+                    >GHOST</button>
+                </div>
+
+                <div class="sec-divider"></div>
+
+                <!-- Speak / Stop controls -->
+                <div class="sve-ctrl-row">
+                    <button
+                        class="btn"
+                        id="sve-speak-btn"
+                        onclick="(async()=>{
+                            if(!window.SVE){return;}
+                            if(SVE.isPlaying){SVE.stop();this.textContent='SYNTH VOICE';return;}
+                            await SVE.init();
+                            SVE.speak(document.getElementById('sve-script').value);
+                            this.textContent='STOP';
+                            var u=window.speechSynthesis;
+                            var chk=setInterval(()=>{if(!u.speaking){this.textContent='SYNTH VOICE';clearInterval(chk);}},300);
+                        })()"
+                    >SYNTH VOICE</button>
+                    <button
+                        class="btn"
+                        style="width:36px;flex:none;font-size:10px;"
+                        title="Test glitch trigger"
+                        onclick="window.SVE && SVE.init().then(()=>SVE.triggerGlitch())"
+                    >⚡</button>
+                </div>
+
+                <!-- Render button -->
+                <button
+                    id="sve-render-btn"
+                    onclick="(async()=>{
+                        if(!window.SVE){return;}
+                        await SVE.init();
+                        SVE.renderTrailerAudio(document.getElementById('sve-script').value);
+                    })()"
+                >&#x25B6;&nbsp; RENDER TRAILER AUDIO</button>
+
+                <!-- Status readout -->
+                <div id="sve-status">STANDBY</div>
+
+            </div>
+        </div>
+        <!-- ── END VOICE_LAB ─────────────────────────────────────────────── -->
 
     </aside>
 
@@ -20083,6 +20264,8 @@ function _applyPoseToModel(lm) {
     </div>
     <div id="kr-help-body"></div>
 </div>
+
+<script src="./src/synesthesia-voice-engine.js"></script>
 
 <script type="module" src="./src/kinetic-rack/KineticRack.js"></script>
 
