@@ -5346,7 +5346,7 @@ const APP = {
         brightness: 1.0, contrast: 1.0, saturation: 1.0, hue: 0, trailsEnabled: false, trailAlpha: 0.92, rgbEnabled: false, rgbIntensity: 0, rgbBassLink: false, pixelateEnabled: false, pixelSize: 1, rumbleEnabled: false, invert: false, uiReactivity: false, shakeIntensity: 0, shockwave: 0, lastBassLevel: 0, avgVol: 0, maskMode: false, glitchSnap: 0,
         seismicVelocity: 0, seismicPosition: 0, springConstant: 0.8, damping: 0.9
     },
-    media: { queue: [], currentIndex: -1, currentElement: null },
+    media: { queue: [], currentIndex: -1, currentElement: null, _tx: null, audioSync: false },
     fx: { stutter: false, crush: false, invert: false, echo: false, rgbSplit: 0, freezeFrame: null },
     audio: { ctx: null, analyzer: null, source: null, element: null, playlist: [], currentTrack: -1, currentTrackName: '', bassLevel: 0, vuData: new Uint8Array(32), isPlaying: false, isConnected: false, videoSource: null, videoMuted: false, videoGain: null, spatialMode: 'stereo', panner: null, compressor: null, masterGain: null, lowShelf: null, highShelf: null, spatialInterval: null, recorderDest: null },
 
@@ -6817,6 +6817,9 @@ function drawMediaQueue(ctx, w, h, bottomY) {
     if (!APP.media.queueStrip) APP.media.queueStrip = {};
     APP.media.queueStrip.thumbnails = [];
     APP.media.queueStrip.durationZones = [];
+    APP.media.queueStrip.txZones = [];
+    APP.media.queueStrip.beatZones = [];
+    APP.media.queueStrip.audioSyncZone = null;
 
     var totalW = queue.length * (thumbSize + padding) - padding;
     var startX = Math.max(padding, (w - totalW) / 2);
@@ -6855,6 +6858,7 @@ function drawMediaQueue(ctx, w, h, bottomY) {
         // Duration badge — images only (videos play full length)
         if (!isVid) {
             var dur = item.duration != null ? item.duration : 8;
+            var durLabel = item.duration === null ? '\u221e' : dur + 's';
             var badgeFS = Math.max(9, Math.round(thumbSize * 0.13));
             var badgeW = Math.max(22, Math.round(thumbSize * 0.3));
             var badgeH = Math.round(thumbSize * 0.19);
@@ -6866,10 +6870,75 @@ function drawMediaQueue(ctx, w, h, bottomY) {
             ctx.font = '600 ' + badgeFS + 'px monospace';
             ctx.textAlign = 'center';
             ctx.textBaseline = 'middle';
-            ctx.fillText(dur + 's', badgeX + badgeW / 2, badgeY + badgeH / 2);
+            ctx.fillText(durLabel, badgeX + badgeW / 2, badgeY + badgeH / 2);
             APP.media.queueStrip.durationZones.push({ x: badgeX, y: badgeY, w: badgeW, h: badgeH, index: i });
         }
+
+        // Transition type badge — top-left of thumbnail
+        var txType = item.transitionType || 'glitch';
+        var txLabel = txType === 'glitch' ? 'GLT' : (txType === 'scanline' ? 'SCN' : 'FDE');
+        var txColor = txType === 'glitch' ? 'rgba(255,60,60,0.95)' : (txType === 'scanline' ? 'rgba(0,220,255,0.95)' : 'rgba(60,220,100,0.95)');
+        var txBadgeFS = Math.max(7, Math.round(thumbSize * 0.13));
+        var txBadgeW = Math.max(20, Math.round(thumbSize * 0.32));
+        var txBadgeH = Math.round(thumbSize * 0.19);
+        var txBadgeX = tx + 2;
+        var txBadgeY = ty + 2;
+        ctx.fillStyle = 'rgba(0,0,0,0.78)';
+        ctx.fillRect(txBadgeX, txBadgeY, txBadgeW, txBadgeH);
+        ctx.fillStyle = txColor;
+        ctx.font = '700 ' + txBadgeFS + 'px monospace';
+        ctx.textAlign = 'center';
+        ctx.textBaseline = 'middle';
+        ctx.fillText(txLabel, txBadgeX + txBadgeW / 2, txBadgeY + txBadgeH / 2);
+        APP.media.queueStrip.txZones.push({ x: txBadgeX, y: txBadgeY, w: txBadgeW, h: txBadgeH, index: i });
+
+        // Beat-sync dot — bottom-right of thumbnail
+        var bsDotR = Math.max(5, Math.round(thumbSize * 0.1));
+        var bsDotX = tx + thumbSize - bsDotR - 3;
+        var bsDotY = ty + thumbSize - bsDotR - 3;
+        ctx.beginPath();
+        ctx.arc(bsDotX, bsDotY, bsDotR, 0, Math.PI * 2);
+        ctx.fillStyle = item.beatSync ? 'rgba(255,200,0,0.95)' : 'rgba(80,80,80,0.7)';
+        ctx.fill();
+        ctx.font = '700 ' + Math.max(6, Math.round(bsDotR * 1.1)) + 'px monospace';
+        ctx.fillStyle = item.beatSync ? '#000' : '#aaa';
+        ctx.textAlign = 'center';
+        ctx.textBaseline = 'middle';
+        ctx.fillText('\u266a', bsDotX, bsDotY);
+        APP.media.queueStrip.beatZones.push({ x: bsDotX - bsDotR, y: bsDotY - bsDotR, w: bsDotR * 2, h: bsDotR * 2, index: i });
     }
+
+    // AUDIO_SYNC pill — right edge of carousel bar
+    var asPillW = Math.max(48, Math.round(thumbSize * 0.65));
+    var asPillH = Math.round(thumbSize * 0.28);
+    var asPillX = w - asPillW - Math.round(padding * 1.5);
+    var asPillY = barY + Math.round((barH - asPillH) / 2);
+    var asOn = !!APP.media.audioSync;
+    ctx.fillStyle = asOn ? 'rgba(255,180,0,0.92)' : 'rgba(30,30,30,0.85)';
+    ctx.strokeStyle = asOn ? 'rgba(255,220,0,0.9)' : 'rgba(120,80,200,0.6)';
+    ctx.lineWidth = 1;
+    // Rounded rect
+    var asPillR = Math.round(asPillH / 2);
+    ctx.beginPath();
+    ctx.moveTo(asPillX + asPillR, asPillY);
+    ctx.lineTo(asPillX + asPillW - asPillR, asPillY);
+    ctx.arcTo(asPillX + asPillW, asPillY, asPillX + asPillW, asPillY + asPillH, asPillR);
+    ctx.lineTo(asPillX + asPillW, asPillY + asPillH - asPillR);
+    ctx.arcTo(asPillX + asPillW, asPillY + asPillH, asPillX + asPillW - asPillR, asPillY + asPillH, asPillR);
+    ctx.lineTo(asPillX + asPillR, asPillY + asPillH);
+    ctx.arcTo(asPillX, asPillY + asPillH, asPillX, asPillY + asPillH - asPillR, asPillR);
+    ctx.lineTo(asPillX, asPillY + asPillR);
+    ctx.arcTo(asPillX, asPillY, asPillX + asPillR, asPillY, asPillR);
+    ctx.closePath();
+    ctx.fill();
+    ctx.stroke();
+    var asPillFS = Math.max(7, Math.round(asPillH * 0.55));
+    ctx.fillStyle = asOn ? '#000' : 'rgba(180,140,255,0.9)';
+    ctx.font = '700 ' + asPillFS + 'px monospace';
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'middle';
+    ctx.fillText(asOn ? '\u266b SYNC' : '\u266b SYNC', asPillX + asPillW / 2, asPillY + asPillH / 2);
+    APP.media.queueStrip.audioSyncZone = { x: asPillX, y: asPillY, w: asPillW, h: asPillH };
 
     ctx.restore();
 }
@@ -6885,7 +6954,7 @@ function initSummonerLogic() {
     var canvas = APP.render.canvas;
     if (!stage || !canvas) return;
 
-    var _durSteps = [3, 5, 8, 10, 15, 20, 30];
+    var _durSteps = [3, 5, 8, 10, 15, 20, 30, null];
 
     stage.addEventListener('click', function(e) {
         var rect = canvas.getBoundingClientRect();
@@ -6898,6 +6967,39 @@ function initSummonerLogic() {
         var tz = APP.state.mediaStripToggleZone;
         if (tz && cx >= tz.x && cx <= tz.x + tz.w && cy >= tz.y && cy <= tz.y + tz.h) {
             APP.state.showMediaStrips = !APP.state.showMediaStrips;
+            return;
+        }
+
+        // ── MEDIA QUEUE — transition type badge (top-left of thumb) ──
+        var mqTxZ = (APP.media.queueStrip && APP.media.queueStrip.txZones) || [];
+        for (var mti = 0; mti < mqTxZ.length; mti++) {
+            var mtz = mqTxZ[mti];
+            if (cx >= mtz.x && cx <= mtz.x + mtz.w && cy >= mtz.y && cy <= mtz.y + mtz.h) {
+                var txItem = APP.media.queue[mtz.index];
+                if (txItem) {
+                    var _txCycle = ['glitch', 'scanline', 'fade'];
+                    var _txCur = _txCycle.indexOf(txItem.transitionType || 'glitch');
+                    txItem.transitionType = _txCycle[(_txCur + 1) % _txCycle.length];
+                }
+                return;
+            }
+        }
+
+        // ── MEDIA QUEUE — beat-sync dot (bottom-right of thumb) ──
+        var mqBzones = (APP.media.queueStrip && APP.media.queueStrip.beatZones) || [];
+        for (var mbi = 0; mbi < mqBzones.length; mbi++) {
+            var mbz = mqBzones[mbi];
+            if (cx >= mbz.x && cx <= mbz.x + mbz.w && cy >= mbz.y && cy <= mbz.y + mbz.h) {
+                var bsItem = APP.media.queue[mbz.index];
+                if (bsItem) bsItem.beatSync = !bsItem.beatSync;
+                return;
+            }
+        }
+
+        // ── AUDIO SYNC PILL ──
+        var asZone = APP.media.queueStrip && APP.media.queueStrip.audioSyncZone;
+        if (asZone && cx >= asZone.x && cx <= asZone.x + asZone.w && cy >= asZone.y && cy <= asZone.y + asZone.h) {
+            APP.media.audioSync = !APP.media.audioSync;
             return;
         }
 
@@ -7180,6 +7282,16 @@ function renderLoop(timestamp) {
     // Bass multiplier: drives punch intensity — zero when silent, violent on kick drop
     var _bassMultiplier = APP.audio.bassLevel / 255;
 
+    // Beat-sync auto-edit: rotate media on kick if current item has beatSync enabled
+    if (_bassRise > 12 && _bassNow > 40 && !window._beatSyncCooldown && APP.media.audioSync) {
+        var _bsCurrent = APP.media.queue[APP.media.currentIndex];
+        if (_bsCurrent && _bsCurrent.beatSync && !APP.media._tx) {
+            window._beatSyncCooldown = true;
+            setTimeout(function() { window._beatSyncCooldown = false; }, 500);
+            rotateMedia();
+        }
+    }
+
     // Kick onset: update BPM model on every rising-edge detection
     if (_bassRise > 12 && _bassNow > 40 && !window._punchCooldown) {
         window._punchCooldown = true;
@@ -7289,7 +7401,72 @@ function renderLoop(timestamp) {
     else if (APP.guest && APP.guest.isActive && APP.guest.videoElement) source = APP.guest.videoElement;
     else if (APP.state.isLive && APP.camera.stream && APP.camera.videoEl) source = APP.camera.videoEl;
     else if (APP.media.currentElement) source = APP.media.currentElement;
-    
+
+    // --- A/B TRANSITION ENGINE ---
+    try {
+        var _mediaTx = APP.media._tx;
+        if (_mediaTx && _mediaTx.active) {
+            var _txNow = performance.now();
+            var _txProg = Math.min(1.0, (_txNow - _mediaTx.start) / _mediaTx.dur);
+            var _txCoverRect = function(el) {
+                var sw = el.videoWidth || el._effectiveWidth || el.naturalWidth || w;
+                var sh = el.videoHeight || el._effectiveHeight || el.naturalHeight || h;
+                var ar = sw / sh, car = w / h;
+                if (ar > car) return { x: (w - h*ar)/2, y: 0, w: h*ar, h: h };
+                return { x: 0, y: (h - w/ar)/2, w: w, h: w/ar };
+            };
+            var _txElReady = function(el) {
+                return el && (el.tagName === 'VIDEO' ? el.readyState >= 2 : (el.complete && el.naturalWidth > 0));
+            };
+            // Draw outgoing frame first (base layer)
+            if (_txElReady(_mediaTx.out)) {
+                var _ro = _txCoverRect(_mediaTx.out);
+                ctx.globalAlpha = 1;
+                ctx.drawImage(_mediaTx.out, _ro.x, _ro.y, _ro.w, _ro.h);
+            }
+            // Draw incoming frame with transition effect
+            if (_txElReady(_mediaTx.in)) {
+                var _ri = _txCoverRect(_mediaTx.in);
+                if (_mediaTx.type === 'fade') {
+                    ctx.globalAlpha = _txProg;
+                    ctx.drawImage(_mediaTx.in, _ri.x, _ri.y, _ri.w, _ri.h);
+                    ctx.globalAlpha = 1;
+                } else if (_mediaTx.type === 'scanline') {
+                    var _scanLn = Math.round(_txProg * h);
+                    ctx.save();
+                    ctx.beginPath(); ctx.rect(0, 0, w, _scanLn); ctx.clip();
+                    ctx.drawImage(_mediaTx.in, _ri.x, _ri.y, _ri.w, _ri.h);
+                    ctx.restore();
+                    // Neon sweep line
+                    ctx.save();
+                    ctx.strokeStyle = 'rgba(0,255,255,0.9)';
+                    ctx.lineWidth = 3;
+                    ctx.shadowColor = '#00ffff'; ctx.shadowBlur = 14;
+                    ctx.beginPath(); ctx.moveTo(0, _scanLn); ctx.lineTo(w, _scanLn); ctx.stroke();
+                    ctx.restore();
+                } else {
+                    // HEAVY GLITCH: horizontal slicing + RGB split, peaking at 50%
+                    var _gi = Math.sin(_txProg * Math.PI);
+                    var _gSlices = Math.floor(6 + _gi * 10);
+                    var _gSlH = Math.ceil(h / _gSlices);
+                    for (var _gsi = 0; _gsi < _gSlices; _gsi++) {
+                        var _gsy = _gsi * _gSlH;
+                        var _joff = (Math.random() - 0.5) * _gi * 50;
+                        if (_gsi % 3 === 0 && Math.random() < _gi * 0.7) {
+                            ctx.globalAlpha = 0.5;
+                            ctx.drawImage(_mediaTx.in, _ri.x + _joff + 10, _ri.y, _ri.w, _ri.h, 0, _gsy, w, _gSlH);
+                            ctx.drawImage(_mediaTx.in, _ri.x + _joff - 10, _ri.y, _ri.w, _ri.h, 0, _gsy, w, _gSlH);
+                            ctx.globalAlpha = 1;
+                        }
+                        ctx.drawImage(_mediaTx.in, _ri.x + _joff, _ri.y, _ri.w, _ri.h, 0, _gsy, w, _gSlH);
+                    }
+                }
+            }
+            if (_txProg >= 1.0) APP.media._tx = null;
+            source = null; // skip normal source draw during transition
+        }
+    } catch(_txErr) {}
+
     if (source) {
         const ready = source.tagName === 'VIDEO' ? source.readyState >= 2 : (source.complete && source.naturalWidth > 0);
         if (ready) {
@@ -8386,7 +8563,7 @@ function loadMediaFiles(input) {
     Array.from(input.files).forEach((file, idx) => {
         const url = URL.createObjectURL(file);
         const type = file.type.startsWith('video') ? 'video' : (file.type === 'image/gif' ? 'gif' : 'image');
-        const item = { type, url, element: null, name: file.name, duration: type === 'video' ? null : 8 };
+        const item = { type, url, element: null, name: file.name, duration: type === 'video' ? null : 8, transitionType: 'glitch', beatSync: false };
         if (type === 'video') {
             const vid = document.createElement('video'); vid.src = url; vid.muted = true; vid.loop = !APP.state.isCycle; vid.playsInline = true; vid.preload = 'auto'; item.element = vid; $('media-container').appendChild(vid);
         } else if (type === 'image') {
@@ -11153,6 +11330,8 @@ function rotateMedia() {
     if (APP.media.queue.length === 0) return;
     APP.render.source = null; // Clear override so queue takes priority
     APP.vj.glitchSnap = 3;
+    // Capture outgoing element before advancing index
+    var _outgoingEl = APP.media.currentElement;
     if (APP.media.currentElement?.tagName === 'VIDEO') APP.media.currentElement.pause(); disconnectVideoAudio();
     APP.media.currentIndex = (APP.media.currentIndex + 1) % APP.media.queue.length;
     const item = APP.media.queue[APP.media.currentIndex];
@@ -11166,6 +11345,7 @@ function rotateMedia() {
         if (gifOverlay) gifOverlay.appendChild(img);
         item.element = img;
         APP.media.currentElement = null; // GIFs do not render to vj-canvas
+        APP.media._tx = null;
         console.warn('[VNGRD] GIF asset "' + item.name + '" is rendered as a DOM element and will NOT be captured by vj-canvas.captureStream(). Convert animated assets to .webm for full recording compatibility.');
         updateMediaControls();
         checkCycleLogic();
@@ -11177,6 +11357,20 @@ function rotateMedia() {
     if (!item.element) { APP.media.currentElement = null; return; }
     APP.media.currentElement = item.element;
     if (item.type === 'video') { item.element.loop = !APP.state.isCycle; item.element.currentTime = 0; item.element.play().catch(() => {});  connectVideoAudio(item.element); }
+    // Set up A/B transition (only when there's a real outgoing element to transition from)
+    var _txDurSec = (item.type === 'video') ? 0.6 : 0.8;
+    if (_outgoingEl && _outgoingEl !== item.element) {
+        APP.media._tx = {
+            active: true,
+            type: item.transitionType || 'glitch',
+            out: _outgoingEl,
+            in: item.element,
+            start: performance.now(),
+            dur: _txDurSec * 1000
+        };
+    } else {
+        APP.media._tx = null;
+    }
     updateMediaControls();
     checkCycleLogic();
 }
@@ -11270,6 +11464,7 @@ function checkCycleLogic() {
     if (current.type === 'video') { if (current.element) { current.element.loop = false; current.element.onended = () => { if (APP.state.isCycle) rotateMedia(); }; } }
     else {
         var _qi = APP.media.queue[APP.media.currentIndex];
+        if (_qi && _qi.duration === null) return; // null = infinite hold, no timer
         var secs = (_qi && _qi.duration != null) ? _qi.duration : (parseInt($('sl-cycle').value) || 8);
         APP.state.cycleTimer = setTimeout(function() { if (APP.state.isCycle) rotateMedia(); }, secs * 1000);
     }
