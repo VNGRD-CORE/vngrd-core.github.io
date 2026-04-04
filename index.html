@@ -12628,41 +12628,85 @@ window.saveSessionToCloud = async function() {
     });
 };
 
-// ── LOAD session from localStorage for the connected wallet ──
+// ── LOAD session: checks puter.kv (IPFS) first, falls back to localStorage ──
 window.loadSessionFromCloud = async function(silent) {
     if (!APP.wallet.connected || !APP.wallet.address) {
-        log('LOCAL_LOAD: WALLET_NOT_CONNECTED');
+        log('WALLET_LOAD: WALLET_NOT_CONNECTED');
         if (!silent) alert('Connect your wallet first.');
         return;
     }
 
     var address = APP.wallet.address;
-    log('LOCAL_LOAD: CHECKING_LOCALSTORAGE for ' + address.slice(0, 6) + '...');
+    log('WALLET_LOAD: CHECKING for ' + address.slice(0, 6) + '...');
 
-    var raw = localStorage.getItem(_localKey(address));
+    // ── 1. Try puter.kv for the IPFS-pinned session (authoritative / newest) ──
+    var ipfsMeta = null;
+    if (typeof puter !== 'undefined' && puter.kv) {
+        try {
+            var kvRaw = await puter.kv.get(address.toLowerCase());
+            if (kvRaw) ipfsMeta = JSON.parse(kvRaw);
+        } catch(e) { log('WALLET_LOAD: PUTER_KV_ERR ' + e.message); }
+    }
 
-    if (!raw) {
-        log('LOCAL_LOAD: NO_SESSION_FOUND');
+    // ── 2. Also read localStorage as fallback ──
+    var localSession = null;
+    try { var localRaw = localStorage.getItem(_localKey(address)); if (localRaw) localSession = JSON.parse(localRaw); } catch(e) {}
+
+    // ── 3. Use IPFS if CID exists and is newer than localStorage ──
+    var ipfsIsNewer = ipfsMeta && ipfsMeta.payloadCID &&
+        (!localSession || (ipfsMeta.timestamp || 0) > (localSession.timestamp || 0));
+
+    if (ipfsIsNewer) {
+        var cid = ipfsMeta.payloadCID;
+        log('WALLET_LOAD: IPFS_SESSION_FOUND CID=' + cid.slice(0, 12) + '\u2026');
+        var gateways = [
+            'https://gateway.pinata.cloud/ipfs/',
+            'https://ipfs.io/ipfs/',
+            'https://cloudflare-ipfs.com/ipfs/'
+        ];
+        var snap = null;
+        for (var g = 0; g < gateways.length; g++) {
+            try {
+                var res = await fetch(gateways[g] + cid + '/VNGRD/session.json');
+                if (res.ok) { snap = await res.json(); break; }
+            } catch(e) { continue; }
+        }
+        if (snap) {
+            var savedDate = new Date(snap.timestamp || ipfsMeta.timestamp).toLocaleString();
+            var msg = (silent ? 'IPFS session found' : 'IPFS session') +
+                ' for ' + address.slice(0,6) + '...' + address.slice(-4) +
+                '\nSaved: ' + savedDate + '\nCID: ' + cid.slice(0, 12) + '\u2026\n\nRestore it?';
+            if (!confirm(msg)) { log('WALLET_LOAD: USER_DECLINED'); return; }
+            try {
+                _applySessionSnapshot(snap);
+                log('WALLET_LOAD: IPFS_SESSION_RESTORED from ' + savedDate);
+                if (!silent) alert('IPFS Session restored!\nSaved: ' + savedDate);
+            } catch(e) { log('WALLET_LOAD: APPLY_ERR ' + e.message); }
+            return;
+        }
+        log('WALLET_LOAD: IPFS_FETCH_FAILED \u2014 falling back to localStorage');
+    }
+
+    // ── 4. Fallback: localStorage ──
+    if (!localSession) {
+        log('WALLET_LOAD: NO_SESSION_FOUND');
         if (!silent) alert('No saved session found for this wallet.');
         return;
     }
 
-    var s;
-    try { s = JSON.parse(raw); } catch(e) { log('LOCAL_LOAD: PARSE_ERR'); return; }
-
-    var savedDate = s.timestamp ? new Date(s.timestamp).toLocaleString() : 'unknown date';
-    var prompt = silent
+    var savedDate = localSession.timestamp ? new Date(localSession.timestamp).toLocaleString() : 'unknown date';
+    var msg2 = silent
         ? ('Previous session found for this wallet (' + address.slice(0,6) + '...' + address.slice(-4) + ')\nSaved: ' + savedDate + '\n\nRestore it?')
         : ('Local session for ' + address.slice(0,6) + '...' + address.slice(-4) + '\nSaved: ' + savedDate + '\n\nLoad this session?');
 
-    if (!confirm(prompt)) { log('LOCAL_LOAD: USER_DECLINED'); return; }
+    if (!confirm(msg2)) { log('WALLET_LOAD: USER_DECLINED'); return; }
 
     try {
-        _applySessionSnapshot(s);
-        log('LOCAL_LOAD: SESSION_RESTORED from ' + savedDate);
-        alert('Session restored!\nSaved: ' + savedDate);
+        _applySessionSnapshot(localSession);
+        log('WALLET_LOAD: LOCAL_SESSION_RESTORED from ' + savedDate);
+        if (!silent) alert('Session restored!\nSaved: ' + savedDate);
     } catch(e) {
-        log('LOCAL_LOAD: APPLY_ERR ' + e.message);
+        log('WALLET_LOAD: APPLY_ERR ' + e.message);
         alert('Failed to apply session: ' + e.message);
     }
 };
@@ -12944,30 +12988,32 @@ async function importFromIPFS(cid) {
     }
 
     // 3. Load media files from IPFS → APP.media.queue
+    // Stream directly from gateway URL — never download the full file first.
+    // Downloading large mp4/webm blobs causes timeouts and kills the import.
     if (snap.media && snap.media.length) {
         for (var i = 0; i < snap.media.length; i++) {
             var m = snap.media[i];
             if (!m.cid) continue;
             try {
-                var resp = await fetch(gateway + m.cid);
-                var blob = await resp.blob();
-                var url  = URL.createObjectURL(blob);
+                var url  = gateway + m.cid;
                 var item = { type: m.type, url: url, element: null, name: m.name };
 
                 if (m.type === 'video') {
                     var vid = document.createElement('video');
-                    vid.src = url; vid.muted = true; vid.loop = true; vid.playsInline = true; vid.preload = 'auto';
+                    vid.src = url; vid.muted = true; vid.loop = true; vid.playsInline = true;
+                    vid.preload = 'metadata'; vid.crossOrigin = 'anonymous';
                     item.element = vid;
                     if ($('media-container')) $('media-container').appendChild(vid);
                 } else {
                     var img = new Image();
+                    img.crossOrigin = 'anonymous';
                     img.src = url;
                     item.element = img;
                 }
                 APP.media.queue.push(item);
-                log('IPFS: LOADED_MEDIA ' + (i + 1) + '/' + snap.media.length + ' ' + m.name);
+                log('IPFS: LOADED_MEDIA ' + (i + 1) + '/' + snap.media.length + ' ' + (m.name || m.cid.slice(0,8)));
             } catch(e) {
-                log('IPFS: MEDIA_ERR ' + m.name + ' \u2014 ' + e.message);
+                log('IPFS: MEDIA_ERR ' + (m.name || i) + ' \u2014 ' + e.message);
             }
         }
         // Show first media item
@@ -12980,17 +13026,16 @@ async function importFromIPFS(cid) {
     }
 
     // 4. Load audio tracks from IPFS → APP.audio.playlist
+    // Same approach: point the playlist URL directly at the gateway — no full download.
     if (snap.audioTracks && snap.audioTracks.length) {
         for (var i = 0; i < snap.audioTracks.length; i++) {
             var t = snap.audioTracks[i];
             if (!t.cid) continue;
             try {
-                var resp = await fetch(gateway + t.cid);
-                var blob = await resp.blob();
-                APP.audio.playlist.push({ url: URL.createObjectURL(blob), name: t.name });
-                log('IPFS: LOADED_AUDIO ' + (i + 1) + '/' + snap.audioTracks.length + ' ' + t.name);
+                APP.audio.playlist.push({ url: gateway + t.cid, name: t.name });
+                log('IPFS: LOADED_AUDIO ' + (i + 1) + '/' + snap.audioTracks.length + ' ' + (t.name || t.cid.slice(0,8)));
             } catch(e) {
-                log('IPFS: AUDIO_ERR ' + t.name + ' \u2014 ' + e.message);
+                log('IPFS: AUDIO_ERR ' + (t.name || i) + ' \u2014 ' + e.message);
             }
         }
         var audioDot = $('audio-dot');
