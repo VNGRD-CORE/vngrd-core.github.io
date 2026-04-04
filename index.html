@@ -12677,20 +12677,24 @@ window.saveSessionToCloud = async function() {
         var _step = 'INIT';
         try {
             // Step 2 — Build FormData with all blobs (no client-side zip = no OOM crash)
+            // IMPORTANT: Pinata wrapWithDirectory requires ALL files to share ONE root folder.
+            // Files at mixed levels (root + subdirs) trigger 400 "More than one file/directory".
+            // Solution: prefix every path with 'VNGRD/' so there is exactly one top-level entry.
             _step = 'BUILD_FORM';
             var form = new FormData();
+            var DIR  = 'VNGRD/'; // single root — Pinata wraps this in an outer directory CID
 
             // 2a. Session state JSON manifest
             var snap = _buildSessionSnapshot();
             snap._type    = 'VNGRD_WALLET_PAYLOAD';
             snap._version = 'V35_WALLET';
             snap._wallet  = address;
-            form.append('file', new Blob([JSON.stringify(snap, null, 2)], { type: 'application/json' }), 'session.json');
+            form.append('file', new Blob([JSON.stringify(snap, null, 2)], { type: 'application/json' }), DIR + 'session.json');
 
             // 2b. WebGL snapshot — use atob() conversion, NOT fetch(dataURL) which fails in Safari
             _step = 'SNAPSHOT_ENCODE';
             if (snapshotDataURL) {
-                form.append('file', _dataURLtoBlob(snapshotDataURL), 'snapshot.jpg');
+                form.append('file', _dataURLtoBlob(snapshotDataURL), DIR + 'snapshot.jpg');
             }
 
             // 2c. Media queue blobs — images re-encoded, video fetched from object URL
@@ -12708,7 +12712,7 @@ window.saveSessionToCloud = async function() {
                             mblob = await fetch(item.url).then(function(r) { return r.blob(); });
                         }
                         if (mblob) {
-                            form.append('file', mblob, 'media/media_' + i + (item.name ? '_' + item.name : ''));
+                            form.append('file', mblob, DIR + 'media/media_' + i + (item.name ? '_' + item.name : ''));
                             log('WALLET_SAVE: QUEUED_MEDIA ' + (item.name || i));
                         }
                     } catch(e) { log('WALLET_SAVE: MEDIA_SKIP ' + (item.name || i) + ' — ' + e.message); }
@@ -12721,7 +12725,7 @@ window.saveSessionToCloud = async function() {
                     var track = APP.audio.playlist[i];
                     try {
                         var ablob = await fetch(track.url).then(function(r) { return r.blob(); });
-                        form.append('file', ablob, 'audio/audio_' + i + (track.name ? '_' + track.name : ''));
+                        form.append('file', ablob, DIR + 'audio/audio_' + i + (track.name ? '_' + track.name : ''));
                         log('WALLET_SAVE: QUEUED_AUDIO ' + (track.name || i));
                     } catch(e) { log('WALLET_SAVE: AUDIO_SKIP ' + (track.name || i) + ' — ' + e.message); }
                 }
@@ -12731,7 +12735,7 @@ window.saveSessionToCloud = async function() {
             if (APP.timeMachine && APP.timeMachine.chunks && APP.timeMachine.chunks.length) {
                 try {
                     var tmBlob = new Blob(APP.timeMachine.chunks, { type: 'video/webm' });
-                    form.append('file', tmBlob, 'video/timemachine.webm');
+                    form.append('file', tmBlob, DIR + 'video/timemachine.webm');
                     log('WALLET_SAVE: QUEUED_TIMEMACHINE ' + (tmBlob.size / 1e6).toFixed(1) + 'MB');
                 } catch(e) { log('WALLET_SAVE: TIMEMACHINE_SKIP — ' + e.message); }
             }
