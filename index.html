@@ -12446,6 +12446,17 @@ function _localKey(address) {
     return 'VNGRD_SESSION_' + address.toLowerCase();
 }
 
+// Convert a data URL to a Blob without fetch() — works in all browsers including Safari
+function _dataURLtoBlob(dataURL) {
+    var parts = dataURL.split(',');
+    var mime  = parts[0].match(/:(.*?);/)[1];
+    var bstr  = atob(parts[1]);
+    var n     = bstr.length;
+    var u8    = new Uint8Array(n);
+    while (n--) u8[n] = bstr.charCodeAt(n);
+    return new Blob([u8], { type: mime });
+}
+
 // ── WALLET SYNC HUD helpers ──
 function _showIpfsSyncIndicator(syncing, success) {
     var hud   = document.getElementById('wallet-sync-hud');
@@ -12506,8 +12517,10 @@ window.saveSessionToCloud = async function() {
 
     // Detach from call stack via Promise.resolve() so the render loop is never stalled
     Promise.resolve().then(async function() {
+        var _step = 'INIT';
         try {
             // Step 2 — Build FormData with all blobs (no client-side zip = no OOM crash)
+            _step = 'BUILD_FORM';
             var form = new FormData();
 
             // 2a. Session state JSON manifest
@@ -12517,10 +12530,10 @@ window.saveSessionToCloud = async function() {
             snap._wallet  = address;
             form.append('file', new Blob([JSON.stringify(snap, null, 2)], { type: 'application/json' }), 'session.json');
 
-            // 2b. WebGL snapshot (captured synchronously above — already in memory as dataURL)
+            // 2b. WebGL snapshot — use atob() conversion, NOT fetch(dataURL) which fails in Safari
+            _step = 'SNAPSHOT_ENCODE';
             if (snapshotDataURL) {
-                var snapImgBlob = await fetch(snapshotDataURL).then(function(r) { return r.blob(); });
-                form.append('file', snapImgBlob, 'snapshot.jpg');
+                form.append('file', _dataURLtoBlob(snapshotDataURL), 'snapshot.jpg');
             }
 
             // 2c. Media queue blobs — images re-encoded, video fetched from object URL
@@ -12573,6 +12586,7 @@ window.saveSessionToCloud = async function() {
             }));
 
             // Step 3 — Upload to Pinata, await master directory CID
+            _step = 'PINATA_UPLOAD';
             log('WALLET_SAVE: UPLOADING_DIRECTORY_TO_PINATA…');
             var res  = await fetch('https://api.pinata.cloud/pinning/pinFileToIPFS', {
                 method:  'POST',
@@ -12580,7 +12594,7 @@ window.saveSessionToCloud = async function() {
                 body:    form
             });
             var data = await res.json();
-            if (!res.ok || !data.IpfsHash) throw new Error('PIN_FAIL: ' + (data.error ? JSON.stringify(data.error) : res.status));
+            if (!res.ok || !data.IpfsHash) throw new Error('PIN_FAIL ' + res.status + ': ' + (data.error ? JSON.stringify(data.error) : 'no IpfsHash'));
 
             var cid = data.IpfsHash;
             log('WALLET_SAVE: DIRECTORY_PINNED CID=' + cid);
@@ -12603,9 +12617,9 @@ window.saveSessionToCloud = async function() {
             if (typeof ghostLog === 'function') ghostLog('GHOST> WALLET PAYLOAD BOUND → IPFS CID=' + cid, 'ok');
 
         } catch(e) {
-            log('WALLET_SAVE: ERR ' + e.message);
+            log('WALLET_SAVE: ERR [' + _step + '] ' + e.message);
             _showIpfsSyncIndicator(false, false);
-            alert('IPFS Wallet Save failed: ' + e.message);
+            alert('IPFS Wallet Save failed [' + _step + ']: ' + e.message);
         }
     });
 };
