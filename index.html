@@ -4238,136 +4238,9 @@ body.fullscreen #transcription-hud { pointer-events: none !important; } /* keep 
 .sfx-pad.pad-muted .pad-name { opacity: 0.3 !important; }
 .sfx-pad.pad-muted .pad-lcd  { opacity: 0.1 !important; }
 
-/* ─── SEAM TRANSITION PANEL ─────────────────────────── */
-#tx-seam-panel {
-    position: fixed;
-    z-index: 9900;
-    pointer-events: none;
-    opacity: 0;
-    transform: translateX(-50%) translateY(8px) scaleY(0.88);
-    transform-origin: bottom center;
-    transition: opacity 0.17s cubic-bezier(0.34,1.56,0.64,1),
-                transform 0.17s cubic-bezier(0.34,1.56,0.64,1);
-}
-#tx-seam-panel.tsp-open {
-    opacity: 1;
-    transform: translateX(-50%) translateY(0) scaleY(1);
-    pointer-events: all;
-}
-.tsp-body {
-    background: rgba(3,3,12,0.93);
-    backdrop-filter: blur(22px) saturate(1.5);
-    -webkit-backdrop-filter: blur(22px) saturate(1.5);
-    border: 1px solid rgba(130,55,255,0.28);
-    border-radius: 6px;
-    padding: 9px 10px 8px;
-    box-shadow: 0 0 20px rgba(130,55,255,0.1), 0 8px 30px rgba(0,0,0,0.7);
-    min-width: 218px;
-}
-.tsp-types {
-    display: flex;
-    gap: 4px;
-    margin-bottom: 8px;
-}
-.tsp-type-btn {
-    flex: 1;
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-    gap: 3px;
-    padding: 6px 3px 5px;
-    background: rgba(255,255,255,0.025);
-    border: 1px solid rgba(130,55,255,0.16);
-    border-radius: 4px;
-    color: rgba(190,160,255,0.38);
-    font-family: 'Orbitron', monospace;
-    font-size: 7.5px;
-    font-weight: 700;
-    letter-spacing: 0.05em;
-    text-transform: uppercase;
-    cursor: pointer;
-    transition: background 0.11s, border-color 0.11s, color 0.11s;
-    line-height: 1;
-    user-select: none;
-}
-.tsp-type-btn:hover {
-    background: rgba(130,55,255,0.11);
-    border-color: rgba(160,90,255,0.4);
-    color: rgba(220,200,255,0.8);
-}
-.tsp-type-btn.tsp-sel {
-    background: rgba(130,55,255,0.18);
-    border-color: rgba(170,100,255,0.7);
-    color: #fff;
-    box-shadow: inset 0 0 5px rgba(130,55,255,0.12);
-}
-.tsp-icon { font-size: 12px; line-height: 1; }
-.tsp-dur-row {
-    display: flex;
-    align-items: center;
-    gap: 7px;
-    border-top: 1px solid rgba(130,55,255,0.1);
-    padding-top: 7px;
-}
-.tsp-dur-lbl {
-    font-family: monospace;
-    font-size: 7.5px;
-    letter-spacing: 0.14em;
-    color: rgba(130,55,255,0.6);
-    text-transform: uppercase;
-    min-width: 22px;
-}
-#tsp-dur-sl {
-    flex: 1;
-    -webkit-appearance: none;
-    appearance: none;
-    height: 2px;
-    border-radius: 1px;
-    background: rgba(55,30,90,0.7);
-    outline: none;
-    cursor: pointer;
-    border: none;
-}
-#tsp-dur-sl::-webkit-slider-thumb {
-    -webkit-appearance: none;
-    width: 9px; height: 9px;
-    border-radius: 50%;
-    background: rgba(170,110,255,0.95);
-    box-shadow: 0 0 5px rgba(130,55,255,0.55);
-    cursor: pointer;
-}
-#tsp-dur-sl::-moz-range-thumb {
-    width: 9px; height: 9px;
-    border-radius: 50%;
-    background: rgba(170,110,255,0.95);
-    border: none;
-    cursor: pointer;
-}
-.tsp-dur-val {
-    font-family: monospace;
-    font-size: 9px;
-    color: rgba(200,180,255,0.45);
-    min-width: 26px;
-    text-align: right;
-}
-/* downward arrow pointer */
-.tsp-arrow {
-    width: 0; height: 0;
-    border-left: 5px solid transparent;
-    border-right: 5px solid transparent;
-    border-top: 5px solid rgba(130,55,255,0.3);
-    margin: 0 auto;
-    position: relative;
-}
-.tsp-arrow::before {
-    content: '';
-    position: absolute;
-    top: -6px; left: -4px;
-    width: 0; height: 0;
-    border-left: 4px solid transparent;
-    border-right: 4px solid transparent;
-    border-top: 5px solid rgba(3,3,12,0.93);
-}
+/* ─── NLE SEAM TRACK (canvas-integrated, no floating panel) ─── */
+/* Cursor override when hovering seam zones */
+#stage.seam-hover { cursor: col-resize !important; }
 
     </style>
 </head>
@@ -5475,7 +5348,7 @@ const APP = {
         brightness: 1.0, contrast: 1.0, saturation: 1.0, hue: 0, trailsEnabled: false, trailAlpha: 0.92, rgbEnabled: false, rgbIntensity: 0, rgbBassLink: false, pixelateEnabled: false, pixelSize: 1, rumbleEnabled: false, invert: false, uiReactivity: false, shakeIntensity: 0, shockwave: 0, lastBassLevel: 0, avgVol: 0, maskMode: false, glitchSnap: 0,
         seismicVelocity: 0, seismicPosition: 0, springConstant: 0.8, damping: 0.9
     },
-    media: { queue: [], currentIndex: -1, currentElement: null, _tx: null, audioSync: false },
+    media: { queue: [], currentIndex: -1, currentElement: null, _tx: null, audioSync: false, _activeSeam: -1, _seamOpen: false, _seamExpandH: 0, _seamGlitchT: 0, _durDragging: false, _durDragZone: null },
     fx: { stutter: false, crush: false, invert: false, echo: false, rgbSplit: 0, freezeFrame: null },
     audio: { ctx: null, analyzer: null, source: null, element: null, playlist: [], currentTrack: -1, currentTrackName: '', bassLevel: 0, vuData: new Uint8Array(32), isPlaying: false, isConnected: false, videoSource: null, videoMuted: false, videoGain: null, spatialMode: 'stereo', panner: null, compressor: null, masterGain: null, lowShelf: null, highShelf: null, spatialInterval: null, recorderDest: null },
 
@@ -6929,23 +6802,47 @@ function drawMediaQueue(ctx, w, h, bottomY) {
     if (!APP.state.showMediaStrips) return;
 
     var thumbSize = Math.round(h * 0.065);
-    var padding = Math.round(thumbSize * 0.15);
-    var barH = thumbSize + padding * 2;
-    var barY = bottomY - barH;
+    var padding   = Math.round(thumbSize * 0.15);
+    var barH      = thumbSize + padding * 2;
+
+    // ── Animated expansion (spring toward target) ──
+    var _TARGET_H  = 58;
+    var _targetExp = (APP.media._activeSeam >= 0) ? _TARGET_H : 0;
+    APP.media._seamExpandH += (_targetExp - APP.media._seamExpandH) * 0.2;
+    if (Math.abs(APP.media._seamExpandH - _targetExp) < 0.4) APP.media._seamExpandH = _targetExp;
+    var _eH = Math.round(APP.media._seamExpandH); // current expansion px
+
+    // Thumbnail bar sits above the expansion track
+    var barY  = bottomY - barH - _eH;
+    var thumbY = barY + padding; // top of thumbnails
 
     ctx.save();
     ctx.globalCompositeOperation = 'source-over';
-    ctx.fillStyle = 'rgba(4,4,8,0.80)';
-    ctx.fillRect(0, barY, w, barH);
 
-    // Top accent line — violet to distinguish from NFT vault (cyan)
-    ctx.fillStyle = 'rgba(160,80,255,0.5)';
-    ctx.fillRect(0, barY, w, 1);
+    // ── Bar background (thumbnails region) ──
+    ctx.fillStyle = 'rgba(4,4,8,0.82)';
+    ctx.fillRect(0, barY, w, barH);
+    ctx.fillStyle = 'rgba(160,80,255,0.45)';
+    ctx.fillRect(0, barY, w, 1); // top accent
+
+    // ── Expansion track background ──
+    if (_eH > 0) {
+        var _tY = barY + barH; // top of expansion track
+        ctx.fillStyle = 'rgba(3,3,14,0.97)';
+        ctx.fillRect(0, _tY, w, _eH);
+        // Top border of expansion track
+        ctx.fillStyle = 'rgba(130,55,255,0.35)';
+        ctx.fillRect(0, _tY, w, 1);
+        // Violet left rail (NLE track marker)
+        ctx.fillStyle = 'rgba(140,60,255,0.7)';
+        ctx.fillRect(0, _tY, 3, _eH);
+    }
 
     // Init hit areas
     if (!APP.media.queueStrip) APP.media.queueStrip = {};
     APP.media.queueStrip.thumbnails = [];
-    APP.media.queueStrip.seams = [];
+    APP.media.queueStrip.seams      = [];
+    APP.media.queueStrip.ctrlZones  = [];
     APP.media.queueStrip.audioSyncZone = null;
 
     var totalW = queue.length * (thumbSize + padding) - padding;
@@ -6953,102 +6850,284 @@ function drawMediaQueue(ctx, w, h, bottomY) {
 
     for (var i = 0; i < queue.length; i++) {
         var item = queue[i];
-        var el = item.element;
+        var el   = item.element;
         if (!el) continue;
-
         var isVid = el.tagName === 'VIDEO';
         if (el.tagName === 'IMG' && (!el.complete || el.naturalWidth === 0)) continue;
         if (isVid && el.readyState < 2) continue;
 
         var tx = startX + i * (thumbSize + padding);
-        var ty = barY + padding;
+        var ty = thumbY;
 
         try { ctx.drawImage(el, tx, ty, thumbSize, thumbSize); } catch(e) { continue; }
 
-        // Border — red for active, violet for inactive
+        // Border
         var isActive = (APP.media.currentIndex === i);
-        ctx.strokeStyle = isActive ? '#ff3333' : 'rgba(160,80,255,0.7)';
+        ctx.strokeStyle = isActive ? '#ff3333' : 'rgba(160,80,255,0.6)';
         ctx.lineWidth = isActive ? 2 : 1;
         ctx.strokeRect(tx, ty, thumbSize, thumbSize);
 
-        // Name label
-        var labelFS = Math.max(8, Math.round(thumbSize * 0.14));
-        ctx.font = '700 ' + labelFS + 'px Orbitron, sans-serif';
-        ctx.fillStyle = 'rgba(255,255,255,0.65)';
+        // Name label (below thumb)
+        var labelFS = Math.max(7, Math.round(thumbSize * 0.13));
+        ctx.font = '600 ' + labelFS + 'px "Orbitron", monospace';
+        ctx.fillStyle = 'rgba(255,255,255,0.55)';
         ctx.textAlign = 'center';
         ctx.textBaseline = 'top';
         ctx.fillText((item.name || 'FILE').substring(0, 10), tx + thumbSize / 2, ty + thumbSize + 2);
 
-        // Store thumbnail hit zone
-        APP.media.queueStrip.thumbnails.push({ x: tx, y: ty, w: thumbSize, h: thumbSize, index: i });
+        // Duration label — bottom-left corner of thumbnail (clean, no badge)
+        if (!isVid) {
+            var durTxt = item.duration === null ? '\u221e' : (item.duration || 8) + 's';
+            var durFS  = Math.max(7, Math.round(thumbSize * 0.135));
+            ctx.font = '700 ' + durFS + 'px monospace';
+            ctx.textAlign    = 'left';
+            ctx.textBaseline = 'bottom';
+            ctx.fillStyle    = 'rgba(160,80,255,0.82)';
+            ctx.fillText(durTxt, tx + 3, ty + thumbSize - 2);
+        }
 
-        // Beat-sync micro-dot — tiny gold dot, only visible when active (replaces badge)
+        // Beat-sync micro-dot (bottom-right, gold, only when active)
         if (item.beatSync) {
-            var _bsDotR = Math.max(3, Math.round(thumbSize * 0.07));
+            var _bsR = Math.max(3, Math.round(thumbSize * 0.07));
             ctx.beginPath();
-            ctx.arc(tx + thumbSize - _bsDotR - 2, ty + thumbSize - _bsDotR - 2, _bsDotR, 0, Math.PI * 2);
-            ctx.fillStyle = 'rgba(255,200,0,0.8)';
+            ctx.arc(tx + thumbSize - _bsR - 2, ty + thumbSize - _bsR - 2, _bsR, 0, Math.PI * 2);
+            ctx.fillStyle = 'rgba(255,200,0,0.82)';
             ctx.fill();
         }
 
-        // Seam line — thin vertical between this and next clip
+        // Thumbnail hit zone
+        APP.media.queueStrip.thumbnails.push({ x: tx, y: ty, w: thumbSize, h: thumbSize, index: i });
+
+        // ── Seam between this clip and next ──
         if (i < queue.length - 1) {
-            var _seamCX = tx + thumbSize + Math.round(padding / 2);
-            var _seamHovered = (APP.media._hoveredSeam === APP.media.queueStrip.seams.length);
+            var _scx      = tx + thumbSize + Math.round(padding / 2);
+            var _sIdx     = APP.media.queueStrip.seams.length;
+            var _sHovered = (APP.media._hoveredSeam === _sIdx);
+            var _sActive  = (APP.media._activeSeam  === _sIdx);
+
             ctx.save();
-            ctx.strokeStyle = _seamHovered ? 'rgba(180,110,255,0.92)' : 'rgba(120,50,220,0.22)';
-            ctx.lineWidth = _seamHovered ? 2 : 1;
-            if (_seamHovered) { ctx.shadowColor = 'rgba(160,80,255,0.7)'; ctx.shadowBlur = 7; }
+            if (_sActive) {
+                ctx.strokeStyle = 'rgba(200,140,255,1.0)';
+                ctx.lineWidth   = 2;
+                ctx.shadowColor = 'rgba(180,100,255,0.9)';
+                ctx.shadowBlur  = 10;
+            } else if (_sHovered) {
+                ctx.strokeStyle = 'rgba(180,110,255,0.9)';
+                ctx.lineWidth   = 2;
+                ctx.shadowColor = 'rgba(160,80,255,0.7)';
+                ctx.shadowBlur  = 6;
+            } else {
+                ctx.strokeStyle = 'rgba(120,50,220,0.25)';
+                ctx.lineWidth   = 1;
+            }
             ctx.beginPath();
-            ctx.moveTo(_seamCX, barY + 4);
-            ctx.lineTo(_seamCX, barY + barH - 4);
+            ctx.moveTo(_scx, barY + 4);
+            ctx.lineTo(_scx, barY + barH - 4);
             ctx.stroke();
+
+            // Active seam: small downward-pointing node marker at bottom of seam line
+            if (_sActive && _eH > 2) {
+                ctx.fillStyle = 'rgba(200,140,255,1.0)';
+                ctx.beginPath();
+                ctx.moveTo(_scx,     barY + barH - 4);
+                ctx.lineTo(_scx - 5, barY + barH + 4);
+                ctx.lineTo(_scx + 5, barY + barH + 4);
+                ctx.closePath();
+                ctx.fill();
+            }
             ctx.restore();
-            var _seamHitW = Math.max(10, padding);
+
+            var _sHitW = Math.max(10, padding);
             APP.media.queueStrip.seams.push({
-                cx: _seamCX,
-                barY: barY,
-                hitX: tx + thumbSize,
-                hitY: barY,
-                hitW: _seamHitW,
-                hitH: barH,
-                fromIndex: i,
-                toIndex: i + 1
+                cx: _scx, barY: barY,
+                hitX: tx + thumbSize, hitY: barY,
+                hitW: _sHitW, hitH: barH,
+                fromIndex: i, toIndex: i + 1
             });
         }
     }
 
-    // AUDIO_SYNC pill — right edge of carousel bar
-    var asPillW = Math.max(48, Math.round(thumbSize * 0.65));
-    var asPillH = Math.round(thumbSize * 0.28);
-    var asPillX = w - asPillW - Math.round(padding * 1.5);
-    var asPillY = barY + Math.round((barH - asPillH) / 2);
+    // ── AUDIO_SYNC pill — right edge of thumbnail bar ──
+    var asPW = Math.max(46, Math.round(thumbSize * 0.62));
+    var asPH = Math.round(thumbSize * 0.27);
+    var asPX = w - asPW - Math.round(padding * 1.5);
+    var asPY = barY + Math.round((barH - asPH) / 2);
     var asOn = !!APP.media.audioSync;
-    ctx.fillStyle = asOn ? 'rgba(255,180,0,0.92)' : 'rgba(30,30,30,0.85)';
-    ctx.strokeStyle = asOn ? 'rgba(255,220,0,0.9)' : 'rgba(120,80,200,0.6)';
-    ctx.lineWidth = 1;
-    // Rounded rect
-    var asPillR = Math.round(asPillH / 2);
+    ctx.fillStyle   = asOn ? 'rgba(255,180,0,0.9)'  : 'rgba(28,28,40,0.85)';
+    ctx.strokeStyle = asOn ? 'rgba(255,220,0,0.85)' : 'rgba(120,80,200,0.5)';
+    ctx.lineWidth   = 1;
+    var _aR = Math.round(asPH / 2);
     ctx.beginPath();
-    ctx.moveTo(asPillX + asPillR, asPillY);
-    ctx.lineTo(asPillX + asPillW - asPillR, asPillY);
-    ctx.arcTo(asPillX + asPillW, asPillY, asPillX + asPillW, asPillY + asPillH, asPillR);
-    ctx.lineTo(asPillX + asPillW, asPillY + asPillH - asPillR);
-    ctx.arcTo(asPillX + asPillW, asPillY + asPillH, asPillX + asPillW - asPillR, asPillY + asPillH, asPillR);
-    ctx.lineTo(asPillX + asPillR, asPillY + asPillH);
-    ctx.arcTo(asPillX, asPillY + asPillH, asPillX, asPillY + asPillH - asPillR, asPillR);
-    ctx.lineTo(asPillX, asPillY + asPillR);
-    ctx.arcTo(asPillX, asPillY, asPillX + asPillR, asPillY, asPillR);
+    ctx.moveTo(asPX + _aR, asPY);
+    ctx.lineTo(asPX + asPW - _aR, asPY);
+    ctx.arcTo(asPX + asPW, asPY, asPX + asPW, asPY + asPH, _aR);
+    ctx.lineTo(asPX + asPW, asPY + asPH - _aR);
+    ctx.arcTo(asPX + asPW, asPY + asPH, asPX + asPW - _aR, asPY + asPH, _aR);
+    ctx.lineTo(asPX + _aR, asPY + asPH);
+    ctx.arcTo(asPX, asPY + asPH, asPX, asPY + asPH - _aR, _aR);
+    ctx.lineTo(asPX, asPY + _aR);
+    ctx.arcTo(asPX, asPY, asPX + _aR, asPY, _aR);
     ctx.closePath();
-    ctx.fill();
-    ctx.stroke();
-    var asPillFS = Math.max(7, Math.round(asPillH * 0.55));
-    ctx.fillStyle = asOn ? '#000' : 'rgba(180,140,255,0.9)';
-    ctx.font = '700 ' + asPillFS + 'px monospace';
-    ctx.textAlign = 'center';
+    ctx.fill(); ctx.stroke();
+    var aPFS = Math.max(7, Math.round(asPH * 0.54));
+    ctx.fillStyle    = asOn ? '#000' : 'rgba(180,140,255,0.85)';
+    ctx.font         = '700 ' + aPFS + 'px monospace';
+    ctx.textAlign    = 'center';
     ctx.textBaseline = 'middle';
-    ctx.fillText(asOn ? '\u266b SYNC' : '\u266b SYNC', asPillX + asPillW / 2, asPillY + asPillH / 2);
-    APP.media.queueStrip.audioSyncZone = { x: asPillX, y: asPillY, w: asPillW, h: asPillH };
+    ctx.fillText('\u266b SYNC', asPX + asPW / 2, asPY + asPH / 2);
+    APP.media.queueStrip.audioSyncZone = { x: asPX, y: asPY, w: asPW, h: asPH };
+
+    // ── EXPANSION TRACK CONTROLS ──
+    if (_eH >= 8 && APP.media._activeSeam >= 0) {
+        var _seam = APP.media.queueStrip.seams[APP.media._activeSeam];
+        var _toItem = _seam ? APP.media.queue[_seam.toIndex] : null;
+        if (_toItem) {
+            var _tY   = barY + barH; // top of expansion track
+            var _fade = Math.min(1, (_eH - 8) / 20); // fade in content as it opens
+            ctx.globalAlpha = _fade;
+
+            var _lpad = 16, _rpad = 16 + asPW + 8;
+            var _midY = _tY + _eH / 2;
+            var _fs8  = Math.max(8, Math.round(h * 0.0075));
+            var _fs7  = Math.max(7, Math.round(_fs8 * 0.88));
+
+            // ── TYPE section (left) ──
+            var _types = [
+                { id: 'optical-fade', label: 'OPTICAL FADE' },
+                { id: 'luma-wipe',    label: 'LUMA WIPE'    },
+                { id: 'dip-black',    label: 'DIP BLACK'    }
+            ];
+            var _typeW = 88, _typeGap = 10;
+            var _typeSectW = _types.length * _typeW + (_types.length - 1) * _typeGap;
+            var _typeX0 = _lpad + Math.round(_fs8 * 3.5) + 8; // offset after seam label
+
+            // Seam label
+            ctx.font = '600 ' + _fs7 + 'px monospace';
+            ctx.textAlign    = 'left';
+            ctx.textBaseline = 'middle';
+            ctx.fillStyle    = 'rgba(130,55,255,0.6)';
+            ctx.fillText('S' + APP.media._activeSeam, _lpad + 3, _midY);
+
+            for (var _ti = 0; _ti < _types.length; _ti++) {
+                var _t    = _types[_ti];
+                var _tX   = _typeX0 + _ti * (_typeW + _typeGap);
+                var _tActive = (_toItem.transitionType === _t.id);
+                ctx.font         = '700 ' + _fs7 + 'px monospace';
+                ctx.textAlign    = 'left';
+                ctx.textBaseline = 'middle';
+                ctx.fillStyle    = _tActive ? 'rgba(220,180,255,1.0)' : 'rgba(160,130,200,0.38)';
+                ctx.fillText(_t.label, _tX, _midY);
+                // Active underline
+                if (_tActive) {
+                    var _tw = ctx.measureText(_t.label).width;
+                    ctx.fillStyle = 'rgba(160,80,255,0.8)';
+                    ctx.fillRect(_tX, _midY + _fs7 * 0.7, _tw, 1);
+                }
+                APP.media.queueStrip.ctrlZones.push({
+                    type: 'tx-type', value: _t.id,
+                    x: _tX, y: _tY, w: _typeW, h: _eH
+                });
+            }
+
+            // ── DURATION scrubber (center) ──
+            var _durLblX = _typeX0 + _typeSectW + 18;
+            var _durMin = 0.1, _durMax = 3.0;
+            var _durVal = _toItem.transitionDuration != null ? _toItem.transitionDuration : 0.8;
+            var _durPct = (_durVal - _durMin) / (_durMax - _durMin);
+
+            // DUR label
+            ctx.font         = '600 ' + _fs7 + 'px monospace';
+            ctx.textAlign    = 'left';
+            ctx.textBaseline = 'middle';
+            ctx.fillStyle    = 'rgba(130,55,255,0.55)';
+            ctx.fillText('DUR', _durLblX, _midY);
+            var _durLblW = ctx.measureText('DUR').width;
+
+            // Scrubber track
+            var _scrX = _durLblX + _durLblW + 8;
+            var _scrW = Math.round(w * 0.18);
+            var _scrY = _midY;
+            var _scrH = 2;
+            ctx.fillStyle = 'rgba(60,35,100,0.8)';
+            ctx.fillRect(_scrX, _scrY - 1, _scrW, _scrH);
+            // Filled portion
+            ctx.fillStyle = 'rgba(140,70,255,0.7)';
+            ctx.fillRect(_scrX, _scrY - 1, Math.round(_durPct * _scrW), _scrH);
+            // Handle
+            var _hX = _scrX + Math.round(_durPct * _scrW);
+            ctx.beginPath();
+            ctx.arc(_hX, _scrY, 5, 0, Math.PI * 2);
+            ctx.fillStyle   = 'rgba(190,130,255,0.95)';
+            ctx.shadowColor = 'rgba(160,80,255,0.6)';
+            ctx.shadowBlur  = 6;
+            ctx.fill();
+            ctx.shadowBlur = 0;
+
+            // Value label
+            var _durValStr = _durVal.toFixed(1) + 's';
+            ctx.font         = '600 ' + _fs7 + 'px monospace';
+            ctx.textAlign    = 'left';
+            ctx.textBaseline = 'middle';
+            ctx.fillStyle    = 'rgba(200,170,255,0.6)';
+            ctx.fillText(_durValStr, _scrX + _scrW + 7, _midY);
+
+            APP.media.queueStrip.ctrlZones.push({
+                type: 'dur-track', min: _durMin, max: _durMax,
+                x: _scrX - 4, y: _tY, w: _scrW + 8, h: _eH
+            });
+
+            // ── EASING selector (right of scrubber) ──
+            var _easings = [
+                { id: 'linear',   label: 'LINEAR'   },
+                { id: 'ease-in',  label: 'EASE IN'  },
+                { id: 'ease-out', label: 'EASE OUT' }
+            ];
+            var _easeX0 = _scrX + _scrW + 8 + ctx.measureText(_durValStr).width + 18;
+            for (var _ei = 0; _ei < _easings.length; _ei++) {
+                var _ea = _easings[_ei];
+                var _eX = _easeX0 + _ei * 68;
+                var _eActive = (_toItem.easing === _ea.id);
+                ctx.font         = '700 ' + _fs7 + 'px monospace';
+                ctx.textAlign    = 'left';
+                ctx.textBaseline = 'middle';
+                ctx.fillStyle    = _eActive ? 'rgba(220,180,255,1.0)' : 'rgba(160,130,200,0.35)';
+                ctx.fillText(_ea.label, _eX, _midY);
+                if (_eActive) {
+                    var _ew = ctx.measureText(_ea.label).width;
+                    ctx.fillStyle = 'rgba(160,80,255,0.7)';
+                    ctx.fillRect(_eX, _midY + _fs7 * 0.7, _ew, 1);
+                }
+                APP.media.queueStrip.ctrlZones.push({
+                    type: 'easing', value: _ea.id,
+                    x: _eX, y: _tY, w: 65, h: _eH
+                });
+            }
+
+            // ── Glitch effect during open/close animation ──
+            var _glitchAge = performance.now() - (APP.media._seamGlitchT || 0);
+            if (_glitchAge < 320 && APP.media._seamGlitchT > 0) {
+                var _gi2 = Math.max(0, 1 - _glitchAge / 320);
+                ctx.save();
+                ctx.globalAlpha = _gi2 * 0.85;
+                for (var _gk = 0; _gk < 5; _gk++) {
+                    if (Math.random() > _gi2 * 0.8) continue;
+                    var _gy2 = _tY + Math.random() * _eH;
+                    var _gw2 = w * (0.2 + Math.random() * 0.6);
+                    var _gx2 = Math.random() * (w - _gw2);
+                    ctx.fillStyle = Math.random() > 0.5 ? 'rgba(0,0,0,0.7)' : 'rgba(140,60,255,0.3)';
+                    ctx.fillRect(_gx2, _gy2, _gw2, 1 + Math.random() * 2);
+                }
+                // Bright violet sweep line
+                if (Math.random() < _gi2 * 0.5) {
+                    ctx.fillStyle = 'rgba(160,80,255,0.4)';
+                    ctx.fillRect(0, _tY + Math.random() * _eH, w * (0.5 + Math.random() * 0.5), 1);
+                }
+                ctx.restore();
+            }
+
+            ctx.globalAlpha = 1;
+        }
+    }
 
     ctx.restore();
 }
@@ -7140,22 +7219,14 @@ function initSummonerLogic() {
 // SEAM CONTROLS — NLE-style floating panel on hover/click between clips
 // ═══════════════════════════════════════════════════════════════════════════
 function initSeamControls() {
-    var stage = $('stage');
+    var stage  = $('stage');
     var canvas = APP.render.canvas;
-    var panel = document.getElementById('tx-seam-panel');
-    var durSlider = document.getElementById('tsp-dur-sl');
-    var durValEl = document.getElementById('tsp-dur-val');
-    if (!stage || !canvas || !panel) return;
+    if (!stage || !canvas) return;
 
-    var _activeSeamIdx = -1;
-    var _seamClickHandled = false;
-
-    function _canvasCoords(e) {
-        var rect = canvas.getBoundingClientRect();
-        return {
-            x: (e.clientX - rect.left) * (APP.render.width / rect.width),
-            y: (e.clientY - rect.top) * (APP.render.height / rect.height)
-        };
+    function _cc(e) { // canvas coords
+        var r = canvas.getBoundingClientRect();
+        return { x: (e.clientX - r.left) * (APP.render.width / r.width),
+                 y: (e.clientY - r.top)  * (APP.render.height / r.height) };
     }
 
     function _hitSeam(cx, cy) {
@@ -7167,102 +7238,113 @@ function initSeamControls() {
         return -1;
     }
 
-    function _updateDurSlider(val) {
-        if (!durSlider || !durValEl) return;
-        durSlider.value = val;
-        durValEl.textContent = parseFloat(val).toFixed(1) + 's';
+    function _hitCtrl(cx, cy) {
+        var zones = (APP.media.queueStrip && APP.media.queueStrip.ctrlZones) || [];
+        for (var i = 0; i < zones.length; i++) {
+            var z = zones[i];
+            if (cx >= z.x && cx <= z.x + z.w && cy >= z.y && cy <= z.y + z.h) return z;
+        }
+        return null;
     }
 
-    function _updateTypeBtns(txType) {
-        panel.querySelectorAll('.tsp-type-btn').forEach(function(btn) {
-            btn.classList.toggle('tsp-sel', btn.dataset.tx === txType);
-        });
+    function _openSeam(idx) {
+        APP.media._activeSeam  = idx;
+        APP.media._seamOpen    = true;
+        APP.media._seamGlitchT = performance.now();
     }
 
-    function openPanel(seamIdx) {
+    function _closeSeam() {
+        APP.media._activeSeam  = -1;
+        APP.media._seamOpen    = false;
+        APP.media._seamGlitchT = performance.now();
+    }
+
+    function _applyDur(cx) {
+        var zones = (APP.media.queueStrip && APP.media.queueStrip.ctrlZones) || [];
+        var dz    = APP.media._durDragZone;
+        if (!dz) return;
         var seams = APP.media.queueStrip && APP.media.queueStrip.seams;
-        if (!seams || seamIdx < 0 || seamIdx >= seams.length) return;
-        _activeSeamIdx = seamIdx;
-        var seam = seams[seamIdx];
-        var toItem = APP.media.queue[seam.toIndex];
+        if (!seams || APP.media._activeSeam < 0) return;
+        var toItem = APP.media.queue[seams[APP.media._activeSeam].toIndex];
         if (!toItem) return;
-
-        _updateTypeBtns(toItem.transitionType || 'optical-fade');
-        _updateDurSlider(toItem.transitionDuration != null ? toItem.transitionDuration : 0.8);
-
-        var rect = canvas.getBoundingClientRect();
-        var scaleX = rect.width / APP.render.width;
-        var scaleY = rect.height / APP.render.height;
-        var screenX = Math.round(seam.cx * scaleX + rect.left);
-        var screenY = Math.round(seam.barY * scaleY + rect.top);
-
-        panel.style.left = screenX + 'px';
-        panel.style.bottom = (window.innerHeight - screenY + 6) + 'px';
-        panel.style.top = '';
-        panel.classList.add('tsp-open');
+        var pct = Math.max(0, Math.min(1, (cx - dz.x) / dz.w));
+        toItem.transitionDuration = Math.round((dz.min + pct * (dz.max - dz.min)) * 10) / 10;
     }
 
-    function closePanel() {
-        _activeSeamIdx = -1;
-        APP.media._hoveredSeam = -1;
-        panel.classList.remove('tsp-open');
-    }
-
-    // Type buttons
-    panel.querySelectorAll('.tsp-type-btn').forEach(function(btn) {
-        btn.addEventListener('click', function(e) {
-            e.stopPropagation();
-            var seams = APP.media.queueStrip && APP.media.queueStrip.seams;
-            if (!seams || _activeSeamIdx < 0 || _activeSeamIdx >= seams.length) return;
-            var toItem = APP.media.queue[seams[_activeSeamIdx].toIndex];
-            if (!toItem) return;
-            toItem.transitionType = btn.dataset.tx;
-            _updateTypeBtns(btn.dataset.tx);
-        });
-    });
-
-    // Duration slider
-    if (durSlider) {
-        durSlider.addEventListener('input', function() {
-            var seams = APP.media.queueStrip && APP.media.queueStrip.seams;
-            if (!seams || _activeSeamIdx < 0 || _activeSeamIdx >= seams.length) return;
-            var toItem = APP.media.queue[seams[_activeSeamIdx].toIndex];
-            if (!toItem) return;
-            var val = parseFloat(durSlider.value);
-            toItem.transitionDuration = val;
-            if (durValEl) durValEl.textContent = val.toFixed(1) + 's';
-        });
-    }
-
-    // Mousemove: hover detection
+    // ── mousemove: hover + drag ──
     stage.addEventListener('mousemove', function(e) {
-        var c = _canvasCoords(e);
+        var c   = _cc(e);
         var idx = _hitSeam(c.x, c.y);
         APP.media._hoveredSeam = idx;
-        canvas.style.cursor = idx >= 0 ? 'col-resize' : '';
-    });
-    stage.addEventListener('mouseleave', function() { APP.media._hoveredSeam = -1; });
 
-    // Click on stage: open/close seam panel
-    stage.addEventListener('click', function(e) {
-        var c = _canvasCoords(e);
-        var idx = _hitSeam(c.x, c.y);
+        // Update cursor
+        var onCtrl = APP.media._activeSeam >= 0 && _hitCtrl(c.x, c.y);
         if (idx >= 0) {
-            _seamClickHandled = true;
-            if (_activeSeamIdx === idx && panel.classList.contains('tsp-open')) closePanel();
-            else openPanel(idx);
-            setTimeout(function() { _seamClickHandled = false; }, 0);
+            canvas.style.cursor = 'col-resize';
+        } else if (onCtrl && onCtrl.type === 'dur-track') {
+            canvas.style.cursor = 'ew-resize';
+        } else if (onCtrl) {
+            canvas.style.cursor = 'pointer';
+        } else {
+            canvas.style.cursor = '';
+        }
+
+        // Drag duration
+        if (APP.media._durDragging) _applyDur(c.x);
+    });
+
+    stage.addEventListener('mouseleave', function() {
+        APP.media._hoveredSeam = -1;
+        if (!APP.media._durDragging) canvas.style.cursor = '';
+    });
+
+    // ── mousedown: start duration drag ──
+    stage.addEventListener('mousedown', function(e) {
+        if (APP.media._activeSeam < 0) return;
+        var c  = _cc(e);
+        var hz = _hitCtrl(c.x, c.y);
+        if (hz && hz.type === 'dur-track') {
+            APP.media._durDragging = true;
+            APP.media._durDragZone = hz;
+            _applyDur(c.x);
+            e.preventDefault();
         }
     });
 
-    // Click anywhere outside: close panel
-    document.addEventListener('click', function(e) {
-        if (_seamClickHandled) return;
-        if (!panel.contains(e.target)) closePanel();
+    document.addEventListener('mouseup', function() {
+        APP.media._durDragging = false;
+        APP.media._durDragZone = null;
     });
 
-    // Panel itself: don't close on internal clicks
-    panel.addEventListener('click', function(e) { e.stopPropagation(); });
+    // ── click: seam toggle + ctrl zone dispatch ──
+    stage.addEventListener('click', function(e) {
+        var c   = _cc(e);
+        var sIdx = _hitSeam(c.x, c.y);
+        if (sIdx >= 0) {
+            if (APP.media._activeSeam === sIdx) _closeSeam();
+            else _openSeam(sIdx);
+            return;
+        }
+        // Control zones (only when expansion is visible)
+        if (APP.media._activeSeam >= 0 && APP.media._seamExpandH > 20) {
+            var hz = _hitCtrl(c.x, c.y);
+            if (hz) {
+                var seams  = APP.media.queueStrip && APP.media.queueStrip.seams;
+                var toItem = seams ? APP.media.queue[seams[APP.media._activeSeam].toIndex] : null;
+                if (toItem) {
+                    if (hz.type === 'tx-type') { toItem.transitionType = hz.value; return; }
+                    if (hz.type === 'easing')  { toItem.easing = hz.value; return; }
+                    if (hz.type === 'dur-track') { _applyDur(c.x); return; }
+                }
+                return;
+            }
+        }
+        // Click outside track area: close
+        var qs = APP.media.queueStrip;
+        var inBar = qs && qs.seams && qs.seams.length > 0 && qs.seams[0] &&
+                    c.y >= qs.seams[0].hitY && c.y <= qs.seams[0].hitY + qs.seams[0].hitH + APP.media._seamExpandH;
+        if (!inBar) _closeSeam();
+    });
 }
 
 // Shared summoner — injects NFT into media queue (eject/cycle compatible)
@@ -7604,7 +7686,11 @@ function renderLoop(timestamp) {
         var _mediaTx = APP.media._tx;
         if (_mediaTx && _mediaTx.active) {
             var _txNow = performance.now();
-            var _txProg = Math.min(1.0, (_txNow - _mediaTx.start) / _mediaTx.dur);
+            var _txProgRaw = Math.min(1.0, (_txNow - _mediaTx.start) / _mediaTx.dur);
+            var _ease = _mediaTx.easing || 'linear';
+            var _txProg = _ease === 'ease-in'  ? _txProgRaw * _txProgRaw :
+                          _ease === 'ease-out' ? 1 - Math.pow(1 - _txProgRaw, 2) :
+                          _txProgRaw; // linear
             var _txCoverRect = function(el) {
                 var sw = el.videoWidth || el._effectiveWidth || el.naturalWidth || w;
                 var sh = el.videoHeight || el._effectiveHeight || el.naturalHeight || h;
@@ -8766,7 +8852,7 @@ function loadMediaFiles(input) {
     Array.from(input.files).forEach((file, idx) => {
         const url = URL.createObjectURL(file);
         const type = file.type.startsWith('video') ? 'video' : (file.type === 'image/gif' ? 'gif' : 'image');
-        const item = { type, url, element: null, name: file.name, duration: type === 'video' ? null : 8, transitionType: 'optical-fade', transitionDuration: 0.8, beatSync: false };
+        const item = { type, url, element: null, name: file.name, duration: type === 'video' ? null : 8, transitionType: 'optical-fade', transitionDuration: 0.8, easing: 'linear', beatSync: false };
         if (type === 'video') {
             const vid = document.createElement('video'); vid.src = url; vid.muted = true; vid.loop = !APP.state.isCycle; vid.playsInline = true; vid.preload = 'auto'; item.element = vid; $('media-container').appendChild(vid);
         } else if (type === 'image') {
@@ -11565,11 +11651,12 @@ function rotateMedia() {
     if (_outgoingEl && _outgoingEl !== item.element) {
         APP.media._tx = {
             active: true,
-            type: item.transitionType || 'optical-fade',
-            out: _outgoingEl,
-            in: item.element,
-            start: performance.now(),
-            dur: _txDurSec * 1000
+            type:   item.transitionType   || 'optical-fade',
+            easing: item.easing           || 'linear',
+            out:    _outgoingEl,
+            in:     item.element,
+            start:  performance.now(),
+            dur:    _txDurSec * 1000
         };
     } else {
         APP.media._tx = null;
@@ -20010,28 +20097,7 @@ function _applyPoseToModel(lm) {
 
 <script type="module" src="./src/kinetic-rack/KineticRack.js"></script>
 
-<!-- SEAM TRANSITION PANEL — floats above carousel seams (NLE-style) -->
-<div id="tx-seam-panel">
-    <div class="tsp-body">
-        <div class="tsp-types">
-            <button class="tsp-type-btn tsp-sel" data-tx="optical-fade">
-                <span class="tsp-icon">◈</span>Optical Fade
-            </button>
-            <button class="tsp-type-btn" data-tx="luma-wipe">
-                <span class="tsp-icon">▥</span>Luma Wipe
-            </button>
-            <button class="tsp-type-btn" data-tx="dip-black">
-                <span class="tsp-icon">◼</span>Dip Black
-            </button>
-        </div>
-        <div class="tsp-dur-row">
-            <span class="tsp-dur-lbl">DUR</span>
-            <input type="range" id="tsp-dur-sl" min="0.2" max="3.0" step="0.1" value="0.8">
-            <span class="tsp-dur-val" id="tsp-dur-val">0.8s</span>
-        </div>
-    </div>
-    <div class="tsp-arrow"></div>
-</div>
+<!-- NLE seam controls are fully canvas-drawn (no DOM panel) -->
 
 </body>
 </html>
