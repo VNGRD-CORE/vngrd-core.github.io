@@ -5161,30 +5161,13 @@ body.fullscreen #transcription-hud { pointer-events: none !important; } /* keep 
         </div>
         <!-- ── VOICE_LAB // SYNESTHESIA VOICE ENGINE ──────────────────────── -->
         <div class="section" id="sve-section">
-            <div class="sec-head collapsible open" onclick="_toggleCollapsible(this)" style="position:relative;">
+            <div class="sec-head collapsible">
                 <span class="sec-title">VOICE_LAB</span>
-                <span class="sec-arrow">&#x25BE;</span>
+                <span class="sec-arrow">&#x25B8;</span>
                 <button class="sampler-help-btn" onclick="event.stopPropagation();_toggleSectionHelp(this,'voice-lab')">?</button>
                 <div class="sec-dot off" id="sve-dot"></div>
-                <!-- Help overlay -->
-                <div class="section-help-overlay">
-                    <div style="position:absolute;top:4px;right:4px;">
-                        <button style="background:none;border:none;color:var(--text-dim);cursor:pointer;font-size:10px;" onclick="event.stopPropagation();this.closest('.section-help-overlay').classList.remove('visible')">✕</button>
-                    </div>
-                    <div style="font-family:'Orbitron',sans-serif;font-size:8px;color:var(--accent);letter-spacing:2px;margin-bottom:7px;padding-right:14px;">VOICE_LAB // HOW TO USE</div>
-                    <div style="font-size:7.5px;color:var(--text);line-height:1.6;margin-bottom:4px;"><span style="color:var(--g);">SCRIPT</span> — Type your narration. Space bar works normally here.</div>
-                    <div style="font-size:7.5px;color:var(--text);line-height:1.6;margin-bottom:4px;"><span style="color:var(--accent);">LANG</span> — Pick language; voice list updates automatically. <em>AUTO</em> uses the browser default.</div>
-                    <div style="font-size:7.5px;color:var(--text);line-height:1.6;margin-bottom:4px;"><span style="color:var(--accent);">M / F</span> — Filter voices by gender.</div>
-                    <div style="font-size:7.5px;color:var(--text);line-height:1.6;margin-bottom:4px;"><span style="color:var(--accent);">VOICE</span> — Drop-down to pick specific voice installed on OS.</div>
-                    <div style="font-size:7.5px;color:var(--text);line-height:1.6;margin-bottom:4px;"><span style="color:var(--accent);">RATE / PITCH</span> — Drag sliders to tune naturalness. Lower rate = more cinematic.</div>
-                    <div style="font-size:7.5px;color:var(--text);line-height:1.6;margin-bottom:4px;"><span style="color:#ff4444;">MONSTER</span> — Distortion 0.88 · LowPass 700Hz · 4-bit BitCrusher.</div>
-                    <div style="font-size:7.5px;color:var(--text);line-height:1.6;margin-bottom:4px;"><span style="color:var(--accent);">CYBER</span> — HighPass 700Hz · 8-bit BitCrusher · PingPong delay.</div>
-                    <div style="font-size:7.5px;color:var(--text);line-height:1.6;margin-bottom:4px;"><span style="color:var(--v);">GHOST</span> — LowPass · 10-bit BitCrusher · long FeedbackDelay.</div>
-                    <div style="font-size:7.5px;color:var(--text);line-height:1.6;margin-bottom:4px;"><span style="color:var(--g);">⚡</span> — Fires a single Synesthesia glitch burst to test your effect chain.</div>
-                    <div style="font-size:7.5px;color:var(--text);line-height:1.6;"><span style="color:var(--g);">RENDER</span> — Renders glitch FX layer offline to 44.1kHz WAV, saves to Puter.fs, queues in AUDIO_ENGINE &amp; auto-downloads.</div>
-                </div>
             </div>
-            <div class="sec-body" id="sve-body">
+            <div class="sec-body" id="sve-body" style="max-height:0;padding:0 12px;overflow:hidden;">
 
                 <!-- Script textarea — stopPropagation prevents global space intercept -->
                 <textarea
@@ -14788,6 +14771,24 @@ document.addEventListener('DOMContentLoaded', () => {
                 ],
                 footer: 'VNGRD // REACTIVITY · VISUAL FX ENGINE'
             },
+            'voice-lab': {
+                title: 'VOICE_LAB // SYNESTHESIA ENGINE',
+                rows: [
+                    ['SCRIPT',   'Type your narration. Space bar works here. Words trigger glitch pulses in Tone.js on every syllable boundary.'],
+                    ['LANG',     'Language selector filters the OS voice list. AUTO uses browser default. Pick the lang that matches your script.'],
+                    ['♂ / ♀',    'Gender filter. ♂ prefers Google UK Male, Daniel, Thomas. ♀ prefers Google UK Female, Fiona, Samantha, Karen.'],
+                    ['VOICE',    'Drop-down of all OS/browser voices matching lang + gender. Pick the most natural-sounding one in your browser.'],
+                    ['RATE',     'Speech rate 0.5–1.5. ~0.80 gives a deep cinematic pace. Google TTS voices sound best at 0.82–0.90.'],
+                    ['PITCH',    'Voice pitch 0.3–2.0. Keep near 1.0 for natural tone. MONSTER mode benefits from 0.7–0.8.'],
+                    ['MONSTER',  'Heavy Distortion → LowPass 700Hz → 4-bit BitCrusher. Deep, dark, corrupted.'],
+                    ['CYBER',    'HighPass 700Hz → 8-bit BitCrusher → PingPong delay. Clean digital, bouncing stereo.'],
+                    ['GHOST',    'LowPass 2kHz → 10-bit BitCrusher → long FeedbackDelay (0.35s, 72% fb). Haunting echo tail.'],
+                    ['⚡',       'Fires a single Synesthesia glitch burst. Use to audition the current mood effect chain.'],
+                    ['▶ SYNTH',  'Speaks the script live. Click again to stop. Word-boundary events sync Tone.js glitch triggers.'],
+                    ['RENDER',   'Renders glitch FX layer to 44.1kHz stereo WAV via OfflineAudioContext. Saves to Puter.fs and queues in AUDIO_ENGINE.']
+                ],
+                footer: 'VNGRD // VOICE_LAB · SYNESTHESIA ENGINE · 100% CLIENT-SIDE'
+            },
             'audio-engine': {
                 title: 'AUDIO_ENGINE',
                 rows: [
@@ -17344,7 +17345,7 @@ var isVideo = nft.forceVideo || (imageUrl.toLowerCase().match(/\.(mp4|webm|mov|o
     })();
 
     // Collapsible sections with arrow indicators
-    ['session-lab-body', 'p2p-call-body', 'midi-host-body', 'nft-vault-body', 'lexica-nano-body'].forEach(function(id) {
+    ['session-lab-body', 'p2p-call-body', 'midi-host-body', 'nft-vault-body', 'lexica-nano-body', 'sve-body'].forEach(function(id) {
         var el = $(id);
         if (!el) return;
         var head = el.previousElementSibling;
