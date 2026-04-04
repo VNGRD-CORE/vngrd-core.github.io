@@ -3711,6 +3711,56 @@ body.fullscreen #transcription-hud { pointer-events: none !important; } /* keep 
 }
 #save-modal-actions { display: flex; gap: 6px; }
 
+/* ── WALLET SYNC HUD ── */
+#wallet-sync-hud {
+    position: fixed; bottom: 60px; right: 16px; z-index: 9998;
+    width: 180px;
+    background: rgba(8,8,12,0.94);
+    border: 1px solid rgba(0,243,255,0.25);
+    border-radius: 3px;
+    padding: 10px;
+    box-shadow: 0 0 20px rgba(0,243,255,0.1);
+    display: none; flex-direction: column; gap: 8px;
+    font-family: 'JetBrains Mono', monospace;
+}
+#wallet-sync-hud.visible { display: flex; }
+#ipfs-sync-indicator {
+    display: flex; align-items: center; gap: 6px;
+    font-size: 8px; letter-spacing: 1px; color: var(--accent);
+}
+#ipfs-sync-dot {
+    width: 6px; height: 6px; border-radius: 50%;
+    background: var(--accent); flex-shrink: 0;
+}
+@keyframes ipfs-sync-pulse {
+    0%,100% { box-shadow: 0 0 4px var(--accent); opacity: 1; }
+    50%      { box-shadow: 0 0 12px var(--accent), 0 0 20px var(--accent); opacity: 0.55; }
+}
+#wallet-sync-hud.syncing #ipfs-sync-dot { animation: ipfs-sync-pulse 1s ease-in-out infinite; }
+#wallet-sync-hud.synced  #ipfs-sync-dot { background: #00ff88; box-shadow: 0 0 8px #00ff88; }
+#wallet-sync-hud.error   #ipfs-sync-dot { background: #ff4040; box-shadow: 0 0 8px #ff4040; }
+#wallet-sync-hud.synced  #ipfs-sync-label { color: #00ff88; }
+#wallet-sync-hud.error   #ipfs-sync-label { color: #ff4040; }
+#wallet-sync-thumbnail {
+    width: 100%; aspect-ratio: 16/9;
+    border: 1px solid rgba(0,243,255,0.15);
+    border-radius: 2px; overflow: hidden; display: none;
+}
+#wallet-sync-thumbnail.visible { display: block; }
+#wallet-sync-thumbnail img {
+    object-fit: contain; width: 100%; height: 100%; display: block;
+}
+#wallet-sync-cid {
+    font-size: 7px; color: rgba(0,243,255,0.5);
+    word-break: break-all; display: none;
+}
+#wallet-sync-cid.visible { display: block; }
+#wallet-sync-dismiss {
+    font-size: 7px; color: rgba(255,255,255,0.35);
+    cursor: pointer; text-align: right; letter-spacing: 1px;
+}
+#wallet-sync-dismiss:hover { color: var(--accent); }
+
 /* ── QR MODAL ── */
 #qr-modal {
     position: fixed; inset: 0; z-index: 99999;
@@ -5249,6 +5299,19 @@ body.fullscreen #transcription-hud { pointer-events: none !important; } /* keep 
                 <button class="btn" id="btn-qr-close" style="flex:1;font-size:9px;color:var(--p);border-color:var(--p);">CLOSE</button>
             </div>
         </div>
+    </div>
+
+    <!-- WALLET SYNC HUD — IPFS upload indicator + snapshot thumbnail -->
+    <div id="wallet-sync-hud">
+        <div id="ipfs-sync-indicator">
+            <div id="ipfs-sync-dot"></div>
+            <span id="ipfs-sync-label">IPFS SYNC</span>
+        </div>
+        <div id="wallet-sync-thumbnail">
+            <img id="wallet-sync-snapshot" src="" alt="webgl snapshot" />
+        </div>
+        <div id="wallet-sync-cid"></div>
+        <div id="wallet-sync-dismiss" onclick="document.getElementById('wallet-sync-hud').classList.remove('visible','syncing','synced','error');">DISMISS ✕</div>
     </div>
 
     <div id="sys-log">
@@ -12383,34 +12446,168 @@ function _localKey(address) {
     return 'VNGRD_SESSION_' + address.toLowerCase();
 }
 
-// ── SAVE session to localStorage, wallet-signed ──
+// ── WALLET SYNC HUD helpers ──
+function _showIpfsSyncIndicator(syncing, success) {
+    var hud   = document.getElementById('wallet-sync-hud');
+    var label = document.getElementById('ipfs-sync-label');
+    if (!hud) return;
+    hud.classList.remove('syncing', 'synced', 'error', 'visible');
+    if (syncing) {
+        hud.classList.add('visible', 'syncing');
+        if (label) label.textContent = 'IPFS SYNC…';
+    } else if (success === true) {
+        hud.classList.add('visible', 'synced');
+        if (label) label.textContent = 'IPFS SYNCED';
+    } else {
+        hud.classList.add('visible', 'error');
+        if (label) label.textContent = 'SYNC FAILED';
+    }
+}
+
+function _showWalletSaveThumbnail(dataURL, cid) {
+    var thumb = document.getElementById('wallet-sync-thumbnail');
+    var img   = document.getElementById('wallet-sync-snapshot');
+    var cidEl = document.getElementById('wallet-sync-cid');
+    if (thumb && img && dataURL) {
+        img.src = dataURL;
+        thumb.classList.add('visible');
+    }
+    if (cidEl && cid) {
+        cidEl.textContent = 'CID: ' + cid;
+        cidEl.classList.add('visible');
+    }
+}
+
+// ── SAVE session to IPFS via Pinata (directory-wrapped) + bind to wallet via puter.kv ──
 window.saveSessionToCloud = async function() {
     if (!APP.wallet.connected || !APP.wallet.address) {
-        log('LOCAL_SAVE: WALLET_NOT_CONNECTED'); alert('Connect your wallet first.'); return;
+        log('WALLET_SAVE: WALLET_NOT_CONNECTED'); alert('Connect your wallet first.'); return;
     }
 
     var address = APP.wallet.address;
-    var session = _buildSessionSnapshot();
-    var sigMsg  = 'VNGRD_LOCAL_SAVE:' + address.toLowerCase() + ':' + session.timestamp;
-
-    log('LOCAL_SAVE: REQUESTING_SIGNATURE');
-    var signature;
-    try {
-        signature = await window.ethereum.request({ method: 'personal_sign', params: [sigMsg, address] });
-    } catch (e) {
-        if (e.code === 4001) { log('LOCAL_SAVE: USER_REJECTED_SIGNATURE'); return; }
-        log('LOCAL_SAVE: SIGN_ERR ' + e.message); return;
+    var jwt = localStorage.getItem('pinata_jwt');
+    if (!jwt) {
+        var raw = prompt('PINATA JWT TOKEN (stored locally):');
+        if (!raw) { log('WALLET_SAVE: NO_JWT'); return; }
+        jwt = raw.trim();
+        localStorage.setItem('pinata_jwt', jwt);
     }
 
-    session._cloudMeta = { address: address, signature: signature, signedMsg: sigMsg };
+    // Step 1 — Capture WebGL canvas snapshot SYNCHRONOUSLY before any async work
+    var vjCanvas = document.getElementById('vj-canvas');
+    var snapshotDataURL = null;
     try {
-        localStorage.setItem(_localKey(address), JSON.stringify(session));
-        log('LOCAL_SAVE: OK — SESSION_STORED_FOR_' + address.slice(0, 6));
-        alert('SESSION SAVED LOCALLY\n\nWallet: ' + address.slice(0,6) + '...' + address.slice(-4) + '\nSaved: ' + new Date(session.timestamp).toLocaleString() + '\n\n(Stored in browser localStorage — wallet-signed)');
-    } catch (e) {
-        log('LOCAL_SAVE: ERR ' + e.message);
-        alert('Save failed: ' + e.message);
-    }
+        if (vjCanvas) snapshotDataURL = vjCanvas.toDataURL('image/jpeg', 0.85);
+    } catch(e) { log('WALLET_SAVE: SNAPSHOT_WARN ' + e.message); }
+
+    // Show IPFS SYNC indicator immediately — upload runs detached, never blocks 60fps loop
+    _showIpfsSyncIndicator(true);
+    log('WALLET_SAVE: ASYNC_UPLOAD_STARTED for ' + address.slice(0, 6) + '...');
+
+    // Detach from call stack via Promise.resolve() so the render loop is never stalled
+    Promise.resolve().then(async function() {
+        try {
+            // Step 2 — Build FormData with all blobs (no client-side zip = no OOM crash)
+            var form = new FormData();
+
+            // 2a. Session state JSON manifest
+            var snap = _buildSessionSnapshot();
+            snap._type    = 'VNGRD_WALLET_PAYLOAD';
+            snap._version = 'V35_WALLET';
+            snap._wallet  = address;
+            form.append('file', new Blob([JSON.stringify(snap, null, 2)], { type: 'application/json' }), 'session.json');
+
+            // 2b. WebGL snapshot (captured synchronously above — already in memory as dataURL)
+            if (snapshotDataURL) {
+                var snapImgBlob = await fetch(snapshotDataURL).then(function(r) { return r.blob(); });
+                form.append('file', snapImgBlob, 'snapshot.jpg');
+            }
+
+            // 2c. Media queue blobs — images re-encoded, video fetched from object URL
+            if (APP.media && APP.media.queue && APP.media.queue.length) {
+                for (var i = 0; i < APP.media.queue.length; i++) {
+                    var item = APP.media.queue[i];
+                    try {
+                        var mblob;
+                        if (item.type === 'image' && item.element && item.element.naturalWidth) {
+                            var mc = document.createElement('canvas');
+                            mc.width = item.element.naturalWidth; mc.height = item.element.naturalHeight;
+                            mc.getContext('2d').drawImage(item.element, 0, 0);
+                            mblob = await new Promise(function(r) { mc.toBlob(r, 'image/jpeg', 0.9); });
+                        } else if (item.url) {
+                            mblob = await fetch(item.url).then(function(r) { return r.blob(); });
+                        }
+                        if (mblob) {
+                            form.append('file', mblob, 'media/media_' + i + (item.name ? '_' + item.name : ''));
+                            log('WALLET_SAVE: QUEUED_MEDIA ' + (item.name || i));
+                        }
+                    } catch(e) { log('WALLET_SAVE: MEDIA_SKIP ' + (item.name || i) + ' — ' + e.message); }
+                }
+            }
+
+            // 2d. Audio playlist blobs
+            if (APP.audio && APP.audio.playlist && APP.audio.playlist.length) {
+                for (var i = 0; i < APP.audio.playlist.length; i++) {
+                    var track = APP.audio.playlist[i];
+                    try {
+                        var ablob = await fetch(track.url).then(function(r) { return r.blob(); });
+                        form.append('file', ablob, 'audio/audio_' + i + (track.name ? '_' + track.name : ''));
+                        log('WALLET_SAVE: QUEUED_AUDIO ' + (track.name || i));
+                    } catch(e) { log('WALLET_SAVE: AUDIO_SKIP ' + (track.name || i) + ' — ' + e.message); }
+                }
+            }
+
+            // 2e. Time machine video recording chunks — concatenated into one webm blob, never zipped
+            if (APP.timeMachine && APP.timeMachine.chunks && APP.timeMachine.chunks.length) {
+                try {
+                    var tmBlob = new Blob(APP.timeMachine.chunks, { type: 'video/webm' });
+                    form.append('file', tmBlob, 'video/timemachine.webm');
+                    log('WALLET_SAVE: QUEUED_TIMEMACHINE ' + (tmBlob.size / 1e6).toFixed(1) + 'MB');
+                } catch(e) { log('WALLET_SAVE: TIMEMACHINE_SKIP — ' + e.message); }
+            }
+
+            // Pinata directory wrapping — all blobs land in one IPFS directory CID
+            form.append('pinataOptions',  JSON.stringify({ wrapWithDirectory: true }));
+            form.append('pinataMetadata', JSON.stringify({
+                name: 'VNGRD_WALLET_' + address.slice(0, 8) + '_' + Date.now()
+            }));
+
+            // Step 3 — Upload to Pinata, await master directory CID
+            log('WALLET_SAVE: UPLOADING_DIRECTORY_TO_PINATA…');
+            var res  = await fetch('https://api.pinata.cloud/pinning/pinFileToIPFS', {
+                method:  'POST',
+                headers: { 'Authorization': 'Bearer ' + jwt },
+                body:    form
+            });
+            var data = await res.json();
+            if (!res.ok || !data.IpfsHash) throw new Error('PIN_FAIL: ' + (data.error ? JSON.stringify(data.error) : res.status));
+
+            var cid = data.IpfsHash;
+            log('WALLET_SAVE: DIRECTORY_PINNED CID=' + cid);
+
+            // Step 4 — Bind the master CID to the user's wallet address via puter.kv
+            if (typeof puter !== 'undefined' && puter.kv) {
+                try {
+                    await puter.kv.set(address.toLowerCase(), JSON.stringify({
+                        payloadCID: cid,
+                        address:    address,
+                        timestamp:  Date.now()
+                    }));
+                    log('WALLET_SAVE: PUTER_KV_BOUND ' + address.slice(0, 6) + ' → ' + cid.slice(0, 10) + '…');
+                } catch(e) { log('WALLET_SAVE: PUTER_KV_WARN ' + e.message); }
+            }
+
+            // Step 5 — Show snapshot thumbnail + success state; never blocked render loop
+            _showWalletSaveThumbnail(snapshotDataURL, cid);
+            _showIpfsSyncIndicator(false, true);
+            if (typeof ghostLog === 'function') ghostLog('GHOST> WALLET PAYLOAD BOUND → IPFS CID=' + cid, 'ok');
+
+        } catch(e) {
+            log('WALLET_SAVE: ERR ' + e.message);
+            _showIpfsSyncIndicator(false, false);
+            alert('IPFS Wallet Save failed: ' + e.message);
+        }
+    });
 };
 
 // ── LOAD session from localStorage for the connected wallet ──
