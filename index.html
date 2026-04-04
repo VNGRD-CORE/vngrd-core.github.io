@@ -4238,7 +4238,136 @@ body.fullscreen #transcription-hud { pointer-events: none !important; } /* keep 
 .sfx-pad.pad-muted .pad-name { opacity: 0.3 !important; }
 .sfx-pad.pad-muted .pad-lcd  { opacity: 0.1 !important; }
 
-
+/* ─── SEAM TRANSITION PANEL ─────────────────────────── */
+#tx-seam-panel {
+    position: fixed;
+    z-index: 9900;
+    pointer-events: none;
+    opacity: 0;
+    transform: translateX(-50%) translateY(8px) scaleY(0.88);
+    transform-origin: bottom center;
+    transition: opacity 0.17s cubic-bezier(0.34,1.56,0.64,1),
+                transform 0.17s cubic-bezier(0.34,1.56,0.64,1);
+}
+#tx-seam-panel.tsp-open {
+    opacity: 1;
+    transform: translateX(-50%) translateY(0) scaleY(1);
+    pointer-events: all;
+}
+.tsp-body {
+    background: rgba(3,3,12,0.93);
+    backdrop-filter: blur(22px) saturate(1.5);
+    -webkit-backdrop-filter: blur(22px) saturate(1.5);
+    border: 1px solid rgba(130,55,255,0.28);
+    border-radius: 6px;
+    padding: 9px 10px 8px;
+    box-shadow: 0 0 20px rgba(130,55,255,0.1), 0 8px 30px rgba(0,0,0,0.7);
+    min-width: 218px;
+}
+.tsp-types {
+    display: flex;
+    gap: 4px;
+    margin-bottom: 8px;
+}
+.tsp-type-btn {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 3px;
+    padding: 6px 3px 5px;
+    background: rgba(255,255,255,0.025);
+    border: 1px solid rgba(130,55,255,0.16);
+    border-radius: 4px;
+    color: rgba(190,160,255,0.38);
+    font-family: 'Orbitron', monospace;
+    font-size: 7.5px;
+    font-weight: 700;
+    letter-spacing: 0.05em;
+    text-transform: uppercase;
+    cursor: pointer;
+    transition: background 0.11s, border-color 0.11s, color 0.11s;
+    line-height: 1;
+    user-select: none;
+}
+.tsp-type-btn:hover {
+    background: rgba(130,55,255,0.11);
+    border-color: rgba(160,90,255,0.4);
+    color: rgba(220,200,255,0.8);
+}
+.tsp-type-btn.tsp-sel {
+    background: rgba(130,55,255,0.18);
+    border-color: rgba(170,100,255,0.7);
+    color: #fff;
+    box-shadow: inset 0 0 5px rgba(130,55,255,0.12);
+}
+.tsp-icon { font-size: 12px; line-height: 1; }
+.tsp-dur-row {
+    display: flex;
+    align-items: center;
+    gap: 7px;
+    border-top: 1px solid rgba(130,55,255,0.1);
+    padding-top: 7px;
+}
+.tsp-dur-lbl {
+    font-family: monospace;
+    font-size: 7.5px;
+    letter-spacing: 0.14em;
+    color: rgba(130,55,255,0.6);
+    text-transform: uppercase;
+    min-width: 22px;
+}
+#tsp-dur-sl {
+    flex: 1;
+    -webkit-appearance: none;
+    appearance: none;
+    height: 2px;
+    border-radius: 1px;
+    background: rgba(55,30,90,0.7);
+    outline: none;
+    cursor: pointer;
+    border: none;
+}
+#tsp-dur-sl::-webkit-slider-thumb {
+    -webkit-appearance: none;
+    width: 9px; height: 9px;
+    border-radius: 50%;
+    background: rgba(170,110,255,0.95);
+    box-shadow: 0 0 5px rgba(130,55,255,0.55);
+    cursor: pointer;
+}
+#tsp-dur-sl::-moz-range-thumb {
+    width: 9px; height: 9px;
+    border-radius: 50%;
+    background: rgba(170,110,255,0.95);
+    border: none;
+    cursor: pointer;
+}
+.tsp-dur-val {
+    font-family: monospace;
+    font-size: 9px;
+    color: rgba(200,180,255,0.45);
+    min-width: 26px;
+    text-align: right;
+}
+/* downward arrow pointer */
+.tsp-arrow {
+    width: 0; height: 0;
+    border-left: 5px solid transparent;
+    border-right: 5px solid transparent;
+    border-top: 5px solid rgba(130,55,255,0.3);
+    margin: 0 auto;
+    position: relative;
+}
+.tsp-arrow::before {
+    content: '';
+    position: absolute;
+    top: -6px; left: -4px;
+    width: 0; height: 0;
+    border-left: 4px solid transparent;
+    border-right: 4px solid transparent;
+    border-top: 5px solid rgba(3,3,12,0.93);
+}
 
     </style>
 </head>
@@ -6816,9 +6945,7 @@ function drawMediaQueue(ctx, w, h, bottomY) {
     // Init hit areas
     if (!APP.media.queueStrip) APP.media.queueStrip = {};
     APP.media.queueStrip.thumbnails = [];
-    APP.media.queueStrip.durationZones = [];
-    APP.media.queueStrip.txZones = [];
-    APP.media.queueStrip.beatZones = [];
+    APP.media.queueStrip.seams = [];
     APP.media.queueStrip.audioSyncZone = null;
 
     var totalW = queue.length * (thumbSize + padding) - padding;
@@ -6855,57 +6982,40 @@ function drawMediaQueue(ctx, w, h, bottomY) {
         // Store thumbnail hit zone
         APP.media.queueStrip.thumbnails.push({ x: tx, y: ty, w: thumbSize, h: thumbSize, index: i });
 
-        // Duration badge — images only (videos play full length)
-        if (!isVid) {
-            var dur = item.duration != null ? item.duration : 8;
-            var durLabel = item.duration === null ? '\u221e' : dur + 's';
-            var badgeFS = Math.max(9, Math.round(thumbSize * 0.13));
-            var badgeW = Math.max(22, Math.round(thumbSize * 0.3));
-            var badgeH = Math.round(thumbSize * 0.19);
-            var badgeX = tx + thumbSize - badgeW - 2;
-            var badgeY = ty + 2;
-            ctx.fillStyle = 'rgba(0,0,0,0.78)';
-            ctx.fillRect(badgeX, badgeY, badgeW, badgeH);
-            ctx.fillStyle = 'rgba(160,80,255,0.95)';
-            ctx.font = '600 ' + badgeFS + 'px monospace';
-            ctx.textAlign = 'center';
-            ctx.textBaseline = 'middle';
-            ctx.fillText(durLabel, badgeX + badgeW / 2, badgeY + badgeH / 2);
-            APP.media.queueStrip.durationZones.push({ x: badgeX, y: badgeY, w: badgeW, h: badgeH, index: i });
+        // Beat-sync micro-dot — tiny gold dot, only visible when active (replaces badge)
+        if (item.beatSync) {
+            var _bsDotR = Math.max(3, Math.round(thumbSize * 0.07));
+            ctx.beginPath();
+            ctx.arc(tx + thumbSize - _bsDotR - 2, ty + thumbSize - _bsDotR - 2, _bsDotR, 0, Math.PI * 2);
+            ctx.fillStyle = 'rgba(255,200,0,0.8)';
+            ctx.fill();
         }
 
-        // Transition type badge — top-left of thumbnail
-        var txType = item.transitionType || 'glitch';
-        var txLabel = txType === 'glitch' ? 'GLT' : (txType === 'scanline' ? 'SCN' : 'FDE');
-        var txColor = txType === 'glitch' ? 'rgba(255,60,60,0.95)' : (txType === 'scanline' ? 'rgba(0,220,255,0.95)' : 'rgba(60,220,100,0.95)');
-        var txBadgeFS = Math.max(7, Math.round(thumbSize * 0.13));
-        var txBadgeW = Math.max(20, Math.round(thumbSize * 0.32));
-        var txBadgeH = Math.round(thumbSize * 0.19);
-        var txBadgeX = tx + 2;
-        var txBadgeY = ty + 2;
-        ctx.fillStyle = 'rgba(0,0,0,0.78)';
-        ctx.fillRect(txBadgeX, txBadgeY, txBadgeW, txBadgeH);
-        ctx.fillStyle = txColor;
-        ctx.font = '700 ' + txBadgeFS + 'px monospace';
-        ctx.textAlign = 'center';
-        ctx.textBaseline = 'middle';
-        ctx.fillText(txLabel, txBadgeX + txBadgeW / 2, txBadgeY + txBadgeH / 2);
-        APP.media.queueStrip.txZones.push({ x: txBadgeX, y: txBadgeY, w: txBadgeW, h: txBadgeH, index: i });
-
-        // Beat-sync dot — bottom-right of thumbnail
-        var bsDotR = Math.max(5, Math.round(thumbSize * 0.1));
-        var bsDotX = tx + thumbSize - bsDotR - 3;
-        var bsDotY = ty + thumbSize - bsDotR - 3;
-        ctx.beginPath();
-        ctx.arc(bsDotX, bsDotY, bsDotR, 0, Math.PI * 2);
-        ctx.fillStyle = item.beatSync ? 'rgba(255,200,0,0.95)' : 'rgba(80,80,80,0.7)';
-        ctx.fill();
-        ctx.font = '700 ' + Math.max(6, Math.round(bsDotR * 1.1)) + 'px monospace';
-        ctx.fillStyle = item.beatSync ? '#000' : '#aaa';
-        ctx.textAlign = 'center';
-        ctx.textBaseline = 'middle';
-        ctx.fillText('\u266a', bsDotX, bsDotY);
-        APP.media.queueStrip.beatZones.push({ x: bsDotX - bsDotR, y: bsDotY - bsDotR, w: bsDotR * 2, h: bsDotR * 2, index: i });
+        // Seam line — thin vertical between this and next clip
+        if (i < queue.length - 1) {
+            var _seamCX = tx + thumbSize + Math.round(padding / 2);
+            var _seamHovered = (APP.media._hoveredSeam === APP.media.queueStrip.seams.length);
+            ctx.save();
+            ctx.strokeStyle = _seamHovered ? 'rgba(180,110,255,0.92)' : 'rgba(120,50,220,0.22)';
+            ctx.lineWidth = _seamHovered ? 2 : 1;
+            if (_seamHovered) { ctx.shadowColor = 'rgba(160,80,255,0.7)'; ctx.shadowBlur = 7; }
+            ctx.beginPath();
+            ctx.moveTo(_seamCX, barY + 4);
+            ctx.lineTo(_seamCX, barY + barH - 4);
+            ctx.stroke();
+            ctx.restore();
+            var _seamHitW = Math.max(10, padding);
+            APP.media.queueStrip.seams.push({
+                cx: _seamCX,
+                barY: barY,
+                hitX: tx + thumbSize,
+                hitY: barY,
+                hitW: _seamHitW,
+                hitH: barH,
+                fromIndex: i,
+                toIndex: i + 1
+            });
+        }
     }
 
     // AUDIO_SYNC pill — right edge of carousel bar
@@ -6954,8 +7064,6 @@ function initSummonerLogic() {
     var canvas = APP.render.canvas;
     if (!stage || !canvas) return;
 
-    var _durSteps = [3, 5, 8, 10, 15, 20, 30, null];
-
     stage.addEventListener('click', function(e) {
         var rect = canvas.getBoundingClientRect();
         var scaleX = APP.render.width / rect.width;
@@ -6970,51 +7078,11 @@ function initSummonerLogic() {
             return;
         }
 
-        // ── MEDIA QUEUE — transition type badge (top-left of thumb) ──
-        var mqTxZ = (APP.media.queueStrip && APP.media.queueStrip.txZones) || [];
-        for (var mti = 0; mti < mqTxZ.length; mti++) {
-            var mtz = mqTxZ[mti];
-            if (cx >= mtz.x && cx <= mtz.x + mtz.w && cy >= mtz.y && cy <= mtz.y + mtz.h) {
-                var txItem = APP.media.queue[mtz.index];
-                if (txItem) {
-                    var _txCycle = ['glitch', 'scanline', 'fade'];
-                    var _txCur = _txCycle.indexOf(txItem.transitionType || 'glitch');
-                    txItem.transitionType = _txCycle[(_txCur + 1) % _txCycle.length];
-                }
-                return;
-            }
-        }
-
-        // ── MEDIA QUEUE — beat-sync dot (bottom-right of thumb) ──
-        var mqBzones = (APP.media.queueStrip && APP.media.queueStrip.beatZones) || [];
-        for (var mbi = 0; mbi < mqBzones.length; mbi++) {
-            var mbz = mqBzones[mbi];
-            if (cx >= mbz.x && cx <= mbz.x + mbz.w && cy >= mbz.y && cy <= mbz.y + mbz.h) {
-                var bsItem = APP.media.queue[mbz.index];
-                if (bsItem) bsItem.beatSync = !bsItem.beatSync;
-                return;
-            }
-        }
-
         // ── AUDIO SYNC PILL ──
         var asZone = APP.media.queueStrip && APP.media.queueStrip.audioSyncZone;
         if (asZone && cx >= asZone.x && cx <= asZone.x + asZone.w && cy >= asZone.y && cy <= asZone.y + asZone.h) {
             APP.media.audioSync = !APP.media.audioSync;
             return;
-        }
-
-        // ── MEDIA QUEUE STRIP — duration badge (violet, above vault) ──
-        var mqDz = (APP.media.queueStrip && APP.media.queueStrip.durationZones) || [];
-        for (var md = 0; md < mqDz.length; md++) {
-            var mz = mqDz[md];
-            if (cx >= mz.x && cx <= mz.x + mz.w && cy >= mz.y && cy <= mz.y + mz.h) {
-                var qitem = APP.media.queue[mz.index];
-                if (qitem && qitem.type !== 'video') {
-                    var mCur = _durSteps.indexOf(qitem.duration);
-                    qitem.duration = _durSteps[(mCur + 1) % _durSteps.length];
-                }
-                return;
-            }
         }
 
         // ── MEDIA QUEUE STRIP — thumbnail click (navigate to item) ──
@@ -7066,6 +7134,135 @@ function initSummonerLogic() {
             }
         }
     });
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
+// SEAM CONTROLS — NLE-style floating panel on hover/click between clips
+// ═══════════════════════════════════════════════════════════════════════════
+function initSeamControls() {
+    var stage = $('stage');
+    var canvas = APP.render.canvas;
+    var panel = document.getElementById('tx-seam-panel');
+    var durSlider = document.getElementById('tsp-dur-sl');
+    var durValEl = document.getElementById('tsp-dur-val');
+    if (!stage || !canvas || !panel) return;
+
+    var _activeSeamIdx = -1;
+    var _seamClickHandled = false;
+
+    function _canvasCoords(e) {
+        var rect = canvas.getBoundingClientRect();
+        return {
+            x: (e.clientX - rect.left) * (APP.render.width / rect.width),
+            y: (e.clientY - rect.top) * (APP.render.height / rect.height)
+        };
+    }
+
+    function _hitSeam(cx, cy) {
+        var seams = (APP.media.queueStrip && APP.media.queueStrip.seams) || [];
+        for (var i = 0; i < seams.length; i++) {
+            var s = seams[i];
+            if (cx >= s.hitX && cx <= s.hitX + s.hitW && cy >= s.hitY && cy <= s.hitY + s.hitH) return i;
+        }
+        return -1;
+    }
+
+    function _updateDurSlider(val) {
+        if (!durSlider || !durValEl) return;
+        durSlider.value = val;
+        durValEl.textContent = parseFloat(val).toFixed(1) + 's';
+    }
+
+    function _updateTypeBtns(txType) {
+        panel.querySelectorAll('.tsp-type-btn').forEach(function(btn) {
+            btn.classList.toggle('tsp-sel', btn.dataset.tx === txType);
+        });
+    }
+
+    function openPanel(seamIdx) {
+        var seams = APP.media.queueStrip && APP.media.queueStrip.seams;
+        if (!seams || seamIdx < 0 || seamIdx >= seams.length) return;
+        _activeSeamIdx = seamIdx;
+        var seam = seams[seamIdx];
+        var toItem = APP.media.queue[seam.toIndex];
+        if (!toItem) return;
+
+        _updateTypeBtns(toItem.transitionType || 'optical-fade');
+        _updateDurSlider(toItem.transitionDuration != null ? toItem.transitionDuration : 0.8);
+
+        var rect = canvas.getBoundingClientRect();
+        var scaleX = rect.width / APP.render.width;
+        var scaleY = rect.height / APP.render.height;
+        var screenX = Math.round(seam.cx * scaleX + rect.left);
+        var screenY = Math.round(seam.barY * scaleY + rect.top);
+
+        panel.style.left = screenX + 'px';
+        panel.style.bottom = (window.innerHeight - screenY + 6) + 'px';
+        panel.style.top = '';
+        panel.classList.add('tsp-open');
+    }
+
+    function closePanel() {
+        _activeSeamIdx = -1;
+        APP.media._hoveredSeam = -1;
+        panel.classList.remove('tsp-open');
+    }
+
+    // Type buttons
+    panel.querySelectorAll('.tsp-type-btn').forEach(function(btn) {
+        btn.addEventListener('click', function(e) {
+            e.stopPropagation();
+            var seams = APP.media.queueStrip && APP.media.queueStrip.seams;
+            if (!seams || _activeSeamIdx < 0 || _activeSeamIdx >= seams.length) return;
+            var toItem = APP.media.queue[seams[_activeSeamIdx].toIndex];
+            if (!toItem) return;
+            toItem.transitionType = btn.dataset.tx;
+            _updateTypeBtns(btn.dataset.tx);
+        });
+    });
+
+    // Duration slider
+    if (durSlider) {
+        durSlider.addEventListener('input', function() {
+            var seams = APP.media.queueStrip && APP.media.queueStrip.seams;
+            if (!seams || _activeSeamIdx < 0 || _activeSeamIdx >= seams.length) return;
+            var toItem = APP.media.queue[seams[_activeSeamIdx].toIndex];
+            if (!toItem) return;
+            var val = parseFloat(durSlider.value);
+            toItem.transitionDuration = val;
+            if (durValEl) durValEl.textContent = val.toFixed(1) + 's';
+        });
+    }
+
+    // Mousemove: hover detection
+    stage.addEventListener('mousemove', function(e) {
+        var c = _canvasCoords(e);
+        var idx = _hitSeam(c.x, c.y);
+        APP.media._hoveredSeam = idx;
+        canvas.style.cursor = idx >= 0 ? 'col-resize' : '';
+    });
+    stage.addEventListener('mouseleave', function() { APP.media._hoveredSeam = -1; });
+
+    // Click on stage: open/close seam panel
+    stage.addEventListener('click', function(e) {
+        var c = _canvasCoords(e);
+        var idx = _hitSeam(c.x, c.y);
+        if (idx >= 0) {
+            _seamClickHandled = true;
+            if (_activeSeamIdx === idx && panel.classList.contains('tsp-open')) closePanel();
+            else openPanel(idx);
+            setTimeout(function() { _seamClickHandled = false; }, 0);
+        }
+    });
+
+    // Click anywhere outside: close panel
+    document.addEventListener('click', function(e) {
+        if (_seamClickHandled) return;
+        if (!panel.contains(e.target)) closePanel();
+    });
+
+    // Panel itself: don't close on internal clicks
+    panel.addEventListener('click', function(e) { e.stopPropagation(); });
 }
 
 // Shared summoner — injects NFT into media queue (eject/cycle compatible)
@@ -7418,47 +7615,53 @@ function renderLoop(timestamp) {
             var _txElReady = function(el) {
                 return el && (el.tagName === 'VIDEO' ? el.readyState >= 2 : (el.complete && el.naturalWidth > 0));
             };
-            // Draw outgoing frame first (base layer)
-            if (_txElReady(_mediaTx.out)) {
-                var _ro = _txCoverRect(_mediaTx.out);
-                ctx.globalAlpha = 1;
-                ctx.drawImage(_mediaTx.out, _ro.x, _ro.y, _ro.w, _ro.h);
-            }
-            // Draw incoming frame with transition effect
-            if (_txElReady(_mediaTx.in)) {
-                var _ri = _txCoverRect(_mediaTx.in);
-                if (_mediaTx.type === 'fade') {
-                    ctx.globalAlpha = _txProg;
-                    ctx.drawImage(_mediaTx.in, _ri.x, _ri.y, _ri.w, _ri.h);
-                    ctx.globalAlpha = 1;
-                } else if (_mediaTx.type === 'scanline') {
-                    var _scanLn = Math.round(_txProg * h);
-                    ctx.save();
-                    ctx.beginPath(); ctx.rect(0, 0, w, _scanLn); ctx.clip();
-                    ctx.drawImage(_mediaTx.in, _ri.x, _ri.y, _ri.w, _ri.h);
-                    ctx.restore();
-                    // Neon sweep line
-                    ctx.save();
-                    ctx.strokeStyle = 'rgba(0,255,255,0.9)';
-                    ctx.lineWidth = 3;
-                    ctx.shadowColor = '#00ffff'; ctx.shadowBlur = 14;
-                    ctx.beginPath(); ctx.moveTo(0, _scanLn); ctx.lineTo(w, _scanLn); ctx.stroke();
-                    ctx.restore();
+            var _ro = _txElReady(_mediaTx.out) ? _txCoverRect(_mediaTx.out) : null;
+            var _ri = _txElReady(_mediaTx.in)  ? _txCoverRect(_mediaTx.in)  : null;
+            var _txType = _mediaTx.type || 'optical-fade';
+
+            if (_txType === 'dip-black') {
+                // Fade outgoing to black (0→0.5), then fade incoming from black (0.5→1)
+                if (_txProg < 0.5) {
+                    if (_ro) { ctx.globalAlpha = 1 - _txProg * 2; ctx.drawImage(_mediaTx.out, _ro.x, _ro.y, _ro.w, _ro.h); ctx.globalAlpha = 1; }
                 } else {
-                    // HEAVY GLITCH: horizontal slicing + RGB split, peaking at 50%
-                    var _gi = Math.sin(_txProg * Math.PI);
-                    var _gSlices = Math.floor(6 + _gi * 10);
-                    var _gSlH = Math.ceil(h / _gSlices);
-                    for (var _gsi = 0; _gsi < _gSlices; _gsi++) {
-                        var _gsy = _gsi * _gSlH;
-                        var _joff = (Math.random() - 0.5) * _gi * 50;
-                        if (_gsi % 3 === 0 && Math.random() < _gi * 0.7) {
-                            ctx.globalAlpha = 0.5;
-                            ctx.drawImage(_mediaTx.in, _ri.x + _joff + 10, _ri.y, _ri.w, _ri.h, 0, _gsy, w, _gSlH);
-                            ctx.drawImage(_mediaTx.in, _ri.x + _joff - 10, _ri.y, _ri.w, _ri.h, 0, _gsy, w, _gSlH);
-                            ctx.globalAlpha = 1;
+                    if (_ri) { ctx.globalAlpha = (_txProg - 0.5) * 2; ctx.drawImage(_mediaTx.in, _ri.x, _ri.y, _ri.w, _ri.h); ctx.globalAlpha = 1; }
+                }
+            } else {
+                // All other types: outgoing as base, incoming blended on top
+                if (_ro) { ctx.globalAlpha = 1; ctx.drawImage(_mediaTx.out, _ro.x, _ro.y, _ro.w, _ro.h); }
+                if (_ri) {
+                    if (_txType === 'optical-fade' || _txType === 'fade') {
+                        ctx.globalAlpha = _txProg;
+                        ctx.drawImage(_mediaTx.in, _ri.x, _ri.y, _ri.w, _ri.h);
+                        ctx.globalAlpha = 1;
+                    } else if (_txType === 'luma-wipe' || _txType === 'scanline') {
+                        var _scanLn = Math.round(_txProg * h);
+                        ctx.save();
+                        ctx.beginPath(); ctx.rect(0, 0, w, _scanLn); ctx.clip();
+                        ctx.drawImage(_mediaTx.in, _ri.x, _ri.y, _ri.w, _ri.h);
+                        ctx.restore();
+                        ctx.save();
+                        ctx.strokeStyle = 'rgba(0,255,255,0.85)';
+                        ctx.lineWidth = 2;
+                        ctx.shadowColor = '#00ffff'; ctx.shadowBlur = 12;
+                        ctx.beginPath(); ctx.moveTo(0, _scanLn); ctx.lineTo(w, _scanLn); ctx.stroke();
+                        ctx.restore();
+                    } else {
+                        // HEAVY GLITCH (fallback + legacy 'glitch')
+                        var _gi = Math.sin(_txProg * Math.PI);
+                        var _gSlices = Math.floor(6 + _gi * 10);
+                        var _gSlH = Math.ceil(h / _gSlices);
+                        for (var _gsi = 0; _gsi < _gSlices; _gsi++) {
+                            var _gsy = _gsi * _gSlH;
+                            var _joff = (Math.random() - 0.5) * _gi * 50;
+                            if (_gsi % 3 === 0 && Math.random() < _gi * 0.7) {
+                                ctx.globalAlpha = 0.5;
+                                ctx.drawImage(_mediaTx.in, _ri.x + _joff + 10, _ri.y, _ri.w, _ri.h, 0, _gsy, w, _gSlH);
+                                ctx.drawImage(_mediaTx.in, _ri.x + _joff - 10, _ri.y, _ri.w, _ri.h, 0, _gsy, w, _gSlH);
+                                ctx.globalAlpha = 1;
+                            }
+                            ctx.drawImage(_mediaTx.in, _ri.x + _joff, _ri.y, _ri.w, _ri.h, 0, _gsy, w, _gSlH);
                         }
-                        ctx.drawImage(_mediaTx.in, _ri.x + _joff, _ri.y, _ri.w, _ri.h, 0, _gsy, w, _gSlH);
                     }
                 }
             }
@@ -8563,7 +8766,7 @@ function loadMediaFiles(input) {
     Array.from(input.files).forEach((file, idx) => {
         const url = URL.createObjectURL(file);
         const type = file.type.startsWith('video') ? 'video' : (file.type === 'image/gif' ? 'gif' : 'image');
-        const item = { type, url, element: null, name: file.name, duration: type === 'video' ? null : 8, transitionType: 'glitch', beatSync: false };
+        const item = { type, url, element: null, name: file.name, duration: type === 'video' ? null : 8, transitionType: 'optical-fade', transitionDuration: 0.8, beatSync: false };
         if (type === 'video') {
             const vid = document.createElement('video'); vid.src = url; vid.muted = true; vid.loop = !APP.state.isCycle; vid.playsInline = true; vid.preload = 'auto'; item.element = vid; $('media-container').appendChild(vid);
         } else if (type === 'image') {
@@ -11358,11 +11561,11 @@ function rotateMedia() {
     APP.media.currentElement = item.element;
     if (item.type === 'video') { item.element.loop = !APP.state.isCycle; item.element.currentTime = 0; item.element.play().catch(() => {});  connectVideoAudio(item.element); }
     // Set up A/B transition (only when there's a real outgoing element to transition from)
-    var _txDurSec = (item.type === 'video') ? 0.6 : 0.8;
+    var _txDurSec = item.transitionDuration != null ? item.transitionDuration : 0.8;
     if (_outgoingEl && _outgoingEl !== item.element) {
         APP.media._tx = {
             active: true,
-            type: item.transitionType || 'glitch',
+            type: item.transitionType || 'optical-fade',
             out: _outgoingEl,
             in: item.element,
             start: performance.now(),
@@ -13223,6 +13426,7 @@ document.addEventListener('DOMContentLoaded', () => {
         portalCamPreview();
         checkLayerReadiness();
         initSummonerLogic();
+        initSeamControls();
     }, 1000);
 
     // ── PHASE 2: MIDI/AUDIO deferred to user gesture (JIT) ──
@@ -19805,6 +20009,29 @@ function _applyPoseToModel(lm) {
 </div>
 
 <script type="module" src="./src/kinetic-rack/KineticRack.js"></script>
+
+<!-- SEAM TRANSITION PANEL — floats above carousel seams (NLE-style) -->
+<div id="tx-seam-panel">
+    <div class="tsp-body">
+        <div class="tsp-types">
+            <button class="tsp-type-btn tsp-sel" data-tx="optical-fade">
+                <span class="tsp-icon">◈</span>Optical Fade
+            </button>
+            <button class="tsp-type-btn" data-tx="luma-wipe">
+                <span class="tsp-icon">▥</span>Luma Wipe
+            </button>
+            <button class="tsp-type-btn" data-tx="dip-black">
+                <span class="tsp-icon">◼</span>Dip Black
+            </button>
+        </div>
+        <div class="tsp-dur-row">
+            <span class="tsp-dur-lbl">DUR</span>
+            <input type="range" id="tsp-dur-sl" min="0.2" max="3.0" step="0.1" value="0.8">
+            <span class="tsp-dur-val" id="tsp-dur-val">0.8s</span>
+        </div>
+    </div>
+    <div class="tsp-arrow"></div>
+</div>
 
 </body>
 </html>
