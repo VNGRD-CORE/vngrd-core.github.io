@@ -148,17 +148,24 @@ export class AudioEngine {
         this._synthInput.connect(this._masterGain);
 
         // ── Loop effects bus (GestureLooper) ──────────────────────────────────
+        // Isolated in its own try/catch — failure here must NOT kill the main init.
         // Signal chain: FMSynth → _loopDelay → _loopReverb → Tone.Destination
-        this._loopReverb = new Tone.Reverb({ decay: 4.0, wet: 0.35 });
-        await this._loopReverb.ready;
-        this._loopReverb.toDestination();
+        try {
+            this._loopReverb = new Tone.Reverb({ decay: 4.0, wet: 0.35 });
+            await this._loopReverb.ready;
+            this._loopReverb.toDestination();
 
-        this._loopDelay = new Tone.PingPongDelay({
-            delayTime: '8n',
-            feedback:  0.35,
-            wet:       0.28,
-        });
-        this._loopDelay.connect(this._loopReverb);
+            this._loopDelay = new Tone.PingPongDelay({
+                delayTime: 0.25,   // fixed seconds — avoids Transport-BPM dependency
+                feedback:  0.35,
+                wet:       0.28,
+            });
+            this._loopDelay.connect(this._loopReverb);
+        } catch (e) {
+            console.warn('[AudioEngine] Loop effects bus failed to init — loops will use dry destination:', e);
+            this._loopDelay  = null;
+            this._loopReverb = null;
+        }
     }
 
     // ── SpatialSynth compatibility ─────────────────────────────────────────────

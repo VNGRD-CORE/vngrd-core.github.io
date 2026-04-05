@@ -371,13 +371,14 @@ const KineticRack = (() => {
             window.removeEventListener('resize', _onResize);
             if (_recording) _stopRec();
 
-            _looper?.dispose();
-            _nc?.dispose();
-            _spatial?.dispose();
-            _particles?.dispose();
-            _ae?.dispose();
+            _looper?.dispose();    _looper   = null;
+            _nc?.dispose();        _nc       = null;
+            _spatial?.dispose();   _spatial  = null;
+            _particles?.dispose(); _particles = null;
+            _ae?.dispose();        _ae       = null;
             _handLandmarker?.close();
             _handLandmarker = null;
+            window._GestureLooper = null;
 
             _prevLeftWrist  = null;
             _prevRightWrist = null;
@@ -417,9 +418,14 @@ const KineticRack = (() => {
             // Particle trails
             _particles = new GravityParticles(_scene, THREE);
 
-            // Gesture Looper
-            _looper = new GestureLooper(_scene, _ae.getLoopBus());
-            window._GestureLooper = _looper;   // expose for Tweak UI
+            // Gesture Looper — isolated so a failure here cannot abort the rest of startup
+            try {
+                _looper = new GestureLooper(_scene, _ae.getLoopBus());
+                window._GestureLooper = _looper;
+            } catch (e) {
+                console.warn('[KineticRack] GestureLooper init failed:', e);
+                _looper = null;
+            }
 
             // Hand tracking
             await _startHandLandmarker();

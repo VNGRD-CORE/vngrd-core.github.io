@@ -180,13 +180,12 @@ export class GestureLooper {
     _applyToSynth(synth, x, y) {
         if (!synth || !window.Tone) return;
         try {
-            const ctx  = window.Tone.getContext().rawContext;
-            const now  = ctx.currentTime;
-            const freq = FREQ_ROOT * Math.pow(2, y * FREQ_OCTAVES);     // 55–880 Hz
-            const harm = 0.5 + x * 7.5;                                  // 0.5–8.0
+            const freq = FREQ_ROOT * Math.pow(2, y * FREQ_OCTAVES);   // 55–880 Hz
+            const harm = 0.5 + x * 7.5;                                // 0.5–8.0
 
-            synth.frequency.setTargetAtTime(freq, now, 0.02);
-            synth.harmonicity.setTargetAtTime(harm, now, 0.05);
+            // Use Tone.js param API (rampTo) — works on Signal, FrequencySignal, Multiply, etc.
+            synth.frequency.rampTo(freq, 0.02);
+            synth.harmonicity.rampTo(harm, 0.05);
         } catch (_) {}
     }
 
