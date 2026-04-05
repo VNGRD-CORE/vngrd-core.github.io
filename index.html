@@ -1065,7 +1065,9 @@
         .sec-arrow { font-size: 8px; color: var(--text-dim); margin-left: 5px; margin-right: auto; transition: color 0.2s; }
         .sec-head.collapsible.open .sec-arrow { color: var(--accent); }
         /* Collapsible bodies: collapsed by default; JS restores padding on open */
-        #session-lab-body, #p2p-call-body, #midi-host-body, #nft-vault-body, #lexica-nano-body { max-height: 0; overflow: hidden; transition: max-height 0.3s ease; padding: 0 12px; }
+        #session-lab-body, #p2p-call-body, #nft-vault-body, #lexica-nano-body { max-height: 0; overflow: hidden; transition: max-height 0.3s ease; padding: 0 12px; }
+        /* midi-host starts open by default */
+        #midi-host-body { overflow: hidden; transition: max-height 0.3s ease; }
 
         /* ═══ P2P HUD — SOLID TERMINAL SKIN ════════════════════════════════ */
         #p2p-modal {
@@ -1235,6 +1237,14 @@
         }
         @keyframes cycle-pulse { 0%,100% { opacity: 1; } 50% { opacity: 0.7; } }
         
+        /* ── ENGINEER_MODE button idle animations ── */
+        @keyframes eng-stereo-breathe { 0%,100%{color:rgba(0,180,255,0.4);border-color:rgba(0,180,255,0.15);box-shadow:none;} 50%{color:rgba(0,220,255,0.75);border-color:rgba(0,220,255,0.35);box-shadow:0 0 8px rgba(0,200,255,0.2);} }
+        @keyframes eng-spatial-breathe { 0%,100%{color:rgba(160,0,255,0.4);border-color:rgba(160,0,255,0.15);box-shadow:none;} 50%{color:rgba(190,60,255,0.75);border-color:rgba(180,40,255,0.35);box-shadow:0 0 8px rgba(160,0,255,0.2);} }
+        @keyframes eng-dolby-breathe  { 0%,100%{color:rgba(255,140,0,0.4);border-color:rgba(255,140,0,0.15);box-shadow:none;} 50%{color:rgba(255,175,0,0.8);border-color:rgba(255,160,0,0.35);box-shadow:0 0 8px rgba(255,140,0,0.2);} }
+        #btn-stereo:not(.active-mode)  { animation: eng-stereo-breathe 3.2s ease-in-out infinite; }
+        #btn-spatial:not(.active-mode) { animation: eng-spatial-breathe 3.8s ease-in-out infinite; }
+        #btn-dolby:not(.active-mode)   { animation: eng-dolby-breathe 2.9s ease-in-out infinite; }
+
         #btn-ui-react { animation: party-breathe 2s ease-in-out infinite; }
         #btn-ui-react.on { animation: none; color: #ff00ff; text-shadow: 0 0 10px #ff00ff, 0 0 20px #ff00ff; border-color: #ff00ff; background: rgba(255,0,255,0.1); }
         @keyframes party-breathe { 0%, 100% { color: var(--text); } 50% { color: #ff00ff; text-shadow: 0 0 8px #ff00ff; } }
@@ -5092,27 +5102,27 @@ body.fullscreen #transcription-hud { pointer-events: none !important; } /* keep 
                     </label>
                 </div>
                 <div class="btn-row" style="gap:4px;">
-                    <button class="btn" id="btn-set-station" style="flex:2;">SET BUG</button>
-                    <select id="bug-style-select" title="Style" style="width:46px;min-width:46px;">
+                    <button class="btn" id="btn-set-station" style="flex:1;font-size:9px;">SET BUG</button>
+                    <select id="bug-style-select" title="Style" style="width:44px;min-width:44px;flex:none;">
                         <option value="plain">PL</option>
                         <option value="pulse">PU</option>
                         <option value="glitch">GL</option>
                     </select>
-                    <select id="bug-mode-select" title="Render mode" style="width:50px;min-width:50px;">
+                    <select id="bug-mode-select" title="Render mode" style="width:48px;min-width:48px;flex:none;">
                         <option value="solid">SLD</option>
                         <option value="knockout">K/O</option>
                         <option value="inverted">INV</option>
                     </select>
-                    <button class="btn" id="btn-bug-toggle" title="Toggle Bug">[X]</button>
+                    <button class="btn" id="btn-bug-toggle" title="Toggle Bug" style="flex:none;width:34px;text-align:center;padding:5px 0;font-size:9px;">[X]</button>
                 </div>
                 <div class="btn-row" style="margin-top:6px;">
-                    <button class="btn" id="btn-upload-2d" style="flex:2;">2D LOGO</button>
-                    <button class="btn" id="btn-2d-x" title="Hide/Clear 2D">[X]</button>
+                    <button class="btn" id="btn-upload-2d" style="flex:1;">2D LOGO</button>
+                    <button class="btn" id="btn-2d-x" title="Hide/Clear 2D" style="flex:none;width:34px;text-align:center;padding:5px 0;">[X]</button>
                 </div>
                 <input type="file" id="file-2d-logo" accept=".png,.jpg,.jpeg,.gif,.webp" style="display:none;">
                 <div class="btn-row" style="margin-top:6px;">
-                    <button class="btn" id="btn-upload-3d" style="flex:2;color:var(--c);">3D LOGO</button>
-                    <button class="btn" id="btn-3d-x" title="Hide/Clear 3D">[X]</button>
+                    <button class="btn" id="btn-upload-3d" style="flex:1;color:var(--c);">3D LOGO</button>
+                    <button class="btn" id="btn-3d-x" title="Hide/Clear 3D" style="flex:none;width:34px;text-align:center;padding:5px 0;">[X]</button>
                 </div>
                 <input type="file" id="file-3d-logo" accept=".obj,.fbx,.stl,.amf,.igs,.iges" style="display:none;">
             </div>
@@ -5198,21 +5208,25 @@ body.fullscreen #transcription-hud { pointer-events: none !important; } /* keep 
                     <button class="btn btn-compact" id="btn-play-pause" style="padding:5px 0;"><svg width="10" height="10" viewBox="0 0 12 12" id="icon-play-state"><path fill="currentColor" d="M3 2v8l7-4z"/></svg></button>
                     <button class="btn btn-compact" id="btn-next-track" style="padding:5px 0;"><svg width="10" height="10" viewBox="0 0 12 12"><path fill="currentColor" d="M2 10l6-4-6-4v8zm6-8v8h2V2H8z"/></svg></button>
                 </div>
-                <div class="sec-divider"></div>
-                <div class="lbl" style="font-size:6.5px;opacity:0.4;letter-spacing:2px;margin-bottom:4px;">INPUT</div>
-                <button class="btn" id="btn-scan-inputs" style="font-size:8px;">SCAN_INPUTS</button>
-                <select class="inp" id="audio-input-select" style="width:100%;font-size:9px;padding:5px;background:var(--panel);border:1px solid var(--border);color:var(--text);display:none;margin-top:4px;">
+                <div class="sec-divider" style="margin:4px -8px;"></div>
+                <div style="display:flex;align-items:center;gap:4px;margin-bottom:3px;">
+                    <span class="lbl" style="font-size:6px;opacity:0.4;letter-spacing:2px;margin-bottom:0;white-space:nowrap;">INPUT</span>
+                    <button class="btn" id="btn-scan-inputs" style="font-size:7px;padding:3px 6px;margin-bottom:0;flex:1;">SCAN_INPUTS</button>
+                </div>
+                <select class="inp" id="audio-input-select" style="width:100%;font-size:8px;padding:3px 5px;background:var(--panel);border:1px solid var(--border);color:var(--text);display:none;margin-bottom:2px;">
                     <option value="">SELECT_DEVICE...</option>
                 </select>
-                <div id="input-level" style="height:3px;background:var(--border);margin-top:4px;">
+                <div id="input-level" style="height:2px;background:var(--border);margin-bottom:3px;">
                     <div id="input-level-bar" style="height:100%;width:0%;background:var(--g);transition:width 0.05s;"></div>
                 </div>
-                <div class="sec-divider"></div>
-                <div class="lbl" style="font-size:6.5px;opacity:0.4;letter-spacing:2px;margin-bottom:4px;">ENGINEER_MODE</div>
-                <div class="btn-grid-3">
-                    <button class="btn active-mode" id="btn-stereo">STEREO</button>
-                    <button class="btn" id="btn-spatial">3D_SPATIAL</button>
-                    <button class="btn" id="btn-dolby" style="color:#00f3ff">DOLBY</button>
+                <div class="sec-divider" style="margin:3px -8px;"></div>
+                <div style="display:flex;align-items:center;gap:4px;margin-bottom:3px;">
+                    <span class="lbl" style="font-size:6px;opacity:0.4;letter-spacing:2px;margin-bottom:0;white-space:nowrap;">ENG</span>
+                    <div class="btn-grid-3" style="flex:1;margin-bottom:0;">
+                        <button class="btn active-mode" id="btn-stereo" style="font-size:8px;padding:4px 2px;text-align:center;">STEREO</button>
+                        <button class="btn" id="btn-spatial" style="font-size:8px;padding:4px 2px;text-align:center;">3D_SPATIAL</button>
+                        <button class="btn" id="btn-dolby" style="font-size:8px;padding:4px 2px;text-align:center;color:#ffa500;">DOLBY</button>
+                    </div>
                 </div>
             </div>
         </div>
