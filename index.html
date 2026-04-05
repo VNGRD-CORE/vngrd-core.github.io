@@ -8580,7 +8580,10 @@ if (T.logo.visible) {
                     _cum += APP.layers._gifFrames[_fi].delay; 
                     if (_el < _cum) break; 
                 }
-                ctx.drawImage(APP.layers._gifFrames[_fi].canvas, (T.logo.x||0)*w, (T.logo.y||0)*h, _clw, _clh);
+                var _gifCanvas = APP.layers._gifFrames[_fi] && APP.layers._gifFrames[_fi].canvas;
+                if (_gifCanvas && _gifCanvas.width > 0 && _gifCanvas.height > 0) {
+                    ctx.drawImage(_gifCanvas, (T.logo.x||0)*w, (T.logo.y||0)*h, _clw, _clh);
+                }
             } else {
                 ctx.drawImage(logoImg, (T.logo.x || 0) * w, (T.logo.y || 0) * h, _clw, _clh);
             }
