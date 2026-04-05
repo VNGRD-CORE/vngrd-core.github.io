@@ -21,6 +21,7 @@ import * as THREE         from 'three';
 import { AudioEngine }    from './AudioEngine.js';
 import { NeuralComposer } from './NeuralComposer.js';
 import { SpatialSynth }   from './SpatialSynth.js';
+import { GestureLooper }  from './GestureLooper.js';
 
 // ─────────────────────────────────────────────────────────────────────────────
 //  FFTParticles
@@ -197,6 +198,7 @@ class KineticRack {
         this._ae      = new AudioEngine();
         this._nc      = new NeuralComposer();
         this._spatial = null;
+        this._looper  = null;
 
         this._renderer  = null;
         this._scene     = null;
@@ -255,6 +257,14 @@ class KineticRack {
 
         // FFTParticles
         this._particles = new FFTParticles(this._scene);
+
+        // GestureLooper (isolated — failure must not abort startup)
+        try {
+            this._looper = new GestureLooper(this._scene, this._ae.getLoopBus());
+            window._GestureLooper = this._looper;
+        } catch (e) {
+            console.warn('[KineticRack] GestureLooper init failed:', e);
+        }
 
         // MediaPipe
         await this._initHandLandmarker();
@@ -377,15 +387,22 @@ class KineticRack {
             this._ae.setSpatialPan(this._s.rightX);
             this._ae.setAtmosReverbWet(this._s.rightY);
         }
+
+        // ── GestureLooper: right hand pinch → record/replay motion loops ─────
+        this._looper?.update(rightLm, this._camera);
     }
 
     // ── Public API ────────────────────────────────────────────────────────────
 
-    toggle() {
+    async toggle() {
         if (this._active) {
             this._active = false;
             if (this._rafId) cancelAnimationFrame(this._rafId);
+        } else if (!this._renderer) {
+            // First click — full initialization
+            await this.init();
         } else {
+            // Resume from pause
             this._active  = true;
             this._lastNow = performance.now();
             this._loop();
@@ -393,6 +410,17 @@ class KineticRack {
     }
 
     ctrlChange(cc, value) {
+        // String keys come from the Tweak UI; numeric keys come from MIDI
+        if (typeof cc === 'string') {
+            const v = parseFloat(value);
+            if (cc === 'vol')        this._ae.setVolume(v);
+            if (cc === 'reverb')     this._ae.setReverbMix(v);
+            if (cc === 'filter')     this._ae.setManualFilter(v);
+            if (cc === 'loopDelay')  this._ae.setLoopDelayWet(v);
+            if (cc === 'loopWave')   this._looper?.setWaveform(value);
+            return;
+        }
+        // MIDI CC path
         const norm   = value / 127;
         const target = this._midiMap[cc];
         if (!target) return;
@@ -404,6 +432,10 @@ class KineticRack {
             case 'spatialPan':  this._ae.setSpatialPan(norm);       break;
             case 'reverbMix':   this._ae.setReverbMix(norm);        break;
         }
+    }
+
+    clearLoops() {
+        this._looper?.clearAll();
     }
 
     midiLearn(target) {
@@ -470,11 +502,13 @@ class KineticRack {
         this._active = false;
         if (this._rafId) cancelAnimationFrame(this._rafId);
         window.removeEventListener('resize', this._onResize.bind(this));
+        this._looper?.dispose();
         this._particles?.dispose();
         this._spatial?.dispose();
         this._nc?.dispose();
         this._ae?.dispose();
         this._renderer?.dispose();
+        window._GestureLooper = null;
     }
 }
 
