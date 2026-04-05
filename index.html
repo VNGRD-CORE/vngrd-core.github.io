@@ -5206,24 +5206,20 @@ body.fullscreen #transcription-hud { pointer-events: none !important; } /* keep 
                     <button class="btn btn-compact" id="btn-play-pause" style="padding:6px 0;"><svg width="10" height="10" viewBox="0 0 12 12" id="icon-play-state"><path fill="currentColor" d="M3 2v8l7-4z"/></svg></button>
                     <button class="btn btn-compact" id="btn-next-track" style="padding:6px 0;"><svg width="10" height="10" viewBox="0 0 12 12"><path fill="currentColor" d="M2 10l6-4-6-4v8zm6-8v8h2V2H8z"/></svg></button>
                 </div>
-                <div style="display:flex;align-items:center;gap:5px;margin-bottom:3px;">
-                    <span style="font-size:7px;opacity:0.35;letter-spacing:2px;font-family:'Orbitron',sans-serif;white-space:nowrap;color:var(--text);">INPUT</span>
-                    <button class="btn" id="btn-scan-inputs" style="font-size:9px;padding:5px 6px;margin-bottom:0;flex:1;text-align:center;">SCAN_INPUTS</button>
-                </div>
-                <select class="inp" id="audio-input-select" style="width:100%;font-size:8px;padding:4px 5px;background:var(--panel);border:1px solid var(--border);color:var(--text);display:none;margin-bottom:3px;">
+                <button class="btn" id="btn-scan-inputs" style="font-size:8px;text-align:center;">SCAN_INPUTS</button>
+                <select class="inp" id="audio-input-select" style="width:100%;font-size:8px;padding:4px 5px;background:var(--panel);border:1px solid var(--border);color:var(--text);display:none;margin-bottom:2px;">
                     <option value="">SELECT_DEVICE...</option>
                 </select>
-                <div id="input-level" style="height:2px;background:var(--border);margin-bottom:4px;">
+                <div id="input-level" style="height:2px;background:var(--border);margin-bottom:2px;">
                     <div id="input-level-bar" style="height:100%;width:0%;background:var(--g);transition:width 0.05s;"></div>
                 </div>
-                <div style="display:flex;align-items:center;gap:5px;">
-                    <span style="font-size:7px;opacity:0.35;letter-spacing:2px;font-family:'Orbitron',sans-serif;white-space:nowrap;color:var(--text);">ENG</span>
-                    <div class="btn-grid-3" style="flex:1;margin-bottom:0;">
-                        <button class="btn active-mode" id="btn-stereo" style="font-size:9px;padding:5px 2px;text-align:center;">STEREO</button>
-                        <button class="btn" id="btn-spatial" style="font-size:9px;padding:5px 2px;text-align:center;">3D_SPATIAL</button>
-                        <button class="btn" id="btn-dolby" style="font-size:9px;padding:5px 2px;text-align:center;color:#ffa500;">DOLBY</button>
-                    </div>
+                <div class="lbl" style="font-size:6.5px;opacity:0.4;margin-bottom:6px;letter-spacing:2px;text-align:center;">INPUT</div>
+                <div class="btn-grid-3">
+                    <button class="btn active-mode" id="btn-stereo" style="font-size:8px;">STEREO</button>
+                    <button class="btn" id="btn-spatial" style="font-size:8px;">3D_SPATIAL</button>
+                    <button class="btn" id="btn-dolby" style="font-size:8px;color:#ffa500;">DOLBY</button>
                 </div>
+                <div class="lbl" style="font-size:6.5px;opacity:0.4;letter-spacing:2px;text-align:center;">ENGINEER_MODE</div>
             </div>
         </div>
 
