@@ -1039,7 +1039,7 @@
         }
         /* SCANNING ANIMATION FOR CYCLE MODE */
         .sec-head {
-            display: flex; align-items: center; justify-content: space-between;
+            display: flex; align-items: center; justify-content: space-between; gap: 6px;
             padding: 7px 12px 7px 10px;
             background: rgba(255,255,255,0.025);
             border-bottom: 1px solid rgba(255,255,255,0.07);
@@ -1325,6 +1325,10 @@
             color: var(--accent);
             text-transform: uppercase;
         }
+        @keyframes badge-shine {
+            0%, 60%, 100% { color: rgba(255,255,255,0.25); text-shadow: none; border-color: rgba(255,255,255,0.08); }
+            75% { color: var(--accent); text-shadow: 0 0 8px var(--accent), 0 0 16px rgba(0,243,255,0.4); border-color: rgba(0,243,255,0.4); }
+        }
         #sfx-sampler-header .sampler-badge {
             font-size: 6px;
             letter-spacing: 2px;
@@ -1332,7 +1336,10 @@
             background: rgba(255,255,255,0.04);
             border: 1px solid rgba(255,255,255,0.08);
             padding: 2px 5px;
+            cursor: pointer;
+            animation: badge-shine 3s ease-in-out infinite;
         }
+        #sfx-sampler-header:hover .sampler-badge { animation: none; color: var(--accent); border-color: rgba(0,243,255,0.4); text-shadow: 0 0 6px var(--accent); }
         #sfx-pad-grid { display: grid; grid-template-columns: repeat(4, 1fr); column-gap: 4px; row-gap: 20px; padding: 4px 2px 4px; }
         .sfx-bank-block { display: contents; }
         .sfx-bank-label {
@@ -1622,7 +1629,7 @@
             background: #0c0c14;
             background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='8' height='5' viewBox='0 0 8 5'%3E%3Cpath d='M0 0l4 5 4-5z' fill='%2300f3ff' opacity='0.5'/%3E%3C/svg%3E");
             background-repeat: no-repeat;
-            background-position: right 7px center;
+            background-position: right 5px center;
             background-size: 7px 5px;
             border: 1px solid rgba(0,243,255,0.25) !important;
             border-radius: 3px !important;
@@ -1630,7 +1637,7 @@
             font-family: 'Orbitron', sans-serif !important;
             font-size: 7px !important;
             letter-spacing: 0.1em !important;
-            padding: 4px 22px 4px 8px !important;
+            padding: 4px 18px 4px 6px !important;
             cursor: pointer;
             box-shadow: 0 2px 8px rgba(0,0,0,0.8), inset 0 1px 0 rgba(255,255,255,0.03);
             transition: border-color 0.15s, box-shadow 0.15s;
@@ -5086,12 +5093,12 @@ body.fullscreen #transcription-hud { pointer-events: none !important; } /* keep 
                 </div>
                 <div class="btn-row" style="gap:4px;">
                     <button class="btn" id="btn-set-station" style="flex:2;">SET BUG</button>
-                    <select id="bug-style-select" title="Style" style="min-width:0;">
+                    <select id="bug-style-select" title="Style" style="width:46px;min-width:46px;">
                         <option value="plain">PL</option>
                         <option value="pulse">PU</option>
                         <option value="glitch">GL</option>
                     </select>
-                    <select id="bug-mode-select" title="Render mode" style="min-width:0;">
+                    <select id="bug-mode-select" title="Render mode" style="width:50px;min-width:50px;">
                         <option value="solid">SLD</option>
                         <option value="knockout">K/O</option>
                         <option value="inverted">INV</option>
@@ -5185,11 +5192,11 @@ body.fullscreen #transcription-hud { pointer-events: none !important; } /* keep 
                     <div id="vu"></div>
                     <div id="track-info">NO_TRACK</div>
                 </div>
-                <div class="btn-row"><button class="btn" id="btn-audio" style="flex:1;">LOAD AUDIO</button><button class="btn" id="btn-mute-vid" style="width:32px;font-size:12px;padding:2px;" title="Toggle video audio">&#x1F50A;</button><button class="btn" id="btn-mic-engine" style="width:32px;font-size:11px;padding:2px;" title="Mic on/off">&#x1F3A4;</button></div>
-                <div class="audio-ctrl-row">
-                    <button class="btn btn-compact" id="btn-prev-track"><svg width="10" height="10" viewBox="0 0 12 12"><path fill="currentColor" d="M2 2h2v8H2zm2 4l6 4V2z"/></svg></button>
-                    <button class="btn btn-compact" id="btn-play-pause"><svg width="10" height="10" viewBox="0 0 12 12" id="icon-play-state"><path fill="currentColor" d="M3 2v8l7-4z"/></svg></button>
-                    <button class="btn btn-compact" id="btn-next-track"><svg width="10" height="10" viewBox="0 0 12 12"><path fill="currentColor" d="M2 10l6-4-6-4v8zm6-8v8h2V2H8z"/></svg></button>
+                <div class="btn-row" style="gap:4px;margin-bottom:4px;"><button class="btn btn-compact" id="btn-audio" style="flex:1;font-size:9px;padding:5px 4px;">LOAD AUDIO</button><button class="btn btn-compact" id="btn-mute-vid" style="width:28px;flex:none;font-size:11px;padding:3px 2px;" title="Toggle video audio">&#x1F50A;</button><button class="btn btn-compact" id="btn-mic-engine" style="width:28px;flex:none;font-size:10px;padding:3px 2px;" title="Mic on/off">&#x1F3A4;</button></div>
+                <div class="audio-ctrl-row" style="margin-bottom:4px;">
+                    <button class="btn btn-compact" id="btn-prev-track" style="padding:5px 0;"><svg width="10" height="10" viewBox="0 0 12 12"><path fill="currentColor" d="M2 2h2v8H2zm2 4l6 4V2z"/></svg></button>
+                    <button class="btn btn-compact" id="btn-play-pause" style="padding:5px 0;"><svg width="10" height="10" viewBox="0 0 12 12" id="icon-play-state"><path fill="currentColor" d="M3 2v8l7-4z"/></svg></button>
+                    <button class="btn btn-compact" id="btn-next-track" style="padding:5px 0;"><svg width="10" height="10" viewBox="0 0 12 12"><path fill="currentColor" d="M2 10l6-4-6-4v8zm6-8v8h2V2H8z"/></svg></button>
                 </div>
                 <div class="sec-divider"></div>
                 <div class="lbl" style="font-size:6.5px;opacity:0.4;letter-spacing:2px;margin-bottom:4px;">INPUT</div>
@@ -5770,7 +5777,7 @@ body.fullscreen #transcription-hud { pointer-events: none !important; } /* keep 
             </div>
         </div>
         <div class="section">
-            <div class="sec-head collapsible open" style="display:flex;align-items:center;gap:6px;"><span class="sec-title">SESSION_LAB</span><span class="sec-arrow">&#x25BE;</span><button class="sampler-help-btn" onclick="event.stopPropagation();_toggleSectionHelp(this,'session-lab')">?</button><div class="sec-dot"></div><div id="sync-led" title="INTEL: AUTO_SAVE // 60s PULSE"></div></div>
+            <div class="sec-head collapsible open"><span class="sec-title">SESSION_LAB</span><span class="sec-arrow">&#x25BE;</span><button class="sampler-help-btn" onclick="event.stopPropagation();_toggleSectionHelp(this,'session-lab')">?</button><div class="sec-dot"></div><div id="sync-led" title="INTEL: AUTO_SAVE // 60s PULSE"></div></div>
             <div class="sec-body" id="session-lab-body" style="max-height:500px;padding:10px 12px;">
                 <div class="btn-row">
                     <button class="btn" id="btn-nft-30" style="flex:1;font-size:8px;color:var(--o);border-color:var(--o);">CAPTURE_VNGRD_CLIP</button>
