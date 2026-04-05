@@ -1039,7 +1039,7 @@
         }
         /* SCANNING ANIMATION FOR CYCLE MODE */
         .sec-head {
-            display: flex; align-items: center; justify-content: space-between;
+            display: flex; align-items: center; justify-content: space-between; gap: 6px;
             padding: 7px 12px 7px 10px;
             background: rgba(255,255,255,0.025);
             border-bottom: 1px solid rgba(255,255,255,0.07);
@@ -1235,6 +1235,14 @@
         }
         @keyframes cycle-pulse { 0%,100% { opacity: 1; } 50% { opacity: 0.7; } }
         
+        /* ── ENGINEER_MODE button idle animations ── */
+        @keyframes eng-stereo-breathe { 0%,100%{color:rgba(0,180,255,0.4);border-color:rgba(0,180,255,0.15);box-shadow:none;} 50%{color:rgba(0,220,255,0.75);border-color:rgba(0,220,255,0.35);box-shadow:0 0 8px rgba(0,200,255,0.2);} }
+        @keyframes eng-spatial-breathe { 0%,100%{color:rgba(160,0,255,0.4);border-color:rgba(160,0,255,0.15);box-shadow:none;} 50%{color:rgba(190,60,255,0.75);border-color:rgba(180,40,255,0.35);box-shadow:0 0 8px rgba(160,0,255,0.2);} }
+        @keyframes eng-dolby-breathe  { 0%,100%{color:rgba(255,140,0,0.4);border-color:rgba(255,140,0,0.15);box-shadow:none;} 50%{color:rgba(255,175,0,0.8);border-color:rgba(255,160,0,0.35);box-shadow:0 0 8px rgba(255,140,0,0.2);} }
+        #btn-stereo:not(.active-mode)  { animation: eng-stereo-breathe 3.2s ease-in-out infinite; }
+        #btn-spatial:not(.active-mode) { animation: eng-spatial-breathe 3.8s ease-in-out infinite; }
+        #btn-dolby:not(.active-mode)   { animation: eng-dolby-breathe 2.9s ease-in-out infinite; }
+
         #btn-ui-react { animation: party-breathe 2s ease-in-out infinite; }
         #btn-ui-react.on { animation: none; color: #ff00ff; text-shadow: 0 0 10px #ff00ff, 0 0 20px #ff00ff; border-color: #ff00ff; background: rgba(255,0,255,0.1); }
         @keyframes party-breathe { 0%, 100% { color: var(--text); } 50% { color: #ff00ff; text-shadow: 0 0 8px #ff00ff; } }
@@ -1313,8 +1321,8 @@
             user-select: none;
         }
         #sfx-sampler-header:hover .sampler-collapse-arrow { color: var(--accent) !important; }
-        #sfx-pad-body { overflow: hidden; transition: max-height 0.3s ease; max-height: 900px; }
-        #sfx-pad-body.collapsed { max-height: 0; margin-bottom: 0; }
+        #sfx-pad-body { overflow: hidden; transition: max-height 0.3s ease; max-height: 0; }
+        #sfx-pad-body.open { max-height: 900px; }
         /* Allow gear dropdown to escape the overflow:hidden clip when open */
         #sfx-pad-body.gear-open { overflow: visible; }
         #sfx-sampler-header .sampler-title {
@@ -1325,6 +1333,10 @@
             color: var(--accent);
             text-transform: uppercase;
         }
+        @keyframes badge-shine {
+            0%, 60%, 100% { color: rgba(255,255,255,0.25); text-shadow: none; border-color: rgba(255,255,255,0.08); }
+            75% { color: var(--accent); text-shadow: 0 0 8px var(--accent), 0 0 16px rgba(0,243,255,0.4); border-color: rgba(0,243,255,0.4); }
+        }
         #sfx-sampler-header .sampler-badge {
             font-size: 6px;
             letter-spacing: 2px;
@@ -1332,7 +1344,10 @@
             background: rgba(255,255,255,0.04);
             border: 1px solid rgba(255,255,255,0.08);
             padding: 2px 5px;
+            cursor: pointer;
+            animation: badge-shine 3s ease-in-out infinite;
         }
+        #sfx-sampler-header:hover .sampler-badge { animation: none; color: var(--accent); border-color: rgba(0,243,255,0.4); text-shadow: 0 0 6px var(--accent); }
         #sfx-pad-grid { display: grid; grid-template-columns: repeat(4, 1fr); column-gap: 4px; row-gap: 20px; padding: 4px 2px 4px; }
         .sfx-bank-block { display: contents; }
         .sfx-bank-label {
@@ -1622,7 +1637,7 @@
             background: #0c0c14;
             background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='8' height='5' viewBox='0 0 8 5'%3E%3Cpath d='M0 0l4 5 4-5z' fill='%2300f3ff' opacity='0.5'/%3E%3C/svg%3E");
             background-repeat: no-repeat;
-            background-position: right 7px center;
+            background-position: right 5px center;
             background-size: 7px 5px;
             border: 1px solid rgba(0,243,255,0.25) !important;
             border-radius: 3px !important;
@@ -1630,7 +1645,7 @@
             font-family: 'Orbitron', sans-serif !important;
             font-size: 7px !important;
             letter-spacing: 0.1em !important;
-            padding: 4px 22px 4px 8px !important;
+            padding: 4px 18px 4px 6px !important;
             cursor: pointer;
             box-shadow: 0 2px 8px rgba(0,0,0,0.8), inset 0 1px 0 rgba(255,255,255,0.03);
             transition: border-color 0.15s, box-shadow 0.15s;
@@ -3711,6 +3726,56 @@ body.fullscreen #transcription-hud { pointer-events: none !important; } /* keep 
 }
 #save-modal-actions { display: flex; gap: 6px; }
 
+/* ── WALLET SYNC HUD ── */
+#wallet-sync-hud {
+    position: fixed; bottom: 60px; right: 16px; z-index: 9998;
+    width: 180px;
+    background: rgba(8,8,12,0.94);
+    border: 1px solid rgba(0,243,255,0.25);
+    border-radius: 3px;
+    padding: 10px;
+    box-shadow: 0 0 20px rgba(0,243,255,0.1);
+    display: none; flex-direction: column; gap: 8px;
+    font-family: 'JetBrains Mono', monospace;
+}
+#wallet-sync-hud.visible { display: flex; }
+#ipfs-sync-indicator {
+    display: flex; align-items: center; gap: 6px;
+    font-size: 8px; letter-spacing: 1px; color: var(--accent);
+}
+#ipfs-sync-dot {
+    width: 6px; height: 6px; border-radius: 50%;
+    background: var(--accent); flex-shrink: 0;
+}
+@keyframes ipfs-sync-pulse {
+    0%,100% { box-shadow: 0 0 4px var(--accent); opacity: 1; }
+    50%      { box-shadow: 0 0 12px var(--accent), 0 0 20px var(--accent); opacity: 0.55; }
+}
+#wallet-sync-hud.syncing #ipfs-sync-dot { animation: ipfs-sync-pulse 1s ease-in-out infinite; }
+#wallet-sync-hud.synced  #ipfs-sync-dot { background: #00ff88; box-shadow: 0 0 8px #00ff88; }
+#wallet-sync-hud.error   #ipfs-sync-dot { background: #ff4040; box-shadow: 0 0 8px #ff4040; }
+#wallet-sync-hud.synced  #ipfs-sync-label { color: #00ff88; }
+#wallet-sync-hud.error   #ipfs-sync-label { color: #ff4040; }
+#wallet-sync-thumbnail {
+    width: 100%; aspect-ratio: 16/9;
+    border: 1px solid rgba(0,243,255,0.15);
+    border-radius: 2px; overflow: hidden; display: none;
+}
+#wallet-sync-thumbnail.visible { display: block; }
+#wallet-sync-thumbnail img {
+    object-fit: contain; width: 100%; height: 100%; display: block;
+}
+#wallet-sync-cid {
+    font-size: 7px; color: rgba(0,243,255,0.5);
+    word-break: break-all; display: none;
+}
+#wallet-sync-cid.visible { display: block; }
+#wallet-sync-dismiss {
+    font-size: 7px; color: rgba(255,255,255,0.35);
+    cursor: pointer; text-align: right; letter-spacing: 1px;
+}
+#wallet-sync-dismiss:hover { color: var(--accent); }
+
 /* ── QR MODAL ── */
 #qr-modal {
     position: fixed; inset: 0; z-index: 99999;
@@ -4238,7 +4303,535 @@ body.fullscreen #transcription-hud { pointer-events: none !important; } /* keep 
 .sfx-pad.pad-muted .pad-name { opacity: 0.3 !important; }
 .sfx-pad.pad-muted .pad-lcd  { opacity: 0.1 !important; }
 
+/* ─── NLE SEAM TRACK (canvas-integrated, no floating panel) ─── */
+/* Cursor override when hovering seam zones */
+#stage.seam-hover { cursor: col-resize !important; }
 
+/* ─────────────────────────────────────────────────────────────────────────── */
+/* VOICE_LAB  //  SYNESTHESIA VOICE ENGINE  v2                                */
+/* ─────────────────────────────────────────────────────────────────────────── */
+.sve-mood-btn {
+    font-family: 'Orbitron', sans-serif;
+    font-size: 7px;
+    font-weight: 700;
+    letter-spacing: 0.5px;
+    padding: 5px 1px;
+    background: rgba(255,255,255,0.02);
+    border: 1px solid var(--border);
+    color: var(--text-dim);
+    cursor: pointer;
+    text-align: center;
+    transition: all 0.15s;
+    text-transform: uppercase;
+}
+.sve-mood-btn:hover { color: var(--text-bright); border-color: var(--accent); }
+.sve-mood-btn.active-mode { color: var(--accent); border-color: var(--accent); background: rgba(0,243,255,0.1); box-shadow: 0 0 4px rgba(0,243,255,0.18); }
+#sve-mood-ghost.active-mode   { color: var(--v);   border-color: var(--v);   background: rgba(176,0,255,0.1); }
+#sve-mood-monster.active-mode { color: #ff4444;    border-color: #ff4444;    background: rgba(255,60,60,0.1); }
+.sve-ctrl-row { display: flex; gap: 3px; }
+.sve-ctrl-row .btn { font-size: 8px; letter-spacing: 0.8px; padding: 6px 4px; }
+
+/* ════════════════════════════════════════════════════════════════
+   LIVE CONSOLE MATRIX — #vngrd-console
+   Brutalist terminal aesthetic. DO NOT modify clock/ticker CSS.
+   ════════════════════════════════════════════════════════════════ */
+#vngrd-console {
+    position: fixed;
+    bottom: 62px;
+    left: 50%;
+    transform: translateX(-50%);
+    width: min(98vw, 1200px);
+    max-height: 72vh;
+    background: rgba(2, 5, 10, 0.97);
+    border: 1px solid var(--c);
+    box-shadow: 0 0 40px rgba(0,243,255,0.12), 0 0 1px var(--c) inset, 0 -4px 24px rgba(0,0,0,0.9);
+    z-index: 5900;
+    display: none;
+    flex-direction: column;
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 10px;
+    color: var(--text);
+    overflow: hidden;
+}
+#vngrd-console.active { display: flex; }
+
+/* Scan-line overlay */
+#vngrd-console::before {
+    content: '';
+    position: absolute;
+    inset: 0;
+    background: repeating-linear-gradient(0deg, transparent, transparent 2px, rgba(0,0,0,0.06) 2px, rgba(0,0,0,0.06) 4px);
+    pointer-events: none;
+    z-index: 0;
+}
+
+/* ── Header ───────────────────────────────────────────── */
+#lcm-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 6px 12px;
+    background: linear-gradient(90deg, rgba(0,243,255,0.10) 0%, rgba(0,243,255,0.03) 100%);
+    border-bottom: 1px solid rgba(0,243,255,0.20);
+    flex-shrink: 0;
+    cursor: grab;
+    user-select: none;
+    position: relative;
+    z-index: 1;
+}
+#lcm-header:active { cursor: grabbing; }
+#lcm-title {
+    font-family: 'Orbitron', sans-serif;
+    font-size: 10px;
+    letter-spacing: 3px;
+    color: var(--c);
+    text-shadow: 0 0 8px rgba(0,243,255,0.6);
+}
+#lcm-header-right { display: flex; align-items: center; gap: 8px; }
+#lcm-bpm-display {
+    font-size: 8px;
+    color: rgba(0,243,255,0.5);
+    letter-spacing: 2px;
+    border: 1px solid rgba(0,243,255,0.15);
+    padding: 2px 6px;
+}
+#lcm-status-dot {
+    width: 6px; height: 6px;
+    border-radius: 50%;
+    background: var(--g);
+    box-shadow: 0 0 6px var(--g);
+    animation: lcm-pulse 1.2s ease-in-out infinite;
+}
+@keyframes lcm-pulse { 0%,100% { opacity: 1; } 50% { opacity: 0.35; } }
+.lcm-hdr-btn {
+    background: transparent;
+    border: 1px solid rgba(0,243,255,0.25);
+    color: rgba(0,243,255,0.7);
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 8px;
+    letter-spacing: 1px;
+    padding: 3px 8px;
+    cursor: pointer;
+    transition: all 0.12s;
+    text-transform: uppercase;
+}
+.lcm-hdr-btn:hover { background: rgba(0,243,255,0.12); border-color: var(--c); color: var(--c); }
+.lcm-hdr-btn.warn { border-color: rgba(255,0,85,0.3); color: rgba(255,0,85,0.6); }
+.lcm-hdr-btn.warn:hover { background: rgba(255,0,85,0.1); border-color: var(--p); color: var(--p); }
+
+/* ── Body: strips + side panel ──────────────────────────── */
+#lcm-body {
+    display: flex;
+    flex: 1;
+    overflow: hidden;
+    position: relative;
+    z-index: 1;
+}
+
+/* ── Channel Strips Scroll Area ─────────────────────────── */
+#lcm-strips-scroll {
+    flex: 1;
+    overflow-x: auto;
+    overflow-y: hidden;
+    scrollbar-width: thin;
+    scrollbar-color: rgba(0,243,255,0.3) transparent;
+    padding: 10px 8px;
+    display: flex;
+    align-items: stretch;
+    gap: 6px;
+    min-height: 280px;
+}
+#lcm-strips-scroll::-webkit-scrollbar { height: 3px; }
+#lcm-strips-scroll::-webkit-scrollbar-thumb { background: rgba(0,243,255,0.3); border-radius: 2px; }
+
+#lcm-strips {
+    display: flex;
+    gap: 6px;
+    align-items: stretch;
+    min-width: min-content;
+}
+
+/* ── Individual Channel Strip ─────────────────────────── */
+.lcm-strip {
+    width: 72px;
+    flex-shrink: 0;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 5px;
+    background: rgba(0,243,255,0.025);
+    border: 1px solid rgba(0,243,255,0.15);
+    padding: 8px 4px 6px;
+    position: relative;
+    transition: border-color 0.15s;
+}
+.lcm-strip:hover { border-color: rgba(0,243,255,0.35); }
+.lcm-strip.cued { border-color: var(--y); box-shadow: 0 0 8px rgba(255,204,0,0.2) inset; }
+.lcm-strip.recording { border-color: var(--p); box-shadow: 0 0 10px rgba(255,0,85,0.25) inset; animation: lcm-rec-pulse 0.5s ease-in-out infinite alternate; }
+@keyframes lcm-rec-pulse { from { box-shadow: 0 0 6px rgba(255,0,85,0.2) inset; } to { box-shadow: 0 0 18px rgba(255,0,85,0.5) inset; } }
+
+.lcm-strip-label {
+    font-family: 'Orbitron', sans-serif;
+    font-size: 7px;
+    letter-spacing: 1.5px;
+    color: rgba(0,243,255,0.7);
+    text-align: center;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    max-width: 64px;
+}
+
+/* VU Meter (vertical) */
+.lcm-vu {
+    width: 12px;
+    height: 70px;
+    background: rgba(0,0,0,0.5);
+    border: 1px solid rgba(0,243,255,0.12);
+    display: flex;
+    flex-direction: column;
+    justify-content: flex-end;
+    overflow: hidden;
+    position: relative;
+}
+.lcm-vu-bar {
+    width: 100%;
+    height: 0%;
+    background: linear-gradient(to top, var(--g) 0%, #aaff00 60%, var(--y) 80%, var(--p) 100%);
+    transition: height 0.04s linear;
+    will-change: height;
+}
+.lcm-vu-peak {
+    position: absolute;
+    width: 100%;
+    height: 2px;
+    background: var(--y);
+    bottom: 0;
+    transition: bottom 0.08s linear;
+    will-change: bottom;
+}
+
+/* Fader (vertical range) */
+.lcm-fader-wrap {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 3px;
+    flex: 1;
+    justify-content: center;
+}
+.lcm-fader {
+    -webkit-appearance: none;
+    appearance: none;
+    writing-mode: vertical-lr;
+    direction: rtl;
+    width: 8px;
+    height: 80px;
+    background: transparent;
+    cursor: pointer;
+    outline: none;
+}
+.lcm-fader::-webkit-slider-runnable-track {
+    width: 3px;
+    background: rgba(0,243,255,0.15);
+    border: none;
+}
+.lcm-fader::-webkit-slider-thumb {
+    -webkit-appearance: none;
+    appearance: none;
+    width: 14px;
+    height: 6px;
+    background: var(--c);
+    border: none;
+    box-shadow: 0 0 4px rgba(0,243,255,0.5);
+    cursor: grab;
+    margin-left: -5px;
+}
+.lcm-fader::-webkit-slider-thumb:active { cursor: grabbing; background: #fff; }
+.lcm-fader::-moz-range-track { width: 3px; background: rgba(0,243,255,0.15); }
+.lcm-fader::-moz-range-thumb { width: 14px; height: 6px; background: var(--c); border: none; cursor: grab; }
+.lcm-fader-val { font-size: 7px; color: rgba(0,243,255,0.5); letter-spacing: 1px; }
+
+/* CUE button */
+.lcm-cue-btn {
+    width: 100%;
+    padding: 4px 0;
+    background: transparent;
+    border: 1px solid rgba(255,204,0,0.3);
+    color: rgba(255,204,0,0.5);
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 8px;
+    letter-spacing: 2px;
+    cursor: pointer;
+    transition: all 0.12s;
+    text-transform: uppercase;
+}
+.lcm-cue-btn:hover { background: rgba(255,204,0,0.08); border-color: var(--y); color: var(--y); }
+.lcm-cue-btn.active { background: rgba(255,204,0,0.18); border-color: var(--y); color: var(--y); box-shadow: 0 0 6px rgba(255,204,0,0.3); }
+
+/* CAPTURE button — massive */
+.lcm-capture-btn {
+    width: 100%;
+    padding: 10px 2px;
+    background: rgba(255,0,85,0.08);
+    border: 1px solid rgba(255,0,85,0.4);
+    color: rgba(255,0,85,0.8);
+    font-family: 'Orbitron', sans-serif;
+    font-size: 7px;
+    letter-spacing: 1.5px;
+    cursor: pointer;
+    transition: all 0.12s;
+    text-transform: uppercase;
+    line-height: 1.5;
+    text-align: center;
+}
+.lcm-capture-btn:hover { background: rgba(255,0,85,0.18); border-color: var(--p); color: var(--p); box-shadow: 0 0 10px rgba(255,0,85,0.2); }
+.lcm-capture-btn.recording {
+    background: rgba(255,0,85,0.25);
+    border-color: var(--p);
+    color: var(--p);
+    box-shadow: 0 0 14px rgba(255,0,85,0.4);
+    animation: lcm-cap-flash 0.4s linear infinite alternate;
+}
+@keyframes lcm-cap-flash { from { opacity: 0.7; } to { opacity: 1; } }
+
+/* ── Right Side Panel (Ghost Deck + Neuro Bus) ─────────── */
+#lcm-side-panel {
+    width: 200px;
+    flex-shrink: 0;
+    display: flex;
+    flex-direction: column;
+    border-left: 1px solid rgba(0,243,255,0.12);
+    gap: 0;
+}
+
+/* Ghost Deck */
+#lcm-ghost-deck {
+    flex: 1;
+    padding: 10px;
+    border-bottom: 1px solid rgba(0,243,255,0.10);
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+}
+#lcm-ghost-deck-title {
+    font-family: 'Orbitron', sans-serif;
+    font-size: 8px;
+    letter-spacing: 2.5px;
+    color: var(--v);
+    text-shadow: 0 0 8px rgba(176,0,255,0.6);
+    margin-bottom: 4px;
+}
+#lcm-ghost-status {
+    font-size: 8px;
+    color: rgba(176,0,255,0.5);
+    letter-spacing: 1px;
+}
+.lcm-ghost-waveform {
+    height: 28px;
+    background: rgba(176,0,255,0.05);
+    border: 1px solid rgba(176,0,255,0.15);
+    position: relative;
+    overflow: hidden;
+}
+.lcm-ghost-waveform-bar {
+    position: absolute;
+    bottom: 0;
+    width: 2px;
+    background: var(--v);
+    opacity: 0.7;
+    transition: height 0.05s linear;
+    will-change: height;
+}
+#lcm-ghost-playhead {
+    position: absolute;
+    top: 0; bottom: 0;
+    width: 1px;
+    background: rgba(176,0,255,0.8);
+    left: 0;
+    transition: left 0.1s linear;
+    will-change: left;
+}
+.lcm-ghost-ctrl-row { display: flex; gap: 4px; }
+.lcm-ghost-btn {
+    flex: 1;
+    padding: 5px 2px;
+    background: transparent;
+    border: 1px solid rgba(176,0,255,0.3);
+    color: rgba(176,0,255,0.6);
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 7px;
+    letter-spacing: 1px;
+    cursor: pointer;
+    transition: all 0.12s;
+    text-transform: uppercase;
+}
+.lcm-ghost-btn:hover { background: rgba(176,0,255,0.1); border-color: var(--v); color: var(--v); }
+.lcm-ghost-btn.active { background: rgba(176,0,255,0.2); border-color: var(--v); color: var(--v); box-shadow: 0 0 6px rgba(176,0,255,0.3); }
+.lcm-ghost-gain-row {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+}
+.lcm-ghost-gain-row label { font-size: 7px; color: rgba(176,0,255,0.4); letter-spacing: 1px; flex-shrink: 0; }
+.lcm-ghost-gain-row input[type=range] {
+    flex: 1;
+    -webkit-appearance: none;
+    appearance: none;
+    height: 3px;
+    background: rgba(176,0,255,0.2);
+    outline: none;
+    cursor: pointer;
+}
+.lcm-ghost-gain-row input[type=range]::-webkit-slider-thumb {
+    -webkit-appearance: none;
+    width: 10px; height: 10px;
+    background: var(--v);
+    border-radius: 0;
+    box-shadow: 0 0 4px rgba(176,0,255,0.6);
+}
+.lcm-grain-row {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+}
+.lcm-grain-row label { font-size: 7px; color: rgba(176,0,255,0.4); letter-spacing: 1px; flex-shrink: 0; width: 28px; }
+.lcm-grain-row input[type=range] {
+    flex: 1;
+    -webkit-appearance: none;
+    appearance: none;
+    height: 2px;
+    background: rgba(176,0,255,0.15);
+    outline: none;
+    cursor: pointer;
+}
+.lcm-grain-row input[type=range]::-webkit-slider-thumb {
+    -webkit-appearance: none;
+    width: 8px; height: 8px;
+    background: rgba(176,0,255,0.7);
+    border-radius: 0;
+}
+.lcm-grain-val { font-size: 7px; color: rgba(176,0,255,0.4); width: 26px; text-align: right; }
+
+/* ── Neuro Compiler // Offline Bus ─────────────────────── */
+#lcm-neuro-bus {
+    padding: 10px;
+    flex-shrink: 0;
+}
+#lcm-neuro-bus-inner {
+    border: 1px dashed rgba(255,204,0,0.25);
+    padding: 8px;
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+    background: repeating-linear-gradient(-45deg, transparent, transparent 4px, rgba(255,204,0,0.02) 4px, rgba(255,204,0,0.02) 8px);
+}
+#lcm-neuro-title {
+    font-family: 'Orbitron', sans-serif;
+    font-size: 7px;
+    letter-spacing: 2px;
+    color: rgba(255,204,0,0.4);
+}
+#lcm-neuro-status {
+    font-size: 7px;
+    color: rgba(255,204,0,0.25);
+    letter-spacing: 1px;
+}
+#lcm-neuro-routing {
+    font-size: 7px;
+    color: rgba(255,204,0,0.2);
+    letter-spacing: 0.5px;
+    margin-top: 2px;
+    border-top: 1px solid rgba(255,204,0,0.1);
+    padding-top: 4px;
+}
+
+/* ── Add Channel placeholder ──────────────────────────── */
+.lcm-add-placeholder {
+    width: 72px;
+    flex-shrink: 0;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 6px;
+    border: 1px dashed rgba(0,243,255,0.15);
+    cursor: pointer;
+    transition: all 0.15s;
+    padding: 8px 4px;
+    min-height: 200px;
+    background: rgba(0,243,255,0.015);
+}
+.lcm-add-placeholder:hover { border-color: rgba(0,243,255,0.4); background: rgba(0,243,255,0.04); }
+.lcm-add-placeholder span { font-size: 18px; color: rgba(0,243,255,0.3); line-height: 1; }
+.lcm-add-placeholder small { font-size: 7px; letter-spacing: 1.5px; color: rgba(0,243,255,0.3); text-align: center; }
+
+/* ── Device Select Modal ──────────────────────────────── */
+#lcm-device-modal {
+    position: absolute;
+    top: 50%; left: 50%;
+    transform: translate(-50%, -50%);
+    background: rgba(2, 5, 10, 0.99);
+    border: 1px solid var(--c);
+    box-shadow: 0 0 30px rgba(0,243,255,0.2);
+    padding: 16px;
+    z-index: 10;
+    width: 280px;
+    display: none;
+    flex-direction: column;
+    gap: 10px;
+}
+#lcm-device-modal.active { display: flex; }
+#lcm-device-modal-title {
+    font-family: 'Orbitron', sans-serif;
+    font-size: 9px;
+    letter-spacing: 2px;
+    color: var(--c);
+    margin-bottom: 4px;
+}
+#lcm-device-list { display: flex; flex-direction: column; gap: 4px; max-height: 200px; overflow-y: auto; }
+.lcm-device-item {
+    padding: 6px 8px;
+    border: 1px solid rgba(0,243,255,0.15);
+    cursor: pointer;
+    font-size: 8px;
+    color: var(--text);
+    letter-spacing: 0.5px;
+    transition: all 0.1s;
+    background: rgba(0,243,255,0.02);
+}
+.lcm-device-item:hover { border-color: var(--c); background: rgba(0,243,255,0.1); color: var(--c); }
+.lcm-device-item .lcm-di-id { font-size: 7px; color: rgba(255,255,255,0.25); margin-top: 2px; }
+#lcm-device-modal-cancel {
+    padding: 5px;
+    background: transparent;
+    border: 1px solid rgba(255,255,255,0.1);
+    color: rgba(255,255,255,0.3);
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 8px;
+    cursor: pointer;
+    letter-spacing: 1px;
+    margin-top: 4px;
+}
+#lcm-device-modal-cancel:hover { color: var(--p); border-color: rgba(255,0,85,0.4); }
+
+/* ── Bottom info-bar trigger button ───────────────────── */
+#btn-lcm-toggle {
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    gap: 3px;
+    padding: 2px 5px;
+    border: 1px solid rgba(0,243,255,0.25);
+    border-radius: 2px;
+    transition: all 0.15s;
+    background: rgba(0,243,255,0.04);
+}
+#btn-lcm-toggle:hover { background: rgba(0,243,255,0.12); border-color: rgba(0,243,255,0.6); }
+#btn-lcm-toggle.active { background: rgba(0,243,255,0.16); border-color: var(--c); box-shadow: 0 0 6px rgba(0,243,255,0.25); }
+#btn-lcm-toggle span { font-size: 7px; font-family: 'JetBrains Mono', monospace; letter-spacing: 1px; }
+#btn-lcm-toggle .lcm-tgl-label { color: rgba(0,243,255,0.7); }
+#btn-lcm-toggle .lcm-tgl-sub { color: rgba(255,255,255,0.4); }
 
     </style>
 </head>
@@ -4507,27 +5100,27 @@ body.fullscreen #transcription-hud { pointer-events: none !important; } /* keep 
                     </label>
                 </div>
                 <div class="btn-row" style="gap:4px;">
-                    <button class="btn" id="btn-set-station" style="flex:2;">SET BUG</button>
-                    <select id="bug-style-select" title="Style" style="min-width:0;">
+                    <button class="btn" id="btn-set-station" style="flex:1;font-size:9px;">SET BUG</button>
+                    <select id="bug-style-select" title="Style" style="width:44px;min-width:44px;flex:none;">
                         <option value="plain">PL</option>
                         <option value="pulse">PU</option>
                         <option value="glitch">GL</option>
                     </select>
-                    <select id="bug-mode-select" title="Render mode" style="min-width:0;">
+                    <select id="bug-mode-select" title="Render mode" style="width:48px;min-width:48px;flex:none;">
                         <option value="solid">SLD</option>
                         <option value="knockout">K/O</option>
                         <option value="inverted">INV</option>
                     </select>
-                    <button class="btn" id="btn-bug-toggle" title="Toggle Bug">[X]</button>
+                    <button class="btn" id="btn-bug-toggle" title="Toggle Bug" style="flex:none;width:34px;text-align:center;padding:5px 0;font-size:9px;">[X]</button>
                 </div>
                 <div class="btn-row" style="margin-top:6px;">
-                    <button class="btn" id="btn-upload-2d" style="flex:2;">2D LOGO</button>
-                    <button class="btn" id="btn-2d-x" title="Hide/Clear 2D">[X]</button>
+                    <button class="btn" id="btn-upload-2d" style="flex:1;">2D LOGO</button>
+                    <button class="btn" id="btn-2d-x" title="Hide/Clear 2D" style="flex:none;width:34px;text-align:center;padding:5px 0;">[X]</button>
                 </div>
                 <input type="file" id="file-2d-logo" accept=".png,.jpg,.jpeg,.gif,.webp" style="display:none;">
                 <div class="btn-row" style="margin-top:6px;">
-                    <button class="btn" id="btn-upload-3d" style="flex:2;color:var(--c);">3D LOGO</button>
-                    <button class="btn" id="btn-3d-x" title="Hide/Clear 3D">[X]</button>
+                    <button class="btn" id="btn-upload-3d" style="flex:1;color:var(--c);">3D LOGO</button>
+                    <button class="btn" id="btn-3d-x" title="Hide/Clear 3D" style="flex:none;width:34px;text-align:center;padding:5px 0;">[X]</button>
                 </div>
                 <input type="file" id="file-3d-logo" accept=".obj,.fbx,.stl,.amf,.igs,.iges" style="display:none;">
             </div>
@@ -4607,28 +5200,26 @@ body.fullscreen #transcription-hud { pointer-events: none !important; } /* keep 
                     <div id="vu"></div>
                     <div id="track-info">NO_TRACK</div>
                 </div>
-                <div class="btn-row"><button class="btn" id="btn-audio" style="flex:1;">LOAD AUDIO</button><button class="btn" id="btn-mute-vid" style="width:32px;font-size:12px;padding:2px;" title="Toggle video audio">&#x1F50A;</button><button class="btn" id="btn-mic-engine" style="width:32px;font-size:11px;padding:2px;" title="Mic on/off">&#x1F3A4;</button></div>
-                <div class="audio-ctrl-row">
-                    <button class="btn btn-compact" id="btn-prev-track"><svg width="10" height="10" viewBox="0 0 12 12"><path fill="currentColor" d="M2 2h2v8H2zm2 4l6 4V2z"/></svg></button>
-                    <button class="btn btn-compact" id="btn-play-pause"><svg width="10" height="10" viewBox="0 0 12 12" id="icon-play-state"><path fill="currentColor" d="M3 2v8l7-4z"/></svg></button>
-                    <button class="btn btn-compact" id="btn-next-track"><svg width="10" height="10" viewBox="0 0 12 12"><path fill="currentColor" d="M2 10l6-4-6-4v8zm6-8v8h2V2H8z"/></svg></button>
+                <div class="btn-row" style="gap:4px;margin-bottom:3px;"><button class="btn btn-compact" id="btn-audio" style="flex:1;font-size:9px;padding:6px 4px;">LOAD AUDIO</button><button class="btn btn-compact" id="btn-mute-vid" style="width:30px;flex:none;font-size:12px;padding:4px 2px;" title="Toggle video audio">&#x1F50A;</button><button class="btn btn-compact" id="btn-mic-engine" style="width:30px;flex:none;font-size:11px;padding:4px 2px;" title="Mic on/off">&#x1F3A4;</button></div>
+                <div class="audio-ctrl-row" style="margin-bottom:5px;">
+                    <button class="btn btn-compact" id="btn-prev-track" style="padding:6px 0;"><svg width="10" height="10" viewBox="0 0 12 12"><path fill="currentColor" d="M2 2h2v8H2zm2 4l6 4V2z"/></svg></button>
+                    <button class="btn btn-compact" id="btn-play-pause" style="padding:6px 0;"><svg width="10" height="10" viewBox="0 0 12 12" id="icon-play-state"><path fill="currentColor" d="M3 2v8l7-4z"/></svg></button>
+                    <button class="btn btn-compact" id="btn-next-track" style="padding:6px 0;"><svg width="10" height="10" viewBox="0 0 12 12"><path fill="currentColor" d="M2 10l6-4-6-4v8zm6-8v8h2V2H8z"/></svg></button>
                 </div>
-                <div class="sec-divider"></div>
-                <div class="lbl" style="font-size:6.5px;opacity:0.4;letter-spacing:2px;margin-bottom:4px;">INPUT</div>
-                <button class="btn" id="btn-scan-inputs" style="font-size:8px;">SCAN_INPUTS</button>
-                <select class="inp" id="audio-input-select" style="width:100%;font-size:9px;padding:5px;background:var(--panel);border:1px solid var(--border);color:var(--text);display:none;margin-top:4px;">
+                <button class="btn" id="btn-scan-inputs" style="font-size:8px;text-align:center;">SCAN_INPUTS</button>
+                <select class="inp" id="audio-input-select" style="width:100%;font-size:8px;padding:4px 5px;background:var(--panel);border:1px solid var(--border);color:var(--text);display:none;margin-bottom:2px;">
                     <option value="">SELECT_DEVICE...</option>
                 </select>
-                <div id="input-level" style="height:3px;background:var(--border);margin-top:4px;">
+                <div id="input-level" style="height:2px;background:var(--border);margin-bottom:2px;">
                     <div id="input-level-bar" style="height:100%;width:0%;background:var(--g);transition:width 0.05s;"></div>
                 </div>
-                <div class="sec-divider"></div>
-                <div class="lbl" style="font-size:6.5px;opacity:0.4;letter-spacing:2px;margin-bottom:4px;">ENGINEER_MODE</div>
+                <div class="lbl" style="font-size:6.5px;opacity:0.4;margin-bottom:6px;letter-spacing:2px;text-align:center;">INPUT</div>
                 <div class="btn-grid-3">
-                    <button class="btn active-mode" id="btn-stereo">STEREO</button>
-                    <button class="btn" id="btn-spatial">3D_SPATIAL</button>
-                    <button class="btn" id="btn-dolby" style="color:#00f3ff">DOLBY</button>
+                    <button class="btn active-mode" id="btn-stereo" style="font-size:8px;">STEREO</button>
+                    <button class="btn" id="btn-spatial" style="font-size:8px;">3D_SPATIAL</button>
+                    <button class="btn" id="btn-dolby" style="font-size:8px;color:#ffa500;">DOLBY</button>
                 </div>
+                <div class="lbl" style="font-size:6.5px;opacity:0.4;letter-spacing:2px;text-align:center;">ENGINEER_MODE</div>
             </div>
         </div>
 
@@ -4645,7 +5236,7 @@ body.fullscreen #transcription-hud { pointer-events: none !important; } /* keep 
                 <div id="sfx-sampler-wrap">
                     <div id="sfx-sampler-header" onclick="_toggleSamplerBody()" style="cursor:pointer;">
                         <span class="sampler-title">Sampler SFX</span>
-                        <span class="sampler-collapse-arrow" id="sfx-collapse-arrow" style="font-size:8px;color:var(--accent);margin-left:4px;margin-right:auto;transition:color 0.2s;line-height:1;">&#x25BE;</span>
+                        <span class="sampler-collapse-arrow" id="sfx-collapse-arrow" style="font-size:8px;color:var(--text-dim);margin-left:4px;margin-right:auto;transition:color 0.2s;line-height:1;">&#x25B8;</span>
                         <button class="sampler-help-btn" onclick="event.stopPropagation();_toggleSectionHelp(this,'sampler')">?</button>
                         <span class="sampler-badge">SFX · 12-PAD</span>
                     </div>
@@ -5126,9 +5717,63 @@ body.fullscreen #transcription-hud { pointer-events: none !important; } /* keep 
                 </div>
             </div>
         </div>
+        <!-- ── VOICE_LAB // SYNESTHESIA VOICE ENGINE ──────────────────────── -->
+        <div class="section" id="sve-section">
+            <div class="sec-head collapsible">
+                <span class="sec-title">VOICE_LAB</span>
+                <span class="sec-arrow">&#x25B8;</span>
+                <button class="sampler-help-btn" onclick="event.stopPropagation();_toggleSectionHelp(this,'voice-lab')">?</button>
+                <div class="sec-dot off" id="sve-dot"></div>
+            </div>
+            <div class="sec-body" id="sve-body" style="max-height:0;padding:0 12px;overflow:hidden;">
+
+                <!-- Script -->
+                <textarea
+                    id="sve-script"
+                    class="inp"
+                    placeholder="Narration script..."
+                    spellcheck="false"
+                    rows="3"
+                    style="min-height:52px;resize:vertical;font-size:9px;line-height:1.55;margin-bottom:5px;border-left:2px solid rgba(0,243,255,0.28);"
+                    onkeydown="event.stopPropagation()"
+                    onkeyup="event.stopPropagation()"
+                ></textarea>
+
+                <!-- Mode (4 cols) -->
+                <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:3px;margin-bottom:5px;">
+                    <button id="sve-mood-clean"   class="sve-mood-btn" title="Pure voice, no FX — best for audiobooks"
+                        onclick="window.SVE&&SVE.init().then(()=>SVE.setMood('CLEAN'))">CLEAN</button>
+                    <button id="sve-mood-cyber"   class="sve-mood-btn active-mode" title="Digital tick, ping-pong shimmer"
+                        onclick="window.SVE&&SVE.init().then(()=>SVE.setMood('CYBER'))">CYBER</button>
+                    <button id="sve-mood-ghost"   class="sve-mood-btn" title="Low-freq pulse, long echo tail"
+                        onclick="window.SVE&&SVE.init().then(()=>SVE.setMood('GHOST'))">GHOST</button>
+                    <button id="sve-mood-monster" class="sve-mood-btn" title="Sub-bass thump, heavy distortion"
+                        onclick="window.SVE&&SVE.init().then(()=>SVE.setMood('MONSTER'))">MNSTR</button>
+                </div>
+
+                <!-- Controls -->
+                <div class="sve-ctrl-row" style="margin-bottom:4px;">
+                    <button class="btn" id="sve-speak-btn" style="flex:1;"
+                        onclick="(async()=>{
+                            if(!window.SVE)return;
+                            if(SVE.isPlaying){SVE.stop();return;}
+                            await SVE.init();
+                            SVE.speak(document.getElementById('sve-script').value);
+                        })()">▶ SPEAK</button>
+                    <button class="btn" style="width:30px;flex:none;font-size:11px;padding:0;" title="Test glitch burst (works in all modes)"
+                        onclick="window.SVE&&SVE.init().then(()=>SVE.triggerGlitch(true))">⚡</button>
+                </div>
+
+                <!-- Status -->
+                <div id="sve-status" style="font-family:'JetBrains Mono',monospace;font-size:7px;color:var(--accent);letter-spacing:1px;min-height:11px;opacity:0.8;word-break:break-all;">STANDBY</div>
+
+            </div>
+        </div>
+        <!-- ── END VOICE_LAB ──────────────────────────────────────────────── -->
+
         <div class="section">
-            <div class="sec-head collapsible open"><span class="sec-title">MIDI_HOST</span><span class="sec-arrow">&#x25BE;</span><button class="sampler-help-btn" onclick="event.stopPropagation();_toggleSectionHelp(this,'midi')">?</button><div class="sec-dot off" id="midi-dot"></div></div>
-            <div class="sec-body" id="midi-host-body" style="max-height:200px;padding:8px 12px;">
+            <div class="sec-head collapsible"><span class="sec-title">MIDI_HOST</span><span class="sec-arrow">&#x25B8;</span><button class="sampler-help-btn" onclick="event.stopPropagation();_toggleSectionHelp(this,'midi')">?</button><div class="sec-dot off" id="midi-dot"></div></div>
+            <div class="sec-body" id="midi-host-body">
                 <div class="btn-row" style="gap:4px;">
                     <button class="btn" id="btn-midi" style="flex:1;font-size:8px;">MIDI INIT</button>
                     <button class="btn" id="btn-midi-learn" style="flex:1;font-size:8px;color:var(--v);border-color:var(--v);">LEARN: OFF</button>
@@ -5138,7 +5783,7 @@ body.fullscreen #transcription-hud { pointer-events: none !important; } /* keep 
             </div>
         </div>
         <div class="section">
-            <div class="sec-head collapsible open" style="display:flex;align-items:center;gap:6px;"><span class="sec-title">SESSION_LAB</span><span class="sec-arrow">&#x25BE;</span><button class="sampler-help-btn" onclick="event.stopPropagation();_toggleSectionHelp(this,'session-lab')">?</button><div class="sec-dot"></div><div id="sync-led" title="INTEL: AUTO_SAVE // 60s PULSE"></div></div>
+            <div class="sec-head collapsible open"><span class="sec-title">SESSION_LAB</span><span class="sec-arrow">&#x25BE;</span><button class="sampler-help-btn" onclick="event.stopPropagation();_toggleSectionHelp(this,'session-lab')">?</button><div class="sec-dot"></div><div id="sync-led" title="INTEL: AUTO_SAVE // 60s PULSE"></div></div>
             <div class="sec-body" id="session-lab-body" style="max-height:500px;padding:10px 12px;">
                 <div class="btn-row">
                     <button class="btn" id="btn-nft-30" style="flex:1;font-size:8px;color:var(--o);border-color:var(--o);">CAPTURE_VNGRD_CLIP</button>
@@ -5184,7 +5829,6 @@ body.fullscreen #transcription-hud { pointer-events: none !important; } /* keep 
             </div>
         </div>
 
-
     </aside>
 
     <footer id="bottom-bar">
@@ -5217,6 +5861,10 @@ body.fullscreen #transcription-hud { pointer-events: none !important; } /* keep 
                 <div id="btn-hud-alpha" onclick="if(typeof toggleHudAlpha==='function')toggleHudAlpha()" title="Panel skin — SOLID / GLASS / GHOST" style="cursor:pointer;display:flex;align-items:center;gap:3px;padding:2px 5px;border:1px solid rgba(0,243,255,0.25);border-radius:2px;transition:all 0.15s;background:rgba(0,243,255,0.04);" onmouseenter="this.style.background='rgba(0,243,255,0.12)';this.style.borderColor='rgba(0,243,255,0.6)'" onmouseleave="this.style.background='rgba(0,243,255,0.04)';this.style.borderColor='rgba(0,243,255,0.25)'">
                     <span id="hud-alpha-label" style="font-size:7px;color:rgba(0,243,255,0.7);font-family:'JetBrains Mono',monospace;letter-spacing:1px;">SOLID</span>
                 </div>
+                <div id="btn-lcm-toggle" onclick="LCM.toggle()" title="Live Console Matrix — hardware multi-input mixer + Ghost Deck looper">
+                    <span class="lcm-tgl-label">MX</span>
+                    <span class="lcm-tgl-sub">MATRIX</span>
+                </div>
             </div>
         </div>
     </footer>
@@ -5247,6 +5895,19 @@ body.fullscreen #transcription-hud { pointer-events: none !important; } /* keep 
                 <button class="btn" id="btn-qr-close" style="flex:1;font-size:9px;color:var(--p);border-color:var(--p);">CLOSE</button>
             </div>
         </div>
+    </div>
+
+    <!-- WALLET SYNC HUD — IPFS upload indicator + snapshot thumbnail -->
+    <div id="wallet-sync-hud">
+        <div id="ipfs-sync-indicator">
+            <div id="ipfs-sync-dot"></div>
+            <span id="ipfs-sync-label">IPFS SYNC</span>
+        </div>
+        <div id="wallet-sync-thumbnail">
+            <img id="wallet-sync-snapshot" src="" alt="webgl snapshot" />
+        </div>
+        <div id="wallet-sync-cid"></div>
+        <div id="wallet-sync-dismiss" onclick="document.getElementById('wallet-sync-hud').classList.remove('visible','syncing','synced','error');">DISMISS ✕</div>
     </div>
 
     <div id="sys-log">
@@ -5346,7 +6007,7 @@ const APP = {
         brightness: 1.0, contrast: 1.0, saturation: 1.0, hue: 0, trailsEnabled: false, trailAlpha: 0.92, rgbEnabled: false, rgbIntensity: 0, rgbBassLink: false, pixelateEnabled: false, pixelSize: 1, rumbleEnabled: false, invert: false, uiReactivity: false, shakeIntensity: 0, shockwave: 0, lastBassLevel: 0, avgVol: 0, maskMode: false, glitchSnap: 0,
         seismicVelocity: 0, seismicPosition: 0, springConstant: 0.8, damping: 0.9
     },
-    media: { queue: [], currentIndex: -1, currentElement: null },
+    media: { queue: [], currentIndex: -1, currentElement: null, _tx: null, audioSync: false, _activeSeam: -1, _seamOpen: false, _seamExpandH: 0, _seamGlitchT: 0, _durDragging: false, _durDragZone: null },
     fx: { stutter: false, crush: false, invert: false, echo: false, rgbSplit: 0, freezeFrame: null },
     audio: { ctx: null, analyzer: null, source: null, element: null, playlist: [], currentTrack: -1, currentTrackName: '', bassLevel: 0, vuData: new Uint8Array(32), isPlaying: false, isConnected: false, videoSource: null, videoMuted: false, videoGain: null, spatialMode: 'stereo', panner: null, compressor: null, masterGain: null, lowShelf: null, highShelf: null, spatialInterval: null, recorderDest: null },
 
@@ -6800,74 +7461,343 @@ function drawMediaQueue(ctx, w, h, bottomY) {
     if (!APP.state.showMediaStrips) return;
 
     var thumbSize = Math.round(h * 0.065);
-    var padding = Math.round(thumbSize * 0.15);
-    var barH = thumbSize + padding * 2;
-    var barY = bottomY - barH;
+    var padding   = Math.round(thumbSize * 0.15);
+    var barH      = thumbSize + padding * 2;
+
+    // ── Animated expansion (spring toward target) ──
+    var _TARGET_H  = 58;
+    var _targetExp = (APP.media._activeSeam >= 0) ? _TARGET_H : 0;
+    APP.media._seamExpandH += (_targetExp - APP.media._seamExpandH) * 0.2;
+    if (Math.abs(APP.media._seamExpandH - _targetExp) < 0.4) APP.media._seamExpandH = _targetExp;
+    var _eH = Math.round(APP.media._seamExpandH); // current expansion px
+
+    // Thumbnail bar sits above the expansion track
+    var barY  = bottomY - barH - _eH;
+    var thumbY = barY + padding; // top of thumbnails
 
     ctx.save();
     ctx.globalCompositeOperation = 'source-over';
-    ctx.fillStyle = 'rgba(4,4,8,0.80)';
-    ctx.fillRect(0, barY, w, barH);
 
-    // Top accent line — violet to distinguish from NFT vault (cyan)
-    ctx.fillStyle = 'rgba(160,80,255,0.5)';
-    ctx.fillRect(0, barY, w, 1);
+    // ── Bar background (thumbnails region) ──
+    ctx.fillStyle = 'rgba(4,4,8,0.82)';
+    ctx.fillRect(0, barY, w, barH);
+    ctx.fillStyle = 'rgba(160,80,255,0.45)';
+    ctx.fillRect(0, barY, w, 1); // top accent
+
+    // ── Expansion track background ──
+    if (_eH > 0) {
+        var _tY = barY + barH; // top of expansion track
+        ctx.fillStyle = 'rgba(3,3,14,0.97)';
+        ctx.fillRect(0, _tY, w, _eH);
+        // Top border of expansion track
+        ctx.fillStyle = 'rgba(130,55,255,0.35)';
+        ctx.fillRect(0, _tY, w, 1);
+        // Violet left rail (NLE track marker)
+        ctx.fillStyle = 'rgba(140,60,255,0.7)';
+        ctx.fillRect(0, _tY, 3, _eH);
+    }
 
     // Init hit areas
     if (!APP.media.queueStrip) APP.media.queueStrip = {};
     APP.media.queueStrip.thumbnails = [];
-    APP.media.queueStrip.durationZones = [];
+    APP.media.queueStrip.seams      = [];
+    APP.media.queueStrip.ctrlZones  = [];
+    APP.media.queueStrip.audioSyncZone = null;
 
     var totalW = queue.length * (thumbSize + padding) - padding;
     var startX = Math.max(padding, (w - totalW) / 2);
 
     for (var i = 0; i < queue.length; i++) {
         var item = queue[i];
-        var el = item.element;
+        var el   = item.element;
         if (!el) continue;
-
         var isVid = el.tagName === 'VIDEO';
         if (el.tagName === 'IMG' && (!el.complete || el.naturalWidth === 0)) continue;
         if (isVid && el.readyState < 2) continue;
 
         var tx = startX + i * (thumbSize + padding);
-        var ty = barY + padding;
+        var ty = thumbY;
 
         try { ctx.drawImage(el, tx, ty, thumbSize, thumbSize); } catch(e) { continue; }
 
-        // Border — red for active, violet for inactive
+        // Border
         var isActive = (APP.media.currentIndex === i);
-        ctx.strokeStyle = isActive ? '#ff3333' : 'rgba(160,80,255,0.7)';
+        ctx.strokeStyle = isActive ? '#ff3333' : 'rgba(160,80,255,0.6)';
         ctx.lineWidth = isActive ? 2 : 1;
         ctx.strokeRect(tx, ty, thumbSize, thumbSize);
 
-        // Name label
-        var labelFS = Math.max(8, Math.round(thumbSize * 0.14));
-        ctx.font = '700 ' + labelFS + 'px Orbitron, sans-serif';
-        ctx.fillStyle = 'rgba(255,255,255,0.65)';
+        // Name label (below thumb)
+        var labelFS = Math.max(7, Math.round(thumbSize * 0.13));
+        ctx.font = '600 ' + labelFS + 'px "Orbitron", monospace';
+        ctx.fillStyle = 'rgba(255,255,255,0.55)';
         ctx.textAlign = 'center';
         ctx.textBaseline = 'top';
         ctx.fillText((item.name || 'FILE').substring(0, 10), tx + thumbSize / 2, ty + thumbSize + 2);
 
-        // Store thumbnail hit zone
+        // Duration label — bottom-left corner of thumbnail (clean, no badge)
+        if (!isVid) {
+            var durTxt = item.duration === null ? '\u221e' : (item.duration || 8) + 's';
+            var durFS  = Math.max(7, Math.round(thumbSize * 0.135));
+            ctx.font = '700 ' + durFS + 'px monospace';
+            ctx.textAlign    = 'left';
+            ctx.textBaseline = 'bottom';
+            ctx.fillStyle    = 'rgba(160,80,255,0.82)';
+            ctx.fillText(durTxt, tx + 3, ty + thumbSize - 2);
+        }
+
+        // Beat-sync micro-dot (bottom-right, gold, only when active)
+        if (item.beatSync) {
+            var _bsR = Math.max(3, Math.round(thumbSize * 0.07));
+            ctx.beginPath();
+            ctx.arc(tx + thumbSize - _bsR - 2, ty + thumbSize - _bsR - 2, _bsR, 0, Math.PI * 2);
+            ctx.fillStyle = 'rgba(255,200,0,0.82)';
+            ctx.fill();
+        }
+
+        // Thumbnail hit zone
         APP.media.queueStrip.thumbnails.push({ x: tx, y: ty, w: thumbSize, h: thumbSize, index: i });
 
-        // Duration badge — images only (videos play full length)
-        if (!isVid) {
-            var dur = item.duration != null ? item.duration : 8;
-            var badgeFS = Math.max(9, Math.round(thumbSize * 0.13));
-            var badgeW = Math.max(22, Math.round(thumbSize * 0.3));
-            var badgeH = Math.round(thumbSize * 0.19);
-            var badgeX = tx + thumbSize - badgeW - 2;
-            var badgeY = ty + 2;
-            ctx.fillStyle = 'rgba(0,0,0,0.78)';
-            ctx.fillRect(badgeX, badgeY, badgeW, badgeH);
-            ctx.fillStyle = 'rgba(160,80,255,0.95)';
-            ctx.font = '600 ' + badgeFS + 'px monospace';
-            ctx.textAlign = 'center';
+        // ── Seam between this clip and next ──
+        if (i < queue.length - 1) {
+            var _scx      = tx + thumbSize + Math.round(padding / 2);
+            var _sIdx     = APP.media.queueStrip.seams.length;
+            var _sHovered = (APP.media._hoveredSeam === _sIdx);
+            var _sActive  = (APP.media._activeSeam  === _sIdx);
+
+            ctx.save();
+            if (_sActive) {
+                ctx.strokeStyle = 'rgba(200,140,255,1.0)';
+                ctx.lineWidth   = 2;
+                ctx.shadowColor = 'rgba(180,100,255,0.9)';
+                ctx.shadowBlur  = 10;
+            } else if (_sHovered) {
+                ctx.strokeStyle = 'rgba(180,110,255,0.9)';
+                ctx.lineWidth   = 2;
+                ctx.shadowColor = 'rgba(160,80,255,0.7)';
+                ctx.shadowBlur  = 6;
+            } else {
+                ctx.strokeStyle = 'rgba(120,50,220,0.25)';
+                ctx.lineWidth   = 1;
+            }
+            ctx.beginPath();
+            ctx.moveTo(_scx, barY + 4);
+            ctx.lineTo(_scx, barY + barH - 4);
+            ctx.stroke();
+
+            // Active seam: small downward-pointing node marker at bottom of seam line
+            if (_sActive && _eH > 2) {
+                ctx.fillStyle = 'rgba(200,140,255,1.0)';
+                ctx.beginPath();
+                ctx.moveTo(_scx,     barY + barH - 4);
+                ctx.lineTo(_scx - 5, barY + barH + 4);
+                ctx.lineTo(_scx + 5, barY + barH + 4);
+                ctx.closePath();
+                ctx.fill();
+            }
+            ctx.restore();
+
+            var _sHitW = Math.max(10, padding);
+            APP.media.queueStrip.seams.push({
+                cx: _scx, barY: barY,
+                hitX: tx + thumbSize, hitY: barY,
+                hitW: _sHitW, hitH: barH,
+                fromIndex: i, toIndex: i + 1
+            });
+        }
+    }
+
+    // ── AUDIO_SYNC pill — right edge of thumbnail bar ──
+    var asPW = Math.max(46, Math.round(thumbSize * 0.62));
+    var asPH = Math.round(thumbSize * 0.27);
+    var asPX = w - asPW - Math.round(padding * 1.5);
+    var asPY = barY + Math.round((barH - asPH) / 2);
+    var asOn = !!APP.media.audioSync;
+    ctx.fillStyle   = asOn ? 'rgba(255,180,0,0.9)'  : 'rgba(28,28,40,0.85)';
+    ctx.strokeStyle = asOn ? 'rgba(255,220,0,0.85)' : 'rgba(120,80,200,0.5)';
+    ctx.lineWidth   = 1;
+    var _aR = Math.round(asPH / 2);
+    ctx.beginPath();
+    ctx.moveTo(asPX + _aR, asPY);
+    ctx.lineTo(asPX + asPW - _aR, asPY);
+    ctx.arcTo(asPX + asPW, asPY, asPX + asPW, asPY + asPH, _aR);
+    ctx.lineTo(asPX + asPW, asPY + asPH - _aR);
+    ctx.arcTo(asPX + asPW, asPY + asPH, asPX + asPW - _aR, asPY + asPH, _aR);
+    ctx.lineTo(asPX + _aR, asPY + asPH);
+    ctx.arcTo(asPX, asPY + asPH, asPX, asPY + asPH - _aR, _aR);
+    ctx.lineTo(asPX, asPY + _aR);
+    ctx.arcTo(asPX, asPY, asPX + _aR, asPY, _aR);
+    ctx.closePath();
+    ctx.fill(); ctx.stroke();
+    var aPFS = Math.max(7, Math.round(asPH * 0.54));
+    ctx.fillStyle    = asOn ? '#000' : 'rgba(180,140,255,0.85)';
+    ctx.font         = '700 ' + aPFS + 'px monospace';
+    ctx.textAlign    = 'center';
+    ctx.textBaseline = 'middle';
+    ctx.fillText('\u266b SYNC', asPX + asPW / 2, asPY + asPH / 2);
+    APP.media.queueStrip.audioSyncZone = { x: asPX, y: asPY, w: asPW, h: asPH };
+
+    // ── EXPANSION TRACK CONTROLS ──
+    if (_eH >= 8 && APP.media._activeSeam >= 0) {
+        var _seam = APP.media.queueStrip.seams[APP.media._activeSeam];
+        var _toItem = _seam ? APP.media.queue[_seam.toIndex] : null;
+        if (_toItem) {
+            var _tY   = barY + barH; // top of expansion track
+            var _fade = Math.min(1, (_eH - 8) / 18);
+            ctx.globalAlpha = _fade;
+
+            var _lpad = 18, _rpad = 18 + asPW + 10;
+            var _midY = _tY + _eH / 2;
+            var _fs9  = Math.max(9,  Math.round(h * 0.0085));  // main control font
+            var _fs8  = Math.max(8,  Math.round(_fs9 * 0.88)); // label font
+
+            // ── SEAM label ──
+            ctx.font = '600 ' + _fs8 + 'px monospace';
+            ctx.textAlign = 'left'; ctx.textBaseline = 'middle';
+            ctx.fillStyle = 'rgba(160,100,255,0.72)';
+            ctx.fillText('S' + APP.media._activeSeam, _lpad + 3, _midY);
+            var _seamLblW = ctx.measureText('S' + APP.media._activeSeam).width;
+
+            // section divider helper
+            var _div = function(x) {
+                ctx.save();
+                ctx.strokeStyle = 'rgba(130,55,255,0.22)';
+                ctx.lineWidth   = 1;
+                ctx.beginPath(); ctx.moveTo(x, _tY + 10); ctx.lineTo(x, _tY + _eH - 10); ctx.stroke();
+                ctx.restore();
+            };
+
+            // ── TYPE section ──
+            var _types = [
+                { id: 'optical-fade', label: 'FADE'    },
+                { id: 'glitch',       label: 'GLITCH'  },
+                { id: 'dip-black',    label: 'DIP BLK' },
+                { id: 'snap',         label: 'SNAP'    }
+            ];
+            var _typeW = 70, _typeGap = 14;
+            var _typeSectW = _types.length * _typeW + (_types.length - 1) * _typeGap;
+            var _typeX0 = _lpad + _seamLblW + 18;
+
+            _div(_typeX0 - 9);
+
+            for (var _ti = 0; _ti < _types.length; _ti++) {
+                var _t      = _types[_ti];
+                var _tX     = _typeX0 + _ti * (_typeW + _typeGap);
+                var _tActive = (_toItem.transitionType === _t.id);
+                ctx.font         = '700 ' + _fs9 + 'px monospace';
+                ctx.textAlign    = 'left';
+                ctx.textBaseline = 'middle';
+                // Active: bright white with a subtle bg; inactive: dim violet
+                if (_tActive) {
+                    var _tlW = ctx.measureText(_t.label).width;
+                    ctx.fillStyle = 'rgba(160,80,255,0.18)';
+                    ctx.fillRect(_tX - 4, _midY - _fs9 * 0.72, _tlW + 8, _fs9 * 1.44);
+                    ctx.fillStyle = 'rgba(230,200,255,1.0)';
+                } else {
+                    ctx.fillStyle = 'rgba(185,155,220,0.5)';
+                }
+                ctx.fillText(_t.label, _tX, _midY);
+                APP.media.queueStrip.ctrlZones.push({
+                    type: 'tx-type', value: _t.id,
+                    x: _tX - 4, y: _tY, w: _typeW, h: _eH
+                });
+            }
+
+            _div(_typeX0 + _typeSectW + 9);
+
+            // ── DURATION scrubber (center) ──
+            var _durLblX = _typeX0 + _typeSectW + 18;
+            var _durMin = 0.1, _durMax = 3.0;
+            var _durVal = _toItem.transitionDuration != null ? _toItem.transitionDuration : 0.8;
+            var _durPct = (_durVal - _durMin) / (_durMax - _durMin);
+
+            // ── DUR label ──
+            ctx.font         = '600 ' + _fs8 + 'px monospace';
+            ctx.textAlign    = 'left';
             ctx.textBaseline = 'middle';
-            ctx.fillText(dur + 's', badgeX + badgeW / 2, badgeY + badgeH / 2);
-            APP.media.queueStrip.durationZones.push({ x: badgeX, y: badgeY, w: badgeW, h: badgeH, index: i });
+            ctx.fillStyle    = 'rgba(160,100,255,0.72)';
+            ctx.fillText('DUR', _durLblX, _midY);
+            var _durLblW2 = ctx.measureText('DUR').width;
+
+            // Scrubber
+            var _scrX = _durLblX + _durLblW2 + 9;
+            var _scrW = Math.round(w * 0.17);
+            var _scrY = _midY;
+            ctx.fillStyle = 'rgba(60,35,100,0.8)';
+            ctx.fillRect(_scrX, _scrY - 1, _scrW, 2);
+            ctx.fillStyle = 'rgba(150,80,255,0.75)';
+            ctx.fillRect(_scrX, _scrY - 1, Math.round(_durPct * _scrW), 2);
+            var _hX = _scrX + Math.round(_durPct * _scrW);
+            ctx.beginPath(); ctx.arc(_hX, _scrY, 5, 0, Math.PI * 2);
+            ctx.fillStyle = 'rgba(200,145,255,0.97)';
+            ctx.shadowColor = 'rgba(160,80,255,0.6)'; ctx.shadowBlur = 7;
+            ctx.fill(); ctx.shadowBlur = 0;
+
+            // Value label
+            var _durValStr = _durVal.toFixed(1) + 's';
+            ctx.font         = '700 ' + _fs9 + 'px monospace';
+            ctx.textAlign    = 'left';
+            ctx.textBaseline = 'middle';
+            ctx.fillStyle    = 'rgba(210,185,255,0.85)';
+            ctx.fillText(_durValStr, _scrX + _scrW + 9, _midY);
+
+            APP.media.queueStrip.ctrlZones.push({
+                type: 'dur-track', min: _durMin, max: _durMax,
+                x: _scrX - 4, y: _tY, w: _scrW + 8, h: _eH
+            });
+
+            // ── EASING selector ──
+            var _easeX0 = _scrX + _scrW + 9 + ctx.measureText(_durValStr).width + 18;
+            _div(_easeX0 - 9);
+            var _easings = [
+                { id: 'linear',   label: 'LINEAR'   },
+                { id: 'ease-in',  label: 'EASE IN'  },
+                { id: 'ease-out', label: 'EASE OUT' }
+            ];
+            for (var _ei = 0; _ei < _easings.length; _ei++) {
+                var _ea     = _easings[_ei];
+                var _eX     = _easeX0 + _ei * 72;
+                var _eActive = (_toItem.easing === _ea.id);
+                ctx.font         = '700 ' + _fs9 + 'px monospace';
+                ctx.textAlign    = 'left';
+                ctx.textBaseline = 'middle';
+                if (_eActive) {
+                    var _eW2 = ctx.measureText(_ea.label).width;
+                    ctx.fillStyle = 'rgba(160,80,255,0.18)';
+                    ctx.fillRect(_eX - 4, _midY - _fs9 * 0.72, _eW2 + 8, _fs9 * 1.44);
+                    ctx.fillStyle = 'rgba(230,200,255,1.0)';
+                } else {
+                    ctx.fillStyle = 'rgba(185,155,220,0.5)';
+                }
+                ctx.fillText(_ea.label, _eX, _midY);
+                APP.media.queueStrip.ctrlZones.push({
+                    type: 'easing', value: _ea.id,
+                    x: _eX - 4, y: _tY, w: 70, h: _eH
+                });
+            }
+
+            // ── Glitch effect during open/close animation ──
+            var _glitchAge = performance.now() - (APP.media._seamGlitchT || 0);
+            if (_glitchAge < 320 && APP.media._seamGlitchT > 0) {
+                var _gi2 = Math.max(0, 1 - _glitchAge / 320);
+                ctx.save();
+                ctx.globalAlpha = _gi2 * 0.85;
+                for (var _gk = 0; _gk < 5; _gk++) {
+                    if (Math.random() > _gi2 * 0.8) continue;
+                    var _gy2 = _tY + Math.random() * _eH;
+                    var _gw2 = w * (0.2 + Math.random() * 0.6);
+                    var _gx2 = Math.random() * (w - _gw2);
+                    ctx.fillStyle = Math.random() > 0.5 ? 'rgba(0,0,0,0.7)' : 'rgba(140,60,255,0.3)';
+                    ctx.fillRect(_gx2, _gy2, _gw2, 1 + Math.random() * 2);
+                }
+                // Bright violet sweep line
+                if (Math.random() < _gi2 * 0.5) {
+                    ctx.fillStyle = 'rgba(160,80,255,0.4)';
+                    ctx.fillRect(0, _tY + Math.random() * _eH, w * (0.5 + Math.random() * 0.5), 1);
+                }
+                ctx.restore();
+            }
+
+            ctx.globalAlpha = 1;
         }
     }
 
@@ -6885,8 +7815,6 @@ function initSummonerLogic() {
     var canvas = APP.render.canvas;
     if (!stage || !canvas) return;
 
-    var _durSteps = [3, 5, 8, 10, 15, 20, 30];
-
     stage.addEventListener('click', function(e) {
         var rect = canvas.getBoundingClientRect();
         var scaleX = APP.render.width / rect.width;
@@ -6901,18 +7829,11 @@ function initSummonerLogic() {
             return;
         }
 
-        // ── MEDIA QUEUE STRIP — duration badge (violet, above vault) ──
-        var mqDz = (APP.media.queueStrip && APP.media.queueStrip.durationZones) || [];
-        for (var md = 0; md < mqDz.length; md++) {
-            var mz = mqDz[md];
-            if (cx >= mz.x && cx <= mz.x + mz.w && cy >= mz.y && cy <= mz.y + mz.h) {
-                var qitem = APP.media.queue[mz.index];
-                if (qitem && qitem.type !== 'video') {
-                    var mCur = _durSteps.indexOf(qitem.duration);
-                    qitem.duration = _durSteps[(mCur + 1) % _durSteps.length];
-                }
-                return;
-            }
+        // ── AUDIO SYNC PILL ──
+        var asZone = APP.media.queueStrip && APP.media.queueStrip.audioSyncZone;
+        if (asZone && cx >= asZone.x && cx <= asZone.x + asZone.w && cy >= asZone.y && cy <= asZone.y + asZone.h) {
+            APP.media.audioSync = !APP.media.audioSync;
+            return;
         }
 
         // ── MEDIA QUEUE STRIP — thumbnail click (navigate to item) ──
@@ -6963,6 +7884,138 @@ function initSummonerLogic() {
                 }
             }
         }
+    });
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
+// SEAM CONTROLS — NLE-style floating panel on hover/click between clips
+// ═══════════════════════════════════════════════════════════════════════════
+function initSeamControls() {
+    var stage  = $('stage');
+    var canvas = APP.render.canvas;
+    if (!stage || !canvas) return;
+
+    function _cc(e) { // canvas coords
+        var r = canvas.getBoundingClientRect();
+        return { x: (e.clientX - r.left) * (APP.render.width / r.width),
+                 y: (e.clientY - r.top)  * (APP.render.height / r.height) };
+    }
+
+    function _hitSeam(cx, cy) {
+        var seams = (APP.media.queueStrip && APP.media.queueStrip.seams) || [];
+        for (var i = 0; i < seams.length; i++) {
+            var s = seams[i];
+            if (cx >= s.hitX && cx <= s.hitX + s.hitW && cy >= s.hitY && cy <= s.hitY + s.hitH) return i;
+        }
+        return -1;
+    }
+
+    function _hitCtrl(cx, cy) {
+        var zones = (APP.media.queueStrip && APP.media.queueStrip.ctrlZones) || [];
+        for (var i = 0; i < zones.length; i++) {
+            var z = zones[i];
+            if (cx >= z.x && cx <= z.x + z.w && cy >= z.y && cy <= z.y + z.h) return z;
+        }
+        return null;
+    }
+
+    function _openSeam(idx) {
+        APP.media._activeSeam  = idx;
+        APP.media._seamOpen    = true;
+        APP.media._seamGlitchT = performance.now();
+    }
+
+    function _closeSeam() {
+        APP.media._activeSeam  = -1;
+        APP.media._seamOpen    = false;
+        APP.media._seamGlitchT = performance.now();
+    }
+
+    function _applyDur(cx) {
+        var zones = (APP.media.queueStrip && APP.media.queueStrip.ctrlZones) || [];
+        var dz    = APP.media._durDragZone;
+        if (!dz) return;
+        var seams = APP.media.queueStrip && APP.media.queueStrip.seams;
+        if (!seams || APP.media._activeSeam < 0) return;
+        var toItem = APP.media.queue[seams[APP.media._activeSeam].toIndex];
+        if (!toItem) return;
+        var pct = Math.max(0, Math.min(1, (cx - dz.x) / dz.w));
+        toItem.transitionDuration = Math.round((dz.min + pct * (dz.max - dz.min)) * 10) / 10;
+    }
+
+    // ── mousemove: hover + drag ──
+    stage.addEventListener('mousemove', function(e) {
+        var c   = _cc(e);
+        var idx = _hitSeam(c.x, c.y);
+        APP.media._hoveredSeam = idx;
+
+        // Update cursor
+        var onCtrl = APP.media._activeSeam >= 0 && _hitCtrl(c.x, c.y);
+        if (idx >= 0) {
+            canvas.style.cursor = 'col-resize';
+        } else if (onCtrl && onCtrl.type === 'dur-track') {
+            canvas.style.cursor = 'ew-resize';
+        } else if (onCtrl) {
+            canvas.style.cursor = 'pointer';
+        } else {
+            canvas.style.cursor = '';
+        }
+
+        // Drag duration
+        if (APP.media._durDragging) _applyDur(c.x);
+    });
+
+    stage.addEventListener('mouseleave', function() {
+        APP.media._hoveredSeam = -1;
+        if (!APP.media._durDragging) canvas.style.cursor = '';
+    });
+
+    // ── mousedown: start duration drag ──
+    stage.addEventListener('mousedown', function(e) {
+        if (APP.media._activeSeam < 0) return;
+        var c  = _cc(e);
+        var hz = _hitCtrl(c.x, c.y);
+        if (hz && hz.type === 'dur-track') {
+            APP.media._durDragging = true;
+            APP.media._durDragZone = hz;
+            _applyDur(c.x);
+            e.preventDefault();
+        }
+    });
+
+    document.addEventListener('mouseup', function() {
+        APP.media._durDragging = false;
+        APP.media._durDragZone = null;
+    });
+
+    // ── click: seam toggle + ctrl zone dispatch ──
+    stage.addEventListener('click', function(e) {
+        var c   = _cc(e);
+        var sIdx = _hitSeam(c.x, c.y);
+        if (sIdx >= 0) {
+            if (APP.media._activeSeam === sIdx) _closeSeam();
+            else _openSeam(sIdx);
+            return;
+        }
+        // Control zones (only when expansion is visible)
+        if (APP.media._activeSeam >= 0 && APP.media._seamExpandH > 20) {
+            var hz = _hitCtrl(c.x, c.y);
+            if (hz) {
+                var seams  = APP.media.queueStrip && APP.media.queueStrip.seams;
+                var toItem = seams ? APP.media.queue[seams[APP.media._activeSeam].toIndex] : null;
+                if (toItem) {
+                    if (hz.type === 'tx-type') { toItem.transitionType = hz.value; return; }
+                    if (hz.type === 'easing')  { toItem.easing = hz.value; return; }
+                    if (hz.type === 'dur-track') { _applyDur(c.x); return; }
+                }
+                return;
+            }
+        }
+        // Click outside track area: close
+        var qs = APP.media.queueStrip;
+        var inBar = qs && qs.seams && qs.seams.length > 0 && qs.seams[0] &&
+                    c.y >= qs.seams[0].hitY && c.y <= qs.seams[0].hitY + qs.seams[0].hitH + APP.media._seamExpandH;
+        if (!inBar) _closeSeam();
     });
 }
 
@@ -7180,6 +8233,16 @@ function renderLoop(timestamp) {
     // Bass multiplier: drives punch intensity — zero when silent, violent on kick drop
     var _bassMultiplier = APP.audio.bassLevel / 255;
 
+    // Beat-sync auto-edit: rotate media on kick if current item has beatSync enabled
+    if (_bassRise > 12 && _bassNow > 40 && !window._beatSyncCooldown && APP.media.audioSync) {
+        var _bsCurrent = APP.media.queue[APP.media.currentIndex];
+        if (_bsCurrent && _bsCurrent.beatSync && !APP.media._tx) {
+            window._beatSyncCooldown = true;
+            setTimeout(function() { window._beatSyncCooldown = false; }, 500);
+            rotateMedia();
+        }
+    }
+
     // Kick onset: update BPM model on every rising-edge detection
     if (_bassRise > 12 && _bassNow > 40 && !window._punchCooldown) {
         window._punchCooldown = true;
@@ -7289,7 +8352,53 @@ function renderLoop(timestamp) {
     else if (APP.guest && APP.guest.isActive && APP.guest.videoElement) source = APP.guest.videoElement;
     else if (APP.state.isLive && APP.camera.stream && APP.camera.videoEl) source = APP.camera.videoEl;
     else if (APP.media.currentElement) source = APP.media.currentElement;
-    
+
+    // --- A/B TRANSITION ENGINE ---
+    try {
+        var _mediaTx = APP.media._tx;
+        if (_mediaTx && _mediaTx.active) {
+            var _txNow = performance.now();
+            var _txProgRaw = Math.min(1.0, (_txNow - _mediaTx.start) / _mediaTx.dur);
+            var _ease = _mediaTx.easing || 'linear';
+            var _txProg = _ease === 'ease-in'  ? _txProgRaw * _txProgRaw :
+                          _ease === 'ease-out' ? 1 - Math.pow(1 - _txProgRaw, 2) :
+                          _txProgRaw; // linear
+            var _txCoverRect = function(el) {
+                var sw = el.videoWidth || el._effectiveWidth || el.naturalWidth || w;
+                var sh = el.videoHeight || el._effectiveHeight || el.naturalHeight || h;
+                var ar = sw / sh, car = w / h;
+                if (ar > car) return { x: (w - h*ar)/2, y: 0, w: h*ar, h: h };
+                return { x: 0, y: (h - w/ar)/2, w: w, h: w/ar };
+            };
+            var _txElReady = function(el) {
+                return el && (el.tagName === 'VIDEO' ? el.readyState >= 2 : (el.complete && el.naturalWidth > 0));
+            };
+            var _ro = _txElReady(_mediaTx.out) ? _txCoverRect(_mediaTx.out) : null;
+            var _ri = _txElReady(_mediaTx.in)  ? _txCoverRect(_mediaTx.in)  : null;
+            var _txType = _mediaTx.type || 'optical-fade';
+
+            if (_txType === 'dip-black') {
+                // Fade outgoing to black (0→0.5), fade incoming from black (0.5→1)
+                if (_txProg < 0.5) {
+                    if (_ro) { ctx.globalAlpha = 1 - _txProg * 2; ctx.drawImage(_mediaTx.out, _ro.x, _ro.y, _ro.w, _ro.h); ctx.globalAlpha = 1; }
+                } else {
+                    if (_ri) { ctx.globalAlpha = (_txProg - 0.5) * 2; ctx.drawImage(_mediaTx.in, _ri.x, _ri.y, _ri.w, _ri.h); ctx.globalAlpha = 1; }
+                }
+            } else {
+                // optical-fade (default) + snap both render as cross-dissolve here
+                // (snap never reaches this code because _tx is null for snap)
+                if (_ro) { ctx.globalAlpha = 1; ctx.drawImage(_mediaTx.out, _ro.x, _ro.y, _ro.w, _ro.h); }
+                if (_ri) {
+                    ctx.globalAlpha = _txProg;
+                    ctx.drawImage(_mediaTx.in, _ri.x, _ri.y, _ri.w, _ri.h);
+                    ctx.globalAlpha = 1;
+                }
+            }
+            if (_txProg >= 1.0) APP.media._tx = null;
+            source = null; // skip normal source draw during transition
+        }
+    } catch(_txErr) {}
+
     if (source) {
         const ready = source.tagName === 'VIDEO' ? source.readyState >= 2 : (source.complete && source.naturalWidth > 0);
         if (ready) {
@@ -8386,7 +9495,7 @@ function loadMediaFiles(input) {
     Array.from(input.files).forEach((file, idx) => {
         const url = URL.createObjectURL(file);
         const type = file.type.startsWith('video') ? 'video' : (file.type === 'image/gif' ? 'gif' : 'image');
-        const item = { type, url, element: null, name: file.name, duration: type === 'video' ? null : 8 };
+        const item = { type, url, element: null, name: file.name, duration: type === 'video' ? null : 8, transitionType: 'optical-fade', transitionDuration: 0.8, easing: 'linear', beatSync: false };
         if (type === 'video') {
             const vid = document.createElement('video'); vid.src = url; vid.muted = true; vid.loop = !APP.state.isCycle; vid.playsInline = true; vid.preload = 'auto'; item.element = vid; $('media-container').appendChild(vid);
         } else if (type === 'image') {
@@ -11153,6 +12262,8 @@ function rotateMedia() {
     if (APP.media.queue.length === 0) return;
     APP.render.source = null; // Clear override so queue takes priority
     APP.vj.glitchSnap = 3;
+    // Capture outgoing element before advancing index
+    var _outgoingEl = APP.media.currentElement;
     if (APP.media.currentElement?.tagName === 'VIDEO') APP.media.currentElement.pause(); disconnectVideoAudio();
     APP.media.currentIndex = (APP.media.currentIndex + 1) % APP.media.queue.length;
     const item = APP.media.queue[APP.media.currentIndex];
@@ -11166,6 +12277,7 @@ function rotateMedia() {
         if (gifOverlay) gifOverlay.appendChild(img);
         item.element = img;
         APP.media.currentElement = null; // GIFs do not render to vj-canvas
+        APP.media._tx = null;
         console.warn('[VNGRD] GIF asset "' + item.name + '" is rendered as a DOM element and will NOT be captured by vj-canvas.captureStream(). Convert animated assets to .webm for full recording compatibility.');
         updateMediaControls();
         checkCycleLogic();
@@ -11177,6 +12289,26 @@ function rotateMedia() {
     if (!item.element) { APP.media.currentElement = null; return; }
     APP.media.currentElement = item.element;
     if (item.type === 'video') { item.element.loop = !APP.state.isCycle; item.element.currentTime = 0; item.element.play().catch(() => {});  connectVideoAudio(item.element); }
+    // Set up A/B transition — snap/glitch = instant cut (glitch fires system FX), no A/B animation
+    var _txDurSec = item.transitionDuration != null ? item.transitionDuration : 0.8;
+    if (item.transitionType === 'glitch' && _outgoingEl && _outgoingEl !== item.element) {
+        // Chromatic aberration CSS filter + impact flash — same as NFT carousel launcher
+        // but WITHOUT rgbIntensity canvas rendering which destroys the thumbnail strip
+        try { triggerChromaticAberration(); triggerImpact(); APP.vj.glitchSnap = 5; setTimeout(function(){ APP.vj.glitchSnap = 0; }, 300); } catch(e) {}
+    }
+    if (_outgoingEl && _outgoingEl !== item.element && item.transitionType !== 'snap' && item.transitionType !== 'glitch') {
+        APP.media._tx = {
+            active: true,
+            type:   item.transitionType   || 'optical-fade',
+            easing: item.easing           || 'linear',
+            out:    _outgoingEl,
+            in:     item.element,
+            start:  performance.now(),
+            dur:    _txDurSec * 1000
+        };
+    } else {
+        APP.media._tx = null;
+    }
     updateMediaControls();
     checkCycleLogic();
 }
@@ -11270,6 +12402,7 @@ function checkCycleLogic() {
     if (current.type === 'video') { if (current.element) { current.element.loop = false; current.element.onended = () => { if (APP.state.isCycle) rotateMedia(); }; } }
     else {
         var _qi = APP.media.queue[APP.media.currentIndex];
+        if (_qi && _qi.duration === null) return; // null = infinite hold, no timer
         var secs = (_qi && _qi.duration != null) ? _qi.duration : (parseInt($('sl-cycle').value) || 8);
         APP.state.cycleTimer = setTimeout(function() { if (APP.state.isCycle) rotateMedia(); }, secs * 1000);
     }
@@ -11909,71 +13042,267 @@ function _localKey(address) {
     return 'VNGRD_SESSION_' + address.toLowerCase();
 }
 
-// ── SAVE session to localStorage, wallet-signed ──
+// Convert a data URL to a Blob without fetch() — works in all browsers including Safari
+function _dataURLtoBlob(dataURL) {
+    var parts = dataURL.split(',');
+    var mime  = parts[0].match(/:(.*?);/)[1];
+    var bstr  = atob(parts[1]);
+    var n     = bstr.length;
+    var u8    = new Uint8Array(n);
+    while (n--) u8[n] = bstr.charCodeAt(n);
+    return new Blob([u8], { type: mime });
+}
+
+// ── WALLET SYNC HUD helpers ──
+function _showIpfsSyncIndicator(syncing, success) {
+    var hud   = document.getElementById('wallet-sync-hud');
+    var label = document.getElementById('ipfs-sync-label');
+    if (!hud) return;
+    hud.classList.remove('syncing', 'synced', 'error', 'visible');
+    if (syncing) {
+        hud.classList.add('visible', 'syncing');
+        if (label) label.textContent = 'IPFS SYNC…';
+    } else if (success === true) {
+        hud.classList.add('visible', 'synced');
+        if (label) label.textContent = 'IPFS SYNCED';
+    } else {
+        hud.classList.add('visible', 'error');
+        if (label) label.textContent = 'SYNC FAILED';
+    }
+}
+
+function _showWalletSaveThumbnail(dataURL, cid) {
+    var thumb = document.getElementById('wallet-sync-thumbnail');
+    var img   = document.getElementById('wallet-sync-snapshot');
+    var cidEl = document.getElementById('wallet-sync-cid');
+    if (thumb && img && dataURL) {
+        img.src = dataURL;
+        thumb.classList.add('visible');
+    }
+    if (cidEl && cid) {
+        cidEl.textContent = 'CID: ' + cid;
+        cidEl.classList.add('visible');
+    }
+}
+
+// ── SAVE session to IPFS via Pinata (directory-wrapped) + bind to wallet via puter.kv ──
 window.saveSessionToCloud = async function() {
     if (!APP.wallet.connected || !APP.wallet.address) {
-        log('LOCAL_SAVE: WALLET_NOT_CONNECTED'); alert('Connect your wallet first.'); return;
+        log('WALLET_SAVE: WALLET_NOT_CONNECTED'); alert('Connect your wallet first.'); return;
     }
 
     var address = APP.wallet.address;
-    var session = _buildSessionSnapshot();
-    var sigMsg  = 'VNGRD_LOCAL_SAVE:' + address.toLowerCase() + ':' + session.timestamp;
-
-    log('LOCAL_SAVE: REQUESTING_SIGNATURE');
-    var signature;
-    try {
-        signature = await window.ethereum.request({ method: 'personal_sign', params: [sigMsg, address] });
-    } catch (e) {
-        if (e.code === 4001) { log('LOCAL_SAVE: USER_REJECTED_SIGNATURE'); return; }
-        log('LOCAL_SAVE: SIGN_ERR ' + e.message); return;
+    var jwt = localStorage.getItem('pinata_jwt');
+    if (!jwt) {
+        var raw = prompt('PINATA JWT TOKEN (stored locally):');
+        if (!raw) { log('WALLET_SAVE: NO_JWT'); return; }
+        jwt = raw.trim();
+        localStorage.setItem('pinata_jwt', jwt);
     }
 
-    session._cloudMeta = { address: address, signature: signature, signedMsg: sigMsg };
+    // Step 1 — Capture WebGL canvas snapshot SYNCHRONOUSLY before any async work
+    var vjCanvas = document.getElementById('vj-canvas');
+    var snapshotDataURL = null;
     try {
-        localStorage.setItem(_localKey(address), JSON.stringify(session));
-        log('LOCAL_SAVE: OK — SESSION_STORED_FOR_' + address.slice(0, 6));
-        alert('SESSION SAVED LOCALLY\n\nWallet: ' + address.slice(0,6) + '...' + address.slice(-4) + '\nSaved: ' + new Date(session.timestamp).toLocaleString() + '\n\n(Stored in browser localStorage — wallet-signed)');
-    } catch (e) {
-        log('LOCAL_SAVE: ERR ' + e.message);
-        alert('Save failed: ' + e.message);
-    }
+        if (vjCanvas) snapshotDataURL = vjCanvas.toDataURL('image/jpeg', 0.85);
+    } catch(e) { log('WALLET_SAVE: SNAPSHOT_WARN ' + e.message); }
+
+    // Show IPFS SYNC indicator immediately — upload runs detached, never blocks 60fps loop
+    _showIpfsSyncIndicator(true);
+    log('WALLET_SAVE: ASYNC_UPLOAD_STARTED for ' + address.slice(0, 6) + '...');
+
+    // Detach from call stack via Promise.resolve() so the render loop is never stalled
+    Promise.resolve().then(async function() {
+        var _step = 'INIT';
+        try {
+            // Step 2 — Build FormData with all blobs (no client-side zip = no OOM crash)
+            // IMPORTANT: Pinata wrapWithDirectory requires ALL files to share ONE root folder.
+            // Files at mixed levels (root + subdirs) trigger 400 "More than one file/directory".
+            // Solution: prefix every path with 'VNGRD/' so there is exactly one top-level entry.
+            _step = 'BUILD_FORM';
+            var form = new FormData();
+            var DIR  = 'VNGRD/'; // single root — Pinata wraps this in an outer directory CID
+
+            // 2a. Session state JSON manifest
+            var snap = _buildSessionSnapshot();
+            snap._type    = 'VNGRD_WALLET_PAYLOAD';
+            snap._version = 'V35_WALLET';
+            snap._wallet  = address;
+            form.append('file', new Blob([JSON.stringify(snap, null, 2)], { type: 'application/json' }), DIR + 'session.json');
+
+            // 2b. WebGL snapshot — use atob() conversion, NOT fetch(dataURL) which fails in Safari
+            _step = 'SNAPSHOT_ENCODE';
+            if (snapshotDataURL) {
+                form.append('file', _dataURLtoBlob(snapshotDataURL), DIR + 'snapshot.jpg');
+            }
+
+            // 2c. Media queue blobs — images re-encoded, video fetched from object URL
+            if (APP.media && APP.media.queue && APP.media.queue.length) {
+                for (var i = 0; i < APP.media.queue.length; i++) {
+                    var item = APP.media.queue[i];
+                    try {
+                        var mblob;
+                        if (item.type === 'image' && item.element && item.element.naturalWidth) {
+                            var mc = document.createElement('canvas');
+                            mc.width = item.element.naturalWidth; mc.height = item.element.naturalHeight;
+                            mc.getContext('2d').drawImage(item.element, 0, 0);
+                            mblob = await new Promise(function(r) { mc.toBlob(r, 'image/jpeg', 0.9); });
+                        } else if (item.url) {
+                            mblob = await fetch(item.url).then(function(r) { return r.blob(); });
+                        }
+                        if (mblob) {
+                            form.append('file', mblob, DIR + 'media/media_' + i + (item.name ? '_' + item.name : ''));
+                            log('WALLET_SAVE: QUEUED_MEDIA ' + (item.name || i));
+                        }
+                    } catch(e) { log('WALLET_SAVE: MEDIA_SKIP ' + (item.name || i) + ' — ' + e.message); }
+                }
+            }
+
+            // 2d. Audio playlist blobs
+            if (APP.audio && APP.audio.playlist && APP.audio.playlist.length) {
+                for (var i = 0; i < APP.audio.playlist.length; i++) {
+                    var track = APP.audio.playlist[i];
+                    try {
+                        var ablob = await fetch(track.url).then(function(r) { return r.blob(); });
+                        form.append('file', ablob, DIR + 'audio/audio_' + i + (track.name ? '_' + track.name : ''));
+                        log('WALLET_SAVE: QUEUED_AUDIO ' + (track.name || i));
+                    } catch(e) { log('WALLET_SAVE: AUDIO_SKIP ' + (track.name || i) + ' — ' + e.message); }
+                }
+            }
+
+            // 2e. Time machine video recording chunks — concatenated into one webm blob, never zipped
+            if (APP.timeMachine && APP.timeMachine.chunks && APP.timeMachine.chunks.length) {
+                try {
+                    var tmBlob = new Blob(APP.timeMachine.chunks, { type: 'video/webm' });
+                    form.append('file', tmBlob, DIR + 'video/timemachine.webm');
+                    log('WALLET_SAVE: QUEUED_TIMEMACHINE ' + (tmBlob.size / 1e6).toFixed(1) + 'MB');
+                } catch(e) { log('WALLET_SAVE: TIMEMACHINE_SKIP — ' + e.message); }
+            }
+
+            // Pinata directory wrapping — all blobs land in one IPFS directory CID
+            form.append('pinataOptions',  JSON.stringify({ wrapWithDirectory: true }));
+            form.append('pinataMetadata', JSON.stringify({
+                name: 'VNGRD_WALLET_' + address.slice(0, 8) + '_' + Date.now()
+            }));
+
+            // Step 3 — Upload to Pinata, await master directory CID
+            _step = 'PINATA_UPLOAD';
+            log('WALLET_SAVE: UPLOADING_DIRECTORY_TO_PINATA…');
+            var res  = await fetch('https://api.pinata.cloud/pinning/pinFileToIPFS', {
+                method:  'POST',
+                headers: { 'Authorization': 'Bearer ' + jwt },
+                body:    form
+            });
+            var data = await res.json();
+            if (!res.ok || !data.IpfsHash) throw new Error('PIN_FAIL ' + res.status + ': ' + (data.error ? JSON.stringify(data.error) : 'no IpfsHash'));
+
+            var cid = data.IpfsHash;
+            log('WALLET_SAVE: DIRECTORY_PINNED CID=' + cid);
+
+            // Step 4 — Bind the master CID to the user's wallet address via puter.kv
+            if (typeof puter !== 'undefined' && puter.kv) {
+                try {
+                    await puter.kv.set(address.toLowerCase(), JSON.stringify({
+                        payloadCID: cid,
+                        address:    address,
+                        timestamp:  Date.now()
+                    }));
+                    log('WALLET_SAVE: PUTER_KV_BOUND ' + address.slice(0, 6) + ' → ' + cid.slice(0, 10) + '…');
+                } catch(e) { log('WALLET_SAVE: PUTER_KV_WARN ' + e.message); }
+            }
+
+            // Step 5 — Show snapshot thumbnail + success state; never blocked render loop
+            _showWalletSaveThumbnail(snapshotDataURL, cid);
+            _showIpfsSyncIndicator(false, true);
+            if (typeof ghostLog === 'function') ghostLog('GHOST> WALLET PAYLOAD BOUND → IPFS CID=' + cid, 'ok');
+
+        } catch(e) {
+            log('WALLET_SAVE: ERR [' + _step + '] ' + e.message);
+            _showIpfsSyncIndicator(false, false);
+            alert('IPFS Wallet Save failed [' + _step + ']: ' + e.message);
+        }
+    });
 };
 
-// ── LOAD session from localStorage for the connected wallet ──
+// ── LOAD session: checks puter.kv (IPFS) first, falls back to localStorage ──
 window.loadSessionFromCloud = async function(silent) {
     if (!APP.wallet.connected || !APP.wallet.address) {
-        log('LOCAL_LOAD: WALLET_NOT_CONNECTED');
+        log('WALLET_LOAD: WALLET_NOT_CONNECTED');
         if (!silent) alert('Connect your wallet first.');
         return;
     }
 
     var address = APP.wallet.address;
-    log('LOCAL_LOAD: CHECKING_LOCALSTORAGE for ' + address.slice(0, 6) + '...');
+    log('WALLET_LOAD: CHECKING for ' + address.slice(0, 6) + '...');
 
-    var raw = localStorage.getItem(_localKey(address));
+    // ── 1. Try puter.kv for the IPFS-pinned session (authoritative / newest) ──
+    var ipfsMeta = null;
+    if (typeof puter !== 'undefined' && puter.kv) {
+        try {
+            var kvRaw = await puter.kv.get(address.toLowerCase());
+            if (kvRaw) ipfsMeta = JSON.parse(kvRaw);
+        } catch(e) { log('WALLET_LOAD: PUTER_KV_ERR ' + e.message); }
+    }
 
-    if (!raw) {
-        log('LOCAL_LOAD: NO_SESSION_FOUND');
+    // ── 2. Also read localStorage as fallback ──
+    var localSession = null;
+    try { var localRaw = localStorage.getItem(_localKey(address)); if (localRaw) localSession = JSON.parse(localRaw); } catch(e) {}
+
+    // ── 3. Use IPFS if CID exists and is newer than localStorage ──
+    var ipfsIsNewer = ipfsMeta && ipfsMeta.payloadCID &&
+        (!localSession || (ipfsMeta.timestamp || 0) > (localSession.timestamp || 0));
+
+    if (ipfsIsNewer) {
+        var cid = ipfsMeta.payloadCID;
+        log('WALLET_LOAD: IPFS_SESSION_FOUND CID=' + cid.slice(0, 12) + '\u2026');
+        var gateways = [
+            'https://gateway.pinata.cloud/ipfs/',
+            'https://ipfs.io/ipfs/',
+            'https://cloudflare-ipfs.com/ipfs/'
+        ];
+        var snap = null;
+        for (var g = 0; g < gateways.length; g++) {
+            try {
+                var res = await fetch(gateways[g] + cid + '/VNGRD/session.json');
+                if (res.ok) { snap = await res.json(); break; }
+            } catch(e) { continue; }
+        }
+        if (snap) {
+            var savedDate = new Date(snap.timestamp || ipfsMeta.timestamp).toLocaleString();
+            var msg = (silent ? 'IPFS session found' : 'IPFS session') +
+                ' for ' + address.slice(0,6) + '...' + address.slice(-4) +
+                '\nSaved: ' + savedDate + '\nCID: ' + cid.slice(0, 12) + '\u2026\n\nRestore it?';
+            if (!confirm(msg)) { log('WALLET_LOAD: USER_DECLINED'); return; }
+            try {
+                _applySessionSnapshot(snap);
+                log('WALLET_LOAD: IPFS_SESSION_RESTORED from ' + savedDate);
+                if (!silent) alert('IPFS Session restored!\nSaved: ' + savedDate);
+            } catch(e) { log('WALLET_LOAD: APPLY_ERR ' + e.message); }
+            return;
+        }
+        log('WALLET_LOAD: IPFS_FETCH_FAILED \u2014 falling back to localStorage');
+    }
+
+    // ── 4. Fallback: localStorage ──
+    if (!localSession) {
+        log('WALLET_LOAD: NO_SESSION_FOUND');
         if (!silent) alert('No saved session found for this wallet.');
         return;
     }
 
-    var s;
-    try { s = JSON.parse(raw); } catch(e) { log('LOCAL_LOAD: PARSE_ERR'); return; }
-
-    var savedDate = s.timestamp ? new Date(s.timestamp).toLocaleString() : 'unknown date';
-    var prompt = silent
+    var savedDate = localSession.timestamp ? new Date(localSession.timestamp).toLocaleString() : 'unknown date';
+    var msg2 = silent
         ? ('Previous session found for this wallet (' + address.slice(0,6) + '...' + address.slice(-4) + ')\nSaved: ' + savedDate + '\n\nRestore it?')
         : ('Local session for ' + address.slice(0,6) + '...' + address.slice(-4) + '\nSaved: ' + savedDate + '\n\nLoad this session?');
 
-    if (!confirm(prompt)) { log('LOCAL_LOAD: USER_DECLINED'); return; }
+    if (!confirm(msg2)) { log('WALLET_LOAD: USER_DECLINED'); return; }
 
     try {
-        _applySessionSnapshot(s);
-        log('LOCAL_LOAD: SESSION_RESTORED from ' + savedDate);
-        alert('Session restored!\nSaved: ' + savedDate);
+        _applySessionSnapshot(localSession);
+        log('WALLET_LOAD: LOCAL_SESSION_RESTORED from ' + savedDate);
+        if (!silent) alert('Session restored!\nSaved: ' + savedDate);
     } catch(e) {
-        log('LOCAL_LOAD: APPLY_ERR ' + e.message);
+        log('WALLET_LOAD: APPLY_ERR ' + e.message);
         alert('Failed to apply session: ' + e.message);
     }
 };
@@ -12255,30 +13584,32 @@ async function importFromIPFS(cid) {
     }
 
     // 3. Load media files from IPFS → APP.media.queue
+    // Stream directly from gateway URL — never download the full file first.
+    // Downloading large mp4/webm blobs causes timeouts and kills the import.
     if (snap.media && snap.media.length) {
         for (var i = 0; i < snap.media.length; i++) {
             var m = snap.media[i];
             if (!m.cid) continue;
             try {
-                var resp = await fetch(gateway + m.cid);
-                var blob = await resp.blob();
-                var url  = URL.createObjectURL(blob);
+                var url  = gateway + m.cid;
                 var item = { type: m.type, url: url, element: null, name: m.name };
 
                 if (m.type === 'video') {
                     var vid = document.createElement('video');
-                    vid.src = url; vid.muted = true; vid.loop = true; vid.playsInline = true; vid.preload = 'auto';
+                    vid.src = url; vid.muted = true; vid.loop = true; vid.playsInline = true;
+                    vid.preload = 'metadata'; vid.crossOrigin = 'anonymous';
                     item.element = vid;
                     if ($('media-container')) $('media-container').appendChild(vid);
                 } else {
                     var img = new Image();
+                    img.crossOrigin = 'anonymous';
                     img.src = url;
                     item.element = img;
                 }
                 APP.media.queue.push(item);
-                log('IPFS: LOADED_MEDIA ' + (i + 1) + '/' + snap.media.length + ' ' + m.name);
+                log('IPFS: LOADED_MEDIA ' + (i + 1) + '/' + snap.media.length + ' ' + (m.name || m.cid.slice(0,8)));
             } catch(e) {
-                log('IPFS: MEDIA_ERR ' + m.name + ' \u2014 ' + e.message);
+                log('IPFS: MEDIA_ERR ' + (m.name || i) + ' \u2014 ' + e.message);
             }
         }
         // Show first media item
@@ -12291,17 +13622,16 @@ async function importFromIPFS(cid) {
     }
 
     // 4. Load audio tracks from IPFS → APP.audio.playlist
+    // Same approach: point the playlist URL directly at the gateway — no full download.
     if (snap.audioTracks && snap.audioTracks.length) {
         for (var i = 0; i < snap.audioTracks.length; i++) {
             var t = snap.audioTracks[i];
             if (!t.cid) continue;
             try {
-                var resp = await fetch(gateway + t.cid);
-                var blob = await resp.blob();
-                APP.audio.playlist.push({ url: URL.createObjectURL(blob), name: t.name });
-                log('IPFS: LOADED_AUDIO ' + (i + 1) + '/' + snap.audioTracks.length + ' ' + t.name);
+                APP.audio.playlist.push({ url: gateway + t.cid, name: t.name });
+                log('IPFS: LOADED_AUDIO ' + (i + 1) + '/' + snap.audioTracks.length + ' ' + (t.name || t.cid.slice(0,8)));
             } catch(e) {
-                log('IPFS: AUDIO_ERR ' + t.name + ' \u2014 ' + e.message);
+                log('IPFS: AUDIO_ERR ' + (t.name || i) + ' \u2014 ' + e.message);
             }
         }
         var audioDot = $('audio-dot');
@@ -13028,6 +14358,7 @@ document.addEventListener('DOMContentLoaded', () => {
         portalCamPreview();
         checkLayerReadiness();
         initSummonerLogic();
+        initSeamControls();
     }, 1000);
 
     // ── PHASE 2: MIDI/AUDIO deferred to user gesture (JIT) ──
@@ -13382,7 +14713,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 }
             }
         }
-        if (e.key === ' ') { e.preventDefault(); rotateMedia(); }
+        if (e.key === ' ' && !['TEXTAREA','INPUT','SELECT'].includes(document.activeElement.tagName)) { e.preventDefault(); rotateMedia(); }
         // S key — toggle Compositor source between local camera and P2P guest feed
         if (e.key === 's' || e.key === 'S') {
             APP.state.activeSource = APP.state.activeSource === 'guest' ? 'local' : 'guest';
@@ -14066,9 +15397,8 @@ document.addEventListener('DOMContentLoaded', () => {
             var body = document.getElementById('sfx-pad-body');
             var arrow = document.getElementById('sfx-collapse-arrow');
             if (!body) return;
-            var isOpen = !body.classList.contains('collapsed');
-            body.classList.toggle('collapsed', isOpen);
-            if (arrow) arrow.textContent = isOpen ? '\u25B8' : '\u25BE';
+            var isOpen = body.classList.toggle('open');
+            if (arrow) arrow.textContent = isOpen ? '\u25BE' : '\u25B8';
         };
 
         // ── SAMPLER HELP MODAL (legacy — kept for compat) ────────────────
@@ -14155,6 +15485,19 @@ document.addEventListener('DOMContentLoaded', () => {
                     ['RESET',   'Hard reset — clears all active FX and restores canvas.']
                 ],
                 footer: 'VNGRD // REACTIVITY · VISUAL FX ENGINE'
+            },
+            'voice-lab': {
+                title: 'VOICE_LAB // SYNESTHESIA ENGINE',
+                rows: [
+                    ['SCRIPT',   'Type your narration in any language. Space bar works normally here. Language is auto-detected on each SPEAK press — the matching voice is selected automatically.'],
+                    ['CLEAN',    'Pure voice, zero Tone.js FX. Best for audiobooks. Natural pacing (rate 0.84, pitch 1.0). Chrome picks Google TTS; Safari picks Daniel/Samantha.'],
+                    ['CYBER',    'Faster, slightly higher pitch (rate 0.90, pitch 1.20). Narrow bandpass tick + stereo PingPong shimmer on each word. Digital, clean, futuristic.'],
+                    ['GHOST',    'Slow and haunting (rate 0.72, pitch 0.72). Low-frequency sine pulse + long FeedbackDelay echo tail. Atmospheric, cinematic.'],
+                    ['MNSTR',    'Very slow, very deep (rate 0.65, pitch 0.45). Distorted sub-bass thump on each word. Dark, powerful, trailer-grade.'],
+                    ['▶ SPEAK',  'Speaks the script. Language auto-detected. Tone.js FX bridge into VNGRD audio chain — captured automatically by the Iron-Clad Recorder. Click ■ STOP to cancel.'],
+                    ['⚡',       'Fires a test glitch burst at current mood settings. Works in all modes including CLEAN.']
+                ],
+                footer: 'VNGRD // VOICE_LAB · SYNESTHESIA v2.1 · AUTO-LANG · VNGRD-BRIDGED'
             },
             'audio-engine': {
                 title: 'AUDIO_ENGINE',
@@ -16712,7 +18055,7 @@ var isVideo = nft.forceVideo || (imageUrl.toLowerCase().match(/\.(mp4|webm|mov|o
     })();
 
     // Collapsible sections with arrow indicators
-    ['session-lab-body', 'p2p-call-body', 'midi-host-body', 'nft-vault-body', 'lexica-nano-body'].forEach(function(id) {
+    ['session-lab-body', 'p2p-call-body', 'midi-host-body', 'nft-vault-body', 'lexica-nano-body', 'sve-body'].forEach(function(id) {
         var el = $(id);
         if (!el) return;
         var head = el.previousElementSibling;
@@ -19609,244 +20952,662 @@ function _applyPoseToModel(lm) {
     <div id="kr-help-body"></div>
 </div>
 
+<script src="./src/synesthesia-voice-engine.js"></script>
+
 <script type="module" src="./src/kinetic-rack/KineticRack.js"></script>
 
-<!-- ══════════════════════════════════════════════════════════════════════════
-     GESTURE LOOPER — TWEAK PANEL
-     Brutalist overlay; z-index 9999; does NOT touch clock/ticker/HUD.
-     ══════════════════════════════════════════════════════════════════════════ -->
-<div id="gl-tweak-panel">
-    <div id="gl-tweak-header">
-        <span id="gl-tweak-title">GESTURE LOOPER</span>
-        <span id="loop-count-badge">0</span>
+<!-- NLE seam controls are fully canvas-drawn (no DOM panel) -->
+
+<!-- ═══════════════════════════════════════════════════════════════
+     LIVE CONSOLE MATRIX — #vngrd-console
+     Multi-input hardware mixer + Ghost Deck live looper
+     ═══════════════════════════════════════════════════════════════ -->
+<div id="vngrd-console" role="dialog" aria-label="Live Console Matrix">
+
+    <!-- Header (draggable) -->
+    <div id="lcm-header" id="lcm-drag-handle">
+        <span id="lcm-title">LIVE CONSOLE MATRIX // v1.0</span>
+        <div id="lcm-header-right">
+            <span id="lcm-bpm-display">BPM: --</span>
+            <div id="lcm-status-dot" title="DSP Active"></div>
+            <button class="lcm-hdr-btn" onclick="LCM.scanDevices()" title="Enumerate all connected audio interfaces">SCAN_HW</button>
+            <button class="lcm-hdr-btn" onclick="LCM.promptAddChannel()" title="Add a new hardware input channel strip">+ CH</button>
+            <button class="lcm-hdr-btn warn" onclick="LCM.toggle()" title="Close Live Console Matrix">✕</button>
+        </div>
     </div>
 
-    <!-- Recording indicator -->
-    <div id="gl-rec-indicator">
-        <span id="gl-rec-dot"></span>
-        <span id="gl-rec-label">PINCH RIGHT HAND TO RECORD</span>
+    <!-- Body -->
+    <div id="lcm-body">
+
+        <!-- ── Channel Strips Area ─────────────────────────────── -->
+        <div id="lcm-strips-scroll">
+            <div id="lcm-strips">
+                <!-- Channel strips injected here by LCM.addChannel() -->
+            </div>
+            <!-- Add-channel placeholder (always last) -->
+            <div class="lcm-add-placeholder" onclick="LCM.promptAddChannel()" title="Add a new hardware input channel">
+                <span>+</span>
+                <small>ADD<br>CHANNEL</small>
+            </div>
+        </div>
+
+        <!-- ── Right Side Panel ────────────────────────────────── -->
+        <div id="lcm-side-panel">
+
+            <!-- Ghost Deck -->
+            <div id="lcm-ghost-deck">
+                <div id="lcm-ghost-deck-title">▓▓ GHOST_DECK</div>
+                <div id="lcm-ghost-status">IDLE // AWAITING CAPTURE</div>
+
+                <!-- Waveform visualiser -->
+                <div class="lcm-ghost-waveform" id="lcm-ghost-waveform">
+                    <!-- 32 bars, built by JS -->
+                    <div id="lcm-ghost-playhead"></div>
+                </div>
+
+                <!-- Gain -->
+                <div class="lcm-ghost-gain-row">
+                    <label>VOL</label>
+                    <input type="range" min="0" max="100" value="85"
+                        oninput="LCM.setGhostGain(this.value/100)"
+                        title="Ghost Deck output volume">
+                    <span id="lcm-ghost-gain-val" style="font-size:7px;color:rgba(176,0,255,0.4);width:22px;text-align:right;">85</span>
+                </div>
+
+                <!-- Grain Size -->
+                <div class="lcm-grain-row">
+                    <label>GRN</label>
+                    <input type="range" min="50" max="500" value="200" step="10"
+                        oninput="LCM.setGrainSize(this.value);document.getElementById('lcm-grain-sz-val').textContent=this.value+'ms'"
+                        title="Grain size in ms">
+                    <span class="lcm-grain-val" id="lcm-grain-sz-val">200ms</span>
+                </div>
+
+                <!-- Overlap -->
+                <div class="lcm-grain-row">
+                    <label>OVL</label>
+                    <input type="range" min="0" max="100" value="5" step="1"
+                        oninput="LCM.setGrainOverlap(this.value/100);document.getElementById('lcm-grain-ovl-val').textContent=this.value+'%'"
+                        title="Grain overlap (0–100%)">
+                    <span class="lcm-grain-val" id="lcm-grain-ovl-val">5%</span>
+                </div>
+
+                <!-- Controls -->
+                <div class="lcm-ghost-ctrl-row">
+                    <button class="lcm-ghost-btn" id="lcm-gd-play" onclick="LCM.ghostPlay()" title="Start Ghost Deck playback">PLAY</button>
+                    <button class="lcm-ghost-btn" id="lcm-gd-stop" onclick="LCM.ghostStop()" title="Stop Ghost Deck">STOP</button>
+                    <button class="lcm-ghost-btn" id="lcm-gd-loop" onclick="LCM.ghostToggleLoop()" title="Toggle loop mode">LOOP</button>
+                </div>
+            </div>
+
+            <!-- Neuro Compiler // Offline Bus (reserved routing slot) -->
+            <div id="lcm-neuro-bus">
+                <div id="lcm-neuro-bus-inner">
+                    <div id="lcm-neuro-title">⬡ NEURO COMPILER</div>
+                    <div id="lcm-neuro-status">// OFFLINE //</div>
+                    <div id="lcm-neuro-routing">
+                        SLOT: RESERVED<br>
+                        BUS: 09 — TRACKER_IN<br>
+                        FORMAT: RENOISE_XRNS<br>
+                        STATUS: AWAITING_LINK
+                    </div>
+                </div>
+            </div>
+
+        </div><!-- /lcm-side-panel -->
+
+    </div><!-- /lcm-body -->
+
+    <!-- Device Select Modal (overlays the console) -->
+    <div id="lcm-device-modal">
+        <div id="lcm-device-modal-title">SELECT_INPUT_DEVICE</div>
+        <div id="lcm-device-list">
+            <div style="font-size:8px;color:rgba(255,255,255,0.25);padding:8px;">
+                Press SCAN_HW to enumerate devices first.
+            </div>
+        </div>
+        <button id="lcm-device-modal-cancel" onclick="LCM.closeDeviceModal()">[ CANCEL ]</button>
     </div>
 
-    <!-- Delay Amount -->
-    <div class="gl-ctrl-row">
-        <label class="gl-ctrl-label" for="gl-delay-slider">DELAY</label>
-        <input id="gl-delay-slider" type="range" class="gl-ctrl-slider"
-               min="0" max="1" step="0.01" value="0.28"
-               oninput="window.KineticRack&&KineticRack.ctrlChange('loopDelay',this.value)">
-        <span class="gl-ctrl-val" id="gl-delay-val">28%</span>
-    </div>
-
-    <!-- Synth Waveform -->
-    <div class="gl-ctrl-row">
-        <label class="gl-ctrl-label" for="gl-wave-select">WAVE</label>
-        <select id="gl-wave-select" class="gl-wave-select"
-                onchange="window.KineticRack&&KineticRack.ctrlChange('loopWave',this.value)">
-            <option value="sine"     selected>SINE</option>
-            <option value="square"          >SQUARE</option>
-            <option value="sawtooth"        >SAWTOOTH</option>
-            <option value="triangle"        >TRIANGLE</option>
-        </select>
-    </div>
-
-    <!-- Clear All -->
-    <button id="gl-clear-btn"
-            onclick="window.KineticRack&&KineticRack.clearLoops()">
-        ✕ CLEAR ALL LOOPS
-    </button>
-</div>
-
-<style>
-/* ── Gesture Looper Tweak Panel ───────────────────────────────────────────── */
-#gl-tweak-panel {
-    position: fixed;
-    bottom: 18px;
-    right: 18px;
-    z-index: 9999;
-    width: 220px;
-    background: #07070a;
-    border: 1px solid rgba(0,243,255,0.25);
-    padding: 10px 12px 12px;
-    font-family: 'JetBrains Mono', 'Share Tech Mono', monospace;
-    pointer-events: all;
-    box-shadow: 0 0 18px rgba(0,243,255,0.08), inset 0 0 30px rgba(0,0,0,0.6);
-}
-
-#gl-tweak-header {
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-    margin-bottom: 8px;
-    border-bottom: 1px solid rgba(0,243,255,0.15);
-    padding-bottom: 6px;
-}
-
-#gl-tweak-title {
-    font-size: 9px;
-    letter-spacing: 2px;
-    color: #00f3ff;
-    font-weight: 600;
-}
-
-#loop-count-badge {
-    font-size: 10px;
-    font-weight: 700;
-    color: #00ff88;
-    background: rgba(0,255,136,0.12);
-    border: 1px solid rgba(0,255,136,0.3);
-    padding: 0 6px;
-    min-width: 20px;
-    text-align: center;
-    line-height: 18px;
-}
-
-/* Recording indicator */
-#gl-rec-indicator {
-    display: flex;
-    align-items: center;
-    gap: 6px;
-    margin-bottom: 8px;
-    min-height: 14px;
-}
-
-#gl-rec-dot {
-    width: 7px;
-    height: 7px;
-    border-radius: 50%;
-    background: rgba(255,51,68,0.3);
-    border: 1px solid rgba(255,51,68,0.4);
-    flex-shrink: 0;
-    transition: background 0.15s, box-shadow 0.15s;
-}
-
-#gl-rec-dot.gl-recording {
-    background: #ff3344;
-    box-shadow: 0 0 8px #ff3344;
-    animation: gl-rec-pulse 0.9s ease-in-out infinite;
-}
-
-@keyframes gl-rec-pulse {
-    0%, 100% { opacity: 1; }
-    50%       { opacity: 0.35; }
-}
-
-#gl-rec-label {
-    font-size: 7px;
-    letter-spacing: 1px;
-    color: rgba(160,160,168,0.55);
-    text-transform: uppercase;
-}
-
-/* Control rows */
-.gl-ctrl-row {
-    display: flex;
-    align-items: center;
-    gap: 6px;
-    margin-bottom: 7px;
-}
-
-.gl-ctrl-label {
-    font-size: 7px;
-    letter-spacing: 1.5px;
-    color: rgba(0,243,255,0.65);
-    width: 36px;
-    flex-shrink: 0;
-    text-transform: uppercase;
-}
-
-.gl-ctrl-slider {
-    flex: 1;
-    -webkit-appearance: none;
-    appearance: none;
-    height: 2px;
-    background: rgba(0,243,255,0.18);
-    outline: none;
-    cursor: pointer;
-}
-
-.gl-ctrl-slider::-webkit-slider-thumb {
-    -webkit-appearance: none;
-    width: 10px;
-    height: 10px;
-    border-radius: 50%;
-    background: #00f3ff;
-    cursor: pointer;
-    box-shadow: 0 0 6px rgba(0,243,255,0.7);
-}
-
-.gl-ctrl-val {
-    font-size: 7px;
-    color: rgba(0,243,255,0.5);
-    width: 28px;
-    text-align: right;
-    flex-shrink: 0;
-}
-
-.gl-wave-select {
-    flex: 1;
-    background: #0a0a10;
-    border: 1px solid rgba(0,243,255,0.2);
-    color: #00f3ff;
-    font-family: 'JetBrains Mono', monospace;
-    font-size: 8px;
-    letter-spacing: 1px;
-    padding: 3px 5px;
-    cursor: pointer;
-    outline: none;
-}
-
-.gl-wave-select:focus {
-    border-color: rgba(0,243,255,0.5);
-}
-
-/* CLEAR ALL button */
-#gl-clear-btn {
-    width: 100%;
-    margin-top: 4px;
-    padding: 8px 0;
-    background: rgba(255,51,68,0.08);
-    border: 1px solid rgba(255,51,68,0.45);
-    color: #ff3344;
-    font-family: 'JetBrains Mono', monospace;
-    font-size: 9px;
-    font-weight: 700;
-    letter-spacing: 2px;
-    text-transform: uppercase;
-    cursor: pointer;
-    transition: background 0.15s, box-shadow 0.15s;
-}
-
-#gl-clear-btn:hover {
-    background: rgba(255,51,68,0.18);
-    box-shadow: 0 0 12px rgba(255,51,68,0.25);
-}
-
-#gl-clear-btn:active {
-    background: rgba(255,51,68,0.32);
-}
-</style>
+</div><!-- /#vngrd-console -->
 
 <script>
-// ── Tweak panel live feedback ─────────────────────────────────────────────────
-(function() {
-    // Delay slider → show percentage
-    const delaySlider = document.getElementById('gl-delay-slider');
-    const delayVal    = document.getElementById('gl-delay-val');
-    if (delaySlider && delayVal) {
-        delaySlider.addEventListener('input', function() {
-            delayVal.textContent = Math.round(this.value * 100) + '%';
+/* ═══════════════════════════════════════════════════════════════════════
+   LIVE CONSOLE MATRIX (LCM) — DSP Engine  v1.1 (bug-fixed)
+
+   Fixes vs v1.0:
+   ① Tone.start() called on panel OPEN (user-gesture context) so the
+     AudioContext is running before any channel or recorder is used.
+   ② Fresh Tone.Recorder per capture — avoids MediaRecorder state bugs
+     when the same instance is reused across captures.
+   ③ _executeCrossfade() always stops then restarts GrainPlayer so a
+     newly loaded buffer always plays from the top regardless of prior state.
+   ④ ghostPlay() guards against no buffer — prints clear message instead
+     of throwing a silent Tone.js exception.
+   ⑤ LOOP button is marked .active on init (default loop = true).
+   ⑥ _uiBeep() — short OscillatorNode click through a dedicated gain
+     node (NOT the master bus) for zero-latency button feedback.
+   ⑦ 'M' keyboard shortcut closes/opens the panel.
+
+   GC hygiene (unchanged):
+   • No new objects in hot paths — rAF loop uses pre-cached arrays/refs.
+   • Tone nodes created once per channel, never re-created.
+   • Blob URLs revoked immediately after GrainPlayer.load() resolves.
+   ═══════════════════════════════════════════════════════════════════════ */
+var LCM = (() => {
+    'use strict';
+
+    // ── State ────────────────────────────────────────────────────────
+    let _initialized   = false;
+    let _masterBus     = null;
+    let _cueBus        = null;
+    let _ghostPlayer   = null;
+    let _ghostGain     = null;
+    let _ghostAnalyser = null;
+    let _channels      = [];
+    let _devices       = [];
+    let _isVisible     = false;
+    let _rafId         = null;
+    let _ghostLooping  = true;
+    let _ghostPlaying  = false;
+    let _lastBlobUrl   = null;
+    let _uiACtx        = null;   // dedicated AudioContext for UI beeps only
+
+    const MAX_CH = 8;
+    const BARS   = 4;
+
+    const _waveformBars = [];   // pre-allocated waveform bar refs
+
+    // ── DOM helper ───────────────────────────────────────────────────
+    function _q(id) { return document.getElementById(id); }
+
+    // ── UI Beep (dedicated context, never touches master bus) ────────
+    // freq: Hz, dur: seconds, type: OscillatorType
+    function _uiBeep(freq, dur, type) {
+        try {
+            if (!_uiACtx) _uiACtx = new (window.AudioContext || window.webkitAudioContext)();
+            const g   = _uiACtx.createGain();
+            const osc = _uiACtx.createOscillator();
+            osc.type      = type  || 'sine';
+            osc.frequency.value = freq || 880;
+            g.gain.setValueAtTime(0.12, _uiACtx.currentTime);
+            g.gain.exponentialRampToValueAtTime(0.0001, _uiACtx.currentTime + (dur || 0.06));
+            osc.connect(g);
+            g.connect(_uiACtx.destination);
+            osc.start();
+            osc.stop(_uiACtx.currentTime + (dur || 0.06));
+        } catch(_) {}
+    }
+
+    // ── Initialization ───────────────────────────────────────────────
+    function _init() {
+        if (_initialized) return;
+        if (typeof Tone === 'undefined') {
+            _ghostLog('LCM: TONE.JS NOT LOADED', 'crit');
+            return;
+        }
+
+        _masterBus = new Tone.Gain(0.82).toDestination();
+        _cueBus    = new Tone.Gain(0).toDestination();
+
+        _ghostGain     = new Tone.Gain(0).connect(_masterBus);
+        _ghostAnalyser = new Tone.Analyser({ type: 'fft', size: 32 });
+        _ghostPlayer   = new Tone.GrainPlayer({ loop: true, grainSize: 0.2, overlap: 0.05 });
+        _ghostPlayer.connect(_ghostGain);
+        _ghostPlayer.connect(_ghostAnalyser);
+
+        // Build waveform bars (one-time alloc)
+        const wfEl = _q('lcm-ghost-waveform');
+        if (wfEl) {
+            for (let i = 0; i < 32; i++) {
+                const bar       = document.createElement('div');
+                bar.className   = 'lcm-ghost-waveform-bar';
+                bar.style.left  = (i * (100 / 32)).toFixed(2) + '%';
+                bar.style.width = (100 / 32 - 0.5).toFixed(2) + '%';
+                bar.style.height = '0%';
+                wfEl.appendChild(bar);
+                _waveformBars.push(bar);
+            }
+        }
+
+        // LOOP button defaults to active (loop is on by default)
+        const loopBtn = _q('lcm-gd-loop');
+        if (loopBtn) loopBtn.classList.add('active');
+
+        _makeDraggable(_q('vngrd-console'), _q('lcm-header'));
+
+        _syncBPM();
+        setInterval(_syncBPM, 2000);
+
+        _initialized = true;
+        _ghostLog('LCM: INIT // LIVE CONSOLE MATRIX ONLINE', 'success');
+    }
+
+    function _syncBPM() {
+        const el = _q('lcm-bpm-display');
+        if (el && typeof Tone !== 'undefined')
+            el.textContent = 'BPM: ' + Math.round(Tone.Transport.bpm.value);
+    }
+
+    // ── Device Enumeration ───────────────────────────────────────────
+    async function scanDevices() {
+        _ensureInit();
+        _uiBeep(660, 0.05);
+        try {
+            const tmp = await navigator.mediaDevices.getUserMedia({ audio: true, video: false });
+            tmp.getTracks().forEach(t => t.stop());
+            const all = await navigator.mediaDevices.enumerateDevices();
+            _devices  = all.filter(d => d.kind === 'audioinput');
+            _ghostLog('LCM: SCANNED ' + _devices.length + ' INPUT' + (_devices.length !== 1 ? 'S' : ''), 'success');
+            _renderDeviceList();
+        } catch (e) {
+            _ghostLog('LCM: HW_SCAN DENIED — ' + (e.message || e), 'crit');
+        }
+    }
+
+    function _renderDeviceList() {
+        const list = _q('lcm-device-list');
+        if (!list) return;
+        list.innerHTML = '';
+        if (!_devices.length) {
+            list.innerHTML = '<div style="font-size:8px;color:rgba(255,255,255,0.3);padding:8px;">NO AUDIO INPUTS DETECTED</div>';
+            return;
+        }
+        _devices.forEach((dev, i) => {
+            const item  = document.createElement('div');
+            item.className = 'lcm-device-item';
+            const lbl   = dev.label || ('INPUT_' + (i + 1));
+            const safeL = lbl.replace(/</g, '&lt;').replace(/>/g, '&gt;');
+            item.innerHTML = safeL + '<div class="lcm-di-id">ID: ' + ((dev.deviceId || 'default').slice(0, 16)) + '…</div>';
+            item.addEventListener('click', () => { closeDeviceModal(); addChannel(dev.deviceId, lbl); });
+            list.appendChild(item);
         });
     }
 
-    // Poll GestureLooper for recording state → animate dot
-    const dot   = document.getElementById('gl-rec-dot');
-    const label = document.getElementById('gl-rec-label');
-    setInterval(function() {
-        const looper = window._GestureLooper;
-        if (!looper) return;
-        const rec = looper.isRecording;
-        dot.classList.toggle('gl-recording', rec);
-        label.textContent = rec ? 'RECORDING...' : 'PINCH RIGHT HAND TO RECORD';
-    }, 80);
+    // ── Add Channel ──────────────────────────────────────────────────
+    function promptAddChannel() {
+        _ensureInit();
+        _uiBeep(880, 0.05);
+        if (_channels.length >= MAX_CH) {
+            _ghostLog('LCM: MAX ' + MAX_CH + ' CHANNELS REACHED', 'crit'); return;
+        }
+        if (!_devices.length) {
+            scanDevices().then(() => {
+                const m = _q('lcm-device-modal');
+                if (m) m.classList.add('active');
+            });
+            return;
+        }
+        const m = _q('lcm-device-modal');
+        if (m) m.classList.add('active');
+    }
+
+    function closeDeviceModal() {
+        const m = _q('lcm-device-modal');
+        if (m) m.classList.remove('active');
+    }
+
+    function addChannel(deviceId, label) {
+        _ensureInit();
+        if (_channels.length >= MAX_CH) return;
+
+        // AudioContext must be running before UserMedia streams audio
+        Tone.start();
+
+        const idx  = _channels.length;
+        const id   = 'lcm-ch-' + idx;
+        const name = label || ('CH ' + (idx + 1));
+
+        const userMedia = new Tone.UserMedia();
+        const gainNode  = new Tone.Gain(0.8);
+        const cueGain   = new Tone.Gain(0);
+        const meter     = new Tone.Meter({ normalRange: true, smoothing: 0.7 });
+
+        userMedia.connect(gainNode);
+        gainNode.connect(_masterBus);
+        gainNode.connect(cueGain);
+        gainNode.connect(meter);
+        cueGain.connect(_cueBus);
+
+        userMedia.open(deviceId).then(() => {
+            _uiBeep(1100, 0.08, 'square');
+            _ghostLog('LCM: CH' + (idx + 1) + ' ARMED // ' + name, 'success');
+        }).catch(e => {
+            _ghostLog('LCM: CH' + (idx + 1) + ' OPEN FAIL — ' + (e.message || e), 'crit');
+        });
+
+        const strip = _buildStripEl(idx, id, name);
+        const container = _q('lcm-strips');
+        if (container) container.appendChild(strip);
+
+        const ch = {
+            idx, id, label: name,
+            userMedia, gainNode, cueGain, meter,
+            isCued: false, isRecording: false,
+            elStrip:    strip,
+            elVuBar:    strip.querySelector('.lcm-vu-bar'),
+            elVuPeak:   strip.querySelector('.lcm-vu-peak'),
+            elCapBtn:   strip.querySelector('.lcm-capture-btn'),
+            elCueBtn:   strip.querySelector('.lcm-cue-btn'),
+            elFaderVal: strip.querySelector('.lcm-fader-val'),
+            _peakVal: 0, _peakHold: 0,
+        };
+        _channels.push(ch);
+
+        if (_rafId === null && _isVisible) _startMeterLoop();
+        _uiBeep(660, 0.04);
+    }
+
+    function _buildStripEl(idx, id, name) {
+        const strip    = document.createElement('div');
+        strip.className = 'lcm-strip';
+        strip.id        = id;
+        const safeName  = String(name).replace(/</g,'&lt;').replace(/>/g,'&gt;').slice(0, 16);
+        strip.innerHTML =
+            '<div class="lcm-strip-label" title="' + safeName + '">' + safeName + '</div>'
+          + '<div class="lcm-vu"><div class="lcm-vu-bar"></div><div class="lcm-vu-peak"></div></div>'
+          + '<div class="lcm-fader-wrap">'
+          +   '<input type="range" class="lcm-fader" min="0" max="100" value="80" title="VOL CH' + (idx+1) + '">'
+          +   '<span class="lcm-fader-val">80</span>'
+          + '</div>'
+          + '<button class="lcm-cue-btn" title="CUE bus">CUE</button>'
+          + '<button class="lcm-capture-btn" title="Record 4 bars → Ghost Deck">⬛<br>CAPTURE</button>';
+
+        strip.querySelector('.lcm-fader').addEventListener('input', function() { setGain(idx, this.value / 100); });
+        strip.querySelector('.lcm-cue-btn').addEventListener('click', () => { _uiBeep(770, 0.05); toggleCue(idx); });
+        strip.querySelector('.lcm-capture-btn').addEventListener('click', () => capture(idx));
+        return strip;
+    }
+
+    // ── Channel Controls ─────────────────────────────────────────────
+    function setGain(idx, val) {
+        const ch = _channels[idx];
+        if (!ch) return;
+        ch.gainNode.gain.rampTo(Math.max(0, Math.min(1, val)), 0.05);
+        if (ch.elFaderVal) ch.elFaderVal.textContent = Math.round(val * 100);
+    }
+
+    function toggleCue(idx) {
+        const ch = _channels[idx];
+        if (!ch) return;
+        ch.isCued = !ch.isCued;
+        ch.cueGain.gain.rampTo(ch.isCued ? 1 : 0, 0.05);
+        if (ch.elCueBtn) ch.elCueBtn.classList.toggle('active', ch.isCued);
+        if (ch.elStrip)  ch.elStrip.classList.toggle('cued',    ch.isCued);
+        _ghostLog('LCM: CH' + (idx+1) + ' CUE ' + (ch.isCued ? 'ON' : 'OFF'), 'cmd');
+    }
+
+    // ── Capture → Ghost Deck ─────────────────────────────────────────
+    async function capture(idx) {
+        const ch = _channels[idx];
+        if (!ch || ch.isRecording) return;
+
+        // ① Resume AudioContext inside this user-gesture call
+        await Tone.start();
+
+        const bpm   = (Tone.Transport.bpm.value > 0 ? Tone.Transport.bpm.value : 120);
+        const capMs = (60 / bpm) * 4 * BARS * 1000;   // 4 bars
+
+        ch.isRecording = true;
+        if (ch.elCapBtn) { ch.elCapBtn.classList.add('recording'); ch.elCapBtn.innerHTML = '● REC'; }
+        if (ch.elStrip)  ch.elStrip.classList.add('recording');
+        _uiBeep(440, 0.12, 'sawtooth');
+        _ghostLog('LCM: CH' + (idx+1) + ' CAPTURING // ' + (capMs/1000).toFixed(1) + 's', 'cmd');
+
+        // ② Fresh Tone.Recorder each capture — avoids MediaRecorder state bugs
+        const rec = new Tone.Recorder();
+        ch.gainNode.connect(rec);
+        rec.start();
+
+        // Countdown
+        let elapsed = 0;
+        const tick  = setInterval(() => {
+            elapsed += 250;
+            const rem = ((capMs - elapsed) / 1000).toFixed(1);
+            if (ch.elCapBtn && ch.isRecording) ch.elCapBtn.innerHTML = '● ' + rem + 's';
+        }, 250);
+
+        await new Promise(r => setTimeout(r, capMs));
+        clearInterval(tick);
+
+        let blob;
+        try   { blob = await rec.stop(); }
+        catch (e) {
+            _ghostLog('LCM: REC STOP FAIL — ' + (e.message || e), 'crit');
+            ch.isRecording = false;
+            _resetCapBtn(ch);
+            return;
+        }
+
+        try { ch.gainNode.disconnect(rec); } catch(_) {}
+        rec.dispose();
+
+        ch.isRecording = false;
+        _resetCapBtn(ch);
+
+        if (!blob || blob.size < 512) {
+            _ghostLog('LCM: CAPTURE EMPTY — is the channel armed + AudioContext running?', 'crit');
+            return;
+        }
+
+        _ghostLog('LCM: CH' + (idx+1) + ' CAPTURED (' + (blob.size/1024).toFixed(1) + 'KB) // LOADING GHOST_DECK', 'success');
+        _loadGhostDeck(blob, ch);
+    }
+
+    function _resetCapBtn(ch) {
+        if (ch.elCapBtn) { ch.elCapBtn.classList.remove('recording'); ch.elCapBtn.innerHTML = '⬛<br>CAPTURE'; }
+        if (ch.elStrip)  ch.elStrip.classList.remove('recording');
+    }
+
+    function _loadGhostDeck(blob, ch) {
+        if (_lastBlobUrl) { try { URL.revokeObjectURL(_lastBlobUrl); } catch(_) {} }
+        const url      = URL.createObjectURL(blob);
+        _lastBlobUrl   = url;
+        const statusEl = _q('lcm-ghost-status');
+        if (statusEl) statusEl.textContent = 'LOADING…';
+
+        _ghostPlayer.load(url).then(() => {
+            // Revoke now that Tone has decoded the buffer
+            try { URL.revokeObjectURL(url); } catch(_) {}
+            _lastBlobUrl = null;
+
+            if (statusEl) statusEl.textContent = 'LOADED // CH' + (ch.idx + 1) + ' LOOPING';
+            _ghostLog('LCM: GHOST_DECK LOADED // EXECUTING CROSSFADE', 'success');
+            _uiBeep(1320, 0.15, 'sine');
+            _executeCrossfade(ch);
+        }).catch(e => {
+            _ghostLog('LCM: GHOST_DECK LOAD FAIL — ' + (e.message || e), 'crit');
+            if (statusEl) statusEl.textContent = 'LOAD ERROR';
+        });
+    }
+
+    function _executeCrossfade(ch) {
+        const fadeSec = 1.5;
+
+        // ③ Always stop then restart — ensures new buffer plays from scratch
+        try { _ghostPlayer.stop(); } catch(_) {}
+
+        ch.gainNode.gain.rampTo(0, fadeSec);
+        _ghostGain.gain.rampTo(0.85, fadeSec);
+
+        // Small offset so the ramp has started before playback begins
+        _ghostPlayer.start(Tone.now() + 0.05);
+        _ghostPlaying = true;
+
+        const playBtn = _q('lcm-gd-play');
+        if (playBtn) playBtn.classList.add('active');
+        _ghostLog('LCM: CROSSFADE // CH' + (ch.idx+1) + ' OUT → GHOST_DECK IN', 'success');
+
+        // Restore live channel gain after crossfade completes
+        setTimeout(() => {
+            if (!ch.isRecording) ch.gainNode.gain.rampTo(0.8, 0.5);
+        }, (fadeSec + 2) * 1000);
+    }
+
+    // ── Ghost Deck Controls ──────────────────────────────────────────
+    function ghostPlay() {
+        _ensureInit();
+        // ④ Guard: no buffer loaded yet
+        if (!_ghostPlayer || !_ghostPlayer.buffer || !_ghostPlayer.buffer.loaded) {
+            _ghostLog('LCM: GHOST_DECK EMPTY — CAPTURE a channel first', 'crit');
+            _uiBeep(220, 0.1, 'sawtooth');
+            return;
+        }
+        Tone.start();
+        try {
+            _ghostPlayer.start();
+            _ghostPlaying = true;
+            const p = _q('lcm-gd-play');
+            if (p) p.classList.add('active');
+            const s = _q('lcm-ghost-status');
+            if (s) s.textContent = 'PLAYING';
+            _ghostLog('LCM: GHOST_DECK PLAY', 'success');
+            _uiBeep(880, 0.06);
+        } catch(e) { _ghostLog('LCM: GHOST_DECK PLAY FAIL — ' + e.message, 'crit'); }
+    }
+
+    function ghostStop() {
+        if (!_ghostPlayer) return;
+        try {
+            _ghostPlayer.stop();
+            _ghostPlaying = false;
+            const p = _q('lcm-gd-play');
+            if (p) p.classList.remove('active');
+            const s = _q('lcm-ghost-status');
+            if (s) s.textContent = 'STOPPED';
+            _ghostLog('LCM: GHOST_DECK STOP', 'cmd');
+            _uiBeep(440, 0.06);
+        } catch(_) {}
+    }
+
+    function ghostToggleLoop() {
+        if (!_ghostPlayer) return;
+        _ghostLooping      = !_ghostLooping;
+        _ghostPlayer.loop  = _ghostLooping;
+        const btn = _q('lcm-gd-loop');
+        if (btn) btn.classList.toggle('active', _ghostLooping);
+        _ghostLog('LCM: LOOP ' + (_ghostLooping ? 'ON' : 'OFF'), 'cmd');
+        _uiBeep(_ghostLooping ? 1100 : 550, 0.05);
+    }
+
+    function setGhostGain(val) {
+        if (_ghostGain) _ghostGain.gain.rampTo(Math.max(0, Math.min(1, val)), 0.05);
+        const el = _q('lcm-ghost-gain-val');
+        if (el) el.textContent = Math.round(val * 100);
+    }
+
+    function setGrainSize(ms) {
+        if (_ghostPlayer) _ghostPlayer.grainSize = Math.max(0.01, ms / 1000);
+    }
+
+    function setGrainOverlap(val) {
+        if (_ghostPlayer) _ghostPlayer.overlap = Math.max(0, Math.min(0.5, val));
+    }
+
+    // ── Meter / Waveform RAF Loop ────────────────────────────────────
+    function _startMeterLoop() {
+        if (_rafId !== null) return;
+        let frame = 0;
+        const tick = () => {
+            _rafId = requestAnimationFrame(tick);
+            if (++frame % 2 !== 0) return;   // ~30 fps
+
+            for (let i = 0; i < _channels.length; i++) {
+                const ch  = _channels[i];
+                const raw = ch.meter.getValue();
+                const lvl = isNaN(raw) ? 0 : (typeof raw === 'number' ? raw : (raw[0] || 0));
+                const pct = Math.min(100, Math.max(0, lvl * 100));
+                if (ch.elVuBar) ch.elVuBar.style.height = pct.toFixed(1) + '%';
+                if (pct > ch._peakVal)        { ch._peakVal = pct; ch._peakHold = 60; }
+                else if (ch._peakHold > 0)    { ch._peakHold--; }
+                else { ch._peakVal = Math.max(0, ch._peakVal - 0.8); }
+                if (ch.elVuPeak) ch.elVuPeak.style.bottom = ch._peakVal.toFixed(1) + '%';
+            }
+
+            if (_ghostPlaying && _ghostAnalyser && _waveformBars.length === 32) {
+                const data = _ghostAnalyser.getValue();
+                for (let b = 0; b < 32; b++) {
+                    const db  = (typeof data[b] === 'number' && !isNaN(data[b])) ? data[b] : -100;
+                    _waveformBars[b].style.height = Math.max(0, Math.min(100, db + 100)).toFixed(1) + '%';
+                }
+            }
+        };
+        tick();
+    }
+
+    function _stopMeterLoop() {
+        if (_rafId !== null) { cancelAnimationFrame(_rafId); _rafId = null; }
+    }
+
+    // ── Toggle Panel ─────────────────────────────────────────────────
+    function toggle() {
+        const panel  = _q('vngrd-console');
+        const tglBtn = _q('btn-lcm-toggle');
+        if (!panel) return;
+
+        _isVisible = !_isVisible;
+        panel.classList.toggle('active', _isVisible);
+        if (tglBtn) tglBtn.classList.toggle('active', _isVisible);
+
+        if (_isVisible) {
+            // ① Resume AudioContext while we are still in the user-gesture call stack
+            if (typeof Tone !== 'undefined') Tone.start();
+            _ensureInit();
+            _startMeterLoop();
+            _uiBeep(660, 0.05);
+            _ghostLog('LCM: MATRIX OPEN // press M to close', 'cmd');
+        } else {
+            _stopMeterLoop();
+            _uiBeep(440, 0.05);
+        }
+    }
+
+    // ── Keyboard shortcut: M toggles the matrix ──────────────────────
+    document.addEventListener('keydown', e => {
+        if (e.key !== 'm' && e.key !== 'M') return;
+        const active = document.activeElement;
+        if (active && (active.tagName === 'INPUT' || active.tagName === 'TEXTAREA' || active.isContentEditable)) return;
+        toggle();
+    });
+
+    // ── Draggable ─────────────────────────────────────────────────────
+    function _makeDraggable(panel, handle) {
+        if (!panel || !handle) return;
+        let dragging = false, dx = 0, dy = 0;
+        handle.addEventListener('mousedown', e => {
+            if (e.target.tagName === 'BUTTON' || e.target.tagName === 'INPUT') return;
+            dragging = true;
+            const r = panel.getBoundingClientRect();
+            dx = e.clientX - r.left;
+            dy = e.clientY - r.top;
+            panel.style.transform = 'none';
+            panel.style.left   = r.left + 'px';
+            panel.style.bottom = 'auto';
+            panel.style.top    = r.top  + 'px';
+            e.preventDefault();
+        });
+        document.addEventListener('mousemove', e => {
+            if (!dragging) return;
+            panel.style.left = (e.clientX - dx) + 'px';
+            panel.style.top  = (e.clientY - dy) + 'px';
+        });
+        document.addEventListener('mouseup', () => { dragging = false; });
+    }
+
+    // ── Helpers ───────────────────────────────────────────────────────
+    function _ensureInit() { if (!_initialized) _init(); }
+    function _ghostLog(msg, type) {
+        if (typeof ghostLog === 'function') ghostLog(msg, type);
+        else console.log('[LCM]', msg);
+    }
+
+    // ── Public API ────────────────────────────────────────────────────
+    return {
+        toggle, scanDevices, promptAddChannel, closeDeviceModal,
+        addChannel, setGain, toggleCue, capture,
+        ghostPlay, ghostStop, ghostToggleLoop,
+        setGhostGain, setGrainSize, setGrainOverlap,
+    };
 })();
 </script>
 
