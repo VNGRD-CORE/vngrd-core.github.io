@@ -1065,9 +1065,7 @@
         .sec-arrow { font-size: 8px; color: var(--text-dim); margin-left: 5px; margin-right: auto; transition: color 0.2s; }
         .sec-head.collapsible.open .sec-arrow { color: var(--accent); }
         /* Collapsible bodies: collapsed by default; JS restores padding on open */
-        #session-lab-body, #p2p-call-body, #nft-vault-body, #lexica-nano-body { max-height: 0; overflow: hidden; transition: max-height 0.3s ease; padding: 0 12px; }
-        /* midi-host starts open by default */
-        #midi-host-body { overflow: hidden; transition: max-height 0.3s ease; }
+        #session-lab-body, #p2p-call-body, #midi-host-body, #nft-vault-body, #lexica-nano-body { max-height: 0; overflow: hidden; transition: max-height 0.3s ease; padding: 0 12px; }
 
         /* ═══ P2P HUD — SOLID TERMINAL SKIN ════════════════════════════════ */
         #p2p-modal {
@@ -1323,8 +1321,8 @@
             user-select: none;
         }
         #sfx-sampler-header:hover .sampler-collapse-arrow { color: var(--accent) !important; }
-        #sfx-pad-body { overflow: hidden; transition: max-height 0.3s ease; max-height: 900px; }
-        #sfx-pad-body.collapsed { max-height: 0; margin-bottom: 0; }
+        #sfx-pad-body { overflow: hidden; transition: max-height 0.3s ease; max-height: 0; }
+        #sfx-pad-body.open { max-height: 900px; }
         /* Allow gear dropdown to escape the overflow:hidden clip when open */
         #sfx-pad-body.gear-open { overflow: visible; }
         #sfx-sampler-header .sampler-title {
@@ -5202,30 +5200,28 @@ body.fullscreen #transcription-hud { pointer-events: none !important; } /* keep 
                     <div id="vu"></div>
                     <div id="track-info">NO_TRACK</div>
                 </div>
-                <div class="btn-row" style="gap:4px;margin-bottom:4px;"><button class="btn btn-compact" id="btn-audio" style="flex:1;font-size:9px;padding:5px 4px;">LOAD AUDIO</button><button class="btn btn-compact" id="btn-mute-vid" style="width:28px;flex:none;font-size:11px;padding:3px 2px;" title="Toggle video audio">&#x1F50A;</button><button class="btn btn-compact" id="btn-mic-engine" style="width:28px;flex:none;font-size:10px;padding:3px 2px;" title="Mic on/off">&#x1F3A4;</button></div>
-                <div class="audio-ctrl-row" style="margin-bottom:4px;">
-                    <button class="btn btn-compact" id="btn-prev-track" style="padding:5px 0;"><svg width="10" height="10" viewBox="0 0 12 12"><path fill="currentColor" d="M2 2h2v8H2zm2 4l6 4V2z"/></svg></button>
-                    <button class="btn btn-compact" id="btn-play-pause" style="padding:5px 0;"><svg width="10" height="10" viewBox="0 0 12 12" id="icon-play-state"><path fill="currentColor" d="M3 2v8l7-4z"/></svg></button>
-                    <button class="btn btn-compact" id="btn-next-track" style="padding:5px 0;"><svg width="10" height="10" viewBox="0 0 12 12"><path fill="currentColor" d="M2 10l6-4-6-4v8zm6-8v8h2V2H8z"/></svg></button>
+                <div class="btn-row" style="gap:4px;margin-bottom:3px;"><button class="btn btn-compact" id="btn-audio" style="flex:1;font-size:9px;padding:6px 4px;">LOAD AUDIO</button><button class="btn btn-compact" id="btn-mute-vid" style="width:30px;flex:none;font-size:12px;padding:4px 2px;" title="Toggle video audio">&#x1F50A;</button><button class="btn btn-compact" id="btn-mic-engine" style="width:30px;flex:none;font-size:11px;padding:4px 2px;" title="Mic on/off">&#x1F3A4;</button></div>
+                <div class="audio-ctrl-row" style="margin-bottom:5px;">
+                    <button class="btn btn-compact" id="btn-prev-track" style="padding:6px 0;"><svg width="10" height="10" viewBox="0 0 12 12"><path fill="currentColor" d="M2 2h2v8H2zm2 4l6 4V2z"/></svg></button>
+                    <button class="btn btn-compact" id="btn-play-pause" style="padding:6px 0;"><svg width="10" height="10" viewBox="0 0 12 12" id="icon-play-state"><path fill="currentColor" d="M3 2v8l7-4z"/></svg></button>
+                    <button class="btn btn-compact" id="btn-next-track" style="padding:6px 0;"><svg width="10" height="10" viewBox="0 0 12 12"><path fill="currentColor" d="M2 10l6-4-6-4v8zm6-8v8h2V2H8z"/></svg></button>
                 </div>
-                <div class="sec-divider" style="margin:4px -8px;"></div>
-                <div style="display:flex;align-items:center;gap:4px;margin-bottom:3px;">
-                    <span class="lbl" style="font-size:6px;opacity:0.4;letter-spacing:2px;margin-bottom:0;white-space:nowrap;">INPUT</span>
-                    <button class="btn" id="btn-scan-inputs" style="font-size:7px;padding:3px 6px;margin-bottom:0;flex:1;">SCAN_INPUTS</button>
+                <div style="display:flex;align-items:center;gap:5px;margin-bottom:3px;">
+                    <span style="font-size:7px;opacity:0.35;letter-spacing:2px;font-family:'Orbitron',sans-serif;white-space:nowrap;color:var(--text);">INPUT</span>
+                    <button class="btn" id="btn-scan-inputs" style="font-size:9px;padding:5px 6px;margin-bottom:0;flex:1;text-align:center;">SCAN_INPUTS</button>
                 </div>
-                <select class="inp" id="audio-input-select" style="width:100%;font-size:8px;padding:3px 5px;background:var(--panel);border:1px solid var(--border);color:var(--text);display:none;margin-bottom:2px;">
+                <select class="inp" id="audio-input-select" style="width:100%;font-size:8px;padding:4px 5px;background:var(--panel);border:1px solid var(--border);color:var(--text);display:none;margin-bottom:3px;">
                     <option value="">SELECT_DEVICE...</option>
                 </select>
-                <div id="input-level" style="height:2px;background:var(--border);margin-bottom:3px;">
+                <div id="input-level" style="height:2px;background:var(--border);margin-bottom:4px;">
                     <div id="input-level-bar" style="height:100%;width:0%;background:var(--g);transition:width 0.05s;"></div>
                 </div>
-                <div class="sec-divider" style="margin:3px -8px;"></div>
-                <div style="display:flex;align-items:center;gap:4px;margin-bottom:3px;">
-                    <span class="lbl" style="font-size:6px;opacity:0.4;letter-spacing:2px;margin-bottom:0;white-space:nowrap;">ENG</span>
+                <div style="display:flex;align-items:center;gap:5px;">
+                    <span style="font-size:7px;opacity:0.35;letter-spacing:2px;font-family:'Orbitron',sans-serif;white-space:nowrap;color:var(--text);">ENG</span>
                     <div class="btn-grid-3" style="flex:1;margin-bottom:0;">
-                        <button class="btn active-mode" id="btn-stereo" style="font-size:8px;padding:4px 2px;text-align:center;">STEREO</button>
-                        <button class="btn" id="btn-spatial" style="font-size:8px;padding:4px 2px;text-align:center;">3D_SPATIAL</button>
-                        <button class="btn" id="btn-dolby" style="font-size:8px;padding:4px 2px;text-align:center;color:#ffa500;">DOLBY</button>
+                        <button class="btn active-mode" id="btn-stereo" style="font-size:9px;padding:5px 2px;text-align:center;">STEREO</button>
+                        <button class="btn" id="btn-spatial" style="font-size:9px;padding:5px 2px;text-align:center;">3D_SPATIAL</button>
+                        <button class="btn" id="btn-dolby" style="font-size:9px;padding:5px 2px;text-align:center;color:#ffa500;">DOLBY</button>
                     </div>
                 </div>
             </div>
@@ -5244,7 +5240,7 @@ body.fullscreen #transcription-hud { pointer-events: none !important; } /* keep 
                 <div id="sfx-sampler-wrap">
                     <div id="sfx-sampler-header" onclick="_toggleSamplerBody()" style="cursor:pointer;">
                         <span class="sampler-title">Sampler SFX</span>
-                        <span class="sampler-collapse-arrow" id="sfx-collapse-arrow" style="font-size:8px;color:var(--accent);margin-left:4px;margin-right:auto;transition:color 0.2s;line-height:1;">&#x25BE;</span>
+                        <span class="sampler-collapse-arrow" id="sfx-collapse-arrow" style="font-size:8px;color:var(--text-dim);margin-left:4px;margin-right:auto;transition:color 0.2s;line-height:1;">&#x25B8;</span>
                         <button class="sampler-help-btn" onclick="event.stopPropagation();_toggleSectionHelp(this,'sampler')">?</button>
                         <span class="sampler-badge">SFX · 12-PAD</span>
                     </div>
@@ -5780,8 +5776,8 @@ body.fullscreen #transcription-hud { pointer-events: none !important; } /* keep 
         <!-- ── END VOICE_LAB ──────────────────────────────────────────────── -->
 
         <div class="section">
-            <div class="sec-head collapsible open"><span class="sec-title">MIDI_HOST</span><span class="sec-arrow">&#x25BE;</span><button class="sampler-help-btn" onclick="event.stopPropagation();_toggleSectionHelp(this,'midi')">?</button><div class="sec-dot off" id="midi-dot"></div></div>
-            <div class="sec-body" id="midi-host-body" style="max-height:200px;padding:8px 12px;">
+            <div class="sec-head collapsible"><span class="sec-title">MIDI_HOST</span><span class="sec-arrow">&#x25B8;</span><button class="sampler-help-btn" onclick="event.stopPropagation();_toggleSectionHelp(this,'midi')">?</button><div class="sec-dot off" id="midi-dot"></div></div>
+            <div class="sec-body" id="midi-host-body">
                 <div class="btn-row" style="gap:4px;">
                     <button class="btn" id="btn-midi" style="flex:1;font-size:8px;">MIDI INIT</button>
                     <button class="btn" id="btn-midi-learn" style="flex:1;font-size:8px;color:var(--v);border-color:var(--v);">LEARN: OFF</button>
@@ -15405,9 +15401,8 @@ document.addEventListener('DOMContentLoaded', () => {
             var body = document.getElementById('sfx-pad-body');
             var arrow = document.getElementById('sfx-collapse-arrow');
             if (!body) return;
-            var isOpen = !body.classList.contains('collapsed');
-            body.classList.toggle('collapsed', isOpen);
-            if (arrow) arrow.textContent = isOpen ? '\u25B8' : '\u25BE';
+            var isOpen = body.classList.toggle('open');
+            if (arrow) arrow.textContent = isOpen ? '\u25BE' : '\u25B8';
         };
 
         // ── SAMPLER HELP MODAL (legacy — kept for compat) ────────────────
