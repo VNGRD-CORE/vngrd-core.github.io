@@ -281,6 +281,15 @@ class KineticRack {
 
         window.addEventListener('resize', this._onResize.bind(this));
 
+        // Reveal canvas + camera + update UI state
+        document.getElementById('kinetic-canvas')?.classList.add('kr-online');
+        document.getElementById('kinetic-cam-video')?.classList.add('kr-online');
+        document.getElementById('kr-launch-btn')?.classList.add('kr-online');
+        document.getElementById('kr-stage-hud')?.classList.add('kr-live');
+        document.getElementById('kr-rack')?.classList.add('kr-online');
+        const statusEl = document.getElementById('kr-status');
+        if (statusEl) { statusEl.textContent = 'GESTURE LOOPER // LIVE'; statusEl.classList.add('kr-live'); }
+
         this._active  = true;
         this._lastNow = performance.now();
         this._loop();
@@ -408,14 +417,31 @@ class KineticRack {
         if (this._active) {
             this._active = false;
             if (this._rafId) cancelAnimationFrame(this._rafId);
+            ['kinetic-canvas','kinetic-cam-video','kr-launch-btn','kr-rack'].forEach(id =>
+                document.getElementById(id)?.classList.remove('kr-online')
+            );
+            document.getElementById('kr-stage-hud')?.classList.remove('kr-live');
+            const s = document.getElementById('kr-status');
+            if (s) { s.textContent = 'OFFLINE'; s.classList.remove('kr-live'); }
         } else if (!this._renderer) {
             // First click — full initialization
-            await this.init();
+            const s = document.getElementById('kr-status');
+            if (s) s.textContent = 'STARTING...';
+            document.getElementById('kr-launch-btn')?.classList.add('kr-online');
+            try {
+                await this.init();
+            } catch (err) {
+                console.error('[KineticRack]', err);
+                if (s) s.textContent = 'ERROR: ' + (err?.message ?? err);
+                document.getElementById('kr-launch-btn')?.classList.remove('kr-online');
+            }
         } else {
             // Resume from pause
             this._active  = true;
             this._lastNow = performance.now();
             this._loop();
+            document.getElementById('kinetic-canvas')?.classList.add('kr-online');
+            document.getElementById('kr-launch-btn')?.classList.add('kr-online');
         }
     }
 
