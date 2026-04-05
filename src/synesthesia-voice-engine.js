@@ -1,31 +1,30 @@
 // ─────────────────────────────────────────────────────────────────────────────
-// SYNESTHESIA VOICE ENGINE  //  VNGRD-CORE  //  v2.0.0
-// Client-side cinematic narration. Auto-selects best OS/browser voice.
-// RECORD taps Tone.js output via MediaRecorder (FX stems). No Tone.Offline.
+// SYNESTHESIA VOICE ENGINE  //  VNGRD-CORE  //  v2.1.0
+//
+// KEY ARCHITECTURE:
+// - Tone.js is initialized on VNGRD's APP.audio.ctx so effects are captured
+//   by the VNGRD Iron-Clad Recorder automatically
+// - Tone output is routed into APP.audio.masterGain (same chain as music bus)
+// - speechSynthesis voice goes to OS audio (browser limitation — unavoidable)
+//   but pitch/rate are set per-mode so each mode sounds distinctly different
+// - Language of the typed script is auto-detected on each SPEAK press
 // ─────────────────────────────────────────────────────────────────────────────
 (function () {
     'use strict';
 
     const SVE = {
-        version: '2.0.0',
+        version: '2.1.0',
         initialized: false,
         isPlaying: false,
-        isRecording: false,
         currentMood: 'CYBER',
         preferredVoice: null,
         wordCount: 0,
-
-        // Tone.js live nodes
         glitchSynth: null,
         moodEffects: [],
-
-        // MediaRecorder session
-        _recorder: null,
-        _recChunks: [],
-        _captureDest: null,
+        _lastDetectedLang: null,
     };
 
-    // ── UI ────────────────────────────────────────────────────────────────────
+    // ── UI ─────────────────────────────────────────────────────────────────────
     SVE.updateStatus = function (msg) {
         const el = document.getElementById('sve-status');
         if (el) el.textContent = msg;
@@ -36,70 +35,145 @@
         if (d) d.classList.toggle('off', !on);
     };
 
-    // ── Voice selection: silent auto-pick, no user controls needed ───────────
-    SVE._findBestVoice = function () {
+    // ── Language detection (no external API) ──────────────────────────────────
+    // Uses character-set fingerprints + function-word frequency scoring.
+    SVE._detectLanguage = function (text) {
+        if (!text || text.trim().length < 6) return null;
+
+        // Non-Latin scripts — character range is unambiguous
+        if (/[\u4e00-\u9fff]/.test(text)) return 'zh-CN';
+        if (/[\u3040-\u30ff]/.test(text)) return 'ja-JP';
+        if (/[\uac00-\ud7af]/.test(text)) return 'ko-KR';
+        if (/[\u0600-\u06ff]/.test(text)) return 'ar-SA';
+        if (/[\u0400-\u04ff]/.test(text)) return 'ru-RU';
+        if (/[\u0590-\u05ff]/.test(text)) return 'he-IL';
+        if (/[\u0900-\u097f]/.test(text)) return 'hi-IN';
+
+        // Latin diacritics — quick wins
+        if (/[äöüÄÖÜß]/.test(text)) return 'de-DE';
+        if (/ñ/.test(text))           return 'es-ES';
+        if (/[ãõÃÕ]/.test(text))      return 'pt-BR';
+        if (/[ąćęłńśźżĄĆĘŁŃŚŹŻ]/.test(text)) return 'pl-PL';
+        if (/[åøÅØ]/.test(text))      return 'da-DK';
+        if (/[åÅ]/.test(text))        return 'sv-SE';
+
+        // Function-word scoring for similar Latin languages
+        const t = text.toLowerCase();
+        const words = t.match(/\b[a-zàáâãäåæçèéêëìíîïðñòóôõöùúûüý]+\b/g) || [];
+        if (words.length < 3) return null;
+
+        const freq = (list) => words.filter(w => list.includes(w)).length / words.length;
+
+        const scores = {
+            'it-IT': freq(['il','la','le','gli','di','e','un','una','per','non','che','sono','come','ho','nei','delle']),
+            'fr-FR': freq(['le','la','les','de','du','des','je','tu','il','est','que','et','pas','une','dans','avec']),
+            'es-ES': freq(['el','la','los','de','en','que','no','es','por','con','del','una','se','su','al','yo']),
+            'pt-BR': freq(['o','a','os','as','um','de','do','da','que','não','em','por','com','para','é','ao']),
+            'nl-NL': freq(['de','het','een','van','in','is','op','en','dat','die','te','zijn','ook','voor','aan']),
+        };
+
+        const best = Object.entries(scores).sort((a, b) => b[1] - a[1])[0];
+        // Only commit if score is meaningful (≥3% of words matched)
+        return (best && best[1] >= 0.03) ? best[0] : null;
+    };
+
+    // ── Voice selection ────────────────────────────────────────────────────────
+    SVE._findBestVoice = function (lang) {
         const voices = window.speechSynthesis.getVoices();
         if (!voices.length) return;
 
-        // Tier 1: Google Cloud TTS (best quality in Chrome/Edge)
-        // Tier 2: Microsoft Neural (Edge)
-        // Tier 3: Apple premium (Safari: Samantha, Daniel)
-        // Tier 4: Any en-GB / en-US voice
-        const priority = [
-            v => v.name === 'Google UK English Male',
-            v => v.name === 'Google UK English Female',
-            v => v.name === 'Google US English',
-            v => v.name.startsWith('Google') && v.lang.startsWith('en'),
-            v => /Microsoft.*Neural/i.test(v.name) && v.lang.startsWith('en'),
-            v => v.name === 'Daniel'  && v.lang === 'en-GB',
-            v => v.name === 'Samantha'&& v.lang === 'en-US',
-            v => v.name === 'Karen'   && v.lang.startsWith('en'),
-            v => v.name === 'Victoria'&& v.lang.startsWith('en'),
-            v => v.name.startsWith('Microsoft') && v.lang.startsWith('en'),
-            v => v.lang === 'en-GB',
-            v => v.lang === 'en-US',
-            v => v.lang.startsWith('en'),
+        const target = lang || SVE._lastDetectedLang;
+
+        // If a specific language is requested, filter to that language first
+        const pool = target
+            ? voices.filter(v => v.lang === target || v.lang.startsWith(target.split('-')[0]))
+            : voices;
+
+        // Tier priority within pool
+        const tiers = [
+            v => /^Google\s/.test(v.name),                            // Google TTS (best in Chrome)
+            v => /Microsoft.*Natural|Microsoft.*Neural/i.test(v.name), // MS Neural (Edge)
+            v => ['Daniel','Samantha','Karen','Victoria','Thomas',
+                  'Reed','Oliver','Moira','Rishi','Fiona'].some(n => v.name.includes(n)),
+            v => /Microsoft/.test(v.name),
+            v => true,                                                  // any in pool
         ];
 
-        for (const test of priority) {
-            const match = voices.find(test);
-            if (match) { SVE.preferredVoice = match; break; }
+        let found = null;
+        for (const tier of tiers) {
+            found = pool.find(tier);
+            if (found) break;
         }
 
-        const lbl = SVE.preferredVoice
-            ? SVE.preferredVoice.name.slice(0, 26).toUpperCase()
-            : 'SYSTEM DEFAULT';
-        SVE.updateStatus('VOICE // ' + lbl);
+        // Fallback to English if nothing found for the detected language
+        if (!found && target) {
+            const engPool = voices.filter(v => v.lang.startsWith('en'));
+            for (const tier of tiers) { found = engPool.find(tier); if (found) break; }
+        }
+
+        if (found) {
+            SVE.preferredVoice = found;
+            SVE.updateStatus('VOICE // ' + found.name.slice(0, 24).toUpperCase());
+        }
     };
 
-    // ── Init ──────────────────────────────────────────────────────────────────
+    // ── Init — bridges Tone.js into VNGRD's AudioContext ─────────────────────
     SVE.init = async function () {
         if (SVE.initialized) return;
         const Tone = window.Tone;
         if (!Tone) { SVE.updateStatus('ERR: TONE.JS NOT LOADED'); return; }
 
+        // ── Share VNGRD's AudioContext so effects are captured by Iron-Clad Recorder
+        if (window.APP && APP.audio) {
+            if (typeof ensureAudioChain === 'function') ensureAudioChain();
+            const vngrdCtx = APP.audio.ctx;
+            if (vngrdCtx && vngrdCtx.state !== 'closed') {
+                try {
+                    Tone.setContext(new Tone.Context({ context: vngrdCtx, lookAhead: 0.1 }));
+                } catch (_) { /* already set or unsupported */ }
+            }
+        }
+
         await Tone.start();
 
-        // ── Glitch synth: subtle sine ping (NOT square wave bleeps) ──
-        // Filtered sine = "digital tick", not alien bleep
+        // ── Glitch synth: short sine pulse ────────────────────────────────────
+        // Sine = "digital tick", not alien bleep. Volume set per mode in setMood.
         SVE.glitchSynth = new Tone.Synth({
             oscillator: { type: 'sine' },
-            envelope: { attack: 0.001, decay: 0.018, sustain: 0, release: 0.015 },
-            volume: -34,
+            envelope: { attack: 0.001, decay: 0.022, sustain: 0, release: 0.018 },
+            volume: -20,
         });
 
         SVE.initialized = true;
         SVE.updateDot(true);
 
+        // ── Route Tone.js output into VNGRD master gain (captured by recorder) ─
+        SVE._bridgeToVNGRD();
+
         SVE._findBestVoice();
-        window.speechSynthesis.onvoiceschanged = SVE._findBestVoice;
+        window.speechSynthesis.onvoiceschanged = () => SVE._findBestVoice(SVE._lastDetectedLang);
 
         SVE.setMood(SVE.currentMood);
     };
 
+    SVE._bridgeToVNGRD = function () {
+        if (!window.APP || !APP.audio) return;
+        const Tone = window.Tone;
+        // Prefer the node deepest in the chain before the recorder tap
+        const node = APP.audio.duckingGain || APP.audio.masterGain || APP.audio.compressor || APP.audio.analyzer;
+        if (!node) return;
+        try {
+            Tone.getDestination().disconnect();
+            Tone.getDestination().connect(node);
+            if (typeof log === 'function') log('SVE: bridged → VNGRD audio chain');
+        } catch (e) { /* will still play through Tone's own ctx.destination fallback */ }
+    };
+
     // ── Mood system ───────────────────────────────────────────────────────────
-    // Each mood shapes the subtle atmospheric glitch ticks differently.
-    // All are QUIET and atmospheric — not bleeps.
+    // Each mode sets:
+    //  • Tone.js effects chain (shapes the glitch character)
+    //  • glitchSynth volume (so modes are clearly audible)
+    //  • speechSynthesis pitch + rate (dramatic differences per mode)
     SVE.setMood = function (mood) {
         const Tone = window.Tone;
         if (!Tone || !SVE.initialized) { SVE.currentMood = mood; return; }
@@ -111,90 +185,147 @@
 
         switch (mood) {
             case 'CLEAN': {
-                // No effects. Zero overhead. Pure voice.
-                // Glitch synth silenced.
-                const silence = new Tone.Gain(0);
-                SVE.glitchSynth.connect(silence);
-                silence.connect(Tone.Destination);
-                SVE.moodEffects = [silence];
+                // Absolute silence from Tone.js — zero overhead
+                const mute = new Tone.Gain(0);
+                SVE.glitchSynth.connect(mute);
+                mute.connect(Tone.Destination);
+                SVE.moodEffects = [mute];
+                SVE.glitchSynth.volume.value = -Infinity;
                 break;
             }
             case 'CYBER': {
-                // Narrow bandpass → crisp digital tick → stereo ping-pong
-                const bpf  = new Tone.Filter({ frequency: 4200, type: 'bandpass', Q: 6 });
-                const ppd  = new Tone.PingPongDelay({ delayTime: '8n', feedback: 0.18, wet: 0.45 });
-                const gain = new Tone.Gain(0.7);
+                // Sharp digital tick: narrow bandpass → stereo shimmer
+                const bpf  = new Tone.Filter({ frequency: 4400, type: 'bandpass', Q: 5 });
+                const ppd  = new Tone.PingPongDelay({ delayTime: '8n', feedback: 0.22, wet: 0.5 });
+                const gain = new Tone.Gain(0.9);
                 SVE.glitchSynth.chain(bpf, ppd, gain, Tone.Destination);
                 SVE.moodEffects = [bpf, ppd, gain];
+                SVE.glitchSynth.volume.value = -14; // clearly audible
                 break;
             }
             case 'GHOST': {
-                // Low-pass warmth → long feedback tail → subtle presence
-                const lpf  = new Tone.Filter({ frequency: 1200, type: 'lowpass', Q: 0.5 });
-                const fbd  = new Tone.FeedbackDelay({ delayTime: 0.42, feedback: 0.65, wet: 0.6 });
-                const gain = new Tone.Gain(0.6);
+                // Low atmospheric whoosh: lowpass → long echo tail
+                const lpf  = new Tone.Filter({ frequency: 900, type: 'lowpass', Q: 0.6 });
+                const fbd  = new Tone.FeedbackDelay({ delayTime: 0.44, feedback: 0.68, wet: 0.65 });
+                const gain = new Tone.Gain(0.85);
                 SVE.glitchSynth.chain(lpf, fbd, gain, Tone.Destination);
                 SVE.moodEffects = [lpf, fbd, gain];
+                SVE.glitchSynth.volume.value = -16;
                 break;
             }
             case 'MONSTER': {
-                // Sub-frequency distortion → heavy low-pass → visceral thump
-                const dist = new Tone.Distortion(0.72);
-                const lpf  = new Tone.Filter({ frequency: 450, type: 'lowpass', Q: 1.8 });
-                const gain = new Tone.Gain(0.9);
+                // Sub-bass thump: heavy distortion → deep lowpass
+                const dist = new Tone.Distortion(0.75);
+                const lpf  = new Tone.Filter({ frequency: 380, type: 'lowpass', Q: 2.2 });
+                const gain = new Tone.Gain(1.0);
                 SVE.glitchSynth.chain(dist, lpf, gain, Tone.Destination);
                 SVE.moodEffects = [dist, lpf, gain];
+                SVE.glitchSynth.volume.value = -10; // prominent thump
                 break;
             }
         }
 
-        // Highlight active mode button
         ['CLEAN','CYBER','GHOST','MONSTER'].forEach(m => {
             const btn = document.getElementById('sve-mood-' + m.toLowerCase());
             if (btn) btn.classList.toggle('active-mode', m === mood);
         });
-
         SVE.updateStatus('MODE // ' + mood);
     };
 
-    // ── Glitch trigger (word boundary → atmospheric tick) ─────────────────────
-    SVE.triggerGlitch = function () {
-        if (!SVE.initialized || SVE.currentMood === 'CLEAN') return;
+    // ── Glitch trigger ────────────────────────────────────────────────────────
+    SVE.triggerGlitch = function (forceTest) {
+        if (!SVE.initialized) return;
         const Tone = window.Tone;
 
-        // Frequency varies subtly per word to avoid machine-gun monotony
-        const freqs = { CYBER: [3800,4200,5000,4600], GHOST: [320,280,360,300], MONSTER: [90,110,80,120] };
-        const pool = freqs[SVE.currentMood] || [4000];
+        if (SVE.currentMood === 'CLEAN' && !forceTest) return;
+
+        // Frequency palette per mood — rotates to avoid machine-gun repetition
+        const freqs = {
+            CYBER:   [4400, 5200, 3800, 6000],
+            GHOST:   [260,  310,  220,  340 ],
+            MONSTER: [80,   100,  65,   120  ],
+            CLEAN:   [1000, 1200, 800,  1400 ], // test only
+        };
+        const pool = freqs[SVE.currentMood] || [1000];
         const freq = pool[SVE.wordCount % pool.length];
 
-        SVE.glitchSynth.triggerAttackRelease(freq, '32n', Tone.now());
+        // Temporarily boost volume for test button press
+        const origVol = SVE.glitchSynth.volume.value;
+        if (forceTest && SVE.currentMood === 'CLEAN') {
+            SVE.glitchSynth.volume.value = -18;
+        }
+
+        SVE.glitchSynth.triggerAttackRelease(freq, '16n', Tone.now());
         SVE.wordCount++;
+
+        if (forceTest && SVE.currentMood === 'CLEAN') {
+            // Restore silence after the test note decays
+            setTimeout(() => { if (SVE.glitchSynth) SVE.glitchSynth.volume.value = origVol; }, 200);
+        }
     };
 
-    // ── Speak (live preview) ──────────────────────────────────────────────────
-    SVE.speak = function (text, onEnd) {
-        if (!text || !text.trim()) { SVE.updateStatus('NO_SCRIPT'); return; }
-        if (!SVE.initialized) { SVE.init().then(() => SVE.speak(text, onEnd)); return; }
+    // ── Speak ─────────────────────────────────────────────────────────────────
+    SVE.speak = function (text) {
+        if (!text || !text.trim()) { SVE.updateStatus('NO SCRIPT'); return; }
+        if (!SVE.initialized) { SVE.init().then(() => SVE.speak(text)); return; }
 
         window.speechSynthesis.cancel();
         SVE.wordCount = 0;
         SVE.isPlaying = true;
+
+        // ── Auto-detect language and pick matching voice ──────────────────────
+        const detectedLang = SVE._detectLanguage(text);
+        if (detectedLang && detectedLang !== SVE._lastDetectedLang) {
+            SVE._lastDetectedLang = detectedLang;
+            SVE._findBestVoice(detectedLang);
+        }
 
         const utter = new SpeechSynthesisUtterance(text);
 
         if (SVE.preferredVoice) {
             utter.voice = SVE.preferredVoice;
             utter.lang  = SVE.preferredVoice.lang;
+        } else if (detectedLang) {
+            utter.lang = detectedLang;
         }
 
-        // Cinematic defaults. Not touching pitch — browser default sounds most natural.
-        utter.rate  = 0.84;
-        utter.pitch = 1.0;
+        // ── Mode-specific voice character ─────────────────────────────────────
+        // These are dramatic enough that each mode sounds unmistakably different.
+        switch (SVE.currentMood) {
+            case 'CLEAN':
+                utter.rate  = 0.84; utter.pitch = 1.00; break;  // natural, cinematic
+            case 'CYBER':
+                utter.rate  = 0.90; utter.pitch = 1.20; break;  // crisp, slightly robotic
+            case 'GHOST':
+                utter.rate  = 0.72; utter.pitch = 0.72; break;  // slow, ethereal
+            case 'MONSTER':
+                utter.rate  = 0.65; utter.pitch = 0.45; break;  // very slow, very deep
+        }
 
         utter.onboundary = e => { if (e.name === 'word') SVE.triggerGlitch(); };
-        utter.onstart    = () => { SVE.isPlaying = true;  };
-        utter.onend      = () => { SVE.isPlaying = false; if (onEnd) onEnd(); };
-        utter.onerror    = e  => { SVE.isPlaying = false; SVE.updateStatus('ERR: ' + e.error); };
+
+        utter.onstart = () => {
+            SVE.isPlaying = true;
+            const btn = document.getElementById('sve-speak-btn');
+            if (btn) btn.textContent = '■ STOP';
+            SVE.updateStatus('▶ ' + SVE.currentMood
+                + (detectedLang ? ' · ' + detectedLang.split('-')[0].toUpperCase() : '')
+                + '...');
+        };
+
+        utter.onend = () => {
+            SVE.isPlaying = false;
+            const btn = document.getElementById('sve-speak-btn');
+            if (btn) btn.textContent = '▶ SPEAK';
+            SVE.updateStatus('DONE // ' + SVE.currentMood);
+        };
+
+        utter.onerror = e => {
+            SVE.isPlaying = false;
+            const btn = document.getElementById('sve-speak-btn');
+            if (btn) btn.textContent = '▶ SPEAK';
+            SVE.updateStatus('ERR: ' + e.error);
+        };
 
         window.speechSynthesis.speak(utter);
     };
@@ -202,95 +333,9 @@
     SVE.stop = function () {
         window.speechSynthesis.cancel();
         SVE.isPlaying = false;
-        if (SVE._recorder && SVE._recorder.state === 'recording') SVE._recorder.stop();
+        const btn = document.getElementById('sve-speak-btn');
+        if (btn) btn.textContent = '▶ SPEAK';
         SVE.updateStatus('STOPPED');
-    };
-
-    // ── RECORD SESSION ────────────────────────────────────────────────────────
-    // Taps the Tone.js output via MediaRecorder while speech plays live.
-    // Result: an FX-stems WebM file (Opus, 256kbps) ready for DAW mixing.
-    // Speech is heard live through speakers — not captured in this file
-    // (speechSynthesis routes directly to OS audio, bypassing Web Audio).
-    SVE.record = async function (text) {
-        if (!text || !text.trim()) { SVE.updateStatus('NO_SCRIPT'); return; }
-        if (SVE.isRecording) { SVE.updateStatus('ALREADY RECORDING'); return; }
-        if (!SVE.initialized) await SVE.init();
-
-        const Tone = window.Tone;
-
-        // ── Tap Tone.js master output → MediaStreamDestination ──
-        const rawCtx = Tone.getContext().rawContext;
-        const capDest = rawCtx.createMediaStreamDestination();
-        SVE._captureDest = capDest;
-
-        // Connect the last node in the mood effects chain to the capture dest
-        // (it's already connected to Tone.Destination; we add a parallel tap)
-        const tapNode = SVE.moodEffects.length > 0
-            ? SVE.moodEffects[SVE.moodEffects.length - 1]
-            : SVE.glitchSynth;
-        try { tapNode.connect(capDest); } catch (_) {}
-
-        // ── Set up MediaRecorder ──
-        const mime = ['audio/webm;codecs=opus','audio/webm','audio/ogg;codecs=opus']
-            .find(t => MediaRecorder.isTypeSupported(t)) || 'audio/webm';
-        SVE._recChunks = [];
-        SVE._recorder  = new MediaRecorder(capDest.stream, { mimeType: mime, audioBitsPerSecond: 256000 });
-
-        SVE._recorder.ondataavailable = e => { if (e.data.size > 0) SVE._recChunks.push(e.data); };
-
-        SVE._recorder.onstop = async () => {
-            SVE.isRecording = false;
-            const recordBtn = document.getElementById('sve-record-btn');
-            if (recordBtn) { recordBtn.textContent = '⏺ RECORD'; recordBtn.style.color = ''; }
-            SVE.updateDot(false);
-
-            const blob  = new Blob(SVE._recChunks, { type: mime });
-            const url   = URL.createObjectURL(blob);
-            const ext   = mime.includes('ogg') ? 'ogg' : 'webm';
-            const fname = 'SVE_' + SVE.currentMood + '_' + Date.now() + '.' + ext;
-
-            // Save to Puter.fs
-            if (window.puter && puter.fs) {
-                try {
-                    const ab = await blob.arrayBuffer();
-                    await puter.fs.write(fname, new Uint8Array(ab), { createMissingParents: true });
-                } catch (e) { console.warn('SVE puter.fs:', e.message); }
-            }
-
-            // Queue in audio player
-            if (window.APP && APP.audio) {
-                APP.audio.playlist.push({ url, name: fname.replace(/\.\w+$/, '') });
-                const dot = document.getElementById('audio-dot');
-                if (dot) dot.classList.remove('off');
-                if (typeof playTrack === 'function') playTrack(APP.audio.playlist.length - 1);
-            }
-
-            // Download
-            const a = document.createElement('a');
-            a.href = url; a.download = fname;
-            document.body.appendChild(a); a.click(); document.body.removeChild(a);
-
-            SVE.updateStatus('SAVED // ' + fname.slice(0, 26));
-
-            // Disconnect the capture tap
-            try { tapNode.disconnect(capDest); } catch (_) {}
-        };
-
-        // ── Start recording then speak ──
-        SVE.isRecording = true;
-        SVE._recorder.start(80);
-        const recordBtn = document.getElementById('sve-record-btn');
-        if (recordBtn) { recordBtn.textContent = '■ STOP REC'; recordBtn.style.color = '#ff4444'; }
-        SVE.updateDot(true);
-        SVE.updateStatus('⏺ REC // ' + SVE.currentMood + ' — speak now');
-
-        // Speak; stop recorder when speech + tail ends
-        SVE.speak(text, () => {
-            const tail = SVE.currentMood === 'GHOST' ? 3200 : SVE.currentMood === 'MONSTER' ? 1800 : 800;
-            setTimeout(() => {
-                if (SVE._recorder && SVE._recorder.state === 'recording') SVE._recorder.stop();
-            }, tail);
-        });
     };
 
     // ── Expose ────────────────────────────────────────────────────────────────

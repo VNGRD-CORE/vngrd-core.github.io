@@ -5238,25 +5238,15 @@ body.fullscreen #transcription-hud { pointer-events: none !important; } /* keep 
 
                 <!-- Controls -->
                 <div class="sve-ctrl-row" style="margin-bottom:4px;">
-                    <button class="btn" id="sve-speak-btn" style="flex:2;"
+                    <button class="btn" id="sve-speak-btn" style="flex:1;"
                         onclick="(async()=>{
                             if(!window.SVE)return;
-                            if(SVE.isPlaying){SVE.stop();this.textContent='▶ SPEAK';return;}
+                            if(SVE.isPlaying){SVE.stop();return;}
                             await SVE.init();
-                            SVE.updateStatus('SPEAKING...');
                             SVE.speak(document.getElementById('sve-script').value);
-                            this.textContent='■ STOP';
-                            var chk=setInterval(()=>{if(!speechSynthesis.speaking){this.textContent='▶ SPEAK';clearInterval(chk);}},250);
                         })()">▶ SPEAK</button>
-                    <button id="sve-record-btn" class="btn" style="flex:2;color:#ff4444;border-color:rgba(255,60,60,0.4);"
-                        onclick="(async()=>{
-                            if(!window.SVE)return;
-                            if(SVE.isRecording){SVE.stop();return;}
-                            await SVE.init();
-                            SVE.record(document.getElementById('sve-script').value);
-                        })()">⏺ RECORD</button>
-                    <button class="btn" style="width:28px;flex:none;font-size:10px;padding:0;" title="Test glitch burst"
-                        onclick="window.SVE&&SVE.init().then(()=>SVE.triggerGlitch())">⚡</button>
+                    <button class="btn" style="width:30px;flex:none;font-size:11px;padding:0;" title="Test glitch burst (works in all modes)"
+                        onclick="window.SVE&&SVE.init().then(()=>SVE.triggerGlitch(true))">⚡</button>
                 </div>
 
                 <!-- Status -->
@@ -14981,16 +14971,15 @@ document.addEventListener('DOMContentLoaded', () => {
             'voice-lab': {
                 title: 'VOICE_LAB // SYNESTHESIA ENGINE',
                 rows: [
-                    ['SCRIPT',   'Type your narration. Space bar works. Auto-selects the best available voice (Google TTS in Chrome, Daniel/Samantha on Safari/macOS).'],
-                    ['CLEAN',    'Pure voice, zero FX — best for audiobooks. No Tone.js processing. The voice is all you hear.'],
-                    ['CYBER',    'Subtle bandpass tick + stereo ping-pong shimmer on each word. Digital, clean, futuristic.'],
-                    ['GHOST',    'Low-frequency sine pulse + long FeedbackDelay tail. Haunting, atmospheric, cinematic.'],
-                    ['MNSTR',    'Sub-bass distorted thump on each word. Dark, powerful, trailer-grade.'],
-                    ['▶ SPEAK',  'Preview the script live. Voice + mood FX play together. Click again (■ STOP) to cancel.'],
-                    ['⏺ RECORD', 'Speaks the script while simultaneously recording the Tone.js FX stems to a WebM/Opus file. Saves to Puter.fs and AUDIO_ENGINE. Tip: use a screen recorder (OBS) to capture the full voice+FX mix.'],
-                    ['⚡',       'Fire a single glitch burst to audition the current mood FX chain.']
+                    ['SCRIPT',   'Type your narration in any language. Space bar works normally here. Language is auto-detected on each SPEAK press — the matching voice is selected automatically.'],
+                    ['CLEAN',    'Pure voice, zero Tone.js FX. Best for audiobooks. Natural pacing (rate 0.84, pitch 1.0). Chrome picks Google TTS; Safari picks Daniel/Samantha.'],
+                    ['CYBER',    'Faster, slightly higher pitch (rate 0.90, pitch 1.20). Narrow bandpass tick + stereo PingPong shimmer on each word. Digital, clean, futuristic.'],
+                    ['GHOST',    'Slow and haunting (rate 0.72, pitch 0.72). Low-frequency sine pulse + long FeedbackDelay echo tail. Atmospheric, cinematic.'],
+                    ['MNSTR',    'Very slow, very deep (rate 0.65, pitch 0.45). Distorted sub-bass thump on each word. Dark, powerful, trailer-grade.'],
+                    ['▶ SPEAK',  'Speaks the script. Language auto-detected. Tone.js FX bridge into VNGRD audio chain — captured automatically by the Iron-Clad Recorder. Click ■ STOP to cancel.'],
+                    ['⚡',       'Fires a test glitch burst at current mood settings. Works in all modes including CLEAN.']
                 ],
-                footer: 'VNGRD // VOICE_LAB · SYNESTHESIA v2 · 100% CLIENT-SIDE'
+                footer: 'VNGRD // VOICE_LAB · SYNESTHESIA v2.1 · AUTO-LANG · VNGRD-BRIDGED'
             },
             'audio-engine': {
                 title: 'AUDIO_ENGINE',
