@@ -235,7 +235,7 @@ class KineticRack {
     // ── Init ──────────────────────────────────────────────────────────────────
 
     async init(canvasEl) {
-        const canvas = canvasEl ?? document.getElementById('kr-canvas');
+        const canvas = canvasEl ?? document.getElementById('kinetic-canvas');
 
         // Three.js
         this._renderer = new THREE.WebGLRenderer({ canvas, antialias: false, alpha: true });
@@ -246,7 +246,17 @@ class KineticRack {
         this._camera = new THREE.PerspectiveCamera(60, window.innerWidth / window.innerHeight, 0.01, 100);
         this._camera.position.set(0, 0, 3.2);
 
-        // Audio
+        // Camera stream — feed both the visible monitor and the AI inference video
+        const camVideo = document.getElementById('kinetic-cam-video');
+        const aiVideo  = document.getElementById('kr-ai-video');
+        const stream   = await navigator.mediaDevices.getUserMedia({
+            video: { width: 1280, height: 720, facingMode: 'user' },
+            audio: false,
+        });
+        if (camVideo) { camVideo.srcObject = stream; await camVideo.play().catch(() => {}); camVideo.classList.add('kr-online'); }
+        if (aiVideo)  { aiVideo.srcObject  = stream; await aiVideo.play().catch(() => {}); }
+
+        // Audio (inside user-gesture click → safe to call Tone.start)
         await this._ae.init();
         this._nc.init(this._ae);
         window._NC = this._nc;
@@ -331,7 +341,7 @@ class KineticRack {
     // ── Hand detection ────────────────────────────────────────────────────────
 
     _detectHands() {
-        const video = document.getElementById('kr-video');
+        const video = document.getElementById('kr-ai-video');
         if (!this._handLM || !video || video.readyState < 2) return;
 
         let results;
