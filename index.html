@@ -4316,6 +4316,508 @@ body.fullscreen #transcription-hud { pointer-events: none !important; } /* keep 
 .sve-ctrl-row { display: flex; gap: 3px; }
 .sve-ctrl-row .btn { font-size: 8px; letter-spacing: 0.8px; padding: 6px 4px; }
 
+/* ════════════════════════════════════════════════════════════════
+   LIVE CONSOLE MATRIX — #vngrd-console
+   Brutalist terminal aesthetic. DO NOT modify clock/ticker CSS.
+   ════════════════════════════════════════════════════════════════ */
+#vngrd-console {
+    position: fixed;
+    bottom: 62px;
+    left: 50%;
+    transform: translateX(-50%);
+    width: min(98vw, 1200px);
+    max-height: 72vh;
+    background: rgba(2, 5, 10, 0.97);
+    border: 1px solid var(--c);
+    box-shadow: 0 0 40px rgba(0,243,255,0.12), 0 0 1px var(--c) inset, 0 -4px 24px rgba(0,0,0,0.9);
+    z-index: 5900;
+    display: none;
+    flex-direction: column;
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 10px;
+    color: var(--text);
+    overflow: hidden;
+}
+#vngrd-console.active { display: flex; }
+
+/* Scan-line overlay */
+#vngrd-console::before {
+    content: '';
+    position: absolute;
+    inset: 0;
+    background: repeating-linear-gradient(0deg, transparent, transparent 2px, rgba(0,0,0,0.06) 2px, rgba(0,0,0,0.06) 4px);
+    pointer-events: none;
+    z-index: 0;
+}
+
+/* ── Header ───────────────────────────────────────────── */
+#lcm-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 6px 12px;
+    background: linear-gradient(90deg, rgba(0,243,255,0.10) 0%, rgba(0,243,255,0.03) 100%);
+    border-bottom: 1px solid rgba(0,243,255,0.20);
+    flex-shrink: 0;
+    cursor: grab;
+    user-select: none;
+    position: relative;
+    z-index: 1;
+}
+#lcm-header:active { cursor: grabbing; }
+#lcm-title {
+    font-family: 'Orbitron', sans-serif;
+    font-size: 10px;
+    letter-spacing: 3px;
+    color: var(--c);
+    text-shadow: 0 0 8px rgba(0,243,255,0.6);
+}
+#lcm-header-right { display: flex; align-items: center; gap: 8px; }
+#lcm-bpm-display {
+    font-size: 8px;
+    color: rgba(0,243,255,0.5);
+    letter-spacing: 2px;
+    border: 1px solid rgba(0,243,255,0.15);
+    padding: 2px 6px;
+}
+#lcm-status-dot {
+    width: 6px; height: 6px;
+    border-radius: 50%;
+    background: var(--g);
+    box-shadow: 0 0 6px var(--g);
+    animation: lcm-pulse 1.2s ease-in-out infinite;
+}
+@keyframes lcm-pulse { 0%,100% { opacity: 1; } 50% { opacity: 0.35; } }
+.lcm-hdr-btn {
+    background: transparent;
+    border: 1px solid rgba(0,243,255,0.25);
+    color: rgba(0,243,255,0.7);
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 8px;
+    letter-spacing: 1px;
+    padding: 3px 8px;
+    cursor: pointer;
+    transition: all 0.12s;
+    text-transform: uppercase;
+}
+.lcm-hdr-btn:hover { background: rgba(0,243,255,0.12); border-color: var(--c); color: var(--c); }
+.lcm-hdr-btn.warn { border-color: rgba(255,0,85,0.3); color: rgba(255,0,85,0.6); }
+.lcm-hdr-btn.warn:hover { background: rgba(255,0,85,0.1); border-color: var(--p); color: var(--p); }
+
+/* ── Body: strips + side panel ──────────────────────────── */
+#lcm-body {
+    display: flex;
+    flex: 1;
+    overflow: hidden;
+    position: relative;
+    z-index: 1;
+}
+
+/* ── Channel Strips Scroll Area ─────────────────────────── */
+#lcm-strips-scroll {
+    flex: 1;
+    overflow-x: auto;
+    overflow-y: hidden;
+    scrollbar-width: thin;
+    scrollbar-color: rgba(0,243,255,0.3) transparent;
+    padding: 10px 8px;
+    display: flex;
+    align-items: stretch;
+    gap: 6px;
+    min-height: 280px;
+}
+#lcm-strips-scroll::-webkit-scrollbar { height: 3px; }
+#lcm-strips-scroll::-webkit-scrollbar-thumb { background: rgba(0,243,255,0.3); border-radius: 2px; }
+
+#lcm-strips {
+    display: flex;
+    gap: 6px;
+    align-items: stretch;
+    min-width: min-content;
+}
+
+/* ── Individual Channel Strip ─────────────────────────── */
+.lcm-strip {
+    width: 72px;
+    flex-shrink: 0;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 5px;
+    background: rgba(0,243,255,0.025);
+    border: 1px solid rgba(0,243,255,0.15);
+    padding: 8px 4px 6px;
+    position: relative;
+    transition: border-color 0.15s;
+}
+.lcm-strip:hover { border-color: rgba(0,243,255,0.35); }
+.lcm-strip.cued { border-color: var(--y); box-shadow: 0 0 8px rgba(255,204,0,0.2) inset; }
+.lcm-strip.recording { border-color: var(--p); box-shadow: 0 0 10px rgba(255,0,85,0.25) inset; animation: lcm-rec-pulse 0.5s ease-in-out infinite alternate; }
+@keyframes lcm-rec-pulse { from { box-shadow: 0 0 6px rgba(255,0,85,0.2) inset; } to { box-shadow: 0 0 18px rgba(255,0,85,0.5) inset; } }
+
+.lcm-strip-label {
+    font-family: 'Orbitron', sans-serif;
+    font-size: 7px;
+    letter-spacing: 1.5px;
+    color: rgba(0,243,255,0.7);
+    text-align: center;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    max-width: 64px;
+}
+
+/* VU Meter (vertical) */
+.lcm-vu {
+    width: 12px;
+    height: 70px;
+    background: rgba(0,0,0,0.5);
+    border: 1px solid rgba(0,243,255,0.12);
+    display: flex;
+    flex-direction: column;
+    justify-content: flex-end;
+    overflow: hidden;
+    position: relative;
+}
+.lcm-vu-bar {
+    width: 100%;
+    height: 0%;
+    background: linear-gradient(to top, var(--g) 0%, #aaff00 60%, var(--y) 80%, var(--p) 100%);
+    transition: height 0.04s linear;
+    will-change: height;
+}
+.lcm-vu-peak {
+    position: absolute;
+    width: 100%;
+    height: 2px;
+    background: var(--y);
+    bottom: 0;
+    transition: bottom 0.08s linear;
+    will-change: bottom;
+}
+
+/* Fader (vertical range) */
+.lcm-fader-wrap {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 3px;
+    flex: 1;
+    justify-content: center;
+}
+.lcm-fader {
+    -webkit-appearance: none;
+    appearance: none;
+    writing-mode: vertical-lr;
+    direction: rtl;
+    width: 8px;
+    height: 80px;
+    background: transparent;
+    cursor: pointer;
+    outline: none;
+}
+.lcm-fader::-webkit-slider-runnable-track {
+    width: 3px;
+    background: rgba(0,243,255,0.15);
+    border: none;
+}
+.lcm-fader::-webkit-slider-thumb {
+    -webkit-appearance: none;
+    appearance: none;
+    width: 14px;
+    height: 6px;
+    background: var(--c);
+    border: none;
+    box-shadow: 0 0 4px rgba(0,243,255,0.5);
+    cursor: grab;
+    margin-left: -5px;
+}
+.lcm-fader::-webkit-slider-thumb:active { cursor: grabbing; background: #fff; }
+.lcm-fader::-moz-range-track { width: 3px; background: rgba(0,243,255,0.15); }
+.lcm-fader::-moz-range-thumb { width: 14px; height: 6px; background: var(--c); border: none; cursor: grab; }
+.lcm-fader-val { font-size: 7px; color: rgba(0,243,255,0.5); letter-spacing: 1px; }
+
+/* CUE button */
+.lcm-cue-btn {
+    width: 100%;
+    padding: 4px 0;
+    background: transparent;
+    border: 1px solid rgba(255,204,0,0.3);
+    color: rgba(255,204,0,0.5);
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 8px;
+    letter-spacing: 2px;
+    cursor: pointer;
+    transition: all 0.12s;
+    text-transform: uppercase;
+}
+.lcm-cue-btn:hover { background: rgba(255,204,0,0.08); border-color: var(--y); color: var(--y); }
+.lcm-cue-btn.active { background: rgba(255,204,0,0.18); border-color: var(--y); color: var(--y); box-shadow: 0 0 6px rgba(255,204,0,0.3); }
+
+/* CAPTURE button — massive */
+.lcm-capture-btn {
+    width: 100%;
+    padding: 10px 2px;
+    background: rgba(255,0,85,0.08);
+    border: 1px solid rgba(255,0,85,0.4);
+    color: rgba(255,0,85,0.8);
+    font-family: 'Orbitron', sans-serif;
+    font-size: 7px;
+    letter-spacing: 1.5px;
+    cursor: pointer;
+    transition: all 0.12s;
+    text-transform: uppercase;
+    line-height: 1.5;
+    text-align: center;
+}
+.lcm-capture-btn:hover { background: rgba(255,0,85,0.18); border-color: var(--p); color: var(--p); box-shadow: 0 0 10px rgba(255,0,85,0.2); }
+.lcm-capture-btn.recording {
+    background: rgba(255,0,85,0.25);
+    border-color: var(--p);
+    color: var(--p);
+    box-shadow: 0 0 14px rgba(255,0,85,0.4);
+    animation: lcm-cap-flash 0.4s linear infinite alternate;
+}
+@keyframes lcm-cap-flash { from { opacity: 0.7; } to { opacity: 1; } }
+
+/* ── Right Side Panel (Ghost Deck + Neuro Bus) ─────────── */
+#lcm-side-panel {
+    width: 200px;
+    flex-shrink: 0;
+    display: flex;
+    flex-direction: column;
+    border-left: 1px solid rgba(0,243,255,0.12);
+    gap: 0;
+}
+
+/* Ghost Deck */
+#lcm-ghost-deck {
+    flex: 1;
+    padding: 10px;
+    border-bottom: 1px solid rgba(0,243,255,0.10);
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+}
+#lcm-ghost-deck-title {
+    font-family: 'Orbitron', sans-serif;
+    font-size: 8px;
+    letter-spacing: 2.5px;
+    color: var(--v);
+    text-shadow: 0 0 8px rgba(176,0,255,0.6);
+    margin-bottom: 4px;
+}
+#lcm-ghost-status {
+    font-size: 8px;
+    color: rgba(176,0,255,0.5);
+    letter-spacing: 1px;
+}
+.lcm-ghost-waveform {
+    height: 28px;
+    background: rgba(176,0,255,0.05);
+    border: 1px solid rgba(176,0,255,0.15);
+    position: relative;
+    overflow: hidden;
+}
+.lcm-ghost-waveform-bar {
+    position: absolute;
+    bottom: 0;
+    width: 2px;
+    background: var(--v);
+    opacity: 0.7;
+    transition: height 0.05s linear;
+    will-change: height;
+}
+#lcm-ghost-playhead {
+    position: absolute;
+    top: 0; bottom: 0;
+    width: 1px;
+    background: rgba(176,0,255,0.8);
+    left: 0;
+    transition: left 0.1s linear;
+    will-change: left;
+}
+.lcm-ghost-ctrl-row { display: flex; gap: 4px; }
+.lcm-ghost-btn {
+    flex: 1;
+    padding: 5px 2px;
+    background: transparent;
+    border: 1px solid rgba(176,0,255,0.3);
+    color: rgba(176,0,255,0.6);
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 7px;
+    letter-spacing: 1px;
+    cursor: pointer;
+    transition: all 0.12s;
+    text-transform: uppercase;
+}
+.lcm-ghost-btn:hover { background: rgba(176,0,255,0.1); border-color: var(--v); color: var(--v); }
+.lcm-ghost-btn.active { background: rgba(176,0,255,0.2); border-color: var(--v); color: var(--v); box-shadow: 0 0 6px rgba(176,0,255,0.3); }
+.lcm-ghost-gain-row {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+}
+.lcm-ghost-gain-row label { font-size: 7px; color: rgba(176,0,255,0.4); letter-spacing: 1px; flex-shrink: 0; }
+.lcm-ghost-gain-row input[type=range] {
+    flex: 1;
+    -webkit-appearance: none;
+    appearance: none;
+    height: 3px;
+    background: rgba(176,0,255,0.2);
+    outline: none;
+    cursor: pointer;
+}
+.lcm-ghost-gain-row input[type=range]::-webkit-slider-thumb {
+    -webkit-appearance: none;
+    width: 10px; height: 10px;
+    background: var(--v);
+    border-radius: 0;
+    box-shadow: 0 0 4px rgba(176,0,255,0.6);
+}
+.lcm-grain-row {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+}
+.lcm-grain-row label { font-size: 7px; color: rgba(176,0,255,0.4); letter-spacing: 1px; flex-shrink: 0; width: 28px; }
+.lcm-grain-row input[type=range] {
+    flex: 1;
+    -webkit-appearance: none;
+    appearance: none;
+    height: 2px;
+    background: rgba(176,0,255,0.15);
+    outline: none;
+    cursor: pointer;
+}
+.lcm-grain-row input[type=range]::-webkit-slider-thumb {
+    -webkit-appearance: none;
+    width: 8px; height: 8px;
+    background: rgba(176,0,255,0.7);
+    border-radius: 0;
+}
+.lcm-grain-val { font-size: 7px; color: rgba(176,0,255,0.4); width: 26px; text-align: right; }
+
+/* ── Neuro Compiler // Offline Bus ─────────────────────── */
+#lcm-neuro-bus {
+    padding: 10px;
+    flex-shrink: 0;
+}
+#lcm-neuro-bus-inner {
+    border: 1px dashed rgba(255,204,0,0.25);
+    padding: 8px;
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+    background: repeating-linear-gradient(-45deg, transparent, transparent 4px, rgba(255,204,0,0.02) 4px, rgba(255,204,0,0.02) 8px);
+}
+#lcm-neuro-title {
+    font-family: 'Orbitron', sans-serif;
+    font-size: 7px;
+    letter-spacing: 2px;
+    color: rgba(255,204,0,0.4);
+}
+#lcm-neuro-status {
+    font-size: 7px;
+    color: rgba(255,204,0,0.25);
+    letter-spacing: 1px;
+}
+#lcm-neuro-routing {
+    font-size: 7px;
+    color: rgba(255,204,0,0.2);
+    letter-spacing: 0.5px;
+    margin-top: 2px;
+    border-top: 1px solid rgba(255,204,0,0.1);
+    padding-top: 4px;
+}
+
+/* ── Add Channel placeholder ──────────────────────────── */
+.lcm-add-placeholder {
+    width: 72px;
+    flex-shrink: 0;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 6px;
+    border: 1px dashed rgba(0,243,255,0.15);
+    cursor: pointer;
+    transition: all 0.15s;
+    padding: 8px 4px;
+    min-height: 200px;
+    background: rgba(0,243,255,0.015);
+}
+.lcm-add-placeholder:hover { border-color: rgba(0,243,255,0.4); background: rgba(0,243,255,0.04); }
+.lcm-add-placeholder span { font-size: 18px; color: rgba(0,243,255,0.3); line-height: 1; }
+.lcm-add-placeholder small { font-size: 7px; letter-spacing: 1.5px; color: rgba(0,243,255,0.3); text-align: center; }
+
+/* ── Device Select Modal ──────────────────────────────── */
+#lcm-device-modal {
+    position: absolute;
+    top: 50%; left: 50%;
+    transform: translate(-50%, -50%);
+    background: rgba(2, 5, 10, 0.99);
+    border: 1px solid var(--c);
+    box-shadow: 0 0 30px rgba(0,243,255,0.2);
+    padding: 16px;
+    z-index: 10;
+    width: 280px;
+    display: none;
+    flex-direction: column;
+    gap: 10px;
+}
+#lcm-device-modal.active { display: flex; }
+#lcm-device-modal-title {
+    font-family: 'Orbitron', sans-serif;
+    font-size: 9px;
+    letter-spacing: 2px;
+    color: var(--c);
+    margin-bottom: 4px;
+}
+#lcm-device-list { display: flex; flex-direction: column; gap: 4px; max-height: 200px; overflow-y: auto; }
+.lcm-device-item {
+    padding: 6px 8px;
+    border: 1px solid rgba(0,243,255,0.15);
+    cursor: pointer;
+    font-size: 8px;
+    color: var(--text);
+    letter-spacing: 0.5px;
+    transition: all 0.1s;
+    background: rgba(0,243,255,0.02);
+}
+.lcm-device-item:hover { border-color: var(--c); background: rgba(0,243,255,0.1); color: var(--c); }
+.lcm-device-item .lcm-di-id { font-size: 7px; color: rgba(255,255,255,0.25); margin-top: 2px; }
+#lcm-device-modal-cancel {
+    padding: 5px;
+    background: transparent;
+    border: 1px solid rgba(255,255,255,0.1);
+    color: rgba(255,255,255,0.3);
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 8px;
+    cursor: pointer;
+    letter-spacing: 1px;
+    margin-top: 4px;
+}
+#lcm-device-modal-cancel:hover { color: var(--p); border-color: rgba(255,0,85,0.4); }
+
+/* ── Bottom info-bar trigger button ───────────────────── */
+#btn-lcm-toggle {
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    gap: 3px;
+    padding: 2px 5px;
+    border: 1px solid rgba(0,243,255,0.25);
+    border-radius: 2px;
+    transition: all 0.15s;
+    background: rgba(0,243,255,0.04);
+}
+#btn-lcm-toggle:hover { background: rgba(0,243,255,0.12); border-color: rgba(0,243,255,0.6); }
+#btn-lcm-toggle.active { background: rgba(0,243,255,0.16); border-color: var(--c); box-shadow: 0 0 6px rgba(0,243,255,0.25); }
+#btn-lcm-toggle span { font-size: 7px; font-family: 'JetBrains Mono', monospace; letter-spacing: 1px; }
+#btn-lcm-toggle .lcm-tgl-label { color: rgba(0,243,255,0.7); }
+#btn-lcm-toggle .lcm-tgl-sub { color: rgba(255,255,255,0.4); }
+
     </style>
 </head>
 <body oncontextmenu="return false;">
@@ -5355,6 +5857,10 @@ body.fullscreen #transcription-hud { pointer-events: none !important; } /* keep 
                 </div>
                 <div id="btn-hud-alpha" onclick="if(typeof toggleHudAlpha==='function')toggleHudAlpha()" title="Panel skin — SOLID / GLASS / GHOST" style="cursor:pointer;display:flex;align-items:center;gap:3px;padding:2px 5px;border:1px solid rgba(0,243,255,0.25);border-radius:2px;transition:all 0.15s;background:rgba(0,243,255,0.04);" onmouseenter="this.style.background='rgba(0,243,255,0.12)';this.style.borderColor='rgba(0,243,255,0.6)'" onmouseleave="this.style.background='rgba(0,243,255,0.04)';this.style.borderColor='rgba(0,243,255,0.25)'">
                     <span id="hud-alpha-label" style="font-size:7px;color:rgba(0,243,255,0.7);font-family:'JetBrains Mono',monospace;letter-spacing:1px;">SOLID</span>
+                </div>
+                <div id="btn-lcm-toggle" onclick="LCM.toggle()" title="Live Console Matrix — hardware multi-input mixer + Ghost Deck looper">
+                    <span class="lcm-tgl-label">MX</span>
+                    <span class="lcm-tgl-sub">MATRIX</span>
                 </div>
             </div>
         </div>
@@ -20450,6 +20956,674 @@ function _applyPoseToModel(lm) {
 <script type="module" src="./src/kinetic-rack/KineticRack.js"></script>
 
 <!-- NLE seam controls are fully canvas-drawn (no DOM panel) -->
+
+<!-- ═══════════════════════════════════════════════════════════════
+     LIVE CONSOLE MATRIX — #vngrd-console
+     Multi-input hardware mixer + Ghost Deck live looper
+     ═══════════════════════════════════════════════════════════════ -->
+<div id="vngrd-console" role="dialog" aria-label="Live Console Matrix">
+
+    <!-- Header (draggable) -->
+    <div id="lcm-header" id="lcm-drag-handle">
+        <span id="lcm-title">LIVE CONSOLE MATRIX // v1.0</span>
+        <div id="lcm-header-right">
+            <span id="lcm-bpm-display">BPM: --</span>
+            <div id="lcm-status-dot" title="DSP Active"></div>
+            <button class="lcm-hdr-btn" onclick="LCM.scanDevices()" title="Enumerate all connected audio interfaces">SCAN_HW</button>
+            <button class="lcm-hdr-btn" onclick="LCM.promptAddChannel()" title="Add a new hardware input channel strip">+ CH</button>
+            <button class="lcm-hdr-btn warn" onclick="LCM.toggle()" title="Close Live Console Matrix">✕</button>
+        </div>
+    </div>
+
+    <!-- Body -->
+    <div id="lcm-body">
+
+        <!-- ── Channel Strips Area ─────────────────────────────── -->
+        <div id="lcm-strips-scroll">
+            <div id="lcm-strips">
+                <!-- Channel strips injected here by LCM.addChannel() -->
+            </div>
+            <!-- Add-channel placeholder (always last) -->
+            <div class="lcm-add-placeholder" onclick="LCM.promptAddChannel()" title="Add a new hardware input channel">
+                <span>+</span>
+                <small>ADD<br>CHANNEL</small>
+            </div>
+        </div>
+
+        <!-- ── Right Side Panel ────────────────────────────────── -->
+        <div id="lcm-side-panel">
+
+            <!-- Ghost Deck -->
+            <div id="lcm-ghost-deck">
+                <div id="lcm-ghost-deck-title">▓▓ GHOST_DECK</div>
+                <div id="lcm-ghost-status">IDLE // AWAITING CAPTURE</div>
+
+                <!-- Waveform visualiser -->
+                <div class="lcm-ghost-waveform" id="lcm-ghost-waveform">
+                    <!-- 32 bars, built by JS -->
+                    <div id="lcm-ghost-playhead"></div>
+                </div>
+
+                <!-- Gain -->
+                <div class="lcm-ghost-gain-row">
+                    <label>VOL</label>
+                    <input type="range" min="0" max="100" value="85"
+                        oninput="LCM.setGhostGain(this.value/100)"
+                        title="Ghost Deck output volume">
+                    <span id="lcm-ghost-gain-val" style="font-size:7px;color:rgba(176,0,255,0.4);width:22px;text-align:right;">85</span>
+                </div>
+
+                <!-- Grain Size -->
+                <div class="lcm-grain-row">
+                    <label>GRN</label>
+                    <input type="range" min="50" max="500" value="200" step="10"
+                        oninput="LCM.setGrainSize(this.value);document.getElementById('lcm-grain-sz-val').textContent=this.value+'ms'"
+                        title="Grain size in ms">
+                    <span class="lcm-grain-val" id="lcm-grain-sz-val">200ms</span>
+                </div>
+
+                <!-- Overlap -->
+                <div class="lcm-grain-row">
+                    <label>OVL</label>
+                    <input type="range" min="0" max="100" value="5" step="1"
+                        oninput="LCM.setGrainOverlap(this.value/100);document.getElementById('lcm-grain-ovl-val').textContent=this.value+'%'"
+                        title="Grain overlap (0–100%)">
+                    <span class="lcm-grain-val" id="lcm-grain-ovl-val">5%</span>
+                </div>
+
+                <!-- Controls -->
+                <div class="lcm-ghost-ctrl-row">
+                    <button class="lcm-ghost-btn" id="lcm-gd-play" onclick="LCM.ghostPlay()" title="Start Ghost Deck playback">PLAY</button>
+                    <button class="lcm-ghost-btn" id="lcm-gd-stop" onclick="LCM.ghostStop()" title="Stop Ghost Deck">STOP</button>
+                    <button class="lcm-ghost-btn" id="lcm-gd-loop" onclick="LCM.ghostToggleLoop()" title="Toggle loop mode">LOOP</button>
+                </div>
+            </div>
+
+            <!-- Neuro Compiler // Offline Bus (reserved routing slot) -->
+            <div id="lcm-neuro-bus">
+                <div id="lcm-neuro-bus-inner">
+                    <div id="lcm-neuro-title">⬡ NEURO COMPILER</div>
+                    <div id="lcm-neuro-status">// OFFLINE //</div>
+                    <div id="lcm-neuro-routing">
+                        SLOT: RESERVED<br>
+                        BUS: 09 — TRACKER_IN<br>
+                        FORMAT: RENOISE_XRNS<br>
+                        STATUS: AWAITING_LINK
+                    </div>
+                </div>
+            </div>
+
+        </div><!-- /lcm-side-panel -->
+
+    </div><!-- /lcm-body -->
+
+    <!-- Device Select Modal (overlays the console) -->
+    <div id="lcm-device-modal">
+        <div id="lcm-device-modal-title">SELECT_INPUT_DEVICE</div>
+        <div id="lcm-device-list">
+            <div style="font-size:8px;color:rgba(255,255,255,0.25);padding:8px;">
+                Press SCAN_HW to enumerate devices first.
+            </div>
+        </div>
+        <button id="lcm-device-modal-cancel" onclick="LCM.closeDeviceModal()">[ CANCEL ]</button>
+    </div>
+
+</div><!-- /#vngrd-console -->
+
+<script>
+/* ═══════════════════════════════════════════════════════════════════════
+   LIVE CONSOLE MATRIX (LCM) — DSP Engine
+
+   Architecture:
+     • Each channel: Tone.UserMedia → Tone.Gain → masterBus
+                                   ↘ Tone.Gain (cue) → cueBus
+                                   ↘ Tone.Meter (VU, read-only)
+     • Ghost Deck: Tone.GrainPlayer → Tone.Gain (ghostGain) → masterBus
+     • Recorder: reused single Tone.Recorder instance, connected per-capture
+     • Meter RAF: single rAF loop reads all meters, updates DOM via cached refs
+
+   GC hygiene:
+     • No new objects in hot paths (rAF loop uses pre-cached arrays)
+     • DOM updates via pre-cached element refs stored in channel objects
+     • Tone nodes created once at addChannel(), never re-created
+     • Blob URLs revoked after GrainPlayer.load() completes
+   ═══════════════════════════════════════════════════════════════════════ */
+const LCM = (() => {
+    'use strict';
+
+    // ── State ────────────────────────────────────────────────────────
+    let _initialized    = false;
+    let _masterBus      = null;   // Tone.Gain → Destination
+    let _cueBus         = null;   // Tone.Gain (headphone monitor)
+    let _ghostPlayer    = null;   // Tone.GrainPlayer
+    let _ghostGain      = null;   // Tone.Gain for crossfade
+    let _ghostAnalyser  = null;   // Tone.Analyser for waveform display
+    let _recorder       = null;   // Tone.Recorder (singleton, reused)
+    let _channels       = [];     // Array<ChannelObj>
+    let _devices        = [];     // Array<MediaDeviceInfo> (audioinput only)
+    let _isVisible      = false;
+    let _rafId          = null;
+    let _ghostLooping   = true;
+    let _ghostPlaying   = false;
+    let _lastBlobUrl    = null;   // track for revocation
+    const MAX_CH        = 8;
+    const BARS          = 4;
+
+    // Pre-allocated Float32Array for analyser reads (avoid per-frame alloc)
+    const _analyserBuf   = new Float32Array(32);
+    const _waveformBars  = [];    // cached waveform <div> refs
+
+    // ── ChannelObj shape ─────────────────────────────────────────────
+    // { idx, id, label, userMedia, gainNode, cueGain, meter,
+    //   isCued, isRecording,
+    //   elStrip, elVuBar, elVuPeak, elCapBtn, elFaderVal, elCueBtn }
+
+    // ── DOM helpers (no querySelector in hot paths) ──────────────────
+    function _q(id) { return document.getElementById(id); }
+
+    // ── Initialization ───────────────────────────────────────────────
+    function _init() {
+        if (_initialized) return;
+        if (typeof Tone === 'undefined') {
+            _ghostLog('LCM: TONE.JS NOT LOADED', 'crit');
+            return;
+        }
+
+        // Master bus: slight headroom trim
+        _masterBus = new Tone.Gain(0.82).toDestination();
+
+        // CUE bus: initially silent (user opens headphone output separately)
+        _cueBus = new Tone.Gain(0).toDestination();
+
+        // Ghost Deck
+        _ghostGain = new Tone.Gain(0).connect(_masterBus);
+        _ghostAnalyser = new Tone.Analyser({ type: 'fft', size: 32 });
+        _ghostPlayer = new Tone.GrainPlayer({
+            loop:      true,
+            grainSize: 0.2,
+            overlap:   0.05,
+            reverse:   false,
+            drift:     0.0,
+        });
+        _ghostPlayer.connect(_ghostGain);
+        _ghostPlayer.connect(_ghostAnalyser);
+
+        // Singleton recorder (never disposed between captures)
+        _recorder = new Tone.Recorder();
+
+        // Build waveform bar elements (32 bars, one-time alloc)
+        const wfEl = _q('lcm-ghost-waveform');
+        if (wfEl) {
+            for (let i = 0; i < 32; i++) {
+                const bar = document.createElement('div');
+                bar.className = 'lcm-ghost-waveform-bar';
+                bar.style.left   = (i * (100 / 32)).toFixed(2) + '%';
+                bar.style.width  = (100 / 32 - 0.5).toFixed(2) + '%';
+                bar.style.height = '0%';
+                wfEl.appendChild(bar);
+                _waveformBars.push(bar);
+            }
+        }
+
+        // Drag to reposition
+        _makeDraggable(_q('vngrd-console'), _q('lcm-header'));
+
+        // BPM sync from Tone.Transport
+        _syncBPM();
+        setInterval(_syncBPM, 2000);
+
+        _initialized = true;
+        _ghostLog('LCM: INIT // LIVE CONSOLE MATRIX ONLINE', 'success');
+    }
+
+    function _syncBPM() {
+        const el = _q('lcm-bpm-display');
+        if (!el || typeof Tone === 'undefined') return;
+        el.textContent = 'BPM: ' + Math.round(Tone.Transport.bpm.value);
+    }
+
+    // ── Device Enumeration ───────────────────────────────────────────
+    async function scanDevices() {
+        _ensureInit();
+        try {
+            // Trigger permission prompt — required before labels appear
+            const tempStream = await navigator.mediaDevices.getUserMedia({ audio: true, video: false });
+            tempStream.getTracks().forEach(t => t.stop());
+
+            const all = await navigator.mediaDevices.enumerateDevices();
+            _devices = all.filter(d => d.kind === 'audioinput');
+
+            _ghostLog('LCM: SCANNED ' + _devices.length + ' AUDIO INPUT' + (_devices.length !== 1 ? 'S' : ''), 'success');
+            _renderDeviceList();
+        } catch (e) {
+            _ghostLog('LCM: HW_SCAN DENIED — ' + (e.message || e), 'crit');
+        }
+    }
+
+    function _renderDeviceList() {
+        const list = _q('lcm-device-list');
+        if (!list) return;
+        list.innerHTML = '';
+        if (_devices.length === 0) {
+            list.innerHTML = '<div style="font-size:8px;color:rgba(255,255,255,0.3);padding:8px;">NO AUDIO INPUTS DETECTED</div>';
+            return;
+        }
+        _devices.forEach((dev, i) => {
+            const item = document.createElement('div');
+            item.className = 'lcm-device-item';
+            const label = dev.label || ('INPUT_' + (i + 1));
+            item.innerHTML = label
+                + '<div class="lcm-di-id">ID: ' + (dev.deviceId.slice(0, 16) || 'default') + '…</div>';
+            item.addEventListener('click', () => {
+                closeDeviceModal();
+                addChannel(dev.deviceId, label);
+            });
+            list.appendChild(item);
+        });
+    }
+
+    // ── Add Channel ──────────────────────────────────────────────────
+    function promptAddChannel() {
+        _ensureInit();
+        if (_channels.length >= MAX_CH) {
+            _ghostLog('LCM: MAX ' + MAX_CH + ' CHANNELS REACHED', 'crit');
+            return;
+        }
+        if (_devices.length === 0) {
+            _ghostLog('LCM: SCAN HW FIRST — no devices enumerated', 'cmd');
+            // Auto-scan then show modal
+            scanDevices().then(() => {
+                const modal = _q('lcm-device-modal');
+                if (modal) modal.classList.add('active');
+            });
+            return;
+        }
+        const modal = _q('lcm-device-modal');
+        if (modal) modal.classList.add('active');
+    }
+
+    function closeDeviceModal() {
+        const modal = _q('lcm-device-modal');
+        if (modal) modal.classList.remove('active');
+    }
+
+    function addChannel(deviceId, label) {
+        _ensureInit();
+        if (_channels.length >= MAX_CH) return;
+
+        const idx  = _channels.length;
+        const id   = 'lcm-ch-' + idx;
+        const name = label || ('CH ' + (idx + 1));
+
+        // Tone nodes — created once, never recreated
+        const userMedia = new Tone.UserMedia();
+        const gainNode  = new Tone.Gain(0.8);
+        const cueGain   = new Tone.Gain(0);
+        const meter     = new Tone.Meter({ normalRange: true, smoothing: 0.7 });
+
+        userMedia.connect(gainNode);
+        gainNode.connect(_masterBus);
+        gainNode.connect(cueGain);
+        gainNode.connect(meter);
+        cueGain.connect(_cueBus);
+
+        // Open the MediaStream for the selected device
+        userMedia.open(deviceId).then(() => {
+            _ghostLog('LCM: CH' + (idx + 1) + ' ARMED // ' + name, 'success');
+        }).catch(e => {
+            _ghostLog('LCM: CH' + (idx + 1) + ' OPEN FAIL — ' + (e.message || e), 'crit');
+        });
+
+        // Build DOM strip
+        const strip = _buildStripEl(idx, id, name);
+        const container = _q('lcm-strips');
+        if (container) container.appendChild(strip);
+
+        // Cache DOM refs on channel object (avoid querySelector in RAF loop)
+        const ch = {
+            idx, id, label: name,
+            userMedia, gainNode, cueGain, meter,
+            isCued: false, isRecording: false,
+            elStrip:    strip,
+            elVuBar:    strip.querySelector('.lcm-vu-bar'),
+            elVuPeak:   strip.querySelector('.lcm-vu-peak'),
+            elCapBtn:   strip.querySelector('.lcm-capture-btn'),
+            elCueBtn:   strip.querySelector('.lcm-cue-btn'),
+            elFaderVal: strip.querySelector('.lcm-fader-val'),
+            _peakVal:   0,
+            _peakHold:  0,
+        };
+        _channels.push(ch);
+
+        // Kick off meter RAF if not already running
+        if (_rafId === null && _isVisible) _startMeterLoop();
+    }
+
+    function _buildStripEl(idx, id, name) {
+        const strip = document.createElement('div');
+        strip.className = 'lcm-strip';
+        strip.id = id;
+        // Safe label truncation (no user-controlled HTML injection)
+        const safeName = String(name).replace(/</g, '&lt;').replace(/>/g, '&gt;').slice(0, 16);
+        strip.innerHTML =
+            '<div class="lcm-strip-label" title="' + safeName + '">' + safeName + '</div>'
+          + '<div class="lcm-vu"><div class="lcm-vu-bar"></div><div class="lcm-vu-peak"></div></div>'
+          + '<div class="lcm-fader-wrap">'
+          +   '<input type="range" class="lcm-fader" min="0" max="100" value="80"'
+          +          ' title="VOLUME // CH' + (idx+1) + '">'
+          +   '<span class="lcm-fader-val">80</span>'
+          + '</div>'
+          + '<button class="lcm-cue-btn" title="Route to headphone CUE bus">CUE</button>'
+          + '<button class="lcm-capture-btn" title="Record 4 bars into Ghost Deck">'
+          +   '⬛<br>CAPTURE'
+          + '</button>';
+
+        // Attach events to the strip's own elements (no closure over DOM id)
+        const fader  = strip.querySelector('.lcm-fader');
+        const cueBtn = strip.querySelector('.lcm-cue-btn');
+        const capBtn = strip.querySelector('.lcm-capture-btn');
+        fader.addEventListener('input',  () => setGain(idx, fader.value / 100));
+        cueBtn.addEventListener('click', () => toggleCue(idx));
+        capBtn.addEventListener('click', () => capture(idx));
+
+        return strip;
+    }
+
+    // ── Channel Controls ─────────────────────────────────────────────
+    function setGain(idx, val) {
+        const ch = _channels[idx];
+        if (!ch) return;
+        ch.gainNode.gain.rampTo(Math.max(0, Math.min(1, val)), 0.05);
+        if (ch.elFaderVal) ch.elFaderVal.textContent = Math.round(val * 100);
+    }
+
+    function toggleCue(idx) {
+        const ch = _channels[idx];
+        if (!ch) return;
+        ch.isCued = !ch.isCued;
+        ch.cueGain.gain.rampTo(ch.isCued ? 1 : 0, 0.05);
+        if (ch.elCueBtn)  ch.elCueBtn.classList.toggle('active', ch.isCued);
+        if (ch.elStrip)   ch.elStrip.classList.toggle('cued', ch.isCued);
+        _ghostLog('LCM: CH' + (idx+1) + ' CUE ' + (ch.isCued ? 'ON' : 'OFF'), 'cmd');
+    }
+
+    // ── Capture (Record → Ghost Deck) ────────────────────────────────
+    async function capture(idx) {
+        const ch = _channels[idx];
+        if (!ch || ch.isRecording) return;
+        if (!_recorder) { _ghostLog('LCM: RECORDER NOT READY', 'crit'); return; }
+
+        // Compute capture duration from Tone.Transport BPM (4 bars × 4 beats)
+        const bpm      = Tone.Transport.bpm.value || 120;
+        const beatSec  = 60 / bpm;
+        const capMs    = beatSec * 4 * BARS * 1000;   // 4 beats/bar × 4 bars
+
+        ch.isRecording = true;
+        if (ch.elCapBtn)  { ch.elCapBtn.classList.add('recording'); ch.elCapBtn.innerHTML = '● REC'; }
+        if (ch.elStrip)   ch.elStrip.classList.add('recording');
+        _ghostLog('LCM: CH' + (idx+1) + ' CAPTURING // ' + (capMs/1000).toFixed(1) + 's (' + BARS + ' BARS)', 'cmd');
+
+        // Ensure Tone context is running before recording
+        await Tone.start();
+
+        // Route this channel into the singleton recorder
+        ch.gainNode.connect(_recorder);
+        _recorder.start();
+
+        // Countdown display
+        let elapsed = 0;
+        const tickMs = 250;
+        const countId = setInterval(() => {
+            elapsed += tickMs;
+            const remaining = ((capMs - elapsed) / 1000).toFixed(1);
+            if (ch.elCapBtn && ch.isRecording) ch.elCapBtn.innerHTML = '● ' + remaining + 's';
+        }, tickMs);
+
+        // Wait for capture duration
+        await new Promise(resolve => setTimeout(resolve, capMs));
+
+        clearInterval(countId);
+
+        let blob;
+        try {
+            blob = await _recorder.stop();
+        } catch (e) {
+            _ghostLog('LCM: RECORDER STOP FAIL — ' + (e.message || e), 'crit');
+            ch.isRecording = false;
+            if (ch.elCapBtn)  { ch.elCapBtn.classList.remove('recording'); ch.elCapBtn.innerHTML = '⬛<br>CAPTURE'; }
+            if (ch.elStrip)   ch.elStrip.classList.remove('recording');
+            return;
+        }
+
+        // Disconnect recorder (keep channel live)
+        try { ch.gainNode.disconnect(_recorder); } catch(_) {}
+
+        ch.isRecording = false;
+        if (ch.elCapBtn)  { ch.elCapBtn.classList.remove('recording'); ch.elCapBtn.innerHTML = '⬛<br>CAPTURE'; }
+        if (ch.elStrip)   ch.elStrip.classList.remove('recording');
+
+        _ghostLog('LCM: CH' + (idx+1) + ' CAPTURED // LOADING GHOST_DECK', 'success');
+        _loadGhostDeck(blob, ch);
+    }
+
+    function _loadGhostDeck(blob, ch) {
+        // Revoke previous blob URL to release memory
+        if (_lastBlobUrl) {
+            try { URL.revokeObjectURL(_lastBlobUrl); } catch(_) {}
+        }
+        const url = URL.createObjectURL(blob);
+        _lastBlobUrl = url;
+
+        const statusEl = _q('lcm-ghost-status');
+        if (statusEl) statusEl.textContent = 'LOADING…';
+
+        _ghostPlayer.load(url).then(() => {
+            if (statusEl) statusEl.textContent = 'LOADED // CH' + (ch.idx + 1) + ' → LOOP';
+            _ghostLog('LCM: GHOST_DECK LOADED // CROSSFADE ARMED', 'success');
+            _executeCrossfade(ch);
+        }).catch(e => {
+            _ghostLog('LCM: GHOST_DECK LOAD FAIL — ' + (e.message || e), 'crit');
+            if (statusEl) statusEl.textContent = 'LOAD ERROR';
+        });
+    }
+
+    function _executeCrossfade(ch) {
+        const fadeSec = 1.5;
+        const now     = Tone.now();
+
+        // Fade live channel OUT
+        ch.gainNode.gain.rampTo(0, fadeSec);
+
+        // Fade Ghost Deck IN
+        _ghostGain.gain.rampTo(0.85, fadeSec);
+
+        // Start Ghost Deck (if not already playing)
+        if (!_ghostPlaying) {
+            _ghostPlayer.start(now + 0.05);
+            _ghostPlaying = true;
+            _q('lcm-gd-play') && _q('lcm-gd-play').classList.add('active');
+        }
+
+        _ghostLog('LCM: CROSSFADE // CH' + (ch.idx+1) + ' OUT → GHOST_DECK IN', 'success');
+
+        // Restore channel gain after fade + 2s buffer (so DJ can re-arm)
+        setTimeout(() => {
+            if (!ch.isRecording) ch.gainNode.gain.rampTo(0.8, 0.5);
+        }, (fadeSec + 2) * 1000);
+    }
+
+    // ── Ghost Deck Controls ──────────────────────────────────────────
+    function ghostPlay() {
+        _ensureInit();
+        if (!_ghostPlayer) return;
+        try {
+            Tone.start();
+            _ghostPlayer.start();
+            _ghostPlaying = true;
+            _q('lcm-gd-play') && _q('lcm-gd-play').classList.add('active');
+            _q('lcm-ghost-status') && (_q('lcm-ghost-status').textContent = 'PLAYING');
+            _ghostLog('LCM: GHOST_DECK PLAY', 'success');
+        } catch(e) { _ghostLog('LCM: GHOST_DECK PLAY FAIL — ' + e.message, 'crit'); }
+    }
+
+    function ghostStop() {
+        if (!_ghostPlayer) return;
+        try {
+            _ghostPlayer.stop();
+            _ghostPlaying = false;
+            _q('lcm-gd-play') && _q('lcm-gd-play').classList.remove('active');
+            _q('lcm-ghost-status') && (_q('lcm-ghost-status').textContent = 'STOPPED');
+            _ghostLog('LCM: GHOST_DECK STOP', 'cmd');
+        } catch(e) {}
+    }
+
+    function ghostToggleLoop() {
+        if (!_ghostPlayer) return;
+        _ghostLooping = !_ghostLooping;
+        _ghostPlayer.loop = _ghostLooping;
+        const btn = _q('lcm-gd-loop');
+        if (btn) btn.classList.toggle('active', _ghostLooping);
+        _ghostLog('LCM: LOOP ' + (_ghostLooping ? 'ON' : 'OFF'), 'cmd');
+    }
+
+    function setGhostGain(val) {
+        if (_ghostGain) _ghostGain.gain.rampTo(Math.max(0, Math.min(1, val)), 0.05);
+        const el = _q('lcm-ghost-gain-val');
+        if (el) el.textContent = Math.round(val * 100);
+    }
+
+    function setGrainSize(ms) {
+        if (_ghostPlayer) _ghostPlayer.grainSize = Math.max(0.01, ms / 1000);
+    }
+
+    function setGrainOverlap(val) {
+        if (_ghostPlayer) _ghostPlayer.overlap = Math.max(0, Math.min(0.5, val));
+    }
+
+    // ── Meter RAF Loop ───────────────────────────────────────────────
+    // Single rAF loop for ALL channel VU meters + Ghost Deck waveform.
+    // Uses pre-cached DOM refs — no querySelector calls inside.
+    function _startMeterLoop() {
+        if (_rafId !== null) return;
+        let _frame = 0;
+        function _tick() {
+            _rafId = requestAnimationFrame(_tick);
+            _frame++;
+
+            // Throttle: update meters every 2 frames (~30fps at 60Hz display)
+            if (_frame % 2 !== 0) return;
+
+            // Channel VU meters
+            for (let i = 0; i < _channels.length; i++) {
+                const ch  = _channels[i];
+                const raw = ch.meter.getValue();
+                // Tone.Meter returns number or Float32Array; normalRange:true → 0..1
+                const lvl = typeof raw === 'number' ? raw : (raw[0] || 0);
+                const pct = Math.min(100, lvl * 100);
+
+                if (ch.elVuBar)  ch.elVuBar.style.height  = pct.toFixed(1) + '%';
+
+                // Peak hold: decay by 0.8%/frame
+                if (pct > ch._peakVal) { ch._peakVal = pct; ch._peakHold = 60; }
+                else if (ch._peakHold > 0) { ch._peakHold--; }
+                else { ch._peakVal = Math.max(0, ch._peakVal - 0.8); }
+                if (ch.elVuPeak) ch.elVuPeak.style.bottom = ch._peakVal.toFixed(1) + '%';
+            }
+
+            // Ghost Deck waveform (FFT analyser, 32 bins)
+            if (_ghostPlaying && _ghostAnalyser && _waveformBars.length === 32) {
+                const data = _ghostAnalyser.getValue(); // Float32Array (dBFS)
+                for (let b = 0; b < 32; b++) {
+                    // Map dBFS (-100..0) to 0..100%
+                    const db  = typeof data[b] === 'number' ? data[b] : -100;
+                    const pct = Math.max(0, Math.min(100, (db + 100)));
+                    _waveformBars[b].style.height = pct.toFixed(1) + '%';
+                }
+            }
+        }
+        _tick();
+    }
+
+    function _stopMeterLoop() {
+        if (_rafId !== null) { cancelAnimationFrame(_rafId); _rafId = null; }
+    }
+
+    // ── Toggle Visibility ────────────────────────────────────────────
+    function toggle() {
+        const panel  = _q('vngrd-console');
+        const tglBtn = _q('btn-lcm-toggle');
+        if (!panel) return;
+
+        _isVisible = !_isVisible;
+        panel.classList.toggle('active', _isVisible);
+        if (tglBtn) tglBtn.classList.toggle('active', _isVisible);
+
+        if (_isVisible) {
+            _ensureInit();
+            _startMeterLoop();
+            _ghostLog('LCM: MATRIX OPEN', 'cmd');
+        } else {
+            _stopMeterLoop();
+        }
+    }
+
+    // ── Draggable panel ──────────────────────────────────────────────
+    function _makeDraggable(panel, handle) {
+        if (!panel || !handle) return;
+        let _dx = 0, _dy = 0, _dragging = false;
+        let _ox = 0, _oy = 0;
+
+        handle.addEventListener('mousedown', e => {
+            if (e.target.tagName === 'BUTTON' || e.target.tagName === 'INPUT') return;
+            _dragging = true;
+            const rect = panel.getBoundingClientRect();
+            _dx = e.clientX - rect.left;
+            _dy = e.clientY - rect.top;
+            panel.style.transform = 'none';
+            panel.style.left   = rect.left + 'px';
+            panel.style.bottom = 'auto';
+            panel.style.top    = rect.top  + 'px';
+            e.preventDefault();
+        });
+
+        document.addEventListener('mousemove', e => {
+            if (!_dragging) return;
+            _ox = e.clientX - _dx;
+            _oy = e.clientY - _dy;
+            panel.style.left = _ox + 'px';
+            panel.style.top  = _oy + 'px';
+        });
+
+        document.addEventListener('mouseup', () => { _dragging = false; });
+    }
+
+    // ── Helpers ──────────────────────────────────────────────────────
+    function _ensureInit() { if (!_initialized) _init(); }
+
+    function _ghostLog(msg, type) {
+        if (typeof ghostLog === 'function') ghostLog(msg, type);
+        else console.log('[LCM]', msg);
+    }
+
+    // ── Public API ───────────────────────────────────────────────────
+    return {
+        toggle,
+        scanDevices,
+        promptAddChannel,
+        closeDeviceModal,
+        addChannel,
+        setGain,
+        toggleCue,
+        capture,
+        ghostPlay,
+        ghostStop,
+        ghostToggleLoop,
+        setGhostGain,
+        setGrainSize,
+        setGrainOverlap,
+    };
+})();
+</script>
 
 </body>
 </html>
