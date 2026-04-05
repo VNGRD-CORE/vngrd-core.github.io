@@ -21072,54 +21072,71 @@ function _applyPoseToModel(lm) {
 
 <script>
 /* ═══════════════════════════════════════════════════════════════════════
-   LIVE CONSOLE MATRIX (LCM) — DSP Engine
+   LIVE CONSOLE MATRIX (LCM) — DSP Engine  v1.1 (bug-fixed)
 
-   Architecture:
-     • Each channel: Tone.UserMedia → Tone.Gain → masterBus
-                                   ↘ Tone.Gain (cue) → cueBus
-                                   ↘ Tone.Meter (VU, read-only)
-     • Ghost Deck: Tone.GrainPlayer → Tone.Gain (ghostGain) → masterBus
-     • Recorder: reused single Tone.Recorder instance, connected per-capture
-     • Meter RAF: single rAF loop reads all meters, updates DOM via cached refs
+   Fixes vs v1.0:
+   ① Tone.start() called on panel OPEN (user-gesture context) so the
+     AudioContext is running before any channel or recorder is used.
+   ② Fresh Tone.Recorder per capture — avoids MediaRecorder state bugs
+     when the same instance is reused across captures.
+   ③ _executeCrossfade() always stops then restarts GrainPlayer so a
+     newly loaded buffer always plays from the top regardless of prior state.
+   ④ ghostPlay() guards against no buffer — prints clear message instead
+     of throwing a silent Tone.js exception.
+   ⑤ LOOP button is marked .active on init (default loop = true).
+   ⑥ _uiBeep() — short OscillatorNode click through a dedicated gain
+     node (NOT the master bus) for zero-latency button feedback.
+   ⑦ 'M' keyboard shortcut closes/opens the panel.
 
-   GC hygiene:
-     • No new objects in hot paths (rAF loop uses pre-cached arrays)
-     • DOM updates via pre-cached element refs stored in channel objects
-     • Tone nodes created once at addChannel(), never re-created
-     • Blob URLs revoked after GrainPlayer.load() completes
+   GC hygiene (unchanged):
+   • No new objects in hot paths — rAF loop uses pre-cached arrays/refs.
+   • Tone nodes created once per channel, never re-created.
+   • Blob URLs revoked immediately after GrainPlayer.load() resolves.
    ═══════════════════════════════════════════════════════════════════════ */
-const LCM = (() => {
+var LCM = (() => {
     'use strict';
 
     // ── State ────────────────────────────────────────────────────────
-    let _initialized    = false;
-    let _masterBus      = null;   // Tone.Gain → Destination
-    let _cueBus         = null;   // Tone.Gain (headphone monitor)
-    let _ghostPlayer    = null;   // Tone.GrainPlayer
-    let _ghostGain      = null;   // Tone.Gain for crossfade
-    let _ghostAnalyser  = null;   // Tone.Analyser for waveform display
-    let _recorder       = null;   // Tone.Recorder (singleton, reused)
-    let _channels       = [];     // Array<ChannelObj>
-    let _devices        = [];     // Array<MediaDeviceInfo> (audioinput only)
-    let _isVisible      = false;
-    let _rafId          = null;
-    let _ghostLooping   = true;
-    let _ghostPlaying   = false;
-    let _lastBlobUrl    = null;   // track for revocation
-    const MAX_CH        = 8;
-    const BARS          = 4;
+    let _initialized   = false;
+    let _masterBus     = null;
+    let _cueBus        = null;
+    let _ghostPlayer   = null;
+    let _ghostGain     = null;
+    let _ghostAnalyser = null;
+    let _channels      = [];
+    let _devices       = [];
+    let _isVisible     = false;
+    let _rafId         = null;
+    let _ghostLooping  = true;
+    let _ghostPlaying  = false;
+    let _lastBlobUrl   = null;
+    let _uiACtx        = null;   // dedicated AudioContext for UI beeps only
 
-    // Pre-allocated Float32Array for analyser reads (avoid per-frame alloc)
-    const _analyserBuf   = new Float32Array(32);
-    const _waveformBars  = [];    // cached waveform <div> refs
+    const MAX_CH = 8;
+    const BARS   = 4;
 
-    // ── ChannelObj shape ─────────────────────────────────────────────
-    // { idx, id, label, userMedia, gainNode, cueGain, meter,
-    //   isCued, isRecording,
-    //   elStrip, elVuBar, elVuPeak, elCapBtn, elFaderVal, elCueBtn }
+    const _waveformBars = [];   // pre-allocated waveform bar refs
 
-    // ── DOM helpers (no querySelector in hot paths) ──────────────────
+    // ── DOM helper ───────────────────────────────────────────────────
     function _q(id) { return document.getElementById(id); }
+
+    // ── UI Beep (dedicated context, never touches master bus) ────────
+    // freq: Hz, dur: seconds, type: OscillatorType
+    function _uiBeep(freq, dur, type) {
+        try {
+            if (!_uiACtx) _uiACtx = new (window.AudioContext || window.webkitAudioContext)();
+            const g   = _uiACtx.createGain();
+            const osc = _uiACtx.createOscillator();
+            osc.type      = type  || 'sine';
+            osc.frequency.value = freq || 880;
+            g.gain.setValueAtTime(0.12, _uiACtx.currentTime);
+            g.gain.exponentialRampToValueAtTime(0.0001, _uiACtx.currentTime + (dur || 0.06));
+            osc.connect(g);
+            g.connect(_uiACtx.destination);
+            osc.start();
+            osc.stop(_uiACtx.currentTime + (dur || 0.06));
+        } catch(_) {}
+    }
 
     // ── Initialization ───────────────────────────────────────────────
     function _init() {
@@ -21129,46 +21146,35 @@ const LCM = (() => {
             return;
         }
 
-        // Master bus: slight headroom trim
         _masterBus = new Tone.Gain(0.82).toDestination();
+        _cueBus    = new Tone.Gain(0).toDestination();
 
-        // CUE bus: initially silent (user opens headphone output separately)
-        _cueBus = new Tone.Gain(0).toDestination();
-
-        // Ghost Deck
-        _ghostGain = new Tone.Gain(0).connect(_masterBus);
+        _ghostGain     = new Tone.Gain(0).connect(_masterBus);
         _ghostAnalyser = new Tone.Analyser({ type: 'fft', size: 32 });
-        _ghostPlayer = new Tone.GrainPlayer({
-            loop:      true,
-            grainSize: 0.2,
-            overlap:   0.05,
-            reverse:   false,
-            drift:     0.0,
-        });
+        _ghostPlayer   = new Tone.GrainPlayer({ loop: true, grainSize: 0.2, overlap: 0.05 });
         _ghostPlayer.connect(_ghostGain);
         _ghostPlayer.connect(_ghostAnalyser);
 
-        // Singleton recorder (never disposed between captures)
-        _recorder = new Tone.Recorder();
-
-        // Build waveform bar elements (32 bars, one-time alloc)
+        // Build waveform bars (one-time alloc)
         const wfEl = _q('lcm-ghost-waveform');
         if (wfEl) {
             for (let i = 0; i < 32; i++) {
-                const bar = document.createElement('div');
-                bar.className = 'lcm-ghost-waveform-bar';
-                bar.style.left   = (i * (100 / 32)).toFixed(2) + '%';
-                bar.style.width  = (100 / 32 - 0.5).toFixed(2) + '%';
+                const bar       = document.createElement('div');
+                bar.className   = 'lcm-ghost-waveform-bar';
+                bar.style.left  = (i * (100 / 32)).toFixed(2) + '%';
+                bar.style.width = (100 / 32 - 0.5).toFixed(2) + '%';
                 bar.style.height = '0%';
                 wfEl.appendChild(bar);
                 _waveformBars.push(bar);
             }
         }
 
-        // Drag to reposition
+        // LOOP button defaults to active (loop is on by default)
+        const loopBtn = _q('lcm-gd-loop');
+        if (loopBtn) loopBtn.classList.add('active');
+
         _makeDraggable(_q('vngrd-console'), _q('lcm-header'));
 
-        // BPM sync from Tone.Transport
         _syncBPM();
         setInterval(_syncBPM, 2000);
 
@@ -21178,22 +21184,20 @@ const LCM = (() => {
 
     function _syncBPM() {
         const el = _q('lcm-bpm-display');
-        if (!el || typeof Tone === 'undefined') return;
-        el.textContent = 'BPM: ' + Math.round(Tone.Transport.bpm.value);
+        if (el && typeof Tone !== 'undefined')
+            el.textContent = 'BPM: ' + Math.round(Tone.Transport.bpm.value);
     }
 
     // ── Device Enumeration ───────────────────────────────────────────
     async function scanDevices() {
         _ensureInit();
+        _uiBeep(660, 0.05);
         try {
-            // Trigger permission prompt — required before labels appear
-            const tempStream = await navigator.mediaDevices.getUserMedia({ audio: true, video: false });
-            tempStream.getTracks().forEach(t => t.stop());
-
+            const tmp = await navigator.mediaDevices.getUserMedia({ audio: true, video: false });
+            tmp.getTracks().forEach(t => t.stop());
             const all = await navigator.mediaDevices.enumerateDevices();
-            _devices = all.filter(d => d.kind === 'audioinput');
-
-            _ghostLog('LCM: SCANNED ' + _devices.length + ' AUDIO INPUT' + (_devices.length !== 1 ? 'S' : ''), 'success');
+            _devices  = all.filter(d => d.kind === 'audioinput');
+            _ghostLog('LCM: SCANNED ' + _devices.length + ' INPUT' + (_devices.length !== 1 ? 'S' : ''), 'success');
             _renderDeviceList();
         } catch (e) {
             _ghostLog('LCM: HW_SCAN DENIED — ' + (e.message || e), 'crit');
@@ -21204,20 +21208,17 @@ const LCM = (() => {
         const list = _q('lcm-device-list');
         if (!list) return;
         list.innerHTML = '';
-        if (_devices.length === 0) {
+        if (!_devices.length) {
             list.innerHTML = '<div style="font-size:8px;color:rgba(255,255,255,0.3);padding:8px;">NO AUDIO INPUTS DETECTED</div>';
             return;
         }
         _devices.forEach((dev, i) => {
-            const item = document.createElement('div');
+            const item  = document.createElement('div');
             item.className = 'lcm-device-item';
-            const label = dev.label || ('INPUT_' + (i + 1));
-            item.innerHTML = label
-                + '<div class="lcm-di-id">ID: ' + (dev.deviceId.slice(0, 16) || 'default') + '…</div>';
-            item.addEventListener('click', () => {
-                closeDeviceModal();
-                addChannel(dev.deviceId, label);
-            });
+            const lbl   = dev.label || ('INPUT_' + (i + 1));
+            const safeL = lbl.replace(/</g, '&lt;').replace(/>/g, '&gt;');
+            item.innerHTML = safeL + '<div class="lcm-di-id">ID: ' + ((dev.deviceId || 'default').slice(0, 16)) + '…</div>';
+            item.addEventListener('click', () => { closeDeviceModal(); addChannel(dev.deviceId, lbl); });
             list.appendChild(item);
         });
     }
@@ -21225,37 +21226,37 @@ const LCM = (() => {
     // ── Add Channel ──────────────────────────────────────────────────
     function promptAddChannel() {
         _ensureInit();
+        _uiBeep(880, 0.05);
         if (_channels.length >= MAX_CH) {
-            _ghostLog('LCM: MAX ' + MAX_CH + ' CHANNELS REACHED', 'crit');
-            return;
+            _ghostLog('LCM: MAX ' + MAX_CH + ' CHANNELS REACHED', 'crit'); return;
         }
-        if (_devices.length === 0) {
-            _ghostLog('LCM: SCAN HW FIRST — no devices enumerated', 'cmd');
-            // Auto-scan then show modal
+        if (!_devices.length) {
             scanDevices().then(() => {
-                const modal = _q('lcm-device-modal');
-                if (modal) modal.classList.add('active');
+                const m = _q('lcm-device-modal');
+                if (m) m.classList.add('active');
             });
             return;
         }
-        const modal = _q('lcm-device-modal');
-        if (modal) modal.classList.add('active');
+        const m = _q('lcm-device-modal');
+        if (m) m.classList.add('active');
     }
 
     function closeDeviceModal() {
-        const modal = _q('lcm-device-modal');
-        if (modal) modal.classList.remove('active');
+        const m = _q('lcm-device-modal');
+        if (m) m.classList.remove('active');
     }
 
     function addChannel(deviceId, label) {
         _ensureInit();
         if (_channels.length >= MAX_CH) return;
 
+        // AudioContext must be running before UserMedia streams audio
+        Tone.start();
+
         const idx  = _channels.length;
         const id   = 'lcm-ch-' + idx;
         const name = label || ('CH ' + (idx + 1));
 
-        // Tone nodes — created once, never recreated
         const userMedia = new Tone.UserMedia();
         const gainNode  = new Tone.Gain(0.8);
         const cueGain   = new Tone.Gain(0);
@@ -21267,19 +21268,17 @@ const LCM = (() => {
         gainNode.connect(meter);
         cueGain.connect(_cueBus);
 
-        // Open the MediaStream for the selected device
         userMedia.open(deviceId).then(() => {
+            _uiBeep(1100, 0.08, 'square');
             _ghostLog('LCM: CH' + (idx + 1) + ' ARMED // ' + name, 'success');
         }).catch(e => {
             _ghostLog('LCM: CH' + (idx + 1) + ' OPEN FAIL — ' + (e.message || e), 'crit');
         });
 
-        // Build DOM strip
         const strip = _buildStripEl(idx, id, name);
         const container = _q('lcm-strips');
         if (container) container.appendChild(strip);
 
-        // Cache DOM refs on channel object (avoid querySelector in RAF loop)
         const ch = {
             idx, id, label: name,
             userMedia, gainNode, cueGain, meter,
@@ -21290,42 +21289,32 @@ const LCM = (() => {
             elCapBtn:   strip.querySelector('.lcm-capture-btn'),
             elCueBtn:   strip.querySelector('.lcm-cue-btn'),
             elFaderVal: strip.querySelector('.lcm-fader-val'),
-            _peakVal:   0,
-            _peakHold:  0,
+            _peakVal: 0, _peakHold: 0,
         };
         _channels.push(ch);
 
-        // Kick off meter RAF if not already running
         if (_rafId === null && _isVisible) _startMeterLoop();
+        _uiBeep(660, 0.04);
     }
 
     function _buildStripEl(idx, id, name) {
-        const strip = document.createElement('div');
+        const strip    = document.createElement('div');
         strip.className = 'lcm-strip';
-        strip.id = id;
-        // Safe label truncation (no user-controlled HTML injection)
-        const safeName = String(name).replace(/</g, '&lt;').replace(/>/g, '&gt;').slice(0, 16);
+        strip.id        = id;
+        const safeName  = String(name).replace(/</g,'&lt;').replace(/>/g,'&gt;').slice(0, 16);
         strip.innerHTML =
             '<div class="lcm-strip-label" title="' + safeName + '">' + safeName + '</div>'
           + '<div class="lcm-vu"><div class="lcm-vu-bar"></div><div class="lcm-vu-peak"></div></div>'
           + '<div class="lcm-fader-wrap">'
-          +   '<input type="range" class="lcm-fader" min="0" max="100" value="80"'
-          +          ' title="VOLUME // CH' + (idx+1) + '">'
+          +   '<input type="range" class="lcm-fader" min="0" max="100" value="80" title="VOL CH' + (idx+1) + '">'
           +   '<span class="lcm-fader-val">80</span>'
           + '</div>'
-          + '<button class="lcm-cue-btn" title="Route to headphone CUE bus">CUE</button>'
-          + '<button class="lcm-capture-btn" title="Record 4 bars into Ghost Deck">'
-          +   '⬛<br>CAPTURE'
-          + '</button>';
+          + '<button class="lcm-cue-btn" title="CUE bus">CUE</button>'
+          + '<button class="lcm-capture-btn" title="Record 4 bars → Ghost Deck">⬛<br>CAPTURE</button>';
 
-        // Attach events to the strip's own elements (no closure over DOM id)
-        const fader  = strip.querySelector('.lcm-fader');
-        const cueBtn = strip.querySelector('.lcm-cue-btn');
-        const capBtn = strip.querySelector('.lcm-capture-btn');
-        fader.addEventListener('input',  () => setGain(idx, fader.value / 100));
-        cueBtn.addEventListener('click', () => toggleCue(idx));
-        capBtn.addEventListener('click', () => capture(idx));
-
+        strip.querySelector('.lcm-fader').addEventListener('input', function() { setGain(idx, this.value / 100); });
+        strip.querySelector('.lcm-cue-btn').addEventListener('click', () => { _uiBeep(770, 0.05); toggleCue(idx); });
+        strip.querySelector('.lcm-capture-btn').addEventListener('click', () => capture(idx));
         return strip;
     }
 
@@ -21342,84 +21331,88 @@ const LCM = (() => {
         if (!ch) return;
         ch.isCued = !ch.isCued;
         ch.cueGain.gain.rampTo(ch.isCued ? 1 : 0, 0.05);
-        if (ch.elCueBtn)  ch.elCueBtn.classList.toggle('active', ch.isCued);
-        if (ch.elStrip)   ch.elStrip.classList.toggle('cued', ch.isCued);
+        if (ch.elCueBtn) ch.elCueBtn.classList.toggle('active', ch.isCued);
+        if (ch.elStrip)  ch.elStrip.classList.toggle('cued',    ch.isCued);
         _ghostLog('LCM: CH' + (idx+1) + ' CUE ' + (ch.isCued ? 'ON' : 'OFF'), 'cmd');
     }
 
-    // ── Capture (Record → Ghost Deck) ────────────────────────────────
+    // ── Capture → Ghost Deck ─────────────────────────────────────────
     async function capture(idx) {
         const ch = _channels[idx];
         if (!ch || ch.isRecording) return;
-        if (!_recorder) { _ghostLog('LCM: RECORDER NOT READY', 'crit'); return; }
 
-        // Compute capture duration from Tone.Transport BPM (4 bars × 4 beats)
-        const bpm      = Tone.Transport.bpm.value || 120;
-        const beatSec  = 60 / bpm;
-        const capMs    = beatSec * 4 * BARS * 1000;   // 4 beats/bar × 4 bars
-
-        ch.isRecording = true;
-        if (ch.elCapBtn)  { ch.elCapBtn.classList.add('recording'); ch.elCapBtn.innerHTML = '● REC'; }
-        if (ch.elStrip)   ch.elStrip.classList.add('recording');
-        _ghostLog('LCM: CH' + (idx+1) + ' CAPTURING // ' + (capMs/1000).toFixed(1) + 's (' + BARS + ' BARS)', 'cmd');
-
-        // Ensure Tone context is running before recording
+        // ① Resume AudioContext inside this user-gesture call
         await Tone.start();
 
-        // Route this channel into the singleton recorder
-        ch.gainNode.connect(_recorder);
-        _recorder.start();
+        const bpm   = (Tone.Transport.bpm.value > 0 ? Tone.Transport.bpm.value : 120);
+        const capMs = (60 / bpm) * 4 * BARS * 1000;   // 4 bars
 
-        // Countdown display
+        ch.isRecording = true;
+        if (ch.elCapBtn) { ch.elCapBtn.classList.add('recording'); ch.elCapBtn.innerHTML = '● REC'; }
+        if (ch.elStrip)  ch.elStrip.classList.add('recording');
+        _uiBeep(440, 0.12, 'sawtooth');
+        _ghostLog('LCM: CH' + (idx+1) + ' CAPTURING // ' + (capMs/1000).toFixed(1) + 's', 'cmd');
+
+        // ② Fresh Tone.Recorder each capture — avoids MediaRecorder state bugs
+        const rec = new Tone.Recorder();
+        ch.gainNode.connect(rec);
+        rec.start();
+
+        // Countdown
         let elapsed = 0;
-        const tickMs = 250;
-        const countId = setInterval(() => {
-            elapsed += tickMs;
-            const remaining = ((capMs - elapsed) / 1000).toFixed(1);
-            if (ch.elCapBtn && ch.isRecording) ch.elCapBtn.innerHTML = '● ' + remaining + 's';
-        }, tickMs);
+        const tick  = setInterval(() => {
+            elapsed += 250;
+            const rem = ((capMs - elapsed) / 1000).toFixed(1);
+            if (ch.elCapBtn && ch.isRecording) ch.elCapBtn.innerHTML = '● ' + rem + 's';
+        }, 250);
 
-        // Wait for capture duration
-        await new Promise(resolve => setTimeout(resolve, capMs));
-
-        clearInterval(countId);
+        await new Promise(r => setTimeout(r, capMs));
+        clearInterval(tick);
 
         let blob;
-        try {
-            blob = await _recorder.stop();
-        } catch (e) {
-            _ghostLog('LCM: RECORDER STOP FAIL — ' + (e.message || e), 'crit');
+        try   { blob = await rec.stop(); }
+        catch (e) {
+            _ghostLog('LCM: REC STOP FAIL — ' + (e.message || e), 'crit');
             ch.isRecording = false;
-            if (ch.elCapBtn)  { ch.elCapBtn.classList.remove('recording'); ch.elCapBtn.innerHTML = '⬛<br>CAPTURE'; }
-            if (ch.elStrip)   ch.elStrip.classList.remove('recording');
+            _resetCapBtn(ch);
             return;
         }
 
-        // Disconnect recorder (keep channel live)
-        try { ch.gainNode.disconnect(_recorder); } catch(_) {}
+        try { ch.gainNode.disconnect(rec); } catch(_) {}
+        rec.dispose();
 
         ch.isRecording = false;
-        if (ch.elCapBtn)  { ch.elCapBtn.classList.remove('recording'); ch.elCapBtn.innerHTML = '⬛<br>CAPTURE'; }
-        if (ch.elStrip)   ch.elStrip.classList.remove('recording');
+        _resetCapBtn(ch);
 
-        _ghostLog('LCM: CH' + (idx+1) + ' CAPTURED // LOADING GHOST_DECK', 'success');
+        if (!blob || blob.size < 512) {
+            _ghostLog('LCM: CAPTURE EMPTY — is the channel armed + AudioContext running?', 'crit');
+            return;
+        }
+
+        _ghostLog('LCM: CH' + (idx+1) + ' CAPTURED (' + (blob.size/1024).toFixed(1) + 'KB) // LOADING GHOST_DECK', 'success');
         _loadGhostDeck(blob, ch);
     }
 
-    function _loadGhostDeck(blob, ch) {
-        // Revoke previous blob URL to release memory
-        if (_lastBlobUrl) {
-            try { URL.revokeObjectURL(_lastBlobUrl); } catch(_) {}
-        }
-        const url = URL.createObjectURL(blob);
-        _lastBlobUrl = url;
+    function _resetCapBtn(ch) {
+        if (ch.elCapBtn) { ch.elCapBtn.classList.remove('recording'); ch.elCapBtn.innerHTML = '⬛<br>CAPTURE'; }
+        if (ch.elStrip)  ch.elStrip.classList.remove('recording');
+    }
 
+    function _loadGhostDeck(blob, ch) {
+        if (_lastBlobUrl) { try { URL.revokeObjectURL(_lastBlobUrl); } catch(_) {} }
+        const url      = URL.createObjectURL(blob);
+        _lastBlobUrl   = url;
         const statusEl = _q('lcm-ghost-status');
         if (statusEl) statusEl.textContent = 'LOADING…';
 
         _ghostPlayer.load(url).then(() => {
-            if (statusEl) statusEl.textContent = 'LOADED // CH' + (ch.idx + 1) + ' → LOOP';
-            _ghostLog('LCM: GHOST_DECK LOADED // CROSSFADE ARMED', 'success');
+            // Revoke now that Tone has decoded the buffer
+            try { URL.revokeObjectURL(url); } catch(_) {}
+            _lastBlobUrl = null;
+
+            if (statusEl) statusEl.textContent = 'LOADED // CH' + (ch.idx + 1) + ' LOOPING';
+            _ghostLog('LCM: GHOST_DECK LOADED // EXECUTING CROSSFADE', 'success');
+            _uiBeep(1320, 0.15, 'sine');
             _executeCrossfade(ch);
         }).catch(e => {
             _ghostLog('LCM: GHOST_DECK LOAD FAIL — ' + (e.message || e), 'crit');
@@ -21429,24 +21422,22 @@ const LCM = (() => {
 
     function _executeCrossfade(ch) {
         const fadeSec = 1.5;
-        const now     = Tone.now();
 
-        // Fade live channel OUT
+        // ③ Always stop then restart — ensures new buffer plays from scratch
+        try { _ghostPlayer.stop(); } catch(_) {}
+
         ch.gainNode.gain.rampTo(0, fadeSec);
-
-        // Fade Ghost Deck IN
         _ghostGain.gain.rampTo(0.85, fadeSec);
 
-        // Start Ghost Deck (if not already playing)
-        if (!_ghostPlaying) {
-            _ghostPlayer.start(now + 0.05);
-            _ghostPlaying = true;
-            _q('lcm-gd-play') && _q('lcm-gd-play').classList.add('active');
-        }
+        // Small offset so the ramp has started before playback begins
+        _ghostPlayer.start(Tone.now() + 0.05);
+        _ghostPlaying = true;
 
+        const playBtn = _q('lcm-gd-play');
+        if (playBtn) playBtn.classList.add('active');
         _ghostLog('LCM: CROSSFADE // CH' + (ch.idx+1) + ' OUT → GHOST_DECK IN', 'success');
 
-        // Restore channel gain after fade + 2s buffer (so DJ can re-arm)
+        // Restore live channel gain after crossfade completes
         setTimeout(() => {
             if (!ch.isRecording) ch.gainNode.gain.rampTo(0.8, 0.5);
         }, (fadeSec + 2) * 1000);
@@ -21455,14 +21446,22 @@ const LCM = (() => {
     // ── Ghost Deck Controls ──────────────────────────────────────────
     function ghostPlay() {
         _ensureInit();
-        if (!_ghostPlayer) return;
+        // ④ Guard: no buffer loaded yet
+        if (!_ghostPlayer || !_ghostPlayer.buffer || !_ghostPlayer.buffer.loaded) {
+            _ghostLog('LCM: GHOST_DECK EMPTY — CAPTURE a channel first', 'crit');
+            _uiBeep(220, 0.1, 'sawtooth');
+            return;
+        }
+        Tone.start();
         try {
-            Tone.start();
             _ghostPlayer.start();
             _ghostPlaying = true;
-            _q('lcm-gd-play') && _q('lcm-gd-play').classList.add('active');
-            _q('lcm-ghost-status') && (_q('lcm-ghost-status').textContent = 'PLAYING');
+            const p = _q('lcm-gd-play');
+            if (p) p.classList.add('active');
+            const s = _q('lcm-ghost-status');
+            if (s) s.textContent = 'PLAYING';
             _ghostLog('LCM: GHOST_DECK PLAY', 'success');
+            _uiBeep(880, 0.06);
         } catch(e) { _ghostLog('LCM: GHOST_DECK PLAY FAIL — ' + e.message, 'crit'); }
     }
 
@@ -21471,19 +21470,23 @@ const LCM = (() => {
         try {
             _ghostPlayer.stop();
             _ghostPlaying = false;
-            _q('lcm-gd-play') && _q('lcm-gd-play').classList.remove('active');
-            _q('lcm-ghost-status') && (_q('lcm-ghost-status').textContent = 'STOPPED');
+            const p = _q('lcm-gd-play');
+            if (p) p.classList.remove('active');
+            const s = _q('lcm-ghost-status');
+            if (s) s.textContent = 'STOPPED';
             _ghostLog('LCM: GHOST_DECK STOP', 'cmd');
-        } catch(e) {}
+            _uiBeep(440, 0.06);
+        } catch(_) {}
     }
 
     function ghostToggleLoop() {
         if (!_ghostPlayer) return;
-        _ghostLooping = !_ghostLooping;
-        _ghostPlayer.loop = _ghostLooping;
+        _ghostLooping      = !_ghostLooping;
+        _ghostPlayer.loop  = _ghostLooping;
         const btn = _q('lcm-gd-loop');
         if (btn) btn.classList.toggle('active', _ghostLooping);
         _ghostLog('LCM: LOOP ' + (_ghostLooping ? 'ON' : 'OFF'), 'cmd');
+        _uiBeep(_ghostLooping ? 1100 : 550, 0.05);
     }
 
     function setGhostGain(val) {
@@ -21500,55 +21503,42 @@ const LCM = (() => {
         if (_ghostPlayer) _ghostPlayer.overlap = Math.max(0, Math.min(0.5, val));
     }
 
-    // ── Meter RAF Loop ───────────────────────────────────────────────
-    // Single rAF loop for ALL channel VU meters + Ghost Deck waveform.
-    // Uses pre-cached DOM refs — no querySelector calls inside.
+    // ── Meter / Waveform RAF Loop ────────────────────────────────────
     function _startMeterLoop() {
         if (_rafId !== null) return;
-        let _frame = 0;
-        function _tick() {
-            _rafId = requestAnimationFrame(_tick);
-            _frame++;
+        let frame = 0;
+        const tick = () => {
+            _rafId = requestAnimationFrame(tick);
+            if (++frame % 2 !== 0) return;   // ~30 fps
 
-            // Throttle: update meters every 2 frames (~30fps at 60Hz display)
-            if (_frame % 2 !== 0) return;
-
-            // Channel VU meters
             for (let i = 0; i < _channels.length; i++) {
                 const ch  = _channels[i];
                 const raw = ch.meter.getValue();
-                // Tone.Meter returns number or Float32Array; normalRange:true → 0..1
-                const lvl = typeof raw === 'number' ? raw : (raw[0] || 0);
-                const pct = Math.min(100, lvl * 100);
-
-                if (ch.elVuBar)  ch.elVuBar.style.height  = pct.toFixed(1) + '%';
-
-                // Peak hold: decay by 0.8%/frame
-                if (pct > ch._peakVal) { ch._peakVal = pct; ch._peakHold = 60; }
-                else if (ch._peakHold > 0) { ch._peakHold--; }
+                const lvl = isNaN(raw) ? 0 : (typeof raw === 'number' ? raw : (raw[0] || 0));
+                const pct = Math.min(100, Math.max(0, lvl * 100));
+                if (ch.elVuBar) ch.elVuBar.style.height = pct.toFixed(1) + '%';
+                if (pct > ch._peakVal)        { ch._peakVal = pct; ch._peakHold = 60; }
+                else if (ch._peakHold > 0)    { ch._peakHold--; }
                 else { ch._peakVal = Math.max(0, ch._peakVal - 0.8); }
                 if (ch.elVuPeak) ch.elVuPeak.style.bottom = ch._peakVal.toFixed(1) + '%';
             }
 
-            // Ghost Deck waveform (FFT analyser, 32 bins)
             if (_ghostPlaying && _ghostAnalyser && _waveformBars.length === 32) {
-                const data = _ghostAnalyser.getValue(); // Float32Array (dBFS)
+                const data = _ghostAnalyser.getValue();
                 for (let b = 0; b < 32; b++) {
-                    // Map dBFS (-100..0) to 0..100%
-                    const db  = typeof data[b] === 'number' ? data[b] : -100;
-                    const pct = Math.max(0, Math.min(100, (db + 100)));
-                    _waveformBars[b].style.height = pct.toFixed(1) + '%';
+                    const db  = (typeof data[b] === 'number' && !isNaN(data[b])) ? data[b] : -100;
+                    _waveformBars[b].style.height = Math.max(0, Math.min(100, db + 100)).toFixed(1) + '%';
                 }
             }
-        }
-        _tick();
+        };
+        tick();
     }
 
     function _stopMeterLoop() {
         if (_rafId !== null) { cancelAnimationFrame(_rafId); _rafId = null; }
     }
 
-    // ── Toggle Visibility ────────────────────────────────────────────
+    // ── Toggle Panel ─────────────────────────────────────────────────
     function toggle() {
         const panel  = _q('vngrd-console');
         const tglBtn = _q('btn-lcm-toggle');
@@ -21559,68 +21549,63 @@ const LCM = (() => {
         if (tglBtn) tglBtn.classList.toggle('active', _isVisible);
 
         if (_isVisible) {
+            // ① Resume AudioContext while we are still in the user-gesture call stack
+            if (typeof Tone !== 'undefined') Tone.start();
             _ensureInit();
             _startMeterLoop();
-            _ghostLog('LCM: MATRIX OPEN', 'cmd');
+            _uiBeep(660, 0.05);
+            _ghostLog('LCM: MATRIX OPEN // press M to close', 'cmd');
         } else {
             _stopMeterLoop();
+            _uiBeep(440, 0.05);
         }
     }
 
-    // ── Draggable panel ──────────────────────────────────────────────
+    // ── Keyboard shortcut: M toggles the matrix ──────────────────────
+    document.addEventListener('keydown', e => {
+        if (e.key !== 'm' && e.key !== 'M') return;
+        const active = document.activeElement;
+        if (active && (active.tagName === 'INPUT' || active.tagName === 'TEXTAREA' || active.isContentEditable)) return;
+        toggle();
+    });
+
+    // ── Draggable ─────────────────────────────────────────────────────
     function _makeDraggable(panel, handle) {
         if (!panel || !handle) return;
-        let _dx = 0, _dy = 0, _dragging = false;
-        let _ox = 0, _oy = 0;
-
+        let dragging = false, dx = 0, dy = 0;
         handle.addEventListener('mousedown', e => {
             if (e.target.tagName === 'BUTTON' || e.target.tagName === 'INPUT') return;
-            _dragging = true;
-            const rect = panel.getBoundingClientRect();
-            _dx = e.clientX - rect.left;
-            _dy = e.clientY - rect.top;
+            dragging = true;
+            const r = panel.getBoundingClientRect();
+            dx = e.clientX - r.left;
+            dy = e.clientY - r.top;
             panel.style.transform = 'none';
-            panel.style.left   = rect.left + 'px';
+            panel.style.left   = r.left + 'px';
             panel.style.bottom = 'auto';
-            panel.style.top    = rect.top  + 'px';
+            panel.style.top    = r.top  + 'px';
             e.preventDefault();
         });
-
         document.addEventListener('mousemove', e => {
-            if (!_dragging) return;
-            _ox = e.clientX - _dx;
-            _oy = e.clientY - _dy;
-            panel.style.left = _ox + 'px';
-            panel.style.top  = _oy + 'px';
+            if (!dragging) return;
+            panel.style.left = (e.clientX - dx) + 'px';
+            panel.style.top  = (e.clientY - dy) + 'px';
         });
-
-        document.addEventListener('mouseup', () => { _dragging = false; });
+        document.addEventListener('mouseup', () => { dragging = false; });
     }
 
-    // ── Helpers ──────────────────────────────────────────────────────
+    // ── Helpers ───────────────────────────────────────────────────────
     function _ensureInit() { if (!_initialized) _init(); }
-
     function _ghostLog(msg, type) {
         if (typeof ghostLog === 'function') ghostLog(msg, type);
         else console.log('[LCM]', msg);
     }
 
-    // ── Public API ───────────────────────────────────────────────────
+    // ── Public API ────────────────────────────────────────────────────
     return {
-        toggle,
-        scanDevices,
-        promptAddChannel,
-        closeDeviceModal,
-        addChannel,
-        setGain,
-        toggleCue,
-        capture,
-        ghostPlay,
-        ghostStop,
-        ghostToggleLoop,
-        setGhostGain,
-        setGrainSize,
-        setGrainOverlap,
+        toggle, scanDevices, promptAddChannel, closeDeviceModal,
+        addChannel, setGain, toggleCue, capture,
+        ghostPlay, ghostStop, ghostToggleLoop,
+        setGhostGain, setGrainSize, setGrainOverlap,
     };
 })();
 </script>
