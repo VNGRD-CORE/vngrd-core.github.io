@@ -1,0 +1,331 @@
+/* ═══ FLUID TETHER — kinetic-rack.css ══════════════════════════════════════ */
+
+/* Three.js canvas — full-viewport, transparent over live camera */
+#kinetic-canvas {
+    position: fixed;
+    top: 0; left: 0; right: 0; bottom: 0;
+    width: 100vw; height: 100vh;
+    z-index: 3500;
+    display: none;
+    pointer-events: none;
+    overflow: hidden;
+}
+#kinetic-canvas.kr-online { display: block; }
+
+/* 4K camera feed — darkened cinema mode */
+#kinetic-cam-video {
+    position: fixed;
+    left: -9999px; top: -9999px;
+    width: 1px; height: 1px;
+    pointer-events: none;
+    display: none;
+}
+#kinetic-cam-video.kr-online {
+    display: block;
+    top: 0; left: 0;
+    width:  100vw;
+    height: 100vh;
+    object-fit: cover;
+    transform: scaleX(-1);
+    filter: brightness(0.45) contrast(1.15) saturate(1.2);
+    z-index: 3499;
+    pointer-events: none;
+}
+
+/* ── Rack sidebar ─────────────────────────────────────────────────────────── */
+#kr-rack { margin-top: 6px; position: relative; }
+
+#kr-launch-btn {
+    display: block; width: 100%; padding: 6px 4px;
+    font-family: 'Orbitron', sans-serif; font-size: 7.5px; font-weight: 700; letter-spacing: 2px;
+    color: rgba(255,165,0,.65);
+    background: rgba(10,5,0,.4);
+    backdrop-filter: blur(8px); -webkit-backdrop-filter: blur(8px);
+    border: 1px solid rgba(255,165,0,.22);
+    border-top: 1px solid rgba(255,255,255,.16);
+    border-left: 1px solid rgba(255,255,255,.09);
+    border-radius: 2px; cursor: pointer; text-align: center; transition: all .16s ease;
+}
+#kr-launch-btn:hover { color: #ffa500; box-shadow: 0 0 14px rgba(255,165,0,.22); }
+#kr-launch-btn.kr-online {
+    color: #ffb733; background: rgba(30,18,0,.82);
+    border-top-color: rgba(255,165,0,.65); border-left-color: rgba(255,165,0,.28);
+    box-shadow: 0 0 20px rgba(255,165,0,.28), inset 0 0 12px rgba(255,165,0,.07);
+    text-shadow: 0 0 10px rgba(255,165,0,.65);
+}
+
+.kr-help-btn {
+    position: absolute; right: 0; top: 0;
+    width: 16px; height: 16px;
+    font-size: 7px; font-family: 'JetBrains Mono', monospace; font-weight: 700;
+    color: rgba(255,165,0,.38); background: rgba(10,5,0,.5);
+    border: 1px solid rgba(255,165,0,.18); border-radius: 50%;
+    cursor: pointer; padding: 0;
+    display: none; align-items: center; justify-content: center; transition: all .14s;
+}
+#kr-rack.kr-online .kr-help-btn { display: flex; }
+.kr-help-btn:hover { color: #ffa500; border-color: rgba(255,165,0,.5); }
+
+#kr-status {
+    font-size: 6.5px; color: rgba(255,165,0,.28); letter-spacing: 1px;
+    text-align: center; padding: 3px 0;
+    font-family: 'JetBrains Mono', monospace;
+}
+#kr-status.kr-live { color: rgba(0,255,136,.68); }
+
+.kr-sub-btn {
+    padding: 4px 2px;
+    font-family: 'JetBrains Mono', monospace; font-size: 6.5px; letter-spacing: .5px;
+    color: rgba(176,0,255,.5); background: rgba(5,0,12,.35);
+    backdrop-filter: blur(8px); -webkit-backdrop-filter: blur(8px);
+    border: 1px solid rgba(255,255,255,.05);
+    border-top: 1px solid rgba(255,255,255,.12);
+    border-radius: 2px; cursor: pointer; text-align: center; transition: all .12s;
+}
+.kr-sub-btn:hover { color: #b000ff; border-color: rgba(176,0,255,.35); }
+.kr-sub-btn.kr-sel { color: #b000ff; border-top-color: rgba(176,0,255,.58); text-shadow: 0 0 7px rgba(176,0,255,.5); }
+
+/* ── Floating HUD ────────────────────────────────────────────────────────── */
+#kr-stage-hud {
+    position: fixed; bottom: 65px; left: 215px; z-index: 3550;
+    display: none; flex-direction: column; gap: 5px;
+    padding: 10px 14px 12px;
+    background: rgba(0,4,12,.76);
+    backdrop-filter: blur(24px) saturate(1.8); -webkit-backdrop-filter: blur(24px) saturate(1.8);
+    border: 1px solid rgba(255,165,0,.15);
+    border-top: 1px solid rgba(255,255,255,.14);
+    border-left: 1px solid rgba(255,255,255,.07);
+    border-radius: 4px; min-width: 196px;
+    box-shadow: 0 8px 48px rgba(0,0,0,.82), 0 0 30px rgba(255,165,0,.05);
+    pointer-events: all;
+}
+#kr-stage-hud.kr-live { display: flex; }
+
+#kr-hud-title {
+    font-family: 'Orbitron', sans-serif;
+    font-size: 7px; font-weight: 700; letter-spacing: 2.5px;
+    color: rgba(255,165,0,.65);
+    padding-bottom: 5px; border-bottom: 1px solid rgba(255,165,0,.12);
+    text-transform: uppercase;
+}
+
+.kr-ctrl-row { display: flex; align-items: center; gap: 4px; }
+
+.kr-ctrl-label {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 6px; letter-spacing: .5px;
+    color: rgba(255,165,0,.38); width: 24px; flex-shrink: 0;
+}
+
+.kr-ctrl-slider {
+    flex: 1; height: 2px; -webkit-appearance: none; appearance: none;
+    background: rgba(255,165,0,.14); outline: none; border-radius: 1px; cursor: pointer;
+}
+.kr-ctrl-slider::-webkit-slider-thumb {
+    -webkit-appearance: none; appearance: none;
+    width: 10px; height: 10px; border-radius: 50%;
+    background: rgba(255,165,0,.85); cursor: pointer; box-shadow: 0 0 6px rgba(255,165,0,.5);
+}
+.kr-ctrl-slider::-moz-range-thumb {
+    width: 10px; height: 10px; border-radius: 50%;
+    background: rgba(255,165,0,.85); cursor: pointer; border: none;
+}
+
+.kr-ctrl-learn {
+    width: 14px; height: 14px;
+    font-size: 5.5px; font-family: 'JetBrains Mono', monospace; font-weight: 700;
+    color: rgba(255,165,0,.3); background: rgba(10,5,0,.55);
+    border: 1px solid rgba(255,165,0,.14);
+    border-radius: 1px; cursor: pointer; padding: 0; flex-shrink: 0;
+    display: flex; align-items: center; justify-content: center; transition: all .12s;
+}
+.kr-ctrl-learn:hover { color: rgba(255,165,0,.8); border-color: rgba(255,165,0,.38); }
+.kr-ctrl-learn.kr-learning {
+    color: #ff8800; border-color: rgba(255,136,0,.65);
+    box-shadow: 0 0 6px rgba(255,136,0,.35);
+    animation: kr-blink .4s infinite;
+}
+
+#kr-rec-btn {
+    margin-top: 3px; padding: 5px 6px;
+    font-family: 'JetBrains Mono', monospace; font-size: 6.5px; letter-spacing: 1.5px;
+    color: rgba(255,55,55,.65); background: rgba(8,0,0,.45);
+    border: 1px solid rgba(255,55,55,.2);
+    border-radius: 2px; cursor: pointer; text-align: center; transition: all .14s;
+}
+#kr-rec-btn:hover { color: #ff3737; border-color: rgba(255,55,55,.5); box-shadow: 0 0 10px rgba(255,55,55,.18); }
+#kr-rec-btn.kr-recording {
+    color: #ff3737; background: rgba(30,0,0,.65);
+    border-color: rgba(255,55,55,.75); box-shadow: 0 0 16px rgba(255,55,55,.28);
+    animation: kr-blink .8s infinite;
+}
+
+@keyframes kr-blink { 0%,100%{opacity:1} 50%{opacity:.25} }
+
+/* ── Help modal ──────────────────────────────────────────────────────────── */
+#kr-help-modal {
+    position: fixed; top: 55px; left: 210px; width: 272px;
+    background: rgba(0,4,12,.94);
+    backdrop-filter: blur(20px); -webkit-backdrop-filter: blur(20px);
+    border: 1px solid rgba(255,165,0,.22);
+    border-top: 1px solid rgba(255,255,255,.14);
+    border-radius: 3px; z-index: 3620;
+    display: none; flex-direction: column;
+    box-shadow: 0 8px 40px rgba(0,0,0,.65), 0 0 22px rgba(255,165,0,.05);
+}
+#kr-help-header {
+    display: flex; justify-content: space-between; align-items: center;
+    padding: 7px 9px 5px; border-bottom: 1px solid rgba(255,165,0,.10);
+}
+#kr-help-header span {
+    font-family: 'Orbitron', sans-serif;
+    font-size: 6.5px; font-weight: 700; letter-spacing: 2px; color: rgba(255,165,0,.7);
+}
+#kr-help-header button {
+    background: none; border: none; color: rgba(255,165,0,.4);
+    cursor: pointer; font-size: 9px; padding: 0; transition: color .12s;
+}
+#kr-help-header button:hover { color: #ffa500; }
+#kr-help-body { padding: 8px 10px 10px; }
+.kr-help-line {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 6.5px; letter-spacing: .4px; color: rgba(255,165,0,.52); line-height: 1.9;
+}
+
+/* ── SONIC SUITE launch button ───────────────────────────────────────────── */
+#nc-launch-btn {
+    display: block; width: 100%; padding: 6px 4px; margin-top: 4px;
+    font-family: 'Orbitron', sans-serif; font-size: 7px; font-weight: 700; letter-spacing: 2px;
+    color: rgba(176,0,255,.65);
+    background: rgba(5,0,12,.4);
+    backdrop-filter: blur(8px); -webkit-backdrop-filter: blur(8px);
+    border: 1px solid rgba(176,0,255,.2);
+    border-top: 1px solid rgba(255,255,255,.12);
+    border-radius: 2px; cursor: pointer; text-align: center; transition: all .16s ease;
+}
+#nc-launch-btn:hover { color: #b000ff; box-shadow: 0 0 14px rgba(176,0,255,.2); }
+#nc-launch-btn.kr-online {
+    color: #cc44ff; background: rgba(18,0,36,.82);
+    border-top-color: rgba(176,0,255,.65);
+    box-shadow: 0 0 20px rgba(176,0,255,.3), inset 0 0 12px rgba(176,0,255,.07);
+    text-shadow: 0 0 10px rgba(176,0,255,.65);
+}
+
+/* ── Neural Composer floating panel ──────────────────────────────────────── */
+#nc-panel {
+    position: fixed;
+    bottom: 65px; left: 215px;
+    z-index: 3560;
+    display: none;
+    flex-direction: column;
+    gap: 6px;
+    padding: 10px 12px 12px;
+    background: rgba(2,0,8,.88);
+    backdrop-filter: blur(28px) saturate(1.8); -webkit-backdrop-filter: blur(28px) saturate(1.8);
+    border: 1px solid rgba(176,0,255,.2);
+    border-top: 1px solid rgba(255,255,255,.14);
+    border-radius: 4px;
+    min-width: 340px;
+    box-shadow: 0 8px 48px rgba(0,0,0,.85), 0 0 30px rgba(176,0,255,.06);
+    pointer-events: all;
+}
+#nc-panel.nc-visible { display: flex; }
+
+#nc-panel-title {
+    font-family: 'Orbitron', sans-serif;
+    font-size: 7px; font-weight: 700; letter-spacing: 2.5px;
+    color: rgba(176,0,255,.7);
+    padding-bottom: 5px;
+    border-bottom: 1px solid rgba(176,0,255,.12);
+    display: flex; align-items: center; justify-content: space-between;
+}
+#nc-panel-title span { color: rgba(0,243,255,.4); font-size: 6px; letter-spacing: 1px; }
+
+/* ── Transport bar ────────────────────────────────────────────────────────── */
+.nc-transport {
+    display: flex; align-items: center; gap: 5px;
+}
+#nc-play-btn {
+    font-family: 'Orbitron', sans-serif; font-size: 6.5px; letter-spacing: 1px;
+    padding: 4px 8px;
+    color: rgba(0,255,136,.65); background: rgba(0,12,6,.5);
+    border: 1px solid rgba(0,255,136,.2); border-radius: 2px;
+    cursor: pointer; transition: all .12s;
+}
+#nc-play-btn:hover { color: #00ff88; border-color: rgba(0,255,136,.5); }
+#nc-play-btn.nc-active {
+    color: #00ff88; background: rgba(0,30,14,.8);
+    border-color: rgba(0,255,136,.7);
+    box-shadow: 0 0 12px rgba(0,255,136,.25);
+    animation: kr-blink .6s infinite;
+}
+.nc-bpm-wrap {
+    display: flex; align-items: center; gap: 3px;
+    font-family: 'JetBrains Mono', monospace; font-size: 6.5px;
+    color: rgba(176,0,255,.55);
+}
+.nc-bpm-wrap input[type=range] {
+    width: 56px; height: 2px; -webkit-appearance: none; appearance: none;
+    background: rgba(176,0,255,.18); border-radius: 1px; outline: none; cursor: pointer;
+}
+.nc-bpm-wrap input[type=range]::-webkit-slider-thumb {
+    -webkit-appearance: none; width: 9px; height: 9px; border-radius: 50%;
+    background: rgba(176,0,255,.8); cursor: pointer;
+}
+#nc-bpm-val { color: rgba(0,243,255,.65); min-width: 24px; }
+.nc-preset-sel {
+    font-family: 'JetBrains Mono', monospace; font-size: 6px; letter-spacing: .5px;
+    color: rgba(176,0,255,.6); background: rgba(5,0,12,.6);
+    border: 1px solid rgba(176,0,255,.18); border-radius: 2px;
+    padding: 3px 4px; cursor: pointer; flex: 1;
+}
+#nc-status { font-size: 6px; color: rgba(0,255,136,.3); letter-spacing: 1px; font-family: 'JetBrains Mono', monospace; }
+#nc-status[data-playing] { color: rgba(0,255,136,.75); }
+
+/* ── Step grid ────────────────────────────────────────────────────────────── */
+#nc-grid {
+    display: flex; flex-direction: column; gap: 2px;
+}
+
+.nc-row {
+    display: flex; align-items: center; gap: 2px;
+}
+
+.nc-track-lbl {
+    font-family: 'JetBrains Mono', monospace; font-size: 5.5px; letter-spacing: .5px;
+    color: color-mix(in srgb, var(--tc) 55%, transparent);
+    background: color-mix(in srgb, var(--tc) 8%, rgba(0,0,0,.5));
+    border: 1px solid color-mix(in srgb, var(--tc) 18%, transparent);
+    border-radius: 2px; width: 28px; flex-shrink: 0;
+    padding: 3px 0; text-align: center; cursor: pointer; transition: all .1s;
+}
+.nc-track-lbl:hover { color: var(--tc); border-color: color-mix(in srgb, var(--tc) 45%, transparent); }
+.nc-track-lbl.nc-armed {
+    color: var(--tc); background: color-mix(in srgb, var(--tc) 18%, rgba(0,0,0,.6));
+    border-color: color-mix(in srgb, var(--tc) 60%, transparent);
+    box-shadow: 0 0 6px color-mix(in srgb, var(--tc) 35%, transparent);
+}
+
+.nc-step {
+    flex: 1; height: 10px;
+    background: rgba(255,255,255,.04);
+    border: 1px solid rgba(255,255,255,.06);
+    border-radius: 1px; cursor: pointer; transition: background .08s, box-shadow .08s;
+    padding: 0;
+}
+.nc-step.nc-bar { border-left-color: rgba(255,255,255,.15); }
+.nc-step.nc-on {
+    background: color-mix(in srgb, var(--tc) 45%, rgba(0,0,0,.3));
+    border-color: color-mix(in srgb, var(--tc) 55%, transparent);
+    box-shadow: 0 0 4px color-mix(in srgb, var(--tc) 30%, transparent);
+}
+.nc-step.nc-play {
+    background: rgba(255,255,255,.55) !important;
+    border-color: rgba(255,255,255,.8) !important;
+    box-shadow: 0 0 6px rgba(255,255,255,.4) !important;
+}
+.nc-step.nc-on.nc-play {
+    background: var(--tc) !important;
+    box-shadow: 0 0 8px var(--tc) !important;
+}
+
