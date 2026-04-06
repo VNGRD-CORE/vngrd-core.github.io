@@ -234,65 +234,116 @@ class KineticRack {
 
     // ── Init ──────────────────────────────────────────────────────────────────
 
-    async init(canvasEl) {
-        const canvas = canvasEl ?? document.getElementById('kinetic-canvas');
+    _setStatus(msg, live = false) {
+        const s = document.getElementById('kr-status');
+        if (!s) return;
+        s.textContent = msg;
+        s.classList.toggle('kr-live', live);
+    }
 
-        // Three.js
-        this._renderer = new THREE.WebGLRenderer({ canvas, antialias: false, alpha: true });
-        this._renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
-        this._renderer.setSize(window.innerWidth, window.innerHeight);
+    async init(canvasEl) {
+        this._setStatus('STARTING...');
+
+        // ── Phase 1: Three.js renderer ────────────────────────────────────────
+        let canvas = canvasEl ?? document.getElementById('kinetic-canvas');
+        if (!canvas) {
+            // Fallback: create canvas and append to body
+            canvas = document.createElement('canvas');
+            canvas.id = 'kinetic-canvas';
+            document.body.appendChild(canvas);
+        }
+
+        try {
+            this._renderer = new THREE.WebGLRenderer({ canvas, antialias: false, alpha: true });
+            this._renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+            this._renderer.setSize(window.innerWidth, window.innerHeight);
+        } catch (e) {
+            console.error('[KineticRack] WebGLRenderer failed:', e);
+            this._setStatus('ERR: WebGL ' + (e.message ?? e));
+            throw e;
+        }
 
         this._scene  = new THREE.Scene();
         this._camera = new THREE.PerspectiveCamera(60, window.innerWidth / window.innerHeight, 0.01, 100);
         this._camera.position.set(0, 0, 3.2);
 
-        // Camera stream — feed both the visible monitor and the AI inference video
-        const camVideo = document.getElementById('kinetic-cam-video');
-        const aiVideo  = document.getElementById('kr-ai-video');
-        const stream   = await navigator.mediaDevices.getUserMedia({
-            video: { width: 1280, height: 720, facingMode: 'user' },
-            audio: false,
-        });
-        if (camVideo) { camVideo.srcObject = stream; await camVideo.play().catch(() => {}); camVideo.classList.add('kr-online'); }
-        if (aiVideo)  { aiVideo.srcObject  = stream; await aiVideo.play().catch(() => {}); }
+        // Reveal canvas immediately so user sees SOMETHING
+        canvas.classList.add('kr-online');
+        document.getElementById('kr-rack')?.classList.add('kr-online');
+        document.getElementById('kr-launch-btn')?.classList.add('kr-online');
 
-        // Audio (inside user-gesture click → safe to call Tone.start)
-        await this._ae.init();
-        this._nc.init(this._ae);
-        window._NC = this._nc;
+        // ── Phase 2: FFT particles (visuals-only, no audio dep) ───────────────
+        try {
+            this._particles = new FFTParticles(this._scene);
+        } catch (e) {
+            console.warn('[KineticRack] FFTParticles failed:', e);
+        }
 
-        // SpatialSynth
-        this._spatial = new SpatialSynth(this._scene, this._ae);
-        this._spatial.init();
+        // Start rendering immediately — particles spin even before audio/camera
+        this._active  = true;
+        this._lastNow = performance.now();
+        this._loop();
+        this._setStatus('RENDERER OK');
 
-        // FFTParticles
-        this._particles = new FFTParticles(this._scene);
+        // ── Phase 3: Camera (non-fatal — gestures degrade gracefully) ─────────
+        try {
+            const stream = await navigator.mediaDevices.getUserMedia({
+                video: { width: 1280, height: 720, facingMode: 'user' },
+                audio: false,
+            });
+            const camVideo = document.getElementById('kinetic-cam-video');
+            const aiVideo  = document.getElementById('kr-ai-video');
+            if (camVideo) {
+                camVideo.srcObject = stream;
+                await camVideo.play().catch(() => {});
+                camVideo.classList.add('kr-online');
+            }
+            if (aiVideo) {
+                aiVideo.srcObject = stream;
+                await aiVideo.play().catch(() => {});
+            }
+            this._setStatus('CAM OK');
+        } catch (e) {
+            console.warn('[KineticRack] Camera unavailable:', e);
+            this._setStatus('NO CAM — AUDIO ONLY');
+        }
 
-        // GestureLooper (isolated — failure must not abort startup)
+        // ── Phase 4: Audio engine ─────────────────────────────────────────────
+        try {
+            await this._ae.init();
+            this._nc.init(this._ae);
+            window._NC = this._nc;
+            this._setStatus('AUDIO OK');
+        } catch (e) {
+            console.error('[KineticRack] AudioEngine failed:', e);
+            this._setStatus('ERR: AUDIO ' + (e.message ?? e));
+            // Don't throw — visuals still work
+        }
+
+        // ── Phase 5: SpatialSynth ─────────────────────────────────────────────
+        try {
+            this._spatial = new SpatialSynth(this._scene, this._ae);
+            this._spatial.init();
+        } catch (e) {
+            console.warn('[KineticRack] SpatialSynth failed:', e);
+        }
+
+        // ── Phase 6: GestureLooper ────────────────────────────────────────────
         try {
             this._looper = new GestureLooper(this._scene, this._ae.getLoopBus());
             window._GestureLooper = this._looper;
         } catch (e) {
-            console.warn('[KineticRack] GestureLooper init failed:', e);
+            console.warn('[KineticRack] GestureLooper failed:', e);
         }
 
-        // MediaPipe
+        // ── Phase 7: MediaPipe hand tracker ───────────────────────────────────
         await this._initHandLandmarker();
 
         window.addEventListener('resize', this._onResize.bind(this));
 
-        // Reveal canvas + camera + update UI state
-        document.getElementById('kinetic-canvas')?.classList.add('kr-online');
-        document.getElementById('kinetic-cam-video')?.classList.add('kr-online');
-        document.getElementById('kr-launch-btn')?.classList.add('kr-online');
+        // ── Done ──────────────────────────────────────────────────────────────
         document.getElementById('kr-stage-hud')?.classList.add('kr-live');
-        document.getElementById('kr-rack')?.classList.add('kr-online');
-        const statusEl = document.getElementById('kr-status');
-        if (statusEl) { statusEl.textContent = 'GESTURE LOOPER // LIVE'; statusEl.classList.add('kr-live'); }
-
-        this._active  = true;
-        this._lastNow = performance.now();
-        this._loop();
+        this._setStatus('GESTURE LOOPER // LIVE', true);
     }
 
     async _initHandLandmarker() {
@@ -549,7 +600,15 @@ class KineticRack {
 }
 
 // ── Bootstrap ─────────────────────────────────────────────────────────────────
-const _rack = new KineticRack();
+// Always set window.KineticRack — even if constructor throws — so button
+// clicks surface an error instead of silently doing nothing.
+let _rack;
+try {
+    _rack = new KineticRack();
+} catch (e) {
+    console.error('[KineticRack] Constructor failed:', e);
+    _rack = { toggle: () => { alert('KineticRack failed to load:\n' + e); } };
+}
 window.KineticRack = _rack;
 
 export { KineticRack };
