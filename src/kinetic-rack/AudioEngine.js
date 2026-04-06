@@ -52,7 +52,8 @@ export class AudioEngine {
         this._atmosReverb = null;
         this._atmosPanner = null;
 
-        // SpatialSynth: native GainNode → masterGain
+        // SpatialSynth: Tone.Gain → masterGain; .input exposed as AudioNode
+        this._synthGain   = null;
         this._synthInput  = null;
 
         // GestureLooper effects bus
@@ -86,14 +87,10 @@ export class AudioEngine {
         } catch (_) {}
 
         // ── SpatialSynth native input ─────────────────────────────────────────
-        this._synthInput = this.ctx.createGain();
-        this._synthInput.gain.value = 0.55;
-        try {
-            // Tone.Gain exposes .input (AudioNode)
-            this._synthInput.connect(this._masterGain.input);
-        } catch (_) {
-            try { this._synthInput.connect(this._limiter.input); } catch (_2) {}
-        }
+        // Use a Tone.Gain so the connection to _masterGain uses Tone's own
+        // routing — no .input property guessing, no silent-catch disconnect.
+        this._synthGain  = new Tone.Gain(0.55).connect(this._masterGain);
+        this._synthInput = this._synthGain.input;   // underlying GainNode
 
         // ── KickChannel ───────────────────────────────────────────────────────
         this._kickDist = new Tone.Distortion({ distortion: 0.35, wet: 0.4 })
@@ -355,6 +352,7 @@ export class AudioEngine {
                 this._glitch, this._bitCrusher, this._pingPong,
                 this._atmos, this._atmosReverb, this._atmosPanner,
                 this._loopDelay, this._loopReverb,
+                this._synthGain,
                 this._masterGain, this._limiter, this._analyser,
             ].forEach(n => { try { n?.dispose(); } catch (_) {} });
             this._synthInput?.disconnect();
