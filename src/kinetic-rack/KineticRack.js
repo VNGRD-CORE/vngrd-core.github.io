@@ -207,7 +207,7 @@ class AudioCore {
         this._filter.Q.value         = 3;
 
         this._spatialGain = ctx.createGain();
-        this._spatialGain.gain.value = 0.35;
+        this._spatialGain.gain.value = 0;  // MUTED until hand detected
 
         this._filter.connect(this._spatialGain);
         this._spatialGain.connect(this._masterGain);
@@ -232,14 +232,16 @@ class AudioCore {
     }
 
     getFFT() {
-        if (!this._analyser) return new Float32Array(256).fill(0);
-        this._analyser.getFloatFrequencyData(this._fftBuf);
-        const out = new Float32Array(256);
-        for (let i = 0; i < 256; i++) {
-            // Convert dB (-100..0) to 0..1
-            out[i] = Math.max(0, Math.min(1, (this._fftBuf[i] + 100) / 100));
+        if (!this._analyser) {
+            if (!this._normBuf) this._normBuf = new Float32Array(256);
+            return this._normBuf;
         }
-        return out;
+        this._analyser.getFloatFrequencyData(this._fftBuf);
+        if (!this._normBuf) this._normBuf = new Float32Array(256);
+        for (let i = 0; i < 256; i++) {
+            this._normBuf[i] = Math.max(0, Math.min(1, (this._fftBuf[i] + 100) / 100));
+        }
+        return this._normBuf;
     }
 
     setPitch(hz) {
@@ -263,6 +265,11 @@ class AudioCore {
             this.ctx.currentTime,
             0.02
         );
+    }
+
+    setSpatialGate(v) {
+        if (!this._spatialGain || !this.ctx) return;
+        this._spatialGain.gain.setTargetAtTime(v, this.ctx.currentTime, 0.08);
     }
 
     triggerKick() {
@@ -660,8 +667,10 @@ class KineticRack {
         if (!canvas) throw new Error('Missing #kinetic-canvas');
 
         this._renderer = new THREE.WebGLRenderer({ canvas, antialias: false, alpha: true });
+        this._renderer.setClearColor(0x000000, 0);
         this._renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
         this._renderer.setSize(window.innerWidth, window.innerHeight);
+        console.log('[KineticRack] Phase 1: WebGL renderer created');
 
         this._scene  = new THREE.Scene();
         this._camera = new THREE.PerspectiveCamera(60, window.innerWidth / window.innerHeight, 0.01, 100);
@@ -682,6 +691,7 @@ class KineticRack {
         this._lastNow = performance.now();
         this._loop();
         this._setStatus('RENDERER OK');
+        console.log('[KineticRack] Phase 2: particles + loop started');
 
         // Phase 3 — camera (non-fatal)
         try {
@@ -701,6 +711,7 @@ class KineticRack {
                 await aiVid.play().catch(() => {});
             }
             this._setStatus('CAM OK');
+            console.log('[KineticRack] Phase 3: camera active');
         } catch (e) {
             console.warn('[KineticRack] Camera unavailable:', e);
             this._setStatus('NO CAM — AUDIO ONLY');
@@ -710,6 +721,7 @@ class KineticRack {
         try {
             await this._audio.start();
             this._setStatus('AUDIO OK');
+            console.log('[KineticRack] Phase 4: audio started (synth muted until hand detected)');
         } catch (e) {
             console.warn('[KineticRack] AudioCore failed:', e);
         }
@@ -742,6 +754,7 @@ class KineticRack {
 
         document.getElementById('kr-stage-hud')?.classList.add('kr-live');
         this._setStatus('GESTURE LOOPER // LIVE', true);
+        console.log('[KineticRack] All phases complete — LIVE');
     }
 
     async _initHandLandmarker() {
@@ -819,6 +832,8 @@ class KineticRack {
         // Right hand → pitch + filter via index fingertip (lm8)
         this._handMeshR?.update(rightLm);
         if (rightLm) {
+            this._audio.setSpatialGate(0.35);  // open synth
+
             const lm8 = rightLm[8];
             this._s.rightX += (lm8.x - this._s.rightX) * LERP_FACTOR;
             this._s.rightY += (lm8.y - this._s.rightY) * LERP_FACTOR;
@@ -830,6 +845,7 @@ class KineticRack {
 
             this._looper?.update(rightLm);
         } else {
+            this._audio.setSpatialGate(0);     // mute synth
             this._looper?.update(null);
         }
 
