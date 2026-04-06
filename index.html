@@ -8568,21 +8568,20 @@ const KitManager = (() => {
     function getPadLabel(kit, pad)    { return (KITS[kit] && KITS[kit].pads[pad]) ? KITS[kit].pads[pad].label : '---'; }
     function getKitCount()            { return KITS.length; }
 
-    // Auto-preload kit 0 when AudioContext becomes available
+    // Auto-preload kit 0 on first user gesture (AudioContext must exist first)
     document.addEventListener('click', function _kitInit() {
-        document.removeEventListener('click', _kitInit);
         if (APP.audio && APP.audio.ctx) preload(0);
         else setTimeout(function() { if (APP.audio && APP.audio.ctx) preload(0); }, 500);
-    }, { once: false });
+    }, { once: true });
 
     return { preload, playBuffer, setKit, getActiveKit, getKitName, getPadLabel, getKitCount, KITS };
 })();
 
 // ═══════════════════════════════════════════════════════════════
-//  NEURAL COMPILER v3 — eval()-based Live-Coding Engine
-//  APIs: loop(bpm, fn)  p(n).play(vol)  synth(note, type)
-//  Shift+Enter to execute. Routes audio through InternalSynth
-//  → Engineering Mode AnalyserNode → seismic/kinetic naturally.
+//  NEURAL COMPILER v3 — Temporal Recursion Live-Coding Engine
+//  APIs: bpm(n) play(0-3,v) synth(type,note,v) beat(n) loop(bpm,fn)
+//  Shift+Enter = run / hot-swap. Temporal recursion: code loops
+//  automatically after each async cycle. window._ncLoopActive flag.
 // ═══════════════════════════════════════════════════════════════
 const NeuralCompiler = (() => {
     var _visible = false;
@@ -8731,8 +8730,8 @@ const NeuralCompiler = (() => {
                         if (cs) cs.textContent = 'LOOP: ERR';
                     });
             } else {
-                // Sync code — still recurse if active
-                if (window._ncLoopActive) _ncTemporalLoop();
+                // Sync code: defer to next tick to avoid stack overflow
+                if (window._ncLoopActive) setTimeout(_ncTemporalLoop, 0);
             }
         } catch(e) {
             _ncLog('ERR: ' + e.message, 'nc-err');
@@ -8926,24 +8925,39 @@ window.synth = function(type, noteOrMidi, vol) {
 };
 
 // ── window.play(sample, vol) ──────────────────────────────────────────
-// sample: pad name string OR index (0=liq1 … 7=liq8, 8=custom1 …)
-// Low-frequency samples (kick/bass pads) fire screenShake + seismic.
+// sample: kit pad index 0-3 (→ KitManager active kit)
+//         OR pad name string 'liq1'-'liq8', 'custom1'-'custom4', etc. (→ SFX_ENGINE)
+//         OR index 4+ (→ SFX_ENGINE legacy pad)
 window.play = function(sample, vol) {
     if (!APP.audio.ctx) igniteAudio();
     if (APP.audio.ctx && APP.audio.ctx.state === 'suspended') APP.audio.ctx.resume();
+    var ctx = APP.audio.ctx;
+    var v   = typeof vol === 'number' ? vol : 0.8;
+
+    // Numbers 0–3 → KitManager active kit (PCM sample-accurate)
+    if (typeof sample === 'number' && sample >= 0 && sample <= 3) {
+        var schedTime = (window.nextNoteTime && ctx && window.nextNoteTime > ctx.currentTime)
+            ? window.nextNoteTime
+            : (ctx ? ctx.currentTime + 0.01 : 0);
+        KitManager.playBuffer(KitManager.getActiveKit(), sample | 0, schedTime, v);
+        if (!window.audioReactiveData) window.audioReactiveData = {};
+        window.audioReactiveData.padName      = 'kit:' + sample;
+        window.audioReactiveData.padVol       = v;
+        window.audioReactiveData.lastTriggerTs = performance.now();
+        return;
+    }
+
+    // String name or index 4+ → SFX_ENGINE legacy path
     var _PADS = ['liq1','liq2','liq3','liq4','liq5','liq6','liq7','liq8',
                  'custom1','custom2','custom3','custom4',
                  'applause','cheer','horn','boom'];
     var name = typeof sample === 'number' ? (_PADS[sample] || null) : String(sample);
     if (!name) return;
-    var v = typeof vol === 'number' ? vol : 0.8;
     Sampler.trigger(name, v);
-    // audioReactiveData handshake
     if (!window.audioReactiveData) window.audioReactiveData = {};
     window.audioReactiveData.padName      = name;
     window.audioReactiveData.padVol       = v;
     window.audioReactiveData.lastTriggerTs = performance.now();
-    // Kick/bass pads (liq1, liq3, liq5 = kick/rumble/deep) → seismic
     var isKick = /liq[135]|boom/i.test(name);
     if (isKick && APP && APP.vj) {
         APP.vj._seismicVel = (APP.vj._seismicVel || 0) + v * 1.4;
