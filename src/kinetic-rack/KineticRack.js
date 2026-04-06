@@ -6,8 +6,7 @@
  * No NeuralComposer.js.
  */
 
-import * as THREE from 'three';
-
+/* global THREE — loaded via <script src="three.min.js"> in index.html */
 // ─────────────────────────────────────────────────────────────────────────────
 //  GLSL Shaders
 // ─────────────────────────────────────────────────────────────────────────────
@@ -949,20 +948,25 @@ class KineticRack {
 //  Bootstrap
 // ─────────────────────────────────────────────────────────────────────────────
 
-let _rack;
-try {
-    _rack = new KineticRack();
-} catch (e) {
-    console.error('[KineticRack] boot failed:', e);
-    _rack = {
-        toggle()          { alert('KineticRack boot error: ' + e); },
-        ctrlChange()      {},
-        midiLearn()       {},
-        toggleHelp()      {},
-        toggleRecording() {},
-        clearLoops()      {},
+if (typeof THREE === 'undefined') {
+    console.error('[KineticRack] THREE.js not loaded — check network / CDN');
+    const _stub = {
+        toggle()          { alert('THREE.js failed to load. Check your network connection.'); },
+        ctrlChange()      {},  midiLearn()       {},
+        toggleHelp()      {},  toggleRecording() {},  clearLoops() {},
     };
+    window.KineticRack = _stub;
+} else {
+    let _rack;
+    try {
+        _rack = new KineticRack();
+    } catch (e) {
+        console.error('[KineticRack] boot failed:', e);
+        _rack = {
+            toggle()          { alert('KineticRack boot error:\n' + e); },
+            ctrlChange()      {},  midiLearn()       {},
+            toggleHelp()      {},  toggleRecording() {},  clearLoops() {},
+        };
+    }
+    window.KineticRack = _rack;
 }
-window.KineticRack = _rack;
-
-export default _rack;
