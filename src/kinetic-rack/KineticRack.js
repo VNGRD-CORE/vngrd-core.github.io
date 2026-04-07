@@ -1,29 +1,14 @@
 /**
- * KineticRack.js — Hand-gesture → IDM/Techno instrument controller
+ * KineticRack.js — Self-contained hand-gesture → audio/visual instrument.
  *
- * Gesture mapping (MediaPipe index fingertip = landmark 8):
- *   Left  Index X  → Bass Filter Cutoff
- *   Left  Index Y  → Glitch depth / BitCrusher bits
- *   Left  Pinch    → Kick trigger (thumb lm[4] ↔ index lm[8] < 0.07)
- *   Right Index X  → Atmos Spatial Panning
- *   Right Index Y  → Atmos Reverb Wetness
- *
- * Right index also drives SpatialSynth (palmX/Y compat).
- * Left hand visibility gates SpatialSynth volume.
- *
- * Visuals:
- *   FFTParticles — 8 192 shader-driven GPU particles on a sphere.
- *   Sub-bass bins 0-2 trigger radial kick impulse + white flash.
- *   Cyan (low freq) → Magenta (high freq) gradient.
+ * Single import: THREE only. All audio via native Web Audio API.
+ * No Tone.js. No AudioEngine.js. No SpatialSynth.js. No GestureLooper.js.
+ * No NeuralComposer.js.
  */
 
-import * as THREE         from 'three';
-import { AudioEngine }    from './AudioEngine.js';
-import { NeuralComposer } from './NeuralComposer.js';
-import { SpatialSynth }   from './SpatialSynth.js';
-
+import * as THREE from 'three';
 // ─────────────────────────────────────────────────────────────────────────────
-//  FFTParticles
+//  GLSL Shaders
 // ─────────────────────────────────────────────────────────────────────────────
 
 const FFT_VERT = /* glsl */`
@@ -38,21 +23,16 @@ varying float vFFTValue;
 varying float vFreqBand;
 
 void main() {
-    float fftVal  = texture2D(uFFTTexture, vec2(aFreqBand, 0.5)).r;
-    vFFTValue     = fftVal;
-    vFreqBand     = aFreqBand;
+    float fftVal = texture2D(uFFTTexture, vec2(aFreqBand, 0.5)).r;
+    vFFTValue    = fftVal;
+    vFreqBand    = aFreqBand;
 
     vec3 pos = position;
 
-    // Frequency-based radial displacement
     float disp = fftVal * 1.5;
-
-    // Sub-bass burst: kick impulse pushes low-freq particles outward
     disp += uKickImpulse * 0.9 * (1.0 - aFreqBand);
 
-    // Slow ambient drift
     pos.z += sin(uTime * 0.3 + aPhase) * 0.05;
-
     pos *= 1.0 + disp;
 
     vec4 mvPos = modelViewMatrix * vec4(pos, 1.0);
@@ -75,15 +55,16 @@ void main() {
 
     float alpha = pow(1.0 - dist * 2.0, 2.0) * (0.4 + vFFTValue * 0.6);
 
-    // Cyan at low freq → Magenta at high freq
     vec3 col = mix(vec3(0.0, 1.0, 1.0), vec3(1.0, 0.0, 1.0), vFreqBand);
-
-    // White kick flash
     col = mix(col, vec3(1.0), uKickImpulse * 0.75);
 
     gl_FragColor = vec4(col * alpha * 1.8, alpha);
 }
 `;
+
+// ─────────────────────────────────────────────────────────────────────────────
+//  FFTParticles — 8192 shader-driven GPU particles on a sphere
+// ─────────────────────────────────────────────────────────────────────────────
 
 const N_PARTICLES     = 8192;
 const SUB_BASS_THRESH = 0.68;
@@ -93,7 +74,6 @@ class FFTParticles {
         this._scene       = scene;
         this._kickImpulse = 0;
 
-        // 256×1 RGBA DataTexture updated each frame
         this._fftTexData = new Uint8Array(256 * 4);
         this._fftTex     = new THREE.DataTexture(
             this._fftTexData, 256, 1, THREE.RGBAFormat
@@ -144,13 +124,7 @@ class FFTParticles {
         this._scene.add(this._points);
     }
 
-    /**
-     * @param {Float32Array} fftData  256 values normalized 0..1
-     * @param {number}       elapsed  seconds since start
-     * @param {number}       dt       frame delta seconds
-     */
     update(fftData, elapsed, dt) {
-        // Write FFT into DataTexture R channel
         for (let i = 0; i < 256; i++) {
             const v = Math.floor(fftData[i] * 255);
             this._fftTexData[i * 4]     = v;
@@ -160,7 +134,6 @@ class FFTParticles {
         }
         this._fftTex.needsUpdate = true;
 
-        // Sub-bass auto-trigger
         const subBass = (fftData[0] + fftData[1] + fftData[2]) / 3;
         if (subBass > SUB_BASS_THRESH) {
             this._kickImpulse = Math.max(this._kickImpulse, subBass);
@@ -171,7 +144,6 @@ class FFTParticles {
         this._mat.uniforms.uKickImpulse.value = this._kickImpulse;
     }
 
-    /** Force kick flash from explicit gesture trigger */
     triggerKickFlash() {
         this._kickImpulse = 1.0;
     }
@@ -185,94 +157,612 @@ class FFTParticles {
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
-//  KineticRack
+//  AudioCore — native Web Audio API
 // ─────────────────────────────────────────────────────────────────────────────
 
-const LERP_FACTOR    = 0.15;
-const PINCH_THRESH   = 0.07;   // normalized landmark distance
-const PINCH_COOLDOWN = 0.35;   // seconds
+class AudioCore {
+    constructor() {
+        this.ctx         = null;
+        this._analyser   = null;
+        this._masterGain = null;
+        this._fftBuf     = null;
+        this._oscs       = [];
+        this._oscGains   = [];
+        this._filter     = null;
+        this._spatialGain = null;
+    }
+
+    async start() {
+        this.ctx = new (window.AudioContext || window.webkitAudioContext)();
+        if (this.ctx.state === 'suspended') await this.ctx.resume();
+
+        const ctx = this.ctx;
+
+        // Master chain: masterGain → compressor → analyser → destination
+        this._masterGain = ctx.createGain();
+        this._masterGain.gain.value = 0.7;
+
+        const compressor = ctx.createDynamicsCompressor();
+        compressor.threshold.value = -18;
+        compressor.knee.value      = 10;
+        compressor.ratio.value     = 6;
+        compressor.attack.value    = 0.003;
+        compressor.release.value   = 0.25;
+
+        this._analyser = ctx.createAnalyser();
+        this._analyser.fftSize             = 512;
+        this._analyser.smoothingTimeConstant = 0.8;
+
+        this._masterGain.connect(compressor);
+        compressor.connect(this._analyser);
+        this._analyser.connect(ctx.destination);
+
+        this._fftBuf = new Float32Array(this._analyser.frequencyBinCount); // 256
+
+        // Spatial synth: 3 detuned saws → filter → spatialGain → masterGain
+        this._filter = ctx.createBiquadFilter();
+        this._filter.type            = 'lowpass';
+        this._filter.frequency.value = 800;
+        this._filter.Q.value         = 3;
+
+        this._spatialGain = ctx.createGain();
+        this._spatialGain.gain.value = 0;  // MUTED until hand detected
+
+        this._filter.connect(this._spatialGain);
+        this._spatialGain.connect(this._masterGain);
+
+        const detunes = [-7, 0, 7];
+        for (let i = 0; i < 3; i++) {
+            const osc = ctx.createOscillator();
+            osc.type           = 'sawtooth';
+            osc.frequency.value = 220;
+            osc.detune.value   = detunes[i];
+
+            const g = ctx.createGain();
+            g.gain.value = 0.28;
+
+            osc.connect(g);
+            g.connect(this._filter);
+            osc.start();
+
+            this._oscs.push(osc);
+            this._oscGains.push(g);
+        }
+    }
+
+    getFFT() {
+        if (!this._analyser) {
+            if (!this._normBuf) this._normBuf = new Float32Array(256);
+            return this._normBuf;
+        }
+        this._analyser.getFloatFrequencyData(this._fftBuf);
+        if (!this._normBuf) this._normBuf = new Float32Array(256);
+        for (let i = 0; i < 256; i++) {
+            this._normBuf[i] = Math.max(0, Math.min(1, (this._fftBuf[i] + 100) / 100));
+        }
+        return this._normBuf;
+    }
+
+    setPitch(hz) {
+        if (!this.ctx) return;
+        const t = this.ctx.currentTime;
+        for (const osc of this._oscs) {
+            osc.frequency.setTargetAtTime(hz, t, 0.02);
+        }
+    }
+
+    setFilter(hz) {
+        if (!this._filter) return;
+        const clamped = Math.max(80, Math.min(8000, hz));
+        this._filter.frequency.setTargetAtTime(clamped, this.ctx.currentTime, 0.02);
+    }
+
+    setVolume(v) {
+        if (!this._masterGain) return;
+        this._masterGain.gain.setTargetAtTime(
+            Math.max(0, Math.min(1, v)),
+            this.ctx.currentTime,
+            0.02
+        );
+    }
+
+    setSpatialGate(v) {
+        if (!this._spatialGain || !this.ctx) return;
+        this._spatialGain.gain.setTargetAtTime(v, this.ctx.currentTime, 0.08);
+    }
+
+    triggerKick() {
+        if (!this.ctx) return;
+        const ctx = this.ctx;
+        const t   = ctx.currentTime;
+
+        // Sine osc with pitch envelope 100→30 Hz over 0.5s
+        const osc  = ctx.createOscillator();
+        osc.type   = 'sine';
+        osc.frequency.setValueAtTime(100, t);
+        osc.frequency.exponentialRampToValueAtTime(30, t + 0.5);
+
+        // Soft-clip waveshaper (distortion)
+        const ws        = ctx.createWaveShaper();
+        ws.curve        = _makeSoftClipCurve(256);
+        ws.oversample   = '2x';
+
+        const env = ctx.createGain();
+        env.gain.setValueAtTime(1.2, t);
+        env.gain.exponentialRampToValueAtTime(0.001, t + 0.5);
+
+        osc.connect(ws);
+        ws.connect(env);
+        env.connect(this._masterGain);
+
+        osc.start(t);
+        osc.stop(t + 0.52);
+    }
+
+    createLoopNode() {
+        if (!this.ctx) return null;
+        const ctx = this.ctx;
+
+        // Delay + allpass reverb approximation
+        const loopBus = ctx.createGain();
+        loopBus.gain.value = 1.0;
+
+        const delay = ctx.createDelay(1.0);
+        delay.delayTime.value = 0.25;
+
+        const feedback = ctx.createGain();
+        feedback.gain.value = 0.35;
+
+        const allpass = ctx.createBiquadFilter();
+        allpass.type            = 'allpass';
+        allpass.frequency.value = 700;
+
+        loopBus.connect(delay);
+        delay.connect(feedback);
+        feedback.connect(allpass);
+        allpass.connect(delay);
+
+        loopBus.connect(this._masterGain);
+        delay.connect(this._masterGain);
+
+        return loopBus;
+    }
+
+    dispose() {
+        try {
+            for (const osc of this._oscs) {
+                osc.stop();
+                osc.disconnect();
+            }
+        } catch (_) {}
+        try { this.ctx?.close(); } catch (_) {}
+        this.ctx         = null;
+        this._analyser   = null;
+        this._masterGain = null;
+        this._oscs       = [];
+    }
+}
+
+function _makeSoftClipCurve(n) {
+    const curve = new Float32Array(n);
+    for (let i = 0; i < n; i++) {
+        const x = (2 * i) / (n - 1) - 1;
+        curve[i] = (Math.PI + 100) * x / (Math.PI + 100 * Math.abs(x));
+    }
+    return curve;
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+//  HandMesh — THREE.LineSegments wireframe of 21 hand landmarks
+// ─────────────────────────────────────────────────────────────────────────────
+
+const HAND_CONNECTIONS = [
+    [0,1],[1,2],[2,3],[3,4],
+    [0,5],[5,6],[6,7],[7,8],
+    [0,9],[9,10],[10,11],[11,12],
+    [0,13],[13,14],[14,15],[15,16],
+    [0,17],[17,18],[18,19],[19,20],
+    [5,9],[9,13],[13,17],
+];
+const N_CONNECTIONS = HAND_CONNECTIONS.length; // 23
+
+class HandMesh {
+    constructor(scene, color = 0x00f3ff) {
+        this._scene = scene;
+
+        const positions = new Float32Array(N_CONNECTIONS * 2 * 3);
+        const geo       = new THREE.BufferGeometry();
+        geo.setAttribute('position', new THREE.BufferAttribute(positions, 3));
+
+        const mat = new THREE.LineBasicMaterial({
+            color,
+            transparent: true,
+            opacity:     0.85,
+            depthWrite:  false,
+        });
+
+        this._mesh = new THREE.LineSegments(geo, mat);
+        this._mesh.renderOrder = 4;
+        this._mesh.visible     = false;
+        scene.add(this._mesh);
+    }
+
+    update(landmarks) {
+        if (!landmarks) {
+            this._mesh.visible = false;
+            return;
+        }
+        this._mesh.visible = true;
+
+        const pos = this._mesh.geometry.attributes.position;
+        for (let i = 0; i < N_CONNECTIONS; i++) {
+            const [a, b] = HAND_CONNECTIONS[i];
+            const la     = landmarks[a];
+            const lb     = landmarks[b];
+
+            const base = i * 6;
+            pos.array[base]     = (la.x - 0.5) * 4;
+            pos.array[base + 1] = -(la.y - 0.5) * 3;
+            pos.array[base + 2] = -la.z * 1.5;
+
+            pos.array[base + 3] = (lb.x - 0.5) * 4;
+            pos.array[base + 4] = -(lb.y - 0.5) * 3;
+            pos.array[base + 5] = -lb.z * 1.5;
+        }
+        pos.needsUpdate = true;
+    }
+
+    dispose() {
+        this._scene.remove(this._mesh);
+        this._mesh.geometry.dispose();
+        this._mesh.material.dispose();
+    }
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+//  GestureLooper — records right-hand pinch trajectories as audio loops
+// ─────────────────────────────────────────────────────────────────────────────
+
+const LOOP_PALETTE = [
+    0x00f3ff, 0xff00cc, 0x00ff88, 0xff8800,
+    0xb000ff, 0xffff00, 0xff3344, 0x88aaff,
+];
+
+class GestureLooper {
+    constructor(scene, loopBus, audioCtx) {
+        this._scene    = scene;
+        this._loopBus  = loopBus;
+        this._ctx      = audioCtx;
+        this._loops    = [];
+        this._recording = false;
+        this._recTrack  = [];
+        this._recStart  = 0;
+        this._wasPinched = false;
+        this._pinchStartT = 0;
+    }
+
+    /** @param {Array|null} rightLandmarks */
+    update(rightLandmarks) {
+        if (!rightLandmarks || !this._ctx) return;
+
+        const lm4 = rightLandmarks[4]; // thumb tip
+        const lm8 = rightLandmarks[8]; // index tip
+        const dx  = lm4.x - lm8.x;
+        const dy  = lm4.y - lm8.y;
+        const pinchDist = Math.sqrt(dx * dx + dy * dy);
+        const pinched   = pinchDist < 0.05;
+        const now       = performance.now();
+
+        if (pinched && !this._wasPinched) {
+            // Pinch start
+            this._recording  = true;
+            this._recTrack   = [];
+            this._recStart   = now;
+            this._pinchStartT = now;
+        }
+
+        if (this._recording && pinched) {
+            this._recTrack.push({ x: lm8.x, y: lm8.y, t: now });
+        }
+
+        if (!pinched && this._wasPinched && this._recording) {
+            const duration = now - this._pinchStartT;
+            if (duration > 200 && this._recTrack.length > 1) {
+                this._finalizeLoop(this._recTrack, duration, now);
+            }
+            this._recording = false;
+            this._recTrack  = [];
+        }
+
+        this._wasPinched = pinched;
+
+        // Playback all active loops
+        this._tickLoops(now);
+    }
+
+    _finalizeLoop(track, duration, now) {
+        if (!this._loopBus || !this._ctx) return;
+
+        const color = LOOP_PALETTE[this._loops.length % LOOP_PALETTE.length];
+
+        // Synth: carrier FM synth
+        const carrier  = this._ctx.createOscillator();
+        carrier.type   = 'sine';
+        const modulator = this._ctx.createOscillator();
+        modulator.type  = 'sine';
+        modulator.frequency.value = 110;
+
+        const modGain  = this._ctx.createGain();
+        modGain.gain.value = 110;
+
+        const ampGain  = this._ctx.createGain();
+        ampGain.gain.value = 0.35;
+
+        modulator.connect(modGain);
+        modGain.connect(carrier.frequency);
+        carrier.connect(ampGain);
+        ampGain.connect(this._loopBus);
+
+        carrier.start();
+        modulator.start();
+
+        // THREE.Line trail
+        const pts = track.map(p => new THREE.Vector3(
+            (p.x - 0.5) * 4,
+            -(p.y - 0.5) * 3,
+            0
+        ));
+        const lineGeo = new THREE.BufferGeometry().setFromPoints(pts);
+        const lineMat = new THREE.LineBasicMaterial({
+            color, transparent: true, opacity: 0.6, depthWrite: false,
+        });
+        const line = new THREE.Line(lineGeo, lineMat);
+        this._scene.add(line);
+
+        // Playhead sphere
+        const sphere = new THREE.Mesh(
+            new THREE.SphereGeometry(0.04, 8, 8),
+            new THREE.MeshBasicMaterial({ color, transparent: true, opacity: 0.9 })
+        );
+        this._scene.add(sphere);
+
+        this._loops.push({
+            track,
+            duration,
+            startT: now,
+            synth: { carrier, modulator, modGain, ampGain },
+            line,
+            sphere,
+            color,
+        });
+    }
+
+    _tickLoops(now) {
+        for (const loop of this._loops) {
+            const phase = (now - loop.startT) % loop.duration;
+            const pt    = _interpTrack(loop.track, loop.duration, phase);
+            if (!pt) continue;
+
+            const freq        = 55 * Math.pow(16, 1 - pt.y);       // 55–880 Hz
+            const harmonicity = 0.5 + pt.x * 7.5;
+            const modFreq     = freq * harmonicity;
+
+            loop.synth.carrier.frequency.setTargetAtTime(freq, this._ctx.currentTime, 0.02);
+            loop.synth.modulator.frequency.setTargetAtTime(modFreq, this._ctx.currentTime, 0.02);
+            loop.synth.modGain.gain.setTargetAtTime(freq * harmonicity, this._ctx.currentTime, 0.02);
+
+            loop.sphere.position.set(
+                (pt.x - 0.5) * 4,
+                -(pt.y - 0.5) * 3,
+                0
+            );
+        }
+    }
+
+    clearAll() {
+        for (const loop of this._loops) {
+            try {
+                loop.synth.carrier.stop();
+                loop.synth.modulator.stop();
+            } catch (_) {}
+            try {
+                loop.synth.carrier.disconnect();
+                loop.synth.modulator.disconnect();
+                loop.synth.modGain.disconnect();
+                loop.synth.ampGain.disconnect();
+            } catch (_) {}
+            this._scene.remove(loop.line);
+            this._scene.remove(loop.sphere);
+            loop.line.geometry.dispose();
+            loop.line.material.dispose();
+            loop.sphere.geometry.dispose();
+            loop.sphere.material.dispose();
+        }
+        this._loops = [];
+    }
+}
+
+function _interpTrack(track, duration, phase) {
+    if (!track.length) return null;
+
+    const t0   = track[0].t;
+    const absT = t0 + phase;
+
+    // Binary search
+    let lo = 0, hi = track.length - 1;
+    while (lo < hi - 1) {
+        const mid = (lo + hi) >> 1;
+        if (track[mid].t <= absT) lo = mid;
+        else hi = mid;
+    }
+
+    const a  = track[lo];
+    const b  = track[Math.min(lo + 1, track.length - 1)];
+    if (a === b) return a;
+
+    const span = b.t - a.t;
+    const frac = span > 0 ? (absT - a.t) / span : 0;
+
+    return {
+        x: a.x + (b.x - a.x) * frac,
+        y: a.y + (b.y - a.y) * frac,
+    };
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+//  KineticRack — main controller
+// ─────────────────────────────────────────────────────────────────────────────
+
+const LERP_FACTOR    = 0.12;
+const PINCH_THRESH   = 0.05;
+const PINCH_COOLDOWN = 0.35; // seconds
 
 class KineticRack {
     constructor() {
-        this._ae      = new AudioEngine();
-        this._nc      = new NeuralComposer();
-        this._spatial = null;
-
+        this._audio     = new AudioCore();
         this._renderer  = null;
         this._scene     = null;
         this._camera    = null;
         this._particles = null;
         this._handLM    = null;
+        this._handMeshR = null;
+        this._handMeshL = null;
+        this._looper    = null;
 
-        this._active  = false;
-        this._rafId   = null;
-        this._elapsed = 0;
-        this._lastNow = 0;
+        this._active      = false;
+        this._initialized = false;
+        this._rafId       = null;
+        this._elapsed     = 0;
+        this._lastNow     = 0;
 
         // Smoothed gesture values
         this._s = {
-            leftX:     0.5,
-            leftY:     0.5,
-            rightX:    0.5,
-            rightY:    0.5,
-            pinchDist: 1.0,
+            rightX: 0.5, rightY: 0.5,
+            leftX:  0.5, leftY:  0.5,
+            leftPinchDist: 1.0,
         };
-        this._pinchCooldown = 0;
-        this._leftVisible   = false;
+        this._leftPinchCooldown = 0;
+        this._leftWasPinched    = false;
 
-        // MIDI learn
-        this._midiLearnTarget = null;
-        this._midiMap         = {};
-
-        // Recording
-        this._recording = false;
-        this._mediaRec  = null;
-        this._recChunks = [];
+        this._onResize = this._onResize.bind(this);
     }
 
-    // ── Init ──────────────────────────────────────────────────────────────────
+    // ── Status helper ─────────────────────────────────────────────────────────
 
-    async init(canvasEl) {
-        const canvas = canvasEl ?? document.getElementById('kr-canvas');
+    _setStatus(msg, live = false) {
+        const el = document.getElementById('kr-status');
+        if (!el) return;
+        el.textContent = msg;
+        el.classList.toggle('kr-live', live);
+    }
 
-        // Three.js
+    // ── Initialization ────────────────────────────────────────────────────────
+
+    async init() {
+        this._setStatus('STARTING...');
+
+        // Phase 1 — Three.js renderer (fatal if WebGL unavailable)
+        const canvas = document.getElementById('kinetic-canvas');
+        if (!canvas) throw new Error('Missing #kinetic-canvas');
+
         this._renderer = new THREE.WebGLRenderer({ canvas, antialias: false, alpha: true });
+        this._renderer.setClearColor(0x000000, 0);
         this._renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
         this._renderer.setSize(window.innerWidth, window.innerHeight);
+        console.log('[KineticRack] Phase 1: WebGL renderer created');
 
         this._scene  = new THREE.Scene();
         this._camera = new THREE.PerspectiveCamera(60, window.innerWidth / window.innerHeight, 0.01, 100);
         this._camera.position.set(0, 0, 3.2);
 
-        // Audio
-        await this._ae.init();
-        this._nc.init(this._ae);
-        window._NC = this._nc;
+        canvas.classList.add('kr-online');
+        document.getElementById('kr-rack')?.classList.add('kr-online');
+        document.getElementById('kr-launch-btn')?.classList.add('kr-online');
 
-        // SpatialSynth
-        this._spatial = new SpatialSynth(this._scene, this._ae);
-        this._spatial.init();
-
-        // FFTParticles
-        this._particles = new FFTParticles(this._scene);
-
-        // MediaPipe
-        await this._initHandLandmarker();
-
-        window.addEventListener('resize', this._onResize.bind(this));
+        // Phase 2 — particles (start loop immediately so sphere spins)
+        try {
+            this._particles = new FFTParticles(this._scene);
+        } catch (e) {
+            console.warn('[KineticRack] FFTParticles failed:', e);
+        }
 
         this._active  = true;
         this._lastNow = performance.now();
         this._loop();
+        this._setStatus('RENDERER OK');
+        console.log('[KineticRack] Phase 2: particles + loop started');
+
+        // Phase 3 — camera (non-fatal)
+        try {
+            const stream = await navigator.mediaDevices.getUserMedia({
+                video: { width: 1280, height: 720, facingMode: 'user' },
+                audio: false,
+            });
+            const camVid = document.getElementById('kinetic-cam-video');
+            const aiVid  = document.getElementById('kr-ai-video');
+            if (camVid) {
+                camVid.srcObject = stream;
+                camVid.classList.add('kr-online');
+                await camVid.play().catch(() => {});
+            }
+            if (aiVid) {
+                aiVid.srcObject = stream;
+                await aiVid.play().catch(() => {});
+            }
+            this._setStatus('CAM OK');
+            console.log('[KineticRack] Phase 3: camera active');
+        } catch (e) {
+            console.warn('[KineticRack] Camera unavailable:', e);
+            this._setStatus('NO CAM — AUDIO ONLY');
+        }
+
+        // Phase 4 — audio (non-fatal)
+        try {
+            await this._audio.start();
+            this._setStatus('AUDIO OK');
+            console.log('[KineticRack] Phase 4: audio started (synth muted until hand detected)');
+        } catch (e) {
+            console.warn('[KineticRack] AudioCore failed:', e);
+        }
+
+        // Phase 5 — GestureLooper (non-fatal)
+        try {
+            const loopBus = this._audio.createLoopNode();
+            this._looper  = new GestureLooper(this._scene, loopBus, this._audio.ctx);
+        } catch (e) {
+            console.warn('[KineticRack] GestureLooper failed:', e);
+        }
+
+        // Phase 6 — hand meshes (non-fatal)
+        try {
+            this._handMeshR = new HandMesh(this._scene, 0x00f3ff);
+            this._handMeshL = new HandMesh(this._scene, 0xff00cc);
+        } catch (e) {
+            console.warn('[KineticRack] HandMesh failed:', e);
+        }
+
+        // Phase 7 — MediaPipe (non-fatal)
+        try {
+            await this._initHandLandmarker();
+        } catch (e) {
+            console.warn('[KineticRack] MediaPipe failed:', e);
+        }
+
+        window.addEventListener('resize', this._onResize);
+        this._initialized = true;
+
+        document.getElementById('kr-stage-hud')?.classList.add('kr-live');
+        this._setStatus('GESTURE LOOPER // LIVE', true);
+        console.log('[KineticRack] All phases complete — LIVE');
     }
 
     async _initHandLandmarker() {
         try {
             const { HandLandmarker, FilesetResolver } = await import(
-                'https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@latest/vision_bundle.js'
+                'https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@0.10.14/vision_bundle.js'
             );
             const vision = await FilesetResolver.forVisionTasks(
-                'https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@latest/wasm'
+                'https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@0.10.14/wasm'
             );
             this._handLM = await HandLandmarker.createFromOptions(vision, {
                 baseOptions: {
@@ -294,35 +784,32 @@ class KineticRack {
 
     _loop() {
         if (!this._active) return;
-        this._rafId = requestAnimationFrame(this._loop.bind(this));
+        this._rafId = requestAnimationFrame(() => this._loop());
 
         const now     = performance.now();
         const dt      = Math.min((now - this._lastNow) / 1000, 0.1);
         this._lastNow = now;
         this._elapsed += dt;
 
-        this._pinchCooldown = Math.max(0, this._pinchCooldown - dt);
+        this._leftPinchCooldown = Math.max(0, this._leftPinchCooldown - dt);
 
         this._detectHands();
 
-        const fft = this._ae.getFFT();
-        this._particles.update(fft, this._elapsed, dt);
+        const fft = this._audio.getFFT();
+        this._particles?.update(fft, this._elapsed, dt);
 
-        this._spatial.update(
-            this._s.rightX,
-            this._s.rightY,
-            this._leftVisible,
-            this._elapsed
-        );
-
-        this._renderer.render(this._scene, this._camera);
+        this._renderer?.render(this._scene, this._camera);
     }
 
     // ── Hand detection ────────────────────────────────────────────────────────
 
     _detectHands() {
-        const video = document.getElementById('kr-video');
-        if (!this._handLM || !video || video.readyState < 2) return;
+        const video = document.getElementById('kr-ai-video');
+        if (!this._handLM || !video || video.readyState < 2) {
+            this._handMeshR?.update(null);
+            this._handMeshL?.update(null);
+            return;
+        }
 
         let results;
         try {
@@ -332,155 +819,154 @@ class KineticRack {
         const hands      = results?.landmarks  ?? [];
         const handedness = results?.handedness ?? [];
 
-        let leftLm  = null;
         let rightLm = null;
+        let leftLm  = null;
 
         for (let i = 0; i < hands.length; i++) {
             const label = handedness[i]?.[0]?.categoryName;
-            if (label === 'Left')  leftLm  = hands[i];
             if (label === 'Right') rightLm = hands[i];
+            if (label === 'Left')  leftLm  = hands[i];
         }
 
-        this._leftVisible = !!leftLm;
-
-        // ── Left hand ────────────────────────────────────────────────────────
-        if (leftLm) {
-            const lm8 = leftLm[8];   // index fingertip
-            const lm4 = leftLm[4];   // thumb tip
-
-            this._s.leftX += (lm8.x - this._s.leftX) * LERP_FACTOR;
-            this._s.leftY += (lm8.y - this._s.leftY) * LERP_FACTOR;
-
-            this._ae.setBassFilterCutoff(this._s.leftX);
-            this._ae.setGlitchDepth(this._s.leftY);
-
-            // Pinch: euclidean distance thumb↔index fingertip
-            const dx   = lm4.x - lm8.x;
-            const dy   = lm4.y - lm8.y;
-            const dist = Math.sqrt(dx * dx + dy * dy);
-            this._s.pinchDist += (dist - this._s.pinchDist) * LERP_FACTOR;
-
-            if (this._s.pinchDist < PINCH_THRESH && this._pinchCooldown <= 0) {
-                this._ae.triggerKick(0.9);
-                this._particles.triggerKickFlash();
-                this._pinchCooldown = PINCH_COOLDOWN;
-            }
-        }
-
-        // ── Right hand ───────────────────────────────────────────────────────
+        // Right hand → pitch + filter via index fingertip (lm8)
+        this._handMeshR?.update(rightLm);
         if (rightLm) {
-            const lm8 = rightLm[8];
+            this._audio.setSpatialGate(0.35);  // open synth
 
+            const lm8 = rightLm[8];
             this._s.rightX += (lm8.x - this._s.rightX) * LERP_FACTOR;
             this._s.rightY += (lm8.y - this._s.rightY) * LERP_FACTOR;
 
-            this._ae.setSpatialPan(this._s.rightX);
-            this._ae.setAtmosReverbWet(this._s.rightY);
+            const pitch  = 55 * Math.pow(16, this._s.rightX * 3); // ~110–880 Hz
+            const filter = 80 + this._s.rightY * 7920;
+            this._audio.setPitch(pitch);
+            this._audio.setFilter(filter);
+
+            this._looper?.update(rightLm);
+        } else {
+            this._audio.setSpatialGate(0);     // mute synth
+            this._looper?.update(null);
+        }
+
+        // Left hand → pinch triggers kick
+        this._handMeshL?.update(leftLm);
+        if (leftLm) {
+            const lm4 = leftLm[4];
+            const lm8 = leftLm[8];
+            const dx   = lm4.x - lm8.x;
+            const dy   = lm4.y - lm8.y;
+            const dist = Math.sqrt(dx * dx + dy * dy);
+
+            this._s.leftPinchDist += (dist - this._s.leftPinchDist) * LERP_FACTOR;
+            const pinched = this._s.leftPinchDist < PINCH_THRESH;
+
+            if (pinched && !this._leftWasPinched && this._leftPinchCooldown <= 0) {
+                this._audio.triggerKick();
+                this._particles?.triggerKickFlash();
+                this._leftPinchCooldown = PINCH_COOLDOWN;
+            }
+            this._leftWasPinched = pinched;
+        } else {
+            this._leftWasPinched = false;
         }
     }
 
-    // ── Public API ────────────────────────────────────────────────────────────
+    // ── Toggle ────────────────────────────────────────────────────────────────
 
-    toggle() {
+    async toggle() {
         if (this._active) {
+            // Stop
             this._active = false;
             if (this._rafId) cancelAnimationFrame(this._rafId);
+            document.getElementById('kinetic-canvas')?.classList.remove('kr-online');
+            document.getElementById('kinetic-cam-video')?.classList.remove('kr-online');
+            document.getElementById('kr-launch-btn')?.classList.remove('kr-online');
+            document.getElementById('kr-rack')?.classList.remove('kr-online');
+            document.getElementById('kr-stage-hud')?.classList.remove('kr-live');
+            this._setStatus('OFFLINE');
+        } else if (!this._initialized) {
+            // First launch
+            try {
+                await this.init();
+            } catch (e) {
+                console.error('[KineticRack] init failed:', e);
+                this._setStatus('ERROR: ' + (e?.message ?? e));
+                document.getElementById('kr-launch-btn')?.classList.remove('kr-online');
+            }
         } else {
+            // Resume
             this._active  = true;
             this._lastNow = performance.now();
             this._loop();
+            document.getElementById('kinetic-canvas')?.classList.add('kr-online');
+            document.getElementById('kr-launch-btn')?.classList.add('kr-online');
+            document.getElementById('kr-stage-hud')?.classList.add('kr-live');
+            this._setStatus('GESTURE LOOPER // LIVE', true);
         }
     }
 
-    ctrlChange(cc, value) {
-        const norm   = value / 127;
-        const target = this._midiMap[cc];
-        if (!target) return;
-        switch (target) {
-            case 'volume':      this._ae.setVolume(norm);           break;
-            case 'bassFilter':  this._ae.setBassFilterCutoff(norm); break;
-            case 'glitchDepth': this._ae.setGlitchDepth(norm);      break;
-            case 'atmosReverb': this._ae.setAtmosReverbWet(norm);   break;
-            case 'spatialPan':  this._ae.setSpatialPan(norm);       break;
-            case 'reverbMix':   this._ae.setReverbMix(norm);        break;
-        }
+    // ── Public control stubs ──────────────────────────────────────────────────
+
+    ctrlChange(key, val) {
+        const v = parseFloat(val);
+        if (key === 'vol')    { this._audio.setVolume(v);                   return; }
+        if (key === 'reverb') { /* no-op */                                  return; }
+        if (key === 'filter') { this._audio.setFilter(80 + v * 7920);       return; }
+        console.log('[KineticRack] ctrlChange', key, val);
     }
 
     midiLearn(target) {
-        this._midiLearnTarget = target;
-        console.log('[KineticRack] MIDI learn armed for:', target);
-    }
-
-    _onMidiCC(cc) {
-        if (this._midiLearnTarget) {
-            this._midiMap[cc] = this._midiLearnTarget;
-            console.log('[KineticRack] MIDI CC', cc, '→', this._midiLearnTarget);
-            this._midiLearnTarget = null;
-        }
-    }
-
-    async toggleRecording() {
-        if (!this._recording) {
-            const dest = this._ae.getRecordingDest();
-            if (!dest) return;
-            this._recChunks = [];
-            this._mediaRec  = new MediaRecorder(dest.stream, {
-                mimeType: 'audio/webm;codecs=opus',
-            });
-            this._mediaRec.ondataavailable = e => {
-                if (e.data.size > 0) this._recChunks.push(e.data);
-            };
-            this._mediaRec.onstop = () => {
-                const blob = new Blob(this._recChunks, { type: 'audio/webm' });
-                const url  = URL.createObjectURL(blob);
-                const a    = document.createElement('a');
-                a.href     = url;
-                a.download = `kr_${Date.now()}.webm`;
-                a.click();
-                URL.revokeObjectURL(url);
-                this._ae.releaseRecordingDest(dest);
-            };
-            this._mediaRec.start(250);
-            this._recording = true;
-            document.getElementById('kr-rec-btn')?.classList.add('kr-active');
-        } else {
-            this._mediaRec?.stop();
-            this._recording = false;
-            document.getElementById('kr-rec-btn')?.classList.remove('kr-active');
-        }
+        console.log('[KineticRack] midiLearn:', target);
     }
 
     toggleHelp() {
-        document.getElementById('kr-help')?.classList.toggle('kr-visible');
+        document.getElementById('kr-help-modal')?.classList.toggle('kr-visible');
     }
 
-    toggleSonicSuite() {
-        document.getElementById('kr-sonic-suite')?.classList.toggle('kr-visible');
+    toggleRecording() {
+        console.log('[KineticRack] toggleRecording (stub)');
     }
+
+    clearLoops() {
+        this._looper?.clearAll();
+    }
+
+    // ── Resize ────────────────────────────────────────────────────────────────
 
     _onResize() {
         const w = window.innerWidth;
         const h = window.innerHeight;
-        this._camera.aspect = w / h;
-        this._camera.updateProjectionMatrix();
-        this._renderer.setSize(w, h);
-    }
-
-    dispose() {
-        this._active = false;
-        if (this._rafId) cancelAnimationFrame(this._rafId);
-        window.removeEventListener('resize', this._onResize.bind(this));
-        this._particles?.dispose();
-        this._spatial?.dispose();
-        this._nc?.dispose();
-        this._ae?.dispose();
-        this._renderer?.dispose();
+        if (this._camera) {
+            this._camera.aspect = w / h;
+            this._camera.updateProjectionMatrix();
+        }
+        this._renderer?.setSize(w, h);
     }
 }
 
-// ── Bootstrap ─────────────────────────────────────────────────────────────────
-const _rack = new KineticRack();
-window.KineticRack = _rack;
+// ─────────────────────────────────────────────────────────────────────────────
+//  Bootstrap
+// ─────────────────────────────────────────────────────────────────────────────
 
-export { KineticRack };
-export default _rack;
+if (typeof THREE === 'undefined') {
+    console.error('[KineticRack] THREE.js not loaded — check network / CDN');
+    const _stub = {
+        toggle()          { alert('THREE.js failed to load. Check your network connection.'); },
+        ctrlChange()      {},  midiLearn()       {},
+        toggleHelp()      {},  toggleRecording() {},  clearLoops() {},
+    };
+    window.KineticRack = _stub;
+} else {
+    let _rack;
+    try {
+        _rack = new KineticRack();
+    } catch (e) {
+        console.error('[KineticRack] boot failed:', e);
+        _rack = {
+            toggle()          { alert('KineticRack boot error:\n' + e); },
+            ctrlChange()      {},  midiLearn()       {},
+            toggleHelp()      {},  toggleRecording() {},  clearLoops() {},
+        };
+    }
+    window.KineticRack = _rack;
+}
