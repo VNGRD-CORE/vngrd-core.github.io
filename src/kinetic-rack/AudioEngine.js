@@ -1,45 +1,67 @@
 /**
- * AudioEngine.js — Master Audio Graph
+ * AudioEngine.js — 4-Channel IDM/Techno Master Graph
  *
  * Signal flow:
- *   Tone.js instruments → toneOut (GainNode)
- *                                        \
- *   SpatialSynth oscs  → synthInput ─────┴→ masterGain → hardLimiter(-3dB/20:1) → destination
+ *   KickChannel   (MembraneSynth → Distortion)       ─┐
+ *   BassChannel   (FMSynth → Filter)                   │
+ *   GlitchChannel (NoiseSynth → BitCrusher → Delay)    ├→ masterGain → Limiter → Destination
+ *   AtmosChannel  (PolySynth/AMSynth → Reverb → Pan)  ─┘        ↓
+ *   SpatialSynth oscillators → synthInput ────────────────→  Analyser (FFT monitor)
  *
- * Hard Limiter is the FINAL node before ctx.destination. No clipping.
+ * New parameters:
+ *   setBassFilterCutoff(x)   Left Index X → 80..5000 Hz
+ *   setGlitchDepth(y)        Left Index Y → BitCrusher bits + delay wet
+ *   setAtmosReverbWet(y)     Right Index Y → Reverb wet 0..0.9
+ *   setSpatialPan(x)         Right Index X → pan -1..+1
+ *   getFFT()                 → Float32Array(256) normalized 0..1
  *
- * Instruments:
- *   MembraneSynth  — 808 kick  (triggerKick)
- *   FMSynth        — drone     (setDronePitch / setFilterCutoff)
- *   AutoFilter     — wraps drone
- *   Kit × 3        — hihat / metal / glitch  (triggerKit / switchKit)
- *
- * NeuralComposer integration:
- *   triggerSequencerNote(trackIdx, note, vel)
+ * Legacy API preserved:
+ *   synthInput, triggerKick, triggerKit, switchKit, triggerSequencerNote,
+ *   setVolume, setReverbMix, setManualFilter, setDronePitch, setFilterCutoff,
+ *   setAutoFilterFreq, getRecordingDest, releaseRecordingDest, dispose
  */
 
-const KIT_NAMES   = ['HI-HAT', 'METAL', 'GLITCH'];
 const DRONE_NOTES = ['A1','C2','D2','F2','G2','A2','C3','D3','F3','G3','A3'];
+const KIT_NAMES   = ['KICK','GLITCH','ATMOS'];
 
 export class AudioEngine {
     constructor() {
-        this.ctx           = null;
+        this.ctx          = null;
 
-        // Native Web Audio master chain
-        this._hardLimiter  = null;
-        this._masterGain   = null;  // native gain before limiter (volume control)
-        this._toneOut      = null;  // Tone.js instruments feed here
-        this._synthInput   = null;  // SpatialSynth oscillators feed here
+        // Master chain (Tone.js)
+        this._limiter     = null;
+        this._masterGain  = null;
+        this._analyser    = null;
+        this._fftData     = new Float32Array(256);
 
-        // Tone.js instruments
-        this._kick         = null;
-        this._drone        = null;
-        this._autoFilter   = null;
-        this._reverb       = null;
-        this._kits         = [];
-        this._kitIndex     = 0;
+        // KickChannel
+        this._kick        = null;
+        this._kickDist    = null;
 
-        this._recDest      = null;
+        // BassChannel
+        this._bass        = null;
+        this._bassFilter  = null;
+
+        // GlitchChannel
+        this._glitch      = null;
+        this._bitCrusher  = null;
+        this._pingPong    = null;
+
+        // AtmosChannel
+        this._atmos       = null;
+        this._atmosReverb = null;
+        this._atmosPanner = null;
+
+        // SpatialSynth: Tone.Gain → masterGain; .input exposed as AudioNode
+        this._synthGain   = null;
+        this._synthInput  = null;
+
+        // GestureLooper effects bus
+        this._loopDelay   = null;   // Tone.PingPongDelay
+        this._loopReverb  = null;   // Tone.Reverb
+
+        this._kitIndex    = 0;
+        this._recDest     = null;
     }
 
     async init() {
@@ -49,154 +71,195 @@ export class AudioEngine {
         await Tone.start();
         this.ctx = Tone.getContext().rawContext;
 
-        // ── Hard Limiter — absolute final node ───────────────────────────────
-        this._hardLimiter = this.ctx.createDynamicsCompressor();
-        this._hardLimiter.threshold.value = -3;
-        this._hardLimiter.knee.value      = 0;
-        this._hardLimiter.ratio.value     = 20;
-        this._hardLimiter.attack.value    = 0.001;
-        this._hardLimiter.release.value   = 0.05;
-        this._hardLimiter.connect(this.ctx.destination);
+        // ── Master chain ──────────────────────────────────────────────────────
+        this._limiter    = new Tone.Limiter(-3).toDestination();
+        this._masterGain = new Tone.Gain(0.7).connect(this._limiter);
 
-        // ── Master gain (volume slider target) ───────────────────────────────
-        this._masterGain = this.ctx.createGain();
-        this._masterGain.gain.value = 0.7;
-        this._masterGain.connect(this._hardLimiter);
+        // Analyser: parallel tap, NOT in main signal path
+        this._analyser = new Tone.Analyser({ type: 'fft', size: 256 });
+        this._masterGain.connect(this._analyser);
 
-        // ── Tone.js output bridge ─────────────────────────────────────────────
-        // Tone instruments connect to a native GainNode that feeds masterGain.
-        // We do this by overriding Tone's final connection using a MediaStreamDest
-        // approach — simpler: use Tone.Destination.input directly.
-        this._toneOut = this.ctx.createGain();
-        this._toneOut.gain.value = 1.0;
-        this._toneOut.connect(this._masterGain);
-
-        // Bridge Tone's output chain into toneOut:
-        // Tone.Destination is a ToneAudioNode; we connect it to toneOut
-        // by disconnecting from ctx.destination and reconnecting to toneOut.
+        // Bridge Tone's default output into our masterGain
         try {
             const toneDest = Tone.getDestination();
             toneDest.disconnect();
-            toneDest.connect(this._toneOut);
-        } catch (_) {
-            // Fallback: Tone routes directly to ctx.destination, keep going
-        }
+            toneDest.connect(this._masterGain);
+        } catch (_) {}
 
-        // ── Reverb ────────────────────────────────────────────────────────────
-        this._reverb = new Tone.Reverb({ decay: 3.2, wet: 0.0 });
-        await this._reverb.ready;
-        this._reverb.toDestination();
+        // ── SpatialSynth native input ─────────────────────────────────────────
+        // Use a Tone.Gain so the connection to _masterGain uses Tone's own
+        // routing — no .input property guessing, no silent-catch disconnect.
+        this._synthGain  = new Tone.Gain(0.55).connect(this._masterGain);
+        this._synthInput = this._synthGain.input;   // underlying GainNode
 
-        // ── AutoFilter (drone path) ───────────────────────────────────────────
-        this._autoFilter = new Tone.AutoFilter({
-            frequency:     0.5,
-            baseFrequency: 300,
-            octaves:       3.5,
-            filter: { type: 'lowpass', rolloff: -12 },
-        }).toDestination();
-        this._autoFilter.start();
+        // ── KickChannel ───────────────────────────────────────────────────────
+        this._kickDist = new Tone.Distortion({ distortion: 0.35, wet: 0.4 })
+            .connect(this._masterGain);
 
-        // ── 808 Kick ──────────────────────────────────────────────────────────
         this._kick = new Tone.MembraneSynth({
-            pitchDecay:  0.09,
-            octaves:     8,
+            pitchDecay:  0.12,
+            octaves:     10,
             oscillator:  { type: 'sine' },
-            envelope: { attack: 0.001, decay: 0.45, sustain: 0, release: 0.18 },
-        }).toDestination();
+            envelope:    { attack: 0.001, decay: 0.55, sustain: 0, release: 0.2 },
+        }).connect(this._kickDist);
         this._kick.volume.value = -2;
 
-        // ── Drone: FMSynth ────────────────────────────────────────────────────
-        this._drone = new Tone.FMSynth({
-            harmonicity:     0.5,
-            modulationIndex: 3,
-            oscillator:      { type: 'sawtooth' },
-            envelope:        { attack: 0.8, decay: 0.2, sustain: 0.85, release: 2.5 },
-            modulation:      { type: 'sine' },
-            modulationEnvelope: { attack: 0.5, decay: 0, sustain: 1, release: 2 },
-        }).connect(this._autoFilter);
-        this._drone.volume.value = -14;
-        this._drone.triggerAttack('A1');
+        // ── BassChannel ───────────────────────────────────────────────────────
+        this._bassFilter = new Tone.Filter({
+            type:      'lowpass',
+            frequency: 800,
+            Q:         4,
+            rolloff:   -24,
+        }).connect(this._masterGain);
 
-        // ── Kit synths ────────────────────────────────────────────────────────
-        const hihat = new Tone.NoiseSynth({
+        this._bass = new Tone.FMSynth({
+            harmonicity:        0.5,
+            modulationIndex:    4,
+            oscillator:         { type: 'sawtooth' },
+            envelope:           { attack: 0.6, decay: 0.1, sustain: 0.9, release: 3.0 },
+            modulation:         { type: 'sine' },
+            modulationEnvelope: { attack: 0.4, decay: 0, sustain: 1, release: 2.5 },
+        }).connect(this._bassFilter);
+        this._bass.volume.value = -14;
+        this._bass.triggerAttack('A1');
+
+        // ── GlitchChannel ─────────────────────────────────────────────────────
+        this._pingPong = new Tone.PingPongDelay({
+            delayTime: 0.25,
+            feedback:  0.4,
+            wet:       0.5,
+        }).connect(this._masterGain);
+
+        this._bitCrusher = new Tone.BitCrusher({ bits: 8 })
+            .connect(this._pingPong);
+
+        this._glitch = new Tone.NoiseSynth({
             noise:    { type: 'white' },
-            envelope: { attack: 0.001, decay: 0.065, sustain: 0, release: 0.01 },
-        }).toDestination();
-        hihat.volume.value = -8;
+            envelope: { attack: 0.001, decay: 0.08, sustain: 0, release: 0.015 },
+        }).connect(this._bitCrusher);
+        this._glitch.volume.value = -18;
 
-        const metal = new Tone.MetalSynth({
-            frequency: 400, envelope: { attack: 0.001, decay: 0.14, release: 0.02 },
-            harmonicity: 5.1, modulationIndex: 32, resonance: 4200, octaves: 1.5,
-        }).toDestination();
-        metal.volume.value = -12;
+        // ── AtmosChannel ──────────────────────────────────────────────────────
+        this._atmosPanner = new Tone.Panner(0).connect(this._masterGain);
 
-        const glitch = new Tone.PluckSynth({
-            attackNoise: 2, dampening: 3800, resonance: 0.98,
-        }).toDestination();
-        glitch.volume.value = -6;
+        this._atmosReverb = new Tone.Reverb({ decay: 6.0, wet: 0.6 });
+        await this._atmosReverb.ready;
+        this._atmosReverb.connect(this._atmosPanner);
 
-        this._kits = [hihat, metal, glitch];
+        this._atmos = new Tone.PolySynth(Tone.AMSynth, {
+            harmonicity:        2.5,
+            oscillator:         { type: 'sine' },
+            envelope:           { attack: 1.2, decay: 0.5, sustain: 0.8, release: 4.0 },
+            modulation:         { type: 'square' },
+            modulationEnvelope: { attack: 0.8, decay: 0, sustain: 1, release: 3 },
+        }).connect(this._atmosReverb);
+        this._atmos.volume.value = -20;
+        this._atmos.triggerAttack(['G2', 'D3', 'A3']);
 
-        // ── SpatialSynth input ────────────────────────────────────────────────
-        // SpatialSynth oscillators connect here → masterGain → hardLimiter
-        this._synthInput = this.ctx.createGain();
-        this._synthInput.gain.value = 0.55;
-        this._synthInput.connect(this._masterGain);
+        // ── GestureLooper effects bus (isolated — failure must NOT kill main init) ─
+        // Chain: FMSynth → _loopDelay → _loopReverb → masterGain
+        try {
+            this._loopReverb = new Tone.Reverb({ decay: 4.0, wet: 0.35 });
+            await this._loopReverb.ready;
+            this._loopReverb.connect(this._masterGain);
+
+            this._loopDelay = new Tone.PingPongDelay({
+                delayTime: 0.25,
+                feedback:  0.35,
+                wet:       0.28,
+            });
+            this._loopDelay.connect(this._loopReverb);
+        } catch (e) {
+            console.warn('[AudioEngine] Loop bus init failed — loops will use dry output:', e);
+            this._loopDelay = null;
+            this._loopReverb = null;
+        }
     }
 
-    // ── SpatialSynth compatibility ─────────────────────────────────────────────
+    // ── SpatialSynth compat ───────────────────────────────────────────────────
     get synthInput() { return this._synthInput; }
 
-    // ── Instruments ───────────────────────────────────────────────────────────
+    // ── GestureLooper bus ─────────────────────────────────────────────────────
+    getLoopBus() { return this._loopDelay; }
 
-    /** 808-style kick at velocity 0..1 */
+    setLoopDelayWet(v) {
+        try { this._loopDelay?.wet.rampTo(Math.max(0, Math.min(1, v)), 0.1); }
+        catch (_) {}
+    }
+
+    // ── FFT ───────────────────────────────────────────────────────────────────
+    /** @returns {Float32Array} 256 values normalized 0..1 */
+    getFFT() {
+        if (!this._analyser) return this._fftData;
+        const raw = this._analyser.getValue();
+        for (let i = 0; i < 256; i++) {
+            this._fftData[i] = Math.max(0, Math.min(1, (raw[i] + 100) / 100));
+        }
+        return this._fftData;
+    }
+
+    // ── Kick ──────────────────────────────────────────────────────────────────
     triggerKick(vel = 1.0) {
         try {
             this._kick?.triggerAttackRelease('C1', '8n', undefined, Math.min(1, vel));
         } catch (_) {}
     }
 
-    /** Trigger active kit sound */
-    triggerKit(vel = 0.7) {
+    // ── New parameter controls ────────────────────────────────────────────────
+
+    /** Left Index X → Bass Filter Cutoff (0..1 → 80..5000 Hz) */
+    setBassFilterCutoff(x) {
         try {
-            const kit = this._kits[this._kitIndex];
-            if (!kit) return;
-            if (kit instanceof window.Tone.PluckSynth) {
-                const notes = ['C3','D#3','F#3','G#3','A#3'];
-                kit.triggerAttack(notes[Math.floor(Math.random() * notes.length)]);
-            } else {
-                kit.triggerAttackRelease('32n', undefined, vel);
-            }
+            this._bassFilter?.frequency.rampTo(80 + x * 4920, 0.05);
         } catch (_) {}
     }
 
-    /** Cycle kit: hi-hat → metal → glitch */
-    switchKit() {
-        this._kitIndex = (this._kitIndex + 1) % this._kits.length;
-        const el = document.getElementById('kr-status');
-        if (el) el.textContent = 'KIT: ' + KIT_NAMES[this._kitIndex];
+    /** Left Index Y → Glitch depth: BitCrusher bits (2..8) + PingPong wet */
+    setGlitchDepth(y) {
+        try {
+            if (this._bitCrusher) this._bitCrusher.bits = Math.round(2 + (1 - y) * 6);
+            this._pingPong?.wet.rampTo(0.2 + y * 0.7, 0.08);
+        } catch (_) {}
     }
 
-    /**
-     * Fire a NeuralComposer sequencer step.
-     * @param {number} trackIdx  0-7
-     * @param {string} note      Tone.js note e.g. 'C2'
-     * @param {number} vel       0..1
-     */
+    /** Right Index Y → Atmos Reverb Wetness (0..0.9) */
+    setAtmosReverbWet(y) {
+        try {
+            this._atmosReverb?.wet.rampTo(Math.min(0.9, y * 0.9), 0.1);
+        } catch (_) {}
+    }
+
+    /** Right Index X → Atmos Spatial Pan (0..1 → -1..+1) */
+    setSpatialPan(x) {
+        try {
+            this._atmosPanner?.pan.rampTo(x * 2 - 1, 0.08);
+        } catch (_) {}
+    }
+
+    // ── NeuralComposer integration ────────────────────────────────────────────
     triggerSequencerNote(trackIdx, note, vel = 0.85) {
         const Tone = window.Tone;
         if (!Tone) return;
         try {
             switch (trackIdx) {
                 case 0: this.triggerKick(vel); break;
-                case 1: this._kits[0]?.triggerAttackRelease('32n', undefined, vel * 0.6); break;
-                case 2: this._kits[1]?.triggerAttackRelease('32n', undefined, vel * 0.7); break;
-                case 3: this._kits[2]?.triggerAttack(note); break;
+                case 1: this._glitch?.triggerAttackRelease('32n', undefined, vel * 0.6); break;
+                case 2: this._glitch?.triggerAttackRelease('32n', undefined, vel * 0.7); break;
+                case 3: {
+                    const s = new Tone.Synth({
+                        oscillator: { type: 'square' },
+                        envelope:   { attack: 0.001, decay: 0.08, sustain: 0, release: 0.1 },
+                    }).connect(this._bitCrusher ?? this._masterGain);
+                    s.volume.value = -16;
+                    s.triggerAttackRelease(note, '16n', undefined, vel * 0.7);
+                    setTimeout(() => { try { s.dispose(); } catch (_) {} }, 600);
+                    break;
+                }
                 case 4: {
                     const s = new Tone.Synth({
                         oscillator: { type: 'triangle' },
-                        envelope: { attack: 0.01, decay: 0.12, sustain: 0.3, release: 0.4 },
-                    }).toDestination();
+                        envelope:   { attack: 0.01, decay: 0.12, sustain: 0.3, release: 0.4 },
+                    }).connect(this._bassFilter ?? this._masterGain);
                     s.volume.value = -10;
                     s.triggerAttackRelease(note, '8n', undefined, vel);
                     setTimeout(() => { try { s.dispose(); } catch (_) {} }, 1200);
@@ -205,8 +268,8 @@ export class AudioEngine {
                 case 5: {
                     const s = new Tone.Synth({
                         oscillator: { type: 'square' },
-                        envelope: { attack: 0.005, decay: 0.08, sustain: 0.1, release: 0.2 },
-                    }).toDestination();
+                        envelope:   { attack: 0.005, decay: 0.08, sustain: 0.1, release: 0.2 },
+                    }).connect(this._masterGain);
                     s.volume.value = -14;
                     s.triggerAttackRelease(note, '16n', undefined, vel * 0.7);
                     setTimeout(() => { try { s.dispose(); } catch (_) {} }, 700);
@@ -216,95 +279,83 @@ export class AudioEngine {
                     const s = new Tone.FMSynth({
                         harmonicity: 3, modulationIndex: 10,
                         envelope: { attack: 0.001, decay: 0.2, sustain: 0, release: 0.1 },
-                    }).toDestination();
+                    }).connect(this._masterGain);
                     s.volume.value = -12;
                     s.triggerAttackRelease(note, '8n', undefined, vel * 0.8);
                     setTimeout(() => { try { s.dispose(); } catch (_) {} }, 900);
                     break;
                 }
                 case 7: {
-                    const s = new Tone.Synth({
-                        oscillator: { type: 'sawtooth' },
-                        envelope: { attack: 0.01, decay: 0.3, sustain: 0.5, release: 1.2 },
-                    }).connect(this._reverb).toDestination();
-                    s.volume.value = -18;
-                    s.triggerAttackRelease(note, '4n', undefined, vel * 0.6);
-                    setTimeout(() => { try { s.dispose(); } catch (_) {} }, 2500);
+                    this._atmos?.triggerAttackRelease([note], '4n', undefined, vel * 0.6);
                     break;
                 }
             }
         } catch (_) {}
     }
 
-    // ── Continuous controls ───────────────────────────────────────────────────
+    triggerKit(vel = 0.7) {
+        try { this._glitch?.triggerAttackRelease('32n', undefined, vel); } catch (_) {}
+    }
 
+    switchKit() {
+        this._kitIndex = (this._kitIndex + 1) % KIT_NAMES.length;
+        const el = document.getElementById('kr-status');
+        if (el) el.textContent = 'KIT: ' + KIT_NAMES[this._kitIndex];
+    }
+
+    // ── Legacy stubs ──────────────────────────────────────────────────────────
     setDronePitch(x) {
         try {
             const idx  = Math.round(x * (DRONE_NOTES.length - 1));
             const note = DRONE_NOTES[Math.max(0, Math.min(DRONE_NOTES.length - 1, idx))];
-            this._drone?.setNote(note);
+            this._bass?.setNote(note);
         } catch (_) {}
     }
 
-    setFilterCutoff(y) {
-        if (!this._autoFilter) return;
-        try { this._autoFilter.baseFrequency = 80 + y * 4000; } catch (_) {}
-    }
-
-    setAutoFilterFreq(y) { this.setFilterCutoff(y); }
+    setFilterCutoff(y)    { this.setBassFilterCutoff(y); }
+    setAutoFilterFreq(y)  { this.setBassFilterCutoff(y); }
 
     // ── HUD sliders ───────────────────────────────────────────────────────────
-
     setVolume(v) {
-        if (!this._masterGain) return;
-        this._masterGain.gain.setTargetAtTime(
-            Math.max(0.001, v) * 0.85,
-            this.ctx.currentTime,
-            0.06
-        );
-    }
-
-    setReverbMix(v) {
         try {
-            if (this._reverb) this._reverb.wet.rampTo(v * 0.7, 0.1);
-            if (this._autoFilter) this._autoFilter.frequency.value = 0.2 + v * 4;
+            this._masterGain?.gain.rampTo(Math.max(0.001, v) * 0.85, 0.06);
         } catch (_) {}
     }
 
-    setManualFilter(v) {
-        if (!this._autoFilter) return;
-        try { this._autoFilter.baseFrequency = 80 + v * 7920; } catch (_) {}
-    }
+    setReverbMix(v)    { this.setAtmosReverbWet(v); }
+    setManualFilter(v) { this.setBassFilterCutoff(v); }
 
     // ── Recording ─────────────────────────────────────────────────────────────
     getRecordingDest() {
         if (!this.ctx) return null;
         this._recDest = this.ctx.createMediaStreamDestination();
-        this._hardLimiter.connect(this._recDest);
+        try {
+            // Tap post-limiter via Tone.Destination's output
+            window.Tone?.getDestination().output.connect(this._recDest);
+        } catch (_) {}
         return this._recDest;
     }
 
     releaseRecordingDest(dest) {
-        try { this._hardLimiter.disconnect(dest); } catch (_) {}
+        try { window.Tone?.getDestination().output.disconnect(dest); } catch (_) {}
         this._recDest = null;
     }
 
     // ── Cleanup ───────────────────────────────────────────────────────────────
     dispose() {
         try {
-            this._drone?.triggerRelease();
-            [this._kick, this._drone, this._autoFilter, this._reverb, ...this._kits]
-                .forEach(n => { try { n?.dispose(); } catch (_) {} });
+            this._bass?.triggerRelease();
+            this._atmos?.releaseAll();
+            [
+                this._kick, this._kickDist,
+                this._bass, this._bassFilter,
+                this._glitch, this._bitCrusher, this._pingPong,
+                this._atmos, this._atmosReverb, this._atmosPanner,
+                this._loopDelay, this._loopReverb,
+                this._synthGain,
+                this._masterGain, this._limiter, this._analyser,
+            ].forEach(n => { try { n?.dispose(); } catch (_) {} });
             this._synthInput?.disconnect();
-            this._toneOut?.disconnect();
-            this._masterGain?.disconnect();
-            this._hardLimiter?.disconnect();
-            // Restore Tone destination to ctx.destination
-            try {
-                window.Tone?.getDestination().connect(
-                    new window.Tone.ToneAudioNode({ context: window.Tone.getContext() })
-                );
-            } catch (_) {}
         } catch (_) {}
     }
 }

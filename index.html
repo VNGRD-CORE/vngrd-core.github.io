@@ -3711,56 +3711,6 @@ body.fullscreen #transcription-hud { pointer-events: none !important; } /* keep 
 }
 #save-modal-actions { display: flex; gap: 6px; }
 
-/* ── WALLET SYNC HUD ── */
-#wallet-sync-hud {
-    position: fixed; bottom: 60px; right: 16px; z-index: 9998;
-    width: 180px;
-    background: rgba(8,8,12,0.94);
-    border: 1px solid rgba(0,243,255,0.25);
-    border-radius: 3px;
-    padding: 10px;
-    box-shadow: 0 0 20px rgba(0,243,255,0.1);
-    display: none; flex-direction: column; gap: 8px;
-    font-family: 'JetBrains Mono', monospace;
-}
-#wallet-sync-hud.visible { display: flex; }
-#ipfs-sync-indicator {
-    display: flex; align-items: center; gap: 6px;
-    font-size: 8px; letter-spacing: 1px; color: var(--accent);
-}
-#ipfs-sync-dot {
-    width: 6px; height: 6px; border-radius: 50%;
-    background: var(--accent); flex-shrink: 0;
-}
-@keyframes ipfs-sync-pulse {
-    0%,100% { box-shadow: 0 0 4px var(--accent); opacity: 1; }
-    50%      { box-shadow: 0 0 12px var(--accent), 0 0 20px var(--accent); opacity: 0.55; }
-}
-#wallet-sync-hud.syncing #ipfs-sync-dot { animation: ipfs-sync-pulse 1s ease-in-out infinite; }
-#wallet-sync-hud.synced  #ipfs-sync-dot { background: #00ff88; box-shadow: 0 0 8px #00ff88; }
-#wallet-sync-hud.error   #ipfs-sync-dot { background: #ff4040; box-shadow: 0 0 8px #ff4040; }
-#wallet-sync-hud.synced  #ipfs-sync-label { color: #00ff88; }
-#wallet-sync-hud.error   #ipfs-sync-label { color: #ff4040; }
-#wallet-sync-thumbnail {
-    width: 100%; aspect-ratio: 16/9;
-    border: 1px solid rgba(0,243,255,0.15);
-    border-radius: 2px; overflow: hidden; display: none;
-}
-#wallet-sync-thumbnail.visible { display: block; }
-#wallet-sync-thumbnail img {
-    object-fit: contain; width: 100%; height: 100%; display: block;
-}
-#wallet-sync-cid {
-    font-size: 7px; color: rgba(0,243,255,0.5);
-    word-break: break-all; display: none;
-}
-#wallet-sync-cid.visible { display: block; }
-#wallet-sync-dismiss {
-    font-size: 7px; color: rgba(255,255,255,0.35);
-    cursor: pointer; text-align: right; letter-spacing: 1px;
-}
-#wallet-sync-dismiss:hover { color: var(--accent); }
-
 /* ── QR MODAL ── */
 #qr-modal {
     position: fixed; inset: 0; z-index: 99999;
@@ -4293,20 +4243,25 @@ body.fullscreen #transcription-hud { pointer-events: none !important; } /* keep 
 #stage.seam-hover { cursor: col-resize !important; }
 
 /* ─────────────────────────────────────────────────────────────────────────── */
-/* VOICE_LAB  //  SYNESTHESIA VOICE ENGINE  v2                                */
+/* VOICE_LAB  //  SYNESTHESIA VOICE ENGINE                                    */
 /* ─────────────────────────────────────────────────────────────────────────── */
+.sve-mood-row {
+    display: grid;
+    grid-template-columns: 1fr 1fr 1fr;
+    gap: 4px;
+}
 .sve-mood-btn {
     font-family: 'Orbitron', sans-serif;
-    font-size: 7px;
+    font-size: 7.5px;
     font-weight: 700;
-    letter-spacing: 0.5px;
-    padding: 5px 1px;
-    background: rgba(255,255,255,0.02);
+    letter-spacing: 1px;
+    padding: 5px 2px;
+    background: rgba(255,255,255,0.03);
     border: 1px solid var(--border);
     color: var(--text-dim);
     cursor: pointer;
     text-align: center;
-    transition: all 0.15s;
+    transition: all 0.18s;
     text-transform: uppercase;
 }
 .sve-mood-btn:hover { color: var(--text-bright); border-color: var(--accent); }
@@ -4690,8 +4645,6 @@ body.fullscreen #transcription-hud { pointer-events: none !important; } /* keep 
                     <button class="btn btn-compact" id="btn-play-pause"><svg width="10" height="10" viewBox="0 0 12 12" id="icon-play-state"><path fill="currentColor" d="M3 2v8l7-4z"/></svg></button>
                     <button class="btn btn-compact" id="btn-next-track"><svg width="10" height="10" viewBox="0 0 12 12"><path fill="currentColor" d="M2 10l6-4-6-4v8zm6-8v8h2V2H8z"/></svg></button>
                 </div>
-                <div class="sec-divider"></div>
-                <div class="lbl" style="font-size:6.5px;opacity:0.4;letter-spacing:2px;margin-bottom:4px;">INPUT</div>
                 <button class="btn" id="btn-scan-inputs" style="font-size:8px;">SCAN_INPUTS</button>
                 <select class="inp" id="audio-input-select" style="width:100%;font-size:9px;padding:5px;background:var(--panel);border:1px solid var(--border);color:var(--text);display:none;margin-top:4px;">
                     <option value="">SELECT_DEVICE...</option>
@@ -4700,12 +4653,13 @@ body.fullscreen #transcription-hud { pointer-events: none !important; } /* keep 
                     <div id="input-level-bar" style="height:100%;width:0%;background:var(--g);transition:width 0.05s;"></div>
                 </div>
                 <div class="sec-divider"></div>
-                <div class="lbl" style="font-size:6.5px;opacity:0.4;letter-spacing:2px;margin-bottom:4px;">ENGINEER_MODE</div>
+                <div class="lbl" style="font-size:6.5px;opacity:0.4;letter-spacing:2px;margin-bottom:4px;">INPUT</div>
                 <div class="btn-grid-3">
                     <button class="btn active-mode" id="btn-stereo">STEREO</button>
-                    <button class="btn" id="btn-spatial">3D_SPATIAL</button>
-                    <button class="btn" id="btn-dolby" style="color:#00f3ff">DOLBY</button>
+                    <button class="btn" id="btn-spatial" style="color:#b000ff;border-color:rgba(176,0,255,0.4);">3D_SPATIAL</button>
+                    <button class="btn" id="btn-dolby" style="color:#ffaa00;border-color:rgba(255,170,0,0.4);">DOLBY</button>
                 </div>
+                <div class="lbl" style="font-size:6.5px;opacity:0.4;letter-spacing:2px;margin-top:6px;">ENGINEER_MODE</div>
             </div>
         </div>
 
@@ -5213,14 +5167,14 @@ body.fullscreen #transcription-hud { pointer-events: none !important; } /* keep 
             </div>
             <div class="sec-body" id="sve-body" style="max-height:0;padding:0 12px;overflow:hidden;">
 
-                <!-- Script -->
+                <!-- Script textarea — stopPropagation prevents global space intercept -->
                 <textarea
                     id="sve-script"
                     class="inp"
-                    placeholder="Narration script..."
+                    placeholder="Narration script... (space bar works here)"
                     spellcheck="false"
                     rows="3"
-                    style="min-height:52px;resize:vertical;font-size:9px;line-height:1.55;margin-bottom:5px;border-left:2px solid rgba(0,243,255,0.28);"
+                    style="min-height:48px;resize:vertical;font-size:9px;line-height:1.5;margin-bottom:5px;border-left:2px solid rgba(0,243,255,0.3);"
                     onkeydown="event.stopPropagation()"
                     onkeyup="event.stopPropagation()"
                 ></textarea>
@@ -5239,29 +5193,29 @@ body.fullscreen #transcription-hud { pointer-events: none !important; } /* keep 
 
                 <!-- Controls -->
                 <div class="sve-ctrl-row" style="margin-bottom:4px;">
-                    <button class="btn" id="sve-speak-btn" style="flex:2;"
+                    <button class="btn" id="sve-speak-btn"
                         onclick="(async()=>{
                             if(!window.SVE)return;
-                            if(SVE.isPlaying){SVE.stop();this.textContent='▶ SPEAK';return;}
+                            if(SVE.isPlaying){SVE.stop();this.textContent='▶ SYNTH VOICE';return;}
                             await SVE.init();
-                            SVE.updateStatus('SPEAKING...');
                             SVE.speak(document.getElementById('sve-script').value);
                             this.textContent='■ STOP';
-                            var chk=setInterval(()=>{if(!speechSynthesis.speaking){this.textContent='▶ SPEAK';clearInterval(chk);}},250);
-                        })()">▶ SPEAK</button>
-                    <button id="sve-record-btn" class="btn" style="flex:2;color:#ff4444;border-color:rgba(255,60,60,0.4);"
-                        onclick="(async()=>{
-                            if(!window.SVE)return;
-                            if(SVE.isRecording){SVE.stop();return;}
-                            await SVE.init();
-                            SVE.record(document.getElementById('sve-script').value);
-                        })()">⏺ RECORD</button>
-                    <button class="btn" style="width:28px;flex:none;font-size:10px;padding:0;" title="Test glitch burst"
+                            var chk=setInterval(()=>{if(!speechSynthesis.speaking){this.textContent='▶ SYNTH VOICE';clearInterval(chk);}},250);
+                        })()">▶ SYNTH VOICE</button>
+                    <button class="btn" style="width:32px;flex:none;font-size:11px;" title="Fire one glitch burst"
                         onclick="window.SVE&&SVE.init().then(()=>SVE.triggerGlitch())">⚡</button>
                 </div>
 
+                <!-- Render -->
+                <button id="sve-render-btn" style="width:100%;font-family:'Orbitron',sans-serif;font-size:7.5px;font-weight:700;letter-spacing:1.5px;padding:7px;background:rgba(0,243,255,0.07);border:1px solid rgba(0,243,255,0.3);color:var(--accent);cursor:pointer;text-transform:uppercase;transition:all 0.18s;margin-bottom:4px;"
+                    onmouseover="this.style.background='rgba(0,243,255,0.16)'"
+                    onmouseout="this.style.background='rgba(0,243,255,0.07)'"
+                    onclick="(async()=>{if(!window.SVE)return;await SVE.init();SVE.renderTrailerAudio(document.getElementById('sve-script').value);})()">
+                    ▶ RENDER TRAILER AUDIO
+                </button>
+
                 <!-- Status -->
-                <div id="sve-status" style="font-family:'JetBrains Mono',monospace;font-size:7px;color:var(--accent);letter-spacing:1px;min-height:11px;opacity:0.8;word-break:break-all;">STANDBY</div>
+                <div id="sve-status" style="font-family:'JetBrains Mono',monospace;font-size:7px;color:var(--accent);letter-spacing:1px;min-height:12px;word-break:break-all;opacity:0.8;">STANDBY</div>
 
             </div>
         </div>
@@ -5391,19 +5345,6 @@ body.fullscreen #transcription-hud { pointer-events: none !important; } /* keep 
                 <button class="btn" id="btn-qr-close" style="flex:1;font-size:9px;color:var(--p);border-color:var(--p);">CLOSE</button>
             </div>
         </div>
-    </div>
-
-    <!-- WALLET SYNC HUD — IPFS upload indicator + snapshot thumbnail -->
-    <div id="wallet-sync-hud">
-        <div id="ipfs-sync-indicator">
-            <div id="ipfs-sync-dot"></div>
-            <span id="ipfs-sync-label">IPFS SYNC</span>
-        </div>
-        <div id="wallet-sync-thumbnail">
-            <img id="wallet-sync-snapshot" src="" alt="webgl snapshot" />
-        </div>
-        <div id="wallet-sync-cid"></div>
-        <div id="wallet-sync-dismiss" onclick="document.getElementById('wallet-sync-hud').classList.remove('visible','syncing','synced','error');">DISMISS ✕</div>
     </div>
 
     <div id="sys-log">
@@ -12538,267 +12479,71 @@ function _localKey(address) {
     return 'VNGRD_SESSION_' + address.toLowerCase();
 }
 
-// Convert a data URL to a Blob without fetch() — works in all browsers including Safari
-function _dataURLtoBlob(dataURL) {
-    var parts = dataURL.split(',');
-    var mime  = parts[0].match(/:(.*?);/)[1];
-    var bstr  = atob(parts[1]);
-    var n     = bstr.length;
-    var u8    = new Uint8Array(n);
-    while (n--) u8[n] = bstr.charCodeAt(n);
-    return new Blob([u8], { type: mime });
-}
-
-// ── WALLET SYNC HUD helpers ──
-function _showIpfsSyncIndicator(syncing, success) {
-    var hud   = document.getElementById('wallet-sync-hud');
-    var label = document.getElementById('ipfs-sync-label');
-    if (!hud) return;
-    hud.classList.remove('syncing', 'synced', 'error', 'visible');
-    if (syncing) {
-        hud.classList.add('visible', 'syncing');
-        if (label) label.textContent = 'IPFS SYNC…';
-    } else if (success === true) {
-        hud.classList.add('visible', 'synced');
-        if (label) label.textContent = 'IPFS SYNCED';
-    } else {
-        hud.classList.add('visible', 'error');
-        if (label) label.textContent = 'SYNC FAILED';
-    }
-}
-
-function _showWalletSaveThumbnail(dataURL, cid) {
-    var thumb = document.getElementById('wallet-sync-thumbnail');
-    var img   = document.getElementById('wallet-sync-snapshot');
-    var cidEl = document.getElementById('wallet-sync-cid');
-    if (thumb && img && dataURL) {
-        img.src = dataURL;
-        thumb.classList.add('visible');
-    }
-    if (cidEl && cid) {
-        cidEl.textContent = 'CID: ' + cid;
-        cidEl.classList.add('visible');
-    }
-}
-
-// ── SAVE session to IPFS via Pinata (directory-wrapped) + bind to wallet via puter.kv ──
+// ── SAVE session to localStorage, wallet-signed ──
 window.saveSessionToCloud = async function() {
     if (!APP.wallet.connected || !APP.wallet.address) {
-        log('WALLET_SAVE: WALLET_NOT_CONNECTED'); alert('Connect your wallet first.'); return;
+        log('LOCAL_SAVE: WALLET_NOT_CONNECTED'); alert('Connect your wallet first.'); return;
     }
 
     var address = APP.wallet.address;
-    var jwt = localStorage.getItem('pinata_jwt');
-    if (!jwt) {
-        var raw = prompt('PINATA JWT TOKEN (stored locally):');
-        if (!raw) { log('WALLET_SAVE: NO_JWT'); return; }
-        jwt = raw.trim();
-        localStorage.setItem('pinata_jwt', jwt);
+    var session = _buildSessionSnapshot();
+    var sigMsg  = 'VNGRD_LOCAL_SAVE:' + address.toLowerCase() + ':' + session.timestamp;
+
+    log('LOCAL_SAVE: REQUESTING_SIGNATURE');
+    var signature;
+    try {
+        signature = await window.ethereum.request({ method: 'personal_sign', params: [sigMsg, address] });
+    } catch (e) {
+        if (e.code === 4001) { log('LOCAL_SAVE: USER_REJECTED_SIGNATURE'); return; }
+        log('LOCAL_SAVE: SIGN_ERR ' + e.message); return;
     }
 
-    // Step 1 — Capture WebGL canvas snapshot SYNCHRONOUSLY before any async work
-    var vjCanvas = document.getElementById('vj-canvas');
-    var snapshotDataURL = null;
+    session._cloudMeta = { address: address, signature: signature, signedMsg: sigMsg };
     try {
-        if (vjCanvas) snapshotDataURL = vjCanvas.toDataURL('image/jpeg', 0.85);
-    } catch(e) { log('WALLET_SAVE: SNAPSHOT_WARN ' + e.message); }
-
-    // Show IPFS SYNC indicator immediately — upload runs detached, never blocks 60fps loop
-    _showIpfsSyncIndicator(true);
-    log('WALLET_SAVE: ASYNC_UPLOAD_STARTED for ' + address.slice(0, 6) + '...');
-
-    // Detach from call stack via Promise.resolve() so the render loop is never stalled
-    Promise.resolve().then(async function() {
-        var _step = 'INIT';
-        try {
-            // Step 2 — Build FormData with all blobs (no client-side zip = no OOM crash)
-            // IMPORTANT: Pinata wrapWithDirectory requires ALL files to share ONE root folder.
-            // Files at mixed levels (root + subdirs) trigger 400 "More than one file/directory".
-            // Solution: prefix every path with 'VNGRD/' so there is exactly one top-level entry.
-            _step = 'BUILD_FORM';
-            var form = new FormData();
-            var DIR  = 'VNGRD/'; // single root — Pinata wraps this in an outer directory CID
-
-            // 2a. Session state JSON manifest
-            var snap = _buildSessionSnapshot();
-            snap._type    = 'VNGRD_WALLET_PAYLOAD';
-            snap._version = 'V35_WALLET';
-            snap._wallet  = address;
-            form.append('file', new Blob([JSON.stringify(snap, null, 2)], { type: 'application/json' }), DIR + 'session.json');
-
-            // 2b. WebGL snapshot — use atob() conversion, NOT fetch(dataURL) which fails in Safari
-            _step = 'SNAPSHOT_ENCODE';
-            if (snapshotDataURL) {
-                form.append('file', _dataURLtoBlob(snapshotDataURL), DIR + 'snapshot.jpg');
-            }
-
-            // 2c. Media queue blobs — images re-encoded, video fetched from object URL
-            if (APP.media && APP.media.queue && APP.media.queue.length) {
-                for (var i = 0; i < APP.media.queue.length; i++) {
-                    var item = APP.media.queue[i];
-                    try {
-                        var mblob;
-                        if (item.type === 'image' && item.element && item.element.naturalWidth) {
-                            var mc = document.createElement('canvas');
-                            mc.width = item.element.naturalWidth; mc.height = item.element.naturalHeight;
-                            mc.getContext('2d').drawImage(item.element, 0, 0);
-                            mblob = await new Promise(function(r) { mc.toBlob(r, 'image/jpeg', 0.9); });
-                        } else if (item.url) {
-                            mblob = await fetch(item.url).then(function(r) { return r.blob(); });
-                        }
-                        if (mblob) {
-                            form.append('file', mblob, DIR + 'media/media_' + i + (item.name ? '_' + item.name : ''));
-                            log('WALLET_SAVE: QUEUED_MEDIA ' + (item.name || i));
-                        }
-                    } catch(e) { log('WALLET_SAVE: MEDIA_SKIP ' + (item.name || i) + ' — ' + e.message); }
-                }
-            }
-
-            // 2d. Audio playlist blobs
-            if (APP.audio && APP.audio.playlist && APP.audio.playlist.length) {
-                for (var i = 0; i < APP.audio.playlist.length; i++) {
-                    var track = APP.audio.playlist[i];
-                    try {
-                        var ablob = await fetch(track.url).then(function(r) { return r.blob(); });
-                        form.append('file', ablob, DIR + 'audio/audio_' + i + (track.name ? '_' + track.name : ''));
-                        log('WALLET_SAVE: QUEUED_AUDIO ' + (track.name || i));
-                    } catch(e) { log('WALLET_SAVE: AUDIO_SKIP ' + (track.name || i) + ' — ' + e.message); }
-                }
-            }
-
-            // 2e. Time machine video recording chunks — concatenated into one webm blob, never zipped
-            if (APP.timeMachine && APP.timeMachine.chunks && APP.timeMachine.chunks.length) {
-                try {
-                    var tmBlob = new Blob(APP.timeMachine.chunks, { type: 'video/webm' });
-                    form.append('file', tmBlob, DIR + 'video/timemachine.webm');
-                    log('WALLET_SAVE: QUEUED_TIMEMACHINE ' + (tmBlob.size / 1e6).toFixed(1) + 'MB');
-                } catch(e) { log('WALLET_SAVE: TIMEMACHINE_SKIP — ' + e.message); }
-            }
-
-            // Pinata directory wrapping — all blobs land in one IPFS directory CID
-            form.append('pinataOptions',  JSON.stringify({ wrapWithDirectory: true }));
-            form.append('pinataMetadata', JSON.stringify({
-                name: 'VNGRD_WALLET_' + address.slice(0, 8) + '_' + Date.now()
-            }));
-
-            // Step 3 — Upload to Pinata, await master directory CID
-            _step = 'PINATA_UPLOAD';
-            log('WALLET_SAVE: UPLOADING_DIRECTORY_TO_PINATA…');
-            var res  = await fetch('https://api.pinata.cloud/pinning/pinFileToIPFS', {
-                method:  'POST',
-                headers: { 'Authorization': 'Bearer ' + jwt },
-                body:    form
-            });
-            var data = await res.json();
-            if (!res.ok || !data.IpfsHash) throw new Error('PIN_FAIL ' + res.status + ': ' + (data.error ? JSON.stringify(data.error) : 'no IpfsHash'));
-
-            var cid = data.IpfsHash;
-            log('WALLET_SAVE: DIRECTORY_PINNED CID=' + cid);
-
-            // Step 4 — Bind the master CID to the user's wallet address via puter.kv
-            if (typeof puter !== 'undefined' && puter.kv) {
-                try {
-                    await puter.kv.set(address.toLowerCase(), JSON.stringify({
-                        payloadCID: cid,
-                        address:    address,
-                        timestamp:  Date.now()
-                    }));
-                    log('WALLET_SAVE: PUTER_KV_BOUND ' + address.slice(0, 6) + ' → ' + cid.slice(0, 10) + '…');
-                } catch(e) { log('WALLET_SAVE: PUTER_KV_WARN ' + e.message); }
-            }
-
-            // Step 5 — Show snapshot thumbnail + success state; never blocked render loop
-            _showWalletSaveThumbnail(snapshotDataURL, cid);
-            _showIpfsSyncIndicator(false, true);
-            if (typeof ghostLog === 'function') ghostLog('GHOST> WALLET PAYLOAD BOUND → IPFS CID=' + cid, 'ok');
-
-        } catch(e) {
-            log('WALLET_SAVE: ERR [' + _step + '] ' + e.message);
-            _showIpfsSyncIndicator(false, false);
-            alert('IPFS Wallet Save failed [' + _step + ']: ' + e.message);
-        }
-    });
+        localStorage.setItem(_localKey(address), JSON.stringify(session));
+        log('LOCAL_SAVE: OK — SESSION_STORED_FOR_' + address.slice(0, 6));
+        alert('SESSION SAVED LOCALLY\n\nWallet: ' + address.slice(0,6) + '...' + address.slice(-4) + '\nSaved: ' + new Date(session.timestamp).toLocaleString() + '\n\n(Stored in browser localStorage — wallet-signed)');
+    } catch (e) {
+        log('LOCAL_SAVE: ERR ' + e.message);
+        alert('Save failed: ' + e.message);
+    }
 };
 
-// ── LOAD session: checks puter.kv (IPFS) first, falls back to localStorage ──
+// ── LOAD session from localStorage for the connected wallet ──
 window.loadSessionFromCloud = async function(silent) {
     if (!APP.wallet.connected || !APP.wallet.address) {
-        log('WALLET_LOAD: WALLET_NOT_CONNECTED');
+        log('LOCAL_LOAD: WALLET_NOT_CONNECTED');
         if (!silent) alert('Connect your wallet first.');
         return;
     }
 
     var address = APP.wallet.address;
-    log('WALLET_LOAD: CHECKING for ' + address.slice(0, 6) + '...');
+    log('LOCAL_LOAD: CHECKING_LOCALSTORAGE for ' + address.slice(0, 6) + '...');
 
-    // ── 1. Try puter.kv for the IPFS-pinned session (authoritative / newest) ──
-    var ipfsMeta = null;
-    if (typeof puter !== 'undefined' && puter.kv) {
-        try {
-            var kvRaw = await puter.kv.get(address.toLowerCase());
-            if (kvRaw) ipfsMeta = JSON.parse(kvRaw);
-        } catch(e) { log('WALLET_LOAD: PUTER_KV_ERR ' + e.message); }
-    }
+    var raw = localStorage.getItem(_localKey(address));
 
-    // ── 2. Also read localStorage as fallback ──
-    var localSession = null;
-    try { var localRaw = localStorage.getItem(_localKey(address)); if (localRaw) localSession = JSON.parse(localRaw); } catch(e) {}
-
-    // ── 3. Use IPFS if CID exists and is newer than localStorage ──
-    var ipfsIsNewer = ipfsMeta && ipfsMeta.payloadCID &&
-        (!localSession || (ipfsMeta.timestamp || 0) > (localSession.timestamp || 0));
-
-    if (ipfsIsNewer) {
-        var cid = ipfsMeta.payloadCID;
-        log('WALLET_LOAD: IPFS_SESSION_FOUND CID=' + cid.slice(0, 12) + '\u2026');
-        var gateways = [
-            'https://gateway.pinata.cloud/ipfs/',
-            'https://ipfs.io/ipfs/',
-            'https://cloudflare-ipfs.com/ipfs/'
-        ];
-        var snap = null;
-        for (var g = 0; g < gateways.length; g++) {
-            try {
-                var res = await fetch(gateways[g] + cid + '/VNGRD/session.json');
-                if (res.ok) { snap = await res.json(); break; }
-            } catch(e) { continue; }
-        }
-        if (snap) {
-            var savedDate = new Date(snap.timestamp || ipfsMeta.timestamp).toLocaleString();
-            var msg = (silent ? 'IPFS session found' : 'IPFS session') +
-                ' for ' + address.slice(0,6) + '...' + address.slice(-4) +
-                '\nSaved: ' + savedDate + '\nCID: ' + cid.slice(0, 12) + '\u2026\n\nRestore it?';
-            if (!confirm(msg)) { log('WALLET_LOAD: USER_DECLINED'); return; }
-            try {
-                _applySessionSnapshot(snap);
-                log('WALLET_LOAD: IPFS_SESSION_RESTORED from ' + savedDate);
-                if (!silent) alert('IPFS Session restored!\nSaved: ' + savedDate);
-            } catch(e) { log('WALLET_LOAD: APPLY_ERR ' + e.message); }
-            return;
-        }
-        log('WALLET_LOAD: IPFS_FETCH_FAILED \u2014 falling back to localStorage');
-    }
-
-    // ── 4. Fallback: localStorage ──
-    if (!localSession) {
-        log('WALLET_LOAD: NO_SESSION_FOUND');
+    if (!raw) {
+        log('LOCAL_LOAD: NO_SESSION_FOUND');
         if (!silent) alert('No saved session found for this wallet.');
         return;
     }
 
-    var savedDate = localSession.timestamp ? new Date(localSession.timestamp).toLocaleString() : 'unknown date';
-    var msg2 = silent
+    var s;
+    try { s = JSON.parse(raw); } catch(e) { log('LOCAL_LOAD: PARSE_ERR'); return; }
+
+    var savedDate = s.timestamp ? new Date(s.timestamp).toLocaleString() : 'unknown date';
+    var prompt = silent
         ? ('Previous session found for this wallet (' + address.slice(0,6) + '...' + address.slice(-4) + ')\nSaved: ' + savedDate + '\n\nRestore it?')
         : ('Local session for ' + address.slice(0,6) + '...' + address.slice(-4) + '\nSaved: ' + savedDate + '\n\nLoad this session?');
 
-    if (!confirm(msg2)) { log('WALLET_LOAD: USER_DECLINED'); return; }
+    if (!confirm(prompt)) { log('LOCAL_LOAD: USER_DECLINED'); return; }
 
     try {
-        _applySessionSnapshot(localSession);
-        log('WALLET_LOAD: LOCAL_SESSION_RESTORED from ' + savedDate);
-        if (!silent) alert('Session restored!\nSaved: ' + savedDate);
+        _applySessionSnapshot(s);
+        log('LOCAL_LOAD: SESSION_RESTORED from ' + savedDate);
+        alert('Session restored!\nSaved: ' + savedDate);
     } catch(e) {
-        log('WALLET_LOAD: APPLY_ERR ' + e.message);
+        log('LOCAL_LOAD: APPLY_ERR ' + e.message);
         alert('Failed to apply session: ' + e.message);
     }
 };
@@ -13080,32 +12825,30 @@ async function importFromIPFS(cid) {
     }
 
     // 3. Load media files from IPFS → APP.media.queue
-    // Stream directly from gateway URL — never download the full file first.
-    // Downloading large mp4/webm blobs causes timeouts and kills the import.
     if (snap.media && snap.media.length) {
         for (var i = 0; i < snap.media.length; i++) {
             var m = snap.media[i];
             if (!m.cid) continue;
             try {
-                var url  = gateway + m.cid;
+                var resp = await fetch(gateway + m.cid);
+                var blob = await resp.blob();
+                var url  = URL.createObjectURL(blob);
                 var item = { type: m.type, url: url, element: null, name: m.name };
 
                 if (m.type === 'video') {
                     var vid = document.createElement('video');
-                    vid.src = url; vid.muted = true; vid.loop = true; vid.playsInline = true;
-                    vid.preload = 'metadata'; vid.crossOrigin = 'anonymous';
+                    vid.src = url; vid.muted = true; vid.loop = true; vid.playsInline = true; vid.preload = 'auto';
                     item.element = vid;
                     if ($('media-container')) $('media-container').appendChild(vid);
                 } else {
                     var img = new Image();
-                    img.crossOrigin = 'anonymous';
                     img.src = url;
                     item.element = img;
                 }
                 APP.media.queue.push(item);
-                log('IPFS: LOADED_MEDIA ' + (i + 1) + '/' + snap.media.length + ' ' + (m.name || m.cid.slice(0,8)));
+                log('IPFS: LOADED_MEDIA ' + (i + 1) + '/' + snap.media.length + ' ' + m.name);
             } catch(e) {
-                log('IPFS: MEDIA_ERR ' + (m.name || i) + ' \u2014 ' + e.message);
+                log('IPFS: MEDIA_ERR ' + m.name + ' \u2014 ' + e.message);
             }
         }
         // Show first media item
@@ -13118,16 +12861,17 @@ async function importFromIPFS(cid) {
     }
 
     // 4. Load audio tracks from IPFS → APP.audio.playlist
-    // Same approach: point the playlist URL directly at the gateway — no full download.
     if (snap.audioTracks && snap.audioTracks.length) {
         for (var i = 0; i < snap.audioTracks.length; i++) {
             var t = snap.audioTracks[i];
             if (!t.cid) continue;
             try {
-                APP.audio.playlist.push({ url: gateway + t.cid, name: t.name });
-                log('IPFS: LOADED_AUDIO ' + (i + 1) + '/' + snap.audioTracks.length + ' ' + (t.name || t.cid.slice(0,8)));
+                var resp = await fetch(gateway + t.cid);
+                var blob = await resp.blob();
+                APP.audio.playlist.push({ url: URL.createObjectURL(blob), name: t.name });
+                log('IPFS: LOADED_AUDIO ' + (i + 1) + '/' + snap.audioTracks.length + ' ' + t.name);
             } catch(e) {
-                log('IPFS: AUDIO_ERR ' + (t.name || i) + ' \u2014 ' + e.message);
+                log('IPFS: AUDIO_ERR ' + t.name + ' \u2014 ' + e.message);
             }
         }
         var audioDot = $('audio-dot');
@@ -14986,16 +14730,15 @@ document.addEventListener('DOMContentLoaded', () => {
             'voice-lab': {
                 title: 'VOICE_LAB // SYNESTHESIA ENGINE',
                 rows: [
-                    ['SCRIPT',   'Type your narration. Space bar works. Auto-selects the best available voice (Google TTS in Chrome, Daniel/Samantha on Safari/macOS).'],
-                    ['CLEAN',    'Pure voice, zero FX — best for audiobooks. No Tone.js processing. The voice is all you hear.'],
-                    ['CYBER',    'Subtle bandpass tick + stereo ping-pong shimmer on each word. Digital, clean, futuristic.'],
-                    ['GHOST',    'Low-frequency sine pulse + long FeedbackDelay tail. Haunting, atmospheric, cinematic.'],
-                    ['MNSTR',    'Sub-bass distorted thump on each word. Dark, powerful, trailer-grade.'],
-                    ['▶ SPEAK',  'Preview the script live. Voice + mood FX play together. Click again (■ STOP) to cancel.'],
-                    ['⏺ RECORD', 'Speaks the script while simultaneously recording the Tone.js FX stems to a WebM/Opus file. Saves to Puter.fs and AUDIO_ENGINE. Tip: use a screen recorder (OBS) to capture the full voice+FX mix.'],
-                    ['⚡',       'Fire a single glitch burst to audition the current mood FX chain.']
+                    ['SCRIPT',  'Type narration in any language. Language is auto-detected on each SPEAK — the best matching OS voice is selected silently.'],
+                    ['CLEAN',   'Pure voice, no FX. Natural pacing (rate 0.86). Best for audiobooks and narration. Chrome picks Google TTS; Safari picks Daniel/Samantha.'],
+                    ['CYBER',   'Slightly faster, higher pitch (rate 0.91, pitch 1.18). Narrow bandpass tick + stereo PingPong shimmer on each word. Futuristic.'],
+                    ['GHOST',   'Slow and haunting (rate 0.72, pitch 0.72). Low-frequency pulse + long FeedbackDelay echo tail. Atmospheric, cinematic.'],
+                    ['MNSTR',   'Very slow, very deep (rate 0.65, pitch 0.45). Distorted sub-bass thump on each word. Dark, powerful, trailer-grade.'],
+                    ['▶ SPEAK', 'Speaks the script. Click again (■ STOP) to cancel. Language auto-detected — correct pronunciation per language.'],
+                    ['⚡',      'Test glitch burst at current mood settings. Works in all modes including CLEAN.']
                 ],
-                footer: 'VNGRD // VOICE_LAB · SYNESTHESIA v2 · 100% CLIENT-SIDE'
+                footer: 'VNGRD // VOICE_LAB · SYNESTHESIA v2.2 · AUTO-LANG · ZERO-API'
             },
             'audio-engine': {
                 title: 'AUDIO_ENGINE',

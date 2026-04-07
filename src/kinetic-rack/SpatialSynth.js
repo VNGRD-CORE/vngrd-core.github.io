@@ -222,8 +222,9 @@ export class SpatialSynth {
 
         const ctx = this._ae?.ctx;
 
-        // ── Gate: left hand open/close ────────────────────────────────────────
-        const targetGate = leftVisible ? 0.75 : 0;
+        // ── Gate: left hand modulates volume (never hard-silences) ───────────
+        // 0.3 base so the synth is always audible; left hand opens it fully.
+        const targetGate = leftVisible ? 0.75 : 0.3;
         if (ctx && this._masterGain) {
             this._masterGain.gain.setTargetAtTime(
                 targetGate,
