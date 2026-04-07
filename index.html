@@ -1333,7 +1333,7 @@
             border: 1px solid rgba(255,255,255,0.08);
             padding: 2px 5px;
         }
-        #sfx-pad-grid { display: grid; grid-template-columns: repeat(4, 1fr); column-gap: 4px; row-gap: 20px; padding: 4px 2px 4px; }
+        #sfx-pad-grid { display: grid; grid-template-columns: repeat(4, 1fr); column-gap: 4px; row-gap: 5px; padding: 2px 2px 2px; }
         .sfx-bank-block { display: contents; }
         .sfx-bank-label {
             grid-column: 1 / -1;
@@ -1342,7 +1342,7 @@
             font-family: 'Orbitron', sans-serif;
             color: rgba(255,255,255,0.2);
             text-transform: uppercase;
-            padding: 5px 0 3px;
+            padding: 2px 0 1px;
             border-top: 1px solid rgba(255,255,255,0.05);
         }
         .sfx-bank-label:first-child { border-top: none; padding-top: 0; }
@@ -1352,7 +1352,7 @@
         .sfx-pad {
             font-size: 7px !important;
             padding: 0 !important;
-            height: 44px;
+            height: 26px;
             letter-spacing: 0.04em;
             text-align: center;
             min-width: 0;
@@ -1361,7 +1361,7 @@
             flex-direction: column !important;
             align-items: center !important;
             justify-content: center !important;
-            gap: 1px;
+            gap: 0px;
             position: relative;
             overflow: visible;
             border-radius: 3px;
@@ -1399,9 +1399,9 @@
         .sfx-pad::before {
             content: attr(data-pad-num);
             position: absolute;
-            top: 5px;
-            left: 7px;
-            font-size: 5.5px;
+            top: 3px;
+            left: 5px;
+            font-size: 5px;
             font-family: 'Orbitron', sans-serif;
             opacity: 0.22;
             letter-spacing: 0;
@@ -1412,10 +1412,10 @@
         /* ── PAD CONTENT LAYOUT ── */
         .sfx-pad .pad-id   { display: none; }
         .sfx-pad .pad-name {
-            font-size: 7px; font-weight: 900; letter-spacing: 0.02em; line-height: 1;
+            font-size: 6.5px; font-weight: 900; letter-spacing: 0.02em; line-height: 1;
             font-family: 'Orbitron', sans-serif;
             overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
-            max-width: 100%; padding: 0 8px; box-sizing: border-box;
+            max-width: 100%; padding: 0 6px; box-sizing: border-box;
         }
         /* Hover: slide the name left to reveal full text */
         @keyframes pad-name-slide {
@@ -2038,6 +2038,60 @@
             overflow: auto;
             box-shadow: 0 4px 20px rgba(0,0,0,0.8), inset 0 1px 0 rgba(255,200,0,0.06);
         }
+
+        /* ── SLICER DROP ZONE ── */
+        #ht-slicer-bar {
+            display: flex;
+            align-items: center;
+            gap: 4px;
+            padding: 4px 6px;
+            border-top: 1px solid rgba(100,60,255,0.18);
+        }
+        #ht-slicer-drop {
+            flex: 1;
+            font-size: 6px;
+            font-family: 'Orbitron', sans-serif;
+            letter-spacing: 1.5px;
+            text-transform: uppercase;
+            color: rgba(100,60,255,0.55);
+            border: 1px dashed rgba(100,60,255,0.28);
+            border-radius: 3px;
+            padding: 4px 6px;
+            text-align: center;
+            cursor: pointer;
+            transition: border-color 0.15s, color 0.15s, background 0.15s;
+        }
+        #ht-slicer-drop.ht-drag-over,
+        #ht-slicer-drop:hover {
+            border-color: rgba(100,60,255,0.7);
+            color: rgba(100,60,255,1.0);
+            background: rgba(100,60,255,0.06);
+        }
+        #ht-slicer-drop.ht-loaded {
+            border-color: rgba(100,60,255,0.6);
+            color: rgba(100,60,255,0.9);
+            border-style: solid;
+        }
+        #ht-slice-wave {
+            display: none;
+            height: 24px;
+            width: 110px;
+            border-radius: 2px;
+            background: rgba(100,60,255,0.05);
+            border: 1px solid rgba(100,60,255,0.2);
+        }
+        #ht-slice-wave.visible { display: block; }
+        #ht-slicer-clear {
+            font-size: 8px;
+            background: none;
+            border: 1px solid rgba(255,60,60,0.3);
+            color: rgba(255,60,60,0.6);
+            border-radius: 2px;
+            padding: 3px 5px;
+            cursor: pointer;
+            font-family: 'Orbitron', sans-serif;
+        }
+        #ht-slicer-clear:hover { border-color: rgba(255,60,60,0.8); color: rgba(255,60,60,1.0); }
         #gb-seq-panel.visible { display: flex; }
 
         /* Mini floating state — transport header only, bottom-right corner */
@@ -5050,13 +5104,13 @@ body.fullscreen #transcription-hud { pointer-events: none !important; } /* keep 
 
                     <!-- Kit selector (performance mode) -->
                     <select id="liq-lib-select">
-                        <option value="0">▶ IMPACT CORE — Brutal Cinematic</option>
-                        <option value="1">▶ ATMOSPHERIC — Deep Ambient</option>
-                        <option value="2">▶ INDUSTRIAL — Mechanical</option>
-                        <option value="3">▶ 909 TECHNO — Drum Machine</option>
-                        <option value="4">▶ IDM BRKCORE — Hyper Transient</option>
-                        <option value="5">▶ GLITCH CORE — Digital Artifacts</option>
-                        <option value="6">▶ VOID MACHINES — Dark Experimental</option>
+                        <option value="0">▶ VOID DRIFT — Ethereal Drones</option>
+                        <option value="1">▶ DARK ETHER — Cinematic Tension</option>
+                        <option value="2">▶ SPECTRAL — Crystalline Shimmer</option>
+                        <option value="3">▶ GLITCH OPS — Digital Texture</option>
+                        <option value="4">▶ CASSETTE NOIR — Lo-Fi Warped</option>
+                        <option value="5">▶ NEURAL STATIC — Noise Textures</option>
+                        <option value="6">▶ DEEP FIELD — Cosmic Sub Bass</option>
                     </select>
 
                     <!-- GROOVEBOX sequencer panel (replaces custom+liquid in GROOVEBOX mode) -->
@@ -5066,18 +5120,29 @@ body.fullscreen #transcription-hud { pointer-events: none !important; } /* keep 
                             <span class="gb-bpm-lbl">BPM</span>
                             <input type="number" id="gb-bpm" value="120" min="40" max="240">
                             <select id="gb-kit-select">
-                                <option value="0">IMPACT CORE</option>
-                                <option value="1">ATMOSPHERIC</option>
-                                <option value="2">INDUSTRIAL</option>
-                                <option value="3">909 TECHNO</option>
-                                <option value="4">IDM BRKCORE</option>
-                                <option value="5">GLITCH CORE</option>
-                                <option value="6">VOID MACHINES</option>
+                                <option value="0">VOID DRIFT</option>
+                                <option value="1">DARK ETHER</option>
+                                <option value="2">SPECTRAL</option>
+                                <option value="3">GLITCH OPS</option>
+                                <option value="4">CASSETTE NOIR</option>
+                                <option value="5">NEURAL STATIC</option>
+                                <option value="6">DEEP FIELD</option>
                             </select>
                             <button id="gb-transport-btn" onclick="_toggleGrooveboxTransport()">&#x25B6; PLAY</button>
                             <button id="gb-expand-btn" onclick="_toggleSeqExpand()" title="Pop out sequencer">POP</button>
                         </div>
                         <div id="gb-seq-grid"></div>
+                        <!-- Renoise-style sample slicer drop zone -->
+                        <div id="ht-slicer-bar">
+                            <div id="ht-slicer-drop"
+                                ondragover="event.preventDefault();this.classList.add('ht-drag-over')"
+                                ondragleave="this.classList.remove('ht-drag-over')"
+                                ondrop="_htDropSample(event)">
+                                DROP WAV / MP3 → SLICE
+                            </div>
+                            <canvas id="ht-slice-wave"></canvas>
+                            <button id="ht-slicer-clear" onclick="_htClearSlicer()" title="Clear sample — revert to synth kits" style="display:none">✕</button>
+                        </div>
                     </div>
 
                     <!-- Hidden file inputs for custom pad uploads -->
@@ -10733,54 +10798,54 @@ function _vjHeavySync() {
 //  Heavy, dissonant, cinematic FX. All synthesized client-side.
 // ═══════════════════════════════════════════════════════════════
 var VANGUARD_LIQUID_LIB = [
-    // Kit 0: IMPACT CORE — deep cinematic single hits, long natural tails
-    { name: 'IMPACT CORE', rate: 1.0, pads: [
-        { label: 'KICK',     p: { mode:'sweep',   oscType:'sine',     freq:160, freqEnd:28, sub:48, dist:0.06, atk:0.001, dec:0.60, sus:0.0,   dur:1.50 } },
-        { label: 'CLAP',     p: { mode:'noise',   filter:'bandpass',  filterFreq:1000, filterQ:1.0, dist:0.08, atk:0.001, dec:0.28, sus:0.001, dur:0.60 } },
-        { label: 'RUMBLE',   p: { mode:'noise',   filter:'lowpass',   filterFreq:160,  filterQ:0.4,            atk:0.05,  dec:2.8,  sus:0.06,  dur:5.00 } },
-        { label: 'SLAM',     p: { mode:'metal',   freq:200, freqEnd:55, ring:850,                              atk:0.001, dec:0.55, sus:0.004, dur:1.60 } }
+    // Kit 0: VOID DRIFT — long ethereal drones, deep slow evolving textures
+    { name: 'VOID DRIFT', rate: 1.0, pads: [
+        { label: 'ABYSS',    p: { mode:'noise',   filter:'lowpass',   filterFreq:85,   filterQ:6.5,            atk:2.50,  dec:9.0,  sus:0.42,  dur:15.0 } },
+        { label: 'PULSE',    p: { mode:'am',      freq:28,  lfoRate:0.18,                                      atk:1.80,  dec:8.0,  sus:0.38,  dur:13.0 } },
+        { label: 'RIFT',     p: { mode:'resonant',freq:52,  freqEnd:18, res:26,                                atk:1.20,  dec:9.5,  sus:0.22,  dur:14.0 } },
+        { label: 'SIGNAL',   p: { mode:'sweep',   oscType:'sine',     freq:48, freqEnd:38, sub:32,             atk:1.50,  dec:7.0,  sus:0.28,  dur:12.0 } }
     ]},
-    // Kit 1: ATMOSPHERIC — long ambient textures, slow evolving, no distortion
-    { name: 'ATMOSPHERIC', rate: 1.0, pads: [
-        { label: 'TIDE',     p: { mode:'noise',   filter:'lowpass',   filterFreq:380,  filterQ:0.3,            atk:1.80,  dec:5.5,  sus:0.22,  dur:10.0 } },
-        { label: 'BELL',     p: { mode:'resonant',freq:72,  freqEnd:65, res:38,                                atk:0.30,  dec:7.0,  sus:0.12,  dur: 9.0 } },
-        { label: 'HAZE',     p: { mode:'am',      freq:92,  lfoRate:0.4,                                       atk:0.90,  dec:5.0,  sus:0.30,  dur: 8.5 } },
-        { label: 'DEEP',     p: { mode:'sweep',   oscType:'sine',     freq:50, freqEnd:42, sub:46,             atk:0.25,  dec:4.5,  sus:0.18,  dur: 7.5 } }
+    // Kit 1: DARK ETHER — cinematic tension drones, weighted with sub pressure
+    { name: 'DARK ETHER', rate: 1.0, pads: [
+        { label: 'IMPACT',   p: { mode:'boom',    sub:38,  filter:'lowpass', filterFreq:190, filterQ:0.9,      atk:0.005, dec:4.0,  sus:0.10,  dur: 7.0 } },
+        { label: 'TENSION',  p: { mode:'noise',   filter:'lowpass',   filterFreq:240,  filterQ:8.5,            atk:2.20,  dec:7.0,  sus:0.28,  dur:11.0 } },
+        { label: 'PRESSURE', p: { mode:'resonant',freq:58,  freqEnd:26, res:20,                                atk:0.20,  dec:5.5,  sus:0.20,  dur: 9.0 } },
+        { label: 'DRONE',    p: { mode:'chord',   oscType:'sawtooth', freqs:[38,57,76], det:14,                atk:1.20,  dec:6.0,  sus:0.32,  dur:10.0 } }
     ]},
-    // Kit 2: INDUSTRIAL — mechanical single hits, long metallic ring, clean
-    { name: 'INDUSTRIAL', rate: 1.0, pads: [
-        { label: 'CLANG',    p: { mode:'metal',   freq:380, freqEnd:120, ring:1620,                            atk:0.001, dec:0.90, sus:0.005, dur:2.20 } },
-        { label: 'RIVET',    p: { mode:'noise',   filter:'bandpass',  filterFreq:1800, filterQ:4.0, dist:0.10, atk:0.001, dec:0.22, sus:0.001, dur:0.45 } },
-        { label: 'PRESS',    p: { mode:'boom',    sub:55,  filter:'lowpass', filterFreq:300, filterQ:0.6,      atk:0.001, dec:1.20, sus:0.04,  dur:2.80 } },
-        { label: 'HISS',     p: { mode:'noise',   filter:'bandpass',  filterFreq:5500, filterQ:0.7, dist:0.04, atk:0.015, dec:0.55, sus:0.02,  dur:1.00 } }
+    // Kit 2: SPECTRAL — crystalline shimmer, bright atmospheric pads
+    { name: 'SPECTRAL', rate: 1.0, pads: [
+        { label: 'CRYSTAL',  p: { mode:'resonant',freq:290, freqEnd:185, res:48,                               atk:0.60,  dec:6.0,  sus:0.18,  dur: 9.0 } },
+        { label: 'SHIMMER',  p: { mode:'chord',   oscType:'sine',     freqs:[220,277,330,440], det:8,          atk:1.40,  dec:6.5,  sus:0.22,  dur:10.0 } },
+        { label: 'PRISM',    p: { mode:'am',      freq:185, lfoRate:3.8,                                       atk:0.80,  dec:5.0,  sus:0.26,  dur: 8.0 } },
+        { label: 'GHOST',    p: { mode:'noise',   filter:'bandpass',  filterFreq:2900, filterQ:14,             atk:1.20,  dec:5.5,  sus:0.12,  dur: 9.0 } }
     ]},
-    // Kit 3: 909 TECHNO — classic Roland 909-style, punchy and musical
-    { name: '909 TECHNO', rate: 1.0, pads: [
-        { label: 'KICK',     p: { mode:'sweep',   oscType:'sine',     freq:200, freqEnd:32, sub:52, dist:0.06, atk:0.001, dec:0.40, sus:0.0,   dur:0.90 } },
-        { label: 'SNARE',    p: { mode:'noise',   filter:'bandpass',  filterFreq:1100, filterQ:1.2, dist:0.10, atk:0.001, dec:0.22, sus:0.001, dur:0.45 } },
-        { label: 'HH-CL',   p: { mode:'noise',   filter:'bandpass',  filterFreq:9000, filterQ:4.5, dist:0.04, atk:0.001, dec:0.025,sus:0.0,   dur:0.06 } },
-        { label: 'HH-OP',   p: { mode:'noise',   filter:'bandpass',  filterFreq:7500, filterQ:2.0, dist:0.04, atk:0.001, dec:0.35, sus:0.002, dur:0.65 } }
+    // Kit 3: GLITCH OPS — modern glitch with sustained digital texture
+    { name: 'GLITCH OPS', rate: 1.0, pads: [
+        { label: 'STUTTER',  p: { mode:'noise',   filter:'bandpass',  filterFreq:3600, filterQ:9,  dist:0.28,  atk:0.001, dec:0.55, sus:0.06,  dur: 1.80 } },
+        { label: 'DATABEND', p: { mode:'sweep',   oscType:'sawtooth', freq:1400, freqEnd:55, dist:0.38,        atk:0.001, dec:1.20, sus:0.008, dur: 2.20 } },
+        { label: 'BYTE',     p: { mode:'chord',   oscType:'square',   freqs:[880,1100,1320], det:25, dist:0.30, atk:0.002, dec:1.00, sus:0.02, dur: 2.00 } },
+        { label: 'REWIND',   p: { mode:'sweep',   oscType:'sawtooth', freq:40,  freqEnd:1200, dist:0.22,       atk:0.001, dec:0.80, sus:0.003, dur: 1.60 } }
     ]},
-    // Kit 4: IDM BRKCORE — precise, short, hyper-transient single hits
-    { name: 'IDM BRKCORE', rate: 1.0, pads: [
-        { label: 'CLICK',    p: { mode:'noise',   filter:'bandpass',  filterFreq:5000, filterQ:6.0,            atk:0.001, dec:0.035,sus:0.0,   dur:0.08 } },
-        { label: 'BURST',    p: { mode:'cluster', oscType:'sawtooth', freqs:[87,130,174], dist:0.22,           atk:0.001, dec:0.15, sus:0.001, dur:0.32 } },
-        { label: 'SHIFT',    p: { mode:'sweep',   oscType:'square',   freq:440, freqEnd:88, dist:0.20,         atk:0.001, dec:0.12, sus:0.001, dur:0.26 } },
-        { label: 'FLAM',     p: { mode:'metal',   freq:280, freqEnd:140, ring:1120, dist:0.08,                 atk:0.001, dec:0.20, sus:0.002, dur:0.45 } }
+    // Kit 4: CASSETTE NOIR — lo-fi warped atmospheric pads, tape-saturated
+    { name: 'CASSETTE NOIR', rate: 1.0, pads: [
+        { label: 'DRIFT',    p: { mode:'am',      freq:62,  lfoRate:0.22, dist:0.04,                           atk:2.20,  dec:7.0,  sus:0.30,  dur:11.0 } },
+        { label: 'GHOST',    p: { mode:'noise',   filter:'lowpass',   filterFreq:420,  filterQ:3.5, dist:0.07, atk:1.80,  dec:6.0,  sus:0.26,  dur: 9.5 } },
+        { label: 'WARP',     p: { mode:'chord',   oscType:'sine',     freqs:[55,82,110], det:20,               atk:1.00,  dec:5.5,  sus:0.24,  dur: 8.5 } },
+        { label: 'TAPE',     p: { mode:'resonant',freq:80,  freqEnd:52, res:14, dist:0.04,                     atk:1.20,  dec:6.0,  sus:0.22,  dur: 9.0 } }
     ]},
-    // Kit 5: GLITCH CORE — digital artifacts, bit noise, sharp single hits
-    { name: 'GLITCH CORE', rate: 1.0, pads: [
-        { label: 'DATABEND', p: { mode:'noise',   filter:'bandpass',  filterFreq:3000, filterQ:7.0, dist:0.35, atk:0.001, dec:0.14, sus:0.001, dur:0.28 } },
-        { label: 'SKIP',     p: { mode:'metal',   freq:520, freqEnd:260, ring:2080, dist:0.15,                 atk:0.001, dec:0.10, sus:0.001, dur:0.22 } },
-        { label: 'ZAP',      p: { mode:'sweep',   oscType:'sawtooth', freq:1600, freqEnd:80, dist:0.28,        atk:0.001, dec:0.12, sus:0.0,   dur:0.25 } },
-        { label: 'CRUNCH',   p: { mode:'noise',   filter:'bandpass',  filterFreq:900,  filterQ:4.5, dist:0.35, atk:0.001, dec:0.18, sus:0.001, dur:0.35 } }
+    // Kit 5: NEURAL STATIC — digital noise with sustained tail, glitch textures
+    { name: 'NEURAL STATIC', rate: 1.0, pads: [
+        { label: 'CORRUPT',  p: { mode:'noise',   filter:'bandpass',  filterFreq:1900, filterQ:10, dist:0.32,  atk:0.008, dec:1.50, sus:0.08,  dur: 3.50 } },
+        { label: 'ENCODE',   p: { mode:'metal',   freq:640, freqEnd:290, ring:2560, dist:0.22,                 atk:0.001, dec:1.80, sus:0.006, dur: 3.80 } },
+        { label: 'PHASE',    p: { mode:'am',      freq:440, lfoRate:9.0, dist:0.18,                            atk:0.015, dec:1.20, sus:0.10,  dur: 3.00 } },
+        { label: 'MASK',     p: { mode:'chord',   oscType:'sawtooth', freqs:[440,660,880], det:32, dist:0.26,  atk:0.005, dec:1.40, sus:0.04,  dur: 3.20 } }
     ]},
-    // Kit 6: VOID MACHINES — dark, long evolving, experimental
-    { name: 'VOID MACHINES', rate: 1.0, pads: [
-        { label: 'SINGULAR', p: { mode:'resonant',freq:95,  freqEnd:22, res:24,                                atk:0.06,  dec:2.50, sus:0.12,  dur:5.50 } },
-        { label: 'WORMHOLE', p: { mode:'sweep',   oscType:'sawtooth', freq:440, freqEnd:14, dist:0.22,         atk:0.007, dec:2.80, sus:0.025, dur:4.50 } },
-        { label: 'EROSION',  p: { mode:'noise',   filter:'lowpass',   filterFreq:220,  filterQ:9,  dist:0.18,  atk:0.003, dec:1.10, sus:0.08,  dur:3.00 } },
-        { label: 'PULSE',    p: { mode:'am',      freq:52,  lfoRate:6, dist:0.10,                              atk:0.01,  dec:0.95, sus:0.22,  dur:3.20 } }
+    // Kit 6: DEEP FIELD — sub-bass cosmic, massive low-end evolving pressure
+    { name: 'DEEP FIELD', rate: 1.0, pads: [
+        { label: 'EVENT',    p: { mode:'boom',    sub:26,  filter:'lowpass', filterFreq:55,  filterQ:0.5,      atk:0.008, dec:5.0,  sus:0.14,  dur: 9.0 } },
+        { label: 'HORIZON',  p: { mode:'resonant',freq:30,  freqEnd:10, res:30,                                atk:0.50,  dec:6.5,  sus:0.18,  dur:11.0 } },
+        { label: 'GRAVITY',  p: { mode:'sweep',   oscType:'sine',     freq:38, freqEnd:16, sub:22,             atk:0.80,  dec:6.0,  sus:0.22,  dur:10.0 } },
+        { label: 'MATTER',   p: { mode:'am',      freq:22,  lfoRate:0.07,                                      atk:2.50,  dec:8.0,  sus:0.32,  dur:13.0 } }
     ]}
 ];
 
@@ -10880,6 +10945,24 @@ function _synthCinematicBuf(p) {
                 if (p.det) cO.detune.value = (fi % 2 === 0 ? 1 : -1) * p.det * 0.4;
                 var cG = oct.createGain(); cG.gain.value = 0.9 / freqs.length;
                 cO.connect(cG); cG.connect(out); cO.start(0); cO.stop(dur);
+            });
+        }
+
+        // ── CHORD: detuned oscillator cluster — lush evolving pad ──
+        if (mode === 'chord') {
+            var chFreqs = p.freqs || [p.freq || 80];
+            var chDet = p.det || 8; // detune in cents
+            chFreqs.forEach(function(f) {
+                [-1, 0, 1].forEach(function(d) {
+                    var chO = oct.createOscillator();
+                    chO.type = p.oscType || 'sine';
+                    chO.frequency.value = f;
+                    chO.detune.value = d * chDet;
+                    var chG = oct.createGain();
+                    chG.gain.value = 0.28 / chFreqs.length;
+                    chO.connect(chG); chG.connect(out);
+                    chO.start(0); chO.stop(dur);
+                });
             });
         }
 
@@ -11143,13 +11226,120 @@ var _htScheduler = new Scheduler();
 //  exponential ramp-out via a dedicated GainNode — eliminates
 //  DC-offset clicks at any BPM including 200+.
 // ─────────────────────────────────────────────────────────────
+// ─────────────────────────────────────────────────────────────
+//  SAMPLE SLICER — Renoise-style drag-and-drop WAV/MP3 slicer
+//  Drop any audio file onto #ht-slicer-drop while in SEQ mode.
+//  The buffer is divided into 16 equal slices (0-15).
+//  Cell's slice wheel (0-15) selects the playback start point.
+//  All 4 tracker rows share the same dropped buffer.
+// ─────────────────────────────────────────────────────────────
+var _htSlicerBuffer = null;   // AudioBuffer from dropped file
+var _htSlicerMode   = false;  // true → use slicer buf in playSample
+
+function _htDropSample(e) {
+    e.preventDefault();
+    var dropEl = document.getElementById('ht-slicer-drop');
+    if (dropEl) dropEl.classList.remove('ht-drag-over');
+    var file = e.dataTransfer && e.dataTransfer.files && e.dataTransfer.files[0];
+    if (!file || !file.type.match(/^audio\//)) return;
+    if (!APP.audio.ctx) igniteAudio();
+    if (APP.audio.ctx.state === 'suspended') APP.audio.ctx.resume();
+    var reader = new FileReader();
+    reader.onload = function(ev) {
+        APP.audio.ctx.decodeAudioData(ev.target.result.slice(0), function(buf) {
+            _htSlicerBuffer = buf;
+            _htSlicerMode   = true;
+            // Label
+            var name = file.name.length > 22 ? file.name.substring(0, 22) + '…' : file.name;
+            if (dropEl) { dropEl.textContent = '✔ ' + name; dropEl.classList.add('ht-loaded'); }
+            // Show clear btn
+            var clrBtn = document.getElementById('ht-slicer-clear');
+            if (clrBtn) clrBtn.style.display = '';
+            // Draw waveform
+            _htDrawSlicerWave(buf);
+        }, function() {
+            if (dropEl) dropEl.textContent = '✘ DECODE ERROR — TRY ANOTHER FILE';
+        });
+    };
+    reader.readAsArrayBuffer(file);
+}
+
+function _htClearSlicer() {
+    _htSlicerBuffer = null;
+    _htSlicerMode   = false;
+    var dropEl = document.getElementById('ht-slicer-drop');
+    if (dropEl) { dropEl.textContent = 'DROP WAV / MP3 → SLICE'; dropEl.classList.remove('ht-loaded'); }
+    var canvas = document.getElementById('ht-slice-wave');
+    if (canvas) { canvas.classList.remove('visible'); var ctx2 = canvas.getContext('2d'); ctx2.clearRect(0,0,canvas.width,canvas.height); }
+    var clrBtn = document.getElementById('ht-slicer-clear');
+    if (clrBtn) clrBtn.style.display = 'none';
+}
+
+function _htDrawSlicerWave(buf) {
+    var canvas = document.getElementById('ht-slice-wave');
+    if (!canvas) return;
+    canvas.classList.add('visible');
+    // Defer until element has layout width
+    requestAnimationFrame(function() {
+        var W = canvas.offsetWidth || 110;
+        var H = 24;
+        canvas.width  = W;
+        canvas.height = H;
+        var ctx2 = canvas.getContext('2d');
+        ctx2.clearRect(0, 0, W, H);
+        var data = buf.getChannelData(0);
+        var step = Math.max(1, Math.floor(data.length / W));
+        // Waveform fill
+        ctx2.fillStyle = 'rgba(100,60,255,0.15)';
+        ctx2.fillRect(0, 0, W, H);
+        // Waveform peaks
+        ctx2.strokeStyle = 'rgba(130,90,255,0.85)';
+        ctx2.lineWidth = 1;
+        ctx2.beginPath();
+        for (var x = 0; x < W; x++) {
+            var peak = 0;
+            var base = x * step;
+            for (var j = 0; j < step && (base + j) < data.length; j++) {
+                var s = Math.abs(data[base + j]);
+                if (s > peak) peak = s;
+            }
+            var y = (H / 2) - peak * (H / 2) * 0.9;
+            if (x === 0) ctx2.moveTo(x, H / 2); else ctx2.lineTo(x, y);
+        }
+        ctx2.stroke();
+        // Mirror bottom
+        ctx2.beginPath();
+        for (var x = 0; x < W; x++) {
+            var peak = 0;
+            var base = x * step;
+            for (var j = 0; j < step && (base + j) < data.length; j++) {
+                var s = Math.abs(data[base + j]);
+                if (s > peak) peak = s;
+            }
+            var y = (H / 2) + peak * (H / 2) * 0.9;
+            if (x === 0) ctx2.moveTo(x, H / 2); else ctx2.lineTo(x, y);
+        }
+        ctx2.stroke();
+        // 16 slice marker lines
+        ctx2.strokeStyle = 'rgba(180,130,255,0.50)';
+        ctx2.lineWidth = 0.5;
+        for (var i = 1; i < 16; i++) {
+            var mx = Math.floor(W * i / 16);
+            ctx2.beginPath(); ctx2.moveTo(mx, 0); ctx2.lineTo(mx, H); ctx2.stroke();
+        }
+    });
+}
+
 function playSample(key, time, slice, ratchet, stepDur) {
     if (!APP.audio.ctx) return;
     var ctx = APP.audio.ctx;
 
     // ── Resolve AudioBuffer promise ──────────────────────────
     var bufPromise;
-    if (key && key.startsWith('liq')) {
+    // Slicer mode: all rows use the dropped sample buffer
+    if (_htSlicerMode && _htSlicerBuffer) {
+        bufPromise = Promise.resolve(_htSlicerBuffer);
+    } else if (key && key.startsWith('liq')) {
         var padIdx = parseInt(key.replace('liq', ''), 10) - 1;
         bufPromise = _getLiqBuf(_liqCurrentPack, padIdx);
     } else {
