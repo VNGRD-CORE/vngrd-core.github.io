@@ -4646,8 +4646,6 @@ body.fullscreen #transcription-hud { pointer-events: none !important; } /* keep 
                     <button class="btn btn-compact" id="btn-play-pause"><svg width="10" height="10" viewBox="0 0 12 12" id="icon-play-state"><path fill="currentColor" d="M3 2v8l7-4z"/></svg></button>
                     <button class="btn btn-compact" id="btn-next-track"><svg width="10" height="10" viewBox="0 0 12 12"><path fill="currentColor" d="M2 10l6-4-6-4v8zm6-8v8h2V2H8z"/></svg></button>
                 </div>
-                <div class="sec-divider"></div>
-                <div class="lbl" style="font-size:6.5px;opacity:0.4;letter-spacing:2px;margin-bottom:4px;">INPUT</div>
                 <button class="btn" id="btn-scan-inputs" style="font-size:8px;">SCAN_INPUTS</button>
                 <select class="inp" id="audio-input-select" style="width:100%;font-size:9px;padding:5px;background:var(--panel);border:1px solid var(--border);color:var(--text);display:none;margin-top:4px;">
                     <option value="">SELECT_DEVICE...</option>
@@ -4656,12 +4654,13 @@ body.fullscreen #transcription-hud { pointer-events: none !important; } /* keep 
                     <div id="input-level-bar" style="height:100%;width:0%;background:var(--g);transition:width 0.05s;"></div>
                 </div>
                 <div class="sec-divider"></div>
-                <div class="lbl" style="font-size:6.5px;opacity:0.4;letter-spacing:2px;margin-bottom:4px;">ENGINEER_MODE</div>
+                <div class="lbl" style="font-size:6.5px;opacity:0.4;letter-spacing:2px;margin-bottom:4px;">INPUT</div>
                 <div class="btn-grid-3">
                     <button class="btn active-mode" id="btn-stereo">STEREO</button>
-                    <button class="btn" id="btn-spatial">3D_SPATIAL</button>
-                    <button class="btn" id="btn-dolby" style="color:#00f3ff">DOLBY</button>
+                    <button class="btn" id="btn-spatial" style="color:#b000ff;border-color:rgba(176,0,255,0.4);">3D_SPATIAL</button>
+                    <button class="btn" id="btn-dolby" style="color:#ffaa00;border-color:rgba(255,170,0,0.4);">DOLBY</button>
                 </div>
+                <div class="lbl" style="font-size:6.5px;opacity:0.4;letter-spacing:2px;margin-top:6px;">ENGINEER_MODE</div>
             </div>
         </div>
 

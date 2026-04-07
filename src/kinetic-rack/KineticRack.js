@@ -6,7 +6,7 @@
  * No NeuralComposer.js.
  */
 
-/* global THREE — loaded via <script src="three.min.js"> in index.html */
+import * as THREE from 'three';
 // ─────────────────────────────────────────────────────────────────────────────
 //  GLSL Shaders
 // ─────────────────────────────────────────────────────────────────────────────
