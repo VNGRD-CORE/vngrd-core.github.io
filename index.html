@@ -5176,31 +5176,14 @@ body.fullscreen #transcription-hud { pointer-events: none !important; } /* keep 
 
                 <!-- Mode (4 cols) -->
                 <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:3px;margin-bottom:5px;">
-                    <button id="sve-mood-clean"   class="sve-mood-btn" title="EL:Rachel / OAI:nova — warm, cinematic"
+                    <button id="sve-mood-clean"   class="sve-mood-btn" title="Pure voice, no FX — best for audiobooks"
                         onclick="window.SVE&&SVE.init().then(()=>SVE.setMood('CLEAN'))">CLEAN</button>
-                    <button id="sve-mood-cyber"   class="sve-mood-btn active-mode" title="EL:Josh / OAI:echo — crisp, digital"
+                    <button id="sve-mood-cyber"   class="sve-mood-btn active-mode" title="Digital tick, ping-pong shimmer"
                         onclick="window.SVE&&SVE.init().then(()=>SVE.setMood('CYBER'))">CYBER</button>
-                    <button id="sve-mood-ghost"   class="sve-mood-btn" title="EL:Antoni / OAI:shimmer — haunting, spaced"
+                    <button id="sve-mood-ghost"   class="sve-mood-btn" title="Low-freq pulse, long echo tail"
                         onclick="window.SVE&&SVE.init().then(()=>SVE.setMood('GHOST'))">GHOST</button>
-                    <button id="sve-mood-monster" class="sve-mood-btn" title="EL:Arnold / OAI:onyx — deep, saturated"
+                    <button id="sve-mood-monster" class="sve-mood-btn" title="Sub-bass thump, heavy distortion"
                         onclick="window.SVE&&SVE.init().then(()=>SVE.setMood('MONSTER'))">MNSTR</button>
-                </div>
-
-                <!-- API Keys (cascade: ElevenLabs → OpenAI → browser fallback) -->
-                <div style="display:grid;grid-template-columns:24px 1fr 28px;gap:2px 3px;margin-bottom:5px;align-items:center;">
-                    <span style="font-size:7px;color:rgba(0,243,255,0.55);letter-spacing:0.5px;text-align:right;">EL</span>
-                    <input type="password" id="sve-el-key" class="inp"
-                        placeholder="ElevenLabs key(s), comma-sep for rotation"
-                        onkeydown="event.stopPropagation()" onkeyup="event.stopPropagation()"
-                        style="font-size:7px;padding:2px 5px;height:17px;line-height:1;">
-                    <button class="btn" style="font-size:7px;padding:0;height:17px;letter-spacing:0.5px;"
-                        onclick="window.SVE&&SVE._saveKeys()" title="Save API keys">SET</button>
-                    <span style="font-size:7px;color:rgba(0,243,255,0.55);letter-spacing:0.5px;text-align:right;">OAI</span>
-                    <input type="password" id="sve-oai-key" class="inp"
-                        placeholder="OpenAI API key (tts-1-hd)"
-                        onkeydown="event.stopPropagation()" onkeyup="event.stopPropagation()"
-                        style="font-size:7px;padding:2px 5px;height:17px;line-height:1;">
-                    <span></span>
                 </div>
 
                 <!-- Controls -->
@@ -14726,18 +14709,17 @@ document.addEventListener('DOMContentLoaded', () => {
                 footer: 'VNGRD // REACTIVITY · VISUAL FX ENGINE'
             },
             'voice-lab': {
-                title: 'VOICE_LAB // SYNESTHESIA ENGINE v3',
+                title: 'VOICE_LAB // SYNESTHESIA ENGINE',
                 rows: [
-                    ['SCRIPT',   'Type narration in any language (auto-detected). Long texts are split on sentence boundaries and played sequentially.'],
-                    ['CLEAN',    'EL: Rachel · OAI: nova. Broadcast HPF + de-ess. Natural pacing. Best for audiobooks and documentary voice-over.'],
-                    ['CYBER',    'EL: Josh · OAI: echo. HPF + 3kHz presence +3dB + 10kHz air shelf. Digital tick + stereo ping-pong. Futuristic.'],
-                    ['GHOST',    'EL: Antoni · OAI: shimmer. Low-mid scoop at 500Hz + 45ms/82ms pre-delays. Rate 0.96. Haunting, atmospheric.'],
-                    ['MNSTR',    'EL: Arnold · OAI: onyx. Bass boost 120Hz +5.5dB + tanh saturation + rate 0.88. Sub-bass thump. Trailer-grade.'],
-                    ['EL / OAI', 'Paste API keys and hit SET. EL field accepts comma-separated keys (rotated on 429/quota). Falls back OAI → browser if no keys set.'],
-                    ['▶ SPEAK',  'Cascade: ElevenLabs → OpenAI TTS-HD → browser Web Speech. API audio decoded in VNGRD AudioContext — captured by Iron-Clad Recorder.'],
-                    ['⚡',       'Test glitch burst — fires the Tone.js mood synth at current mode settings. Works in all modes.']
+                    ['SCRIPT',  'Type narration in any language. Language is auto-detected on each SPEAK — the best matching OS voice is selected silently.'],
+                    ['CLEAN',   'Pure voice, no FX. Natural pacing (rate 0.86). Best for audiobooks and narration. Chrome picks Google TTS; Safari picks Daniel/Samantha.'],
+                    ['CYBER',   'Slightly faster, higher pitch (rate 0.91, pitch 1.18). Narrow bandpass tick + stereo PingPong shimmer on each word. Futuristic.'],
+                    ['GHOST',   'Slow and haunting (rate 0.72, pitch 0.72). Low-frequency pulse + long FeedbackDelay echo tail. Atmospheric, cinematic.'],
+                    ['MNSTR',   'Very slow, very deep (rate 0.65, pitch 0.45). Distorted sub-bass thump on each word. Dark, powerful, trailer-grade.'],
+                    ['▶ SPEAK', 'Speaks the script. Click again (■ STOP) to cancel. Language auto-detected — correct pronunciation per language.'],
+                    ['⚡',      'Test glitch burst at current mood settings. Works in all modes including CLEAN.']
                 ],
-                footer: 'VNGRD // VOICE_LAB · SYNESTHESIA v3.0 · ELEVENLABS / OPENAI / BROWSER'
+                footer: 'VNGRD // VOICE_LAB · SYNESTHESIA v2.2 · AUTO-LANG · ZERO-API'
             },
             'audio-engine': {
                 title: 'AUDIO_ENGINE',
