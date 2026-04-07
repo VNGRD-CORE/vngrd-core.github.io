@@ -1352,7 +1352,7 @@
         .sfx-pad {
             font-size: 7px !important;
             padding: 0 !important;
-            height: 26px;
+            height: 34px;
             letter-spacing: 0.04em;
             text-align: center;
             min-width: 0;
@@ -1825,9 +1825,9 @@
         /* ── COUPLING ENGINE — color-coded glow per FX ── */
         .sfx-pad .pad-fx-label {
             position: absolute;
-            bottom: 10px;
+            bottom: 3px;
             left: 0; right: 0;
-            font-size: 5.5px; letter-spacing: 0.14em; line-height: 1;
+            font-size: 5px; letter-spacing: 0.12em; line-height: 1;
             text-transform: uppercase; opacity: 0; display: block;
             font-family: 'Orbitron', sans-serif;
             pointer-events: none;
@@ -10833,19 +10833,19 @@ var VANGUARD_LIQUID_LIB = [
         { label: 'WARP',     p: { mode:'chord',   oscType:'sine',     freqs:[55,82,110], det:20,               atk:1.00,  dec:5.5,  sus:0.24,  dur: 8.5 } },
         { label: 'TAPE',     p: { mode:'resonant',freq:80,  freqEnd:52, res:14, dist:0.04,                     atk:1.20,  dec:6.0,  sus:0.22,  dur: 9.0 } }
     ]},
-    // Kit 5: NEURAL STATIC — digital noise with sustained tail, glitch textures
+    // Kit 5: NEURAL STATIC — evolving digital ambience, long textural tails
     { name: 'NEURAL STATIC', rate: 1.0, pads: [
-        { label: 'CORRUPT',  p: { mode:'noise',   filter:'bandpass',  filterFreq:1900, filterQ:10, dist:0.32,  atk:0.008, dec:1.50, sus:0.08,  dur: 3.50 } },
-        { label: 'ENCODE',   p: { mode:'metal',   freq:640, freqEnd:290, ring:2560, dist:0.22,                 atk:0.001, dec:1.80, sus:0.006, dur: 3.80 } },
-        { label: 'PHASE',    p: { mode:'am',      freq:440, lfoRate:9.0, dist:0.18,                            atk:0.015, dec:1.20, sus:0.10,  dur: 3.00 } },
-        { label: 'MASK',     p: { mode:'chord',   oscType:'sawtooth', freqs:[440,660,880], det:32, dist:0.26,  atk:0.005, dec:1.40, sus:0.04,  dur: 3.20 } }
+        { label: 'CORRUPT',  p: { mode:'noise',   filter:'lowpass',   filterFreq:680,  filterQ:4.5, dist:0.08, atk:1.20,  dec:6.0,  sus:0.28,  dur:10.0 } },
+        { label: 'ENCODE',   p: { mode:'resonant',freq:220, freqEnd:95, res:22,                                atk:0.80,  dec:6.5,  sus:0.20,  dur: 9.5 } },
+        { label: 'PHASE',    p: { mode:'am',      freq:110, lfoRate:1.4, dist:0.04,                            atk:1.50,  dec:6.0,  sus:0.25,  dur:10.0 } },
+        { label: 'MASK',     p: { mode:'chord',   oscType:'sine',     freqs:[110,165,220], det:18, dist:0.05,  atk:1.80,  dec:7.0,  sus:0.28,  dur:11.0 } }
     ]},
     // Kit 6: DEEP FIELD — sub-bass cosmic, massive low-end evolving pressure
     { name: 'DEEP FIELD', rate: 1.0, pads: [
-        { label: 'EVENT',    p: { mode:'boom',    sub:26,  filter:'lowpass', filterFreq:55,  filterQ:0.5,      atk:0.008, dec:5.0,  sus:0.14,  dur: 9.0 } },
-        { label: 'HORIZON',  p: { mode:'resonant',freq:30,  freqEnd:10, res:30,                                atk:0.50,  dec:6.5,  sus:0.18,  dur:11.0 } },
-        { label: 'GRAVITY',  p: { mode:'sweep',   oscType:'sine',     freq:38, freqEnd:16, sub:22,             atk:0.80,  dec:6.0,  sus:0.22,  dur:10.0 } },
-        { label: 'MATTER',   p: { mode:'am',      freq:22,  lfoRate:0.07,                                      atk:2.50,  dec:8.0,  sus:0.32,  dur:13.0 } }
+        { label: 'EVENT',    p: { mode:'boom',    sub:32,  filter:'lowpass', filterFreq:80,  filterQ:0.6,      atk:0.008, dec:5.0,  sus:0.14,  dur: 9.0 } },
+        { label: 'HORIZON',  p: { mode:'resonant',freq:55,  freqEnd:22, res:28,                                atk:0.50,  dec:6.5,  sus:0.18,  dur:10.0 } },
+        { label: 'GRAVITY',  p: { mode:'sweep',   oscType:'sine',     freq:42, freqEnd:22, sub:28,             atk:0.80,  dec:6.0,  sus:0.22,  dur:10.0 } },
+        { label: 'MATTER',   p: { mode:'am',      freq:38,  lfoRate:0.12,                                      atk:2.20,  dec:7.5,  sus:0.32,  dur:11.0 } }
     ]}
 ];
 
