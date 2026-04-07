@@ -4317,507 +4317,6 @@ body.fullscreen #transcription-hud { pointer-events: none !important; } /* keep 
 .sve-ctrl-row .btn { font-size: 8px; letter-spacing: 0.8px; padding: 6px 4px; }
 
 /* ════════════════════════════════════════════════════════════════
-   LIVE CONSOLE MATRIX — #vngrd-console
-   Brutalist terminal aesthetic. DO NOT modify clock/ticker CSS.
-   ════════════════════════════════════════════════════════════════ */
-#vngrd-console {
-    position: fixed;
-    bottom: 62px;
-    left: 50%;
-    transform: translateX(-50%);
-    width: min(98vw, 1200px);
-    max-height: 72vh;
-    background: rgba(2, 5, 10, 0.97);
-    border: 1px solid var(--c);
-    box-shadow: 0 0 40px rgba(0,243,255,0.12), 0 0 1px var(--c) inset, 0 -4px 24px rgba(0,0,0,0.9);
-    z-index: 5900;
-    display: none;
-    flex-direction: column;
-    font-family: 'JetBrains Mono', monospace;
-    font-size: 10px;
-    color: var(--text);
-    overflow: hidden;
-}
-#vngrd-console.active { display: flex; }
-
-/* Scan-line overlay */
-#vngrd-console::before {
-    content: '';
-    position: absolute;
-    inset: 0;
-    background: repeating-linear-gradient(0deg, transparent, transparent 2px, rgba(0,0,0,0.06) 2px, rgba(0,0,0,0.06) 4px);
-    pointer-events: none;
-    z-index: 0;
-}
-
-/* ── Header ───────────────────────────────────────────── */
-#lcm-header {
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    padding: 6px 12px;
-    background: linear-gradient(90deg, rgba(0,243,255,0.10) 0%, rgba(0,243,255,0.03) 100%);
-    border-bottom: 1px solid rgba(0,243,255,0.20);
-    flex-shrink: 0;
-    cursor: grab;
-    user-select: none;
-    position: relative;
-    z-index: 1;
-}
-#lcm-header:active { cursor: grabbing; }
-#lcm-title {
-    font-family: 'Orbitron', sans-serif;
-    font-size: 10px;
-    letter-spacing: 3px;
-    color: var(--c);
-    text-shadow: 0 0 8px rgba(0,243,255,0.6);
-}
-#lcm-header-right { display: flex; align-items: center; gap: 8px; }
-#lcm-bpm-display {
-    font-size: 8px;
-    color: rgba(0,243,255,0.5);
-    letter-spacing: 2px;
-    border: 1px solid rgba(0,243,255,0.15);
-    padding: 2px 6px;
-}
-#lcm-status-dot {
-    width: 6px; height: 6px;
-    border-radius: 50%;
-    background: var(--g);
-    box-shadow: 0 0 6px var(--g);
-    animation: lcm-pulse 1.2s ease-in-out infinite;
-}
-@keyframes lcm-pulse { 0%,100% { opacity: 1; } 50% { opacity: 0.35; } }
-.lcm-hdr-btn {
-    background: transparent;
-    border: 1px solid rgba(0,243,255,0.25);
-    color: rgba(0,243,255,0.7);
-    font-family: 'JetBrains Mono', monospace;
-    font-size: 8px;
-    letter-spacing: 1px;
-    padding: 3px 8px;
-    cursor: pointer;
-    transition: all 0.12s;
-    text-transform: uppercase;
-}
-.lcm-hdr-btn:hover { background: rgba(0,243,255,0.12); border-color: var(--c); color: var(--c); }
-.lcm-hdr-btn.warn { border-color: rgba(255,0,85,0.3); color: rgba(255,0,85,0.6); }
-.lcm-hdr-btn.warn:hover { background: rgba(255,0,85,0.1); border-color: var(--p); color: var(--p); }
-
-/* ── Body: strips + side panel ──────────────────────────── */
-#lcm-body {
-    display: flex;
-    flex: 1;
-    overflow: hidden;
-    position: relative;
-    z-index: 1;
-}
-
-/* ── Channel Strips Scroll Area ─────────────────────────── */
-#lcm-strips-scroll {
-    flex: 1;
-    overflow-x: auto;
-    overflow-y: hidden;
-    scrollbar-width: thin;
-    scrollbar-color: rgba(0,243,255,0.3) transparent;
-    padding: 10px 8px;
-    display: flex;
-    align-items: stretch;
-    gap: 6px;
-    min-height: 280px;
-}
-#lcm-strips-scroll::-webkit-scrollbar { height: 3px; }
-#lcm-strips-scroll::-webkit-scrollbar-thumb { background: rgba(0,243,255,0.3); border-radius: 2px; }
-
-#lcm-strips {
-    display: flex;
-    gap: 6px;
-    align-items: stretch;
-    min-width: min-content;
-}
-
-/* ── Individual Channel Strip ─────────────────────────── */
-.lcm-strip {
-    width: 72px;
-    flex-shrink: 0;
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-    gap: 5px;
-    background: rgba(0,243,255,0.025);
-    border: 1px solid rgba(0,243,255,0.15);
-    padding: 8px 4px 6px;
-    position: relative;
-    transition: border-color 0.15s;
-}
-.lcm-strip:hover { border-color: rgba(0,243,255,0.35); }
-.lcm-strip.cued { border-color: var(--y); box-shadow: 0 0 8px rgba(255,204,0,0.2) inset; }
-.lcm-strip.recording { border-color: var(--p); box-shadow: 0 0 10px rgba(255,0,85,0.25) inset; animation: lcm-rec-pulse 0.5s ease-in-out infinite alternate; }
-@keyframes lcm-rec-pulse { from { box-shadow: 0 0 6px rgba(255,0,85,0.2) inset; } to { box-shadow: 0 0 18px rgba(255,0,85,0.5) inset; } }
-
-.lcm-strip-label {
-    font-family: 'Orbitron', sans-serif;
-    font-size: 7px;
-    letter-spacing: 1.5px;
-    color: rgba(0,243,255,0.7);
-    text-align: center;
-    white-space: nowrap;
-    overflow: hidden;
-    text-overflow: ellipsis;
-    max-width: 64px;
-}
-
-/* VU Meter (vertical) */
-.lcm-vu {
-    width: 12px;
-    height: 70px;
-    background: rgba(0,0,0,0.5);
-    border: 1px solid rgba(0,243,255,0.12);
-    display: flex;
-    flex-direction: column;
-    justify-content: flex-end;
-    overflow: hidden;
-    position: relative;
-}
-.lcm-vu-bar {
-    width: 100%;
-    height: 0%;
-    background: linear-gradient(to top, var(--g) 0%, #aaff00 60%, var(--y) 80%, var(--p) 100%);
-    transition: height 0.04s linear;
-    will-change: height;
-}
-.lcm-vu-peak {
-    position: absolute;
-    width: 100%;
-    height: 2px;
-    background: var(--y);
-    bottom: 0;
-    transition: bottom 0.08s linear;
-    will-change: bottom;
-}
-
-/* Fader (vertical range) */
-.lcm-fader-wrap {
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-    gap: 3px;
-    flex: 1;
-    justify-content: center;
-}
-.lcm-fader {
-    -webkit-appearance: none;
-    appearance: none;
-    writing-mode: vertical-lr;
-    direction: rtl;
-    width: 8px;
-    height: 80px;
-    background: transparent;
-    cursor: pointer;
-    outline: none;
-}
-.lcm-fader::-webkit-slider-runnable-track {
-    width: 3px;
-    background: rgba(0,243,255,0.15);
-    border: none;
-}
-.lcm-fader::-webkit-slider-thumb {
-    -webkit-appearance: none;
-    appearance: none;
-    width: 14px;
-    height: 6px;
-    background: var(--c);
-    border: none;
-    box-shadow: 0 0 4px rgba(0,243,255,0.5);
-    cursor: grab;
-    margin-left: -5px;
-}
-.lcm-fader::-webkit-slider-thumb:active { cursor: grabbing; background: #fff; }
-.lcm-fader::-moz-range-track { width: 3px; background: rgba(0,243,255,0.15); }
-.lcm-fader::-moz-range-thumb { width: 14px; height: 6px; background: var(--c); border: none; cursor: grab; }
-.lcm-fader-val { font-size: 7px; color: rgba(0,243,255,0.5); letter-spacing: 1px; }
-
-/* CUE button */
-.lcm-cue-btn {
-    width: 100%;
-    padding: 4px 0;
-    background: transparent;
-    border: 1px solid rgba(255,204,0,0.3);
-    color: rgba(255,204,0,0.5);
-    font-family: 'JetBrains Mono', monospace;
-    font-size: 8px;
-    letter-spacing: 2px;
-    cursor: pointer;
-    transition: all 0.12s;
-    text-transform: uppercase;
-}
-.lcm-cue-btn:hover { background: rgba(255,204,0,0.08); border-color: var(--y); color: var(--y); }
-.lcm-cue-btn.active { background: rgba(255,204,0,0.18); border-color: var(--y); color: var(--y); box-shadow: 0 0 6px rgba(255,204,0,0.3); }
-
-/* CAPTURE button — massive */
-.lcm-capture-btn {
-    width: 100%;
-    padding: 10px 2px;
-    background: rgba(255,0,85,0.08);
-    border: 1px solid rgba(255,0,85,0.4);
-    color: rgba(255,0,85,0.8);
-    font-family: 'Orbitron', sans-serif;
-    font-size: 7px;
-    letter-spacing: 1.5px;
-    cursor: pointer;
-    transition: all 0.12s;
-    text-transform: uppercase;
-    line-height: 1.5;
-    text-align: center;
-}
-.lcm-capture-btn:hover { background: rgba(255,0,85,0.18); border-color: var(--p); color: var(--p); box-shadow: 0 0 10px rgba(255,0,85,0.2); }
-.lcm-capture-btn.recording {
-    background: rgba(255,0,85,0.25);
-    border-color: var(--p);
-    color: var(--p);
-    box-shadow: 0 0 14px rgba(255,0,85,0.4);
-    animation: lcm-cap-flash 0.4s linear infinite alternate;
-}
-@keyframes lcm-cap-flash { from { opacity: 0.7; } to { opacity: 1; } }
-
-/* ── Right Side Panel (Ghost Deck + Neuro Bus) ─────────── */
-#lcm-side-panel {
-    width: 200px;
-    flex-shrink: 0;
-    display: flex;
-    flex-direction: column;
-    border-left: 1px solid rgba(0,243,255,0.12);
-    gap: 0;
-}
-
-/* Ghost Deck */
-#lcm-ghost-deck {
-    flex: 1;
-    padding: 10px;
-    border-bottom: 1px solid rgba(0,243,255,0.10);
-    display: flex;
-    flex-direction: column;
-    gap: 6px;
-}
-#lcm-ghost-deck-title {
-    font-family: 'Orbitron', sans-serif;
-    font-size: 8px;
-    letter-spacing: 2.5px;
-    color: var(--v);
-    text-shadow: 0 0 8px rgba(176,0,255,0.6);
-    margin-bottom: 4px;
-}
-#lcm-ghost-status {
-    font-size: 8px;
-    color: rgba(176,0,255,0.5);
-    letter-spacing: 1px;
-}
-.lcm-ghost-waveform {
-    height: 28px;
-    background: rgba(176,0,255,0.05);
-    border: 1px solid rgba(176,0,255,0.15);
-    position: relative;
-    overflow: hidden;
-}
-.lcm-ghost-waveform-bar {
-    position: absolute;
-    bottom: 0;
-    width: 2px;
-    background: var(--v);
-    opacity: 0.7;
-    transition: height 0.05s linear;
-    will-change: height;
-}
-#lcm-ghost-playhead {
-    position: absolute;
-    top: 0; bottom: 0;
-    width: 1px;
-    background: rgba(176,0,255,0.8);
-    left: 0;
-    transition: left 0.1s linear;
-    will-change: left;
-}
-.lcm-ghost-ctrl-row { display: flex; gap: 4px; }
-.lcm-ghost-btn {
-    flex: 1;
-    padding: 5px 2px;
-    background: transparent;
-    border: 1px solid rgba(176,0,255,0.3);
-    color: rgba(176,0,255,0.6);
-    font-family: 'JetBrains Mono', monospace;
-    font-size: 7px;
-    letter-spacing: 1px;
-    cursor: pointer;
-    transition: all 0.12s;
-    text-transform: uppercase;
-}
-.lcm-ghost-btn:hover { background: rgba(176,0,255,0.1); border-color: var(--v); color: var(--v); }
-.lcm-ghost-btn.active { background: rgba(176,0,255,0.2); border-color: var(--v); color: var(--v); box-shadow: 0 0 6px rgba(176,0,255,0.3); }
-.lcm-ghost-gain-row {
-    display: flex;
-    align-items: center;
-    gap: 6px;
-}
-.lcm-ghost-gain-row label { font-size: 7px; color: rgba(176,0,255,0.4); letter-spacing: 1px; flex-shrink: 0; }
-.lcm-ghost-gain-row input[type=range] {
-    flex: 1;
-    -webkit-appearance: none;
-    appearance: none;
-    height: 3px;
-    background: rgba(176,0,255,0.2);
-    outline: none;
-    cursor: pointer;
-}
-.lcm-ghost-gain-row input[type=range]::-webkit-slider-thumb {
-    -webkit-appearance: none;
-    width: 10px; height: 10px;
-    background: var(--v);
-    border-radius: 0;
-    box-shadow: 0 0 4px rgba(176,0,255,0.6);
-}
-.lcm-grain-row {
-    display: flex;
-    align-items: center;
-    gap: 6px;
-}
-.lcm-grain-row label { font-size: 7px; color: rgba(176,0,255,0.4); letter-spacing: 1px; flex-shrink: 0; width: 28px; }
-.lcm-grain-row input[type=range] {
-    flex: 1;
-    -webkit-appearance: none;
-    appearance: none;
-    height: 2px;
-    background: rgba(176,0,255,0.15);
-    outline: none;
-    cursor: pointer;
-}
-.lcm-grain-row input[type=range]::-webkit-slider-thumb {
-    -webkit-appearance: none;
-    width: 8px; height: 8px;
-    background: rgba(176,0,255,0.7);
-    border-radius: 0;
-}
-.lcm-grain-val { font-size: 7px; color: rgba(176,0,255,0.4); width: 26px; text-align: right; }
-
-/* ── Neuro Compiler // Offline Bus ─────────────────────── */
-#lcm-neuro-bus {
-    padding: 10px;
-    flex-shrink: 0;
-}
-#lcm-neuro-bus-inner {
-    border: 1px dashed rgba(255,204,0,0.25);
-    padding: 8px;
-    display: flex;
-    flex-direction: column;
-    gap: 4px;
-    background: repeating-linear-gradient(-45deg, transparent, transparent 4px, rgba(255,204,0,0.02) 4px, rgba(255,204,0,0.02) 8px);
-}
-#lcm-neuro-title {
-    font-family: 'Orbitron', sans-serif;
-    font-size: 7px;
-    letter-spacing: 2px;
-    color: rgba(255,204,0,0.4);
-}
-#lcm-neuro-status {
-    font-size: 7px;
-    color: rgba(255,204,0,0.25);
-    letter-spacing: 1px;
-}
-#lcm-neuro-routing {
-    font-size: 7px;
-    color: rgba(255,204,0,0.2);
-    letter-spacing: 0.5px;
-    margin-top: 2px;
-    border-top: 1px solid rgba(255,204,0,0.1);
-    padding-top: 4px;
-}
-
-/* ── Add Channel placeholder ──────────────────────────── */
-.lcm-add-placeholder {
-    width: 72px;
-    flex-shrink: 0;
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-    justify-content: center;
-    gap: 6px;
-    border: 1px dashed rgba(0,243,255,0.15);
-    cursor: pointer;
-    transition: all 0.15s;
-    padding: 8px 4px;
-    min-height: 200px;
-    background: rgba(0,243,255,0.015);
-}
-.lcm-add-placeholder:hover { border-color: rgba(0,243,255,0.4); background: rgba(0,243,255,0.04); }
-.lcm-add-placeholder span { font-size: 18px; color: rgba(0,243,255,0.3); line-height: 1; }
-.lcm-add-placeholder small { font-size: 7px; letter-spacing: 1.5px; color: rgba(0,243,255,0.3); text-align: center; }
-
-/* ── Device Select Modal ──────────────────────────────── */
-#lcm-device-modal {
-    position: absolute;
-    top: 50%; left: 50%;
-    transform: translate(-50%, -50%);
-    background: rgba(2, 5, 10, 0.99);
-    border: 1px solid var(--c);
-    box-shadow: 0 0 30px rgba(0,243,255,0.2);
-    padding: 16px;
-    z-index: 10;
-    width: 280px;
-    display: none;
-    flex-direction: column;
-    gap: 10px;
-}
-#lcm-device-modal.active { display: flex; }
-#lcm-device-modal-title {
-    font-family: 'Orbitron', sans-serif;
-    font-size: 9px;
-    letter-spacing: 2px;
-    color: var(--c);
-    margin-bottom: 4px;
-}
-#lcm-device-list { display: flex; flex-direction: column; gap: 4px; max-height: 200px; overflow-y: auto; }
-.lcm-device-item {
-    padding: 6px 8px;
-    border: 1px solid rgba(0,243,255,0.15);
-    cursor: pointer;
-    font-size: 8px;
-    color: var(--text);
-    letter-spacing: 0.5px;
-    transition: all 0.1s;
-    background: rgba(0,243,255,0.02);
-}
-.lcm-device-item:hover { border-color: var(--c); background: rgba(0,243,255,0.1); color: var(--c); }
-.lcm-device-item .lcm-di-id { font-size: 7px; color: rgba(255,255,255,0.25); margin-top: 2px; }
-#lcm-device-modal-cancel {
-    padding: 5px;
-    background: transparent;
-    border: 1px solid rgba(255,255,255,0.1);
-    color: rgba(255,255,255,0.3);
-    font-family: 'JetBrains Mono', monospace;
-    font-size: 8px;
-    cursor: pointer;
-    letter-spacing: 1px;
-    margin-top: 4px;
-}
-#lcm-device-modal-cancel:hover { color: var(--p); border-color: rgba(255,0,85,0.4); }
-
-/* ── Bottom info-bar trigger button ───────────────────── */
-#btn-lcm-toggle {
-    cursor: pointer;
-    display: flex;
-    align-items: center;
-    gap: 3px;
-    padding: 2px 5px;
-    border: 1px solid rgba(0,243,255,0.25);
-    border-radius: 2px;
-    transition: all 0.15s;
-    background: rgba(0,243,255,0.04);
-}
-#btn-lcm-toggle:hover { background: rgba(0,243,255,0.12); border-color: rgba(0,243,255,0.6); }
-#btn-lcm-toggle.active { background: rgba(0,243,255,0.16); border-color: var(--c); box-shadow: 0 0 6px rgba(0,243,255,0.25); }
-#btn-lcm-toggle span { font-size: 7px; font-family: 'JetBrains Mono', monospace; letter-spacing: 1px; }
-#btn-lcm-toggle .lcm-tgl-label { color: rgba(0,243,255,0.7); }
-#btn-lcm-toggle .lcm-tgl-sub { color: rgba(255,255,255,0.4); }
-
     </style>
 </head>
 <body oncontextmenu="return false;">
@@ -5858,9 +5357,9 @@ body.fullscreen #transcription-hud { pointer-events: none !important; } /* keep 
                 <div id="btn-hud-alpha" onclick="if(typeof toggleHudAlpha==='function')toggleHudAlpha()" title="Panel skin — SOLID / GLASS / GHOST" style="cursor:pointer;display:flex;align-items:center;gap:3px;padding:2px 5px;border:1px solid rgba(0,243,255,0.25);border-radius:2px;transition:all 0.15s;background:rgba(0,243,255,0.04);" onmouseenter="this.style.background='rgba(0,243,255,0.12)';this.style.borderColor='rgba(0,243,255,0.6)'" onmouseleave="this.style.background='rgba(0,243,255,0.04)';this.style.borderColor='rgba(0,243,255,0.25)'">
                     <span id="hud-alpha-label" style="font-size:7px;color:rgba(0,243,255,0.7);font-family:'JetBrains Mono',monospace;letter-spacing:1px;">SOLID</span>
                 </div>
-                <div id="btn-lcm-toggle" onclick="LCM.toggle()" title="Live Console Matrix — hardware multi-input mixer + Ghost Deck looper">
-                    <span class="lcm-tgl-label">MX</span>
-                    <span class="lcm-tgl-sub">MATRIX</span>
+                <div id="btn-init-vngrd-tracker" onclick="VanguardTracker.toggle()" title="VanguardTracker — Renoise-style hex sequencer + Neural Compiler" style="cursor:pointer;display:flex;align-items:center;gap:3px;padding:2px 5px;border:1px solid rgba(0,243,255,0.25);border-radius:2px;transition:all 0.15s;background:rgba(0,243,255,0.04);" onmouseenter="this.style.background='rgba(0,243,255,0.12)';this.style.borderColor='rgba(0,243,255,0.6)'" onmouseleave="this.style.background='rgba(0,243,255,0.04)';this.style.borderColor='rgba(0,243,255,0.25)'">
+                    <span style="font-size:7px;color:rgba(0,243,255,0.7);font-family:'JetBrains Mono',monospace;letter-spacing:1px;">TRK</span>
+                    <span style="font-size:7px;color:rgba(255,255,255,0.4);font-family:'JetBrains Mono',monospace;letter-spacing:1px;">TRACKER</span>
                 </div>
             </div>
         </div>
@@ -19071,378 +18570,6 @@ if (btn3dX) {
 
 
 <script>
-/* ═══════════════════════════════════════════════════════════════════════
-   LIVE CONSOLE MATRIX (LCM) — DSP Engine  v1.2 (no-feedback)
-
-   Signal path — per channel (NEVER reaches speakers):
-     getUserMedia (echoCancellation:false, noiseSuppression:false, autoGainControl:false)
-       → MediaStreamAudioSourceNode (raw node, Tone.context)
-         → Tone.Gain  (fader — sets capture level)
-           ├─→ Tone.Meter      [dead-end — VU display only]
-           └─→ Tone.Recorder   [dead-end — capture only, no speakers]
-
-   Signal path — Ghost Deck (ONLY path to speakers):
-     GrainPlayer → Tone.Gain (crossfade) → Tone.Destination ✓
-
-   Feedback: impossible. Destination is touched only by Ghost Deck loop.
-   ═══════════════════════════════════════════════════════════════════════ */
-var LCM = (() => {
-    'use strict';
-
-    let _initialized   = false;
-    let _ghostPlayer   = null;
-    let _ghostGain     = null;
-    let _ghostAnalyser = null;
-    let _channels      = [];
-    let _devices       = [];
-    let _isVisible     = false;
-    let _rafId         = null;
-    let _ghostLooping  = true;
-    let _ghostPlaying  = false;
-    let _uiACtx        = null;
-    const MAX_CH = 8, BARS = 4;
-    const _waveformBars = [];
-
-    const _q = id => document.getElementById(id);
-
-    // ── UI beep (isolated ctx, never touches master bus) ─────────────
-    function _uiBeep(freq, dur, type) {
-        try {
-            if (!_uiACtx) _uiACtx = new (window.AudioContext || window.webkitAudioContext)();
-            const g = _uiACtx.createGain(), o = _uiACtx.createOscillator();
-            o.type = type || 'sine'; o.frequency.value = freq || 880;
-            g.gain.setValueAtTime(0.10, _uiACtx.currentTime);
-            g.gain.exponentialRampToValueAtTime(0.0001, _uiACtx.currentTime + (dur || 0.06));
-            o.connect(g); g.connect(_uiACtx.destination); o.start(); o.stop(_uiACtx.currentTime + (dur || 0.06));
-        } catch(_) {}
-    }
-
-    // ── Init ─────────────────────────────────────────────────────────
-    function _init() {
-        if (_initialized) return;
-        if (typeof Tone === 'undefined') { _ghostLog('LCM: TONE.JS NOT LOADED', 'crit'); return; }
-
-        // Ghost Deck → Gain → Destination  (only speakers path)
-        _ghostGain     = new Tone.Gain(0).toDestination();
-        _ghostAnalyser = new Tone.Analyser({ type: 'fft', size: 32 });
-        _ghostPlayer   = new Tone.GrainPlayer({ loop: true, grainSize: 0.2, overlap: 0.05 });
-        _ghostPlayer.connect(_ghostGain);
-        _ghostPlayer.connect(_ghostAnalyser);
-
-        const wfEl = _q('lcm-ghost-waveform');
-        if (wfEl) {
-            for (let i = 0; i < 32; i++) {
-                const b = document.createElement('div');
-                b.className  = 'lcm-ghost-waveform-bar';
-                b.style.left  = (i * (100/32)).toFixed(2) + '%';
-                b.style.width = (100/32 - 0.5).toFixed(2) + '%';
-                b.style.height = '0%';
-                wfEl.appendChild(b); _waveformBars.push(b);
-            }
-        }
-        const lb = _q('lcm-gd-loop'); if (lb) lb.classList.add('active');
-        _makeDraggable(_q('vngrd-console'), _q('lcm-header'));
-        _syncBPM(); setInterval(_syncBPM, 2000);
-        _initialized = true;
-        _ghostLog('LCM: INIT // CAPTURE->LOOP MODE // inputs never reach speakers', 'success');
-    }
-
-    function _syncBPM() {
-        const el = _q('lcm-bpm-display');
-        if (el && typeof Tone !== 'undefined') el.textContent = 'BPM: ' + Math.round(Tone.Transport.bpm.value);
-    }
-
-    // ── Device scan ──────────────────────────────────────────────────
-    async function scanDevices() {
-        _ensureInit(); _uiBeep(660, 0.05);
-        try {
-            const tmp = await navigator.mediaDevices.getUserMedia({ audio: true, video: false });
-            tmp.getTracks().forEach(t => t.stop());
-            const all = await navigator.mediaDevices.enumerateDevices();
-            _devices  = all.filter(d => d.kind === 'audioinput');
-            _ghostLog('LCM: SCANNED ' + _devices.length + ' INPUT' + (_devices.length !== 1 ? 'S' : ''), 'success');
-            _renderDeviceList();
-        } catch(e) { _ghostLog('LCM: HW_SCAN DENIED — ' + (e.message||e), 'crit'); }
-    }
-
-    function _renderDeviceList() {
-        const list = _q('lcm-device-list'); if (!list) return;
-        list.innerHTML = '';
-        if (!_devices.length) { list.innerHTML = '<div style="font-size:8px;color:rgba(255,255,255,0.3);padding:8px;">NO AUDIO INPUTS DETECTED</div>'; return; }
-        _devices.forEach((dev, i) => {
-            const item = document.createElement('div');
-            item.className = 'lcm-device-item';
-            const lbl = dev.label || ('INPUT_' + (i+1));
-            item.innerHTML = lbl.replace(/</g,'&lt;').replace(/>/g,'&gt;') + '<div class="lcm-di-id">ID: ' + (dev.deviceId||'default').slice(0,16) + '…</div>';
-            item.addEventListener('click', () => { closeDeviceModal(); addChannel(dev.deviceId, lbl); });
-            list.appendChild(item);
-        });
-    }
-
-    // ── Add channel ──────────────────────────────────────────────────
-    function promptAddChannel() {
-        _ensureInit(); _uiBeep(880, 0.05);
-        if (_channels.length >= MAX_CH) { _ghostLog('LCM: MAX ' + MAX_CH + ' CHANNELS', 'crit'); return; }
-        if (!_devices.length) { scanDevices().then(() => { const m = _q('lcm-device-modal'); if (m) m.classList.add('active'); }); return; }
-        const m = _q('lcm-device-modal'); if (m) m.classList.add('active');
-    }
-
-    function closeDeviceModal() { const m = _q('lcm-device-modal'); if (m) m.classList.remove('active'); }
-
-    async function addChannel(deviceId, label) {
-        _ensureInit();
-        if (_channels.length >= MAX_CH) return;
-        await Tone.start();   // inside user-gesture call stack
-
-        const idx = _channels.length, id = 'lcm-ch-' + idx, name = label || ('CH ' + (idx+1));
-        let stream;
-        try {
-            // Don't force exact deviceId for "default" — let browser pick
-            const audioConstraints = {
-                echoCancellation: false,
-                noiseSuppression: false,
-                autoGainControl:  false,
-            };
-            if (deviceId && deviceId !== 'default') audioConstraints.deviceId = { exact: deviceId };
-            stream = await navigator.mediaDevices.getUserMedia({ audio: audioConstraints, video: false });
-        } catch(e) { _ghostLog('LCM: CH' + (idx+1) + ' OPEN FAIL — ' + (e.message||e), 'crit'); return; }
-
-        // source → gain → meter  [NO path to destination — zero feedback]
-        // Tone.context is Tone's wrapper; rawContext is the native AudioContext
-        const nativeCtx = Tone.context.rawContext;
-        const rawSource = nativeCtx.createMediaStreamSource(stream);
-        const gainNode  = new Tone.Gain(0.8);
-        const meter     = new Tone.Meter({ normalRange: true, smoothing: 0.7 });
-        // rawSource is a native AudioNode — must connect to gainNode.input (native GainNode)
-        rawSource.connect(gainNode.input);
-        gainNode.connect(meter);   // Tone→Tone connect is fine; dead end, no speakers
-
-        const strip = _buildStripEl(idx, id, name);
-        const cont  = _q('lcm-strips'); if (cont) cont.appendChild(strip);
-
-        const ch = {
-            idx, id, label: name, stream, rawSource, gainNode, meter,
-            isRecording: false,
-            elStrip: strip, elVuBar: strip.querySelector('.lcm-vu-bar'),
-            elVuPeak: strip.querySelector('.lcm-vu-peak'),
-            elCapBtn: strip.querySelector('.lcm-capture-btn'),
-            elFaderVal: strip.querySelector('.lcm-fader-val'),
-            _peakVal: 0, _peakHold: 0,
-        };
-        _channels.push(ch);
-        if (_rafId === null && _isVisible) _startMeterLoop();
-        _uiBeep(1100, 0.08, 'square');
-        _ghostLog('LCM: CH' + (idx+1) + ' ARMED // ' + name, 'success');
-    }
-
-    function _buildStripEl(idx, id, name) {
-        const strip = document.createElement('div');
-        strip.className = 'lcm-strip'; strip.id = id;
-        const safe = name.replace(/</g,'&lt;').replace(/>/g,'&gt;').slice(0,16);
-        strip.innerHTML =
-            '<div class="lcm-strip-label" title="' + safe + '">' + safe + '</div>'
-          + '<div class="lcm-vu"><div class="lcm-vu-bar"></div><div class="lcm-vu-peak"></div></div>'
-          + '<div class="lcm-fader-wrap">'
-          + '<input type="range" class="lcm-fader" min="0" max="100" value="80" title="CAPTURE LEVEL CH' + (idx+1) + '">'
-          + '<span class="lcm-fader-val">80</span></div>'
-          + '<button class="lcm-capture-btn" title="Record ' + BARS + ' bars → Ghost Deck">⬛<br>CAPTURE</button>';
-        strip.querySelector('.lcm-fader').addEventListener('input', function() { setGain(idx, +this.value/100); });
-        strip.querySelector('.lcm-capture-btn').addEventListener('click', () => capture(idx));
-        return strip;
-    }
-
-    function setGain(idx, val) {
-        const ch = _channels[idx]; if (!ch) return;
-        ch.gainNode.gain.rampTo(Math.max(0, Math.min(1, val)), 0.05);
-        if (ch.elFaderVal) ch.elFaderVal.textContent = Math.round(val * 100);
-    }
-
-    // ── Capture → Ghost Deck ─────────────────────────────────────────
-    async function capture(idx) {
-        const ch = _channels[idx]; if (!ch || ch.isRecording) return;
-        await Tone.start();
-
-        const bpm   = Tone.Transport.bpm.value > 0 ? Tone.Transport.bpm.value : 120;
-        const capMs = (60 / bpm) * 4 * BARS * 1000;
-
-        ch.isRecording = true;
-        if (ch.elCapBtn) { ch.elCapBtn.classList.add('recording'); ch.elCapBtn.innerHTML = '● REC'; }
-        if (ch.elStrip)  ch.elStrip.classList.add('recording');
-        _uiBeep(440, 0.12, 'sawtooth');
-        _ghostLog('LCM: CH' + (idx+1) + ' CAPTURING // ' + (capMs/1000).toFixed(1) + 's @ ' + Math.round(bpm) + ' BPM', 'cmd');
-
-        // Recorder: gainNode → rec (dead end, no speakers)
-        const rec = new Tone.Recorder();
-        ch.gainNode.connect(rec); rec.start();
-
-        let elapsed = 0;
-        const tick = setInterval(() => {
-            elapsed += 250;
-            const rem = ((capMs - elapsed) / 1000).toFixed(1);
-            if (ch.elCapBtn && ch.isRecording) ch.elCapBtn.innerHTML = '● ' + rem + 's';
-        }, 250);
-
-        await new Promise(r => setTimeout(r, capMs));
-        clearInterval(tick);
-
-        let blob;
-        try { blob = await rec.stop(); } catch(e) {
-            _ghostLog('LCM: REC STOP FAIL — ' + (e.message||e), 'crit');
-            ch.isRecording = false; _resetCapBtn(ch); return;
-        }
-        try { ch.gainNode.disconnect(rec); } catch(_) {}
-        rec.dispose();
-        ch.isRecording = false; _resetCapBtn(ch);
-
-        if (!blob || blob.size < 512) {
-            _ghostLog('LCM: CAPTURE EMPTY (' + (blob ? blob.size : 0) + 'B) — check mic permissions & device selection', 'crit'); return;
-        }
-        _ghostLog('LCM: CAPTURED ' + (blob.size/1024).toFixed(1) + 'KB // LOADING GHOST_DECK', 'success');
-        _loadGhostDeck(blob, ch);
-    }
-
-    function _resetCapBtn(ch) {
-        if (ch.elCapBtn) { ch.elCapBtn.classList.remove('recording'); ch.elCapBtn.innerHTML = '⬛<br>CAPTURE'; }
-        if (ch.elStrip)  ch.elStrip.classList.remove('recording');
-    }
-
-    function _loadGhostDeck(blob, ch) {
-        const url = URL.createObjectURL(blob);
-        const sEl = _q('lcm-ghost-status'); if (sEl) sEl.textContent = 'DECODING…';
-        _ghostPlayer.load(url).then(() => {
-            URL.revokeObjectURL(url);
-            if (sEl) sEl.textContent = 'LOOPING // CH' + (ch.idx+1);
-            _ghostLog('LCM: GHOST_DECK LOADED // CROSSFADE', 'success');
-            _uiBeep(1320, 0.15, 'sine');
-            _executeCrossfade(ch);
-        }).catch(e => {
-            URL.revokeObjectURL(url);
-            _ghostLog('LCM: DECODE FAIL — ' + (e.message||e), 'crit');
-            if (sEl) sEl.textContent = 'DECODE ERROR';
-        });
-    }
-
-    function _executeCrossfade(ch) {
-        try { _ghostPlayer.stop(); } catch(_) {}    // restart with new buffer
-        _ghostGain.gain.rampTo(0.85, 1.5);
-        _ghostPlayer.start(Tone.now() + 0.05);
-        _ghostPlaying = true;
-        const p = _q('lcm-gd-play'); if (p) p.classList.add('active');
-        _ghostLog('LCM: CROSSFADE // CH' + (ch.idx+1) + ' SOURCE → GHOST_DECK', 'success');
-    }
-
-    // ── Ghost Deck controls ──────────────────────────────────────────
-    function ghostPlay() {
-        _ensureInit();
-        if (!_ghostPlayer || !_ghostPlayer.buffer || !_ghostPlayer.buffer.loaded) {
-            _ghostLog('LCM: GHOST_DECK EMPTY — CAPTURE first', 'crit'); _uiBeep(220, 0.1, 'sawtooth'); return;
-        }
-        Tone.start();
-        try {
-            _ghostPlayer.start(); _ghostPlaying = true;
-            const p = _q('lcm-gd-play'); if (p) p.classList.add('active');
-            const s = _q('lcm-ghost-status'); if (s) s.textContent = 'PLAYING';
-            _uiBeep(880, 0.06); _ghostLog('LCM: GHOST_DECK PLAY', 'success');
-        } catch(e) { _ghostLog('LCM: PLAY FAIL — ' + e.message, 'crit'); }
-    }
-
-    function ghostStop() {
-        if (!_ghostPlayer) return;
-        try {
-            _ghostPlayer.stop(); _ghostPlaying = false;
-            const p = _q('lcm-gd-play'); if (p) p.classList.remove('active');
-            const s = _q('lcm-ghost-status'); if (s) s.textContent = 'STOPPED';
-            _uiBeep(440, 0.06); _ghostLog('LCM: GHOST_DECK STOP', 'cmd');
-        } catch(_) {}
-    }
-
-    function ghostToggleLoop() {
-        if (!_ghostPlayer) return;
-        _ghostLooping = !_ghostLooping; _ghostPlayer.loop = _ghostLooping;
-        const btn = _q('lcm-gd-loop'); if (btn) btn.classList.toggle('active', _ghostLooping);
-        _uiBeep(_ghostLooping ? 1100 : 550, 0.05);
-        _ghostLog('LCM: LOOP ' + (_ghostLooping ? 'ON' : 'OFF'), 'cmd');
-    }
-
-    function setGhostGain(val) {
-        if (_ghostGain) _ghostGain.gain.rampTo(Math.max(0, Math.min(1, val)), 0.05);
-        const el = _q('lcm-ghost-gain-val'); if (el) el.textContent = Math.round(val * 100);
-    }
-    function setGrainSize(ms)   { if (_ghostPlayer) _ghostPlayer.grainSize = Math.max(0.01, ms/1000); }
-    function setGrainOverlap(v) { if (_ghostPlayer) _ghostPlayer.overlap   = Math.max(0, Math.min(0.5, v)); }
-
-    // ── Meter RAF (~30 fps) ──────────────────────────────────────────
-    function _startMeterLoop() {
-        if (_rafId !== null) return;
-        let frame = 0;
-        const tick = () => {
-            _rafId = requestAnimationFrame(tick);
-            if (++frame % 2 !== 0) return;
-            for (let i = 0; i < _channels.length; i++) {
-                const ch = _channels[i];
-                const raw = ch.meter.getValue();
-                const lvl = (typeof raw === 'number' && !isNaN(raw)) ? raw : (Array.isArray(raw) ? (raw[0]||0) : 0);
-                const pct = Math.min(100, Math.max(0, lvl * 100));
-                if (ch.elVuBar)  ch.elVuBar.style.height  = pct.toFixed(1) + '%';
-                if (pct > ch._peakVal) { ch._peakVal = pct; ch._peakHold = 60; }
-                else if (ch._peakHold > 0) { ch._peakHold--; }
-                else { ch._peakVal = Math.max(0, ch._peakVal - 0.8); }
-                if (ch.elVuPeak) ch.elVuPeak.style.bottom = ch._peakVal.toFixed(1) + '%';
-            }
-            if (_ghostPlaying && _ghostAnalyser && _waveformBars.length === 32) {
-                const data = _ghostAnalyser.getValue();
-                for (let b = 0; b < 32; b++) {
-                    const db = (typeof data[b]==='number' && !isNaN(data[b])) ? data[b] : -100;
-                    _waveformBars[b].style.height = Math.max(0, Math.min(100, db+100)).toFixed(1) + '%';
-                }
-            }
-        };
-        tick();
-    }
-
-    function _stopMeterLoop() { if (_rafId !== null) { cancelAnimationFrame(_rafId); _rafId = null; } }
-
-    // ── Toggle ───────────────────────────────────────────────────────
-    function toggle() {
-        const panel = _q('vngrd-console'), tgl = _q('btn-lcm-toggle'); if (!panel) return;
-        _isVisible = !_isVisible;
-        panel.classList.toggle('active', _isVisible);
-        if (tgl) tgl.classList.toggle('active', _isVisible);
-        if (_isVisible) {
-            if (typeof Tone !== 'undefined') Tone.start();
-            _ensureInit(); _startMeterLoop(); _uiBeep(660, 0.05);
-            _ghostLog('LCM: MATRIX OPEN // M to close', 'cmd');
-        } else { _stopMeterLoop(); _uiBeep(440, 0.05); }
-    }
-
-    document.addEventListener('keydown', e => {
-        if (e.key !== 'm' && e.key !== 'M') return;
-        const t = document.activeElement;
-        if (t && (t.tagName==='INPUT'||t.tagName==='TEXTAREA'||t.isContentEditable)) return;
-        toggle();
-    });
-
-    // ── Draggable ─────────────────────────────────────────────────────
-    function _makeDraggable(panel, handle) {
-        if (!panel || !handle) return;
-        let dragging = false, dx = 0, dy = 0;
-        handle.addEventListener('mousedown', e => {
-            if (e.target.tagName==='BUTTON'||e.target.tagName==='INPUT') return;
-            dragging = true; const r = panel.getBoundingClientRect();
-            dx = e.clientX - r.left; dy = e.clientY - r.top;
-            panel.style.transform = 'none'; panel.style.left = r.left+'px'; panel.style.bottom = 'auto'; panel.style.top = r.top+'px';
-            e.preventDefault();
-        });
-        document.addEventListener('mousemove', e => { if (!dragging) return; panel.style.left=(e.clientX-dx)+'px'; panel.style.top=(e.clientY-dy)+'px'; });
-        document.addEventListener('mouseup', () => { dragging = false; });
-    }
-
-    function _ensureInit() { if (!_initialized) _init(); }
-    function _ghostLog(msg, type) { if (typeof ghostLog==='function') ghostLog(msg, type); else console.log('[LCM]', msg); }
-
-    return { toggle, scanDevices, promptAddChannel, closeDeviceModal, addChannel, setGain, capture, ghostPlay, ghostStop, ghostToggleLoop, setGhostGain, setGrainSize, setGrainOverlap };
-})();
-</script>
 
 <!-- ═══════════════════════════════════════════════════════════════════
      MEDIAPIPE POSE — 3D body-tracking anchor for SPECTRAL_MOSH + GLB rigging
@@ -19565,119 +18692,158 @@ function _applyPoseToModel(lm) {
 <!-- NLE seam controls are fully canvas-drawn (no DOM panel) -->
 
 <!-- ═══════════════════════════════════════════════════════════════
-     LIVE CONSOLE MATRIX — #vngrd-console
-     Multi-input hardware mixer + Ghost Deck live looper
-     ═══════════════════════════════════════════════════════════════ -->
-<div id="vngrd-console" role="dialog" aria-label="Live Console Matrix">
 
-    <!-- Header (draggable) -->
-    <div id="lcm-header" id="lcm-drag-handle">
-        <span id="lcm-title">LIVE CONSOLE MATRIX // v1.0</span>
-        <div id="lcm-header-right">
-            <span id="lcm-bpm-display">BPM: --</span>
-            <div id="lcm-status-dot" title="DSP Active"></div>
-            <button class="lcm-hdr-btn" onclick="LCM.scanDevices()" title="Enumerate all connected audio interfaces">SCAN_HW</button>
-            <button class="lcm-hdr-btn" onclick="LCM.promptAddChannel()" title="Add a new hardware input channel strip">+ CH</button>
-            <button class="lcm-hdr-btn warn" onclick="LCM.toggle()" title="Close Live Console Matrix">✕</button>
+
+
+<!-- ═══════════════════════════════════════════════════════════
+     VANGUARD TRACKER — RENOISE-STYLE HEX SEQUENCER
+     32-step × 4-track · InternalSynth · NeuralCompiler IDE
+     ═══════════════════════════════════════════════════════════ -->
+<div id="vanguard-tracker-window" class="vanguard-tracker-window">
+
+    <!-- Title bar / Transport -->
+    <div class="vt-titlebar" id="vt-titlebar">
+        <span class="vt-titlebar-label">◈ VNGRD // SONIC SUITE</span>
+        <div class="vt-transport">
+            <div class="vt-bpm-wrap">BPM <input class="vt-bpm-input" id="vt-bpm" type="number" min="40" max="300" value="120"></div>
+            <button class="vt-btn vt-play-btn" id="vt-play-btn" onclick="VanguardTracker.play()">▶ PLAY</button>
+            <button class="vt-btn" onclick="VanguardTracker.stop()">■ STOP</button>
+            <button class="vt-btn" onclick="VanguardTracker.clear()" style="color:rgba(255,120,0,0.65);border-color:rgba(255,120,0,0.25);">CLR</button>
+            <button class="vt-btn-nc-launch" id="nc-toggle-btn" onclick="NeuralCompiler.toggle()">[ OPEN NEURAL COMPILER ]</button>
+            <button class="vt-btn" onclick="_vtToggleHud()" style="color:rgba(255,204,0,0.65);border-color:rgba(255,204,0,0.22);font-size:7px;">? HUD</button>
+            <button class="vt-btn" id="vt-alpha-btn" onclick="toggleGhostMode()" style="color:rgba(255,255,255,0.45);border-color:#333;font-size:7px;letter-spacing:0.5px;">[ ALPHA ]</button>
+        </div>
+        <button class="vt-close-btn" onclick="VanguardTracker.toggle()">✕</button>
+    </div>
+
+    <!-- Waveform canvas strip -->
+    <div class="vt-wave-strip">
+        <div class="vt-wave-num-pad" style="font-size:5.5px;color:rgba(0,243,255,0.28);letter-spacing:1px;">WAVE</div>
+        <div class="vt-wave-canvas-wrap">
+            <canvas class="vt-wave-canvas" id="vt-wave-0"></canvas>
+            <span class="vt-wave-label">SUB 00-01</span>
+        </div>
+        <div class="vt-wave-canvas-wrap">
+            <canvas class="vt-wave-canvas" id="vt-wave-1"></canvas>
+            <span class="vt-wave-label">NOISE 02-03</span>
+        </div>
+        <div class="vt-wave-canvas-wrap">
+            <canvas class="vt-wave-canvas" id="vt-wave-2"></canvas>
+            <span class="vt-wave-label">SWEEP 04-05</span>
+        </div>
+        <div class="vt-wave-canvas-wrap">
+            <canvas class="vt-wave-canvas" id="vt-wave-3"></canvas>
+            <span class="vt-wave-label">BOOM 0A-0F</span>
         </div>
     </div>
 
-    <!-- Body -->
-    <div id="lcm-body">
-
-        <!-- ── Channel Strips Area ─────────────────────────────── -->
-        <div id="lcm-strips-scroll">
-            <div id="lcm-strips">
-                <!-- Channel strips injected here by LCM.addChannel() -->
-            </div>
-            <!-- Add-channel placeholder (always last) -->
-            <div class="lcm-add-placeholder" onclick="LCM.promptAddChannel()" title="Add a new hardware input channel">
-                <span>+</span>
-                <small>ADD<br>CHANNEL</small>
-            </div>
-        </div>
-
-        <!-- ── Right Side Panel ────────────────────────────────── -->
-        <div id="lcm-side-panel">
-
-            <!-- Ghost Deck -->
-            <div id="lcm-ghost-deck">
-                <div id="lcm-ghost-deck-title">▓▓ GHOST_DECK</div>
-                <div id="lcm-ghost-status">IDLE // AWAITING CAPTURE</div>
-
-                <!-- Waveform visualiser -->
-                <div class="lcm-ghost-waveform" id="lcm-ghost-waveform">
-                    <!-- 32 bars, built by JS -->
-                    <div id="lcm-ghost-playhead"></div>
-                </div>
-
-                <!-- Gain -->
-                <div class="lcm-ghost-gain-row">
-                    <label>VOL</label>
-                    <input type="range" min="0" max="100" value="85"
-                        oninput="LCM.setGhostGain(this.value/100)"
-                        title="Ghost Deck output volume">
-                    <span id="lcm-ghost-gain-val" style="font-size:7px;color:rgba(176,0,255,0.4);width:22px;text-align:right;">85</span>
-                </div>
-
-                <!-- Grain Size -->
-                <div class="lcm-grain-row">
-                    <label>GRN</label>
-                    <input type="range" min="50" max="500" value="200" step="10"
-                        oninput="LCM.setGrainSize(this.value);document.getElementById('lcm-grain-sz-val').textContent=this.value+'ms'"
-                        title="Grain size in ms">
-                    <span class="lcm-grain-val" id="lcm-grain-sz-val">200ms</span>
-                </div>
-
-                <!-- Overlap -->
-                <div class="lcm-grain-row">
-                    <label>OVL</label>
-                    <input type="range" min="0" max="100" value="5" step="1"
-                        oninput="LCM.setGrainOverlap(this.value/100);document.getElementById('lcm-grain-ovl-val').textContent=this.value+'%'"
-                        title="Grain overlap (0–100%)">
-                    <span class="lcm-grain-val" id="lcm-grain-ovl-val">5%</span>
-                </div>
-
-                <!-- Controls -->
-                <div class="lcm-ghost-ctrl-row">
-                    <button class="lcm-ghost-btn" id="lcm-gd-play" onclick="LCM.ghostPlay()" title="Start Ghost Deck playback">PLAY</button>
-                    <button class="lcm-ghost-btn" id="lcm-gd-stop" onclick="LCM.ghostStop()" title="Stop Ghost Deck">STOP</button>
-                    <button class="lcm-ghost-btn" id="lcm-gd-loop" onclick="LCM.ghostToggleLoop()" title="Toggle loop mode">LOOP</button>
-                </div>
-            </div>
-
-            <!-- Neuro Compiler // Offline Bus (reserved routing slot) -->
-            <div id="lcm-neuro-bus">
-                <div id="lcm-neuro-bus-inner">
-                    <div id="lcm-neuro-title">⬡ NEURO COMPILER</div>
-                    <div id="lcm-neuro-status">// OFFLINE //</div>
-                    <div id="lcm-neuro-routing">
-                        SLOT: RESERVED<br>
-                        BUS: 09 — TRACKER_IN<br>
-                        FORMAT: RENOISE_XRNS<br>
-                        STATUS: AWAITING_LINK
-                    </div>
-                </div>
-            </div>
-
-        </div><!-- /lcm-side-panel -->
-
-    </div><!-- /lcm-body -->
-
-    <!-- Device Select Modal (overlays the console) -->
-    <div id="lcm-device-modal">
-        <div id="lcm-device-modal-title">SELECT_INPUT_DEVICE</div>
-        <div id="lcm-device-list">
-            <div style="font-size:8px;color:rgba(255,255,255,0.25);padding:8px;">
-                Press SCAN_HW to enumerate devices first.
-            </div>
-        </div>
-        <button id="lcm-device-modal-cancel" onclick="LCM.closeDeviceModal()">[ CANCEL ]</button>
+    <!-- Column headers (PAD | NOTE | VOL | FX) with laser lines -->
+    <div class="vt-col-headers">
+        <div class="vt-col-hdr">#</div>
+        <div class="vt-col-hdr" title="00-0F = InternalSynth  10-1F = Sampler Pads">PAD</div>
+        <div class="vt-col-hdr" title="Chromatic note: C-3…B-6">NOTE</div>
+        <div class="vt-col-hdr" title="Velocity 00=off FF=max">VOL</div>
+        <div class="vt-col-hdr" title="VJ FX code: 01=seismic 02=punch 03=party">FX</div>
     </div>
 
-</div><!-- /#vngrd-console -->
+    <!-- Scrollable rows (built by VanguardTracker.init) -->
+    <div class="vt-track-scroll" id="vt-track-scroll"></div>
 
+    <!-- Status bar -->
+    <div class="vt-status-bar">
+        <span>POS:</span><span class="vt-status-pos" id="vt-pos">00</span>
+        <span style="margin-left:5px;">ROW:</span><span class="vt-status-pos" id="vt-step">1/32</span>
+        <span style="margin-left:5px;color:rgba(0,243,255,0.55);" id="vt-engine-status">IDLE</span>
+        <span style="margin-left:auto;color:rgba(0,243,255,0.2);">SYNTH:00-0F · SFX:10-1F</span>
+    </div>
+</div>
 
+<!-- ═══════════════════════════════════════════════════════════
+     HUD CRYSTAL OVERLAY — glass morphism
+     ═══════════════════════════════════════════════════════════ -->
+<div class="vt-hud-overlay" id="vt-hud-overlay">
+    <div class="vt-hud-panel">
+        <div class="vt-hud-title">◈ VNGRD // SONIC SUITE — MANUAL</div>
+        <div class="vt-hud-grid">
+            <div class="vt-hud-section-title">[ TRACKER ] — HEX SEQUENCER</div>
+            <div class="vt-hud-row">
+                <span class="vt-hud-cmd">PAD  00–0F</span>
+                <span class="vt-hud-desc">Internal Synth engine<br>SUB / NOISE / SWEEP / METAL / AM / BOOM</span>
+            </div>
+            <div class="vt-hud-row">
+                <span class="vt-hud-cmd">PAD  10–1F</span>
+                <span class="vt-hud-desc">Sampler Pads (SFX library)<br>10=applause 11=cheer 12=horn 13=boom</span>
+            </div>
+            <div class="vt-hud-row">
+                <span class="vt-hud-cmd">NOTE  C-3…B-6</span>
+                <span class="vt-hud-desc">Chromatic pitch for synth<br>Sets oscillator frequency</span>
+            </div>
+            <div class="vt-hud-row">
+                <span class="vt-hud-cmd">VOL  00–FF</span>
+                <span class="vt-hud-desc">Velocity. High VOL + low freq<br>auto-triggers seismic screen shake</span>
+            </div>
+            <div class="vt-hud-sep"></div>
+            <div class="vt-hud-section-title">[ FX ] — VJ VISUAL CODES</div>
+            <div class="vt-hud-row">
+                <span class="vt-hud-cmd">FX  01</span>
+                <span class="vt-hud-desc">SEISMIC — screen shake</span>
+            </div>
+            <div class="vt-hud-row">
+                <span class="vt-hud-cmd">FX  02</span>
+                <span class="vt-hud-desc">PUNCH — kinetic bounce</span>
+            </div>
+            <div class="vt-hud-row">
+                <span class="vt-hud-cmd">FX  03</span>
+                <span class="vt-hud-desc">PARTY — beat-reactive mode</span>
+            </div>
+            <div class="vt-hud-sep"></div>
+            <div class="vt-hud-section-title">[ COMPILER ] — NEURAL SCRIPTING</div>
+            <div class="vt-hud-row">
+                <span class="vt-hud-cmd">loop(bpm, () =&gt; { })</span>
+                <span class="vt-hud-desc">Live loop. 'beat' is auto-injected.<br>Output routes through master analyser.</span>
+            </div>
+            <div class="vt-hud-row">
+                <span class="vt-hud-cmd">p(n).play(vol)</span>
+                <span class="vt-hud-desc">Fire Sampler pad n (0–11)<br>Triggers gear-coupled VJ FX</span>
+            </div>
+            <div class="vt-hud-row">
+                <span class="vt-hud-cmd">synth(note, type)</span>
+                <span class="vt-hud-desc">Play note via InternalSynth<br>type: sub / noise / boom / metal / sweep</span>
+            </div>
+            <div class="vt-hud-row">
+                <span class="vt-hud-cmd">Shift+Enter</span>
+                <span class="vt-hud-desc">Execute script. Hot-swap — no clock stop.</span>
+            </div>
+        </div>
+        <button class="vt-hud-close" onclick="_vtToggleHud()">[ CLOSE ]</button>
+    </div>
+</div>
+
+<!-- ═══════════════════════════════════════════════════════════
+     NEURAL COMPILER — DRIS-STYLE IDE WINDOW
+     ═══════════════════════════════════════════════════════════ -->
+<div id="nc-window" class="nc-window">
+    <div class="nc-titlebar" id="nc-titlebar">
+        <span class="nc-title">⟨/⟩ NEURAL_COMPILER</span>
+        <span style="font-size:6.5px;color:rgba(176,0,255,0.4);letter-spacing:1px;">SONIC SUITE v3</span>
+        <button class="vt-close-btn" onclick="NeuralCompiler.toggle()" style="color:rgba(176,0,255,0.5);">✕</button>
+    </div>
+    <div class="nc-body">
+        <div class="nc-editor-wrap">
+            <textarea class="nc-editor" id="nc-editor" spellcheck="false" autocomplete="off" autocorrect="off" autocapitalize="off"></textarea>
+        </div>
+        <div class="nc-output-panel" id="nc-output"></div>
+    </div>
+    <div class="nc-toolbar">
+        <button class="nc-run-btn" id="nc-run-btn">▶ RUN</button>
+        <button class="nc-stop-btn" id="nc-stop-btn">■ STOP LOOP</button>
+        <span class="nc-hint">Shift+Enter to run · loop(bpm, fn) · p(n).play(vol) · synth(note, type)</span>
+    </div>
+    <div class="nc-status-bar">
+        <span>OUTPUT ROUTED → ENGINE ANALYSER → SEISMIC/KINETIC</span>
+        <span style="margin-left:auto;" id="nc-clock-status">LOOP: IDLE</span>
+    </div>
+</div>
 
 </body>
 </html>
