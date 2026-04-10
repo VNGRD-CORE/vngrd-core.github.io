@@ -1,0 +1,207 @@
+/* ═══════════════════════════════════════════════════════════════════════════
+   ALGO NODE HUD — VNGRD_ALGO_NODE  (isolated module styles)
+   ═══════════════════════════════════════════════════════════════════════════ */
+
+/* ── Floating window ──────────────────────────────────────────────────────── */
+#algo-node-hud {
+    position: fixed;
+    top: 80px;
+    right: 240px;
+    width: 500px;
+    min-height: 330px;
+    background: rgba(0, 15, 0, 0.45);
+    backdrop-filter: blur(25px);
+    -webkit-backdrop-filter: blur(25px);
+    border: 1px solid rgba(0, 255, 65, 0.2);
+    box-shadow: 0 0 15px rgba(0, 255, 65, 0.08), inset 0 0 1px rgba(0, 255, 65, 0.04);
+    z-index: 6100;
+    display: none;
+    flex-direction: column;
+    font-family: 'JetBrains Mono', 'Share Tech Mono', monospace;
+    will-change: transform;
+    transition: border-color 50ms linear, box-shadow 50ms linear;
+}
+
+/* 50 ms border flash on successful eval */
+#algo-node-hud.algo-node-flash {
+    border-color: rgba(0, 255, 65, 0.9) !important;
+    box-shadow: 0 0 22px rgba(0, 255, 65, 0.65), inset 0 0 1px rgba(0, 255, 65, 0.3) !important;
+}
+
+/* ── Header / drag bar ────────────────────────────────────────────────────── */
+.algo-node-header {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 7px 10px;
+    flex-shrink: 0;
+    border-bottom: 1px solid rgba(0, 255, 65, 0.12);
+    background: linear-gradient(90deg, rgba(0, 255, 65, 0.07) 0%, rgba(0, 255, 65, 0.02) 100%);
+    cursor: move;
+    user-select: none;
+}
+
+.algo-node-title {
+    font-family: 'Orbitron', sans-serif;
+    font-size: 9px;
+    letter-spacing: 2.5px;
+    color: #00FF41;
+    text-shadow: 0 0 8px rgba(0, 255, 65, 0.55);
+    flex: 0 0 auto;
+}
+
+#algo-node-midi-dot {
+    font-size: 7px;
+    letter-spacing: 1.5px;
+    color: rgba(0, 255, 65, 0.3);
+    flex: 1;
+    transition: color 0.3s ease;
+}
+
+.algo-node-controls {
+    display: flex;
+    align-items: center;
+    gap: 5px;
+    flex-shrink: 0;
+}
+
+.algo-node-btn {
+    background: none;
+    border: 1px solid rgba(0, 255, 65, 0.22);
+    color: #00FF41;
+    cursor: pointer;
+    font-size: 8px;
+    line-height: 1;
+    padding: 3px 8px;
+    font-family: 'JetBrains Mono', monospace;
+    letter-spacing: 1px;
+    border-radius: 1px;
+    transition: background 0.12s, box-shadow 0.12s;
+}
+
+.algo-node-btn:hover {
+    background: rgba(0, 255, 65, 0.1);
+    box-shadow: 0 0 8px rgba(0, 255, 65, 0.25);
+}
+
+.algo-node-btn.run {
+    background: rgba(0, 255, 65, 0.07);
+    border-color: rgba(0, 255, 65, 0.4);
+}
+
+.algo-node-btn.stop {
+    border-color: rgba(255, 50, 50, 0.28);
+    color: #ff5050;
+}
+
+.algo-node-btn.stop:hover {
+    background: rgba(255, 50, 50, 0.08);
+    box-shadow: 0 0 8px rgba(255, 50, 50, 0.2);
+}
+
+.algo-node-btn.close {
+    border-color: rgba(0, 255, 65, 0.2);
+    padding: 3px 7px;
+}
+
+/* ── Editor body ──────────────────────────────────────────────────────────── */
+.algo-node-body {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    padding: 10px;
+    gap: 6px;
+    position: relative;
+}
+
+#algo-node-editor {
+    flex: 1;
+    min-height: 200px;
+    width: 100%;
+    box-sizing: border-box;
+    /* Guardrail: fit content to container */
+    object-fit: contain;
+    background: rgba(0, 10, 0, 0.6);
+    border: 1px solid rgba(0, 255, 65, 0.12);
+    color: #00FF41;
+    font-family: 'JetBrains Mono', 'Share Tech Mono', 'Courier New', monospace;
+    font-size: 13px;
+    line-height: 1.65;
+    padding: 10px 13px;
+    resize: vertical;
+    outline: none !important;
+    box-shadow: none;
+    caret-color: #00FF41;
+    letter-spacing: 0.4px;
+    scrollbar-width: thin;
+    scrollbar-color: rgba(0, 255, 65, 0.18) transparent;
+}
+
+#algo-node-editor::selection {
+    background: rgba(0, 255, 65, 0.18);
+}
+
+#algo-node-editor:focus {
+    outline: none;
+    border-color: rgba(0, 255, 65, 0.2);
+}
+
+#algo-node-editor::placeholder {
+    color: rgba(0, 255, 65, 0.22);
+    font-size: 11px;
+}
+
+/* ── Footer row (hint + CC display) ──────────────────────────────────────── */
+.algo-node-footer {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 3px 1px 0;
+    flex-shrink: 0;
+}
+
+.algo-node-hint {
+    font-size: 7px;
+    color: rgba(0, 255, 65, 0.28);
+    letter-spacing: 1.5px;
+}
+
+/* CC value readout — appears in corner of editor on knob twist */
+#algo-node-cc-display {
+    font-size: 8px;
+    color: #00FF41;
+    letter-spacing: 1px;
+    opacity: 0;
+    pointer-events: none;
+    transition: opacity 0.18s ease;
+    text-shadow: 0 0 6px rgba(0, 255, 65, 0.7);
+    font-family: 'JetBrains Mono', monospace;
+}
+
+/* ── Sidebar launch row ───────────────────────────────────────────────────── */
+#algo-node-rack {
+    margin-top: 8px;
+    padding-top: 8px;
+    border-top: 1px solid rgba(0, 255, 65, 0.1);
+}
+
+#algo-node-launch-btn {
+    width: 100%;
+    background: rgba(0, 255, 65, 0.05);
+    border: 1px solid rgba(0, 255, 65, 0.22);
+    color: #00FF41;
+    cursor: pointer;
+    font-size: 9px;
+    padding: 7px 10px;
+    font-family: 'Orbitron', sans-serif;
+    letter-spacing: 2px;
+    text-transform: uppercase;
+    text-align: center;
+    border-radius: 1px;
+    transition: background 0.15s, box-shadow 0.15s;
+}
+
+#algo-node-launch-btn:hover {
+    background: rgba(0, 255, 65, 0.1);
+    box-shadow: 0 0 12px rgba(0, 255, 65, 0.2);
+}

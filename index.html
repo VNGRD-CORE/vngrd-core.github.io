@@ -9,6 +9,7 @@
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
     <link rel="manifest" href="manifest.json">
     <link rel="stylesheet" href="./src/kinetic-rack/kinetic-rack.css">
+    <link rel="stylesheet" href="./src/algo-node/algo-node.css">
 
    <title>DRIS//CORE VNGRD</title>
 <script>if('serviceWorker' in navigator){navigator.serviceWorker.register('sw.js').catch(function(){});}</script>
@@ -4453,6 +4454,43 @@ body.fullscreen #transcription-hud { pointer-events: none !important; } /* keep 
         </div>
     </div>
 
+    <!-- ══ ALGO NODE HUD — VNGRD_ALGO_NODE live-code sequencer ═════════════ -->
+    <div id="algo-node-hud">
+        <div class="algo-node-header">
+            <span class="algo-node-title">VNGRD // ALGO_NODE</span>
+            <span id="algo-node-midi-dot">[ MIDI: OFFLINE ]</span>
+            <div class="algo-node-controls">
+                <button class="algo-node-btn run"
+                        onclick="window.AlgoNode && AlgoNode.evaluate()"
+                        title="Evaluate (Ctrl+Enter)">▶ RUN</button>
+                <button class="algo-node-btn stop"
+                        onclick="window.AlgoNode && AlgoNode.stop()"
+                        title="Stop loop">■ STOP</button>
+                <button class="algo-node-btn close"
+                        onclick="window.AlgoNode && AlgoNode.toggle()"
+                        title="Close">✕</button>
+            </div>
+        </div>
+        <div class="algo-node-body">
+            <textarea id="algo-node-editor"
+                      autocomplete="off"
+                      spellcheck="false"
+                      placeholder="-- Tidal-style patterns. Ctrl+Enter to run.
+-- Instruments: kd sd hh oh cp
+-- Subdivide:   [hh hh] or [hh hh hh]
+-- Ratchet:     hh*4
+-- Rest:        ~
+-- Multi-line patterns layer in parallel.
+
+kd ~ sd ~
+hh hh hh hh"></textarea>
+            <div class="algo-node-footer">
+                <span class="algo-node-hint">CTRL+ENTER EVAL &nbsp;|&nbsp; CC1: LPF &nbsp;|&nbsp; CC2: GLITCH</span>
+                <span id="algo-node-cc-display"></span>
+            </div>
+        </div>
+    </div>
+
     <aside class="sidebar" id="left-panel">
         <div class="section">
             <div class="sec-head"><span class="sec-title">CAMERA_4K</span><button class="sampler-help-btn" onclick="event.stopPropagation();_toggleSectionHelp(this,'camera')">?</button><div class="sec-dot off" id="cam-dot"></div></div>
@@ -5174,6 +5212,12 @@ body.fullscreen #transcription-hud { pointer-events: none !important; } /* keep 
                                 onclick="KineticRack.midiLearn('filter')">M</button>
                         </div>
                         <button id="kr-rec-btn" onclick="window.KineticRack && KineticRack.toggleRecording()">⏺ REC</button>
+                    </div>
+
+                    <!-- ══ ALGO NODE ══════════════════════════════════════ -->
+                    <div id="algo-node-rack">
+                        <button id="algo-node-launch-btn"
+                                onclick="window.AlgoNode && AlgoNode.toggle()">[ ALGO_NODE ]</button>
                     </div>
 
                     <!-- SAMPLER HELP OVERLAY -->
@@ -20459,6 +20503,7 @@ function _applyPoseToModel(lm) {
 <script src="./src/synesthesia-voice-engine.js"></script>
 
 <script type="module" src="./src/kinetic-rack/KineticRack.js"></script>
+<script type="module" src="./src/algo-node/AlgoNode.js"></script>
 
 <!-- NLE seam controls are fully canvas-drawn (no DOM panel) -->
 
