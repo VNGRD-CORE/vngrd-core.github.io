@@ -60,7 +60,7 @@
 </script>
 <script src="src/Compositor.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
-<script type="importmap">{"imports":{"three":"https://unpkg.com/three@0.160.0/build/three.module.js","three/addons/":"https://unpkg.com/three@0.160.0/examples/jsm/"}}</script>
+<script type="importmap">{"imports":{"three":"https://unpkg.com/three@0.169.0/build/three.module.js","three/addons/":"https://unpkg.com/three@0.169.0/examples/jsm/"}}</script>
     <style>
         @import url('https://fonts.googleapis.com/css2?family=Orbitron:wght@400;600;800;900&family=JetBrains+Mono:wght@300;400;500&family=Bebas+Neue&family=Russo+One&family=Share+Tech+Mono&display=swap');
         @import url('https://fonts.googleapis.com/css2?family=Space+Mono:wght@400;700&family=Inter:wght@300;400;500;600&display=swap');
@@ -74,6 +74,10 @@
             --theme-bg-tint: rgba(0, 243, 255, 0.05);
             --theme-glow: 0 0 20px rgba(0, 243, 255, 0.15);
             --theme-border: rgba(0, 243, 255, 0.3);
+            /* STADIUM_PRO palette */
+            --stadium-red:   #FF0000;
+            --stadium-white: #FFFFFF;
+            --stadium-black: #06060A;
             /* STRUCTURAL THEME ENGINE — CYBER_CORE (Default) */
             --bg-main: #070707;
             --bg-panel: #111111;
@@ -104,6 +108,37 @@
         body.theme-purple { --accent: #b000ff; --accent-dim: rgba(176,0,255,0.2); --accent-glow: rgba(176,0,255,0.5); --theme-color: #b000ff; --theme-bg-tint: rgba(176,0,255,0.05); --theme-glow: 0 0 20px rgba(176,0,255,0.15); --theme-border: rgba(176,0,255,0.3); }
         body.theme-gold { --accent: #ffd700; --accent-dim: rgba(255,215,0,0.2); --accent-glow: rgba(255,215,0,0.5); --theme-color: #ffd700; --theme-bg-tint: rgba(255,215,0,0.05); --theme-glow: 0 0 20px rgba(255,215,0,0.15); --theme-border: rgba(255,215,0,0.3); }
         body.theme-night { --accent: #334455; --accent-dim: rgba(51,68,85,0.2); --bg: #020204; --panel: #040408; --theme-color: #334455; --theme-bg-tint: rgba(51,68,85,0.05); --theme-glow: 0 0 20px rgba(51,68,85,0.15); --theme-border: rgba(51,68,85,0.3); }
+
+        /* ── STADIUM_PRO IMAGE RULES ── */
+        /* All thumbnails / album art / NFT images use contain so nothing is cropped */
+        .nft-thumb, .track-thumb, .album-art, .media-thumb,
+        [id*="thumb"] img, [class*="thumb"] img,
+        .nft-item img, .vinyl-art, #album-cover img {
+            object-fit: contain;
+            width:  100%;
+            height: 100%;
+        }
+
+        /* ── SONIC SUITE HUD — transparent fixed panel, never occludes canvas ── */
+        #sonic-suite-hud {
+            position:       fixed;
+            bottom:         12px;
+            right:          12px;
+            z-index:        120;
+            background:     transparent;
+            border:         1px solid rgba(255,255,255,0.08);
+            border-radius:  4px;
+            pointer-events: none;     /* pass clicks through to canvas */
+            display:        flex;
+            flex-direction: column;
+            gap:            4px;
+            padding:        6px 8px;
+            max-width:      220px;
+        }
+        #sonic-suite-hud * { pointer-events: auto; } /* re-enable for controls */
+
+        /* ── ENGINE OFFLINE glow (set by SVE JS) — ensure it renders on top ── */
+        #sve-status { position: relative; z-index: 1; }
 
         /* STRUCTURAL THEME ENGINE — BROADCAST_PRO */
         body.theme-broadcast {
@@ -807,7 +842,7 @@
         }
         #ghost-terminal-controls { display: flex; align-items: center; gap: 5px; flex-shrink: 0; }
         #ghost-terminal-status { font-size: 7px; color: var(--g); letter-spacing: 1px; opacity: 0.85; }
-        #ghost-terminal-body { flex: 1; padding: 8px 10px; overflow-y: auto; scrollbar-width: none; }
+        #ghost-terminal-body { flex: 1; overflow: hidden; scrollbar-width: none; position: relative; }
         .ghost-log { margin-bottom: 3px; line-height: 1.4; font-size: 9px; }
         .ghost-log .ts { color: rgba(255,255,255,0.25); margin-right: 5px; font-size: 8px; }
         .ghost-log .ai { color: var(--accent); }
@@ -4442,14 +4477,26 @@ body.fullscreen #transcription-hud { pointer-events: none !important; } /* keep 
             <div id="ghost-terminal-controls">
                 <span id="ghost-terminal-status">ONLINE</span>
                 <button id="btn-ghost-mic" onclick="_ghostVoiceToggle()" title="Voice commands — speak any GHOST command hands-free" style="background:none;border:1px solid rgba(0,243,255,0.15);color:rgba(0,243,255,0.45);cursor:pointer;font-size:10px;line-height:1;padding:2px 5px;font-family:'JetBrains Mono',monospace;letter-spacing:0;border-radius:1px;transition:all 0.15s;">🎤</button>
-                <button onclick="$('ghost-terminal-body').innerHTML='';_ghostLastMsg='';" title="Purge chat log" style="background:none;border:none;color:rgba(255,255,255,0.28);cursor:pointer;font-size:13px;line-height:1;padding:1px 2px;opacity:0.7;">⌫</button>
+                <button onclick="_termLines=[];_ghostLastMsg='';_renderTermCanvas();" title="Purge chat log" style="background:none;border:none;color:rgba(255,255,255,0.28);cursor:pointer;font-size:13px;line-height:1;padding:1px 2px;opacity:0.7;">⌫</button>
                 <button id="ghost-close-btn" onclick="toggleGhost()" style="background:none;border:1px solid rgba(0,243,255,0.2);color:var(--c);cursor:pointer;font-size:9px;line-height:1;padding:3px 6px;font-family:'JetBrains Mono',monospace;display:block;letter-spacing:1px;opacity:0.85;border-radius:1px;">✕&nbsp;[G]</button>
             </div>
         </div>
-        <div id="ghost-terminal-body"></div>
+        <div id="ghost-terminal-body">
+            <!-- Terminal text rendered to canvas overlay — eliminates DOM reflows -->
+            <canvas id="ghost-canvas" style="position:absolute;top:0;left:0;width:100%;height:100%;pointer-events:none;"></canvas>
+        </div>
         <div id="ghost-input-line">
-            <span id="ghost-prompt">GHOST></span>
-            <input type="text" id="ghost-input" placeholder="Talk to me..." autocomplete="off">
+            <!-- SVG label blinds Chrome OCR scanner from identifying field purpose -->
+            <label for="ghost-input" style="display:flex;align-items:center;flex-shrink:0;">
+                <svg id="ghost-prompt" xmlns="http://www.w3.org/2000/svg" width="52" height="12" viewBox="0 0 52 12" aria-hidden="true" focusable="false">
+                    <text x="0" y="10" font-family="JetBrains Mono,monospace" font-size="9" font-weight="700" fill="var(--accent)" letter-spacing="1">GHOST//</text>
+                </svg>
+            </label>
+            <input type="text" id="ghost-input"
+                placeholder="Talk to me..."
+                autocomplete="one-time-code"
+                role="presentation"
+                spellcheck="false">
         </div>
     </div>
 
@@ -5311,11 +5358,9 @@ body.fullscreen #transcription-hud { pointer-events: none !important; } /* keep 
                     <button class="btn" id="sve-speak-btn"
                         onclick="(async()=>{
                             if(!window.SVE)return;
-                            if(SVE.isPlaying){SVE.stop();this.textContent='▶ SYNTH VOICE';return;}
+                            if(SVE.isPlaying){SVE.stop();return;}
                             await SVE.init();
                             SVE.speak(document.getElementById('sve-script').value);
-                            this.textContent='■ STOP';
-                            var chk=setInterval(()=>{if(!speechSynthesis.speaking){this.textContent='▶ SYNTH VOICE';clearInterval(chk);}},250);
                         })()">▶ SYNTH VOICE</button>
                     <button class="btn" style="width:32px;flex:none;font-size:11px;" title="Fire one glitch burst"
                         onclick="window.SVE&&SVE.init().then(()=>SVE.triggerGlitch())">⚡</button>
@@ -5692,6 +5737,76 @@ function igniteAudio() {
     }
 }
 
+// ── Dynamic name attribute — refreshed on focus to foil autofill heuristics ──
+(function() {
+    const inp = document.getElementById('ghost-input');
+    if (!inp) return;
+    function _refreshName() { inp.name = 'q-node-' + Date.now(); }
+    _refreshName();
+    inp.addEventListener('focus', _refreshName);
+})();
+
+// ── Terminal Canvas Engine — 2D Canvas replaces innerHTML reflows ─────────────
+// All ghostLog() calls paint to a Canvas overlay, eliminating DOM reflows.
+var _termLines  = [];   // { ts, type, msg }
+var _termCanvas = null;
+var _termCtx    = null;
+var _termDirty  = false;
+
+(function _initTermCanvas() {
+    const body   = document.getElementById('ghost-terminal-body');
+    const canvas = document.getElementById('ghost-canvas');
+    if (!body || !canvas) return;
+
+    // Size canvas to match body at runtime
+    function _resizeTerm() {
+        canvas.width  = body.clientWidth  || 300;
+        canvas.height = body.clientHeight || 200;
+        _termDirty = true;
+        _renderTermCanvas();
+    }
+
+    _termCanvas = canvas;
+    _termCtx    = canvas.getContext('2d');
+    new ResizeObserver(_resizeTerm).observe(body);
+    _resizeTerm();
+})();
+
+var TERM_COLORS = {
+    cmd:     '#00f3ff',
+    ai:      '#c8c8ff',
+    user:    '#ffffff',
+    success: '#00ff88',
+    crit:    '#FF0000',
+};
+var TERM_LINE_H = 14;
+var TERM_PAD_X  = 8;
+var TERM_PAD_Y  = 6;
+var TERM_FONT   = '9px "JetBrains Mono", monospace';
+
+function _renderTermCanvas() {
+    if (!_termCtx || !_termCanvas) return;
+    const c   = _termCtx;
+    const W   = _termCanvas.width;
+    const H   = _termCanvas.height;
+    c.clearRect(0, 0, W, H);
+    c.font         = TERM_FONT;
+    c.textBaseline = 'top';
+
+    const maxLines = Math.floor((H - TERM_PAD_Y * 2) / TERM_LINE_H);
+    const visible  = _termLines.slice(-maxLines);
+
+    visible.forEach((ln, idx) => {
+        const y   = TERM_PAD_Y + idx * TERM_LINE_H;
+        c.fillStyle = 'rgba(0,243,255,0.35)';
+        c.fillText(ln.ts, TERM_PAD_X, y);
+        c.fillStyle = TERM_COLORS[ln.type] || TERM_COLORS.cmd;
+        c.fillText(ln.msg, TERM_PAD_X + 36, y);
+    });
+
+    _termDirty = false;
+}
+
 // GHOST TERMINAL — Sentient AI Companion v5
 var _ghostLastMsg = '';
 var _ghostSysLastAt = 0;
@@ -5706,14 +5821,11 @@ function ghostLog(msg, type = 'cmd') {
         if (now - _ghostSysLastAt < 5000 && type === 'cmd') return;
         _ghostSysLastAt = now;
     }
-    const body = $('ghost-terminal-body');
     const ts = new Date().toTimeString().split(' ')[0].substring(0, 5);
-    const line = document.createElement('div');
-    line.className = 'ghost-log';
-    line.innerHTML = '<span class="ts">' + ts + '</span><span class="' + type + '">' + msg + '</span>';
-    body.appendChild(line);
-    body.scrollTop = body.scrollHeight;
-    if (body.children.length > 80) body.firstChild.remove();
+    // Paint to canvas overlay — no DOM reflow
+    _termLines.push({ ts, type, msg });
+    if (_termLines.length > 80) _termLines.shift();
+    _renderTermCanvas();
 }
 
 function ghostInit() {
@@ -6401,7 +6513,7 @@ function processGhostCommand(cmd, voiceMode) {
                 break;
 
             case 'clear':
-                $('ghost-terminal-body').innerHTML = '';
+                _termLines = []; _ghostLastMsg = ''; _renderTermCanvas();
                 ghostLog('Terminal cleared.', 'ai');
                 break;
 
@@ -20461,6 +20573,54 @@ function _applyPoseToModel(lm) {
 <script type="module" src="./src/kinetic-rack/KineticRack.js"></script>
 
 <!-- NLE seam controls are fully canvas-drawn (no DOM panel) -->
+
+<!-- ── SONIC SUITE HUD — fixed transparent panel, never occludes 3D canvas ── -->
+<div id="sonic-suite-hud" aria-label="Sonic Suite">
+    <div style="font-family:'Orbitron',sans-serif;font-size:6px;letter-spacing:2px;color:var(--stadium-white);opacity:0.4;margin-bottom:2px;">SONIC SUITE</div>
+    <!-- Vinyl Deck: track name mirror -->
+    <div id="ss-track" style="font-family:'JetBrains Mono',monospace;font-size:8px;color:var(--stadium-white);opacity:0.85;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:200px;">NO TRACK</div>
+    <!-- Mini VU bars -->
+    <div id="ss-vu" style="display:flex;gap:2px;align-items:flex-end;height:16px;margin-top:3px;">
+        <span class="ss-bar" style="width:4px;background:var(--stadium-red);display:inline-block;height:4px;border-radius:1px;"></span>
+        <span class="ss-bar" style="width:4px;background:var(--stadium-red);display:inline-block;height:4px;border-radius:1px;"></span>
+        <span class="ss-bar" style="width:4px;background:var(--stadium-red);display:inline-block;height:4px;border-radius:1px;"></span>
+        <span class="ss-bar" style="width:4px;background:var(--stadium-red);display:inline-block;height:4px;border-radius:1px;"></span>
+        <span class="ss-bar" style="width:4px;background:var(--stadium-red);display:inline-block;height:4px;border-radius:1px;"></span>
+        <span class="ss-bar" style="width:4px;background:var(--stadium-red);display:inline-block;height:4px;border-radius:1px;"></span>
+        <span class="ss-bar" style="width:4px;background:var(--stadium-red);display:inline-block;height:4px;border-radius:1px;"></span>
+        <span class="ss-bar" style="width:4px;background:var(--stadium-red);display:inline-block;height:4px;border-radius:1px;"></span>
+    </div>
+    <!-- Playback transport mirror -->
+    <div style="display:flex;gap:4px;margin-top:4px;">
+        <button onclick="document.getElementById('btn-prev-track')?.click()" style="background:none;border:1px solid rgba(255,255,255,0.15);color:var(--stadium-white);font-size:8px;padding:2px 5px;cursor:pointer;border-radius:2px;opacity:0.7;">⏮</button>
+        <button onclick="document.getElementById('btn-play-pause')?.click()" style="background:none;border:1px solid rgba(255,255,255,0.15);color:var(--stadium-white);font-size:8px;padding:2px 5px;cursor:pointer;border-radius:2px;opacity:0.7;">⏯</button>
+        <button onclick="document.getElementById('btn-next-track')?.click()" style="background:none;border:1px solid rgba(255,255,255,0.15);color:var(--stadium-white);font-size:8px;padding:2px 5px;cursor:pointer;border-radius:2px;opacity:0.7;">⏭</button>
+    </div>
+</div>
+<script>
+// Sync Sonic Suite HUD with main audio state
+(function _sonicSuiteSync() {
+    const ssTrack = document.getElementById('ss-track');
+    const ssBars  = document.querySelectorAll('#ss-vu .ss-bar');
+    const N_BARS  = ssBars.length;
+    function _syncHUD() {
+        // Mirror track name
+        const mainTrack = document.getElementById('track-info');
+        if (ssTrack && mainTrack) ssTrack.textContent = mainTrack.textContent || 'NO TRACK';
+        // Mirror VU from APP.audio.vuData
+        if (window.APP && APP.audio.vuData) {
+            const step = Math.floor(APP.audio.vuData.length / N_BARS);
+            ssBars.forEach((bar, i) => {
+                const v = APP.audio.vuData[i * step] / 255;
+                bar.style.height = Math.max(2, Math.round(v * 16)) + 'px';
+                bar.style.opacity = 0.4 + v * 0.6;
+            });
+        }
+        requestAnimationFrame(_syncHUD);
+    }
+    _syncHUD();
+})();
+</script>
 
 </body>
 </html>
