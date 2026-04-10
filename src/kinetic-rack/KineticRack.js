@@ -628,6 +628,17 @@ class KineticRack {
         this._handMeshR = null;
         this._handMeshL = null;
         this._looper    = null;
+        this._useWebGPU = false;
+
+        // Worker-based MediaPipe isolation
+        this._mpWorker        = null;       // Web Worker running hand detection
+        this._mpWorkerReady   = false;
+        this._mpPending       = false;      // frame in-flight guard (60 FPS lock)
+        this._mpFrameCanvas   = null;       // OffscreenCanvas for frame capture
+        this._mpFrameCtx      = null;       // 2D context on the frame canvas
+        // Latest landmark data unpacked from worker Transferables
+        this._latestRightLm   = null;
+        this._latestLeftLm    = null;
 
         this._active      = false;
         this._initialized = false;
@@ -661,15 +672,37 @@ class KineticRack {
     async init() {
         this._setStatus('STARTING...');
 
-        // Phase 1 — Three.js renderer (fatal if WebGL unavailable)
+        // Phase 1 — Three.js renderer: prefer WebGPU, fall back to WebGL
         const canvas = document.getElementById('kinetic-canvas');
         if (!canvas) throw new Error('Missing #kinetic-canvas');
 
-        this._renderer = new THREE.WebGLRenderer({ canvas, antialias: false, alpha: true });
-        this._renderer.setClearColor(0x000000, 0);
-        this._renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
-        this._renderer.setSize(window.innerWidth, window.innerHeight);
-        console.log('[KineticRack] Phase 1: WebGL renderer created');
+        let rendererCreated = false;
+
+        // Attempt WebGPU renderer (Three.js r163+)
+        if (navigator.gpu) {
+            try {
+                const { WebGPURenderer } = await import('three/addons/renderers/WebGPURenderer.js');
+                this._renderer = new WebGPURenderer({ canvas, antialias: false, alpha: true });
+                await this._renderer.init();
+                this._renderer.setClearColor(0x000000, 0);
+                this._renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+                this._renderer.setSize(window.innerWidth, window.innerHeight);
+                this._useWebGPU = true;
+                rendererCreated = true;
+                console.log('[KineticRack] Phase 1: WebGPU renderer active');
+            } catch (e) {
+                console.warn('[KineticRack] WebGPU unavailable, falling back to WebGL:', e.message);
+            }
+        }
+
+        if (!rendererCreated) {
+            this._renderer = new THREE.WebGLRenderer({ canvas, antialias: false, alpha: true });
+            this._renderer.setClearColor(0x000000, 0);
+            this._renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+            this._renderer.setSize(window.innerWidth, window.innerHeight);
+            this._useWebGPU = false;
+            console.log('[KineticRack] Phase 1: WebGL renderer active');
+        }
 
         this._scene  = new THREE.Scene();
         this._camera = new THREE.PerspectiveCamera(60, window.innerWidth / window.innerHeight, 0.01, 100);
@@ -757,26 +790,68 @@ class KineticRack {
     }
 
     async _initHandLandmarker() {
+        // Spawn isolated MediaPipe Web Worker — returns landmark data via
+        // Transferable ArrayBuffers at a locked 60 FPS cadence.
         try {
-            const { HandLandmarker, FilesetResolver } = await import(
-                'https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@0.10.14/vision_bundle.js'
-            );
-            const vision = await FilesetResolver.forVisionTasks(
-                'https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@0.10.14/wasm'
-            );
-            this._handLM = await HandLandmarker.createFromOptions(vision, {
-                baseOptions: {
-                    modelAssetPath: 'https://storage.googleapis.com/mediapipe-models/hand_landmarker/hand_landmarker/float16/1/hand_landmarker.task',
-                    delegate: 'GPU',
-                },
-                runningMode:                'VIDEO',
-                numHands:                   2,
-                minHandDetectionConfidence: 0.6,
-                minHandPresenceConfidence:  0.6,
-                minTrackingConfidence:      0.5,
-            });
+            this._mpWorker = new Worker('./src/mediapipe-worker.js', { type: 'module' });
+
+            this._mpWorker.onmessage = (e) => {
+                const { type, data, handedness, count } = e.data;
+
+                if (type === 'READY') {
+                    this._mpWorkerReady = true;
+                    console.log('[KineticRack] MediaPipe worker ready');
+                    return;
+                }
+
+                if (type === 'ERROR') {
+                    console.warn('[KineticRack] MediaPipe worker error:', e.data.message);
+                    return;
+                }
+
+                if (type === 'LANDMARKS') {
+                    this._mpPending = false; // allow next frame dispatch
+
+                    // Unpack Transferable Float32Array (21 landmarks × 3 floats per hand)
+                    const lmBuf  = new Float32Array(data);
+                    const hdBuf  = new Uint8Array(handedness);
+                    const LM_F   = 21 * 3; // floats per hand
+
+                    this._latestRightLm = null;
+                    this._latestLeftLm  = null;
+
+                    for (let h = 0; h < Math.min(count, 2); h++) {
+                        const label = hdBuf[h]; // 1=Left, 2=Right
+                        const base  = h * LM_F;
+                        const lms   = [];
+                        for (let i = 0; i < 21; i++) {
+                            lms.push({
+                                x: lmBuf[base + i * 3],
+                                y: lmBuf[base + i * 3 + 1],
+                                z: lmBuf[base + i * 3 + 2],
+                            });
+                        }
+                        if (label === 2) this._latestRightLm = lms;
+                        if (label === 1) this._latestLeftLm  = lms;
+                    }
+                }
+            };
+
+            this._mpWorker.onerror = (e) => {
+                console.warn('[KineticRack] MediaPipe worker error event:', e.message);
+            };
+
+            // Build a reusable canvas for frame pixel capture
+            this._mpFrameCanvas = document.createElement('canvas');
+            this._mpFrameCanvas.width  = 320;
+            this._mpFrameCanvas.height = 180;
+            this._mpFrameCtx = this._mpFrameCanvas.getContext('2d', { willReadFrequently: true });
+
+            // Boot the worker
+            this._mpWorker.postMessage({ type: 'INIT' });
+
         } catch (e) {
-            console.warn('[KineticRack] HandLandmarker unavailable:', e);
+            console.warn('[KineticRack] MediaPipe worker failed to start:', e);
         }
     }
 
@@ -804,47 +879,46 @@ class KineticRack {
     // ── Hand detection ────────────────────────────────────────────────────────
 
     _detectHands() {
+        // Dispatch a video frame to the MediaPipe worker (Transferable ArrayBuffer)
+        // at the render loop cadence — the worker's LANDMARKS message updates
+        // this._latestRightLm / this._latestLeftLm asynchronously.
         const video = document.getElementById('kr-ai-video');
-        if (!this._handLM || !video || video.readyState < 2) {
-            this._handMeshR?.update(null);
-            this._handMeshL?.update(null);
-            return;
+        if (this._mpWorkerReady && !this._mpPending && video && video.readyState >= 2) {
+            const fc = this._mpFrameCtx;
+            const fw = this._mpFrameCanvas.width;
+            const fh = this._mpFrameCanvas.height;
+            fc.drawImage(video, 0, 0, fw, fh);
+            const imgData = fc.getImageData(0, 0, fw, fh);
+            // Transfer the pixel buffer to the worker — zero-copy
+            const pixelBuf = imgData.data.buffer.slice(0); // clone for transfer
+            this._mpPending = true;
+            this._mpWorker.postMessage(
+                { type: 'DETECT', buffer: pixelBuf, width: fw, height: fh, timestamp: performance.now() },
+                [pixelBuf]
+            );
         }
 
-        let results;
-        try {
-            results = this._handLM.detectForVideo(video, performance.now());
-        } catch (_) { return; }
-
-        const hands      = results?.landmarks  ?? [];
-        const handedness = results?.handedness ?? [];
-
-        let rightLm = null;
-        let leftLm  = null;
-
-        for (let i = 0; i < hands.length; i++) {
-            const label = handedness[i]?.[0]?.categoryName;
-            if (label === 'Right') rightLm = hands[i];
-            if (label === 'Left')  leftLm  = hands[i];
-        }
+        // Consume the latest landmark data produced by the worker
+        const rightLm = this._latestRightLm;
+        const leftLm  = this._latestLeftLm;
 
         // Right hand → pitch + filter via index fingertip (lm8)
         this._handMeshR?.update(rightLm);
         if (rightLm) {
-            this._audio.setSpatialGate(0.35);  // open synth
+            this._audio.setSpatialGate(0.35);
 
             const lm8 = rightLm[8];
             this._s.rightX += (lm8.x - this._s.rightX) * LERP_FACTOR;
             this._s.rightY += (lm8.y - this._s.rightY) * LERP_FACTOR;
 
-            const pitch  = 55 * Math.pow(16, this._s.rightX * 3); // ~110–880 Hz
+            const pitch  = 55 * Math.pow(16, this._s.rightX * 3);
             const filter = 80 + this._s.rightY * 7920;
             this._audio.setPitch(pitch);
             this._audio.setFilter(filter);
 
             this._looper?.update(rightLm);
         } else {
-            this._audio.setSpatialGate(0);     // mute synth
+            this._audio.setSpatialGate(0);
             this._looper?.update(null);
         }
 
@@ -878,6 +952,7 @@ class KineticRack {
             // Stop
             this._active = false;
             if (this._rafId) cancelAnimationFrame(this._rafId);
+            if (this._mpWorker) { this._mpWorker.terminate(); this._mpWorker = null; this._mpWorkerReady = false; }
             document.getElementById('kinetic-canvas')?.classList.remove('kr-online');
             document.getElementById('kinetic-cam-video')?.classList.remove('kr-online');
             document.getElementById('kr-launch-btn')?.classList.remove('kr-online');
