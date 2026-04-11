@@ -4800,7 +4800,6 @@ body.fullscreen #transcription-hud { pointer-events: none !important; } /* keep 
                         <span class="sampler-title">Sampler SFX</span>
                         <span class="sampler-collapse-arrow" id="sfx-collapse-arrow" style="font-size:8px;color:var(--accent);margin-left:4px;margin-right:auto;transition:color 0.2s;line-height:1;">&#x25BE;</span>
                         <button class="sampler-help-btn" onclick="event.stopPropagation();_toggleSectionHelp(this,'sampler')">?</button>
-                        <button id="gb-mode-btn" class="sampler-badge" onclick="event.stopPropagation();_toggleGrooveboxMode()" style="cursor:pointer;background:none;border:1px solid rgba(255,200,0,0.30);color:rgba(255,200,0,0.60);padding:2px 6px;border-radius:2px;font-family:'Orbitron',sans-serif;font-size:7px;letter-spacing:0.8px;transition:all 0.2s;" title="Toggle Groovebox step sequencer">GRVBX</button>
                         <span class="sampler-badge">SFX · 12-PAD</span>
                     </div>
                     <div id="sfx-pad-body">
@@ -11719,61 +11718,7 @@ function _htFlashKey(key) {
     }
 }
 
-// ─────────────────────────────────────────────────────────────
-//  GROOVEBOX MODE TOGGLE — shows/hides #gb-seq-panel,
-//  builds the grid on first open, updates GRVBX button state.
-// ─────────────────────────────────────────────────────────────
-var _gbGridBuilt = false;
-function _toggleGrooveboxMode() {
-    var panel = document.getElementById('gb-seq-panel');
-    var btn   = document.getElementById('gb-mode-btn');
-    if (!panel) return;
-    var isOpen = panel.classList.contains('visible');
-    if (!isOpen) {
-        panel.classList.add('visible');
-        if (!_gbGridBuilt) { _buildHyperGrid(); _gbGridBuilt = true; }
-        if (btn) { btn.style.borderColor = 'rgba(255,200,0,0.85)'; btn.style.color = 'rgba(255,210,0,1)'; btn.style.background = 'rgba(255,200,0,0.10)'; }
-    } else {
-        panel.classList.remove('visible', 'expanded');
-        document.body.classList.remove('seq-expanded');
-        if (_htScheduler._active) _htScheduler.stop();
-        var tBtn = document.getElementById('gb-transport-btn');
-        if (tBtn) tBtn.textContent = '\u25B6 PLAY';
-        if (btn) { btn.style.borderColor = 'rgba(255,200,0,0.30)'; btn.style.color = 'rgba(255,200,0,0.60)'; btn.style.background = 'none'; }
-    }
-}
 
-// ─────────────────────────────────────────────────────────────
-//  TRANSPORT TOGGLE — play/stop _htScheduler
-// ─────────────────────────────────────────────────────────────
-function _toggleGrooveboxTransport() {
-    if (!APP.audio.ctx) igniteAudio();
-    var tBtn = document.getElementById('gb-transport-btn');
-    if (_htScheduler._active) {
-        _htScheduler.stop();
-        if (tBtn) tBtn.textContent = '\u25B6 PLAY';
-    } else {
-        _htScheduler.start();
-        if (tBtn) tBtn.textContent = '\u25A0 STOP';
-    }
-}
-
-// ─────────────────────────────────────────────────────────────
-//  SEQ EXPAND — pop out sequencer to fullscreen overlay
-// ─────────────────────────────────────────────────────────────
-function _toggleSeqExpand() {
-    var panel    = document.getElementById('gb-seq-panel');
-    var backdrop = document.getElementById('gb-seq-backdrop');
-    if (!panel) return;
-    var isExp = panel.classList.contains('expanded');
-    if (!isExp) {
-        panel.classList.add('expanded');
-        if (backdrop) backdrop.style.display = 'block';
-    } else {
-        panel.classList.remove('expanded');
-        if (backdrop) backdrop.style.display = 'none';
-    }
-}
 
 // ── BPM input sync ───────────────────────────────────────────────────────────
 document.addEventListener('DOMContentLoaded', function() {
