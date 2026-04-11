@@ -17396,26 +17396,35 @@ function endCallCleanup() {
     
     // 48KHZ RAW DIRECT PATH - DISABLE ALL BROWSER PROCESSING
     async function switchAudioInput(deviceId) {
+        // 1. HARDWARE RELEASE (MEMORY CLEAR)
+        // Stop the active input-device stream so the OS releases the hardware lock.
         if (APP.inputDevices.stream) {
             APP.inputDevices.stream.getTracks().forEach(t => t.stop());
         }
-        
+        // Also stop any stream tracked directly on the audio object (e.g. internal mic).
+        if (APP.audio.currentStream) {
+            APP.audio.currentStream.getTracks().forEach(t => t.stop());
+        }
+
         try {
+            // 2. RAW AUDIO CONSTRAINTS (THE CONDENSER FIX)
             // PRO-AUDIO CONSTRAINTS: 48kHz, NO PROCESSING
+            // channelCount: 1 forces Input 1 mono — maps condenser to centre,
+            // preventing signal loss when stuck in the left channel only.
             const stream = await navigator.mediaDevices.getUserMedia({
                 audio: {
                     deviceId: { exact: deviceId },
                     sampleRate: { ideal: 48000 },
                     sampleSize: { ideal: 24 },
-                    channelCount: { ideal: 2 },
-                    // DISABLE ALL BROWSER PROCESSING FOR RAW SIGNAL
-                    echoCancellation: { exact: false },
-                    noiseSuppression: { exact: false },
-                    autoGainControl: { exact: false }
+                    channelCount: 1,
+                    echoCancellation: false,
+                    noiseSuppression: false,
+                    autoGainControl: false
                 }
             });
-            
+
             APP.inputDevices.stream = stream;
+            APP.audio.currentStream = stream;
             APP.inputDevices.selectedId = deviceId;
 
             // CRITICAL: reuse the MAIN audio chain context, never create a new one.
@@ -17424,78 +17433,78 @@ function endCallCleanup() {
             ensureAudioChain();
             var _ctx = APP.audio.ctx;
 
-            const source = _ctx.createMediaStreamSource(stream);
+            // 3. THE DIGITAL GRAPH CONNECTION (METERS + REC)
+            // Disconnect the previous MediaStreamSource before building the new graph.
+            if (APP.audio.micSource) {
+                try { APP.audio.micSource.disconnect(); } catch (_) {}
+            }
 
-            // Level monitoring analyser
+            // Create new source node and store it for future teardown.
+            APP.audio.micSource = _ctx.createMediaStreamSource(stream);
+
+            // Level monitoring analyser (drives the input-level-bar).
             APP.inputDevices.analyzer = _ctx.createAnalyser();
             APP.inputDevices.analyzer.fftSize = 512;
             APP.inputDevices.analyzer.smoothingTimeConstant = 0.3;
-            source.connect(APP.inputDevices.analyzer);
+            APP.audio.micSource.connect(APP.inputDevices.analyzer);
 
-            // Mic gain node — feeds into startNFTRecording's freshDest tap
-            APP.audio.micGainNode = _ctx.createGain();
-            APP.audio.micGainNode.gain.value = 1.0;
-            source.connect(APP.audio.micGainNode);
+            // VISUALS LOCK: wire directly into main VU analyser — green meters react.
+            if (APP.audio.analyzer) APP.audio.micSource.connect(APP.audio.analyzer);
+            // RECORDING LOCK: wire directly into master recording bus — captured on Record.
+            if (APP.audio.recorderDest) APP.audio.micSource.connect(APP.audio.recorderDest);
+            // FEEDBACK PREVENTION: source is NOT connected to ctx.destination / speakers.
 
-            // SCARLETT FIX: wire hardware into main VU analyser (fixes flat-line)
-            if (APP.audio.analyzer) APP.audio.micGainNode.connect(APP.audio.analyzer);
-            // RECORDING BUS: hardware feeds directly into master recording destination
-            if (APP.audio.recorderDest) APP.audio.micGainNode.connect(APP.audio.recorderDest);
-
-            // UI FEEDBACK: show active hardware device name in track-info
-            (function() {
-                var _sel = document.getElementById('audio-input-select');
-                var _devLabel = 'HARDWARE';
-                if (_sel && _sel.selectedIndex >= 0 && _sel.options[_sel.selectedIndex]) {
-                    var _t = (_sel.options[_sel.selectedIndex].text || '').trim().toUpperCase();
-                    if (_t && _t !== 'SELECT_HARDWARE...' && _t !== 'SELECT_DEVICE...') _devLabel = _t;
-                }
-                var _ti = document.getElementById('track-info');
-                if (_ti) _ti.textContent = 'LIVE: ' + _devLabel;
-            })();
+            // 4. UI CONFIRMATION: display the real hardware label from the stream.
+            var _trackLabel = (stream.getAudioTracks()[0] && stream.getAudioTracks()[0].label)
+                ? stream.getAudioTracks()[0].label.toUpperCase()
+                : 'HARDWARE';
+            var _ti = document.getElementById('track-info');
+            if (_ti) _ti.textContent = 'LIVE: ' + _trackLabel;
 
             monitorInputLevel();
             log('PRO_AUDIO: MIC_READY // ' + deviceId.substring(0, 8));
         } catch (e) {
-            // Fallback without exact constraints
+            // Fallback without sampleRate/sampleSize constraints (wider device compatibility).
             try {
                 const stream = await navigator.mediaDevices.getUserMedia({
                     audio: {
                         deviceId: { exact: deviceId },
+                        channelCount: 1,
                         echoCancellation: false,
                         noiseSuppression: false,
                         autoGainControl: false
                     }
                 });
+
                 APP.inputDevices.stream = stream;
+                APP.audio.currentStream = stream;
                 APP.inputDevices.selectedId = deviceId;
 
                 ensureAudioChain();
                 var _ctx2 = APP.audio.ctx;
-                const source = _ctx2.createMediaStreamSource(stream);
+
+                // Disconnect previous source before rewiring.
+                if (APP.audio.micSource) {
+                    try { APP.audio.micSource.disconnect(); } catch (_) {}
+                }
+
+                APP.audio.micSource = _ctx2.createMediaStreamSource(stream);
                 APP.inputDevices.analyzer = _ctx2.createAnalyser();
                 APP.inputDevices.analyzer.fftSize = 512;
-                source.connect(APP.inputDevices.analyzer);
+                APP.inputDevices.analyzer.smoothingTimeConstant = 0.3;
+                APP.audio.micSource.connect(APP.inputDevices.analyzer);
 
-                APP.audio.micGainNode = _ctx2.createGain();
-                APP.audio.micGainNode.gain.value = 1.0;
-                source.connect(APP.audio.micGainNode);
+                // VISUALS LOCK (fallback path).
+                if (APP.audio.analyzer) APP.audio.micSource.connect(APP.audio.analyzer);
+                // RECORDING LOCK (fallback path).
+                if (APP.audio.recorderDest) APP.audio.micSource.connect(APP.audio.recorderDest);
+                // FEEDBACK PREVENTION: NOT connected to ctx.destination.
 
-                // SCARLETT FIX (fallback path): wire into main VU analyser + recording bus
-                if (APP.audio.analyzer) APP.audio.micGainNode.connect(APP.audio.analyzer);
-                if (APP.audio.recorderDest) APP.audio.micGainNode.connect(APP.audio.recorderDest);
-
-                // UI FEEDBACK
-                (function() {
-                    var _sel = document.getElementById('audio-input-select');
-                    var _devLabel = 'HARDWARE';
-                    if (_sel && _sel.selectedIndex >= 0 && _sel.options[_sel.selectedIndex]) {
-                        var _t = (_sel.options[_sel.selectedIndex].text || '').trim().toUpperCase();
-                        if (_t && _t !== 'SELECT_HARDWARE...' && _t !== 'SELECT_DEVICE...') _devLabel = _t;
-                    }
-                    var _ti = document.getElementById('track-info');
-                    if (_ti) _ti.textContent = 'LIVE: ' + _devLabel;
-                })();
+                var _trackLabel2 = (stream.getAudioTracks()[0] && stream.getAudioTracks()[0].label)
+                    ? stream.getAudioTracks()[0].label.toUpperCase()
+                    : 'HARDWARE';
+                var _ti2 = document.getElementById('track-info');
+                if (_ti2) _ti2.textContent = 'LIVE: ' + _trackLabel2;
 
                 monitorInputLevel();
                 log('INPUT_SWITCHED: ' + deviceId.substring(0, 8));
