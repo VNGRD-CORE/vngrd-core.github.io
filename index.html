@@ -1061,6 +1061,10 @@
         .sec-dot { width: 5px; height: 5px; background: var(--g); border-radius: 50%; box-shadow: 0 0 4px var(--g); }
         .sec-dot.off { background: var(--text-dim); box-shadow: none; }
         .sec-dot.gold { background: var(--y); box-shadow: 0 0 6px var(--y); }
+        @keyframes pulse-rec {
+            0%,100% { box-shadow: 0 0 4px var(--o); opacity: 1; }
+            50%      { box-shadow: 0 0 10px var(--o), 0 0 20px rgba(255,157,0,0.4); opacity: 0.7; }
+        }
         .sec-body { padding: 6px 8px; }
         .sec-body > :last-child { margin-bottom: 0; }
         .sec-head.collapsible { cursor: pointer; }
@@ -1505,18 +1509,14 @@
         /* ── GEAR MENU — positioned above the gear icon, clamped within sidebar ── */
         .pad-gear-menu {
             display: none;
-            position: absolute;
-            bottom: 100%;
-            top: auto;
-            right: 0;
-            margin-bottom: 4px;
+            position: fixed; /* JS sets top/left via getBoundingClientRect — never clipped */
             background: #0c0c14;
             border: 1px solid rgba(0,243,255,0.25);
             border-radius: 4px;
-            box-shadow: 0 -4px 16px rgba(0,0,0,0.9), 0 0 0 1px rgba(0,243,255,0.08);
-            min-width: 76px;
-            z-index: 9999;
-            overflow: hidden;
+            box-shadow: 0 4px 24px rgba(0,0,0,0.95), 0 0 0 1px rgba(0,243,255,0.08);
+            min-width: 110px;
+            z-index: 99999;
+            overflow-y: auto;
         }
         .pad-gear.open .pad-gear-menu { display: block; }
         .pad-gear-menu [data-fx] {
@@ -4880,6 +4880,28 @@ body.fullscreen #transcription-hud { pointer-events: none !important; } /* keep 
             </div>
         </div>
 
+        <!-- ── REC_ENGINE // moved here from bottom: co-located with audio for fast access ── -->
+        <div class="section">
+            <div class="sec-head collapsible open" style="display:flex;align-items:center;gap:6px;">
+                <span class="sec-dot gold" style="flex-shrink:0;animation:pulse-rec 1.4s ease-in-out infinite;"></span>
+                <span class="sec-title" style="color:var(--o);letter-spacing:2.5px;">REC_ENGINE</span>
+                <span class="sec-arrow">&#x25BE;</span>
+                <button class="sampler-help-btn" onclick="event.stopPropagation();_toggleSectionHelp(this,'session-lab')">?</button>
+                <div id="sync-led" title="INTEL: AUTO_SAVE // 60s PULSE" style="margin-left:auto;"></div>
+            </div>
+            <div class="sec-body" id="session-lab-body" style="max-height:500px;padding:8px 10px;">
+                <button class="btn" id="btn-nft-30"
+                    style="width:100%;font-size:8px;font-weight:700;letter-spacing:2px;color:var(--o);border-color:var(--o);padding:6px;margin-bottom:6px;"
+                    title="INTEL: CAPTURE_VNGRD_CLIP">&#x25CF; CAPTURE_VNGRD_CLIP</button>
+                <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:4px;margin-bottom:6px;">
+                    <button class="btn" id="btn-save" style="font-size:7px;padding:3px 4px;" title="INTEL: SAVE_ENGINE // LOCAL + WALLET">SAVE</button>
+                    <button class="btn" id="btn-import-dna" style="font-size:7px;padding:3px 4px;" title="INTEL: IMPORT_DECK // .VGD / .JSON">IMPORT</button>
+                    <button class="btn" id="btn-share-qr" style="font-size:7px;padding:3px 4px;" title="INTEL: EXPORT_ENGINE // IPFS + QR">SHARE</button>
+                </div>
+                <button class="btn" id="btn-vr" style="width:100%;font-size:7px;padding:3px 4px;color:var(--v);border-color:var(--v);" title="INTEL: SPATIAL_GATEWAY // WEBXR">ENTER_VR</button>
+            </div>
+        </div>
+
         <div class="section">
             <div class="sec-head"><span class="sec-title">AUDIO_REACTIVE</span><button class="sampler-help-btn" onclick="event.stopPropagation();_toggleSectionHelp(this,'audio-reactive')">?</button><div class="sec-dot on"></div></div>
             <div class="sec-body">
@@ -5452,30 +5474,14 @@ body.fullscreen #transcription-hud { pointer-events: none !important; } /* keep 
         <!-- ── END CINEMA_ENGINE ──────────────────────────────────────────── -->
 
         <div class="section">
-            <div class="sec-head collapsible open"><span class="sec-title">MIDI_HOST</span><span class="sec-arrow">&#x25BE;</span><button class="sampler-help-btn" onclick="event.stopPropagation();_toggleSectionHelp(this,'midi')">?</button><div class="sec-dot off" id="midi-dot"></div></div>
-            <div class="sec-body" id="midi-host-body" style="max-height:200px;padding:8px 12px;">
+            <div class="sec-head collapsible"><span class="sec-title">MIDI_HOST</span><span class="sec-arrow">&#x25B8;</span><button class="sampler-help-btn" onclick="event.stopPropagation();_toggleSectionHelp(this,'midi')">?</button><div class="sec-dot off" id="midi-dot"></div></div>
+            <div class="sec-body" id="midi-host-body" style="max-height:0;padding:0 12px;">
                 <div class="btn-row" style="gap:4px;">
-                    <button class="btn" id="btn-midi" style="flex:1;font-size:8px;">MIDI INIT</button>
-                    <button class="btn" id="btn-midi-learn" style="flex:1;font-size:8px;color:var(--v);border-color:var(--v);">LEARN: OFF</button>
+                    <button class="btn" id="btn-midi" style="flex:1;font-size:7px;padding:3px 4px;letter-spacing:1px;">MIDI INIT</button>
+                    <button class="btn" id="btn-midi-learn" style="flex:1;font-size:7px;padding:3px 4px;letter-spacing:1px;color:var(--v);border-color:var(--v);">LEARN: OFF</button>
                 </div>
-                <div id="midi-status" style="font-size:8px;color:var(--text-dim);margin-top:4px;">NO DEVICE</div>
+                <div id="midi-status" style="font-size:7px;color:var(--text-dim);margin-top:3px;">NO DEVICE</div>
                 <div id="midi-bindings" style="font-size:7px;color:var(--accent);margin-top:3px;word-break:break-all;line-height:1.4;"></div>
-            </div>
-        </div>
-        <div class="section">
-            <div class="sec-head collapsible open" style="display:flex;align-items:center;gap:6px;"><span class="sec-title">SESSION_LAB</span><span class="sec-arrow">&#x25BE;</span><button class="sampler-help-btn" onclick="event.stopPropagation();_toggleSectionHelp(this,'session-lab')">?</button><div class="sec-dot"></div><div id="sync-led" title="INTEL: AUTO_SAVE // 60s PULSE"></div></div>
-            <div class="sec-body" id="session-lab-body" style="max-height:500px;padding:10px 12px;">
-                <div class="btn-row">
-                    <button class="btn" id="btn-nft-30" style="flex:1;font-size:8px;color:var(--o);border-color:var(--o);">CAPTURE_VNGRD_CLIP</button>
-                </div>
-                <div class="btn-row" style="margin-top:6px;gap:4px;">
-                    <button class="btn" id="btn-save" style="flex:1;font-size:8px;" title="INTEL: SAVE_ENGINE // LOCAL + WALLET">SAVE</button>
-                    <button class="btn" id="btn-import-dna" style="flex:1;font-size:8px;" title="INTEL: IMPORT_DECK // .VGD / .JSON">IMPORT</button>
-                    <button class="btn" id="btn-share-qr" style="flex:1;font-size:8px;" title="INTEL: EXPORT_ENGINE // IPFS + QR">SHARE</button>
-                </div>
-                <div style="margin-top:8px;">
-                    <button class="btn" id="btn-vr" style="width:100%;text-align:center;" title="INTEL: SPATIAL_GATEWAY // WEBXR">ENTER_VR</button>
-                </div>
             </div>
         </div>
 
@@ -15569,6 +15575,38 @@ document.addEventListener('DOMContentLoaded', () => {
                 if (pad) pad.classList.add('z-elevated');
                 var padBody = document.getElementById('sfx-pad-body');
                 if (padBody) padBody.classList.add('gear-open');
+
+                // VIEWPORT-AWARE POSITIONING — position:fixed so parent overflow never clips it
+                var menu = gearEl.querySelector('.pad-gear-menu');
+                if (menu) {
+                    var ir = iconEl.getBoundingClientRect();
+                    var mW = 110;   // menu min-width
+                    var mH = 300;   // approximate max menu height
+
+                    // Default: open upward, right-aligned to icon
+                    var top  = ir.top - mH - 4;
+                    var left = ir.right - mW;
+
+                    // Flip downward if not enough room above
+                    if (top < 8) top = ir.bottom + 4;
+                    // Clamp horizontally to viewport
+                    if (left < 8) left = 8;
+                    if (left + mW > window.innerWidth - 8) left = window.innerWidth - mW - 8;
+                    // Clamp vertically
+                    if (top + mH > window.innerHeight - 8) top = window.innerHeight - mH - 8;
+                    if (top < 8) top = 8;
+
+                    menu.style.cssText = [
+                        'position:fixed',
+                        'top:' + top + 'px',
+                        'left:' + left + 'px',
+                        'bottom:auto',
+                        'right:auto',
+                        'z-index:99999',
+                        'max-height:' + (window.innerHeight - top - 12) + 'px',
+                        'overflow-y:auto'
+                    ].join(';');
+                }
             }
         };
         // Close on outside click
