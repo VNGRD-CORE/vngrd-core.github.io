@@ -3252,6 +3252,29 @@ body.fx-nvg .sidebar { z-index: 9999; }
     pointer-events: none !important;
 }
 
+/* VINYL VISUAL LOCK — prevent layout overflow during seismic/punch events.
+   Constrains the primary canvas and off-screen AI video to viewport bounds
+   so boosted vinyl bass cannot cause elements to spill outside the screen. */
+body.seismic-active #vj-canvas,
+body.vb-seismic #vj-canvas,
+body.vb-punch #vj-canvas,
+body.fx-punch #vj-canvas {
+    object-fit: contain !important;
+    width: 100vw !important;
+    height: 100vh !important;
+    max-width: 100% !important;
+    max-height: 100% !important;
+    overflow: hidden;
+}
+#kr-ai-video {
+    object-fit: contain !important;
+    width: 100vw !important;
+    height: 100vh !important;
+    max-width: 100%;
+    max-height: 100%;
+    overflow: hidden;
+}
+
 /* VOID: Full Collapse — harsh grayscale crunch + visible warp */
 body.fx-void {
     will-change: transform, filter;
@@ -17405,6 +17428,11 @@ function endCallCleanup() {
         if (APP.audio.currentStream) {
             APP.audio.currentStream.getTracks().forEach(t => t.stop());
         }
+        // CLEANUP: disconnect old pre-amp to prevent audio doubling on re-selection.
+        if (APP.audio.livePreAmp) {
+            try { APP.audio.livePreAmp.disconnect(); } catch (_) {}
+            APP.audio.livePreAmp = null;
+        }
 
         try {
             // 2. RAW AUDIO CONSTRAINTS (THE CONDENSER FIX)
@@ -17442,17 +17470,28 @@ function endCallCleanup() {
             // Create new source node and store it for future teardown.
             APP.audio.micSource = _ctx.createMediaStreamSource(stream);
 
-            // Level monitoring analyser (drives the input-level-bar).
+            // VINYL PRE-AMP: +8dB boost so quiet analog signals hit visual thresholds.
+            APP.audio.livePreAmp = _ctx.createGain();
+            APP.audio.livePreAmp.gain.value = 2.5;
+            APP.audio.micSource.connect(APP.audio.livePreAmp);
+
+            // Level monitoring analyser (drives the input-level-bar) — post-boost.
             APP.inputDevices.analyzer = _ctx.createAnalyser();
             APP.inputDevices.analyzer.fftSize = 512;
             APP.inputDevices.analyzer.smoothingTimeConstant = 0.3;
-            APP.audio.micSource.connect(APP.inputDevices.analyzer);
+            APP.audio.livePreAmp.connect(APP.inputDevices.analyzer);
 
-            // VISUALS LOCK: wire directly into main VU analyser — green meters react.
-            if (APP.audio.analyzer) APP.audio.micSource.connect(APP.audio.analyzer);
-            // RECORDING LOCK: wire directly into master recording bus — captured on Record.
-            if (APP.audio.recorderDest) APP.audio.micSource.connect(APP.audio.recorderDest);
-            // FEEDBACK PREVENTION: source is NOT connected to ctx.destination / speakers.
+            // KINETIC RACK (VISUALS): boosted signal triggers Seismic/Punch CSS shaders.
+            if (APP.audio.analyzer) APP.audio.livePreAmp.connect(APP.audio.analyzer);
+            // SPATIAL & DOLBY BUS: route vinyl through 3D panning network (audible output).
+            if (APP.audio.panner) {
+                APP.audio.livePreAmp.connect(APP.audio.panner);
+            } else if (APP.audio.masterGain) {
+                APP.audio.livePreAmp.connect(APP.audio.masterGain);
+            }
+            // RECORDING LOCK: boosted signal into master recording bus — captured on Record.
+            if (APP.audio.recorderDest) APP.audio.livePreAmp.connect(APP.audio.recorderDest);
+            // FEEDBACK PREVENTION: source is NOT connected to ctx.destination directly.
 
             // 4. UI CONFIRMATION: display the real hardware label from the stream.
             var _trackLabel = (stream.getAudioTracks()[0] && stream.getAudioTracks()[0].label)
@@ -17489,16 +17528,28 @@ function endCallCleanup() {
                 }
 
                 APP.audio.micSource = _ctx2.createMediaStreamSource(stream);
+
+                // VINYL PRE-AMP (fallback path): same +8dB boost.
+                APP.audio.livePreAmp = _ctx2.createGain();
+                APP.audio.livePreAmp.gain.value = 2.5;
+                APP.audio.micSource.connect(APP.audio.livePreAmp);
+
                 APP.inputDevices.analyzer = _ctx2.createAnalyser();
                 APP.inputDevices.analyzer.fftSize = 512;
                 APP.inputDevices.analyzer.smoothingTimeConstant = 0.3;
-                APP.audio.micSource.connect(APP.inputDevices.analyzer);
+                APP.audio.livePreAmp.connect(APP.inputDevices.analyzer);
 
-                // VISUALS LOCK (fallback path).
-                if (APP.audio.analyzer) APP.audio.micSource.connect(APP.audio.analyzer);
+                // KINETIC RACK (fallback path).
+                if (APP.audio.analyzer) APP.audio.livePreAmp.connect(APP.audio.analyzer);
+                // SPATIAL & DOLBY BUS (fallback path).
+                if (APP.audio.panner) {
+                    APP.audio.livePreAmp.connect(APP.audio.panner);
+                } else if (APP.audio.masterGain) {
+                    APP.audio.livePreAmp.connect(APP.audio.masterGain);
+                }
                 // RECORDING LOCK (fallback path).
-                if (APP.audio.recorderDest) APP.audio.micSource.connect(APP.audio.recorderDest);
-                // FEEDBACK PREVENTION: NOT connected to ctx.destination.
+                if (APP.audio.recorderDest) APP.audio.livePreAmp.connect(APP.audio.recorderDest);
+                // FEEDBACK PREVENTION: NOT connected to ctx.destination directly.
 
                 var _trackLabel2 = (stream.getAudioTracks()[0] && stream.getAudioTracks()[0].label)
                     ? stream.getAudioTracks()[0].label.toUpperCase()
