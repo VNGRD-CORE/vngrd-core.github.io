@@ -4866,12 +4866,12 @@ body.fullscreen #transcription-hud { pointer-events: none !important; } /* keep 
 
         <div class="section">
             <div class="sec-head"><span class="sec-title">AUDIO_ENGINE</span><button class="sampler-help-btn" onclick="event.stopPropagation();_toggleSectionHelp(this,'audio-engine')">?</button><div class="sec-dot off" id="audio-dot"></div></div>
-            <div class="sec-body">
-                <div id="audio-box">
+            <div class="sec-body" style="padding:5px 8px;">
+                <div id="audio-box" style="padding:5px;margin-bottom:5px;">
                     <div id="vu"></div>
                     <div id="track-info">NO_TRACK</div>
                 </div>
-                <div class="btn-row"><button class="btn" id="btn-audio" style="flex:1;">LOAD AUDIO</button><button class="btn" id="btn-mute-vid" style="width:32px;font-size:12px;padding:2px;" title="Toggle video audio">&#x1F50A;</button><button class="btn" id="btn-mic-engine" style="width:32px;font-size:11px;padding:2px;" title="Mic on/off">&#x1F3A4;</button></div>
+                <div class="btn-row" style="margin-bottom:4px;"><button class="btn" id="btn-audio" style="flex:1;font-size:8px;padding:4px 6px;">LOAD AUDIO</button><button class="btn" id="btn-mute-vid" style="width:28px;font-size:11px;padding:2px;" title="Toggle video audio">&#x1F50A;</button><button class="btn" id="btn-mic-engine" style="width:28px;font-size:10px;padding:2px;" title="Mic on/off">&#x1F3A4;</button></div>
                 <div class="audio-ctrl-row">
                     <button class="btn btn-compact" id="btn-prev-track"><svg width="10" height="10" viewBox="0 0 12 12"><path fill="currentColor" d="M2 2h2v8H2zm2 4l6 4V2z"/></svg></button>
                     <button class="btn btn-compact" id="btn-play-pause"><svg width="10" height="10" viewBox="0 0 12 12" id="icon-play-state"><path fill="currentColor" d="M3 2v8l7-4z"/></svg></button>
@@ -4909,11 +4909,11 @@ body.fullscreen #transcription-hud { pointer-events: none !important; } /* keep 
                 <div id="sfx-sampler-wrap">
                     <div id="sfx-sampler-header" onclick="_toggleSamplerBody()" style="cursor:pointer;">
                         <span class="sampler-title">Sampler SFX</span>
-                        <span class="sampler-collapse-arrow" id="sfx-collapse-arrow" style="font-size:8px;color:var(--accent);margin-left:4px;margin-right:auto;transition:color 0.2s;line-height:1;">&#x25BE;</span>
+                        <span class="sampler-collapse-arrow" id="sfx-collapse-arrow" style="font-size:8px;color:var(--accent);margin-left:4px;margin-right:auto;transition:color 0.2s;line-height:1;">&#x25B8;</span>
                         <button class="sampler-help-btn" onclick="event.stopPropagation();_toggleSectionHelp(this,'sampler')">?</button>
                         <span class="sampler-badge">SFX · 12-PAD</span>
                     </div>
-                    <div id="sfx-pad-body">
+                    <div id="sfx-pad-body" class="collapsed">
                     <div id="sfx-pad-grid">
                         <!-- Row 1: Signature Vanguard Bank -->
                         <div class="sfx-bank-label">SIG BANK <em>// TAP TO FIRE</em></div>
@@ -5403,9 +5403,9 @@ body.fullscreen #transcription-hud { pointer-events: none !important; } /* keep 
         </div>
         <!-- ── CINEMA_ENGINE // ELEVENLABS VOICEOVER DIRECTOR ───────────── -->
         <div class="section" id="sve-section">
-            <div class="sec-head collapsible open" onclick="_toggleCollapsible(this)" style="position:relative;">
+            <div class="sec-head collapsible" style="position:relative;">
                 <span class="sec-title">CINEMA_ENGINE</span>
-                <span class="sec-arrow">&#x25BE;</span>
+                <span class="sec-arrow">&#x25B8;</span>
                 <button class="sampler-help-btn" onclick="event.stopPropagation();_toggleSectionHelp(this,'voice-lab')">?</button>
                 <div class="sec-dot off" id="sve-dot"></div>
                 <!-- Help overlay -->
@@ -5416,40 +5416,55 @@ body.fullscreen #transcription-hud { pointer-events: none !important; } /* keep 
                     <div style="font-family:'Orbitron',sans-serif;font-size:8px;color:var(--accent);letter-spacing:2px;margin-bottom:7px;padding-right:14px;">CINEMA_ENGINE // HOW TO USE</div>
                     <div style="font-size:7.5px;color:var(--text);line-height:1.6;margin-bottom:4px;"><span style="color:var(--g);">SCRIPT</span> — Type narration. Space bar works normally here.</div>
                     <div style="font-size:7.5px;color:var(--text);line-height:1.6;margin-bottom:4px;"><span style="color:var(--accent);">[ VOICEOVER ]</span> — Sends script to ElevenLabs API. Ducks ambient audio during playback.</div>
-                    <div style="font-size:7.5px;color:var(--text);line-height:1.6;margin-bottom:4px;"><span style="color:var(--accent);">SYNC_CAROUSEL</span> — When ON, advances the media carousel automatically on voice end.</div>
-                    <div style="font-size:7.5px;color:var(--text);line-height:1.6;"><span style="color:var(--y);">API KEY</span> — Store your ElevenLabs key in localStorage: <em>localStorage.setItem('elevenlabs_api_key','sk-...')</em></div>
+                    <div style="font-size:7.5px;color:var(--text);line-height:1.6;margin-bottom:4px;"><span style="color:var(--accent);">SYNC</span> — When ON, advances the media carousel automatically on voice end.</div>
+                    <div style="font-size:7.5px;color:var(--text);line-height:1.6;"><span style="color:var(--y);">API KEY</span> — Paste your ElevenLabs key in the KEY field — it saves to localStorage automatically.</div>
                 </div>
             </div>
-            <div class="sec-body" id="sve-body">
+            <div class="sec-body" id="sve-body" style="max-height:0;overflow:hidden;padding:0 8px;transition:max-height 0.3s ease;">
 
                 <!-- SVG label hack: blocks Chrome autofill popup on adjacent inputs -->
                 <label for="sve-script" style="position:absolute;width:1px;height:1px;clip:rect(0 0 0 0);overflow:hidden;pointer-events:none;"><svg xmlns="http://www.w3.org/2000/svg" width="1" height="1"></svg></label>
 
-                <!-- Narration script — stopPropagation prevents global space intercept -->
+                <!-- API Key — stored to localStorage -->
+                <input type="password"
+                    id="sve-api-key"
+                    class="inp"
+                    placeholder="ElevenLabs API key..."
+                    autocomplete="one-time-code"
+                    style="font-size:8px;padding:4px 6px;width:100%;box-sizing:border-box;margin-bottom:5px;letter-spacing:0.5px;"
+                    oninput="localStorage.setItem('elevenlabs_api_key',this.value);document.getElementById('sve-status').textContent='KEY: SAVED';"
+                    onfocus="if(!this.value){var _k=localStorage.getItem('elevenlabs_api_key')||'';if(_k)this.value=_k;}"
+                >
+
+                <!-- Narration script -->
                 <textarea
                     id="sve-script"
                     class="inp"
                     placeholder="Narration script..."
                     spellcheck="false"
-                    rows="4"
+                    rows="3"
                     autocomplete="one-time-code"
-                    style="min-height:56px;resize:vertical;font-size:9px;line-height:1.5;margin-bottom:6px;border-left:2px solid rgba(0,243,255,0.3);"
+                    style="min-height:44px;resize:vertical;font-size:9px;line-height:1.5;margin-bottom:5px;border-left:2px solid rgba(0,243,255,0.3);"
                     onkeydown="event.stopPropagation()"
                     onkeyup="event.stopPropagation()"
                 ></textarea>
 
-                <!-- Cinema Engine controls -->
-                <div class="btn-row" style="gap:4px;margin-bottom:4px;">
-                    <button class="btn" id="sve-voiceover-btn" style="flex:1;font-size:8px;letter-spacing:1.5px;font-family:'Orbitron',sans-serif;" onclick="_runSVE()">[ VOICEOVER ]</button>
-                    <button class="btn" id="sve-sync-toggle" style="flex:none;font-size:7px;letter-spacing:1px;padding:4px 8px;color:var(--text-dim);border-color:var(--border-light);" onclick="_toggleSveSync(this)" title="Auto-advance media carousel when voiceover ends">SYNC_CAROUSEL: OFF</button>
+                <!-- Cinema Engine controls — compact single row -->
+                <div style="display:flex;gap:4px;margin-bottom:4px;">
+                    <button class="btn" id="sve-voiceover-btn"
+                        style="flex:1;font-size:7.5px;letter-spacing:1px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;padding:5px 4px;font-family:'Orbitron',sans-serif;"
+                        onclick="_runSVE()">[ VOICEOVER ]</button>
+                    <button class="btn" id="sve-sync-toggle"
+                        style="flex:1;font-size:7px;letter-spacing:0.5px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;padding:5px 4px;color:var(--text-dim);border-color:var(--border-light);"
+                        onclick="_toggleSveSync(this)" title="Auto-advance carousel on voice end">SYNC: OFF</button>
                 </div>
 
                 <!-- Status -->
-                <div id="sve-status" style="font-family:'JetBrains Mono',monospace;font-size:7px;color:var(--accent);letter-spacing:1px;min-height:12px;word-break:break-all;opacity:0.8;">STANDBY // SET elevenlabs_api_key IN localStorage</div>
+                <div id="sve-status" style="font-family:'JetBrains Mono',monospace;font-size:7px;color:var(--accent);letter-spacing:1px;min-height:12px;word-break:break-all;opacity:0.8;padding-bottom:4px;">STANDBY</div>
 
             </div>
         </div>
-        <!-- ── END VOICE_LAB ──────────────────────────────────────────────── -->
+        <!-- ── END CINEMA_ENGINE ──────────────────────────────────────────── -->
 
         <div class="section">
             <div class="sec-head collapsible open"><span class="sec-title">MIDI_HOST</span><span class="sec-arrow">&#x25BE;</span><button class="sampler-help-btn" onclick="event.stopPropagation();_toggleSectionHelp(this,'midi')">?</button><div class="sec-dot off" id="midi-dot"></div></div>
@@ -18273,6 +18288,20 @@ var isVideo = nft.forceVideo || (imageUrl.toLowerCase().match(/\.(mp4|webm|mov|o
             if (arrow) arrow.textContent = isOpen ? '\u25BE' : '\u25B8';
         };
     });
+    // CINEMA_ENGINE collapsible — starts closed, max-height toggle
+    (function() {
+        var _sveBody = $('sve-body');
+        var _sveHead = _sveBody && _sveBody.previousElementSibling;
+        if (!_sveHead) return;
+        var _sveArrow = _sveHead.querySelector('.sec-arrow');
+        _sveHead.onclick = function(e) {
+            if (e.target.closest('.section-help-overlay') || e.target.closest('.sampler-help-btn')) return;
+            var isOpen = _sveHead.classList.toggle('open');
+            _sveBody.style.maxHeight = isOpen ? '400px' : '0';
+            _sveBody.style.padding = isOpen ? '6px 8px' : '0 8px';
+            if (_sveArrow) _sveArrow.textContent = isOpen ? '\u25BE' : '\u25B8';
+        };
+    })();
 
     // Init v19 transitions
     v19_Transitions.init();
