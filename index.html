@@ -4291,17 +4291,6 @@ body.fullscreen #transcription-hud { pointer-events: none !important; } /* keep 
     box-shadow: 0 0 20px rgba(0,243,255,.25), inset 0 0 12px rgba(0,243,255,.07);
     text-shadow: 0 0 10px rgba(0,243,255,.65);
 }
-#vt-sonic-nc-btn {
-    position: absolute; right: 0; top: 0;
-    width: 22px; height: 16px;
-    font-size: 6.5px; font-family: 'JetBrains Mono', monospace; font-weight: 700;
-    color: rgba(176,0,255,.55); background: rgba(8,0,14,.6);
-    border: 1px solid rgba(176,0,255,.25); border-radius: 2px;
-    cursor: pointer; padding: 0; letter-spacing: .5px;
-    display: flex; align-items: center; justify-content: center; transition: all .14s;
-}
-#vt-sonic-nc-btn:hover { color: #b000ff; border-color: rgba(176,0,255,.55); box-shadow: 0 0 8px rgba(176,0,255,.3); }
-#vt-sonic-nc-btn.active { color: #b000ff; border-color: rgba(176,0,255,.7); box-shadow: 0 0 10px rgba(176,0,255,.4); }
 #vt-sonic-status {
     font-size: 6.5px; color: rgba(0,243,255,.32); letter-spacing: 1px;
     text-align: center; padding: 3px 0;
@@ -4343,6 +4332,33 @@ body.fullscreen #transcription-hud { pointer-events: none !important; } /* keep 
     font-family: 'Orbitron', sans-serif; font-size: 8.5px; font-weight: 700;
     color: #b000ff; letter-spacing: 2px; flex: 1; text-shadow: 0 0 10px rgba(176,0,255,0.6);
 }
+.nc-preset-bar {
+    display: flex; align-items: center; gap: 5px;
+    padding: 4px 8px;
+    background: rgba(0,0,0,0.45);
+    border-bottom: 1px solid rgba(176,0,255,0.18);
+    flex-shrink: 0;
+}
+.nc-preset-lbl {
+    font-size: 6.5px; font-family: 'Orbitron', sans-serif; letter-spacing: 1.5px;
+    color: rgba(176,0,255,0.5); white-space: nowrap;
+}
+#nc-preset-select {
+    flex: 1;
+    font-size: 7.5px; font-family: 'JetBrains Mono', monospace;
+    background: rgba(12,0,20,0.9); color: rgba(176,0,255,0.9);
+    border: 1px solid rgba(176,0,255,0.35); border-radius: 2px;
+    padding: 3px 5px; cursor: pointer; outline: none;
+}
+#nc-preset-select:focus { border-color: rgba(176,0,255,0.7); }
+#nc-load-preset-btn {
+    font-size: 7px; font-family: 'Orbitron', sans-serif; letter-spacing: 1px;
+    background: rgba(176,0,255,0.12); color: rgba(176,0,255,0.85);
+    border: 1px solid rgba(176,0,255,0.4); border-radius: 2px;
+    padding: 3px 8px; cursor: pointer; white-space: nowrap;
+    transition: all 0.15s;
+}
+#nc-load-preset-btn:hover { background: rgba(176,0,255,0.28); color: #b000ff; box-shadow: 0 0 10px rgba(176,0,255,0.3); }
 .nc-body {
     flex: 1; display: flex; flex-direction: column; overflow: hidden; min-height: 0;
 }
@@ -5308,7 +5324,6 @@ body.fullscreen #transcription-hud { pointer-events: none !important; } /* keep 
                     <!-- ══ VNGRD SONIC SUITE — TRACKER + NEURAL COMPILER ══ -->
                     <div id="vt-sonic-rack">
                         <button id="vt-sonic-launch-btn" onclick="VanguardTracker.toggle()">[ VNGRD SONIC SUITE ]</button>
-                        <button id="vt-sonic-nc-btn" onclick="NeuralCompiler.toggle()" title="Open Neural Compiler">⟨/⟩ NC</button>
                         <div id="vt-sonic-status">TRK · NC · CLOCK</div>
                     </div>
 
@@ -11025,45 +11040,32 @@ const NeuralCompiler = (() => {
         document.addEventListener('mouseup', function() { _drag = false; });
     }
 
+    function _loadPreset() {
+        var sel = document.getElementById('nc-preset-select');
+        var idx = sel ? (parseInt(sel.value, 10) || 0) : 0;
+        var preset = _PRELOADS[idx];
+        if (!preset) return;
+        var ed = _editor(); if (!ed) return;
+        ed.value = preset.code;
+        _ncLog('LOADED: ' + preset.name, 'nc-sys');
+        ed.focus();
+    }
+
     function _initInput() {
         if (_inputInit) return; _inputInit = true;
         var ed = _editor();
         if (ed) {
-            // Preload script on first open if editor is empty
             if (!ed.value.trim()) ed.value = _PRELOAD;
             ed.addEventListener('keydown', function(e) {
-                if (e.key === 'Enter' && e.shiftKey) {
-                    e.preventDefault();
-                    _run();
-                }
+                if (e.key === 'Enter' && e.shiftKey) { e.preventDefault(); _run(); }
             });
         }
         var runBtn = document.getElementById('nc-run-btn');
         if (runBtn) runBtn.addEventListener('click', _run);
         var stopBtn = document.getElementById('nc-stop-btn');
         if (stopBtn) stopBtn.addEventListener('click', function() {
-            _stopLoop();
-            _ncLog('LOOP STOPPED', 'nc-sys');
+            _stopLoop(); _ncLog('LOOP STOPPED', 'nc-sys');
         });
-
-        // ── Populate preset selector ─────────────────────────────────────
-        var sel = document.getElementById('nc-preset-select');
-        if (sel && !sel.options.length) {
-            for (var i = 0; i < _PRELOADS.length; i++) {
-                var opt = document.createElement('option');
-                opt.value = i;
-                opt.textContent = (i + 1) + ' · ' + _PRELOADS[i].name;
-                sel.appendChild(opt);
-            }
-            sel.addEventListener('change', function() {
-                var idx = parseInt(sel.value, 10) || 0;
-                if (!_PRELOADS[idx]) return;
-                var e = _editor(); if (!e) return;
-                e.value = _PRELOADS[idx].code;
-                _ncLog('LOADED PRESET ' + (idx + 1) + ' — ' + _PRELOADS[idx].name, 'nc-sys');
-                e.focus();
-            });
-        }
     }
 
     function toggle() {
@@ -11072,8 +11074,6 @@ const NeuralCompiler = (() => {
         win.classList.toggle('visible', _visible);
         var btn = document.getElementById('nc-toggle-btn');
         if (btn) btn.classList.toggle('active', _visible);
-        var sideBtn = document.getElementById('vt-sonic-nc-btn');
-        if (sideBtn) sideBtn.classList.toggle('active', _visible);
         if (_visible) {
             _initDrag();
             _initInput();
@@ -11086,7 +11086,7 @@ const NeuralCompiler = (() => {
         }
     }
 
-    return { toggle, run: _run, stopLoop: _stopLoop, _synth: _ncSynth };
+    return { toggle, run: _run, stopLoop: _stopLoop, loadPreset: _loadPreset, _synth: _ncSynth };
 })();
 
 // ═══════════════════════════════════════════════════════════════
@@ -21236,10 +21236,20 @@ function _applyPoseToModel(lm) {
 <div id="nc-window" class="nc-window">
     <div class="nc-titlebar" id="nc-titlebar">
         <span class="nc-title">⟨/⟩ NEURAL_COMPILER</span>
-        <span style="font-size:6.5px;color:rgba(176,0,255,0.4);letter-spacing:1px;">SONIC SUITE v3</span>
-        <select id="nc-preset-select" title="Load a preloaded code preset"
-                style="margin-left:auto;margin-right:6px;font-size:7px;font-family:'JetBrains Mono',monospace;background:rgba(8,0,14,0.9);color:rgba(176,0,255,0.85);border:1px solid rgba(176,0,255,0.35);padding:2px 4px;letter-spacing:.5px;cursor:pointer;outline:none;"></select>
-        <button class="vt-close-btn" onclick="NeuralCompiler.toggle()" style="color:rgba(176,0,255,0.5);">✕</button>
+        <span style="font-size:6.5px;color:rgba(176,0,255,0.4);letter-spacing:1px;margin-left:auto;">SONIC SUITE v3</span>
+        <button class="vt-close-btn" onclick="NeuralCompiler.toggle()" style="color:rgba(176,0,255,0.5);margin-left:8px;">✕</button>
+    </div>
+    <!-- Preset picker bar -->
+    <div class="nc-preset-bar">
+        <span class="nc-preset-lbl">PRESET</span>
+        <select id="nc-preset-select">
+            <option value="0">1 · IDM CORE — Breakbeat</option>
+            <option value="1">2 · CINEMATIC SUB — Drone</option>
+            <option value="2">3 · TECHNO 4×4 — Acid</option>
+            <option value="3">4 · GLITCH RATCHET — Hot-Swap</option>
+            <option value="4">5 · MELODIC PLUCK — Arp</option>
+        </select>
+        <button id="nc-load-preset-btn" onclick="NeuralCompiler.loadPreset()">LOAD</button>
     </div>
     <div class="nc-body">
         <div class="nc-editor-wrap">
@@ -21250,7 +21260,7 @@ function _applyPoseToModel(lm) {
     <div class="nc-toolbar">
         <button class="nc-run-btn" id="nc-run-btn">▶ RUN</button>
         <button class="nc-stop-btn" id="nc-stop-btn">■ STOP LOOP</button>
-        <span class="nc-hint">Shift+Enter to run · pick preset above · GlobalClock-locked</span>
+        <span class="nc-hint">Shift+Enter · RUN · GlobalClock-locked</span>
     </div>
     <div class="nc-status-bar">
         <span>OUTPUT ROUTED → ENGINE ANALYSER → SEISMIC/KINETIC</span>
