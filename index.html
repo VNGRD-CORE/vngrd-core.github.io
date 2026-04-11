@@ -1549,6 +1549,55 @@
         #fx-bank-a-btn.bank-active { border-color:rgba(255,255,255,0.7); color:#fff; box-shadow:0 0 8px rgba(255,255,255,0.15); }
         #fx-bank-b-btn.bank-active { border-color:var(--accent); color:var(--accent); box-shadow:0 0 8px rgba(0,243,255,0.25); }
 
+        /* ── BANK B: .vb-btn on/locked state ── */
+        .vb-btn.on {
+            border-color: var(--va-color, var(--accent)) !important;
+            color:         var(--va-color, var(--accent)) !important;
+            box-shadow: 0 0 10px var(--va-color, var(--accent)),
+                        inset 0 0 8px rgba(0,0,0,0.6) !important;
+            background: rgba(0,0,0,0.6) !important;
+        }
+        .vb-btn.vb-locked {
+            animation: vb-lock-pulse 1s ease-in-out infinite;
+        }
+        @keyframes vb-lock-pulse {
+            0%,100% { box-shadow:0 0 10px var(--va-color,var(--accent)); }
+            50%     { box-shadow:0 0 22px var(--va-color,var(--accent)), 0 0 44px var(--va-color,var(--accent)); }
+        }
+
+        /* ── BANK B: CSS-filter shader effects on the main VJ canvas ── */
+        /* SLIT_SCAN — stroboscopic horizontal skew distortion */
+        body.vb-SLIT_SCAN #vj-canvas {
+            animation: vb-slit 0.09s steps(1,end) infinite;
+        }
+        @keyframes vb-slit {
+            0%   { transform: scaleX(1.025) skewY(-1.8deg) translateY(3px); }
+            33%  { transform: scaleX(0.975) skewY(1.2deg)  translateY(-2px); }
+            66%  { transform: scaleX(1.01)  skewY(-0.6deg) translateY(1px); }
+            100% { transform: scaleX(1)     skewY(0deg)    translateY(0); }
+        }
+        /* LUMA_BLOOM — luminance bloom / cinematic overexposure */
+        body.vb-LUMA_BLOOM #vj-canvas {
+            filter: brightness(1.55) contrast(0.78) saturate(1.9) blur(1.2px);
+        }
+        /* DITHER_LUXE — high-contrast dithered posterization */
+        body.vb-DITHER_LUXE #vj-canvas {
+            filter: contrast(3.2) saturate(0.35) brightness(1.05);
+            image-rendering: pixelated;
+        }
+        /* CAUSTICS — rippling light with slow hue drift */
+        body.vb-CAUSTICS #vj-canvas {
+            animation: vb-caustics 2.6s ease-in-out infinite;
+        }
+        @keyframes vb-caustics {
+            0%   { filter: hue-rotate(0deg)   brightness(1.15) contrast(1.25); }
+            25%  { filter: hue-rotate(28deg)  brightness(1.45) contrast(0.88); }
+            50%  { filter: hue-rotate(-18deg) brightness(1.25) contrast(1.35); }
+            75%  { filter: hue-rotate(14deg)  brightness(1.50) contrast(0.82); }
+            100% { filter: hue-rotate(0deg)   brightness(1.15) contrast(1.25); }
+        }
+        /* GHOST_ECHO + SPECTRAL_MOSH are handled by vb-canvas render loop */
+
         /* ── INPUT LANG SELECT — visually identical to adjacent sfx-pad sfx-sig buttons ── */
         #vngrd-input-lang {
             -webkit-appearance: none;
@@ -20461,6 +20510,229 @@ function _applyPoseToModel(lm) {
 <script type="module" src="./src/kinetic-rack/KineticRack.js"></script>
 
 <!-- NLE seam controls are fully canvas-drawn (no DOM panel) -->
+
+<!-- ═══════════════════════════════════════════════════════════════
+
+
+
+<!-- ═══════════════════════════════════════════════════════════
+     VANGUARD TRACKER — RENOISE-STYLE HEX SEQUENCER
+     32-step × 4-track · InternalSynth · NeuralCompiler IDE
+     ═══════════════════════════════════════════════════════════ -->
+<div id="vanguard-tracker-window" class="vanguard-tracker-window">
+
+    <!-- Title bar / Transport -->
+    <div class="vt-titlebar" id="vt-titlebar">
+        <span class="vt-titlebar-label">◈ VNGRD // SONIC SUITE</span>
+        <div class="vt-transport">
+            <div class="vt-bpm-wrap">BPM <input class="vt-bpm-input" id="vt-bpm" type="number" min="40" max="300" value="120"></div>
+            <button class="vt-btn vt-play-btn" id="vt-play-btn" onclick="VanguardTracker.play()">▶ PLAY</button>
+            <button class="vt-btn" onclick="VanguardTracker.stop()">■ STOP</button>
+            <button class="vt-btn" onclick="VanguardTracker.clear()" style="color:rgba(255,120,0,0.65);border-color:rgba(255,120,0,0.25);">CLR</button>
+            <button class="vt-btn-nc-launch" id="nc-toggle-btn" onclick="NeuralCompiler.toggle()">[ OPEN NEURAL COMPILER ]</button>
+            <button class="vt-btn" onclick="_vtToggleHud()" style="color:rgba(255,204,0,0.65);border-color:rgba(255,204,0,0.22);font-size:7px;">? HUD</button>
+            <button class="vt-btn" id="vt-alpha-btn" onclick="toggleGhostMode()" style="color:rgba(255,255,255,0.45);border-color:#333;font-size:7px;letter-spacing:0.5px;">[ ALPHA ]</button>
+        </div>
+        <button class="vt-close-btn" onclick="VanguardTracker.toggle()">✕</button>
+    </div>
+
+    <!-- Waveform canvas strip -->
+    <div class="vt-wave-strip">
+        <div class="vt-wave-num-pad" style="font-size:5.5px;color:rgba(0,243,255,0.28);letter-spacing:1px;">WAVE</div>
+        <div class="vt-wave-canvas-wrap">
+            <canvas class="vt-wave-canvas" id="vt-wave-0"></canvas>
+            <span class="vt-wave-label">SUB 00-01</span>
+        </div>
+        <div class="vt-wave-canvas-wrap">
+            <canvas class="vt-wave-canvas" id="vt-wave-1"></canvas>
+            <span class="vt-wave-label">NOISE 02-03</span>
+        </div>
+        <div class="vt-wave-canvas-wrap">
+            <canvas class="vt-wave-canvas" id="vt-wave-2"></canvas>
+            <span class="vt-wave-label">SWEEP 04-05</span>
+        </div>
+        <div class="vt-wave-canvas-wrap">
+            <canvas class="vt-wave-canvas" id="vt-wave-3"></canvas>
+            <span class="vt-wave-label">BOOM 0A-0F</span>
+        </div>
+    </div>
+
+    <!-- Column headers (PAD | NOTE | VOL | FX) with laser lines -->
+    <div class="vt-col-headers">
+        <div class="vt-col-hdr">#</div>
+        <div class="vt-col-hdr" title="00-0F = InternalSynth  10-1F = Sampler Pads">PAD</div>
+        <div class="vt-col-hdr" title="Chromatic note: C-3…B-6">NOTE</div>
+        <div class="vt-col-hdr" title="Velocity 00=off FF=max">VOL</div>
+        <div class="vt-col-hdr" title="VJ FX code: 01=seismic 02=punch 03=party">FX</div>
+    </div>
+
+    <!-- Scrollable rows (built by VanguardTracker.init) -->
+    <div class="vt-track-scroll" id="vt-track-scroll"></div>
+
+    <!-- Status bar -->
+    <div class="vt-status-bar">
+        <span>POS:</span><span class="vt-status-pos" id="vt-pos">00</span>
+        <span style="margin-left:5px;">ROW:</span><span class="vt-status-pos" id="vt-step">1/32</span>
+        <span style="margin-left:5px;color:rgba(0,243,255,0.55);" id="vt-engine-status">IDLE</span>
+        <span style="margin-left:auto;color:rgba(0,243,255,0.2);">SYNTH:00-0F · SFX:10-1F</span>
+    </div>
+</div>
+
+<!-- ═══════════════════════════════════════════════════════════
+     HUD CRYSTAL OVERLAY — glass morphism
+     ═══════════════════════════════════════════════════════════ -->
+<div class="vt-hud-overlay" id="vt-hud-overlay">
+    <div class="vt-hud-panel">
+        <div class="vt-hud-title">◈ VNGRD // SONIC SUITE — MANUAL</div>
+        <div class="vt-hud-grid">
+            <div class="vt-hud-section-title">[ TRACKER ] — HEX SEQUENCER</div>
+            <div class="vt-hud-row">
+                <span class="vt-hud-cmd">PAD  00–0F</span>
+                <span class="vt-hud-desc">Internal Synth engine<br>SUB / NOISE / SWEEP / METAL / AM / BOOM</span>
+            </div>
+            <div class="vt-hud-row">
+                <span class="vt-hud-cmd">PAD  10–1F</span>
+                <span class="vt-hud-desc">Sampler Pads (SFX library)<br>10=applause 11=cheer 12=horn 13=boom</span>
+            </div>
+            <div class="vt-hud-row">
+                <span class="vt-hud-cmd">NOTE  C-3…B-6</span>
+                <span class="vt-hud-desc">Chromatic pitch for synth<br>Sets oscillator frequency</span>
+            </div>
+            <div class="vt-hud-row">
+                <span class="vt-hud-cmd">VOL  00–FF</span>
+                <span class="vt-hud-desc">Velocity. High VOL + low freq<br>auto-triggers seismic screen shake</span>
+            </div>
+            <div class="vt-hud-sep"></div>
+            <div class="vt-hud-section-title">[ FX ] — VJ VISUAL CODES</div>
+            <div class="vt-hud-row">
+                <span class="vt-hud-cmd">FX  01</span>
+                <span class="vt-hud-desc">SEISMIC — screen shake</span>
+            </div>
+            <div class="vt-hud-row">
+                <span class="vt-hud-cmd">FX  02</span>
+                <span class="vt-hud-desc">PUNCH — kinetic bounce</span>
+            </div>
+            <div class="vt-hud-row">
+                <span class="vt-hud-cmd">FX  03</span>
+                <span class="vt-hud-desc">PARTY — beat-reactive mode</span>
+            </div>
+            <div class="vt-hud-sep"></div>
+            <div class="vt-hud-section-title">[ COMPILER ] — NEURAL SCRIPTING</div>
+            <div class="vt-hud-row">
+                <span class="vt-hud-cmd">loop(bpm, () =&gt; { })</span>
+                <span class="vt-hud-desc">Live loop. 'beat' is auto-injected.<br>Output routes through master analyser.</span>
+            </div>
+            <div class="vt-hud-row">
+                <span class="vt-hud-cmd">p(n).play(vol)</span>
+                <span class="vt-hud-desc">Fire Sampler pad n (0–11)<br>Triggers gear-coupled VJ FX</span>
+            </div>
+            <div class="vt-hud-row">
+                <span class="vt-hud-cmd">synth(note, type)</span>
+                <span class="vt-hud-desc">Play note via InternalSynth<br>type: sub / noise / boom / metal / sweep</span>
+            </div>
+            <div class="vt-hud-row">
+                <span class="vt-hud-cmd">Shift+Enter</span>
+                <span class="vt-hud-desc">Execute script. Hot-swap — no clock stop.</span>
+            </div>
+        </div>
+        <button class="vt-hud-close" onclick="_vtToggleHud()">[ CLOSE ]</button>
+    </div>
+</div>
+
+<!-- ═══════════════════════════════════════════════════════════
+     NEURAL COMPILER — DRIS-STYLE IDE WINDOW
+     ═══════════════════════════════════════════════════════════ -->
+<div id="nc-window" class="nc-window">
+    <div class="nc-titlebar" id="nc-titlebar">
+        <span class="nc-title">⟨/⟩ NEURAL_COMPILER</span>
+        <span style="font-size:6.5px;color:rgba(176,0,255,0.4);letter-spacing:1px;">SONIC SUITE v3</span>
+        <button class="vt-close-btn" onclick="NeuralCompiler.toggle()" style="color:rgba(176,0,255,0.5);">✕</button>
+    </div>
+    <div class="nc-body">
+        <div class="nc-editor-wrap">
+            <textarea class="nc-editor" id="nc-editor" spellcheck="false" autocomplete="off" autocorrect="off" autocapitalize="off"></textarea>
+        </div>
+        <div class="nc-output-panel" id="nc-output"></div>
+    </div>
+    <div class="nc-toolbar">
+        <button class="nc-run-btn" id="nc-run-btn">▶ RUN</button>
+        <button class="nc-stop-btn" id="nc-stop-btn">■ STOP LOOP</button>
+        <span class="nc-hint">Shift+Enter to run · loop(bpm, fn) · p(n).play(vol) · synth(note, type)</span>
+    </div>
+    <div class="nc-status-bar">
+        <span>OUTPUT ROUTED → ENGINE ANALYSER → SEISMIC/KINETIC</span>
+        <span style="margin-left:auto;" id="nc-clock-status">LOOP: IDLE</span>
+    </div>
+</div>
+<!-- ── VANGUARD_B WIRING — _setFXBank / _vbActivate / _vbDeactivate / _vbClearAll ── -->
+<script>
+(function(){
+    var VB_ALL = ['SLIT_SCAN','LUMA_BLOOM','DITHER_LUXE','CAUSTICS','GHOST_ECHO','SPECTRAL_MOSH'];
+    var _vbTimers = {};
+
+    window._setFXBank = function(bank) {
+        var pA = document.getElementById('fx-bank-a-panel');
+        var pB = document.getElementById('fx-bank-b-panel');
+        var bA = document.getElementById('fx-bank-a-btn');
+        var bB = document.getElementById('fx-bank-b-btn');
+        if (pA) pA.style.display = bank === 'A' ? '' : 'none';
+        if (pB) pB.style.display = bank === 'B' ? '' : 'none';
+        if (bA) bA.classList.toggle('bank-active', bank === 'A');
+        if (bB) bB.classList.toggle('bank-active', bank === 'B');
+    };
+
+    window._vbActivate = function(sn, persistent) {
+        if (!VB_ALL.includes(sn)) return;
+        clearTimeout(_vbTimers[sn]);
+        document.body.classList.add('vb-' + sn);
+        var btn = document.getElementById('vb-' + sn);
+        if (btn) { btn.classList.add('on'); btn.classList.toggle('vb-locked', !!persistent); }
+        var st = document.getElementById('vb-sys-status');
+        if (st) st.textContent = 'ACTIVE: ' + VB_ALL.filter(function(s){ return document.body.classList.contains('vb-'+s); }).join(' · ');
+        if (!persistent) {
+            _vbTimers[sn] = setTimeout(function(){ window._vbDeactivate(sn); }, 3000);
+        }
+    };
+
+    window._vbDeactivate = function(sn) {
+        clearTimeout(_vbTimers[sn]);
+        document.body.classList.remove('vb-' + sn);
+        var btn = document.getElementById('vb-' + sn);
+        if (btn) { btn.classList.remove('on', 'vb-locked'); }
+        var active = VB_ALL.filter(function(s){ return document.body.classList.contains('vb-'+s); });
+        var st = document.getElementById('vb-sys-status');
+        if (st) st.textContent = active.length ? 'ACTIVE: ' + active.join(' · ') : 'SYSTEM_STATUS: STANDBY';
+    };
+
+    window._vbClearAll = function() {
+        VB_ALL.forEach(function(sn){ window._vbDeactivate(sn); });
+    };
+
+    /* Wire .vb-btn clicks: single tap = 3s burst, double-tap = persistent lock */
+    var _lastTap = {};
+    document.addEventListener('DOMContentLoaded', function(){
+        _setFXBank('A');
+        document.querySelectorAll('.vb-btn').forEach(function(btn){
+            var sn = btn.dataset.shader;
+            if (!sn) return;
+            btn.addEventListener('click', function(){
+                var now = Date.now();
+                var dbl = (now - (_lastTap[sn]||0)) < 380;
+                _lastTap[sn] = now;
+                if (dbl) {
+                    if (document.body.classList.contains('vb-'+sn)) {
+                        clearTimeout(_vbTimers[sn]);
+                        btn.classList.add('vb-locked');
+                        if (typeof APP !== 'undefined') {} // keep active indefinitely
+                    } else { _vbActivate(sn, true); }
+                } else {
+                    document.body.classList.contains('vb-'+sn) ? _vbDeactivate(sn) : _vbActivate(sn, false);
+                }
+            });
+        });
+    });
+})();
+</script>
 
 </body>
 </html>
