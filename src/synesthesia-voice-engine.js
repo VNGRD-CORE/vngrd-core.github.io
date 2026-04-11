@@ -1,105 +1,204 @@
 // ─────────────────────────────────────────────────────────────────────────────
-// SYNESTHESIA VOICE ENGINE  //  VNGRD-CORE  //  v2.2.0
+// SYNESTHESIA VOICE ENGINE  //  VNGRD-CORE  //  v3.0.0
 //
-// Minimal, self-contained. Web Speech API + Tone.js glitch synth.
-// Language auto-detected → best available OS voice selected silently.
-// Four modes with distinct pitch / rate / glitch character.
-// No external APIs. No recording integration. No side-effects.
+// DIRECT-INJECTED BUFFER ENGINE
+// All speechSynthesis removed. OS audio bypass eliminated.
+//
+// Cascade:
+//   1. ElevenLabs v1/text-to-speech  (key rotation via VNGRD_EL_KEYS)
+//   2. OpenAI tts-1-hd               (key via VNGRD_OAI_KEY)
+//
+// All responses decoded via audioContext.decodeAudioData() → AudioBuffer.
+//
+// Signal path:
+//   AudioBufferSourceNode
+//     → Vocal_EQ (HPF 150 Hz + Mid-boost 2.8 kHz)
+//     → APP.audio.masterGain  (master FX chain)
+//     → APP.audio.recorderDest (Iron-Clad Recorder tap)
 // ─────────────────────────────────────────────────────────────────────────────
 (function () {
     'use strict';
 
+    // ── Key helpers ───────────────────────────────────────────────────────────
+    function _getELKeys() {
+        try {
+            const raw = localStorage.getItem('VNGRD_EL_KEYS');
+            if (!raw) return [];
+            const parsed = JSON.parse(raw);
+            return Array.isArray(parsed) ? parsed.filter(Boolean) : (parsed ? [parsed] : []);
+        } catch (_) { return []; }
+    }
+
+    function _getOpenAIKey() {
+        try { return localStorage.getItem('VNGRD_OAI_KEY') || ''; }
+        catch (_) { return ''; }
+    }
+
+    // ── ENGINE OFFLINE banner ─────────────────────────────────────────────────
+    function _showOffline(detail) {
+        const el = document.getElementById('sve-status');
+        if (!el) return;
+        el.textContent = '[ ENGINE OFFLINE ] ' + (detail || '');
+        el.style.color      = '#FF0000';
+        el.style.textShadow = '0 0 10px #FF0000, 0 0 20px #FF0000';
+        // Also echo to ghost terminal if available
+        if (typeof ghostLog === 'function') {
+            ghostLog('SVE_ENGINE_OFFLINE: ' + (detail || 'API_UNAVAILABLE'), 'crit');
+        }
+    }
+
+    function _clearOffline() {
+        const el = document.getElementById('sve-status');
+        if (!el) return;
+        el.style.color      = '';
+        el.style.textShadow = '';
+    }
+
+    // ── ElevenLabs fetch (key rotation) ───────────────────────────────────────
+    // Keys stored as JSON array: localStorage.setItem('VNGRD_EL_KEYS', '["key1","key2"]')
+    async function _fetchElevenLabs(text, voiceId) {
+        const keys = _getELKeys();
+        if (!keys.length) return null;
+
+        voiceId = voiceId || '21m00Tcm4TlvDq8ikWAM'; // Rachel
+        let lastErr = null;
+
+        for (const key of keys) {
+            try {
+                const resp = await fetch(
+                    `https://api.elevenlabs.io/v1/text-to-speech/${voiceId}`,
+                    {
+                        method:  'POST',
+                        headers: {
+                            'xi-api-key':   key,
+                            'Content-Type': 'application/json',
+                            'Accept':       'audio/mpeg',
+                        },
+                        body: JSON.stringify({
+                            text,
+                            model_id:       'eleven_multilingual_v2',
+                            voice_settings: { stability: 0.5, similarity_boost: 0.75 },
+                        }),
+                    }
+                );
+                if (!resp.ok) { lastErr = `EL_HTTP_${resp.status}`; continue; }
+                return await resp.arrayBuffer();
+            } catch (e) {
+                lastErr = e.message;
+            }
+        }
+
+        console.warn('[SVE] ElevenLabs all keys exhausted:', lastErr);
+        return null;
+    }
+
+    // ── OpenAI TTS fallback ───────────────────────────────────────────────────
+    async function _fetchOpenAI(text) {
+        const key = _getOpenAIKey();
+        if (!key) return null;
+
+        try {
+            const resp = await fetch('https://api.openai.com/v1/audio/speech', {
+                method:  'POST',
+                headers: {
+                    'Authorization': 'Bearer ' + key,
+                    'Content-Type':  'application/json',
+                },
+                body: JSON.stringify({
+                    model:           'tts-1-hd',
+                    input:           text,
+                    voice:           'alloy',
+                    response_format: 'mp3',
+                }),
+            });
+            if (!resp.ok) throw new Error(`OAI_HTTP_${resp.status}`);
+            return await resp.arrayBuffer();
+        } catch (e) {
+            console.warn('[SVE] OpenAI TTS failed:', e.message);
+            return null;
+        }
+    }
+
+    // ── Vocal EQ factory ──────────────────────────────────────────────────────
+    // Returns { input: AudioNode, output: AudioNode }
+    function _buildVocalEQ(ctx) {
+        // Stage 1: High-pass 150 Hz — cut low-end rumble
+        const hpf = ctx.createBiquadFilter();
+        hpf.type            = 'highpass';
+        hpf.frequency.value = 150;
+        hpf.Q.value         = 0.7;
+
+        // Stage 2: Mid-boost 2.8 kHz — presence / intelligibility
+        const mid = ctx.createBiquadFilter();
+        mid.type            = 'peaking';
+        mid.frequency.value = 2800;
+        mid.gain.value      = 5;
+        mid.Q.value         = 1.2;
+
+        hpf.connect(mid);
+        return { input: hpf, output: mid };
+    }
+
+    // ── Core cascade: ElevenLabs → OpenAI → decoded AudioBuffer ──────────────
+    async function generateVocalBuffer(text) {
+        const audio = window.APP?.audio;
+        let ctx = audio?.ctx;
+
+        if (!ctx) {
+            _showOffline('NO_AUDIO_CTX');
+            return null;
+        }
+        if (ctx.state === 'suspended') {
+            try { await ctx.resume(); } catch (_) {}
+        }
+
+        // Primary: ElevenLabs
+        let arrayBuf = await _fetchElevenLabs(text);
+
+        // Secondary: OpenAI
+        if (!arrayBuf) arrayBuf = await _fetchOpenAI(text);
+
+        if (!arrayBuf) {
+            _showOffline('API_UNAVAILABLE');
+            return null;
+        }
+
+        try {
+            // Must clone before decoding — decodeAudioData detaches the buffer
+            const decoded = await ctx.decodeAudioData(arrayBuf);
+            _clearOffline();
+            return decoded;
+        } catch (e) {
+            _showOffline('DECODE_ERR: ' + e.message);
+            return null;
+        }
+    }
+
+    // ═════════════════════════════════════════════════════════════════════════
+    //  SVE — Synesthesia Voice Engine
+    // ═════════════════════════════════════════════════════════════════════════
     const SVE = {
-        version: '2.2.0',
-        initialized: false,
-        isPlaying: false,
-        currentMood: 'CYBER',
-        preferredVoice: null,
-        _wordCount: 0,
-        glitchSynth: null,
-        moodEffects: [],
-        _lastDetectedLang: null,
+        version:      '3.0.0',
+        initialized:  false,
+        isPlaying:    false,
+        currentMood:  'CYBER',
+        _wordCount:   0,
+        glitchSynth:  null,
+        moodEffects:  [],
+        _currentSrc:  null,   // AudioBufferSourceNode currently playing
+        _eq:          null,   // { input, output } — Vocal EQ nodes
+        _eqCtx:       null,   // AudioContext the EQ was built for
+        _glitchTimer: null,
     };
 
     // ── UI helpers ────────────────────────────────────────────────────────────
     SVE.updateStatus = function (msg) {
         const el = document.getElementById('sve-status');
-        if (el) el.textContent = msg;
+        if (el) { el.textContent = msg; el.style.color = ''; el.style.textShadow = ''; }
     };
     SVE.updateDot = function (on) {
         const d = document.getElementById('sve-dot');
         if (d) d.classList.toggle('off', !on);
-    };
-
-    // ── Language detection ────────────────────────────────────────────────────
-    // Returns BCP-47 tag (e.g. 'it-IT') or null.
-    SVE._detectLanguage = function (text) {
-        if (!text || text.trim().length < 6) return null;
-
-        // Non-Latin: unambiguous via character range
-        if (/[\u4e00-\u9fff]/.test(text)) return 'zh-CN';
-        if (/[\u3040-\u30ff]/.test(text)) return 'ja-JP';
-        if (/[\uac00-\ud7af]/.test(text)) return 'ko-KR';
-        if (/[\u0600-\u06ff]/.test(text)) return 'ar-SA';
-        if (/[\u0400-\u04ff]/.test(text)) return 'ru-RU';
-        if (/[\u0590-\u05ff]/.test(text)) return 'he-IL';
-        if (/[\u0900-\u097f]/.test(text)) return 'hi-IN';
-
-        // Latin diacritics — quick wins
-        if (/[äöüÄÖÜß]/.test(text))           return 'de-DE';
-        if (/ñ/.test(text))                    return 'es-ES';
-        if (/[ãõÃÕ]/.test(text))              return 'pt-BR';
-        if (/[ąćęłńśźżĄĆĘŁŃŚŹŻ]/.test(text)) return 'pl-PL';
-
-        // Function-word frequency scoring
-        const t = text.toLowerCase();
-        const words = t.match(/\b[a-zàáâäçèéêëìíîïòóôöùúûü]+\b/g) || [];
-        if (words.length < 3) return null;
-
-        const freq = list => words.filter(w => list.includes(w)).length / words.length;
-        const scores = {
-            'it-IT': freq(['il','la','le','gli','di','e','un','una','per','non','che','sono','come','ho','è']),
-            'fr-FR': freq(['le','la','les','de','du','des','je','tu','il','est','que','et','pas','une','dans']),
-            'es-ES': freq(['el','la','los','de','en','que','no','es','por','con','del','una','se','su','al']),
-            'pt-BR': freq(['o','a','os','as','um','de','do','da','que','não','em','por','com','para','é']),
-            'nl-NL': freq(['de','het','een','van','in','is','op','en','dat','die','te','zijn','ook','voor']),
-        };
-        const best = Object.entries(scores).sort((a, b) => b[1] - a[1])[0];
-        return (best && best[1] >= 0.03) ? best[0] : null;
-    };
-
-    // ── Voice selection ───────────────────────────────────────────────────────
-    SVE._findBestVoice = function (lang) {
-        const voices = window.speechSynthesis.getVoices();
-        if (!voices.length) return;
-
-        const target = lang || SVE._lastDetectedLang;
-        const pool = target
-            ? voices.filter(v => v.lang === target || v.lang.startsWith(target.split('-')[0]))
-            : voices;
-
-        const tiers = [
-            v => /^Google\s/.test(v.name),
-            v => /Microsoft.*Natural|Microsoft.*Neural/i.test(v.name),
-            v => ['Daniel','Samantha','Karen','Victoria','Thomas','Reed',
-                  'Oliver','Moira','Rishi','Fiona'].some(n => v.name.includes(n)),
-            v => /Microsoft/.test(v.name),
-            v => true,
-        ];
-
-        let found = null;
-        for (const tier of tiers) { found = pool.find(tier); if (found) break; }
-
-        // Fallback to English if target language has no voices
-        if (!found && target) {
-            const eng = voices.filter(v => v.lang.startsWith('en'));
-            for (const tier of tiers) { found = eng.find(tier); if (found) break; }
-        }
-
-        if (found) {
-            SVE.preferredVoice = found;
-            SVE.updateStatus('VOICE // ' + found.name.slice(0, 28).toUpperCase());
-        }
     };
 
     // ── Init ──────────────────────────────────────────────────────────────────
@@ -112,18 +211,14 @@
 
         SVE.glitchSynth = new Tone.Synth({
             oscillator: { type: 'sine' },
-            envelope: { attack: 0.001, decay: 0.022, sustain: 0, release: 0.018 },
-            volume: -20,
+            envelope:   { attack: 0.001, decay: 0.022, sustain: 0, release: 0.018 },
+            volume:     -20,
         });
 
         SVE.initialized = true;
         SVE.updateDot(true);
-
-        SVE._findBestVoice();
-        window.speechSynthesis.onvoiceschanged = () => SVE._findBestVoice(SVE._lastDetectedLang);
-
         SVE.setMood(SVE.currentMood);
-        SVE.updateStatus('READY');
+        SVE.updateStatus('READY // BUFFER_ENGINE_v3');
     };
 
     // ── Mood ──────────────────────────────────────────────────────────────────
@@ -197,83 +292,119 @@
 
         const origVol = SVE.glitchSynth.volume.value;
         if (forceTest && SVE.currentMood === 'CLEAN') SVE.glitchSynth.volume.value = -18;
-
         SVE.glitchSynth.triggerAttackRelease(freq, '16n', window.Tone.now());
-
         if (forceTest && SVE.currentMood === 'CLEAN') {
             setTimeout(() => { if (SVE.glitchSynth) SVE.glitchSynth.volume.value = origVol; }, 200);
         }
     };
 
-    // ── Speak ─────────────────────────────────────────────────────────────────
-    SVE.speak = function (text) {
+    // ── Speak — Buffer Engine ─────────────────────────────────────────────────
+    SVE.speak = async function (text) {
         if (!text || !text.trim()) { SVE.updateStatus('NO SCRIPT'); return; }
-        if (!SVE.initialized) { SVE.init().then(() => SVE.speak(text)); return; }
+        if (!SVE.initialized) { await SVE.init(); }
 
-        window.speechSynthesis.cancel();
+        SVE.stop(); // cancel any in-flight playback
         SVE._wordCount = 0;
-        SVE.isPlaying = true;
+        SVE.isPlaying  = true;
+        SVE.updateDot(true);
 
-        const detectedLang = SVE._detectLanguage(text);
-        if (detectedLang && detectedLang !== SVE._lastDetectedLang) {
-            SVE._lastDetectedLang = detectedLang;
-            SVE._findBestVoice(detectedLang);
-        }
+        const btn = document.getElementById('sve-speak-btn');
+        if (btn) btn.textContent = '■ STOP';
+        SVE.updateStatus('▶ FETCHING VOCAL BUFFER...');
 
-        const utter = new SpeechSynthesisUtterance(text);
-
-        if (SVE.preferredVoice) {
-            utter.voice = SVE.preferredVoice;
-            utter.lang  = SVE.preferredVoice.lang;
-        } else if (detectedLang) {
-            utter.lang = detectedLang;
-        }
-
-        switch (SVE.currentMood) {
-            case 'CLEAN':   utter.rate = 0.86; utter.pitch = 1.00; break;
-            case 'CYBER':   utter.rate = 0.91; utter.pitch = 1.18; break;
-            case 'GHOST':   utter.rate = 0.72; utter.pitch = 0.72; break;
-            case 'MONSTER': utter.rate = 0.65; utter.pitch = 0.45; break;
-        }
-
-        utter.onboundary = e => { if (e.name === 'word') SVE.triggerGlitch(); };
-
-        utter.onstart = () => {
-            SVE.isPlaying = true;
-            const btn = document.getElementById('sve-speak-btn');
-            if (btn) btn.textContent = '■ STOP';
-            SVE.updateStatus('▶ ' + SVE.currentMood
-                + (detectedLang ? ' · ' + detectedLang.split('-')[0].toUpperCase() : '') + '…');
-            SVE.updateDot(true);
-        };
-
-        utter.onend = () => {
+        // ── Fetch & decode ────────────────────────────────────────────────────
+        const audioBuf = await generateVocalBuffer(text);
+        if (!audioBuf) {
             SVE.isPlaying = false;
-            const btn = document.getElementById('sve-speak-btn');
-            if (btn) btn.textContent = '▶ SPEAK';
+            SVE.updateDot(false);
+            if (btn) btn.textContent = '▶ SYNTH VOICE';
+            return;
+        }
+
+        const audio = window.APP?.audio;
+        const ctx   = audio?.ctx;
+        if (!ctx) {
+            SVE.isPlaying = false;
+            SVE.updateDot(false);
+            if (btn) btn.textContent = '▶ SYNTH VOICE';
+            _showOffline('NO_AUDIO_CTX');
+            return;
+        }
+
+        // ── Ensure Vocal EQ is built for this context ─────────────────────────
+        if (!SVE._eq || SVE._eqCtx !== ctx) {
+            SVE._eq    = _buildVocalEQ(ctx);
+            SVE._eqCtx = ctx;
+        }
+
+        // ── Ensure recorderDest exists ────────────────────────────────────────
+        // (ensureAudioChain() creates it; this is a safety fallback)
+        if (audio && !audio.recorderDest) {
+            audio.recorderDest = ctx.createMediaStreamDestination();
+            audio.masterGain?.connect(audio.recorderDest);
+        }
+
+        // ── Wire signal path ──────────────────────────────────────────────────
+        //  source → EQ_HPF → EQ_Mid → masterGain   (master FX + output)
+        //                           → recorderDest  (Iron-Clad Recorder tap)
+        //                           → ctx.destination (direct monitor)
+        const eqOut = SVE._eq.output;
+        if (audio?.masterGain)    eqOut.connect(audio.masterGain);
+        if (audio?.recorderDest)  eqOut.connect(audio.recorderDest);
+
+        // ── Create & start source ─────────────────────────────────────────────
+        const source = ctx.createBufferSource();
+        source.buffer = audioBuf;
+        source.connect(SVE._eq.input);
+        SVE._currentSrc = source;
+
+        SVE.updateStatus('▶ ' + SVE.currentMood + ' // BUFFER_PLAYBACK');
+
+        // Glitch bursts approximate word boundaries (~0.5 s cadence)
+        SVE._glitchTimer = setInterval(() => {
+            if (!SVE.isPlaying) { clearInterval(SVE._glitchTimer); return; }
+            SVE.triggerGlitch();
+        }, 500);
+
+        source.onended = () => {
+            clearInterval(SVE._glitchTimer);
+            SVE.isPlaying   = false;
+            SVE._currentSrc = null;
+            SVE.updateDot(false);
+            if (btn) btn.textContent = '▶ SYNTH VOICE';
             SVE.updateStatus('DONE // ' + SVE.currentMood);
-            SVE.updateDot(false);
+            // Detach EQ output to avoid accumulating connections
+            try { eqOut.disconnect(audio.masterGain);   } catch (_) {}
+            try { eqOut.disconnect(audio.recorderDest); } catch (_) {}
         };
 
-        utter.onerror = e => {
-            SVE.isPlaying = false;
-            const btn = document.getElementById('sve-speak-btn');
-            if (btn) btn.textContent = '▶ SPEAK';
-            SVE.updateStatus('ERR: ' + (e.error || 'SPEECH'));
-            SVE.updateDot(false);
-        };
-
-        window.speechSynthesis.speak(utter);
+        source.start(ctx.currentTime);
     };
 
+    // ── Stop ──────────────────────────────────────────────────────────────────
     SVE.stop = function () {
-        window.speechSynthesis.cancel();
+        clearInterval(SVE._glitchTimer);
+        if (SVE._currentSrc) {
+            try { SVE._currentSrc.stop(); } catch (_) {}
+            SVE._currentSrc = null;
+        }
         SVE.isPlaying = false;
         const btn = document.getElementById('sve-speak-btn');
-        if (btn) btn.textContent = '▶ SPEAK';
+        if (btn) btn.textContent = '▶ SYNTH VOICE';
         SVE.updateStatus('STOPPED');
         SVE.updateDot(false);
     };
 
-    window.SVE = SVE;
+    // ── Trailer render (async buffer export) ─────────────────────────────────
+    SVE.renderTrailerAudio = async function (text) {
+        SVE.updateStatus('RENDERING TRAILER BUFFER...');
+        const buf = await generateVocalBuffer(text);
+        if (!buf) return;
+        SVE.updateStatus('TRAILER_BUFFER_READY // ' + buf.duration.toFixed(2) + 's');
+    };
+
+    // ── Expose ────────────────────────────────────────────────────────────────
+    window.SVE                 = SVE;
+    window.generateVocalBuffer = generateVocalBuffer;
+
 })();

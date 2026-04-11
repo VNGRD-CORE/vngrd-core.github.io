@@ -1333,7 +1333,7 @@
             border: 1px solid rgba(255,255,255,0.08);
             padding: 2px 5px;
         }
-        #sfx-pad-grid { display: grid; grid-template-columns: repeat(4, 1fr); column-gap: 4px; row-gap: 5px; padding: 2px 2px 2px; }
+        #sfx-pad-grid { display: grid; grid-template-columns: repeat(4, 1fr); column-gap: 4px; row-gap: 20px; padding: 4px 2px 4px; }
         .sfx-bank-block { display: contents; }
         .sfx-bank-label {
             grid-column: 1 / -1;
@@ -1342,7 +1342,7 @@
             font-family: 'Orbitron', sans-serif;
             color: rgba(255,255,255,0.2);
             text-transform: uppercase;
-            padding: 2px 0 1px;
+            padding: 5px 0 3px;
             border-top: 1px solid rgba(255,255,255,0.05);
         }
         .sfx-bank-label:first-child { border-top: none; padding-top: 0; }
@@ -1352,7 +1352,7 @@
         .sfx-pad {
             font-size: 7px !important;
             padding: 0 !important;
-            height: 34px;
+            height: 44px;
             letter-spacing: 0.04em;
             text-align: center;
             min-width: 0;
@@ -1361,7 +1361,7 @@
             flex-direction: column !important;
             align-items: center !important;
             justify-content: center !important;
-            gap: 0px;
+            gap: 1px;
             position: relative;
             overflow: visible;
             border-radius: 3px;
@@ -1399,9 +1399,9 @@
         .sfx-pad::before {
             content: attr(data-pad-num);
             position: absolute;
-            top: 3px;
-            left: 5px;
-            font-size: 5px;
+            top: 5px;
+            left: 7px;
+            font-size: 5.5px;
             font-family: 'Orbitron', sans-serif;
             opacity: 0.22;
             letter-spacing: 0;
@@ -1412,10 +1412,10 @@
         /* ── PAD CONTENT LAYOUT ── */
         .sfx-pad .pad-id   { display: none; }
         .sfx-pad .pad-name {
-            font-size: 6.5px; font-weight: 900; letter-spacing: 0.02em; line-height: 1;
+            font-size: 7px; font-weight: 900; letter-spacing: 0.02em; line-height: 1;
             font-family: 'Orbitron', sans-serif;
             overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
-            max-width: 100%; padding: 0 6px; box-sizing: border-box;
+            max-width: 100%; padding: 0 8px; box-sizing: border-box;
         }
         /* Hover: slide the name left to reveal full text */
         @keyframes pad-name-slide {
@@ -1874,9 +1874,9 @@
         /* ── COUPLING ENGINE — color-coded glow per FX ── */
         .sfx-pad .pad-fx-label {
             position: absolute;
-            bottom: 3px;
+            bottom: 10px;
             left: 0; right: 0;
-            font-size: 5px; letter-spacing: 0.12em; line-height: 1;
+            font-size: 5.5px; letter-spacing: 0.14em; line-height: 1;
             text-transform: uppercase; opacity: 0; display: block;
             font-family: 'Orbitron', sans-serif;
             pointer-events: none;
@@ -2087,60 +2087,6 @@
             overflow: auto;
             box-shadow: 0 4px 20px rgba(0,0,0,0.8), inset 0 1px 0 rgba(255,200,0,0.06);
         }
-
-        /* ── SLICER DROP ZONE ── */
-        #ht-slicer-bar {
-            display: flex;
-            align-items: center;
-            gap: 4px;
-            padding: 4px 6px;
-            border-top: 1px solid rgba(100,60,255,0.18);
-        }
-        #ht-slicer-drop {
-            flex: 1;
-            font-size: 6px;
-            font-family: 'Orbitron', sans-serif;
-            letter-spacing: 1.5px;
-            text-transform: uppercase;
-            color: rgba(100,60,255,0.55);
-            border: 1px dashed rgba(100,60,255,0.28);
-            border-radius: 3px;
-            padding: 4px 6px;
-            text-align: center;
-            cursor: pointer;
-            transition: border-color 0.15s, color 0.15s, background 0.15s;
-        }
-        #ht-slicer-drop.ht-drag-over,
-        #ht-slicer-drop:hover {
-            border-color: rgba(100,60,255,0.7);
-            color: rgba(100,60,255,1.0);
-            background: rgba(100,60,255,0.06);
-        }
-        #ht-slicer-drop.ht-loaded {
-            border-color: rgba(100,60,255,0.6);
-            color: rgba(100,60,255,0.9);
-            border-style: solid;
-        }
-        #ht-slice-wave {
-            display: none;
-            height: 24px;
-            width: 110px;
-            border-radius: 2px;
-            background: rgba(100,60,255,0.05);
-            border: 1px solid rgba(100,60,255,0.2);
-        }
-        #ht-slice-wave.visible { display: block; }
-        #ht-slicer-clear {
-            font-size: 8px;
-            background: none;
-            border: 1px solid rgba(255,60,60,0.3);
-            color: rgba(255,60,60,0.6);
-            border-radius: 2px;
-            padding: 3px 5px;
-            cursor: pointer;
-            font-family: 'Orbitron', sans-serif;
-        }
-        #ht-slicer-clear:hover { border-color: rgba(255,60,60,0.8); color: rgba(255,60,60,1.0); }
         #gb-seq-panel.visible { display: flex; }
 
         /* Mini floating state — transport header only, bottom-right corner */
@@ -3814,6 +3760,56 @@ body.fullscreen #transcription-hud { pointer-events: none !important; } /* keep 
 }
 #save-modal-actions { display: flex; gap: 6px; }
 
+/* ── WALLET SYNC HUD ── */
+#wallet-sync-hud {
+    position: fixed; bottom: 60px; right: 16px; z-index: 9998;
+    width: 180px;
+    background: rgba(8,8,12,0.94);
+    border: 1px solid rgba(0,243,255,0.25);
+    border-radius: 3px;
+    padding: 10px;
+    box-shadow: 0 0 20px rgba(0,243,255,0.1);
+    display: none; flex-direction: column; gap: 8px;
+    font-family: 'JetBrains Mono', monospace;
+}
+#wallet-sync-hud.visible { display: flex; }
+#ipfs-sync-indicator {
+    display: flex; align-items: center; gap: 6px;
+    font-size: 8px; letter-spacing: 1px; color: var(--accent);
+}
+#ipfs-sync-dot {
+    width: 6px; height: 6px; border-radius: 50%;
+    background: var(--accent); flex-shrink: 0;
+}
+@keyframes ipfs-sync-pulse {
+    0%,100% { box-shadow: 0 0 4px var(--accent); opacity: 1; }
+    50%      { box-shadow: 0 0 12px var(--accent), 0 0 20px var(--accent); opacity: 0.55; }
+}
+#wallet-sync-hud.syncing #ipfs-sync-dot { animation: ipfs-sync-pulse 1s ease-in-out infinite; }
+#wallet-sync-hud.synced  #ipfs-sync-dot { background: #00ff88; box-shadow: 0 0 8px #00ff88; }
+#wallet-sync-hud.error   #ipfs-sync-dot { background: #ff4040; box-shadow: 0 0 8px #ff4040; }
+#wallet-sync-hud.synced  #ipfs-sync-label { color: #00ff88; }
+#wallet-sync-hud.error   #ipfs-sync-label { color: #ff4040; }
+#wallet-sync-thumbnail {
+    width: 100%; aspect-ratio: 16/9;
+    border: 1px solid rgba(0,243,255,0.15);
+    border-radius: 2px; overflow: hidden; display: none;
+}
+#wallet-sync-thumbnail.visible { display: block; }
+#wallet-sync-thumbnail img {
+    object-fit: contain; width: 100%; height: 100%; display: block;
+}
+#wallet-sync-cid {
+    font-size: 7px; color: rgba(0,243,255,0.5);
+    word-break: break-all; display: none;
+}
+#wallet-sync-cid.visible { display: block; }
+#wallet-sync-dismiss {
+    font-size: 7px; color: rgba(255,255,255,0.35);
+    cursor: pointer; text-align: right; letter-spacing: 1px;
+}
+#wallet-sync-dismiss:hover { color: var(--accent); }
+
 /* ── QR MODAL ── */
 #qr-modal {
     position: fixed; inset: 0; z-index: 99999;
@@ -4367,14 +4363,15 @@ body.fullscreen #transcription-hud { pointer-events: none !important; } /* keep 
     transition: all 0.18s;
     text-transform: uppercase;
 }
-.sve-mood-btn:hover { color: var(--text-bright); border-color: var(--accent); }
-.sve-mood-btn.active-mode { color: var(--accent); border-color: var(--accent); background: rgba(0,243,255,0.1); box-shadow: 0 0 4px rgba(0,243,255,0.18); }
-#sve-mood-ghost.active-mode   { color: var(--v);   border-color: var(--v);   background: rgba(176,0,255,0.1); }
-#sve-mood-monster.active-mode { color: #ff4444;    border-color: #ff4444;    background: rgba(255,60,60,0.1); }
-.sve-ctrl-row { display: flex; gap: 3px; }
-.sve-ctrl-row .btn { font-size: 8px; letter-spacing: 0.8px; padding: 6px 4px; }
+.sve-mood-btn:hover { color: var(--text-bright); border-color: var(--accent); background: rgba(0,243,255,0.06); }
+.sve-mood-btn.active-mode { color: var(--accent); border-color: var(--accent); background: rgba(0,243,255,0.12); box-shadow: 0 0 5px rgba(0,243,255,0.2); }
+#sve-mood-monster.active-mode { color: #ff4444; border-color: #ff4444; background: rgba(255,60,60,0.1); box-shadow: 0 0 5px rgba(255,60,60,0.25); }
+#sve-mood-ghost.active-mode   { color: var(--v); border-color: var(--v); background: rgba(176,0,255,0.1); box-shadow: 0 0 5px rgba(176,0,255,0.25); }
+#sve-gender-F.active-mode     { color: #ff69b4; border-color: #ff69b4; background: rgba(255,105,180,0.1); }
+#sve-render-btn:disabled { opacity: 0.45; cursor: not-allowed; }
+.sve-ctrl-row { display: flex; gap: 4px; }
+.sve-ctrl-row .btn { flex: 1; font-size: 8px; letter-spacing: 1px; }
 
-/* ════════════════════════════════════════════════════════════════
     </style>
 </head>
 <body oncontextmenu="return false;">
@@ -4742,27 +4739,28 @@ body.fullscreen #transcription-hud { pointer-events: none !important; } /* keep 
                     <div id="vu"></div>
                     <div id="track-info">NO_TRACK</div>
                 </div>
-                <div class="btn-row" style="gap:4px;margin-bottom:3px;"><button class="btn btn-compact" id="btn-audio" style="flex:1;font-size:9px;padding:6px 4px;">LOAD AUDIO</button><button class="btn btn-compact" id="btn-mute-vid" style="width:30px;flex:none;font-size:12px;padding:4px 2px;" title="Toggle video audio">&#x1F50A;</button><button class="btn btn-compact" id="btn-mic-engine" style="width:30px;flex:none;font-size:11px;padding:4px 2px;" title="Mic on/off">&#x1F3A4;</button></div>
-                <div class="audio-ctrl-row" style="margin-bottom:0;">
-                    <button class="btn btn-compact" id="btn-prev-track" style="padding:6px 0;"><svg width="10" height="10" viewBox="0 0 12 12"><path fill="currentColor" d="M2 2h2v8H2zm2 4l6 4V2z"/></svg></button>
-                    <button class="btn btn-compact" id="btn-play-pause" style="padding:6px 0;"><svg width="10" height="10" viewBox="0 0 12 12" id="icon-play-state"><path fill="currentColor" d="M3 2v8l7-4z"/></svg></button>
-                    <button class="btn btn-compact" id="btn-next-track" style="padding:6px 0;"><svg width="10" height="10" viewBox="0 0 12 12"><path fill="currentColor" d="M2 10l6-4-6-4v8zm6-8v8h2V2H8z"/></svg></button>
+                <div class="btn-row"><button class="btn" id="btn-audio" style="flex:1;">LOAD AUDIO</button><button class="btn" id="btn-mute-vid" style="width:32px;font-size:12px;padding:2px;" title="Toggle video audio">&#x1F50A;</button><button class="btn" id="btn-mic-engine" style="width:32px;font-size:11px;padding:2px;" title="Mic on/off">&#x1F3A4;</button></div>
+                <div class="audio-ctrl-row">
+                    <button class="btn btn-compact" id="btn-prev-track"><svg width="10" height="10" viewBox="0 0 12 12"><path fill="currentColor" d="M2 2h2v8H2zm2 4l6 4V2z"/></svg></button>
+                    <button class="btn btn-compact" id="btn-play-pause"><svg width="10" height="10" viewBox="0 0 12 12" id="icon-play-state"><path fill="currentColor" d="M3 2v8l7-4z"/></svg></button>
+                    <button class="btn btn-compact" id="btn-next-track"><svg width="10" height="10" viewBox="0 0 12 12"><path fill="currentColor" d="M2 10l6-4-6-4v8zm6-8v8h2V2H8z"/></svg></button>
                 </div>
                 <div class="sec-divider"></div>
-                <button class="btn" id="btn-scan-inputs" style="text-align:center;">SCAN_INPUTS</button>
-                <select class="inp" id="audio-input-select" style="width:100%;font-size:8px;padding:4px 5px;background:var(--panel);border:1px solid var(--border);color:var(--text);display:none;margin-bottom:2px;">
+                <div class="lbl" style="font-size:6.5px;opacity:0.4;letter-spacing:2px;margin-bottom:4px;">INPUT</div>
+                <button class="btn" id="btn-scan-inputs" style="font-size:8px;">SCAN_INPUTS</button>
+                <select class="inp" id="audio-input-select" style="width:100%;font-size:9px;padding:5px;background:var(--panel);border:1px solid var(--border);color:var(--text);display:none;margin-top:4px;">
                     <option value="">SELECT_DEVICE...</option>
                 </select>
                 <div id="input-level" style="height:3px;background:var(--border);margin-top:4px;">
                     <div id="input-level-bar" style="height:100%;width:0%;background:var(--g);transition:width 0.05s;"></div>
                 </div>
-                <div class="lbl" style="font-size:6.5px;opacity:0.4;margin-bottom:4px;letter-spacing:2px;text-align:center;">INPUT</div>
+                <div class="sec-divider"></div>
+                <div class="lbl" style="font-size:6.5px;opacity:0.4;letter-spacing:2px;margin-bottom:4px;">ENGINEER_MODE</div>
                 <div class="btn-grid-3">
                     <button class="btn active-mode" id="btn-stereo">STEREO</button>
                     <button class="btn" id="btn-spatial">3D_SPATIAL</button>
-                    <button class="btn" id="btn-dolby" style="color:#ffaa00;">DOLBY</button>
+                    <button class="btn" id="btn-dolby" style="color:#00f3ff">DOLBY</button>
                 </div>
-                <div class="lbl" style="font-size:6.5px;opacity:0.4;letter-spacing:2px;margin-top:6px;">ENGINEER_MODE</div>
             </div>
         </div>
 
@@ -5153,13 +5151,13 @@ body.fullscreen #transcription-hud { pointer-events: none !important; } /* keep 
 
                     <!-- Kit selector (performance mode) -->
                     <select id="liq-lib-select">
-                        <option value="0">▶ VOID DRIFT — Ethereal Drones</option>
-                        <option value="1">▶ DARK ETHER — Cinematic Tension</option>
-                        <option value="2">▶ SPECTRAL — Crystalline Shimmer</option>
-                        <option value="3">▶ GLITCH OPS — Digital Texture</option>
-                        <option value="4">▶ CASSETTE NOIR — Lo-Fi Warped</option>
-                        <option value="5">▶ NEURAL STATIC — Noise Textures</option>
-                        <option value="6">▶ DEEP FIELD — Cosmic Sub Bass</option>
+                        <option value="0">▶ IMPACT CORE — Brutal Cinematic</option>
+                        <option value="1">▶ ATMOSPHERIC — Deep Ambient</option>
+                        <option value="2">▶ INDUSTRIAL — Mechanical</option>
+                        <option value="3">▶ 909 TECHNO — Drum Machine</option>
+                        <option value="4">▶ IDM BRKCORE — Hyper Transient</option>
+                        <option value="5">▶ GLITCH CORE — Digital Artifacts</option>
+                        <option value="6">▶ VOID MACHINES — Dark Experimental</option>
                     </select>
 
                     <!-- GROOVEBOX sequencer panel (replaces custom+liquid in GROOVEBOX mode) -->
@@ -5169,29 +5167,18 @@ body.fullscreen #transcription-hud { pointer-events: none !important; } /* keep 
                             <span class="gb-bpm-lbl">BPM</span>
                             <input type="number" id="gb-bpm" value="120" min="40" max="240">
                             <select id="gb-kit-select">
-                                <option value="0">VOID DRIFT</option>
-                                <option value="1">DARK ETHER</option>
-                                <option value="2">SPECTRAL</option>
-                                <option value="3">GLITCH OPS</option>
-                                <option value="4">CASSETTE NOIR</option>
-                                <option value="5">NEURAL STATIC</option>
-                                <option value="6">DEEP FIELD</option>
+                                <option value="0">IMPACT CORE</option>
+                                <option value="1">ATMOSPHERIC</option>
+                                <option value="2">INDUSTRIAL</option>
+                                <option value="3">909 TECHNO</option>
+                                <option value="4">IDM BRKCORE</option>
+                                <option value="5">GLITCH CORE</option>
+                                <option value="6">VOID MACHINES</option>
                             </select>
                             <button id="gb-transport-btn" onclick="_toggleGrooveboxTransport()">&#x25B6; PLAY</button>
                             <button id="gb-expand-btn" onclick="_toggleSeqExpand()" title="Pop out sequencer">POP</button>
                         </div>
                         <div id="gb-seq-grid"></div>
-                        <!-- Renoise-style sample slicer drop zone -->
-                        <div id="ht-slicer-bar">
-                            <div id="ht-slicer-drop"
-                                ondragover="event.preventDefault();this.classList.add('ht-drag-over')"
-                                ondragleave="this.classList.remove('ht-drag-over')"
-                                ondrop="_htDropSample(event)">
-                                DROP WAV / MP3 → SLICE
-                            </div>
-                            <canvas id="ht-slice-wave"></canvas>
-                            <button id="ht-slicer-clear" onclick="_htClearSlicer()" title="Clear sample — revert to synth kits" style="display:none">✕</button>
-                        </div>
                     </div>
 
                     <!-- Hidden file inputs for custom pad uploads -->
@@ -5273,13 +5260,30 @@ body.fullscreen #transcription-hud { pointer-events: none !important; } /* keep 
         </div>
         <!-- ── VOICE_LAB // SYNESTHESIA VOICE ENGINE ──────────────────────── -->
         <div class="section" id="sve-section">
-            <div class="sec-head collapsible">
+            <div class="sec-head collapsible open" onclick="_toggleCollapsible(this)" style="position:relative;">
                 <span class="sec-title">VOICE_LAB</span>
-                <span class="sec-arrow">&#x25B8;</span>
+                <span class="sec-arrow">&#x25BE;</span>
                 <button class="sampler-help-btn" onclick="event.stopPropagation();_toggleSectionHelp(this,'voice-lab')">?</button>
                 <div class="sec-dot off" id="sve-dot"></div>
+                <!-- Help overlay -->
+                <div class="section-help-overlay">
+                    <div style="position:absolute;top:4px;right:4px;">
+                        <button style="background:none;border:none;color:var(--text-dim);cursor:pointer;font-size:10px;" onclick="event.stopPropagation();this.closest('.section-help-overlay').classList.remove('visible')">✕</button>
+                    </div>
+                    <div style="font-family:'Orbitron',sans-serif;font-size:8px;color:var(--accent);letter-spacing:2px;margin-bottom:7px;padding-right:14px;">VOICE_LAB // HOW TO USE</div>
+                    <div style="font-size:7.5px;color:var(--text);line-height:1.6;margin-bottom:4px;"><span style="color:var(--g);">SCRIPT</span> — Type your narration. Space bar works normally here.</div>
+                    <div style="font-size:7.5px;color:var(--text);line-height:1.6;margin-bottom:4px;"><span style="color:var(--accent);">LANG</span> — Pick language; voice list updates automatically. <em>AUTO</em> uses the browser default.</div>
+                    <div style="font-size:7.5px;color:var(--text);line-height:1.6;margin-bottom:4px;"><span style="color:var(--accent);">M / F</span> — Filter voices by gender.</div>
+                    <div style="font-size:7.5px;color:var(--text);line-height:1.6;margin-bottom:4px;"><span style="color:var(--accent);">VOICE</span> — Drop-down to pick specific voice installed on OS.</div>
+                    <div style="font-size:7.5px;color:var(--text);line-height:1.6;margin-bottom:4px;"><span style="color:var(--accent);">RATE / PITCH</span> — Drag sliders to tune naturalness. Lower rate = more cinematic.</div>
+                    <div style="font-size:7.5px;color:var(--text);line-height:1.6;margin-bottom:4px;"><span style="color:#ff4444;">MONSTER</span> — Distortion 0.88 · LowPass 700Hz · 4-bit BitCrusher.</div>
+                    <div style="font-size:7.5px;color:var(--text);line-height:1.6;margin-bottom:4px;"><span style="color:var(--accent);">CYBER</span> — HighPass 700Hz · 8-bit BitCrusher · PingPong delay.</div>
+                    <div style="font-size:7.5px;color:var(--text);line-height:1.6;margin-bottom:4px;"><span style="color:var(--v);">GHOST</span> — LowPass · 10-bit BitCrusher · long FeedbackDelay.</div>
+                    <div style="font-size:7.5px;color:var(--text);line-height:1.6;margin-bottom:4px;"><span style="color:var(--g);">⚡</span> — Fires a single Synesthesia glitch burst to test your effect chain.</div>
+                    <div style="font-size:7.5px;color:var(--text);line-height:1.6;"><span style="color:var(--g);">RENDER</span> — Renders glitch FX layer offline to 44.1kHz WAV, saves to Puter.fs, queues in AUDIO_ENGINE &amp; auto-downloads.</div>
+                </div>
             </div>
-            <div class="sec-body" id="sve-body" style="max-height:0;padding:0 12px;overflow:hidden;">
+            <div class="sec-body" id="sve-body">
 
                 <!-- Script textarea — stopPropagation prevents global space intercept -->
                 <textarea
@@ -5293,19 +5297,65 @@ body.fullscreen #transcription-hud { pointer-events: none !important; } /* keep 
                     onkeyup="event.stopPropagation()"
                 ></textarea>
 
-                <!-- Mode (4 cols) -->
-                <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:3px;margin-bottom:5px;">
-                    <button id="sve-mood-clean"   class="sve-mood-btn" title="Pure voice, no FX — best for audiobooks"
-                        onclick="window.SVE&&SVE.init().then(()=>SVE.setMood('CLEAN'))">CLEAN</button>
-                    <button id="sve-mood-cyber"   class="sve-mood-btn active-mode" title="Digital tick, ping-pong shimmer"
-                        onclick="window.SVE&&SVE.init().then(()=>SVE.setMood('CYBER'))">CYBER</button>
-                    <button id="sve-mood-ghost"   class="sve-mood-btn" title="Low-freq pulse, long echo tail"
-                        onclick="window.SVE&&SVE.init().then(()=>SVE.setMood('GHOST'))">GHOST</button>
-                    <button id="sve-mood-monster" class="sve-mood-btn" title="Sub-bass thump, heavy distortion"
-                        onclick="window.SVE&&SVE.init().then(()=>SVE.setMood('MONSTER'))">MNSTR</button>
+                <!-- Language + Gender row -->
+                <div style="display:grid;grid-template-columns:1fr auto auto;gap:4px;margin-bottom:5px;align-items:center;">
+                    <select id="sve-lang" class="inp" style="font-size:8px;padding:4px 5px;margin:0;"
+                        onchange="window.SVE && SVE.setLanguage(this.value)">
+                        <option value="auto">AUTO LANG</option>
+                        <option value="en-GB">EN-GB</option>
+                        <option value="en-US">EN-US</option>
+                        <option value="it-IT">IT</option>
+                        <option value="es-ES">ES</option>
+                        <option value="fr-FR">FR</option>
+                        <option value="de-DE">DE</option>
+                        <option value="pt-BR">PT-BR</option>
+                        <option value="nl-NL">NL</option>
+                        <option value="ja-JP">JA</option>
+                        <option value="zh-CN">ZH</option>
+                        <option value="ar-SA">AR</option>
+                        <option value="ru-RU">RU</option>
+                        <option value="ko-KR">KO</option>
+                        <option value="pl-PL">PL</option>
+                        <option value="sv-SE">SV</option>
+                        <option value="hi-IN">HI</option>
+                    </select>
+                    <button id="sve-gender-M" class="sve-mood-btn active-mode" style="font-size:8px;padding:4px 8px;letter-spacing:1px;"
+                        onclick="window.SVE && SVE.setGender('M')">&#x2642;</button>
+                    <button id="sve-gender-F" class="sve-mood-btn" style="font-size:8px;padding:4px 8px;letter-spacing:1px;"
+                        onclick="window.SVE && SVE.setGender('F')">&#x2640;</button>
                 </div>
 
-                <!-- Controls -->
+                <!-- Voice picker dropdown -->
+                <select id="sve-voice-select" class="inp" style="font-size:8px;padding:4px 5px;width:100%;margin-bottom:5px;"
+                    onchange="window.SVE && SVE.pickVoice(this.value)">
+                    <option>— init to load voices —</option>
+                </select>
+
+                <!-- Rate / Pitch sliders -->
+                <div style="display:grid;grid-template-columns:1fr 1fr;gap:6px;margin-bottom:5px;">
+                    <div>
+                        <div class="lbl" style="font-size:6px;opacity:0.5;letter-spacing:1.5px;margin-bottom:2px;">RATE <span id="sve-rate-val">0.88</span></div>
+                        <input type="range" id="sve-rate" min="0.5" max="1.5" step="0.01" value="0.88" style="width:100%;accent-color:var(--accent);"
+                            oninput="document.getElementById('sve-rate-val').textContent=parseFloat(this.value).toFixed(2)">
+                    </div>
+                    <div>
+                        <div class="lbl" style="font-size:6px;opacity:0.5;letter-spacing:1.5px;margin-bottom:2px;">PITCH <span id="sve-pitch-val">1.00</span></div>
+                        <input type="range" id="sve-pitch" min="0.3" max="2.0" step="0.01" value="1.0" style="width:100%;accent-color:var(--accent);"
+                            oninput="document.getElementById('sve-pitch-val').textContent=parseFloat(this.value).toFixed(2)">
+                    </div>
+                </div>
+
+                <!-- Mood selector -->
+                <div class="sve-mood-row" style="margin-bottom:5px;">
+                    <button id="sve-mood-monster" class="sve-mood-btn" title="Distortion · LowPass · 4-bit Crush"
+                        onclick="window.SVE && SVE.init().then(()=>SVE.setMood('MONSTER'))">MONSTER</button>
+                    <button id="sve-mood-cyber" class="sve-mood-btn active-mode" title="HighPass · PingPong · 8-bit Crush"
+                        onclick="window.SVE && SVE.init().then(()=>SVE.setMood('CYBER'))">CYBER</button>
+                    <button id="sve-mood-ghost" class="sve-mood-btn" title="LowPass · FeedbackDelay · 10-bit Crush"
+                        onclick="window.SVE && SVE.init().then(()=>SVE.setMood('GHOST'))">GHOST</button>
+                </div>
+
+                <!-- Speak / Stop / Glitch -->
                 <div class="sve-ctrl-row" style="margin-bottom:4px;">
                     <button class="btn" id="sve-speak-btn"
                         onclick="(async()=>{
@@ -5425,10 +5475,6 @@ body.fullscreen #transcription-hud { pointer-events: none !important; } /* keep 
                 <div id="btn-hud-alpha" onclick="if(typeof toggleHudAlpha==='function')toggleHudAlpha()" title="Panel skin — SOLID / GLASS / GHOST" style="cursor:pointer;display:flex;align-items:center;gap:3px;padding:2px 5px;border:1px solid rgba(0,243,255,0.25);border-radius:2px;transition:all 0.15s;background:rgba(0,243,255,0.04);" onmouseenter="this.style.background='rgba(0,243,255,0.12)';this.style.borderColor='rgba(0,243,255,0.6)'" onmouseleave="this.style.background='rgba(0,243,255,0.04)';this.style.borderColor='rgba(0,243,255,0.25)'">
                     <span id="hud-alpha-label" style="font-size:7px;color:rgba(0,243,255,0.7);font-family:'JetBrains Mono',monospace;letter-spacing:1px;">SOLID</span>
                 </div>
-                <div id="btn-init-vngrd-tracker" onclick="VanguardTracker.toggle()" title="VanguardTracker — Renoise-style hex sequencer + Neural Compiler" style="cursor:pointer;display:flex;align-items:center;gap:3px;padding:2px 5px;border:1px solid rgba(0,243,255,0.25);border-radius:2px;transition:all 0.15s;background:rgba(0,243,255,0.04);" onmouseenter="this.style.background='rgba(0,243,255,0.12)';this.style.borderColor='rgba(0,243,255,0.6)'" onmouseleave="this.style.background='rgba(0,243,255,0.04)';this.style.borderColor='rgba(0,243,255,0.25)'">
-                    <span style="font-size:7px;color:rgba(0,243,255,0.7);font-family:'JetBrains Mono',monospace;letter-spacing:1px;">TRK</span>
-                    <span style="font-size:7px;color:rgba(255,255,255,0.4);font-family:'JetBrains Mono',monospace;letter-spacing:1px;">TRACKER</span>
-                </div>
             </div>
         </div>
     </footer>
@@ -5459,6 +5505,19 @@ body.fullscreen #transcription-hud { pointer-events: none !important; } /* keep 
                 <button class="btn" id="btn-qr-close" style="flex:1;font-size:9px;color:var(--p);border-color:var(--p);">CLOSE</button>
             </div>
         </div>
+    </div>
+
+    <!-- WALLET SYNC HUD — IPFS upload indicator + snapshot thumbnail -->
+    <div id="wallet-sync-hud">
+        <div id="ipfs-sync-indicator">
+            <div id="ipfs-sync-dot"></div>
+            <span id="ipfs-sync-label">IPFS SYNC</span>
+        </div>
+        <div id="wallet-sync-thumbnail">
+            <img id="wallet-sync-snapshot" src="" alt="webgl snapshot" />
+        </div>
+        <div id="wallet-sync-cid"></div>
+        <div id="wallet-sync-dismiss" onclick="document.getElementById('wallet-sync-hud').classList.remove('visible','syncing','synced','error');">DISMISS ✕</div>
     </div>
 
     <div id="sys-log">
@@ -10847,54 +10906,54 @@ function _vjHeavySync() {
 //  Heavy, dissonant, cinematic FX. All synthesized client-side.
 // ═══════════════════════════════════════════════════════════════
 var VANGUARD_LIQUID_LIB = [
-    // Kit 0: VOID DRIFT — long ethereal drones, deep slow evolving textures
-    { name: 'VOID DRIFT', rate: 1.0, pads: [
-        { label: 'ABYSS',    p: { mode:'noise',   filter:'lowpass',   filterFreq:85,   filterQ:6.5,            atk:2.50,  dec:9.0,  sus:0.42,  dur:15.0 } },
-        { label: 'PULSE',    p: { mode:'am',      freq:28,  lfoRate:0.18,                                      atk:1.80,  dec:8.0,  sus:0.38,  dur:13.0 } },
-        { label: 'RIFT',     p: { mode:'resonant',freq:52,  freqEnd:18, res:26,                                atk:1.20,  dec:9.5,  sus:0.22,  dur:14.0 } },
-        { label: 'SIGNAL',   p: { mode:'sweep',   oscType:'sine',     freq:48, freqEnd:38, sub:32,             atk:1.50,  dec:7.0,  sus:0.28,  dur:12.0 } }
+    // Kit 0: IMPACT CORE — deep cinematic single hits, long natural tails
+    { name: 'IMPACT CORE', rate: 1.0, pads: [
+        { label: 'KICK',     p: { mode:'sweep',   oscType:'sine',     freq:160, freqEnd:28, sub:48, dist:0.06, atk:0.001, dec:0.60, sus:0.0,   dur:1.50 } },
+        { label: 'CLAP',     p: { mode:'noise',   filter:'bandpass',  filterFreq:1000, filterQ:1.0, dist:0.08, atk:0.001, dec:0.28, sus:0.001, dur:0.60 } },
+        { label: 'RUMBLE',   p: { mode:'noise',   filter:'lowpass',   filterFreq:160,  filterQ:0.4,            atk:0.05,  dec:2.8,  sus:0.06,  dur:5.00 } },
+        { label: 'SLAM',     p: { mode:'metal',   freq:200, freqEnd:55, ring:850,                              atk:0.001, dec:0.55, sus:0.004, dur:1.60 } }
     ]},
-    // Kit 1: DARK ETHER — cinematic tension drones, weighted with sub pressure
-    { name: 'DARK ETHER', rate: 1.0, pads: [
-        { label: 'IMPACT',   p: { mode:'boom',    sub:38,  filter:'lowpass', filterFreq:190, filterQ:0.9,      atk:0.005, dec:4.0,  sus:0.10,  dur: 7.0 } },
-        { label: 'TENSION',  p: { mode:'noise',   filter:'lowpass',   filterFreq:240,  filterQ:8.5,            atk:2.20,  dec:7.0,  sus:0.28,  dur:11.0 } },
-        { label: 'PRESSURE', p: { mode:'resonant',freq:58,  freqEnd:26, res:20,                                atk:0.20,  dec:5.5,  sus:0.20,  dur: 9.0 } },
-        { label: 'DRONE',    p: { mode:'chord',   oscType:'sawtooth', freqs:[38,57,76], det:14,                atk:1.20,  dec:6.0,  sus:0.32,  dur:10.0 } }
+    // Kit 1: ATMOSPHERIC — long ambient textures, slow evolving, no distortion
+    { name: 'ATMOSPHERIC', rate: 1.0, pads: [
+        { label: 'TIDE',     p: { mode:'noise',   filter:'lowpass',   filterFreq:380,  filterQ:0.3,            atk:1.80,  dec:5.5,  sus:0.22,  dur:10.0 } },
+        { label: 'BELL',     p: { mode:'resonant',freq:72,  freqEnd:65, res:38,                                atk:0.30,  dec:7.0,  sus:0.12,  dur: 9.0 } },
+        { label: 'HAZE',     p: { mode:'am',      freq:92,  lfoRate:0.4,                                       atk:0.90,  dec:5.0,  sus:0.30,  dur: 8.5 } },
+        { label: 'DEEP',     p: { mode:'sweep',   oscType:'sine',     freq:50, freqEnd:42, sub:46,             atk:0.25,  dec:4.5,  sus:0.18,  dur: 7.5 } }
     ]},
-    // Kit 2: SPECTRAL — crystalline shimmer, bright atmospheric pads
-    { name: 'SPECTRAL', rate: 1.0, pads: [
-        { label: 'CRYSTAL',  p: { mode:'resonant',freq:290, freqEnd:185, res:48,                               atk:0.60,  dec:6.0,  sus:0.18,  dur: 9.0 } },
-        { label: 'SHIMMER',  p: { mode:'chord',   oscType:'sine',     freqs:[220,277,330,440], det:8,          atk:1.40,  dec:6.5,  sus:0.22,  dur:10.0 } },
-        { label: 'PRISM',    p: { mode:'am',      freq:185, lfoRate:3.8,                                       atk:0.80,  dec:5.0,  sus:0.26,  dur: 8.0 } },
-        { label: 'GHOST',    p: { mode:'noise',   filter:'bandpass',  filterFreq:2900, filterQ:14,             atk:1.20,  dec:5.5,  sus:0.12,  dur: 9.0 } }
+    // Kit 2: INDUSTRIAL — mechanical single hits, long metallic ring, clean
+    { name: 'INDUSTRIAL', rate: 1.0, pads: [
+        { label: 'CLANG',    p: { mode:'metal',   freq:380, freqEnd:120, ring:1620,                            atk:0.001, dec:0.90, sus:0.005, dur:2.20 } },
+        { label: 'RIVET',    p: { mode:'noise',   filter:'bandpass',  filterFreq:1800, filterQ:4.0, dist:0.10, atk:0.001, dec:0.22, sus:0.001, dur:0.45 } },
+        { label: 'PRESS',    p: { mode:'boom',    sub:55,  filter:'lowpass', filterFreq:300, filterQ:0.6,      atk:0.001, dec:1.20, sus:0.04,  dur:2.80 } },
+        { label: 'HISS',     p: { mode:'noise',   filter:'bandpass',  filterFreq:5500, filterQ:0.7, dist:0.04, atk:0.015, dec:0.55, sus:0.02,  dur:1.00 } }
     ]},
-    // Kit 3: GLITCH OPS — modern glitch with sustained digital texture
-    { name: 'GLITCH OPS', rate: 1.0, pads: [
-        { label: 'STUTTER',  p: { mode:'noise',   filter:'bandpass',  filterFreq:3600, filterQ:9,  dist:0.28,  atk:0.001, dec:0.55, sus:0.06,  dur: 1.80 } },
-        { label: 'DATABEND', p: { mode:'sweep',   oscType:'sawtooth', freq:1400, freqEnd:55, dist:0.38,        atk:0.001, dec:1.20, sus:0.008, dur: 2.20 } },
-        { label: 'BYTE',     p: { mode:'chord',   oscType:'square',   freqs:[880,1100,1320], det:25, dist:0.30, atk:0.002, dec:1.00, sus:0.02, dur: 2.00 } },
-        { label: 'REWIND',   p: { mode:'sweep',   oscType:'sawtooth', freq:40,  freqEnd:1200, dist:0.22,       atk:0.001, dec:0.80, sus:0.003, dur: 1.60 } }
+    // Kit 3: 909 TECHNO — classic Roland 909-style, punchy and musical
+    { name: '909 TECHNO', rate: 1.0, pads: [
+        { label: 'KICK',     p: { mode:'sweep',   oscType:'sine',     freq:200, freqEnd:32, sub:52, dist:0.06, atk:0.001, dec:0.40, sus:0.0,   dur:0.90 } },
+        { label: 'SNARE',    p: { mode:'noise',   filter:'bandpass',  filterFreq:1100, filterQ:1.2, dist:0.10, atk:0.001, dec:0.22, sus:0.001, dur:0.45 } },
+        { label: 'HH-CL',   p: { mode:'noise',   filter:'bandpass',  filterFreq:9000, filterQ:4.5, dist:0.04, atk:0.001, dec:0.025,sus:0.0,   dur:0.06 } },
+        { label: 'HH-OP',   p: { mode:'noise',   filter:'bandpass',  filterFreq:7500, filterQ:2.0, dist:0.04, atk:0.001, dec:0.35, sus:0.002, dur:0.65 } }
     ]},
-    // Kit 4: CASSETTE NOIR — lo-fi warped atmospheric pads, tape-saturated
-    { name: 'CASSETTE NOIR', rate: 1.0, pads: [
-        { label: 'DRIFT',    p: { mode:'am',      freq:62,  lfoRate:0.22, dist:0.04,                           atk:2.20,  dec:7.0,  sus:0.30,  dur:11.0 } },
-        { label: 'GHOST',    p: { mode:'noise',   filter:'lowpass',   filterFreq:420,  filterQ:3.5, dist:0.07, atk:1.80,  dec:6.0,  sus:0.26,  dur: 9.5 } },
-        { label: 'WARP',     p: { mode:'chord',   oscType:'sine',     freqs:[55,82,110], det:20,               atk:1.00,  dec:5.5,  sus:0.24,  dur: 8.5 } },
-        { label: 'TAPE',     p: { mode:'resonant',freq:80,  freqEnd:52, res:14, dist:0.04,                     atk:1.20,  dec:6.0,  sus:0.22,  dur: 9.0 } }
+    // Kit 4: IDM BRKCORE — precise, short, hyper-transient single hits
+    { name: 'IDM BRKCORE', rate: 1.0, pads: [
+        { label: 'CLICK',    p: { mode:'noise',   filter:'bandpass',  filterFreq:5000, filterQ:6.0,            atk:0.001, dec:0.035,sus:0.0,   dur:0.08 } },
+        { label: 'BURST',    p: { mode:'cluster', oscType:'sawtooth', freqs:[87,130,174], dist:0.22,           atk:0.001, dec:0.15, sus:0.001, dur:0.32 } },
+        { label: 'SHIFT',    p: { mode:'sweep',   oscType:'square',   freq:440, freqEnd:88, dist:0.20,         atk:0.001, dec:0.12, sus:0.001, dur:0.26 } },
+        { label: 'FLAM',     p: { mode:'metal',   freq:280, freqEnd:140, ring:1120, dist:0.08,                 atk:0.001, dec:0.20, sus:0.002, dur:0.45 } }
     ]},
-    // Kit 5: NEURAL STATIC — evolving digital ambience, long textural tails
-    { name: 'NEURAL STATIC', rate: 1.0, pads: [
-        { label: 'CORRUPT',  p: { mode:'noise',   filter:'lowpass',   filterFreq:680,  filterQ:4.5, dist:0.08, atk:1.20,  dec:6.0,  sus:0.28,  dur:10.0 } },
-        { label: 'ENCODE',   p: { mode:'resonant',freq:220, freqEnd:95, res:22,                                atk:0.80,  dec:6.5,  sus:0.20,  dur: 9.5 } },
-        { label: 'PHASE',    p: { mode:'am',      freq:110, lfoRate:1.4, dist:0.04,                            atk:1.50,  dec:6.0,  sus:0.25,  dur:10.0 } },
-        { label: 'MASK',     p: { mode:'chord',   oscType:'sine',     freqs:[110,165,220], det:18, dist:0.05,  atk:1.80,  dec:7.0,  sus:0.28,  dur:11.0 } }
+    // Kit 5: GLITCH CORE — digital artifacts, bit noise, sharp single hits
+    { name: 'GLITCH CORE', rate: 1.0, pads: [
+        { label: 'DATABEND', p: { mode:'noise',   filter:'bandpass',  filterFreq:3000, filterQ:7.0, dist:0.35, atk:0.001, dec:0.14, sus:0.001, dur:0.28 } },
+        { label: 'SKIP',     p: { mode:'metal',   freq:520, freqEnd:260, ring:2080, dist:0.15,                 atk:0.001, dec:0.10, sus:0.001, dur:0.22 } },
+        { label: 'ZAP',      p: { mode:'sweep',   oscType:'sawtooth', freq:1600, freqEnd:80, dist:0.28,        atk:0.001, dec:0.12, sus:0.0,   dur:0.25 } },
+        { label: 'CRUNCH',   p: { mode:'noise',   filter:'bandpass',  filterFreq:900,  filterQ:4.5, dist:0.35, atk:0.001, dec:0.18, sus:0.001, dur:0.35 } }
     ]},
-    // Kit 6: DEEP FIELD — sub-bass cosmic, massive low-end evolving pressure
-    { name: 'DEEP FIELD', rate: 1.0, pads: [
-        { label: 'EVENT',    p: { mode:'boom',    sub:32,  filter:'lowpass', filterFreq:80,  filterQ:0.6,      atk:0.008, dec:5.0,  sus:0.14,  dur: 9.0 } },
-        { label: 'HORIZON',  p: { mode:'resonant',freq:55,  freqEnd:22, res:28,                                atk:0.50,  dec:6.5,  sus:0.18,  dur:10.0 } },
-        { label: 'GRAVITY',  p: { mode:'sweep',   oscType:'sine',     freq:42, freqEnd:22, sub:28,             atk:0.80,  dec:6.0,  sus:0.22,  dur:10.0 } },
-        { label: 'MATTER',   p: { mode:'am',      freq:38,  lfoRate:0.12,                                      atk:2.20,  dec:7.5,  sus:0.32,  dur:11.0 } }
+    // Kit 6: VOID MACHINES — dark, long evolving, experimental
+    { name: 'VOID MACHINES', rate: 1.0, pads: [
+        { label: 'SINGULAR', p: { mode:'resonant',freq:95,  freqEnd:22, res:24,                                atk:0.06,  dec:2.50, sus:0.12,  dur:5.50 } },
+        { label: 'WORMHOLE', p: { mode:'sweep',   oscType:'sawtooth', freq:440, freqEnd:14, dist:0.22,         atk:0.007, dec:2.80, sus:0.025, dur:4.50 } },
+        { label: 'EROSION',  p: { mode:'noise',   filter:'lowpass',   filterFreq:220,  filterQ:9,  dist:0.18,  atk:0.003, dec:1.10, sus:0.08,  dur:3.00 } },
+        { label: 'PULSE',    p: { mode:'am',      freq:52,  lfoRate:6, dist:0.10,                              atk:0.01,  dec:0.95, sus:0.22,  dur:3.20 } }
     ]}
 ];
 
@@ -10994,24 +11053,6 @@ function _synthCinematicBuf(p) {
                 if (p.det) cO.detune.value = (fi % 2 === 0 ? 1 : -1) * p.det * 0.4;
                 var cG = oct.createGain(); cG.gain.value = 0.9 / freqs.length;
                 cO.connect(cG); cG.connect(out); cO.start(0); cO.stop(dur);
-            });
-        }
-
-        // ── CHORD: detuned oscillator cluster — lush evolving pad ──
-        if (mode === 'chord') {
-            var chFreqs = p.freqs || [p.freq || 80];
-            var chDet = p.det || 8; // detune in cents
-            chFreqs.forEach(function(f) {
-                [-1, 0, 1].forEach(function(d) {
-                    var chO = oct.createOscillator();
-                    chO.type = p.oscType || 'sine';
-                    chO.frequency.value = f;
-                    chO.detune.value = d * chDet;
-                    var chG = oct.createGain();
-                    chG.gain.value = 0.28 / chFreqs.length;
-                    chO.connect(chG); chG.connect(out);
-                    chO.start(0); chO.stop(dur);
-                });
             });
         }
 
@@ -11275,120 +11316,13 @@ var _htScheduler = new Scheduler();
 //  exponential ramp-out via a dedicated GainNode — eliminates
 //  DC-offset clicks at any BPM including 200+.
 // ─────────────────────────────────────────────────────────────
-// ─────────────────────────────────────────────────────────────
-//  SAMPLE SLICER — Renoise-style drag-and-drop WAV/MP3 slicer
-//  Drop any audio file onto #ht-slicer-drop while in SEQ mode.
-//  The buffer is divided into 16 equal slices (0-15).
-//  Cell's slice wheel (0-15) selects the playback start point.
-//  All 4 tracker rows share the same dropped buffer.
-// ─────────────────────────────────────────────────────────────
-var _htSlicerBuffer = null;   // AudioBuffer from dropped file
-var _htSlicerMode   = false;  // true → use slicer buf in playSample
-
-function _htDropSample(e) {
-    e.preventDefault();
-    var dropEl = document.getElementById('ht-slicer-drop');
-    if (dropEl) dropEl.classList.remove('ht-drag-over');
-    var file = e.dataTransfer && e.dataTransfer.files && e.dataTransfer.files[0];
-    if (!file || !file.type.match(/^audio\//)) return;
-    if (!APP.audio.ctx) igniteAudio();
-    if (APP.audio.ctx.state === 'suspended') APP.audio.ctx.resume();
-    var reader = new FileReader();
-    reader.onload = function(ev) {
-        APP.audio.ctx.decodeAudioData(ev.target.result.slice(0), function(buf) {
-            _htSlicerBuffer = buf;
-            _htSlicerMode   = true;
-            // Label
-            var name = file.name.length > 22 ? file.name.substring(0, 22) + '…' : file.name;
-            if (dropEl) { dropEl.textContent = '✔ ' + name; dropEl.classList.add('ht-loaded'); }
-            // Show clear btn
-            var clrBtn = document.getElementById('ht-slicer-clear');
-            if (clrBtn) clrBtn.style.display = '';
-            // Draw waveform
-            _htDrawSlicerWave(buf);
-        }, function() {
-            if (dropEl) dropEl.textContent = '✘ DECODE ERROR — TRY ANOTHER FILE';
-        });
-    };
-    reader.readAsArrayBuffer(file);
-}
-
-function _htClearSlicer() {
-    _htSlicerBuffer = null;
-    _htSlicerMode   = false;
-    var dropEl = document.getElementById('ht-slicer-drop');
-    if (dropEl) { dropEl.textContent = 'DROP WAV / MP3 → SLICE'; dropEl.classList.remove('ht-loaded'); }
-    var canvas = document.getElementById('ht-slice-wave');
-    if (canvas) { canvas.classList.remove('visible'); var ctx2 = canvas.getContext('2d'); ctx2.clearRect(0,0,canvas.width,canvas.height); }
-    var clrBtn = document.getElementById('ht-slicer-clear');
-    if (clrBtn) clrBtn.style.display = 'none';
-}
-
-function _htDrawSlicerWave(buf) {
-    var canvas = document.getElementById('ht-slice-wave');
-    if (!canvas) return;
-    canvas.classList.add('visible');
-    // Defer until element has layout width
-    requestAnimationFrame(function() {
-        var W = canvas.offsetWidth || 110;
-        var H = 24;
-        canvas.width  = W;
-        canvas.height = H;
-        var ctx2 = canvas.getContext('2d');
-        ctx2.clearRect(0, 0, W, H);
-        var data = buf.getChannelData(0);
-        var step = Math.max(1, Math.floor(data.length / W));
-        // Waveform fill
-        ctx2.fillStyle = 'rgba(100,60,255,0.15)';
-        ctx2.fillRect(0, 0, W, H);
-        // Waveform peaks
-        ctx2.strokeStyle = 'rgba(130,90,255,0.85)';
-        ctx2.lineWidth = 1;
-        ctx2.beginPath();
-        for (var x = 0; x < W; x++) {
-            var peak = 0;
-            var base = x * step;
-            for (var j = 0; j < step && (base + j) < data.length; j++) {
-                var s = Math.abs(data[base + j]);
-                if (s > peak) peak = s;
-            }
-            var y = (H / 2) - peak * (H / 2) * 0.9;
-            if (x === 0) ctx2.moveTo(x, H / 2); else ctx2.lineTo(x, y);
-        }
-        ctx2.stroke();
-        // Mirror bottom
-        ctx2.beginPath();
-        for (var x = 0; x < W; x++) {
-            var peak = 0;
-            var base = x * step;
-            for (var j = 0; j < step && (base + j) < data.length; j++) {
-                var s = Math.abs(data[base + j]);
-                if (s > peak) peak = s;
-            }
-            var y = (H / 2) + peak * (H / 2) * 0.9;
-            if (x === 0) ctx2.moveTo(x, H / 2); else ctx2.lineTo(x, y);
-        }
-        ctx2.stroke();
-        // 16 slice marker lines
-        ctx2.strokeStyle = 'rgba(180,130,255,0.50)';
-        ctx2.lineWidth = 0.5;
-        for (var i = 1; i < 16; i++) {
-            var mx = Math.floor(W * i / 16);
-            ctx2.beginPath(); ctx2.moveTo(mx, 0); ctx2.lineTo(mx, H); ctx2.stroke();
-        }
-    });
-}
-
 function playSample(key, time, slice, ratchet, stepDur) {
     if (!APP.audio.ctx) return;
     var ctx = APP.audio.ctx;
 
     // ── Resolve AudioBuffer promise ──────────────────────────
     var bufPromise;
-    // Slicer mode: all rows use the dropped sample buffer
-    if (_htSlicerMode && _htSlicerBuffer) {
-        bufPromise = Promise.resolve(_htSlicerBuffer);
-    } else if (key && key.startsWith('liq')) {
+    if (key && key.startsWith('liq')) {
         var padIdx = parseInt(key.replace('liq', ''), 10) - 1;
         bufPromise = _getLiqBuf(_liqCurrentPack, padIdx);
     } else {
@@ -12718,34 +12652,186 @@ function _localKey(address) {
     return 'VNGRD_SESSION_' + address.toLowerCase();
 }
 
-// ── SAVE session to localStorage, wallet-signed ──
+// Convert a data URL to a Blob without fetch() — works in all browsers including Safari
+function _dataURLtoBlob(dataURL) {
+    var parts = dataURL.split(',');
+    var mime  = parts[0].match(/:(.*?);/)[1];
+    var bstr  = atob(parts[1]);
+    var n     = bstr.length;
+    var u8    = new Uint8Array(n);
+    while (n--) u8[n] = bstr.charCodeAt(n);
+    return new Blob([u8], { type: mime });
+}
+
+// ── WALLET SYNC HUD helpers ──
+function _showIpfsSyncIndicator(syncing, success) {
+    var hud   = document.getElementById('wallet-sync-hud');
+    var label = document.getElementById('ipfs-sync-label');
+    if (!hud) return;
+    hud.classList.remove('syncing', 'synced', 'error', 'visible');
+    if (syncing) {
+        hud.classList.add('visible', 'syncing');
+        if (label) label.textContent = 'IPFS SYNC…';
+    } else if (success === true) {
+        hud.classList.add('visible', 'synced');
+        if (label) label.textContent = 'IPFS SYNCED';
+    } else {
+        hud.classList.add('visible', 'error');
+        if (label) label.textContent = 'SYNC FAILED';
+    }
+}
+
+function _showWalletSaveThumbnail(dataURL, cid) {
+    var thumb = document.getElementById('wallet-sync-thumbnail');
+    var img   = document.getElementById('wallet-sync-snapshot');
+    var cidEl = document.getElementById('wallet-sync-cid');
+    if (thumb && img && dataURL) {
+        img.src = dataURL;
+        thumb.classList.add('visible');
+    }
+    if (cidEl && cid) {
+        cidEl.textContent = 'CID: ' + cid;
+        cidEl.classList.add('visible');
+    }
+}
+
+// ── SAVE session to IPFS via Pinata (directory-wrapped) + bind to wallet via puter.kv ──
 window.saveSessionToCloud = async function() {
     if (!APP.wallet.connected || !APP.wallet.address) {
-        log('LOCAL_SAVE: WALLET_NOT_CONNECTED'); alert('Connect your wallet first.'); return;
+        log('WALLET_SAVE: WALLET_NOT_CONNECTED'); alert('Connect your wallet first.'); return;
     }
 
     var address = APP.wallet.address;
-    var session = _buildSessionSnapshot();
-    var sigMsg  = 'VNGRD_LOCAL_SAVE:' + address.toLowerCase() + ':' + session.timestamp;
-
-    log('LOCAL_SAVE: REQUESTING_SIGNATURE');
-    var signature;
-    try {
-        signature = await window.ethereum.request({ method: 'personal_sign', params: [sigMsg, address] });
-    } catch (e) {
-        if (e.code === 4001) { log('LOCAL_SAVE: USER_REJECTED_SIGNATURE'); return; }
-        log('LOCAL_SAVE: SIGN_ERR ' + e.message); return;
+    var jwt = localStorage.getItem('pinata_jwt');
+    if (!jwt) {
+        var raw = prompt('PINATA JWT TOKEN (stored locally):');
+        if (!raw) { log('WALLET_SAVE: NO_JWT'); return; }
+        jwt = raw.trim();
+        localStorage.setItem('pinata_jwt', jwt);
     }
 
-    session._cloudMeta = { address: address, signature: signature, signedMsg: sigMsg };
+    // Step 1 — Capture WebGL canvas snapshot SYNCHRONOUSLY before any async work
+    var vjCanvas = document.getElementById('vj-canvas');
+    var snapshotDataURL = null;
     try {
-        localStorage.setItem(_localKey(address), JSON.stringify(session));
-        log('LOCAL_SAVE: OK — SESSION_STORED_FOR_' + address.slice(0, 6));
-        alert('SESSION SAVED LOCALLY\n\nWallet: ' + address.slice(0,6) + '...' + address.slice(-4) + '\nSaved: ' + new Date(session.timestamp).toLocaleString() + '\n\n(Stored in browser localStorage — wallet-signed)');
-    } catch (e) {
-        log('LOCAL_SAVE: ERR ' + e.message);
-        alert('Save failed: ' + e.message);
-    }
+        if (vjCanvas) snapshotDataURL = vjCanvas.toDataURL('image/jpeg', 0.85);
+    } catch(e) { log('WALLET_SAVE: SNAPSHOT_WARN ' + e.message); }
+
+    // Show IPFS SYNC indicator immediately — upload runs detached, never blocks 60fps loop
+    _showIpfsSyncIndicator(true);
+    log('WALLET_SAVE: ASYNC_UPLOAD_STARTED for ' + address.slice(0, 6) + '...');
+
+    // Detach from call stack via Promise.resolve() so the render loop is never stalled
+    Promise.resolve().then(async function() {
+        var _step = 'INIT';
+        try {
+            // Step 2 — Build FormData with all blobs (no client-side zip = no OOM crash)
+            // IMPORTANT: Pinata wrapWithDirectory requires ALL files to share ONE root folder.
+            // Files at mixed levels (root + subdirs) trigger 400 "More than one file/directory".
+            // Solution: prefix every path with 'VNGRD/' so there is exactly one top-level entry.
+            _step = 'BUILD_FORM';
+            var form = new FormData();
+            var DIR  = 'VNGRD/'; // single root — Pinata wraps this in an outer directory CID
+
+            // 2a. Session state JSON manifest
+            var snap = _buildSessionSnapshot();
+            snap._type    = 'VNGRD_WALLET_PAYLOAD';
+            snap._version = 'V35_WALLET';
+            snap._wallet  = address;
+            form.append('file', new Blob([JSON.stringify(snap, null, 2)], { type: 'application/json' }), DIR + 'session.json');
+
+            // 2b. WebGL snapshot — use atob() conversion, NOT fetch(dataURL) which fails in Safari
+            _step = 'SNAPSHOT_ENCODE';
+            if (snapshotDataURL) {
+                form.append('file', _dataURLtoBlob(snapshotDataURL), DIR + 'snapshot.jpg');
+            }
+
+            // 2c. Media queue blobs — images re-encoded, video fetched from object URL
+            if (APP.media && APP.media.queue && APP.media.queue.length) {
+                for (var i = 0; i < APP.media.queue.length; i++) {
+                    var item = APP.media.queue[i];
+                    try {
+                        var mblob;
+                        if (item.type === 'image' && item.element && item.element.naturalWidth) {
+                            var mc = document.createElement('canvas');
+                            mc.width = item.element.naturalWidth; mc.height = item.element.naturalHeight;
+                            mc.getContext('2d').drawImage(item.element, 0, 0);
+                            mblob = await new Promise(function(r) { mc.toBlob(r, 'image/jpeg', 0.9); });
+                        } else if (item.url) {
+                            mblob = await fetch(item.url).then(function(r) { return r.blob(); });
+                        }
+                        if (mblob) {
+                            form.append('file', mblob, DIR + 'media/media_' + i + (item.name ? '_' + item.name : ''));
+                            log('WALLET_SAVE: QUEUED_MEDIA ' + (item.name || i));
+                        }
+                    } catch(e) { log('WALLET_SAVE: MEDIA_SKIP ' + (item.name || i) + ' — ' + e.message); }
+                }
+            }
+
+            // 2d. Audio playlist blobs
+            if (APP.audio && APP.audio.playlist && APP.audio.playlist.length) {
+                for (var i = 0; i < APP.audio.playlist.length; i++) {
+                    var track = APP.audio.playlist[i];
+                    try {
+                        var ablob = await fetch(track.url).then(function(r) { return r.blob(); });
+                        form.append('file', ablob, DIR + 'audio/audio_' + i + (track.name ? '_' + track.name : ''));
+                        log('WALLET_SAVE: QUEUED_AUDIO ' + (track.name || i));
+                    } catch(e) { log('WALLET_SAVE: AUDIO_SKIP ' + (track.name || i) + ' — ' + e.message); }
+                }
+            }
+
+            // 2e. Time machine video recording chunks — concatenated into one webm blob, never zipped
+            if (APP.timeMachine && APP.timeMachine.chunks && APP.timeMachine.chunks.length) {
+                try {
+                    var tmBlob = new Blob(APP.timeMachine.chunks, { type: 'video/webm' });
+                    form.append('file', tmBlob, DIR + 'video/timemachine.webm');
+                    log('WALLET_SAVE: QUEUED_TIMEMACHINE ' + (tmBlob.size / 1e6).toFixed(1) + 'MB');
+                } catch(e) { log('WALLET_SAVE: TIMEMACHINE_SKIP — ' + e.message); }
+            }
+
+            // Pinata directory wrapping — all blobs land in one IPFS directory CID
+            form.append('pinataOptions',  JSON.stringify({ wrapWithDirectory: true }));
+            form.append('pinataMetadata', JSON.stringify({
+                name: 'VNGRD_WALLET_' + address.slice(0, 8) + '_' + Date.now()
+            }));
+
+            // Step 3 — Upload to Pinata, await master directory CID
+            _step = 'PINATA_UPLOAD';
+            log('WALLET_SAVE: UPLOADING_DIRECTORY_TO_PINATA…');
+            var res  = await fetch('https://api.pinata.cloud/pinning/pinFileToIPFS', {
+                method:  'POST',
+                headers: { 'Authorization': 'Bearer ' + jwt },
+                body:    form
+            });
+            var data = await res.json();
+            if (!res.ok || !data.IpfsHash) throw new Error('PIN_FAIL ' + res.status + ': ' + (data.error ? JSON.stringify(data.error) : 'no IpfsHash'));
+
+            var cid = data.IpfsHash;
+            log('WALLET_SAVE: DIRECTORY_PINNED CID=' + cid);
+
+            // Step 4 — Bind the master CID to the user's wallet address via puter.kv
+            if (typeof puter !== 'undefined' && puter.kv) {
+                try {
+                    await puter.kv.set(address.toLowerCase(), JSON.stringify({
+                        payloadCID: cid,
+                        address:    address,
+                        timestamp:  Date.now()
+                    }));
+                    log('WALLET_SAVE: PUTER_KV_BOUND ' + address.slice(0, 6) + ' → ' + cid.slice(0, 10) + '…');
+                } catch(e) { log('WALLET_SAVE: PUTER_KV_WARN ' + e.message); }
+            }
+
+            // Step 5 — Show snapshot thumbnail + success state; never blocked render loop
+            _showWalletSaveThumbnail(snapshotDataURL, cid);
+            _showIpfsSyncIndicator(false, true);
+            if (typeof ghostLog === 'function') ghostLog('GHOST> WALLET PAYLOAD BOUND → IPFS CID=' + cid, 'ok');
+
+        } catch(e) {
+            log('WALLET_SAVE: ERR [' + _step + '] ' + e.message);
+            _showIpfsSyncIndicator(false, false);
+            alert('IPFS Wallet Save failed [' + _step + ']: ' + e.message);
+        }
+    });
 };
 
 // ── LOAD session from localStorage for the connected wallet ──
@@ -14965,19 +15051,6 @@ document.addEventListener('DOMContentLoaded', () => {
                     ['RESET',   'Hard reset — clears all active FX and restores canvas.']
                 ],
                 footer: 'VNGRD // REACTIVITY · VISUAL FX ENGINE'
-            },
-            'voice-lab': {
-                title: 'VOICE_LAB // SYNESTHESIA ENGINE',
-                rows: [
-                    ['SCRIPT',  'Type narration in any language. Language is auto-detected on each SPEAK — the best matching OS voice is selected silently.'],
-                    ['CLEAN',   'Pure voice, no FX. Natural pacing (rate 0.86). Best for audiobooks and narration. Chrome picks Google TTS; Safari picks Daniel/Samantha.'],
-                    ['CYBER',   'Slightly faster, higher pitch (rate 0.91, pitch 1.18). Narrow bandpass tick + stereo PingPong shimmer on each word. Futuristic.'],
-                    ['GHOST',   'Slow and haunting (rate 0.72, pitch 0.72). Low-frequency pulse + long FeedbackDelay echo tail. Atmospheric, cinematic.'],
-                    ['MNSTR',   'Very slow, very deep (rate 0.65, pitch 0.45). Distorted sub-bass thump on each word. Dark, powerful, trailer-grade.'],
-                    ['▶ SPEAK', 'Speaks the script. Click again (■ STOP) to cancel. Language auto-detected — correct pronunciation per language.'],
-                    ['⚡',      'Test glitch burst at current mood settings. Works in all modes including CLEAN.']
-                ],
-                footer: 'VNGRD // VOICE_LAB · SYNESTHESIA v2.2 · AUTO-LANG · ZERO-API'
             },
             'audio-engine': {
                 title: 'AUDIO_ENGINE',
@@ -17535,7 +17608,7 @@ var isVideo = nft.forceVideo || (imageUrl.toLowerCase().match(/\.(mp4|webm|mov|o
     })();
 
     // Collapsible sections with arrow indicators
-    ['session-lab-body', 'p2p-call-body', 'midi-host-body', 'nft-vault-body', 'lexica-nano-body', 'sve-body'].forEach(function(id) {
+    ['session-lab-body', 'p2p-call-body', 'midi-host-body', 'nft-vault-body', 'lexica-nano-body'].forEach(function(id) {
         var el = $(id);
         if (!el) return;
         var head = el.previousElementSibling;
@@ -18550,101 +18623,6 @@ if (btn3dX) {
         </div>
     </div>
 
-
-<script>
-
-<!-- ═══════════════════════════════════════════════════════════════════
-     MEDIAPIPE POSE — 3D body-tracking anchor for SPECTRAL_MOSH + GLB rigging
-     Landmarks streamed to VB canvas shader and (if GLB loaded) skeleton
-     ═══════════════════════════════════════════════════════════════════ -->
-<script>
-(function() {
-'use strict';
-
-var _pose = null;
-var _poseRunning = false;
-var _poseCanvas = null;  // Offscreen 2D canvas for landmark drawing
-var _poseCtx = null;
-var _landmarks = null;
-
-window._startPoseTracking = function() {
-    if (_poseRunning) return;
-    if (typeof Pose === 'undefined') { log('SPECTRAL_MOSH: MediaPipe not loaded'); return; }
-
-    // Use existing camera stream if available
-    var videoEl = document.getElementById('cam-preview') || document.querySelector('video');
-    if (!videoEl || !videoEl.srcObject) {
-        log('SPECTRAL_MOSH: No camera stream — start camera first');
-        return;
-    }
-
-    _pose = new Pose({ locateFile: function(f) {
-        return 'https://cdn.jsdelivr.net/npm/@mediapipe/pose@0.5.1675469404/' + f;
-    }});
-    _pose.setOptions({ modelComplexity: 1, smoothLandmarks: true, minDetectionConfidence: 0.5, minTrackingConfidence: 0.5 });
-    _pose.onResults(function(results) {
-        _landmarks = results.poseLandmarks;
-        // If a 3D model is loaded, attempt bone mapping
-        if (_landmarks && window._3D && window._3D.model) _applyPoseToModel(_landmarks);
-        // Pipe landmarks into Spatial Matrix if active
-        if (_landmarks && window._smPoseFeed) window._smPoseFeed(_landmarks);
-    });
-
-    _poseRunning = true;
-    log('SPECTRAL_MOSH: Pose tracking ACTIVE');
-
-    // Feed frames — prefer MediaPipe Camera utility for reliability
-    if (typeof Camera !== 'undefined') {
-        var _mpCam = new Camera(videoEl, {
-            onFrame: async function() {
-                if (_poseRunning && _pose) await _pose.send({ image: videoEl });
-            },
-            width: 640,
-            height: 480
-        });
-        _mpCam.start();
-    } else {
-        // Fallback: setTimeout polling at ~12fps
-        (function _sendFrame() {
-            if (!_poseRunning || !_pose) return;
-            if (videoEl.readyState >= 2) _pose.send({ image: videoEl }).catch(function(){});
-            setTimeout(_sendFrame, 80);
-        })();
-    }
-};
-
-window._stopPoseTracking = function() {
-    _poseRunning = false;
-    _landmarks = null;
-    log('SPECTRAL_MOSH: Pose tracking STOPPED');
-};
-
-// ── Bone mapping: MediaPipe → Three.js skeleton ───────────────────────
-// Maps shoulder/hip/spine landmarks to model bones if they exist
-function _applyPoseToModel(lm) {
-    var model = window._3D && window._3D.model;
-    if (!model || typeof THREE === 'undefined') return;
-    model.traverse(function(obj) {
-        if (!obj.isBone) return;
-        var name = obj.name.toLowerCase();
-        // Shoulders
-        if (name.includes('leftshoulder') || name.includes('shoulder_l')) {
-            var l = lm[11]; if (l) obj.rotation.z = (l.y - 0.5) * 1.2;
-        } else if (name.includes('rightshoulder') || name.includes('shoulder_r')) {
-            var r = lm[12]; if (r) obj.rotation.z = -(r.y - 0.5) * 1.2;
-        // Spine / hips
-        } else if (name.includes('spine') || name.includes('pelvis') || name.includes('hips')) {
-            var lhip = lm[23], rhip = lm[24];
-            if (lhip && rhip) {
-                obj.rotation.y = (lhip.x - rhip.x) * 1.5;
-                obj.rotation.x = ((lhip.y + rhip.y) * 0.5 - 0.5) * 0.8;
-            }
-        }
-    });
-}
-
-})();
-</script>
 
 <script>
 /* ═══════════════════════════════════════════════════════════════════════
@@ -19978,6 +19956,532 @@ function _applyPoseToModel(lm) {
     setStatus('STT: STANDBY');
 
 }());
+</script>
+
+<!-- ═══════════════════════════════════════════════════════════════════
+     VANGUARD_B FX ENGINE — WebGL2 post-process shader bank
+     6 elite GLSL 3.00 ES shaders running on #vb-canvas
+     Single-click: 3s reactive burst  |  Double-click: persistent lock
+     ═══════════════════════════════════════════════════════════════════ -->
+<script>
+(function() {
+'use strict';
+
+// ── State ─────────────────────────────────────────────────────────────
+var _vbActive    = false;   // Bank B currently selected
+var _vbShader    = null;    // Currently active shader name
+var _vbLocked    = {};      // { shaderName: true } — persistent/locked
+var _vbBurstTimer= null;    // One-shot timer handle
+var _dblTapTimer = {};      // Per-button double-tap detection
+var _vbTime      = 0;       // Shader uniform time
+var _vbRAF       = null;    // requestAnimationFrame handle
+var _vbGl        = null;    // WebGL2 context
+var _vbProgs     = {};      // Compiled shader programs
+var _vbTex       = null;    // Input texture (from vj-canvas)
+var _vbPrevTex   = null;    // Previous-frame texture for GHOST_ECHO feedback
+var _vbPrevCvs   = null;    // Off-screen 2D canvas storing last rendered frame
+var _vbPrevCtx2d = null;    // 2D context for _vbPrevCvs
+var _vbInited    = false;
+
+// ── GLSL Shaders (GLSL ES 3.00) ───────────────────────────────────────
+var VS = '#version 300 es\nin vec2 a;out vec2 v;void main(){v=a*0.5+0.5;v.y=1.0-v.y;gl_Position=vec4(a,0,1);}';
+
+var FS = {
+    SLIT_SCAN: [
+        '#version 300 es',
+        'precision mediump float;',
+        'in vec2 v; uniform sampler2D t; uniform float time; out vec4 o;',
+        'void main(){',
+        '  float a=sin(v.y*20.0+time*3.0)*0.045+sin(v.y*7.0+time*1.2)*0.018;',
+        '  vec4 r=texture(t,vec2(clamp(v.x+a,0.0,1.0),v.y));',
+        '  vec4 g=texture(t,vec2(clamp(v.x+a*0.8,0.0,1.0),v.y));',
+        '  vec4 b=texture(t,vec2(clamp(v.x+a*1.2,0.0,1.0),v.y));',
+        '  o=vec4(r.r,g.g,b.b,1.0);',
+        '}'
+    ].join('\n'),
+
+    LUMA_BLOOM: [
+        '#version 300 es',
+        'precision mediump float;',
+        'in vec2 v; uniform sampler2D t; uniform vec2 res; out vec4 o;',
+        'void main(){',
+        '  vec4 c=texture(t,v);',
+        '  float luma=dot(c.rgb,vec3(0.2126,0.7152,0.0722));',
+        '  vec3 bloom=vec3(0.0);',
+        '  if(luma>0.55){',
+        '    vec2 px=2.2/res;',
+        '    for(int x=-3;x<=3;x++)for(int y=-3;y<=3;y++)',
+        '      bloom+=texture(t,v+vec2(float(x),float(y))*px).rgb;',
+        '    bloom/=49.0; bloom*=luma*2.0;',
+        '  }',
+        '  o=vec4(min(c.rgb+bloom,1.0),1.0);',
+        '}'
+    ].join('\n'),
+
+    DITHER_LUXE: [
+        '#version 300 es',
+        'precision mediump float;',
+        'in vec2 v; uniform sampler2D t; uniform vec2 res; out vec4 o;',
+        'float bayer(ivec2 p){',
+        '  int x=p.x&3,y=p.y&3,i=y*4+x;',
+        '  if(i==0)return 0.0/16.0; if(i==1)return 8.0/16.0;',
+        '  if(i==2)return 2.0/16.0; if(i==3)return 10.0/16.0;',
+        '  if(i==4)return 12.0/16.0;if(i==5)return 4.0/16.0;',
+        '  if(i==6)return 14.0/16.0;if(i==7)return 6.0/16.0;',
+        '  if(i==8)return 3.0/16.0; if(i==9)return 11.0/16.0;',
+        '  if(i==10)return 1.0/16.0;if(i==11)return 9.0/16.0;',
+        '  if(i==12)return 15.0/16.0;if(i==13)return 7.0/16.0;',
+        '  if(i==14)return 13.0/16.0;return 5.0/16.0;',
+        '}',
+        'void main(){',
+        '  vec4 c=texture(t,v);',
+        '  float luma=dot(c.rgb,vec3(0.2126,0.7152,0.0722));',
+        '  float thr=bayer(ivec2(v*res));',
+        '  float d=step(thr,luma);',
+        '  o=vec4(mix(vec3(0.02),c.rgb,d),1.0);',
+        '}'
+    ].join('\n'),
+
+    CAUSTICS: [
+        '#version 300 es',
+        'precision mediump float;',
+        'in vec2 v; uniform sampler2D t; uniform float time; out vec4 o;',
+        'float h(vec2 p){return fract(sin(dot(p,vec2(127.1,311.7)))*43758.5453);}',
+        'float n(vec2 p){',
+        '  vec2 i=floor(p),f=fract(p);',
+        '  float a=h(i),b=h(i+vec2(1,0)),c=h(i+vec2(0,1)),d=h(i+vec2(1,1));',
+        '  vec2 u=f*f*(3.0-2.0*f);',
+        '  return mix(a,b,u.x)+(c-a)*u.y*(1.0-u.x)+(d-b)*u.x*u.y;',
+        '}',
+        'void main(){',
+        '  float n1=n(v*5.0+time*0.4);',
+        '  float n2=n(v*11.0-time*0.25);',
+        '  float n3=n(v*17.0+time*0.15);',
+        '  vec2 off=vec2(n1-0.5,n2-0.5)*0.03+vec2(n3-0.5)*0.01;',
+        '  o=texture(t,clamp(v+off,0.0,1.0));',
+        '}'
+    ].join('\n'),
+
+    GHOST_ECHO: [
+        '#version 300 es',
+        'precision highp float;',
+        'in vec2 v;',
+        'uniform sampler2D t;',
+        'uniform sampler2D tPrev;',
+        'uniform float time;',
+        'uniform float uAudio;',
+        'out vec4 o;',
+        'void main(){',
+        '  vec4 cur=texture(t,v);',
+        // Subtle UV drift so ghost trails shift rather than stack perfectly
+        '  vec2 drift=vec2(sin(time*0.31+v.y*3.8)*0.0009,cos(time*0.19+v.x*2.7)*0.0006);',
+        '  vec4 ghost=texture(tPrev,clamp(v+drift,0.0,1.0));',
+        // decay: 0.80 at silence → 0.95 at full bass — longer trails on kicks
+        '  float decay=0.80+uAudio*0.15;',
+        '  o=vec4(cur.rgb+ghost.rgb*decay,1.0);',
+        '}'
+    ].join('\n'),
+
+    SPECTRAL_MOSH: [
+        '#version 300 es',
+        'precision highp float;',
+        'in vec2 v;',
+        'uniform sampler2D t;',
+        'uniform float time;',
+        'uniform float uAudio;',
+        'uniform vec2 res;',
+        'out vec4 o;',
+        'void main(){',
+        '  vec2 px=1.0/max(res,vec2(1.0));',
+        // Luminance gradient → per-pixel velocity estimate
+        '  vec3 c0=texture(t,v).rgb;',
+        '  float lumC=dot(c0,vec3(0.299,0.587,0.114));',
+        '  float lumR=dot(texture(t,v+vec2(px.x,0.0)).rgb,vec3(0.299,0.587,0.114));',
+        '  float lumU=dot(texture(t,v+vec2(0.0,px.y)).rgb,vec3(0.299,0.587,0.114));',
+        // Displacement magnitude grows with bass
+        '  float mag=(0.006+uAudio*0.022)*26.0;',
+        '  vec2 shift=vec2(lumR-lumC,lumU-lumC)*mag;',
+        // Time-modulated channel separation — each channel bleeds differently
+        '  float tmod=time*0.38;',
+        '  float r=texture(t,clamp(v+shift*1.9,0.0,1.0)).r;',
+        '  float g=texture(t,clamp(v+shift*0.55+vec2(sin(tmod)*0.0025,0.0),0.0,1.0)).g;',
+        '  float b=texture(t,clamp(v-shift*1.4+vec2(0.0,cos(tmod)*0.002),0.0,1.0)).b;',
+        // Blend: only apply mosh where gradient is strong enough
+        '  float edge=clamp(length(shift)*35.0,0.0,1.0);',
+        '  o=vec4(mix(c0,vec3(r,g,b),edge),1.0);',
+        '}'
+    ].join('\n')
+};
+
+// ── WebGL init ────────────────────────────────────────────────────────
+function _initVB() {
+    if (_vbInited) return;
+    var canvas = document.getElementById('vb-canvas');
+    if (!canvas) return;
+    var gl = canvas.getContext('webgl2', { alpha: false, antialias: false, premultipliedAlpha: false });
+    if (!gl) { console.warn('[VB] WebGL2 not supported'); return; }
+    _vbGl = gl;
+
+    function compileShader(type, src) {
+        var s = gl.createShader(type);
+        gl.shaderSource(s, src); gl.compileShader(s);
+        if (!gl.getShaderParameter(s, gl.COMPILE_STATUS))
+            console.error('[VB] Shader compile error:', gl.getShaderInfoLog(s));
+        return s;
+    }
+    function makeProgram(fs) {
+        var prog = gl.createProgram();
+        gl.attachShader(prog, compileShader(gl.VERTEX_SHADER, VS));
+        gl.attachShader(prog, compileShader(gl.FRAGMENT_SHADER, fs));
+        gl.linkProgram(prog);
+        if (!gl.getProgramParameter(prog, gl.LINK_STATUS))
+            console.error('[VB] Program link error:', gl.getProgramInfoLog(prog));
+        return prog;
+    }
+
+    Object.keys(FS).forEach(function(name) {
+        var prog = makeProgram(FS[name]);
+        _vbProgs[name] = {
+            prog:      prog,
+            aLoc:      gl.getAttribLocation(prog, 'a'),
+            tLoc:      gl.getUniformLocation(prog, 't'),
+            timeLoc:   gl.getUniformLocation(prog, 'time'),
+            resLoc:    gl.getUniformLocation(prog, 'res'),
+            dirLoc:    gl.getUniformLocation(prog, 'dir'),
+            audioLoc:  gl.getUniformLocation(prog, 'uAudio'),  // bass 0-1
+            prevLoc:   gl.getUniformLocation(prog, 'tPrev')    // feedback frame
+        };
+    });
+
+    // Off-screen canvas for GHOST_ECHO frame feedback
+    _vbPrevCvs = document.createElement('canvas');
+    _vbPrevCvs.width = 2; _vbPrevCvs.height = 2;
+    _vbPrevCtx2d = _vbPrevCvs.getContext('2d');
+    _vbPrevTex = gl.createTexture();
+    gl.bindTexture(gl.TEXTURE_2D, _vbPrevTex);
+    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE);
+    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE);
+    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.LINEAR);
+    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.LINEAR);
+    // Seed with opaque black
+    gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, 1, 1, 0, gl.RGBA, gl.UNSIGNED_BYTE, new Uint8Array([0,0,0,255]));
+
+    // Fullscreen quad
+    var buf = gl.createBuffer();
+    gl.bindBuffer(gl.ARRAY_BUFFER, buf);
+    gl.bufferData(gl.ARRAY_BUFFER, new Float32Array([-1,-1, 1,-1, -1,1, 1,1]), gl.STATIC_DRAW);
+    _vbGl._quadBuf = buf;
+
+    // Input texture
+    _vbTex = gl.createTexture();
+    gl.bindTexture(gl.TEXTURE_2D, _vbTex);
+    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE);
+    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE);
+    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.LINEAR);
+    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.LINEAR);
+
+    _vbInited = true;
+}
+
+// ── Render loop ───────────────────────────────────────────────────────
+function _vbRender() {
+    _vbRAF = requestAnimationFrame(_vbRender);
+    var shader = _vbShader;
+    if (!shader || !_vbInited) return;
+
+    var vjCanvas = document.getElementById('vj-canvas');
+    var vbCanvas = document.getElementById('vb-canvas');
+    var gl = _vbGl;
+    if (!vjCanvas || !vbCanvas || !gl) return;
+
+    // Sync resolution
+    var w = vbCanvas.offsetWidth, h = vbCanvas.offsetHeight;
+    if (vbCanvas.width !== w || vbCanvas.height !== h) {
+        vbCanvas.width = w; vbCanvas.height = h;
+        gl.viewport(0, 0, w, h);
+    }
+
+    _vbTime += 0.016;
+    var p = _vbProgs[shader];
+    if (!p) return;
+
+    // Upload VJ canvas as texture
+    gl.bindTexture(gl.TEXTURE_2D, _vbTex);
+    try { gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, gl.RGBA, gl.UNSIGNED_BYTE, vjCanvas); }
+    catch(e) { return; }
+
+    gl.useProgram(p.prog);
+    gl.bindBuffer(gl.ARRAY_BUFFER, gl._quadBuf);
+    gl.enableVertexAttribArray(p.aLoc);
+    gl.vertexAttribPointer(p.aLoc, 2, gl.FLOAT, false, 0, 0);
+
+    // Texture unit 0 — current frame from vj-canvas
+    gl.activeTexture(gl.TEXTURE0);
+    gl.bindTexture(gl.TEXTURE_2D, _vbTex);
+    gl.uniform1i(p.tLoc, 0);
+
+    // Texture unit 1 — previous frame (GHOST_ECHO feedback)
+    if (p.prevLoc && _vbPrevTex) {
+        gl.activeTexture(gl.TEXTURE1);
+        gl.bindTexture(gl.TEXTURE_2D, _vbPrevTex);
+        if (_vbPrevCvs && _vbPrevCvs.width > 2) {
+            try { gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, gl.RGBA, gl.UNSIGNED_BYTE, _vbPrevCvs); } catch(e) {}
+        }
+        gl.uniform1i(p.prevLoc, 1);
+        gl.activeTexture(gl.TEXTURE0);
+    }
+
+    // Audio uniform — bass level normalised 0-1
+    var _audio = (typeof APP !== 'undefined' && APP.audio && APP.audio.bassLevel) ? APP.audio.bassLevel / 255 : 0;
+    if (p.audioLoc) gl.uniform1f(p.audioLoc, _audio);
+    if (p.timeLoc)  gl.uniform1f(p.timeLoc, _vbTime);
+    if (p.resLoc)   gl.uniform2f(p.resLoc, w, h);
+    if (p.dirLoc)   gl.uniform2f(p.dirLoc, 1.0, 0.5);
+    gl.drawArrays(gl.TRIANGLE_STRIP, 0, 4);
+
+    // Save rendered output as previous frame for GHOST_ECHO feedback
+    if (shader === 'GHOST_ECHO' && _vbPrevCvs && _vbPrevCtx2d) {
+        if (_vbPrevCvs.width !== w || _vbPrevCvs.height !== h) {
+            _vbPrevCvs.width = w; _vbPrevCvs.height = h;
+        }
+        try { _vbPrevCtx2d.drawImage(vbCanvas, 0, 0, w, h); } catch(e) {}
+    }
+
+    // ── UNIFIED RECORDER BLIT ─────────────────────────────────────────
+    // Composite Bank B output onto vj-canvas so captureStream captures it.
+    // renderLoop always runs before _vbRender (registered first), so this
+    // blit lands after the full 2D frame is drawn — clean composition.
+    try {
+        var _mainCtx = vjCanvas.getContext('2d');
+        if (_mainCtx) _mainCtx.drawImage(vbCanvas, 0, 0, vjCanvas.width, vjCanvas.height);
+    } catch(e) {}
+}
+
+// ── Activate / deactivate shader ──────────────────────────────────────
+function _vbActivate(shaderName, persistent) {
+    if (!_vbInited) _initVB();
+    var vbCanvas = document.getElementById('vb-canvas');
+    _vbShader = shaderName;
+    if (vbCanvas) vbCanvas.style.display = 'block';
+    if (!_vbRAF) _vbRender();
+    if (persistent) {
+        _vbLocked[shaderName] = true;
+    }
+    _vbUpdateUI(shaderName, persistent);
+    var hasLocked = Object.keys(_vbLocked).length > 0;
+    var statusEl = document.getElementById('vb-sys-status');
+    if (statusEl) statusEl.textContent = hasLocked ? 'SYSTEM_STATUS: GPU_FX_ACTIVE' : 'SYSTEM_STATUS: STANDBY';
+    var dot = document.getElementById('vb-status-dot');
+    if (dot) dot.classList.toggle('on', hasLocked);
+}
+
+function _vbDeactivate(shaderName) {
+    delete _vbLocked[shaderName];
+    var hasLocked = Object.keys(_vbLocked).length > 0;
+    if (!hasLocked) {
+        _vbShader = null;
+        var vbCanvas = document.getElementById('vb-canvas');
+        if (vbCanvas) vbCanvas.style.display = 'none';
+    } else {
+        // Switch to another locked shader
+        _vbShader = Object.keys(_vbLocked)[0];
+    }
+    _vbUpdateUI(shaderName, false);
+    var statusEl = document.getElementById('vb-sys-status');
+    if (statusEl) statusEl.textContent = hasLocked ? 'SYSTEM_STATUS: GPU_FX_ACTIVE' : 'SYSTEM_STATUS: STANDBY';
+    var dot = document.getElementById('vb-status-dot');
+    if (dot) dot.classList.toggle('on', hasLocked);
+}
+
+function _vbUpdateUI(shaderName, locked) {
+    var btn = document.getElementById('vb-' + shaderName);
+    if (!btn) return;
+    // CSS handles all color/glow via .va-btn.active-fx + --va-color
+    btn.classList.toggle('active-fx', locked);
+    btn.style.borderColor = '';
+    btn.style.boxShadow = '';
+    btn.style.color = '';
+}
+
+// Expose internals for coupling and ghost voice commands
+window._vbActivate   = function(sn, p) { _vbActivate(sn, p); };
+window._vbDeactivate = function(sn)    { _vbDeactivate(sn); };
+
+window._setFXBank = function(bank) {
+    _vbActive = (bank === 'B');
+    var panA = document.getElementById('fx-bank-a-panel');
+    var panB = document.getElementById('fx-bank-b-panel');
+    var bA   = document.getElementById('fx-bank-a-btn');
+    var bB   = document.getElementById('fx-bank-b-btn');
+    if (panA) panA.style.display = _vbActive ? 'none' : '';
+    if (panB) panB.style.display = _vbActive ? '' : 'none';
+    if (bA)  bA.classList.toggle('bank-active', !_vbActive);
+    if (bB)  bB.classList.toggle('bank-active', _vbActive);
+    if (_vbActive && !_vbInited) _initVB();
+};
+
+window._vbClearAll = function() {
+    Object.keys(_vbLocked).forEach(_vbDeactivate);
+    _vbShader = null;
+    var vbCanvas = document.getElementById('vb-canvas');
+    if (vbCanvas) vbCanvas.style.display = 'none';
+    document.querySelectorAll('.vb-btn').forEach(function(b) {
+        b.classList.remove('active-fx');
+        b.style.borderColor = '';
+        b.style.boxShadow = '';
+        b.style.color = '';
+    });
+    var statusEl = document.getElementById('vb-sys-status');
+    if (statusEl) statusEl.textContent = 'SYSTEM_STATUS: STANDBY';
+    var dot = document.getElementById('vb-status-dot');
+    if (dot) dot.classList.remove('on');
+};
+
+// ── Single/double-click handler for VB buttons ────────────────────────
+function _vbHandleClick(btn) {
+    var shaderName = btn.dataset.shader;
+    if (!shaderName) return;
+
+    var now = Date.now();
+    var lastTap = _dblTapTimer[shaderName] || 0;
+    var isDouble = (now - lastTap) < 350;
+    _dblTapTimer[shaderName] = now;
+
+    if (_vbLocked[shaderName]) {
+        // Already locked — deactivate
+        _vbDeactivate(shaderName);
+        return;
+    }
+
+    if (isDouble) {
+        // Double-click: PERSISTENT LOCK
+        if (_vbBurstTimer) { clearTimeout(_vbBurstTimer); _vbBurstTimer = null; }
+        _vbActivate(shaderName, true);
+        log('VB_LOCK: ' + shaderName);
+        // If SPECTRAL_MOSH locked, start pose tracking
+        if (shaderName === 'SPECTRAL_MOSH') _startPoseTracking();
+    } else {
+        // Single-click: 3-second burst — show active-fx while running
+        if (_vbBurstTimer) clearTimeout(_vbBurstTimer);
+        _vbActivate(shaderName, false);
+        var burstBtn = document.getElementById('vb-' + shaderName);
+        if (burstBtn) burstBtn.classList.add('active-fx');
+        _vbBurstTimer = setTimeout(function() {
+            if (!_vbLocked[shaderName]) {
+                _vbDeactivate(shaderName);
+                if (burstBtn) burstBtn.classList.remove('active-fx');
+            }
+            _vbBurstTimer = null;
+        }, 3000);
+        log('VB_BURST: ' + shaderName);
+    }
+}
+
+// ── Wire up VB buttons + init Bank A active state ─────────────────────
+function _vbWireButtons() {
+    document.querySelectorAll('.vb-btn').forEach(function(btn) {
+        btn.addEventListener('click', function() { _vbHandleClick(btn); });
+    });
+    // Set Bank A as active on load
+    window._setFXBank('A');
+}
+document.addEventListener('DOMContentLoaded', _vbWireButtons);
+if (document.readyState !== 'loading') { _vbWireButtons(); }
+
+})();
+</script>
+
+<!-- ═══════════════════════════════════════════════════════════════════
+     MEDIAPIPE POSE — 3D body-tracking anchor for SPECTRAL_MOSH + GLB rigging
+     Landmarks streamed to VB canvas shader and (if GLB loaded) skeleton
+     ═══════════════════════════════════════════════════════════════════ -->
+<script>
+(function() {
+'use strict';
+
+var _pose = null;
+var _poseRunning = false;
+var _poseCanvas = null;  // Offscreen 2D canvas for landmark drawing
+var _poseCtx = null;
+var _landmarks = null;
+
+window._startPoseTracking = function() {
+    if (_poseRunning) return;
+    if (typeof Pose === 'undefined') { log('SPECTRAL_MOSH: MediaPipe not loaded'); return; }
+
+    // Use existing camera stream if available
+    var videoEl = document.getElementById('cam-preview') || document.querySelector('video');
+    if (!videoEl || !videoEl.srcObject) {
+        log('SPECTRAL_MOSH: No camera stream — start camera first');
+        return;
+    }
+
+    _pose = new Pose({ locateFile: function(f) {
+        return 'https://cdn.jsdelivr.net/npm/@mediapipe/pose@0.5.1675469404/' + f;
+    }});
+    _pose.setOptions({ modelComplexity: 1, smoothLandmarks: true, minDetectionConfidence: 0.5, minTrackingConfidence: 0.5 });
+    _pose.onResults(function(results) {
+        _landmarks = results.poseLandmarks;
+        // If a 3D model is loaded, attempt bone mapping
+        if (_landmarks && window._3D && window._3D.model) _applyPoseToModel(_landmarks);
+        // Pipe landmarks into Spatial Matrix if active
+        if (_landmarks && window._smPoseFeed) window._smPoseFeed(_landmarks);
+    });
+
+    _poseRunning = true;
+    log('SPECTRAL_MOSH: Pose tracking ACTIVE');
+
+    // Feed frames — prefer MediaPipe Camera utility for reliability
+    if (typeof Camera !== 'undefined') {
+        var _mpCam = new Camera(videoEl, {
+            onFrame: async function() {
+                if (_poseRunning && _pose) await _pose.send({ image: videoEl });
+            },
+            width: 640,
+            height: 480
+        });
+        _mpCam.start();
+    } else {
+        // Fallback: setTimeout polling at ~12fps
+        (function _sendFrame() {
+            if (!_poseRunning || !_pose) return;
+            if (videoEl.readyState >= 2) _pose.send({ image: videoEl }).catch(function(){});
+            setTimeout(_sendFrame, 80);
+        })();
+    }
+};
+
+window._stopPoseTracking = function() {
+    _poseRunning = false;
+    _landmarks = null;
+    log('SPECTRAL_MOSH: Pose tracking STOPPED');
+};
+
+// ── Bone mapping: MediaPipe → Three.js skeleton ───────────────────────
+// Maps shoulder/hip/spine landmarks to model bones if they exist
+function _applyPoseToModel(lm) {
+    var model = window._3D && window._3D.model;
+    if (!model || typeof THREE === 'undefined') return;
+    model.traverse(function(obj) {
+        if (!obj.isBone) return;
+        var name = obj.name.toLowerCase();
+        // Shoulders
+        if (name.includes('leftshoulder') || name.includes('shoulder_l')) {
+            var l = lm[11]; if (l) obj.rotation.z = (l.y - 0.5) * 1.2;
+        } else if (name.includes('rightshoulder') || name.includes('shoulder_r')) {
+            var r = lm[12]; if (r) obj.rotation.z = -(r.y - 0.5) * 1.2;
+        // Spine / hips
+        } else if (name.includes('spine') || name.includes('pelvis') || name.includes('hips')) {
+            var lhip = lm[23], rhip = lm[24];
+            if (lhip && rhip) {
+                obj.rotation.y = (lhip.x - rhip.x) * 1.5;
+                obj.rotation.x = ((lhip.y + rhip.y) * 0.5 - 0.5) * 0.8;
+            }
+        }
+    });
+}
+
+})();
 </script>
 
 <div id="fs-hint">

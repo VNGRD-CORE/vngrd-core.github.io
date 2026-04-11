@@ -83,7 +83,9 @@ const APP = {
         micAnalyzer: null,
         duckingGain: null,
         duckingThreshold: -20,
-        duckingActive: false
+        duckingActive: false,
+        // Phase 3: Voice Engine tap — Iron-Clad Recorder destination
+        recorderDest: null,     // MediaStreamAudioDestinationNode (captures voice + master FX)
     },
 
     // Phase 1: Compositor (Iron-Clad Recorder Engine)
@@ -1374,6 +1376,11 @@ function ensureAudioChain() {
 
         APP.audio.masterGain.connect(APP.audio.stereoGain);
         APP.audio.dolbyPanner.connect(APP.audio.outputLimiter);
+
+        // Recorder destination tap: masterGain → recorderDest
+        // Captures the full master mix (voice + music + FX) for the Iron-Clad Recorder
+        APP.audio.recorderDest = APP.audio.ctx.createMediaStreamDestination();
+        APP.audio.masterGain.connect(APP.audio.recorderDest);
 
         APP.audio.vuData = new Uint8Array(APP.audio.analyzer.frequencyBinCount);
 
