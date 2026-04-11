@@ -12,6 +12,9 @@
 
    <title>DRIS//CORE VNGRD</title>
 <script>if('serviceWorker' in navigator){navigator.serviceWorker.register('sw.js').catch(function(){});}</script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/loaders/OBJLoader.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/loaders/STLLoader.js"></script>
 <script src="https://unpkg.com/peerjs@1.5.2/dist/peerjs.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/@mediapipe/pose@0.5.1675469404/pose.js" crossorigin="anonymous"></script>
 <script src="https://unpkg.com/tone@14.8.49/build/Tone.js" crossorigin="anonymous"></script>
@@ -60,7 +63,7 @@
 </script>
 <script src="src/Compositor.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
-<script type="importmap">{"imports":{"three":"https://unpkg.com/three@0.160.0/build/three.module.js","three/addons/":"https://unpkg.com/three@0.160.0/examples/jsm/"}}</script>
+<!-- Three.js r128 loaded globally above; importmap removed -->
     <style>
         @import url('https://fonts.googleapis.com/css2?family=Orbitron:wght@400;600;800;900&family=JetBrains+Mono:wght@300;400;500&family=Bebas+Neue&family=Russo+One&family=Share+Tech+Mono&display=swap');
         @import url('https://fonts.googleapis.com/css2?family=Space+Mono:wght@400;700&family=Inter:wght@300;400;500;600&display=swap');
@@ -4609,7 +4612,9 @@ body.fullscreen #transcription-hud { pointer-events: none !important; } /* keep 
         <div id="ghost-terminal-body"></div>
         <div id="ghost-input-line">
             <span id="ghost-prompt">GHOST></span>
-            <input type="text" id="ghost-input" placeholder="Talk to me..." autocomplete="off">
+            <!-- SVG label hack: prevents Chrome autofill popup -->
+            <label for="ghost-input" style="position:absolute;width:1px;height:1px;clip:rect(0 0 0 0);overflow:hidden;pointer-events:none;"><svg xmlns="http://www.w3.org/2000/svg" width="1" height="1"></svg></label>
+            <input type="text" id="ghost-input" placeholder="Talk to me..." autocomplete="one-time-code">
         </div>
     </div>
 
@@ -4888,11 +4893,11 @@ body.fullscreen #transcription-hud { pointer-events: none !important; } /* keep 
                 <div id="sfx-sampler-wrap">
                     <div id="sfx-sampler-header" onclick="_toggleSamplerBody()" style="cursor:pointer;">
                         <span class="sampler-title">Sampler SFX</span>
-                        <span class="sampler-collapse-arrow" id="sfx-collapse-arrow" style="font-size:8px;color:var(--accent);margin-left:4px;margin-right:auto;transition:color 0.2s;line-height:1;">&#x25B8;</span>
+                        <span class="sampler-collapse-arrow" id="sfx-collapse-arrow" style="font-size:8px;color:var(--accent);margin-left:4px;margin-right:auto;transition:color 0.2s;line-height:1;">&#x25BE;</span>
                         <button class="sampler-help-btn" onclick="event.stopPropagation();_toggleSectionHelp(this,'sampler')">?</button>
                         <span class="sampler-badge">SFX · 12-PAD</span>
                     </div>
-                    <div id="sfx-pad-body" class="collapsed">
+                    <div id="sfx-pad-body">
                     <div id="sfx-pad-grid">
                         <!-- Row 1: Signature Vanguard Bank -->
                         <div class="sfx-bank-label">SIG BANK <em>// TAP TO FIRE</em></div>
@@ -5381,10 +5386,10 @@ body.fullscreen #transcription-hud { pointer-events: none !important; } /* keep 
                 </div>
             </div>
         </div>
-        <!-- ── VOICE_LAB // SYNESTHESIA VOICE ENGINE ──────────────────────── -->
+        <!-- ── CINEMA_ENGINE // ELEVENLABS VOICEOVER DIRECTOR ───────────── -->
         <div class="section" id="sve-section">
             <div class="sec-head collapsible open" onclick="_toggleCollapsible(this)" style="position:relative;">
-                <span class="sec-title">VOICE_LAB</span>
+                <span class="sec-title">CINEMA_ENGINE</span>
                 <span class="sec-arrow">&#x25BE;</span>
                 <button class="sampler-help-btn" onclick="event.stopPropagation();_toggleSectionHelp(this,'voice-lab')">?</button>
                 <div class="sec-dot off" id="sve-dot"></div>
@@ -5393,116 +5398,39 @@ body.fullscreen #transcription-hud { pointer-events: none !important; } /* keep 
                     <div style="position:absolute;top:4px;right:4px;">
                         <button style="background:none;border:none;color:var(--text-dim);cursor:pointer;font-size:10px;" onclick="event.stopPropagation();this.closest('.section-help-overlay').classList.remove('visible')">✕</button>
                     </div>
-                    <div style="font-family:'Orbitron',sans-serif;font-size:8px;color:var(--accent);letter-spacing:2px;margin-bottom:7px;padding-right:14px;">VOICE_LAB // HOW TO USE</div>
-                    <div style="font-size:7.5px;color:var(--text);line-height:1.6;margin-bottom:4px;"><span style="color:var(--g);">SCRIPT</span> — Type your narration. Space bar works normally here.</div>
-                    <div style="font-size:7.5px;color:var(--text);line-height:1.6;margin-bottom:4px;"><span style="color:var(--accent);">LANG</span> — Pick language; voice list updates automatically. <em>AUTO</em> uses the browser default.</div>
-                    <div style="font-size:7.5px;color:var(--text);line-height:1.6;margin-bottom:4px;"><span style="color:var(--accent);">M / F</span> — Filter voices by gender.</div>
-                    <div style="font-size:7.5px;color:var(--text);line-height:1.6;margin-bottom:4px;"><span style="color:var(--accent);">VOICE</span> — Drop-down to pick specific voice installed on OS.</div>
-                    <div style="font-size:7.5px;color:var(--text);line-height:1.6;margin-bottom:4px;"><span style="color:var(--accent);">RATE / PITCH</span> — Drag sliders to tune naturalness. Lower rate = more cinematic.</div>
-                    <div style="font-size:7.5px;color:var(--text);line-height:1.6;margin-bottom:4px;"><span style="color:#ff4444;">MONSTER</span> — Distortion 0.88 · LowPass 700Hz · 4-bit BitCrusher.</div>
-                    <div style="font-size:7.5px;color:var(--text);line-height:1.6;margin-bottom:4px;"><span style="color:var(--accent);">CYBER</span> — HighPass 700Hz · 8-bit BitCrusher · PingPong delay.</div>
-                    <div style="font-size:7.5px;color:var(--text);line-height:1.6;margin-bottom:4px;"><span style="color:var(--v);">GHOST</span> — LowPass · 10-bit BitCrusher · long FeedbackDelay.</div>
-                    <div style="font-size:7.5px;color:var(--text);line-height:1.6;margin-bottom:4px;"><span style="color:var(--g);">⚡</span> — Fires a single Synesthesia glitch burst to test your effect chain.</div>
-                    <div style="font-size:7.5px;color:var(--text);line-height:1.6;"><span style="color:var(--g);">RENDER</span> — Renders glitch FX layer offline to 44.1kHz WAV, saves to Puter.fs, queues in AUDIO_ENGINE &amp; auto-downloads.</div>
+                    <div style="font-family:'Orbitron',sans-serif;font-size:8px;color:var(--accent);letter-spacing:2px;margin-bottom:7px;padding-right:14px;">CINEMA_ENGINE // HOW TO USE</div>
+                    <div style="font-size:7.5px;color:var(--text);line-height:1.6;margin-bottom:4px;"><span style="color:var(--g);">SCRIPT</span> — Type narration. Space bar works normally here.</div>
+                    <div style="font-size:7.5px;color:var(--text);line-height:1.6;margin-bottom:4px;"><span style="color:var(--accent);">[ VOICEOVER ]</span> — Sends script to ElevenLabs API. Ducks ambient audio during playback.</div>
+                    <div style="font-size:7.5px;color:var(--text);line-height:1.6;margin-bottom:4px;"><span style="color:var(--accent);">SYNC_CAROUSEL</span> — When ON, advances the media carousel automatically on voice end.</div>
+                    <div style="font-size:7.5px;color:var(--text);line-height:1.6;"><span style="color:var(--y);">API KEY</span> — Store your ElevenLabs key in localStorage: <em>localStorage.setItem('elevenlabs_api_key','sk-...')</em></div>
                 </div>
             </div>
             <div class="sec-body" id="sve-body">
 
-                <!-- Script textarea — stopPropagation prevents global space intercept -->
+                <!-- SVG label hack: blocks Chrome autofill popup on adjacent inputs -->
+                <label for="sve-script" style="position:absolute;width:1px;height:1px;clip:rect(0 0 0 0);overflow:hidden;pointer-events:none;"><svg xmlns="http://www.w3.org/2000/svg" width="1" height="1"></svg></label>
+
+                <!-- Narration script — stopPropagation prevents global space intercept -->
                 <textarea
                     id="sve-script"
                     class="inp"
-                    placeholder="Narration script... (space bar works here)"
+                    placeholder="Narration script..."
                     spellcheck="false"
-                    rows="3"
-                    style="min-height:48px;resize:vertical;font-size:9px;line-height:1.5;margin-bottom:5px;border-left:2px solid rgba(0,243,255,0.3);"
+                    rows="4"
+                    autocomplete="one-time-code"
+                    style="min-height:56px;resize:vertical;font-size:9px;line-height:1.5;margin-bottom:6px;border-left:2px solid rgba(0,243,255,0.3);"
                     onkeydown="event.stopPropagation()"
                     onkeyup="event.stopPropagation()"
                 ></textarea>
 
-                <!-- Language + Gender row -->
-                <div style="display:grid;grid-template-columns:1fr auto auto;gap:4px;margin-bottom:5px;align-items:center;">
-                    <select id="sve-lang" class="inp" style="font-size:8px;padding:4px 5px;margin:0;"
-                        onchange="window.SVE && SVE.setLanguage(this.value)">
-                        <option value="auto">AUTO LANG</option>
-                        <option value="en-GB">EN-GB</option>
-                        <option value="en-US">EN-US</option>
-                        <option value="it-IT">IT</option>
-                        <option value="es-ES">ES</option>
-                        <option value="fr-FR">FR</option>
-                        <option value="de-DE">DE</option>
-                        <option value="pt-BR">PT-BR</option>
-                        <option value="nl-NL">NL</option>
-                        <option value="ja-JP">JA</option>
-                        <option value="zh-CN">ZH</option>
-                        <option value="ar-SA">AR</option>
-                        <option value="ru-RU">RU</option>
-                        <option value="ko-KR">KO</option>
-                        <option value="pl-PL">PL</option>
-                        <option value="sv-SE">SV</option>
-                        <option value="hi-IN">HI</option>
-                    </select>
-                    <button id="sve-gender-M" class="sve-mood-btn active-mode" style="font-size:8px;padding:4px 8px;letter-spacing:1px;"
-                        onclick="window.SVE && SVE.setGender('M')">&#x2642;</button>
-                    <button id="sve-gender-F" class="sve-mood-btn" style="font-size:8px;padding:4px 8px;letter-spacing:1px;"
-                        onclick="window.SVE && SVE.setGender('F')">&#x2640;</button>
+                <!-- Cinema Engine controls -->
+                <div class="btn-row" style="gap:4px;margin-bottom:4px;">
+                    <button class="btn" id="sve-voiceover-btn" style="flex:1;font-size:8px;letter-spacing:1.5px;font-family:'Orbitron',sans-serif;" onclick="_runSVE()">[ VOICEOVER ]</button>
+                    <button class="btn" id="sve-sync-toggle" style="flex:none;font-size:7px;letter-spacing:1px;padding:4px 8px;color:var(--text-dim);border-color:var(--border-light);" onclick="_toggleSveSync(this)" title="Auto-advance media carousel when voiceover ends">SYNC_CAROUSEL: OFF</button>
                 </div>
-
-                <!-- Voice picker dropdown -->
-                <select id="sve-voice-select" class="inp" style="font-size:8px;padding:4px 5px;width:100%;margin-bottom:5px;"
-                    onchange="window.SVE && SVE.pickVoice(this.value)">
-                    <option>— init to load voices —</option>
-                </select>
-
-                <!-- Rate / Pitch sliders -->
-                <div style="display:grid;grid-template-columns:1fr 1fr;gap:6px;margin-bottom:5px;">
-                    <div>
-                        <div class="lbl" style="font-size:6px;opacity:0.5;letter-spacing:1.5px;margin-bottom:2px;">RATE <span id="sve-rate-val">0.88</span></div>
-                        <input type="range" id="sve-rate" min="0.5" max="1.5" step="0.01" value="0.88" style="width:100%;accent-color:var(--accent);"
-                            oninput="document.getElementById('sve-rate-val').textContent=parseFloat(this.value).toFixed(2)">
-                    </div>
-                    <div>
-                        <div class="lbl" style="font-size:6px;opacity:0.5;letter-spacing:1.5px;margin-bottom:2px;">PITCH <span id="sve-pitch-val">1.00</span></div>
-                        <input type="range" id="sve-pitch" min="0.3" max="2.0" step="0.01" value="1.0" style="width:100%;accent-color:var(--accent);"
-                            oninput="document.getElementById('sve-pitch-val').textContent=parseFloat(this.value).toFixed(2)">
-                    </div>
-                </div>
-
-                <!-- Mood selector -->
-                <div class="sve-mood-row" style="margin-bottom:5px;">
-                    <button id="sve-mood-monster" class="sve-mood-btn" title="Distortion · LowPass · 4-bit Crush"
-                        onclick="window.SVE && SVE.init().then(()=>SVE.setMood('MONSTER'))">MONSTER</button>
-                    <button id="sve-mood-cyber" class="sve-mood-btn active-mode" title="HighPass · PingPong · 8-bit Crush"
-                        onclick="window.SVE && SVE.init().then(()=>SVE.setMood('CYBER'))">CYBER</button>
-                    <button id="sve-mood-ghost" class="sve-mood-btn" title="LowPass · FeedbackDelay · 10-bit Crush"
-                        onclick="window.SVE && SVE.init().then(()=>SVE.setMood('GHOST'))">GHOST</button>
-                </div>
-
-                <!-- Speak / Stop / Glitch -->
-                <div class="sve-ctrl-row" style="margin-bottom:4px;">
-                    <button class="btn" id="sve-speak-btn"
-                        onclick="(async()=>{
-                            if(!window.SVE)return;
-                            if(SVE.isPlaying){SVE.stop();this.textContent='▶ SYNTH VOICE';return;}
-                            await SVE.init();
-                            SVE.speak(document.getElementById('sve-script').value);
-                            this.textContent='■ STOP';
-                            var chk=setInterval(()=>{if(!speechSynthesis.speaking){this.textContent='▶ SYNTH VOICE';clearInterval(chk);}},250);
-                        })()">▶ SYNTH VOICE</button>
-                    <button class="btn" style="width:32px;flex:none;font-size:11px;" title="Fire one glitch burst"
-                        onclick="window.SVE&&SVE.init().then(()=>SVE.triggerGlitch())">⚡</button>
-                </div>
-
-                <!-- Render -->
-                <button id="sve-render-btn" style="width:100%;font-family:'Orbitron',sans-serif;font-size:7.5px;font-weight:700;letter-spacing:1.5px;padding:7px;background:rgba(0,243,255,0.07);border:1px solid rgba(0,243,255,0.3);color:var(--accent);cursor:pointer;text-transform:uppercase;transition:all 0.18s;margin-bottom:4px;"
-                    onmouseover="this.style.background='rgba(0,243,255,0.16)'"
-                    onmouseout="this.style.background='rgba(0,243,255,0.07)'"
-                    onclick="(async()=>{if(!window.SVE)return;await SVE.init();SVE.renderTrailerAudio(document.getElementById('sve-script').value);})()">
-                    ▶ RENDER TRAILER AUDIO
-                </button>
 
                 <!-- Status -->
-                <div id="sve-status" style="font-family:'JetBrains Mono',monospace;font-size:7px;color:var(--accent);letter-spacing:1px;min-height:12px;word-break:break-all;opacity:0.8;">STANDBY</div>
+                <div id="sve-status" style="font-family:'JetBrains Mono',monospace;font-size:7px;color:var(--accent);letter-spacing:1px;min-height:12px;word-break:break-all;opacity:0.8;">STANDBY // SET elevenlabs_api_key IN localStorage</div>
 
             </div>
         </div>
@@ -7903,9 +7831,17 @@ function renderLoop(timestamp) {
     // ── 60 FPS TARGET: skip only if <16ms since last frame ──
     if (timestamp - _lastFrameTime < 16) return;
     _lastFrameTime = timestamp;
+    // ── VISIBILITY GATE: skip render if canvas container is hidden/collapsed ──
+    var _cvs = APP.render && APP.render.canvas;
+    if (_cvs && _cvs.parentElement) {
+        var _pEl = _cvs.parentElement;
+        var _pDisp = _pEl.style.display;
+        var _pMH = _pEl.style.maxHeight;
+        if (_pDisp === 'none' || _pMH === '0' || _pMH === '0px') return;
+    }
     APP.render.frameCount++;
     if (timestamp - APP.render.lastFpsUpdate >= 1000) { APP.render.fps = APP.render.frameCount; APP.render.frameCount = 0; APP.render.lastFpsUpdate = timestamp; $('fps-val').textContent = APP.render.fps; }
-    
+
     const ctx = APP.render.ctx; const w = APP.render.width; const h = APP.render.height;
     ctx.imageSmoothingEnabled = false;
     
@@ -9220,7 +9156,7 @@ if ($('btn-2d-x')) {
     };
 }
 
-// 3D LOGO handled by module script at end of file (Three.js importmap + lazy loaders)
+// 3D LOGO handled by module script at end of file (Three.js r128 global + lazy loaders)
 
 // MEDIA & CYCLE LOGIC
 function loadMediaFiles(input) {
@@ -14471,6 +14407,114 @@ document.addEventListener('DOMContentLoaded', () => {
     // user-logo-layer lives in #gif-host (direct child of body, position:fixed, opacity:0.01)
     // No extra styling needed — gif-host CSS handles compositing.
 
+    // ═══════════════════════════════════════════════════════════════════
+    // CINEMA_ENGINE — ElevenLabs Voiceover Director
+    // API key stored in localStorage as 'elevenlabs_api_key'
+    // Ducks APP.audio.duckingGain during playback; restores on end.
+    // ═══════════════════════════════════════════════════════════════════
+    APP.ui = APP.ui || {};
+    APP.ui.sveSync = false;
+    APP.ui.svePlaying = false;
+
+    window._toggleSveSync = function(btn) {
+        APP.ui.sveSync = !APP.ui.sveSync;
+        if (btn) {
+            btn.textContent = 'SYNC_CAROUSEL: ' + (APP.ui.sveSync ? 'ON' : 'OFF');
+            btn.style.color = APP.ui.sveSync ? 'var(--accent)' : 'var(--text-dim)';
+            btn.style.borderColor = APP.ui.sveSync ? 'var(--accent)' : 'var(--border-light)';
+        }
+    };
+
+    window._runSVE = async function() {
+        var scriptEl = document.getElementById('sve-script');
+        var statusEl = document.getElementById('sve-status');
+        var btn = document.getElementById('sve-voiceover-btn');
+        var script = scriptEl ? scriptEl.value.trim() : '';
+
+        if (!script) { if (statusEl) statusEl.textContent = 'ERR: EMPTY_SCRIPT'; return; }
+        if (APP.ui.svePlaying) { if (statusEl) statusEl.textContent = 'BUSY: PLAYBACK_ACTIVE'; return; }
+
+        var apiKey = localStorage.getItem('elevenlabs_api_key') ||
+                     localStorage.getItem('ELEVENLABS_API_KEY') || '';
+        if (!apiKey) {
+            if (statusEl) statusEl.textContent = 'ERR: SET elevenlabs_api_key IN localStorage';
+            return;
+        }
+
+        APP.ui.svePlaying = true;
+        if (btn) btn.textContent = '[ TRANSMITTING... ]';
+        if (statusEl) statusEl.textContent = 'ELEVENLABS: REQUESTING...';
+
+        try {
+            ensureAudioChain();
+            var _ctx = APP.audio.ctx;
+            if (_ctx.state === 'suspended') await _ctx.resume();
+
+            var voiceId = '21m00Tcm4TlvDq8ikWAM'; // ElevenLabs default: Rachel
+            var res = await fetch('https://api.elevenlabs.io/v1/text-to-speech/' + voiceId, {
+                method: 'POST',
+                headers: {
+                    'xi-api-key': apiKey,
+                    'Content-Type': 'application/json',
+                    'Accept': 'audio/mpeg'
+                },
+                body: JSON.stringify({
+                    text: script,
+                    model_id: 'eleven_monolingual_v1',
+                    voice_settings: { stability: 0.5, similarity_boost: 0.75 }
+                })
+            });
+
+            if (!res.ok) throw new Error('API_ERR: HTTP_' + res.status);
+
+            var arrayBuf = await res.arrayBuffer();
+            var audioBuf = await _ctx.decodeAudioData(arrayBuf);
+
+            // DUCKING: ramp ambient down before playback
+            if (APP.audio.duckingGain) {
+                var _dg = APP.audio.duckingGain.gain;
+                _dg.cancelScheduledValues(_ctx.currentTime);
+                _dg.setValueAtTime(_dg.value, _ctx.currentTime);
+                _dg.linearRampToValueAtTime(0.15, _ctx.currentTime + 0.3);
+            }
+
+            var voSrc = _ctx.createBufferSource();
+            voSrc.buffer = audioBuf;
+            voSrc.connect(APP.audio.masterGain || _ctx.destination);
+
+            if (statusEl) statusEl.textContent = 'PLAYING: ' + audioBuf.duration.toFixed(1) + 's';
+            if (btn) btn.textContent = '[ PLAYING... ]';
+
+            voSrc.onended = function() {
+                APP.ui.svePlaying = false;
+                // Ramp ambient back up
+                if (APP.audio.duckingGain) {
+                    var _dg2 = APP.audio.duckingGain.gain;
+                    _dg2.cancelScheduledValues(_ctx.currentTime);
+                    _dg2.setValueAtTime(_dg2.value, _ctx.currentTime);
+                    _dg2.linearRampToValueAtTime(1.0, _ctx.currentTime + 0.5);
+                }
+                // SYNC_CAROUSEL: advance media on voice end
+                if (APP.ui.sveSync && typeof carouselNext === 'function') carouselNext();
+                if (statusEl) statusEl.textContent = 'COMPLETE';
+                if (btn) btn.textContent = '[ VOICEOVER ]';
+            };
+
+            voSrc.start();
+
+        } catch(e) {
+            APP.ui.svePlaying = false;
+            if (statusEl) statusEl.textContent = 'ERR: ' + (e.message || e);
+            if (btn) btn.textContent = '[ VOICEOVER ]';
+            // Restore ducking on error
+            if (APP.audio && APP.audio.duckingGain && APP.audio.ctx) {
+                var _dg3 = APP.audio.duckingGain.gain;
+                _dg3.cancelScheduledValues(APP.audio.ctx.currentTime);
+                _dg3.setValueAtTime(1.0, APP.audio.ctx.currentTime);
+            }
+        }
+    };
+
     requestAnimationFrame(renderLoop);
     updateClock(); setInterval(updateClock, 1000); morphLogo(); setTimeout(morphLogo, 4000);
 
@@ -17340,6 +17384,23 @@ function endCallCleanup() {
             APP.audio.micGainNode.gain.value = 1.0;
             source.connect(APP.audio.micGainNode);
 
+            // SCARLETT FIX: wire hardware into main VU analyser (fixes flat-line)
+            if (APP.audio.analyzer) APP.audio.micGainNode.connect(APP.audio.analyzer);
+            // RECORDING BUS: hardware feeds directly into master recording destination
+            if (APP.audio.recorderDest) APP.audio.micGainNode.connect(APP.audio.recorderDest);
+
+            // UI FEEDBACK: show active hardware device name in track-info
+            (function() {
+                var _sel = document.getElementById('audio-input-select');
+                var _devLabel = 'HARDWARE';
+                if (_sel && _sel.selectedIndex >= 0 && _sel.options[_sel.selectedIndex]) {
+                    var _t = (_sel.options[_sel.selectedIndex].text || '').trim().toUpperCase();
+                    if (_t && _t !== 'SELECT_HARDWARE...' && _t !== 'SELECT_DEVICE...') _devLabel = _t;
+                }
+                var _ti = document.getElementById('track-info');
+                if (_ti) _ti.textContent = 'LIVE: ' + _devLabel;
+            })();
+
             monitorInputLevel();
             log('PRO_AUDIO: MIC_READY // ' + deviceId.substring(0, 8));
         } catch (e) {
@@ -17366,6 +17427,22 @@ function endCallCleanup() {
                 APP.audio.micGainNode = _ctx2.createGain();
                 APP.audio.micGainNode.gain.value = 1.0;
                 source.connect(APP.audio.micGainNode);
+
+                // SCARLETT FIX (fallback path): wire into main VU analyser + recording bus
+                if (APP.audio.analyzer) APP.audio.micGainNode.connect(APP.audio.analyzer);
+                if (APP.audio.recorderDest) APP.audio.micGainNode.connect(APP.audio.recorderDest);
+
+                // UI FEEDBACK
+                (function() {
+                    var _sel = document.getElementById('audio-input-select');
+                    var _devLabel = 'HARDWARE';
+                    if (_sel && _sel.selectedIndex >= 0 && _sel.options[_sel.selectedIndex]) {
+                        var _t = (_sel.options[_sel.selectedIndex].text || '').trim().toUpperCase();
+                        if (_t && _t !== 'SELECT_HARDWARE...' && _t !== 'SELECT_DEVICE...') _devLabel = _t;
+                    }
+                    var _ti = document.getElementById('track-info');
+                    if (_ti) _ti.textContent = 'LIVE: ' + _devLabel;
+                })();
 
                 monitorInputLevel();
                 log('INPUT_SWITCHED: ' + deviceId.substring(0, 8));
@@ -18774,8 +18851,8 @@ const sysLog = (...a) => (window.log || console.log)(...a);
 
 async function ensure3D() {
     if (_3D.ready) return;
-    THREE = await import('three');
-    if (!THREE || !THREE.Scene) throw new Error('THREE_IMPORT_FAILED');
+    THREE = window.THREE;
+    if (!THREE || !THREE.Scene) throw new Error('THREE_NOT_LOADED — check CDN script in <head>');
 
     const canvas = document.getElementById('three-canvas');
     if (!canvas) throw new Error('CANVAS_NOT_FOUND');
@@ -18793,7 +18870,7 @@ async function ensure3D() {
     _3D.renderer.setPixelRatio(1);
     _3D.renderer.setSize(512, 512, false);
     _3D.renderer.setClearColor(0x000000, 0);
-    _3D.renderer.outputColorSpace = THREE.SRGBColorSpace || 'srgb';
+    _3D.renderer.outputEncoding = THREE.sRGBEncoding || 3001; // r128 uses outputEncoding
 
     // Lighting — bright enough to see geometry clearly
     _3D.scene.add(new THREE.AmbientLight(0xffffff, 0.6));
@@ -18873,7 +18950,8 @@ function applyHUDMaterial(obj) {
 // --- FORMAT LOADERS — all use .parse() (no network fetch) ---
 
 async function loadOBJ(file) {
-    const { OBJLoader } = await import('three/addons/loaders/OBJLoader.js');
+    const OBJLoader = THREE.OBJLoader;
+    if (!OBJLoader) throw new Error('OBJ_LOADER_NOT_AVAILABLE');
     const text = await file.text();
     sysLog('3D_OBJ: parsing ' + text.length + ' chars');
     const obj = new OBJLoader().parse(text);
@@ -18884,7 +18962,8 @@ async function loadOBJ(file) {
 }
 
 async function loadFBX(file) {
-    const { FBXLoader } = await import('three/addons/loaders/FBXLoader.js');
+    const FBXLoader = THREE.FBXLoader;
+    if (!FBXLoader) throw new Error('FBX_LOADER_NOT_AVAILABLE — upload OBJ or STL instead');
     const buf = await file.arrayBuffer();
     const obj = new FBXLoader().parse(buf, '');
     if (countMeshes(obj) === 0) throw new Error('FBX_NO_MESHES');
@@ -18892,7 +18971,8 @@ async function loadFBX(file) {
 }
 
 async function loadSTL(file) {
-    const { STLLoader } = await import('three/addons/loaders/STLLoader.js');
+    const STLLoader = THREE.STLLoader;
+    if (!STLLoader) throw new Error('STL_LOADER_NOT_AVAILABLE');
     const buf = await file.arrayBuffer();
     const geom = new STLLoader().parse(buf);
     if (!geom || !geom.attributes.position || geom.attributes.position.count === 0) throw new Error('STL_EMPTY');
@@ -21243,7 +21323,7 @@ function _applyPoseToModel(lm) {
     </div>
     <div class="nc-body">
         <div class="nc-editor-wrap">
-            <textarea class="nc-editor" id="nc-editor" spellcheck="false" autocomplete="off" autocorrect="off" autocapitalize="off"></textarea>
+            <textarea class="nc-editor" id="nc-editor" spellcheck="false" autocomplete="one-time-code" autocorrect="off" autocapitalize="off"></textarea>
         </div>
         <div class="nc-output-panel" id="nc-output"></div>
     </div>
