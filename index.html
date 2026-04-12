@@ -22271,8 +22271,10 @@ function _applyPoseToModel(lm) {
     else _init();
 
     /* ── Attach to APP.audio namespace ──────────────────────── */
+    /* APP is declared `const` in another <script> — not on window, but IS a
+       shared global. Use typeof guard to avoid ReferenceError in strict mode. */
     (function _attach() {
-        if (window.APP && window.APP.audio) { window.APP.audio.probox = probox; }
+        if (typeof APP !== 'undefined' && APP && APP.audio) { APP.audio.probox = probox; }
         else setTimeout(_attach, 50);
     })();
 })();
