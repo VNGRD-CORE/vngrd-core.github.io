@@ -2961,7 +2961,47 @@ body.shooting-mode #btn-shooting {
             80%  { transform: translate3d( 2px,  0px,  0); }
             100% { transform: translate3d(0,    0,    0); }
         }
-        
+
+        /* ── KINETIC RACK: OVERSCAN BUFFER ──────────────────────────────────────
+           During seismic events the body translates ±2px, which as a transform-
+           ancestor of #stage (position:fixed) shifts the entire stage. Scaling
+           #vj-canvas 1.05× ensures the 5% bleed area absorbs that shift and
+           #stage's overflow:hidden clips the excess — no black edges exposed.
+           Scale is applied to the canvas only, keeping HUD elements unaffected. */
+        body.vb-seismic #vj-canvas,
+        body.seismic-active #vj-canvas {
+            animation: kr-seismic-overscan 0.10s ease-in-out infinite;
+        }
+        @keyframes kr-seismic-overscan {
+            0%   { transform: scale(1.05) translate(0,      0);     }
+            10%  { transform: scale(1.05) translate(-10px,  10px);  }
+            20%  { transform: scale(1.05) translate( 10px, -10px);  }
+            30%  { transform: scale(1.05) translate(-8px,    6px);  }
+            40%  { transform: scale(1.05) translate(  8px,  -6px);  }
+            50%  { transform: scale(1.05) translate(-6px,    8px);  }
+            60%  { transform: scale(1.05) translate(  6px,  -8px);  }
+            70%  { transform: scale(1.05) translate(-4px,    4px);  }
+            80%  { transform: scale(1.05) translate(  4px,  -4px);  }
+            90%  { transform: scale(1.05) translate(-2px,    2px);  }
+            100% { transform: scale(1.05) translate(0,      0);     }
+        }
+
+        /* PUNCH: canvas scales UP on beat (outward zoom — never inward, which exposes edges) */
+        body.vb-punch #vj-canvas {
+            animation: kr-punch-zoom 0.20s ease-out forwards;
+        }
+        @keyframes kr-punch-zoom {
+            0%   { transform: scale(1.00); }
+            15%  { transform: scale(1.08); }
+            60%  { transform: scale(1.04); }
+            100% { transform: scale(1.00); }
+        }
+
+        /* Suppress scrollbar flash caused by body-translate during shake events */
+        body.seismic-active,
+        body.vb-seismic,
+        body.vb-punch { overflow: hidden; }
+
     /* ═══ MIRROR COCKPIT — MOBILE ═══ */
 
     /* PORTRAIT LOCK OVERLAY — rotate-to-landscape gate */
@@ -17590,15 +17630,25 @@ function endCallCleanup() {
             
             $('input-level-bar').style.width = level + '%';
             
-            // SEISMIC SHAKE — only when rumble or punch FX is armed
-            if ((bassLevel > 70 || level > 80) &&
-                (APP.vj.rumbleEnabled || document.body.classList.contains('fx-punch'))) {
+            // KINETIC RACK LOGIC GATES — visual effects fire only when the matching
+            // UI control is explicitly armed; audio threshold alone is never enough.
+            if (bassLevel > 70 || level > 80) {
                 if (!seismicTimeout) {
-                    document.body.classList.add('seismic-active');
-                    seismicTimeout = setTimeout(() => {
-                        document.body.classList.remove('seismic-active');
-                        seismicTimeout = null;
-                    }, 150);
+                    // SEISMIC GATE: vb-seismic (+ body shake) only when Rumble is armed
+                    if (APP.vj.rumbleEnabled) {
+                        document.body.classList.add('seismic-active', 'vb-seismic');
+                    }
+                    // PUNCH GATE: vb-punch only when Punch FX is explicitly armed
+                    if (document.body.classList.contains('fx-punch')) {
+                        document.body.classList.add('vb-punch');
+                    }
+                    // Schedule cleanup only if at least one gate was triggered
+                    if (APP.vj.rumbleEnabled || document.body.classList.contains('fx-punch')) {
+                        seismicTimeout = setTimeout(() => {
+                            document.body.classList.remove('seismic-active', 'vb-seismic', 'vb-punch');
+                            seismicTimeout = null;
+                        }, 150);
+                    }
                 }
             }
             
