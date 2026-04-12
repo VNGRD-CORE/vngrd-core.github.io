@@ -15560,7 +15560,17 @@ document.addEventListener('DOMContentLoaded', () => {
                 var pad = g.closest('.sfx-pad');
                 if (pad) pad.classList.remove('z-elevated');
                 var m = g.querySelector('.pad-gear-menu');
-                if (m) { m.removeAttribute('style'); }
+                if (m) {
+                    m.style.display = '';
+                    m.style.position = '';
+                    m.style.top = '';
+                    m.style.left = '';
+                    m.style.bottom = '';
+                    m.style.right = '';
+                    m.style.zIndex = '';
+                    m.style.maxHeight = '';
+                    m.style.overflowY = '';
+                }
             });
             var padBody = document.getElementById('sfx-pad-body');
             if (padBody) padBody.classList.remove('gear-open');
@@ -15596,16 +15606,16 @@ document.addEventListener('DOMContentLoaded', () => {
                     if (top + mH > window.innerHeight - 8) top = window.innerHeight - mH - 8;
                     if (top < 8) top = 8;
 
-                    menu.style.cssText = [
-                        'position:fixed',
-                        'top:' + top + 'px',
-                        'left:' + left + 'px',
-                        'bottom:auto',
-                        'right:auto',
-                        'z-index:99999',
-                        'max-height:' + (window.innerHeight - top - 12) + 'px',
-                        'overflow-y:auto'
-                    ].join(';');
+                    // Explicit individual property assignments — cssText does NOT reliably set display
+                    menu.style.display    = 'block';
+                    menu.style.position   = 'fixed';
+                    menu.style.top        = top + 'px';
+                    menu.style.left       = left + 'px';
+                    menu.style.bottom     = 'auto';
+                    menu.style.right      = 'auto';
+                    menu.style.zIndex     = '99999';
+                    menu.style.maxHeight  = Math.min(mH, window.innerHeight - top - 8) + 'px';
+                    menu.style.overflowY  = 'auto';
                 }
             }
         };
