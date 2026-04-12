@@ -4364,6 +4364,194 @@ body.fullscreen #transcription-hud { pointer-events: none !important; } /* keep 
 }
 #vt-sonic-status.live { color: rgba(0,255,136,.72); }
 
+/* ═══════════════════════════════════════════════════════════════
+   PROBOX V2 — AUTONOMOUS 6-SLOT GROOVEBOX
+   Neon Amber (#FFBF00) · Deep Ultraviolet (#6E00FF)
+   Launcher button + floating HUD window
+   ═══════════════════════════════════════════════════════════════ */
+#probox-v2-rack { margin-top: 4px; position: relative; }
+#probox-v2-btn {
+    display: block; width: 100%; padding: 6px 4px;
+    font-family: 'Orbitron', sans-serif; font-size: 7.5px; font-weight: 700; letter-spacing: 2px;
+    color: rgba(255,191,0,.75);
+    background: rgba(12,4,0,.55);
+    backdrop-filter: blur(8px); -webkit-backdrop-filter: blur(8px);
+    border: 1px solid rgba(255,191,0,.25);
+    border-top: 1px solid rgba(255,255,255,.16);
+    border-left: 1px solid rgba(255,255,255,.09);
+    border-radius: 2px; cursor: pointer; text-align: center; transition: all .16s ease;
+}
+#probox-v2-btn:hover { color: #FFBF00; box-shadow: 0 0 14px rgba(255,191,0,.22); }
+#probox-v2-btn.active {
+    color: #FFBF00; background: rgba(20,8,0,.85);
+    border-top-color: rgba(255,191,0,.7); border-left-color: rgba(110,0,255,.32);
+    box-shadow: 0 0 20px rgba(255,191,0,.25), inset 0 0 12px rgba(110,0,255,.07);
+    text-shadow: 0 0 10px rgba(255,191,0,.65);
+}
+#probox-v2-status {
+    font-size: 6.5px; color: rgba(255,191,0,.32); letter-spacing: 1px;
+    text-align: center; padding: 3px 0; font-family: 'JetBrains Mono', monospace;
+}
+#probox-v2-status.live { color: rgba(255,191,0,.72); }
+
+/* — Floating Window — */
+#probox-v2-window {
+    display: none; position: fixed;
+    top: 48%; left: 52%;
+    transform: translate(-50%, -50%);
+    width: 92vw; max-width: 1100px;
+    z-index: 8900;
+    flex-direction: column;
+    background: rgba(8,4,18,.94);
+    border: 1px solid rgba(255,191,0,.28);
+    border-top: 2px solid rgba(255,191,0,.6);
+    box-shadow: 0 0 60px rgba(110,0,255,.22), 0 0 24px rgba(255,191,0,.1),
+                inset 0 0 40px rgba(0,0,0,.85);
+    border-radius: 3px;
+    font-family: 'JetBrains Mono', monospace;
+    color: rgba(255,255,255,.85);
+    backdrop-filter: blur(22px); -webkit-backdrop-filter: blur(22px);
+}
+#probox-v2-window.visible { display: flex; }
+
+/* Titlebar */
+.pbx-titlebar {
+    display: flex; align-items: center; gap: 8px;
+    padding: 8px 12px;
+    background: linear-gradient(90deg, rgba(110,0,255,.14) 0%, rgba(8,4,18,.8) 70%);
+    border-bottom: 1px solid rgba(255,191,0,.18);
+    flex-shrink: 0; cursor: move; user-select: none;
+}
+.pbx-title {
+    font-family: 'Orbitron', sans-serif; font-size: 9px; font-weight: 700;
+    color: #FFBF00; letter-spacing: 2px;
+    text-shadow: 0 0 14px rgba(255,191,0,.5); white-space: nowrap; flex-shrink: 0;
+}
+.pbx-transport { display: flex; align-items: center; gap: 5px; flex: 1; flex-wrap: wrap; }
+.pbx-bpm-wrap {
+    font-size: 7px; color: rgba(255,191,0,.55); letter-spacing: 1px;
+    display: flex; align-items: center; gap: 4px;
+}
+.pbx-bpm-input {
+    width: 44px; background: rgba(0,0,0,.6); border: 1px solid rgba(255,191,0,.22);
+    color: #FFBF00; font-family: 'JetBrains Mono', monospace; font-size: 7px;
+    padding: 2px 5px; border-radius: 2px; text-align: center;
+}
+.pbx-bpm-input:focus { outline: none; border-color: rgba(255,191,0,.5); box-shadow: 0 0 6px rgba(255,191,0,.15); }
+.pbx-btn {
+    padding: 3px 8px; font-family: 'JetBrains Mono', monospace; font-size: 7px;
+    letter-spacing: 0.5px; cursor: pointer; border-radius: 2px; transition: all .14s;
+    background: rgba(0,0,0,.5); color: rgba(255,191,0,.65); border: 1px solid rgba(255,191,0,.22);
+}
+.pbx-btn:hover { color: #FFBF00; box-shadow: 0 0 8px rgba(255,191,0,.2); }
+.pbx-btn.active {
+    color: #FFBF00; background: rgba(255,191,0,.12); border-color: rgba(255,191,0,.5);
+    box-shadow: 0 0 10px rgba(255,191,0,.2);
+}
+.pbx-panic { color: rgba(255,50,20,.85) !important; border-color: rgba(255,50,20,.3) !important; }
+.pbx-panic:hover { color: #ff3214 !important; box-shadow: 0 0 10px rgba(255,50,20,.35) !important; }
+.pbx-mutate { color: rgba(145,0,255,.9) !important; border-color: rgba(110,0,255,.38) !important; }
+.pbx-mutate:hover { color: #9B30FF !important; box-shadow: 0 0 10px rgba(110,0,255,.38) !important; }
+.pbx-close-btn {
+    background: none; border: none; color: rgba(255,191,0,.4); font-size: 14px;
+    cursor: pointer; padding: 0 4px; flex-shrink: 0; transition: color .14s; margin-left: auto;
+}
+.pbx-close-btn:hover { color: #FFBF00; }
+
+/* Grid body */
+.pbx-grid {
+    flex: 1; display: flex; flex-direction: column;
+    padding: 8px 12px 6px; gap: 3px; overflow-y: auto;
+}
+/* Column-header row */
+.pbx-col-hdr-row {
+    display: grid; grid-template-columns: 72px 1fr 140px 62px;
+    gap: 6px; padding: 0 0 5px;
+    border-bottom: 1px solid rgba(255,191,0,.12);
+    font-size: 6px; color: rgba(255,191,0,.35); letter-spacing: 1px;
+}
+/* Instrument row */
+.pbx-track-row {
+    display: grid; grid-template-columns: 72px 1fr 140px 62px;
+    align-items: center; gap: 6px;
+    padding: 4px 0; border-bottom: 1px solid rgba(255,191,0,.05);
+}
+.pbx-track-row:last-child { border-bottom: none; }
+.pbx-track-label {
+    font-family: 'Orbitron', sans-serif; font-size: 7px; font-weight: 700;
+    color: rgba(255,191,0,.88); letter-spacing: 1px; white-space: nowrap;
+    text-shadow: 0 0 6px rgba(255,191,0,.3);
+}
+/* 16-step grid */
+.pbx-steps-row { display: grid; grid-template-columns: repeat(16, 1fr); gap: 2px; }
+.pbx-step {
+    aspect-ratio: 1; min-width: 14px; min-height: 14px;
+    background: rgba(255,191,0,.04); border: 1px solid rgba(255,191,0,.1);
+    border-radius: 2px; cursor: pointer; transition: all .08s; box-sizing: border-box;
+}
+.pbx-step:hover { background: rgba(255,191,0,.15); border-color: rgba(255,191,0,.35); }
+.pbx-step.on {
+    background: rgba(255,191,0,.8);
+    border-color: rgba(255,191,0,.95);
+    box-shadow: 0 0 5px rgba(255,191,0,.45);
+}
+/* Beat-group accent — left margin every 4 steps */
+.pbx-step[data-step="4"], .pbx-step[data-step="8"], .pbx-step[data-step="12"] { margin-left: 3px; }
+/* Playhead */
+.pbx-step.pbx-playing {
+    background: rgba(110,0,255,.58) !important;
+    border-color: rgba(145,0,255,.9) !important;
+    box-shadow: 0 0 8px rgba(110,0,255,.5) !important;
+}
+.pbx-step.on.pbx-playing {
+    background: linear-gradient(135deg, rgba(255,191,0,.88), rgba(110,0,255,.55)) !important;
+    box-shadow: 0 0 12px rgba(255,191,0,.6), 0 0 6px rgba(110,0,255,.5) !important;
+}
+/* Pitch slider */
+.pbx-pitch-wrap { display: flex; align-items: center; gap: 5px; }
+.pbx-pitch-val {
+    font-size: 6px; color: rgba(255,191,0,.5); width: 24px;
+    text-align: right; flex-shrink: 0; font-family: 'JetBrains Mono', monospace;
+}
+.pbx-pitch-slider {
+    flex: 1; -webkit-appearance: none; appearance: none;
+    height: 3px; outline: none; cursor: pointer;
+    background: linear-gradient(to right, rgba(110,0,255,.4), rgba(255,191,0,.4));
+    border-radius: 2px;
+}
+.pbx-pitch-slider::-webkit-slider-thumb {
+    -webkit-appearance: none; width: 10px; height: 10px;
+    border-radius: 50%; background: #FFBF00;
+    box-shadow: 0 0 4px rgba(255,191,0,.6); cursor: pointer;
+}
+.pbx-pitch-slider::-moz-range-thumb {
+    width: 10px; height: 10px; border: none;
+    border-radius: 50%; background: #FFBF00;
+    box-shadow: 0 0 4px rgba(255,191,0,.6); cursor: pointer;
+}
+/* Mute / Solo */
+.pbx-ms-wrap { display: flex; gap: 3px; }
+.pbx-mute, .pbx-solo {
+    padding: 2px 5px; font-family: 'JetBrains Mono', monospace; font-size: 6.5px;
+    letter-spacing: 0.5px; cursor: pointer; border-radius: 2px; transition: all .12s;
+    background: rgba(0,0,0,.5);
+}
+.pbx-mute { color: rgba(255,120,0,.65); border: 1px solid rgba(255,120,0,.22); }
+.pbx-mute.active { color: #ff7800; background: rgba(255,120,0,.22); border-color: rgba(255,120,0,.55); }
+.pbx-solo { color: rgba(110,0,255,.75); border: 1px solid rgba(110,0,255,.25); }
+.pbx-solo.active { color: #9040FF; background: rgba(110,0,255,.22); border-color: rgba(110,0,255,.55); }
+
+/* Status bar */
+.pbx-status-bar {
+    display: flex; align-items: center; gap: 8px;
+    padding: 5px 12px;
+    background: rgba(0,0,0,.52);
+    border-top: 1px solid rgba(255,191,0,.1);
+    font-size: 6.5px; color: rgba(255,191,0,.4); flex-shrink: 0;
+}
+#pbx-cur-step { color: rgba(255,191,0,.78); margin-left: 2px; }
+#pbx-bus-status { color: rgba(110,0,255,.75); margin-left: 2px; }
+
 /* ═══ NEURAL COMPILER WINDOW ═══ */
 .nc-window {
     position: fixed;
@@ -5415,6 +5603,12 @@ body.fullscreen #transcription-hud { pointer-events: none !important; } /* keep 
                     <div id="vt-sonic-rack">
                         <button id="vt-sonic-launch-btn" onclick="VanguardTracker.toggle()">[ VNGRD SONIC SUITE ]</button>
                         <div id="vt-sonic-status">TRK · NC · CLOCK</div>
+                    </div>
+
+                    <!-- ══ PROBOX V2 — GROOVEBOX LAUNCHER ══════════════ -->
+                    <div id="probox-v2-rack">
+                        <button id="probox-v2-btn" onclick="APP.audio.probox && APP.audio.probox.toggle()">[ PROBOX V2 ]</button>
+                        <div id="probox-v2-status">GROOVEBOX · 6-SLOT · PCM/PROC</div>
                     </div>
 
                     <!-- ══ SPATIAL SYNTH ════════════════════════════════ -->
@@ -21427,6 +21621,58 @@ function _applyPoseToModel(lm) {
 </div>
 
 <!-- ═══════════════════════════════════════════════════════════
+     PROBOX V2 — AUTONOMOUS 6-SLOT GROOVEBOX
+     Neon Amber (#FFBF00) + Deep Ultraviolet (#6E00FF)
+     Independent 16-step sequencer · PCM/Procedural Hybrid
+     Isolated bus: proboxBus → WaveShaperNode → outputLimiter
+     ═══════════════════════════════════════════════════════════ -->
+<div id="probox-v2-window">
+
+    <!-- Titlebar / Transport -->
+    <div class="pbx-titlebar" id="pbx-titlebar">
+        <span class="pbx-title">◈ PROBOX V2 // GROOVEBOX</span>
+        <div class="pbx-transport">
+            <div class="pbx-bpm-wrap">
+                BPM <input class="pbx-bpm-input" id="pbx-bpm" type="number" min="40" max="300" value="128"
+                     onchange="APP.audio.probox && APP.audio.probox.setBpm(this.value)">
+            </div>
+            <button class="pbx-btn pbx-play-btn" id="pbx-play-btn"
+                    onclick="APP.audio.probox && APP.audio.probox.startSeq()">▶ PLAY</button>
+            <button class="pbx-btn"
+                    onclick="APP.audio.probox && APP.audio.probox.stopSeq()">■ STOP</button>
+            <button class="pbx-btn pbx-panic"
+                    onclick="APP.audio.probox && APP.audio.probox.panic()">[ PANIC / STOP ]</button>
+            <button class="pbx-btn"
+                    onclick="APP.audio.probox && APP.audio.probox.clearGrid()">[ CLEAR GRID ]</button>
+            <button class="pbx-btn pbx-mutate"
+                    onclick="APP.audio.probox && APP.audio.probox.neuralMutate()">[ NEURAL MUTATE ]</button>
+        </div>
+        <button class="pbx-close-btn"
+                onclick="APP.audio.probox && APP.audio.probox.toggle()">✕</button>
+    </div>
+
+    <!-- Sequencer grid — rows built by APP.audio.probox JS on DOMContentLoaded -->
+    <div class="pbx-grid">
+        <div class="pbx-col-hdr-row">
+            <div>SLOT</div>
+            <div style="text-align:center;letter-spacing:0;">
+                1&thinsp;·&thinsp;2&thinsp;·&thinsp;3&thinsp;·&thinsp;4&ensp;│&ensp;5&thinsp;·&thinsp;6&thinsp;·&thinsp;7&thinsp;·&thinsp;8&ensp;│&ensp;9&thinsp;·&thinsp;10&thinsp;·&thinsp;11&thinsp;·&thinsp;12&ensp;│&ensp;13&thinsp;·&thinsp;14&thinsp;·&thinsp;15&thinsp;·&thinsp;16
+            </div>
+            <div style="text-align:center;">PITCH ±12st</div>
+            <div style="text-align:center;">M / S</div>
+        </div>
+        <div id="pbx-tracks"><!-- rows injected by JS --></div>
+    </div>
+
+    <!-- Status bar -->
+    <div class="pbx-status-bar">
+        <span>STEP:</span><span id="pbx-cur-step">--</span>
+        <span style="margin-left:10px;">BUS:</span><span id="pbx-bus-status">IDLE</span>
+        <span style="margin-left:auto;color:rgba(255,191,0,.2);">PROBOX V2 · 6-SLOT PCM/PROC HYBRID · ISOLATED BUS</span>
+    </div>
+</div>
+
+<!-- ═══════════════════════════════════════════════════════════
      HUD CRYSTAL OVERLAY — glass morphism
      ═══════════════════════════════════════════════════════════ -->
 <div class="vt-hud-overlay" id="vt-hud-overlay">
@@ -21591,6 +21837,444 @@ function _applyPoseToModel(lm) {
             });
         });
     });
+})();
+</script>
+
+<script>
+/* ═══════════════════════════════════════════════════════════════
+   PROBOX V2 — AUTONOMOUS 6-SLOT GROOVEBOX
+   Namespace : APP.audio.probox
+   Bus       : APP.audio.proboxBus → WaveShaperNode → outputLimiter
+   Clock     : Independent AudioContext.currentTime lookahead scheduler
+   ═══════════════════════════════════════════════════════════════ */
+(function () {
+    'use strict';
+
+    var TRACKS    = ['KICK', 'SNARE', 'HI-HAT', 'CLAP', 'FM CHIRP', 'GLITCH'];
+    var NUM_T     = 6;
+    var NUM_S     = 16;
+    var LOOKAHEAD = 0.10;   // schedule 100 ms ahead
+    var TICK      = 25;     // scheduler poll interval ms
+
+    var _state = {
+        steps:       [0,1,2,3,4,5].map(function(){ return new Array(NUM_S).fill(false); }),
+        pitch:       new Array(NUM_T).fill(0),
+        mute:        new Array(NUM_T).fill(false),
+        solo:        new Array(NUM_T).fill(false),
+        bpm:         128,
+        step:        0,
+        running:     false,
+        nextTime:    0,
+        timer:       null
+    };
+
+    var _nodes = new Set();
+
+    /* ── Bus init (lazy) ─────────────────────────────────────── */
+    function _ensureBus() {
+        if (APP.audio.proboxBus) return true;
+        if (!APP.audio.ctx)         { if (window.igniteAudio)      igniteAudio(); }
+        if (!APP.audio.masterGain)  { if (window.ensureAudioChain) ensureAudioChain(); }
+        var ctx = APP.audio.ctx;
+        if (!ctx || !APP.audio.outputLimiter) return false;
+
+        /* tanh soft-clip saturation curve */
+        var curve = new Float32Array(256);
+        for (var i = 0; i < 256; i++) {
+            var x = (i * 2) / 255 - 1;
+            curve[i] = Math.tanh(x * 3) / Math.tanh(3);
+        }
+        APP.audio.proboxSaturator = ctx.createWaveShaper();
+        APP.audio.proboxSaturator.curve = curve;
+        APP.audio.proboxSaturator.oversample = '4x';
+
+        APP.audio.proboxBus = ctx.createGain();
+        APP.audio.proboxBus.gain.value = 0.82;
+
+        /* proboxBus → proboxSaturator → outputLimiter (→ existing chain) */
+        APP.audio.proboxBus.connect(APP.audio.proboxSaturator);
+        APP.audio.proboxSaturator.connect(APP.audio.outputLimiter);
+        _status('READY');
+        return true;
+    }
+
+    function _ctx()  { return APP.audio.ctx; }
+    function _dest() { return APP.audio.proboxBus; }
+    function _pm(st) { return Math.pow(2, st / 12); }   /* f = fbase · 2^(st/12) */
+    function _track(n) { _nodes.add(n); n.onended = function(){ _nodes.delete(n); }; }
+
+    /* ═══ SYNTH ENGINES ════════════════════════════════════════ */
+
+    /* KICK: 150 Hz→40 Hz sub sweep + 2 ms PCM transient click */
+    function _kick(t, st) {
+        var ctx = _ctx(), pm = _pm(st);
+
+        var osc = ctx.createOscillator(); osc.type = 'sine';
+        osc.frequency.setValueAtTime(150 * pm, t);
+        osc.frequency.exponentialRampToValueAtTime(40 * pm, t + 0.45);
+        var env = ctx.createGain();
+        env.gain.setValueAtTime(1.0, t);
+        env.gain.exponentialRampToValueAtTime(0.001, t + 0.50);
+        osc.connect(env).connect(_dest());
+        osc.start(t); osc.stop(t + 0.51); _track(osc);
+
+        /* 2 ms noise click for transient definition */
+        var sz   = Math.ceil(ctx.sampleRate * 0.002);
+        var cbuf = ctx.createBuffer(1, sz, ctx.sampleRate);
+        var cd   = cbuf.getChannelData(0);
+        for (var i = 0; i < sz; i++) cd[i] = Math.random() * 2 - 1;
+        var clk  = ctx.createBufferSource(); clk.buffer = cbuf;
+        var chp  = ctx.createBiquadFilter(); chp.type = 'highpass'; chp.frequency.value = 3000;
+        var cev  = ctx.createGain();
+        cev.gain.setValueAtTime(0.6, t);
+        cev.gain.exponentialRampToValueAtTime(0.001, t + 0.003);
+        clk.connect(chp).connect(cev).connect(_dest());
+        clk.start(t); _track(clk);
+    }
+
+    /* SNARE: triangle body (250 Hz) + staggered BP-noise snap */
+    function _snare(t, st) {
+        var ctx = _ctx(), pm = _pm(st);
+
+        var body = ctx.createOscillator(); body.type = 'triangle';
+        body.frequency.value = 250 * pm;
+        var benv = ctx.createGain();
+        benv.gain.setValueAtTime(0.55, t);
+        benv.gain.exponentialRampToValueAtTime(0.001, t + 0.09);
+        body.connect(benv).connect(_dest());
+        body.start(t); body.stop(t + 0.10); _track(body);
+
+        var nsz  = Math.ceil(ctx.sampleRate * 0.16);
+        var nbuf = ctx.createBuffer(1, nsz, ctx.sampleRate);
+        var nd   = nbuf.getChannelData(0);
+        for (var i = 0; i < nsz; i++) nd[i] = Math.random() * 2 - 1;
+        var noise = ctx.createBufferSource(); noise.buffer = nbuf;
+        var bp    = ctx.createBiquadFilter(); bp.type = 'bandpass';
+        bp.frequency.value = 4000; bp.Q.value = 0.7;
+        var nenv = ctx.createGain();
+        nenv.gain.setValueAtTime(0.0, t);
+        nenv.gain.setValueAtTime(0.85, t + 0.005);   /* stagger = snap */
+        nenv.gain.exponentialRampToValueAtTime(0.001, t + 0.16);
+        noise.connect(bp).connect(nenv).connect(_dest());
+        noise.start(t); _track(noise);
+    }
+
+    /* HI-HAT: 6-operator inharmonic FM cluster, ultra-fast decay */
+    function _hihat(t, st) {
+        var ctx = _ctx(), pm = _pm(st);
+        var RATIOS = [1, 1.3424, 1.2028, 1.4659, 1.7006, 2.0581];
+
+        var mix = ctx.createGain(); mix.gain.value = 0.22;
+        var hp  = ctx.createBiquadFilter(); hp.type = 'highpass'; hp.frequency.value = 7000;
+        var env = ctx.createGain();
+        env.gain.setValueAtTime(1.0, t);
+        env.gain.exponentialRampToValueAtTime(0.001, t + 0.045);
+        mix.connect(hp).connect(env).connect(_dest());
+
+        RATIOS.forEach(function(r) {
+            var o = ctx.createOscillator(); o.type = 'square';
+            o.frequency.value = 400 * r * pm;
+            o.connect(mix); o.start(t); o.stop(t + 0.05); _track(o);
+        });
+    }
+
+    /* CLAP: 3 staggered noise bursts (10 ms apart) + 8 kHz shelf boost */
+    function _clap(t, st) {
+        var ctx = _ctx(), pm = _pm(st);
+        var hs  = ctx.createBiquadFilter();
+        hs.type = 'highshelf'; hs.frequency.value = 8000; hs.gain.value = 8;
+        hs.connect(_dest());
+
+        [0, 0.010, 0.020].forEach(function(off) {
+            var nt   = t + off;
+            var sz   = Math.ceil(ctx.sampleRate * 0.08);
+            var nbuf = ctx.createBuffer(1, sz, ctx.sampleRate);
+            var nd   = nbuf.getChannelData(0);
+            for (var i = 0; i < sz; i++) nd[i] = Math.random() * 2 - 1;
+            var noise = ctx.createBufferSource(); noise.buffer = nbuf;
+            var bp    = ctx.createBiquadFilter(); bp.type = 'bandpass';
+            bp.frequency.value = 1200 * pm; bp.Q.value = 0.9;
+            var env = ctx.createGain();
+            env.gain.setValueAtTime(0.5, nt);
+            env.gain.exponentialRampToValueAtTime(0.001, nt + 0.08);
+            noise.connect(bp).connect(env).connect(hs);
+            noise.start(nt); _track(noise);
+        });
+    }
+
+    /* FM CHIRP: 2-operator sine FM ratio 3.5 : 1 (Microtonic texture) */
+    function _fmchirp(t, st) {
+        var ctx = _ctx(), pm = _pm(st);
+        var cf  = 220 * pm;
+
+        var mod = ctx.createOscillator(); mod.type = 'sine'; mod.frequency.value = cf * 3.5;
+        var mg  = ctx.createGain();
+        mg.gain.setValueAtTime(cf * 4, t);
+        mg.gain.exponentialRampToValueAtTime(1, t + 0.30);
+        mod.connect(mg);
+
+        var car = ctx.createOscillator(); car.type = 'sine'; car.frequency.value = cf;
+        mg.connect(car.frequency);
+
+        var env = ctx.createGain();
+        env.gain.setValueAtTime(0.5, t);
+        env.gain.exponentialRampToValueAtTime(0.001, t + 0.35);
+        car.connect(env).connect(_dest());
+
+        mod.start(t); mod.stop(t + 0.36); _track(mod);
+        car.start(t); car.stop(t + 0.36); _track(car);
+    }
+
+    /* GLITCH: bit-crushed noise spikes + resonant peak filter */
+    function _glitch(t, st) {
+        var ctx  = _ctx(), pm = _pm(st);
+        var sz   = Math.ceil(ctx.sampleRate * 0.10);
+        var nbuf = ctx.createBuffer(1, sz, ctx.sampleRate);
+        var nd   = nbuf.getChannelData(0);
+        for (var i = 0; i < sz; i++) {
+            var spike = Math.random() < 0.15 ? (Math.random() * 2 - 1) : 0;
+            nd[i] = Math.round((Math.random() * 2 - 1 + spike) * 32) / 32; /* 5-bit crush */
+        }
+        var noise = ctx.createBufferSource(); noise.buffer = nbuf;
+        var peak  = ctx.createBiquadFilter();
+        peak.type = 'peaking'; peak.frequency.value = 1200 * pm;
+        peak.Q.value = 8; peak.gain.value = 12;
+        var env = ctx.createGain();
+        env.gain.setValueAtTime(0.55, t);
+        env.gain.exponentialRampToValueAtTime(0.001, t + 0.08);
+        noise.connect(peak).connect(env).connect(_dest());
+        noise.start(t); _track(noise);
+    }
+
+    var _engines = [_kick, _snare, _hihat, _clap, _fmchirp, _glitch];
+
+    function _play(trackIdx, when, semitones) {
+        if (!_ensureBus()) return;
+        var fn = _engines[trackIdx];
+        if (fn) fn(when || _ctx().currentTime, semitones || 0);
+    }
+
+    /* ── AudioContext lookahead scheduler ───────────────────── */
+    function _schedule() {
+        if (!_state.running) return;
+        var ctx     = _ctx();
+        var stepDur = 60 / (_state.bpm * 4);   /* 16th note */
+        var hasSolo = _state.solo.some(Boolean);
+
+        while (_state.nextTime < ctx.currentTime + LOOKAHEAD) {
+            var s = _state.step, t = _state.nextTime;
+            for (var tr = 0; tr < NUM_T; tr++) {
+                if (!_state.steps[tr][s])          continue;
+                if (_state.mute[tr])               continue;
+                if (hasSolo && !_state.solo[tr])   continue;
+                _play(tr, t, _state.pitch[tr]);
+            }
+            /* deferred UI update */
+            (function(cs, ms) {
+                setTimeout(function() { _updateHead(cs); }, Math.max(0, ms));
+            })(s, (t - ctx.currentTime) * 1000);
+
+            _state.step     = (s + 1) % NUM_S;
+            _state.nextTime += stepDur;
+        }
+        _state.timer = setTimeout(_schedule, TICK);
+    }
+
+    function _updateHead(step) {
+        document.querySelectorAll('.pbx-step').forEach(function(el) {
+            el.classList.toggle('pbx-playing', +el.dataset.step === step);
+        });
+        var el = document.getElementById('pbx-cur-step');
+        if (el) el.textContent = String(step + 1).padStart(2, '0');
+    }
+
+    function _status(txt) {
+        var el = document.getElementById('pbx-bus-status');
+        if (el) el.textContent = txt;
+    }
+
+    /* ── Build sequencer grid ───────────────────────────────── */
+    function _buildGrid() {
+        var container = document.getElementById('pbx-tracks');
+        if (!container) return;
+        container.innerHTML = '';
+
+        TRACKS.forEach(function(name, tr) {
+            var row = document.createElement('div');
+            row.className = 'pbx-track-row';
+
+            /* Label */
+            var lbl = document.createElement('div');
+            lbl.className = 'pbx-track-label';
+            lbl.textContent = name;
+            row.appendChild(lbl);
+
+            /* 16 step buttons */
+            var sr = document.createElement('div');
+            sr.className = 'pbx-steps-row';
+            for (var s = 0; s < NUM_S; s++) {
+                (function(track, step) {
+                    var btn = document.createElement('button');
+                    btn.className = 'pbx-step';
+                    btn.dataset.track = track;
+                    btn.dataset.step  = step;
+                    btn.title = name + ' step ' + (step + 1);
+                    btn.addEventListener('click', function() {
+                        _state.steps[track][step] = !_state.steps[track][step];
+                        btn.classList.toggle('on', _state.steps[track][step]);
+                        if (_state.steps[track][step] && !_state.running)
+                            _play(track, undefined, _state.pitch[track]);
+                    });
+                    sr.appendChild(btn);
+                })(tr, s);
+            }
+            row.appendChild(sr);
+
+            /* Pitch slider */
+            var pw  = document.createElement('div'); pw.className = 'pbx-pitch-wrap';
+            var pv  = document.createElement('span'); pv.className = 'pbx-pitch-val'; pv.textContent = '0st';
+            var sl  = document.createElement('input');
+            sl.type = 'range'; sl.className = 'pbx-pitch-slider';
+            sl.min = -12; sl.max = 12; sl.step = 1; sl.value = 0;
+            (function(track, valEl) {
+                sl.addEventListener('input', function() {
+                    _state.pitch[track] = +this.value;
+                    valEl.textContent = (+this.value >= 0 ? '+' : '') + this.value + 'st';
+                });
+            })(tr, pv);
+            pw.appendChild(pv); pw.appendChild(sl);
+            row.appendChild(pw);
+
+            /* Mute / Solo */
+            var ms = document.createElement('div'); ms.className = 'pbx-ms-wrap';
+            var mb = document.createElement('button'); mb.className = 'pbx-mute';
+            mb.textContent = 'M'; mb.title = 'Mute';
+            (function(track, btn) {
+                btn.addEventListener('click', function() {
+                    _state.mute[track] = !_state.mute[track];
+                    btn.classList.toggle('active', _state.mute[track]);
+                });
+            })(tr, mb);
+            var sb = document.createElement('button'); sb.className = 'pbx-solo';
+            sb.textContent = 'S'; sb.title = 'Solo';
+            (function(track, btn) {
+                btn.addEventListener('click', function() {
+                    _state.solo[track] = !_state.solo[track];
+                    btn.classList.toggle('active', _state.solo[track]);
+                });
+            })(tr, sb);
+            ms.appendChild(mb); ms.appendChild(sb);
+            row.appendChild(ms);
+            container.appendChild(row);
+        });
+    }
+
+    /* ── Drag to reposition ─────────────────────────────────── */
+    function _initDrag() {
+        var win = document.getElementById('probox-v2-window');
+        var bar = document.getElementById('pbx-titlebar');
+        if (!win || !bar) return;
+        bar.addEventListener('mousedown', function(e) {
+            if (e.target.tagName === 'BUTTON' || e.target.tagName === 'INPUT') return;
+            e.preventDefault();
+            var rect = win.getBoundingClientRect();
+            win.style.left = rect.left + 'px'; win.style.top = rect.top + 'px';
+            win.style.transform = 'none';
+            var mx = e.clientX, my = e.clientY;
+            function onMove(ev) {
+                win.style.left = (win.offsetLeft + ev.clientX - mx) + 'px';
+                win.style.top  = (win.offsetTop  + ev.clientY - my) + 'px';
+                mx = ev.clientX; my = ev.clientY;
+            }
+            function onUp() {
+                document.removeEventListener('mousemove', onMove);
+                document.removeEventListener('mouseup',  onUp);
+            }
+            document.addEventListener('mousemove', onMove);
+            document.addEventListener('mouseup',   onUp);
+        });
+    }
+
+    /* ── Public API ─────────────────────────────────────────── */
+    var probox = {
+        toggle: function() {
+            var win = document.getElementById('probox-v2-window');
+            if (!win) return;
+            var v = win.classList.toggle('visible');
+            var btn = document.getElementById('probox-v2-btn');
+            if (btn) btn.classList.toggle('active', v);
+            var st = document.getElementById('probox-v2-status');
+            if (st) { st.textContent = v ? 'GROOVEBOX · 6-SLOT · ONLINE' : 'GROOVEBOX · 6-SLOT · PCM/PROC'; st.classList.toggle('live', v); }
+        },
+        setBpm: function(v) { _state.bpm = Math.max(40, Math.min(300, +v || 128)); },
+        startSeq: function() {
+            if (!_ensureBus()) return;
+            _state.bpm     = +(document.getElementById('pbx-bpm') || {value:128}).value || 128;
+            _state.step    = 0;
+            _state.running = true;
+            _state.nextTime = _ctx().currentTime + 0.05;
+            clearTimeout(_state.timer);
+            _schedule();
+            var pb = document.getElementById('pbx-play-btn');
+            if (pb) pb.classList.add('active');
+            _status('RUNNING');
+            var st = document.getElementById('probox-v2-status');
+            if (st) { st.textContent = 'GROOVEBOX · SEQUENCING'; st.classList.add('live'); }
+        },
+        stopSeq: function() {
+            _state.running = false;
+            clearTimeout(_state.timer);
+            _state.step = 0;
+            document.querySelectorAll('.pbx-step').forEach(function(e){ e.classList.remove('pbx-playing'); });
+            var pb = document.getElementById('pbx-play-btn');
+            if (pb) pb.classList.remove('active');
+            var cs = document.getElementById('pbx-cur-step');
+            if (cs) cs.textContent = '--';
+            _status('IDLE');
+        },
+        panic: function() {
+            this.stopSeq();
+            _nodes.forEach(function(n){ try { n.stop(0); } catch(e){} });
+            _nodes.clear();
+            _status('PANIC');
+            setTimeout(function(){ _status('IDLE'); }, 800);
+        },
+        clearGrid: function() {
+            for (var t = 0; t < NUM_T; t++) _state.steps[t].fill(false);
+            document.querySelectorAll('.pbx-step').forEach(function(e){ e.classList.remove('on'); });
+        },
+        neuralMutate: function() {
+            /* Markov Chain: each Hit has 15 % probability of transitioning to Rest */
+            for (var t = 0; t < NUM_T; t++) {
+                for (var s = 0; s < NUM_S; s++) {
+                    if (_state.steps[t][s] && Math.random() < 0.15) {
+                        _state.steps[t][s] = false;
+                        var el = document.querySelector('.pbx-step[data-track="' + t + '"][data-step="' + s + '"]');
+                        if (el) el.classList.remove('on');
+                    }
+                }
+            }
+            var mb = document.querySelector('.pbx-mutate');
+            if (mb) { mb.style.boxShadow = '0 0 18px rgba(110,0,255,.65)'; setTimeout(function(){ if(mb) mb.style.boxShadow=''; }, 320); }
+        },
+        /* Direct trigger — APP.audio.probox.play('kick') */
+        play: function(name, when, semitones) {
+            var map = {kick:0, snare:1, hihat:2, clap:3, fmchirp:4, glitch:5};
+            var idx = map[(name||'').toLowerCase().replace(/[^a-z]/g,'')];
+            if (idx !== undefined) _play(idx, when, semitones || 0);
+        }
+    };
+
+    /* ── Init on DOM ready ──────────────────────────────────── */
+    function _init() { _buildGrid(); _initDrag(); }
+    if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', _init);
+    else _init();
+
+    /* ── Attach to APP.audio namespace ──────────────────────── */
+    (function _attach() {
+        if (window.APP && window.APP.audio) { window.APP.audio.probox = probox; }
+        else setTimeout(_attach, 50);
+    })();
 })();
 </script>
 
