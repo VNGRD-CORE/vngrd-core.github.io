@@ -9867,7 +9867,7 @@ const InternalSynth = (() => {
     function triggerSub(freq, vol, panVal) {
         var ctx = _ctx(); if (!ctx) return;
         freq = Math.max(20, parseFloat(freq) || 80);
-        vol  = Math.min(1.0, parseFloat(vol) || 0.8);
+        vol  = Math.min(0.6, parseFloat(vol) || 0.48); // −40% tracker gain-staging
         var now = ctx.currentTime, dur = 1.5;
 
         var master = ctx.createGain();
@@ -9909,7 +9909,7 @@ const InternalSynth = (() => {
     function triggerNoise(cutoff, vol, resonance, panVal) {
         var ctx = _ctx(); if (!ctx) return;
         cutoff    = Math.max(80, parseFloat(cutoff) || 600);
-        vol       = Math.min(1.0, parseFloat(vol) || 0.7);
+        vol       = Math.min(0.6, parseFloat(vol) || 0.42); // −40% tracker gain-staging
         resonance = parseFloat(resonance) || 6;
         var now = ctx.currentTime, dur = 2.0;
 
@@ -9948,7 +9948,7 @@ const InternalSynth = (() => {
     function triggerSweep(freq, vol, panVal) {
         var ctx = _ctx(); if (!ctx) return;
         freq = Math.max(20, parseFloat(freq) || 120);
-        vol  = Math.min(1.0, parseFloat(vol) || 0.65);
+        vol  = Math.min(0.6, parseFloat(vol) || 0.39); // −40% tracker gain-staging
         var now = ctx.currentTime, dur = 2.5;
 
         var master = ctx.createGain();
@@ -9984,7 +9984,7 @@ const InternalSynth = (() => {
     function triggerMetal(freq, vol, ringFreq, panVal) {
         var ctx = _ctx(); if (!ctx) return;
         freq    = Math.max(40, parseFloat(freq) || 220);
-        vol     = Math.min(1.0, parseFloat(vol) || 0.55);
+        vol     = Math.min(0.6, parseFloat(vol) || 0.33); // −40% tracker gain-staging
         var now = ctx.currentTime, dur = 1.8;
 
         var master = ctx.createGain();
@@ -10024,7 +10024,7 @@ const InternalSynth = (() => {
     function triggerAM(freq, vol, lfoRate, panVal) {
         var ctx = _ctx(); if (!ctx) return;
         freq    = Math.max(20, parseFloat(freq) || 110);
-        vol     = Math.min(1.0, parseFloat(vol) || 0.5);
+        vol     = Math.min(0.6, parseFloat(vol) || 0.30); // −40% tracker gain-staging
         lfoRate = parseFloat(lfoRate) || 0.8;
         var now = ctx.currentTime, dur = 3.5;
 
@@ -10066,7 +10066,7 @@ const InternalSynth = (() => {
     function triggerBoom(freq, vol, panVal) {
         var ctx = _ctx(); if (!ctx) return;
         freq = Math.max(15, parseFloat(freq) || 45);
-        vol  = Math.min(1.0, parseFloat(vol) || 0.9);
+        vol  = Math.min(0.6, parseFloat(vol) || 0.54); // −40% tracker gain-staging
         var now = ctx.currentTime, dur = 3.0;
 
         var master = ctx.createGain();
@@ -13216,13 +13216,13 @@ function setupAudioChain() {
     APP.audio.compressor.knee.value = 30;
     APP.audio.compressor.ratio.value = 1; 
 
-    // ═══ Phase 2: OUTPUT LIMITER (Hard 0dB ceiling) ═══
+    // ═══ Phase 2: OUTPUT LIMITER (Glue compression — transparent, no pumping) ═══
     APP.audio.outputLimiter = ctx.createDynamicsCompressor();
-    APP.audio.outputLimiter.threshold.setValueAtTime(-1, ctx.currentTime);
-    APP.audio.outputLimiter.knee.setValueAtTime(0, ctx.currentTime);
-    APP.audio.outputLimiter.ratio.setValueAtTime(20, ctx.currentTime);
-    APP.audio.outputLimiter.attack.setValueAtTime(0.001, ctx.currentTime);
-    APP.audio.outputLimiter.release.setValueAtTime(0.1, ctx.currentTime);
+    APP.audio.outputLimiter.threshold.setValueAtTime(-6,   ctx.currentTime);
+    APP.audio.outputLimiter.knee.setValueAtTime(12,        ctx.currentTime);
+    APP.audio.outputLimiter.ratio.setValueAtTime(4,        ctx.currentTime);
+    APP.audio.outputLimiter.attack.setValueAtTime(0.005,   ctx.currentTime);
+    APP.audio.outputLimiter.release.setValueAtTime(0.1,    ctx.currentTime);
 
     // ═══ Phase 2: SIDE-CHAIN DUCKING GAIN ═══
     APP.audio.duckingGain = ctx.createGain();
@@ -13294,6 +13294,23 @@ function setupAudioChain() {
 
     APP.audio.vuData = new Uint8Array(APP.audio.analyzer.frequencyBinCount);
     APP.audio.isConnected = true;
+
+    // Reconnect Probox summing mixer and tracker gain-staging if Probox is active
+    if (APP.audio.masterMixer) {
+        try { APP.audio.masterGain.disconnect(APP.audio.outputLimiter);  } catch(e) {}
+        try { APP.audio.dolbyPanner.disconnect(APP.audio.outputLimiter); } catch(e) {}
+        APP.audio.masterGain.connect(APP.audio.masterMixer);
+        APP.audio.dolbyPanner.connect(APP.audio.masterMixer);
+        APP.audio.masterMixer.connect(APP.audio.outputLimiter);
+        if (APP.audio.proboxSaturator)
+            try { APP.audio.proboxSaturator.connect(APP.audio.masterMixer); } catch(e) {}
+    }
+    if (APP.audio.trackerGain) {
+        try { APP.audio.duckingGain.disconnect(APP.audio.analyzer); } catch(e) {}
+        APP.audio.duckingGain.connect(APP.audio.trackerGain);
+        APP.audio.trackerGain.connect(APP.audio.analyzer);
+    }
+
     log('DAW_ENGINE: TRIPLE_PATH + LIMITER + DUCKING');
     updateVU();
 }
@@ -21891,9 +21908,37 @@ function _applyPoseToModel(lm) {
         APP.audio.proboxBus = ctx.createGain();
         APP.audio.proboxBus.gain.value = 0.82;
 
-        /* proboxBus → proboxSaturator → outputLimiter (→ existing chain) */
+        /* ── 1. Probox saturation chain ─────────────────────────── */
         APP.audio.proboxBus.connect(APP.audio.proboxSaturator);
-        APP.audio.proboxSaturator.connect(APP.audio.outputLimiter);
+
+        /* ── 2. Transparent summing mixer (both busses → one limiter) ── */
+        APP.audio.masterMixer = ctx.createGain();
+        APP.audio.masterMixer.gain.value = 0.8;
+
+        /* Detach existing direct feeds to outputLimiter */
+        try { APP.audio.masterGain.disconnect(APP.audio.outputLimiter);  } catch(e) {}
+        try { APP.audio.dolbyPanner.disconnect(APP.audio.outputLimiter); } catch(e) {}
+
+        /* Both tracker chain and probox now sum at masterMixer */
+        APP.audio.masterGain.connect(APP.audio.masterMixer);
+        APP.audio.dolbyPanner.connect(APP.audio.masterMixer);
+        APP.audio.proboxSaturator.connect(APP.audio.masterMixer);
+        APP.audio.masterMixer.connect(APP.audio.outputLimiter);
+
+        /* ── 3. Tracker gain reduction −45% (sits behind drums) ─── */
+        APP.audio.trackerGain = ctx.createGain();
+        APP.audio.trackerGain.gain.value = 0.55;
+        try { APP.audio.duckingGain.disconnect(APP.audio.analyzer); } catch(e) {}
+        APP.audio.duckingGain.connect(APP.audio.trackerGain);
+        APP.audio.trackerGain.connect(APP.audio.analyzer);
+
+        /* ── 4. Relax limiter: glue compression, no pumping ─────── */
+        APP.audio.outputLimiter.threshold.setValueAtTime(-6,   ctx.currentTime);
+        APP.audio.outputLimiter.knee.setValueAtTime(12,        ctx.currentTime);
+        APP.audio.outputLimiter.ratio.setValueAtTime(4,        ctx.currentTime);
+        APP.audio.outputLimiter.attack.setValueAtTime(0.005,   ctx.currentTime);
+        APP.audio.outputLimiter.release.setValueAtTime(0.1,    ctx.currentTime);
+
         _status('READY');
         return true;
     }
