@@ -9509,18 +9509,19 @@ function ensureAudioChain() {
     APP.audio.panner.panningModel = 'HRTF';
     APP.audio.panner.distanceModel = 'inverse';
     APP.audio.masterGain = ctx.createGain();
-    // Drop the master output to 70% to give the mix room to breathe
-    APP.audio.masterGain.gain.value = 0.7;
+    APP.audio.masterGain.gain.value = 0.9;
     APP.audio.lowShelf = ctx.createBiquadFilter();
     APP.audio.lowShelf.type = 'lowshelf'; APP.audio.lowShelf.frequency.value = 60; APP.audio.lowShelf.gain.value = 0;
     APP.audio.highShelf = ctx.createBiquadFilter();
     APP.audio.highShelf.type = 'highshelf'; APP.audio.highShelf.frequency.value = 12000; APP.audio.highShelf.gain.value = 0;
+    APP.audio.compressor = ctx.createDynamicsCompressor();
+    APP.audio.compressor.threshold.value = -24; APP.audio.compressor.knee.value = 30; APP.audio.compressor.ratio.value = 1;
     APP.audio.outputLimiter = ctx.createDynamicsCompressor();
-    APP.audio.outputLimiter.threshold.setValueAtTime(-12, ctx.currentTime);
-    APP.audio.outputLimiter.knee.setValueAtTime(30, ctx.currentTime);
-    APP.audio.outputLimiter.ratio.setValueAtTime(2.5, ctx.currentTime);
-    APP.audio.outputLimiter.attack.setValueAtTime(0.005, ctx.currentTime);
-    APP.audio.outputLimiter.release.setValueAtTime(0.15, ctx.currentTime);
+    APP.audio.outputLimiter.threshold.setValueAtTime(-1, ctx.currentTime);
+    APP.audio.outputLimiter.knee.setValueAtTime(0, ctx.currentTime);
+    APP.audio.outputLimiter.ratio.setValueAtTime(20, ctx.currentTime);
+    APP.audio.outputLimiter.attack.setValueAtTime(0.001, ctx.currentTime);
+    APP.audio.outputLimiter.release.setValueAtTime(0.1, ctx.currentTime);
     APP.audio.duckingGain = ctx.createGain();
     APP.audio.duckingGain.gain.setValueAtTime(1.0, ctx.currentTime);
     APP.audio.stereoGain = ctx.createGain();
