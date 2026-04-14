@@ -21527,6 +21527,40 @@ function _applyPoseToModel(lm) {
 })();
 </script>
 
+<script>
+// ── _smPoseFeed — un-mirrored hand → KineticRack bridge ──────────────────────
+// Called by _startPoseTracking() with results.poseLandmarks (33-point body pose).
+// MediaPipe Pose indices: 16 = right wrist, 15 = left wrist (person's frame).
+// Applying (1 - x) flips the selfie-camera mirror so the viewer's right hand
+// controls the right side of the screen, and left hand the left side.
+window._smPoseFeed = function(lm) {
+    if (!window.KineticRack || !window.KineticRack.active) return;
+
+    var rw = lm[16]; // viewer's right wrist (MediaPipe "right" = person's right)
+    var lw = lm[15]; // viewer's left wrist
+    if (!rw || !lw) return;
+
+    // Un-mirror X so physical right hand → right side of screen.
+    // Invert Y so raising a hand increases the value (y=0 is top of frame).
+    var vRight = { x: 1 - rw.x, y: 1 - rw.y };
+    var vLeft  = { x: 1 - lw.x, y: 1 - lw.y };
+
+    // 1. Viewer's Right Hand: FILTER (X) & FM GRIT (Y)
+    KineticRack.ctrlChange('filter', vRight.x);
+    KineticRack.setFM(vRight.y * 2000);
+
+    // 2. Viewer's Left Hand: LFO WOBBLE (Y)
+    // Raising your left hand makes the 'wub' faster.
+    KineticRack.setLFORate(vLeft.y * 15);
+
+    // 3. UI SYNC: mirror values back to DOM sliders
+    var fSlider = document.querySelector('input[data-ctrl="filter"]');
+    var vSlider = document.querySelector('input[data-ctrl="vol"]');
+    if (fSlider) fSlider.value = vRight.x;
+    if (vSlider) vSlider.value = vRight.y;
+};
+</script>
+
 <div id="fs-hint">
     <span style="font-size:7px;color:rgba(0,243,255,0.7);font-family:'JetBrains Mono',monospace;letter-spacing:1px;">H</span>
     <span style="font-size:7px;color:rgba(255,255,255,0.4);font-family:'JetBrains Mono',monospace;letter-spacing:1px;">FULL</span>

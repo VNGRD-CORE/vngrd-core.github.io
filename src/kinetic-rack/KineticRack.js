@@ -170,6 +170,14 @@ class AudioCore {
         this._oscGains   = [];
         this._filter     = null;
         this._spatialGain = null;
+
+        // FM "grit" — sine modulator into each carrier's frequency
+        this._modulator  = null;
+        this._modGain    = null;
+
+        // LFO "wobble" — sine LFO into filter frequency
+        this._lfo        = null;
+        this._lfoGain    = null;
     }
 
     async start() {
@@ -214,9 +222,9 @@ class AudioCore {
         const detunes = [-7, 0, 7];
         for (let i = 0; i < 3; i++) {
             const osc = ctx.createOscillator();
-            osc.type           = 'sawtooth';
+            osc.type            = 'sawtooth';
             osc.frequency.value = 220;
-            osc.detune.value   = detunes[i];
+            osc.detune.value    = detunes[i];
 
             const g = ctx.createGain();
             g.gain.value = 0.28;
@@ -228,6 +236,32 @@ class AudioCore {
             this._oscs.push(osc);
             this._oscGains.push(g);
         }
+
+        // ── FM Modulator (sine → modGain → each carrier's .frequency) ────────
+        // Depth starts at 0 — silent until hand drives setFM().
+        this._modGain = ctx.createGain();
+        this._modGain.gain.value = 0;
+
+        this._modulator = ctx.createOscillator();
+        this._modulator.type            = 'sine';
+        this._modulator.frequency.value = 220; // tracks carrier pitch
+        this._modulator.connect(this._modGain);
+        for (const osc of this._oscs) {
+            this._modGain.connect(osc.frequency);
+        }
+        this._modulator.start();
+
+        // ── LFO (slow sine → lfoGain → filter.frequency) ─────────────────────
+        // ±200 Hz wobble around the current filter cutoff.
+        this._lfoGain = ctx.createGain();
+        this._lfoGain.gain.value = 200;
+
+        this._lfo = ctx.createOscillator();
+        this._lfo.type            = 'sine';
+        this._lfo.frequency.value = 2; // 2 Hz default wobble
+        this._lfo.connect(this._lfoGain);
+        this._lfoGain.connect(this._filter.frequency);
+        this._lfo.start();
     }
 
     getFFT() {
@@ -269,6 +303,27 @@ class AudioCore {
     setSpatialGate(v) {
         if (!this._spatialGain || !this.ctx) return;
         this._spatialGain.gain.setTargetAtTime(v, this.ctx.currentTime, 0.08);
+    }
+
+    /** FM depth: 0..3000 Hz into each carrier frequency */
+    setFM(depthHz) {
+        if (!this._modGain || !this.ctx) return;
+        const clamped = Math.max(0, Math.min(3000, depthHz));
+        this._modGain.gain.setTargetAtTime(clamped, this.ctx.currentTime, 0.05);
+        // Keep modulator in tune with the current carrier pitch
+        if (this._modulator && this._oscs.length) {
+            this._modulator.frequency.setTargetAtTime(
+                this._oscs[0].frequency.value, this.ctx.currentTime, 0.02
+            );
+        }
+    }
+
+    /** LFO rate: 0.01..20 Hz wobble on the filter cutoff */
+    setLFORate(hz) {
+        if (!this._lfo || !this.ctx) return;
+        this._lfo.frequency.setTargetAtTime(
+            Math.max(0.01, Math.min(20, hz)), this.ctx.currentTime, 0.1
+        );
     }
 
     triggerKick() {
@@ -335,11 +390,19 @@ class AudioCore {
                 osc.disconnect();
             }
         } catch (_) {}
+        try { this._modulator?.stop(); this._modulator?.disconnect(); } catch (_) {}
+        try { this._modGain?.disconnect(); } catch (_) {}
+        try { this._lfo?.stop(); this._lfo?.disconnect(); } catch (_) {}
+        try { this._lfoGain?.disconnect(); } catch (_) {}
         try { this.ctx?.close(); } catch (_) {}
         this.ctx         = null;
         this._analyser   = null;
         this._masterGain = null;
         this._oscs       = [];
+        this._modulator  = null;
+        this._modGain    = null;
+        this._lfo        = null;
+        this._lfoGain    = null;
     }
 }
 
@@ -980,7 +1043,9 @@ class KineticRack {
         }
     }
 
-    // ── Public control stubs ──────────────────────────────────────────────────
+    // ── Public API ────────────────────────────────────────────────────────────
+
+    get active() { return this._active; }
 
     ctrlChange(key, val) {
         const v = parseFloat(val);
@@ -989,6 +1054,12 @@ class KineticRack {
         if (key === 'filter') { this._audio.setFilter(80 + v * 7920);       return; }
         console.log('[KineticRack] ctrlChange', key, val);
     }
+
+    /** FM grit depth in Hz — driven by _smPoseFeed right-hand Y */
+    setFM(depthHz) { this._audio.setFM(depthHz); }
+
+    /** LFO wobble rate in Hz — driven by _smPoseFeed left-hand Y */
+    setLFORate(hz) { this._audio.setLFORate(hz); }
 
     midiLearn(target) {
         console.log('[KineticRack] midiLearn:', target);
