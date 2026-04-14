@@ -6,6 +6,29 @@
  * No NeuralComposer.js.
  */
 
+// ── EARLY STUB — set window.KineticRack immediately so the button is never dead.
+// The real instance overwrites this at the bottom of the file.
+// If the script crashes mid-way, clicking updates #kr-status with a clear error.
+(function() {
+    function _earlyToggle() {
+        var el = document.getElementById('kr-status');
+        if (el) el.textContent = 'ERROR: KineticRack script failed — check console';
+        console.error('[KineticRack] early-stub toggle fired — script did not finish loading.' +
+            ' Check for a JS error above this line.');
+    }
+    window.KineticRack = {
+        active:          false,
+        toggle:          _earlyToggle,
+        ctrlChange:      function() {},
+        setFM:           function() {},
+        setLFORate:      function() {},
+        midiLearn:       function() {},
+        toggleHelp:      function() {},
+        toggleRecording: function() {},
+        clearLoops:      function() {},
+    };
+})();
+
 const THREE = window.THREE; // loaded globally via CDN — no module bundler needed
 // ─────────────────────────────────────────────────────────────────────────────
 //  GLSL Shaders
@@ -73,14 +96,24 @@ class FFTParticles {
     constructor(scene) {
         this._scene       = scene;
         this._kickImpulse = 0;
+        this._mat         = null;
+        this._points      = null;
 
-        this._fftTexData = new Uint8Array(256 * 4);
-        this._fftTex     = new THREE.DataTexture(
-            this._fftTexData, 256, 1, THREE.RGBAFormat
+        this._fftTexData  = new Uint8Array(256 * 4);
+        // Use a safe DataTexture constructor compatible with THREE r128.
+        // r128 UMD: DataTexture(data, width, height, format, type, ...).
+        this._fftTex = new THREE.DataTexture(
+            this._fftTexData, 256, 1,
+            THREE.RGBAFormat || 1023,           // fallback constant
+            THREE.UnsignedByteType || 1009
         );
         this._fftTex.needsUpdate = true;
 
-        this._build();
+        try {
+            this._build();
+        } catch (e) {
+            console.warn('[FFTParticles] _build failed (non-fatal):', e);
+        }
     }
 
     _build() {
@@ -125,6 +158,7 @@ class FFTParticles {
     }
 
     update(fftData, elapsed, dt) {
+        if (!this._mat || !this._points) return; // _build may have failed
         for (let i = 0; i < 256; i++) {
             const v = Math.floor(fftData[i] * 255);
             this._fftTexData[i * 4]     = v;
@@ -149,10 +183,12 @@ class FFTParticles {
     }
 
     dispose() {
-        this._scene.remove(this._points);
-        this._points.geometry.dispose();
-        this._mat.dispose();
-        this._fftTex.dispose();
+        try {
+            if (this._points) this._scene.remove(this._points);
+            this._points?.geometry.dispose();
+            this._mat?.dispose();
+            this._fftTex?.dispose();
+        } catch (_) {}
     }
 }
 
