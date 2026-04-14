@@ -6,7 +6,7 @@
  * No NeuralComposer.js.
  */
 
-import * as THREE from 'three';
+const THREE = window.THREE; // loaded globally via CDN — no module bundler needed
 // ─────────────────────────────────────────────────────────────────────────────
 //  GLSL Shaders
 // ─────────────────────────────────────────────────────────────────────────────
