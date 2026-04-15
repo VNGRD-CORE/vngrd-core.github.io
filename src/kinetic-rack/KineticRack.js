@@ -258,7 +258,7 @@ class AudioCore {
         this._filter.Q.value         = 3;
 
         this._spatialGain = ctx.createGain();
-        this._spatialGain.gain.value = 0;  // MUTED until hand detected
+        this._spatialGain.gain.value = 0.3; // open by default; hands boost it
 
         this._filter.connect(this._spatialGain);
         this._spatialGain.connect(this._masterGain);
@@ -851,6 +851,19 @@ class KineticRack {
             }
             this._setStatus('CAM OK');
             console.log('[KineticRack] Phase 3: camera active');
+
+            // Phase 3.5 — kick off MediaPipe Pose tracking (loaded in <head>).
+            // _smPoseFeed() reads wrist landmarks and drives filter / FM / LFO.
+            // Small delay lets the video element settle before the Pose model reads it.
+            setTimeout(function() {
+                try {
+                    if (typeof window._startPoseTracking === 'function') {
+                        window._startPoseTracking();
+                        console.log('[KineticRack] Phase 3.5: pose tracking started');
+                    }
+                } catch (_) {}
+            }, 800);
+
         } catch (e) {
             console.warn('[KineticRack] Camera unavailable:', e);
             this._setStatus('NO CAM — AUDIO ONLY');
@@ -860,7 +873,7 @@ class KineticRack {
         try {
             await this._audio.start();
             this._setStatus('AUDIO OK');
-            console.log('[KineticRack] Phase 4: audio started (synth muted until hand detected)');
+            console.log('[KineticRack] Phase 4: audio started');
         } catch (e) {
             console.warn('[KineticRack] AudioCore failed:', e);
         }
@@ -1010,9 +1023,10 @@ class KineticRack {
         const leftLm  = this._latestLeftLm;
 
         // Right hand → pitch + filter via index fingertip (lm8)
+        // Audio is always on (gain 0.3 base); hand detection boosts and modulates.
         this._handMeshR?.update(rightLm);
         if (rightLm) {
-            this._audio.setSpatialGate(0.35);
+            this._audio.setSpatialGate(0.55); // boost when hand is visible
 
             const lm8 = rightLm[8];
             this._s.rightX += (lm8.x - this._s.rightX) * LERP_FACTOR;
@@ -1025,7 +1039,7 @@ class KineticRack {
 
             this._looper?.update(rightLm);
         } else {
-            this._audio.setSpatialGate(0);
+            // Don't mute — keep base gain so pose-driven _smPoseFeed stays audible
             this._looper?.update(null);
         }
 
