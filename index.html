@@ -5613,6 +5613,7 @@ body.fullscreen #transcription-hud { pointer-events: none !important; } /* keep 
 
                     <!-- ══ SPATIAL SYNTH ════════════════════════════════ -->
                     <div id="kr-rack">
+                        <canvas id="kr-skeleton-canvas" style="position:absolute; top:0; left:0; width:100%; height:100%; pointer-events:none; z-index:9999;"></canvas>
                         <button id="kr-launch-btn" onclick="window.KineticRack && KineticRack.toggle()">[ SPATIAL SYNTH ]</button>
                         <button class="kr-help-btn" onclick="window.KineticRack && KineticRack.toggleHelp()" title="How to play">?</button>
                         <div id="kr-status">OFFLINE</div>
@@ -21528,33 +21529,55 @@ function _applyPoseToModel(lm) {
 </script>
 
 <script>
-// ── _smPoseFeed — un-mirrored pose → KineticRack FM bridge ───────────────────
+// ── _smPoseFeed — Conductor Bridge ───────────────────────────────────────────
 // Called by _startPoseTracking() with results.poseLandmarks (33-point body pose).
 // MediaPipe Pose wrist indices: 16 = right wrist, 15 = left wrist (person frame).
 window._smPoseFeed = function(lm) {
-    if (!window.KineticRack || !window.KineticRack.active) return;
+    var rack = window.KineticRack;
+    if (!rack) return;
 
-    // UN-MIRROR: 1 - x ensures your physical right is the screen's right.
-    var rw = lm[16]; // viewer's right wrist
-    var lw = lm[15]; // viewer's left wrist
+    var rw = lm[16]; // viewer's right wrist (MediaPipe index 16)
+    var lw = lm[15]; // viewer's left wrist  (MediaPipe index 15)
     if (!rw || !lw) return;
 
-    var vRight = { x: 1 - rw.x, y: 1 - rw.y }; // Right Hand
-    var vLeft  = { x: 1 - lw.x, y: 1 - lw.y }; // Left Hand
-
-    // 1. Right Hand: Filter Sweep (X) and FM Grit (Y)
-    window.KineticRack.ctrlChange('filter', vRight.x);
-    if (window.KineticRack.setFM) window.KineticRack.setFM(vRight.y * 3000);
-
-    // 2. Left Hand: Wobble Speed (Y)
-    if (window.KineticRack.setLFORate) {
-        var speed = Math.pow(vLeft.y, 2) * 20;
-        window.KineticRack.setLFORate(speed);
+    // 1. DRAW SKELETON HUD — two wrist dots on the overlay canvas
+    var canvas = document.getElementById('kr-skeleton-canvas');
+    if (canvas && canvas.clientWidth > 0) {
+        var ctx = canvas.getContext('2d');
+        canvas.width  = canvas.clientWidth;
+        canvas.height = canvas.clientHeight;
+        ctx.clearRect(0, 0, canvas.width, canvas.height);
+        // [index, color]: right wrist = green, left wrist = purple
+        [[16, '#00FFCC'], [15, '#FF00CC']].forEach(function(pair) {
+            var p = lm[pair[0]];
+            if (!p) return;
+            ctx.fillStyle = pair[1];
+            ctx.beginPath();
+            // UN-MIRROR x so dot matches viewer perspective
+            ctx.arc((1 - p.x) * canvas.width, p.y * canvas.height, 15, 0, Math.PI * 2);
+            ctx.fill();
+        });
     }
 
-    // 3. UI SYNC: Force the sliders to move
+    // 2. UN-MIRRORED MAPPING — 1-x so physical right = screen right
+    var rWrist = { x: 1 - rw.x, y: 1 - rw.y }; // raised hand → y closer to 1
+    var lWrist = { x: 1 - lw.x, y: 1 - lw.y };
+
+    // 3. PRESENCE GATE — synth silent until right hand is raised (y > 0.3)
+    var isConducting = rWrist.y > 0.3;
+    var targetVol    = isConducting ? rWrist.y : 0;
+
+    // 4. CONDUCTING PARAMETERS
+    rack.ctrlChange('vol',    targetVol);   // right hand height = volume
+    rack.ctrlChange('filter', rWrist.x);   // right hand X      = filter sweep
+    if (rack.setFM)      rack.setFM(rWrist.y * 3000);             // right hand Y = FM grit
+    if (rack.setLFORate) rack.setLFORate(Math.pow(lWrist.y, 2) * 20); // left hand Y  = wobble
+
+    // 5. UI SLIDER SYNC
     var fSlider = document.querySelector('input[data-ctrl="filter"]');
-    if (fSlider) fSlider.value = vRight.x;
+    var vSlider = document.querySelector('input[data-ctrl="vol"]');
+    if (fSlider) fSlider.value = rWrist.x;
+    if (vSlider) vSlider.value = targetVol;
 };
 </script>
 
@@ -21581,7 +21604,7 @@ window._smPoseFeed = function(lm) {
 
 <script src="./src/synesthesia-voice-engine.js"></script>
 
-<script src="./src/kinetic-rack/KineticRack.js?v=5"></script>
+<script src="./src/kinetic-rack/KineticRack.js?v=6"></script>
 
 <!-- NLE seam controls are fully canvas-drawn (no DOM panel) -->
 
