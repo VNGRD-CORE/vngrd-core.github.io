@@ -753,6 +753,10 @@ class KineticRack {
         this._elapsed     = 0;
         this._lastNow     = 0;
 
+        // Self-contained MediaPipe Pose tracking
+        this._pose        = null;
+        this._poseRunning = false;
+
         // Smoothed gesture values
         this._s = {
             rightX: 0.5, rightY: 0.5,
@@ -852,16 +856,14 @@ class KineticRack {
             this._setStatus('CAM OK');
             console.log('[KineticRack] Phase 3: camera active');
 
-            // Phase 3.5 — kick off MediaPipe Pose tracking (loaded in <head>).
-            // _smPoseFeed() reads wrist landmarks and drives filter / FM / LFO.
-            // Small delay lets the video element settle before the Pose model reads it.
-            setTimeout(function() {
+            // Phase 3.5 — kick off self-contained MediaPipe Pose tracking.
+            // We target kr-ai-video directly so we never hit the wrong video element.
+            setTimeout(() => {
                 try {
-                    if (typeof window._startPoseTracking === 'function') {
-                        window._startPoseTracking();
-                        console.log('[KineticRack] Phase 3.5: pose tracking started');
-                    }
-                } catch (_) {}
+                    this._initPoseTracking();
+                } catch (e) {
+                    console.warn('[KineticRack] Phase 3.5: pose init failed:', e);
+                }
             }, 800);
 
         } catch (e) {
@@ -975,6 +977,65 @@ class KineticRack {
         }
     }
 
+    // ── Pose tracking ─────────────────────────────────────────────────────────
+
+    _initPoseTracking() {
+        // Guard: need global Pose class from @mediapipe/pose@0.5 loaded in <head>
+        if (typeof Pose === 'undefined') {
+            console.warn('[KineticRack] MediaPipe Pose not loaded — no pose tracking');
+            return;
+        }
+
+        const videoEl = document.getElementById('kr-ai-video');
+        if (!videoEl) {
+            console.warn('[KineticRack] #kr-ai-video not found');
+            return;
+        }
+        if (!videoEl.srcObject) {
+            console.warn('[KineticRack] #kr-ai-video has no srcObject — camera not streaming');
+            return;
+        }
+
+        if (this._poseRunning) return; // already running
+
+        this._pose = new Pose({
+            locateFile: (f) =>
+                'https://cdn.jsdelivr.net/npm/@mediapipe/pose@0.5.1675469404/' + f,
+        });
+
+        this._pose.setOptions({
+            modelComplexity:          1,
+            smoothLandmarks:          true,
+            minDetectionConfidence:   0.5,
+            minTrackingConfidence:    0.5,
+        });
+
+        this._pose.onResults((results) => {
+            if (results.poseLandmarks && typeof window._smPoseFeed === 'function') {
+                try { window._smPoseFeed(results.poseLandmarks); } catch (_) {}
+            }
+        });
+
+        this._poseRunning = true;
+        this._setStatus('POSE LIVE', true);
+        console.log('[KineticRack] Pose tracking ACTIVE on #kr-ai-video');
+
+        // Frame-send loop at ~12 fps — gentle on the CPU, enough for gesture control
+        const _tick = () => {
+            if (!this._active || !this._poseRunning || !this._pose) return;
+            if (videoEl.readyState >= 2) {
+                this._pose.send({ image: videoEl }).catch(() => {});
+            }
+            setTimeout(_tick, 80);
+        };
+        _tick();
+    }
+
+    _stopPoseTracking() {
+        this._poseRunning = false;
+        this._pose        = null;
+    }
+
     // ── Main loop ─────────────────────────────────────────────────────────────
 
     _loop() {
@@ -1072,6 +1133,7 @@ class KineticRack {
         if (this._active) {
             // Stop
             this._active = false;
+            this._stopPoseTracking();
             if (this._rafId) cancelAnimationFrame(this._rafId);
             if (this._mpWorker) { this._mpWorker.terminate(); this._mpWorker = null; this._mpWorkerReady = false; }
             document.getElementById('kinetic-canvas')?.classList.remove('kr-online');
