@@ -21540,44 +21540,14 @@ window._smPoseFeed = function(lm) {
     var lw = lm[15]; // viewer's left wrist  (MediaPipe index 15)
     if (!rw || !lw) return;
 
-    // 1. DRAW SKELETON HUD — two wrist dots on the overlay canvas
-    var canvas = document.getElementById('kr-skeleton-canvas');
-    if (canvas && canvas.clientWidth > 0) {
-        var ctx = canvas.getContext('2d');
-        canvas.width  = canvas.clientWidth;
-        canvas.height = canvas.clientHeight;
-        ctx.clearRect(0, 0, canvas.width, canvas.height);
-        // [index, color]: right wrist = green, left wrist = purple
-        [[16, '#00FFCC'], [15, '#FF00CC']].forEach(function(pair) {
-            var p = lm[pair[0]];
-            if (!p) return;
-            ctx.fillStyle = pair[1];
-            ctx.beginPath();
-            // UN-MIRROR x so dot matches viewer perspective
-            ctx.arc((1 - p.x) * canvas.width, p.y * canvas.height, 15, 0, Math.PI * 2);
-            ctx.fill();
-        });
-    }
+    // Body-pose drives FM grit and LFO wobble only.
+    // Volume, filter, pitch, and canvas HUD are now owned by
+    // the hand-landmark Performance Gate in _detectHands().
+    var rWrist = { y: 1 - rw.y }; // raised hand → y closer to 1
+    var lWrist = { y: 1 - lw.y };
 
-    // 2. UN-MIRRORED MAPPING — 1-x so physical right = screen right
-    var rWrist = { x: 1 - rw.x, y: 1 - rw.y }; // raised hand → y closer to 1
-    var lWrist = { x: 1 - lw.x, y: 1 - lw.y };
-
-    // 3. PRESENCE GATE — synth silent until right hand is raised (y > 0.3)
-    var isConducting = rWrist.y > 0.3;
-    var targetVol    = isConducting ? rWrist.y : 0;
-
-    // 4. CONDUCTING PARAMETERS
-    rack.ctrlChange('vol',    targetVol);   // right hand height = volume
-    rack.ctrlChange('filter', rWrist.x);   // right hand X      = filter sweep
-    if (rack.setFM)      rack.setFM(rWrist.y * 3000);             // right hand Y = FM grit
-    if (rack.setLFORate) rack.setLFORate(Math.pow(lWrist.y, 2) * 20); // left hand Y  = wobble
-
-    // 5. UI SLIDER SYNC
-    var fSlider = document.querySelector('input[data-ctrl="filter"]');
-    var vSlider = document.querySelector('input[data-ctrl="vol"]');
-    if (fSlider) fSlider.value = rWrist.x;
-    if (vSlider) vSlider.value = targetVol;
+    if (rack.setFM)      rack.setFM(rWrist.y * 3000);
+    if (rack.setLFORate) rack.setLFORate(Math.pow(lWrist.y, 2) * 20);
 };
 </script>
 
