@@ -5613,7 +5613,7 @@ body.fullscreen #transcription-hud { pointer-events: none !important; } /* keep 
 
                     <!-- ══ SPATIAL SYNTH ════════════════════════════════ -->
                     <div id="kr-rack">
-                        <canvas id="kr-skeleton-canvas" style="position:absolute; top:0; left:0; width:100%; height:100%; pointer-events:none; z-index:9999;"></canvas>
+                        <canvas id="kr-skeleton-canvas" style="position:fixed; top:0; left:0; width:100vw; height:100vh; pointer-events:none; z-index:9999;"></canvas>
                         <button id="kr-launch-btn" onclick="window.KineticRack && KineticRack.toggle()">[ SPATIAL SYNTH ]</button>
                         <button class="kr-help-btn" onclick="window.KineticRack && KineticRack.toggleHelp()" title="How to play">?</button>
                         <div id="kr-status">OFFLINE</div>
@@ -21604,7 +21604,7 @@ window._smPoseFeed = function(lm) {
 
 <script src="./src/synesthesia-voice-engine.js"></script>
 
-<script src="./src/kinetic-rack/KineticRack.js?v=6"></script>
+<script src="./src/kinetic-rack/KineticRack.js?v=7"></script>
 
 <!-- NLE seam controls are fully canvas-drawn (no DOM panel) -->
 
