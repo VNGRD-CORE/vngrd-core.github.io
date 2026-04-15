@@ -232,7 +232,7 @@ class AudioCore {
 
         // Master chain: masterGain → compressor → analyser → destination
         this._masterGain = ctx.createGain();
-        this._masterGain.gain.value = 0.7;
+        this._masterGain.gain.value = 0;
 
         const compressor = ctx.createDynamicsCompressor();
         compressor.threshold.value = -18;
@@ -258,7 +258,7 @@ class AudioCore {
         this._filter.Q.value         = 3;
 
         this._spatialGain = ctx.createGain();
-        this._spatialGain.gain.value = 0.3; // open by default; hands boost it
+        this._spatialGain.gain.value = 0;
 
         this._filter.connect(this._spatialGain);
         this._spatialGain.connect(this._masterGain);
@@ -1083,24 +1083,61 @@ class KineticRack {
         const rightLm = this._latestRightLm;
         const leftLm  = this._latestLeftLm;
 
-        // Right hand → pitch + filter via index fingertip (lm8)
-        // Audio is always on (gain 0.3 base); hand detection boosts and modulates.
-        this._handMeshR?.update(rightLm);
-        if (rightLm) {
-            this._audio.setSpatialGate(0.55); // boost when hand is visible
+        // Right hand → Performance Gate + pitch + filter via index fingertip (lm8)
+        const canvas = document.getElementById('kr-skeleton-canvas');
+        const ctx = canvas ? canvas.getContext('2d') : null;
 
-            const lm8 = rightLm[8];
-            this._s.rightX += (lm8.x - this._s.rightX) * LERP_FACTOR;
+        if (canvas && ctx) {
+            canvas.width = window.innerWidth;
+            canvas.height = window.innerHeight;
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+        }
+
+        this._handMeshR?.update(rightLm);
+
+        if (rightLm) {
+            const lm8 = rightLm[8]; // Index tip
+
+            // 1. UN-MIRRORED MAPPING (Viewer Perspective)
+            const unMirroredX = 1 - lm8.x;
+
+            // 2. SMOOTHING
+            this._s.rightX += (unMirroredX - this._s.rightX) * LERP_FACTOR;
             this._s.rightY += (lm8.y - this._s.rightY) * LERP_FACTOR;
 
-            const pitch  = 55 * Math.pow(16, this._s.rightX * 3);
-            const filter = 80 + this._s.rightY * 7920;
-            this._audio.setPitch(pitch);
-            this._audio.setFilter(filter);
+            // 3. THE GESTURE GATE
+            // Active zone: Hand must be physically raised (Y < 0.7 in MediaPipe space, which is top 70% of screen)
+            const isConducting = this._s.rightY < 0.7;
+
+            if (isConducting) {
+                // Boost volume based on how high the hand is
+                const volDrive = Math.max(0, (0.7 - this._s.rightY) * 1.5);
+                this._audio.setVolume(volDrive);
+                this._audio.setSpatialGate(0.55);
+
+                // Map X to filter or pitch as desired
+                const pitch = 55 * Math.pow(16, this._s.rightX * 3);
+                const filter = 80 + (1 - this._s.rightY) * 7920;
+                this._audio.setPitch(pitch);
+                this._audio.setFilter(filter);
+            } else {
+                // Drop volume to 0 if hand goes below the chest/waist
+                this._audio.setVolume(0);
+            }
+
+            // 4. DRAW 2D HUD INDICATOR
+            if (ctx) {
+                ctx.fillStyle = isConducting ? '#00FFCC' : '#FF0000'; // Green if playing, Red if gated
+                ctx.shadowBlur = 15; ctx.shadowColor = ctx.fillStyle;
+                ctx.beginPath();
+                ctx.arc(unMirroredX * canvas.width, lm8.y * canvas.height, 15, 0, Math.PI * 2);
+                ctx.fill();
+            }
 
             this._looper?.update(rightLm);
         } else {
-            // Don't mute — keep base gain so pose-driven _smPoseFeed stays audible
+            // If no hands detected, kill volume
+            this._audio.setVolume(0);
             this._looper?.update(null);
         }
 
