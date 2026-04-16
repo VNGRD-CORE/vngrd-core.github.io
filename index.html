@@ -21603,17 +21603,21 @@ function _applyPoseToModel(lm) {
 // MediaPipe Pose wrist indices: 16 = right wrist, 15 = left wrist (person frame).
 window._smPoseFeed = function(lm) {
     var rack = window.KineticRack;
-    if (!rack) return;
+    if (!rack || !rack.active) return;
+    if (!lm || lm.length < 17) return;
 
-    var rw = lm; // viewer's right wrist (MediaPipe index 16)
-    var lw = lm; // viewer's left wrist  (MediaPipe index 15)
+    // MediaPipe Pose: index 16 = right wrist, 15 = left wrist (person's own frame).
+    // Un-mirror X so viewer's physical right hand = right side of screen.
+    var rw = lm[16]; // right wrist
+    var lw = lm[15]; // left wrist
     if (!rw || !lw) return;
 
+    var rwX = 1 - rw.x; // un-mirrored right wrist X
+    var lwX = 1 - lw.x; // un-mirrored left wrist X
+
     // 1. HUD CANVAS RESIZE & CLEAR
-    // Uses bounding box to perfectly fit images to the screen layer
     var canvas = document.getElementById('kr-skeleton-canvas');
     var ctx = canvas ? canvas.getContext('2d') : null;
-
     if (canvas && ctx) {
         var rect = canvas.getBoundingClientRect();
         if (canvas.width !== rect.width || canvas.height !== rect.height) {
@@ -21623,45 +21627,39 @@ window._smPoseFeed = function(lm) {
         ctx.clearRect(0, 0, canvas.width, canvas.height);
     }
 
-    // 2. UN-MIRRORED MAPPING (Viewer Perspective)
-    var unMirroredX = 1 - rw.x;
-
-    // 3. THE PERFORMANCE GATE
+    // 2. PERFORMANCE GATE — right hand raised above waist activates synth
     var isConducting = rw.y < 0.7;
 
-    if (isConducting && rack._audio) {
-        var volDrive = Math.max(0, (0.7 - rw.y) * 2.0);
-        rack._audio.setVolume(Math.min(volDrive, 1.0));
-        rack._audio.setSpatialGate(0.55);
-        
-        var pitch = 55 * Math.pow(16, unMirroredX * 3);
-        var filter = 80 + (1 - rw.y) * 7920;
-        rack._audio.setPitch(pitch);
-        rack._audio.setFilter(filter);
-    } else if (rack._audio) {
-        rack._audio.setVolume(0);
+    if (isConducting) {
+        var volDrive = Math.min(1.0, Math.max(0, (0.7 - rw.y) * 2.0));
+        rack.ctrlChange('vol',    volDrive);
+        rack.ctrlChange('filter', rwX);
+    } else {
+        rack.ctrlChange('vol', 0);
     }
 
-    // Preserve the original FM/LFO mappings for body movement
-    var rWristNorm = 1 - rw.y;
-    var lWristNorm = 1 - lw.y;
-    if (rack.setFM) rack.setFM(rWristNorm * 3000);
-    if (rack.setLFORate) rack.setLFORate(Math.pow(lWristNorm, 2) * 20);
+    // 3. FM GRIT (right wrist height) + LFO WOBBLE (left wrist height)
+    if (rack.setFM)      rack.setFM((1 - rw.y) * 3000);
+    if (rack.setLFORate) rack.setLFORate(Math.pow(Math.max(0, 1 - lw.y), 2) * 20);
 
-    // 4. DRAW SKELETON HUD
+    // 4. SPATIAL PAN (right wrist X)
+    if (rack._ae) rack._ae.setSpatialPan(rwX);
+
+    // 5. DRAW SKELETON HUD
     if (ctx) {
-        // Right Wrist (Gate Control - Cyan when active, Red when muted)
-        ctx.fillStyle = isConducting ? '#00FFCC' : '#FF0000';
-        ctx.shadowBlur = 15; ctx.shadowColor = ctx.fillStyle;
-        ctx.beginPath();
-        ctx.arc(unMirroredX * canvas.width, rw.y * canvas.height, 15, 0, Math.PI * 2);
-        ctx.fill();
-
-        // Left Wrist (Purple LFO anchor)
-        ctx.fillStyle = '#FF00CC';
+        // Right wrist — cyan when active, red when muted
+        ctx.shadowBlur = 15;
+        ctx.fillStyle  = isConducting ? '#00FFCC' : '#FF0000';
         ctx.shadowColor = ctx.fillStyle;
         ctx.beginPath();
-        ctx.arc((1 - lw.x) * canvas.width, lw.y * canvas.height, 15, 0, Math.PI * 2);
+        ctx.arc(rwX * canvas.width, rw.y * canvas.height, 15, 0, Math.PI * 2);
+        ctx.fill();
+
+        // Left wrist — purple LFO anchor
+        ctx.fillStyle  = '#FF00CC';
+        ctx.shadowColor = ctx.fillStyle;
+        ctx.beginPath();
+        ctx.arc(lwX * canvas.width, lw.y * canvas.height, 15, 0, Math.PI * 2);
         ctx.fill();
     }
 };
@@ -21690,7 +21688,7 @@ window._smPoseFeed = function(lm) {
 
 <script src="./src/synesthesia-voice-engine.js"></script>
 
-<script src="./src/kinetic-rack/KineticRack.js?v=7"></script>
+<script type="module" src="./src/kinetic-rack/KineticRack.js?v=7"></script>
 
 <!-- NLE seam controls are fully canvas-drawn (no DOM panel) -->
 
