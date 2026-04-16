@@ -789,42 +789,73 @@
 
         #ghost-terminal {
             position: fixed; bottom: 70px; right: 210px;
-            width: 340px; height: 240px;
-            background: rgba(2,8,12,0.97);
-            border: 1px solid var(--c);
+            width: 280px;
+            background: rgba(2,8,12,0.82);
+            border: 1px solid rgba(0,243,255,0.18);
             z-index: 6000; font-family: 'JetBrains Mono', monospace; font-size: 10px;
             display: none; flex-direction: column;
-            box-shadow: 0 0 24px rgba(0,243,255,0.10), 0 0 1px var(--c) inset;
+            box-shadow: 0 4px 18px rgba(0,0,0,0.45);
+            transition: box-shadow 0.3s ease, border-color 0.3s ease, background 0.3s ease;
+            border-radius: 2px;
         }
         #ghost-terminal.active { display: flex; }
+        /* Expanded: header + body revealed */
+        #ghost-terminal.expanded {
+            border-color: rgba(0,243,255,0.32);
+            background: rgba(2,8,12,0.94);
+            box-shadow: 0 0 28px rgba(0,243,255,0.12), 0 6px 24px rgba(0,0,0,0.6);
+        }
+        /* Header — collapsed by default, slides in when expanded */
         #ghost-terminal-header {
             display: flex; justify-content: space-between; align-items: center;
-            padding: 6px 10px; flex-shrink: 0; overflow: hidden;
+            padding: 0 10px; flex-shrink: 0; overflow: hidden;
+            max-height: 0; opacity: 0;
             background: linear-gradient(90deg, rgba(0,243,255,0.09) 0%, rgba(0,243,255,0.03) 100%);
-            border-bottom: 1px solid rgba(0,243,255,0.15);
+            border-bottom: 1px solid rgba(0,243,255,0.0);
+            transition: max-height 0.28s ease, opacity 0.22s ease, padding 0.28s ease, border-color 0.28s ease;
+        }
+        #ghost-terminal.expanded #ghost-terminal-header {
+            max-height: 38px; opacity: 1; padding: 5px 10px;
+            border-bottom-color: rgba(0,243,255,0.15);
         }
         #ghost-terminal-title {
-            font-family: 'Orbitron', sans-serif; font-size: 9px; letter-spacing: 2px;
-            color: var(--c); white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+            font-family: 'Orbitron', sans-serif; font-size: 8px; letter-spacing: 2px;
+            color: rgba(0,243,255,0.7); white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
             min-width: 0; flex: 1; padding-right: 8px;
         }
         #ghost-terminal-controls { display: flex; align-items: center; gap: 5px; flex-shrink: 0; }
-        #ghost-terminal-status { font-size: 7px; color: var(--g); letter-spacing: 1px; opacity: 0.85; }
-        #ghost-terminal-body { flex: 1; padding: 8px 10px; overflow-y: auto; scrollbar-width: none; }
+        #ghost-terminal-status { font-size: 7px; color: var(--g); letter-spacing: 1px; opacity: 0.7; }
+        /* Body — collapsed by default */
+        #ghost-terminal-body {
+            padding: 0 10px; overflow-y: auto; scrollbar-width: none;
+            max-height: 0; opacity: 0;
+            transition: max-height 0.32s ease, opacity 0.25s ease, padding 0.28s ease;
+        }
+        #ghost-terminal.expanded #ghost-terminal-body {
+            max-height: 148px; opacity: 1; padding: 7px 10px;
+        }
         .ghost-log { margin-bottom: 3px; line-height: 1.4; font-size: 9px; }
-        .ghost-log .ts { color: rgba(255,255,255,0.25); margin-right: 5px; font-size: 8px; }
+        .ghost-log .ts { color: rgba(255,255,255,0.2); margin-right: 5px; font-size: 8px; }
         .ghost-log .ai { color: var(--accent); }
-        .ghost-log .cmd { color: rgba(255,255,255,0.55); }
-        .ghost-log .user { color: #fff; }
+        .ghost-log .cmd { color: rgba(255,255,255,0.5); }
+        .ghost-log .user { color: rgba(255,255,255,0.9); }
         .ghost-log .crit { color: var(--r); }
         .ghost-log .success { color: var(--g); }
+        /* Input bar — always visible, styled as a minimal prompt */
         #ghost-input-line {
             display: flex; align-items: center;
-            border-top: 1px solid rgba(0,243,255,0.12);
-            padding: 6px 10px; background: rgba(0,0,0,0.25); flex-shrink: 0;
+            border-top: 1px solid rgba(0,243,255,0.0);
+            padding: 7px 10px; background: transparent; flex-shrink: 0;
+            transition: border-color 0.28s ease, background 0.28s ease;
         }
-        #ghost-prompt { color: var(--accent); margin-right: 7px; font-size: 9px; font-weight: 700; letter-spacing: 1px; opacity: 0.9; }
+        #ghost-terminal.expanded #ghost-input-line {
+            border-top-color: rgba(0,243,255,0.12);
+            background: rgba(0,0,0,0.18);
+        }
+        #ghost-prompt { color: rgba(0,243,255,0.6); margin-right: 7px; font-size: 9px; font-weight: 700; letter-spacing: 1px; transition: color 0.2s ease; }
+        #ghost-terminal.expanded #ghost-prompt { color: var(--accent); }
         #ghost-input { background: transparent; border: none; color: #fff; flex: 1; font-family: 'JetBrains Mono', monospace; font-size: 10px; outline: none; }
+        #ghost-input::placeholder { color: rgba(255,255,255,0.2); }
 
         /* ── PODCAST TRAY ── */
         #podcast-tray {
@@ -2458,44 +2489,43 @@
         #gb-seq-panel.expanded .ht-col-num  { font-size: 8px; }
         #gb-seq-panel.expanded .ht-col-header { padding-left: 52px; padding-right: 62px; }
 
-        /* ── GHOST TERMINAL — beautiful HUD corner edges ── */
+        /* ── GHOST TERMINAL — HUD corner edges (expanded state only) ── */
         #ghost-terminal {
+            border-top: 1px solid rgba(0,243,255,0.18) !important;
+            border-radius: 2px !important;
+        }
+        #ghost-terminal.expanded {
             border-top: 2px solid var(--c) !important;
             border-radius: 0 !important;
         }
-        #ghost-terminal::before,
-        #ghost-terminal::after {
+        #ghost-terminal.expanded::before,
+        #ghost-terminal.expanded::after {
             content: '';
             position: absolute;
             width: 10px; height: 10px;
             z-index: 2; pointer-events: none;
         }
-        #ghost-terminal::before {
+        #ghost-terminal.expanded::before {
             top: -2px; left: -1px;
-            border-top: 2px solid rgba(255,255,255,0.35);
-            border-left: 2px solid rgba(255,255,255,0.35);
+            border-top: 2px solid rgba(255,255,255,0.28);
+            border-left: 2px solid rgba(255,255,255,0.28);
         }
-        #ghost-terminal::after {
+        #ghost-terminal.expanded::after {
             top: -2px; right: -1px;
-            border-top: 2px solid rgba(255,255,255,0.35);
-            border-right: 2px solid rgba(255,255,255,0.35);
+            border-top: 2px solid rgba(255,255,255,0.28);
+            border-right: 2px solid rgba(255,255,255,0.28);
         }
         #ghost-terminal-header {
             position: relative;
-            background: linear-gradient(135deg,
-                rgba(0,243,255,0.15) 0%,
-                rgba(0,243,255,0.06) 40%,
-                rgba(0,243,255,0.02) 100%) !important;
-            border-bottom: 1px solid rgba(0,243,255,0.3) !important;
             overflow: hidden;
         }
-        /* Animated scan line in header */
-        #ghost-terminal-header::after {
+        /* Animated scan line — only visible when expanded */
+        #ghost-terminal.expanded #ghost-terminal-header::after {
             content: '';
             position: absolute;
             bottom: 0; left: -60%;
             width: 50%; height: 1px;
-            background: linear-gradient(90deg, transparent 0%, rgba(0,243,255,0.7) 50%, transparent 100%);
+            background: linear-gradient(90deg, transparent 0%, rgba(0,243,255,0.6) 50%, transparent 100%);
             animation: ghost-header-scan 4s linear infinite;
             pointer-events: none;
         }
@@ -3132,12 +3162,15 @@ body.shooting-mode #btn-shooting {
             z-index: -1;
         }
 
-        /* Ghost terminal: rain to mobile viewport + visible close button */
+        /* Ghost terminal: mobile viewport + visible close button */
         #ghost-terminal {
             left: 10px !important; right: 10px !important;
             bottom: 50px !important;
             width: auto !important; max-width: none !important;
-            height: 180px !important; max-height: 40vh !important;
+            height: auto !important; max-height: none !important;
+        }
+        #ghost-terminal.expanded #ghost-terminal-body {
+            max-height: 30vh !important;
         }
         #ghost-close-btn { display: block !important; }
         #btn-ghost-mic.on { color: var(--accent) !important; border-color: var(--accent) !important; background: rgba(0,243,255,0.08) !important; box-shadow: 0 0 8px rgba(0,243,255,0.5), 0 0 0 1px rgba(0,243,255,0.25) !important; text-shadow: 0 0 6px var(--accent); animation: mic-pulse 1.4s ease-in-out infinite; }
@@ -6100,7 +6133,19 @@ function ghostLog(msg, type = 'cmd') {
         if (now - _ghostSysLastAt < 5000 && type === 'cmd') return;
         _ghostSysLastAt = now;
     }
+    const term = $('ghost-terminal');
     const body = $('ghost-terminal-body');
+    // Expand to show message, then auto-collapse if input stays empty
+    if (term && term.classList.contains('active')) {
+        clearTimeout(window._ghostCollapseTimer);
+        term.classList.add('expanded');
+        window._ghostCollapseTimer = setTimeout(function() {
+            var inp = $('ghost-input');
+            if (inp && !inp.value.trim() && document.activeElement !== inp) {
+                term.classList.remove('expanded');
+            }
+        }, type === 'ai' ? 9000 : 5000);
+    }
     const ts = new Date().toTimeString().split(' ')[0].substring(0, 5);
     const line = document.createElement('div');
     line.className = 'ghost-log';
@@ -6131,8 +6176,9 @@ function toggleGhost() {
     const term = $('ghost-terminal');
     const isActive = term.classList.contains('active');
     if (isActive) {
-        term.classList.remove('active');
+        term.classList.remove('active', 'expanded');
         term.style.display = '';
+        clearTimeout(window._ghostCollapseTimer);
     } else {
         term.style.display = 'flex';
         term.classList.add('active');
@@ -6144,6 +6190,33 @@ $('ghost-input').addEventListener('keydown', e => {
     if (e.key === 'Escape') { e.preventDefault(); toggleGhost(); return; }
     if ((e.key === 'g' || e.key === 'G') && e.target.value === '') { e.preventDefault(); toggleGhost(); return; }
     if (e.key === 'Enter') { const val = e.target.value.trim(); if (val) processGhostCommand(val); e.target.value = ''; }
+});
+
+// ── Ghost HUD expand/collapse on typing ──
+window._ghostCollapseTimer = null;
+function _ghostScheduleCollapse(delay) {
+    clearTimeout(window._ghostCollapseTimer);
+    window._ghostCollapseTimer = setTimeout(function() {
+        var inp = $('ghost-input');
+        if (inp && !inp.value.trim() && document.activeElement !== inp) {
+            $('ghost-terminal').classList.remove('expanded');
+        }
+    }, delay || 6000);
+}
+$('ghost-input').addEventListener('input', function() {
+    var term = $('ghost-terminal');
+    clearTimeout(window._ghostCollapseTimer);
+    if (this.value.trim()) {
+        term.classList.add('expanded');
+    } else {
+        _ghostScheduleCollapse(3000);
+    }
+});
+$('ghost-input').addEventListener('focus', function() {
+    clearTimeout(window._ghostCollapseTimer);
+});
+$('ghost-input').addEventListener('blur', function() {
+    if (!this.value.trim()) _ghostScheduleCollapse(4000);
 });
 
 // ═══════════════════════════════════════════════════════════════
@@ -6968,7 +7041,7 @@ function ghostStartupSequence() {
     var term = $('ghost-terminal');
     if (!term) return;
 
-    // Show terminal automatically
+    // Show terminal in compact mode (input bar only — no forced expand)
     term.style.display = 'flex';
     term.classList.add('active');
 
@@ -6976,8 +7049,8 @@ function ghostStartupSequence() {
     var hour = ctx.hour;
     var greeting = hour < 12 ? 'Good morning' : hour < 18 ? 'Good afternoon' : 'Good evening';
 
-    setTimeout(function() { ghostLog(greeting + ' — GHOST online. Ask anything or type "help".', 'ai'); }, 400);
-    setTimeout(function() { ghostLog(GHOST.getTip(), 'ai'); }, 6000);
+    // Log silently to body; ghostLog will expand briefly, then auto-collapse
+    setTimeout(function() { ghostLog(greeting + ' — GHOST online.', 'ai'); }, 800);
 
     // Start idle tip cycle
     resetGhostIdleTimer();
