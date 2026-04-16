@@ -21435,10 +21435,6 @@ if (document.readyState !== 'loading') { _vbWireButtons(); }
 })();
 </script>
 
-<!-- ═══════════════════════════════════════════════════════════════════
-     MEDIAPIPE POSE — 3D body-tracking anchor for SPECTRAL_MOSH + GLB rigging
-     Landmarks streamed to VB canvas shader and (if GLB loaded) skeleton
-     ═══════════════════════════════════════════════════════════════════ -->
 <script>
 (function() {
 'use strict';
@@ -21511,12 +21507,12 @@ function _applyPoseToModel(lm) {
         var name = obj.name.toLowerCase();
         // Shoulders
         if (name.includes('leftshoulder') || name.includes('shoulder_l')) {
-            var l = lm[11]; if (l) obj.rotation.z = (l.y - 0.5) * 1.2;
+            var l = lm; if (l) obj.rotation.z = (l.y - 0.5) * 1.2;
         } else if (name.includes('rightshoulder') || name.includes('shoulder_r')) {
-            var r = lm[12]; if (r) obj.rotation.z = -(r.y - 0.5) * 1.2;
+            var r = lm; if (r) obj.rotation.z = -(r.y - 0.5) * 1.2;
         // Spine / hips
         } else if (name.includes('spine') || name.includes('pelvis') || name.includes('hips')) {
-            var lhip = lm[23], rhip = lm[24];
+            var lhip = lm, rhip = lm;
             if (lhip && rhip) {
                 obj.rotation.y = (lhip.x - rhip.x) * 1.5;
                 obj.rotation.x = ((lhip.y + rhip.y) * 0.5 - 0.5) * 0.8;
@@ -21536,18 +21532,65 @@ window._smPoseFeed = function(lm) {
     var rack = window.KineticRack;
     if (!rack) return;
 
-    var rw = lm[16]; // viewer's right wrist (MediaPipe index 16)
-    var lw = lm[15]; // viewer's left wrist  (MediaPipe index 15)
+    var rw = lm; // viewer's right wrist (MediaPipe index 16)
+    var lw = lm; // viewer's left wrist  (MediaPipe index 15)
     if (!rw || !lw) return;
 
-    // Body-pose drives FM grit and LFO wobble only.
-    // Volume, filter, pitch, and canvas HUD are now owned by
-    // the hand-landmark Performance Gate in _detectHands().
-    var rWrist = { y: 1 - rw.y }; // raised hand → y closer to 1
-    var lWrist = { y: 1 - lw.y };
+    // 1. HUD CANVAS RESIZE & CLEAR
+    // Uses bounding box to perfectly fit images to the screen layer
+    var canvas = document.getElementById('kr-skeleton-canvas');
+    var ctx = canvas ? canvas.getContext('2d') : null;
 
-    if (rack.setFM)      rack.setFM(rWrist.y * 3000);
-    if (rack.setLFORate) rack.setLFORate(Math.pow(lWrist.y, 2) * 20);
+    if (canvas && ctx) {
+        var rect = canvas.getBoundingClientRect();
+        if (canvas.width !== rect.width || canvas.height !== rect.height) {
+            canvas.width = rect.width;
+            canvas.height = rect.height;
+        }
+        ctx.clearRect(0, 0, canvas.width, canvas.height);
+    }
+
+    // 2. UN-MIRRORED MAPPING (Viewer Perspective)
+    var unMirroredX = 1 - rw.x;
+
+    // 3. THE PERFORMANCE GATE
+    var isConducting = rw.y < 0.7;
+
+    if (isConducting && rack._audio) {
+        var volDrive = Math.max(0, (0.7 - rw.y) * 2.0);
+        rack._audio.setVolume(Math.min(volDrive, 1.0));
+        rack._audio.setSpatialGate(0.55);
+        
+        var pitch = 55 * Math.pow(16, unMirroredX * 3);
+        var filter = 80 + (1 - rw.y) * 7920;
+        rack._audio.setPitch(pitch);
+        rack._audio.setFilter(filter);
+    } else if (rack._audio) {
+        rack._audio.setVolume(0);
+    }
+
+    // Preserve the original FM/LFO mappings for body movement
+    var rWristNorm = 1 - rw.y;
+    var lWristNorm = 1 - lw.y;
+    if (rack.setFM) rack.setFM(rWristNorm * 3000);
+    if (rack.setLFORate) rack.setLFORate(Math.pow(lWristNorm, 2) * 20);
+
+    // 4. DRAW SKELETON HUD
+    if (ctx) {
+        // Right Wrist (Gate Control - Cyan when active, Red when muted)
+        ctx.fillStyle = isConducting ? '#00FFCC' : '#FF0000';
+        ctx.shadowBlur = 15; ctx.shadowColor = ctx.fillStyle;
+        ctx.beginPath();
+        ctx.arc(unMirroredX * canvas.width, rw.y * canvas.height, 15, 0, Math.PI * 2);
+        ctx.fill();
+
+        // Left Wrist (Purple LFO anchor)
+        ctx.fillStyle = '#FF00CC';
+        ctx.shadowColor = ctx.fillStyle;
+        ctx.beginPath();
+        ctx.arc((1 - lw.x) * canvas.width, lw.y * canvas.height, 15, 0, Math.PI * 2);
+        ctx.fill();
+    }
 };
 </script>
 
