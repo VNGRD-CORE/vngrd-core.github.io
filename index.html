@@ -16,7 +16,6 @@
 <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/loaders/OBJLoader.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/loaders/STLLoader.js"></script>
 <script src="https://unpkg.com/peerjs@1.5.2/dist/peerjs.min.js"></script>
-<script src="https://cdn.jsdelivr.net/npm/@mediapipe/pose@0.5.1675469404/pose.js" crossorigin="anonymous"></script>
 <script src="https://unpkg.com/tone@14.8.49/build/Tone.js" crossorigin="anonymous"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/ethers/5.7.2/ethers.umd.min.js"></script>
 <script src="https://js.puter.com/v2/"></script>
@@ -21475,8 +21474,6 @@ function _vbHandleClick(btn) {
         if (_vbBurstTimer) { clearTimeout(_vbBurstTimer); _vbBurstTimer = null; }
         _vbActivate(shaderName, true);
         log('VB_LOCK: ' + shaderName);
-        // If SPECTRAL_MOSH locked, start pose tracking
-        if (shaderName === 'SPECTRAL_MOSH') _startPoseTracking();
     } else {
         // Single-click: 3-second burst — show active-fx while running
         if (_vbBurstTimer) clearTimeout(_vbBurstTimer);
@@ -21508,160 +21505,101 @@ if (document.readyState !== 'loading') { _vbWireButtons(); }
 })();
 </script>
 
-<script>
-(function() {
-'use strict';
-
-var _pose = null;
-var _poseRunning = false;
-var _poseCanvas = null;  // Offscreen 2D canvas for landmark drawing
-var _poseCtx = null;
-var _landmarks = null;
-
-window._startPoseTracking = function() {
-    if (_poseRunning) return;
-    if (typeof Pose === 'undefined') { log('SPECTRAL_MOSH: MediaPipe not loaded'); return; }
-
-    // Use existing camera stream if available
-    var videoEl = document.getElementById('cam-preview') || document.querySelector('video');
-    if (!videoEl || !videoEl.srcObject) {
-        log('SPECTRAL_MOSH: No camera stream — start camera first');
-        return;
-    }
-
-    _pose = new Pose({ locateFile: function(f) {
-        return 'https://cdn.jsdelivr.net/npm/@mediapipe/pose@0.5.1675469404/' + f;
-    }});
-    _pose.setOptions({ modelComplexity: 1, smoothLandmarks: true, minDetectionConfidence: 0.5, minTrackingConfidence: 0.5 });
-    _pose.onResults(function(results) {
-        _landmarks = results.poseLandmarks;
-        // If a 3D model is loaded, attempt bone mapping
-        if (_landmarks && window._3D && window._3D.model) _applyPoseToModel(_landmarks);
-        // Pipe landmarks into Spatial Matrix if active
-        if (_landmarks && window._smPoseFeed) window._smPoseFeed(_landmarks);
-    });
-
-    _poseRunning = true;
-    log('SPECTRAL_MOSH: Pose tracking ACTIVE');
-
-    // Feed frames — prefer MediaPipe Camera utility for reliability
-    if (typeof Camera !== 'undefined') {
-        var _mpCam = new Camera(videoEl, {
-            onFrame: async function() {
-                if (_poseRunning && _pose) await _pose.send({ image: videoEl });
-            },
-            width: 640,
-            height: 480
-        });
-        _mpCam.start();
-    } else {
-        // Fallback: setTimeout polling at ~12fps
-        (function _sendFrame() {
-            if (!_poseRunning || !_pose) return;
-            if (videoEl.readyState >= 2) _pose.send({ image: videoEl }).catch(function(){});
-            setTimeout(_sendFrame, 80);
-        })();
-    }
-};
-
-window._stopPoseTracking = function() {
-    _poseRunning = false;
-    _landmarks = null;
-    log('SPECTRAL_MOSH: Pose tracking STOPPED');
-};
-
-// ── Bone mapping: MediaPipe → Three.js skeleton ───────────────────────
-// Maps shoulder/hip/spine landmarks to model bones if they exist
-function _applyPoseToModel(lm) {
-    var model = window._3D && window._3D.model;
-    if (!model || typeof THREE === 'undefined') return;
-    model.traverse(function(obj) {
-        if (!obj.isBone) return;
-        var name = obj.name.toLowerCase();
-        // Shoulders
-        if (name.includes('leftshoulder') || name.includes('shoulder_l')) {
-            var l = lm; if (l) obj.rotation.z = (l.y - 0.5) * 1.2;
-        } else if (name.includes('rightshoulder') || name.includes('shoulder_r')) {
-            var r = lm; if (r) obj.rotation.z = -(r.y - 0.5) * 1.2;
-        // Spine / hips
-        } else if (name.includes('spine') || name.includes('pelvis') || name.includes('hips')) {
-            var lhip = lm, rhip = lm;
-            if (lhip && rhip) {
-                obj.rotation.y = (lhip.x - rhip.x) * 1.5;
-                obj.rotation.x = ((lhip.y + rhip.y) * 0.5 - 0.5) * 0.8;
-            }
-        }
-    });
-}
-
-})();
-</script>
 
 <script>
-// ── _smPoseFeed — Conductor Bridge ───────────────────────────────────────────
-// Called by _startPoseTracking() with results.poseLandmarks (33-point body pose).
-// MediaPipe Pose wrist indices: 16 = right wrist, 15 = left wrist (person frame).
-window._smPoseFeed = function(lm) {
+// ── _handTrackFeed — X/Y Synth Pad Engine ─────────────────────────────────────
+// Called by KineticRack._detectHands() with live 21-point hand landmarks.
+// Right Hand lm[8] (index fingertip): X → Pitch 100-1200Hz, Y → Filter 200-8000Hz.
+// Performance gate: vol=0.7 when hand detected, vol=0 when lost.
+window._handTrackFeed = function(rightLm, leftLm) {
     var rack = window.KineticRack;
     if (!rack || !rack.active) return;
-    if (!lm || lm.length < 17) return;
 
-    // MediaPipe Pose: index 16 = right wrist, 15 = left wrist (person's own frame).
-    // Un-mirror X so viewer's physical right hand = right side of screen.
-    var rw = lm[16]; // right wrist
-    var lw = lm[15]; // left wrist
-    if (!rw || !lw) return;
-
-    var rwX = 1 - rw.x; // un-mirrored right wrist X
-    var lwX = 1 - lw.x; // un-mirrored left wrist X
-
-    // 1. HUD CANVAS RESIZE & CLEAR
     var canvas = document.getElementById('kr-skeleton-canvas');
-    var ctx = canvas ? canvas.getContext('2d') : null;
+    var ctx    = canvas ? canvas.getContext('2d') : null;
+
+    // ── 1. RESIZE + CLEAR HUD ────────────────────────────────────────────────
     if (canvas && ctx) {
         var rect = canvas.getBoundingClientRect();
         if (canvas.width !== rect.width || canvas.height !== rect.height) {
-            canvas.width = rect.width;
+            canvas.width  = rect.width;
             canvas.height = rect.height;
         }
         ctx.clearRect(0, 0, canvas.width, canvas.height);
     }
 
-    // 2. PERFORMANCE GATE — right hand raised above waist activates synth
-    var isConducting = rw.y < 0.7;
-
-    if (isConducting) {
-        var volDrive = Math.min(1.0, Math.max(0, (0.7 - rw.y) * 2.0));
-        rack.ctrlChange('vol',    volDrive);
-        rack.ctrlChange('filter', rwX);
-    } else {
+    // ── 2. PERFORMANCE GATE ──────────────────────────────────────────────────
+    if (!rightLm) {
         rack.ctrlChange('vol', 0);
+        var vs = document.querySelector('[data-ctrl="vol"]');
+        if (vs) vs.value = 0;
+        return;
     }
 
-    // 3. FM GRIT (right wrist height) + LFO WOBBLE (left wrist height)
-    if (rack.setFM)      rack.setFM((1 - rw.y) * 3000);
-    if (rack.setLFORate) rack.setLFORate(Math.pow(Math.max(0, 1 - lw.y), 2) * 20);
+    var lm8 = rightLm[8]; // index fingertip
 
-    // 4. SPATIAL PAN (right wrist X)
-    if (rack._ae) rack._ae.setSpatialPan(rwX);
+    // ── 3. X/Y → PITCH + FILTER ─────────────────────────────────────────────
+    // MediaPipe X=0 is camera-left; un-mirror so viewer's right → higher value
+    var xNorm = Math.max(0, Math.min(1, 1 - lm8.x));
+    // Y=0 is top of frame; invert so hand-up = higher value
+    var yNorm = Math.max(0, Math.min(1, 1 - lm8.y));
 
-    // 5. DRAW SKELETON HUD
-    if (ctx) {
-        // Right wrist — cyan when active, red when muted
-        ctx.shadowBlur = 15;
-        ctx.fillStyle  = isConducting ? '#00FFCC' : '#FF0000';
-        ctx.shadowColor = ctx.fillStyle;
+    // Pitch: 100–1200 Hz (linear) via ctrlChange 'pitch' key
+    rack.ctrlChange('pitch', xNorm);
+
+    // Filter: 200–8000 Hz — normalize into ctrlChange 0-1 range (maps to 80+v*7920)
+    var filterHz   = 200 + yNorm * 7800;
+    var filterNorm = (filterHz - 80) / 7920;
+    rack.ctrlChange('filter', filterNorm);
+
+    // ── 4. PERFORMANCE GATE ON ───────────────────────────────────────────────
+    rack.ctrlChange('vol', 0.7);
+
+    // ── 5. SYNC SLIDERS 1:1 ─────────────────────────────────────────────────
+    var volSlider  = document.querySelector('[data-ctrl="vol"]');
+    var filtSlider = document.querySelector('[data-ctrl="filter"]');
+    if (volSlider)  volSlider.value  = 0.7;
+    if (filtSlider) filtSlider.value = filterNorm.toFixed(3);
+
+    // ── 6. DRAW 21-POINT SKELETON HUD ───────────────────────────────────────
+    if (!ctx) return;
+    var W = canvas.width, H = canvas.height;
+
+    var CONNECTIONS = [
+        [0,1],[1,2],[2,3],[3,4],
+        [0,5],[5,6],[6,7],[7,8],
+        [5,9],[9,10],[10,11],[11,12],
+        [9,13],[13,14],[14,15],[15,16],
+        [13,17],[17,18],[18,19],[19,20],
+        [0,17]
+    ];
+
+    ctx.save();
+    ctx.strokeStyle = 'rgba(0,243,255,0.45)';
+    ctx.lineWidth   = 1.5;
+    ctx.shadowBlur  = 0;
+    for (var c = 0; c < CONNECTIONS.length; c++) {
+        var a = rightLm[CONNECTIONS[c][0]];
+        var b = rightLm[CONNECTIONS[c][1]];
+        if (!a || !b) continue;
         ctx.beginPath();
-        ctx.arc(rwX * canvas.width, rw.y * canvas.height, 15, 0, Math.PI * 2);
-        ctx.fill();
+        ctx.moveTo((1 - a.x) * W, a.y * H);
+        ctx.lineTo((1 - b.x) * W, b.y * H);
+        ctx.stroke();
+    }
 
-        // Left wrist — purple LFO anchor
-        ctx.fillStyle  = '#FF00CC';
+    for (var i = 0; i < 21; i++) {
+        var lm = rightLm[i];
+        if (!lm) continue;
+        var isTarget = (i === 8);
+        ctx.fillStyle   = isTarget ? '#00FFCC' : 'rgba(0,243,255,0.75)';
         ctx.shadowColor = ctx.fillStyle;
+        ctx.shadowBlur  = isTarget ? 12 : 4;
         ctx.beginPath();
-        ctx.arc(lwX * canvas.width, lw.y * canvas.height, 15, 0, Math.PI * 2);
+        ctx.arc((1 - lm.x) * W, lm.y * H, isTarget ? 9 : 3, 0, Math.PI * 2);
         ctx.fill();
     }
+    ctx.restore();
 };
 </script>
 
