@@ -6,6 +6,14 @@
  * No NeuralComposer.js.
  */
 
+// ── MAIN IIFE — keeps every class/const/function out of global scope.
+// Without this wrapper, `class KineticRack {}` creates a lexical binding in the
+// global Declarative Record that *shadows* window.KineticRack, so onclick
+// handlers that use the bare identifier `KineticRack.toggle()` resolve to the
+// CLASS (no static toggle) instead of the instance → TypeError.
+(function () {
+'use strict';
+
 const THREE = window.THREE;
 // ─────────────────────────────────────────────────────────────────────────────
 //  GLSL Shaders
@@ -1139,3 +1147,5 @@ if (typeof THREE === 'undefined') {
     }
     window.KineticRack = _rack;
 }
+
+})();
