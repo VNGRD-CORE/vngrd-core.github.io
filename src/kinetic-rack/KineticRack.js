@@ -980,11 +980,16 @@ class KineticRack {
         this._handMeshR?.update(rightLm);
         this._handMeshL?.update(leftLm);
 
-        // Internal default path — pitch+filter from right-hand fingertip.
-        // This runs regardless of whether _handTrackFeed (CDN main-thread
-        // tracker) is wired; _handTrackFeed only controls the rack's vol/filter
-        // sliders + skeleton HUD. Last-write-wins on audio is fine because both
-        // paths converge on the same values.
+        // Drive the UI feed (_handTrackFeed) — vol/filter sliders + skeleton
+        // HUD. The main-thread CDN tracker (index.html) may ALSO call
+        // _handTrackFeed; last-write-wins is fine since both paths converge on
+        // the same values and the HUD canvas redraws every frame.
+        if (typeof window._handTrackFeed === 'function') {
+            try { window._handTrackFeed(rightLm || null, leftLm || null); }
+            catch (e) { /* never let UI feed kill the render loop */ }
+        }
+
+        // Internal audio path — pitch+filter from right-hand fingertip.
         if (rightLm) {
             this._audio.setSpatialGate(0.35);
 
