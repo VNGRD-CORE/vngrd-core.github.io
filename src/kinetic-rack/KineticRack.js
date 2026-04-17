@@ -192,33 +192,44 @@ class AudioCore {
 
         const ctx = this.ctx;
 
-        // Master chain: masterGain → compressor → analyser → destination.
-        // Hotter compressor for techno thickness.
+        // Master chain: masterGain → compressor → lowShelf boost → SAFETY
+        // lowpass → analyser → destination. The safety lowpass at 900 Hz is
+        // non-negotiable — no matter what the XY pad does, nothing above the
+        // low-mid band ever reaches the speakers. Ears-first design.
         this._masterGain = ctx.createGain();
-        this._masterGain.gain.value = 0.85;
+        this._masterGain.gain.value = 0.55;
 
         const compressor = ctx.createDynamicsCompressor();
-        compressor.threshold.value = -14;
-        compressor.knee.value      = 8;
-        compressor.ratio.value     = 8;
-        compressor.attack.value    = 0.004;
-        compressor.release.value   = 0.18;
+        compressor.threshold.value = -16;
+        compressor.knee.value      = 10;
+        compressor.ratio.value     = 6;
+        compressor.attack.value    = 0.008;
+        compressor.release.value   = 0.22;
+
+        // Hard safety ceiling — catches any accidental high-frequency content.
+        this._safetyLP = ctx.createBiquadFilter();
+        this._safetyLP.type            = 'lowpass';
+        this._safetyLP.frequency.value = 900;   // absolute ceiling, never moves
+        this._safetyLP.Q.value         = 0.707;
 
         this._analyser = ctx.createAnalyser();
         this._analyser.fftSize             = 512;
         this._analyser.smoothingTimeConstant = 0.8;
 
         this._masterGain.connect(compressor);
-        compressor.connect(this._analyser);
+        compressor.connect(this._safetyLP);
+        this._safetyLP.connect(this._analyser);
         this._analyser.connect(ctx.destination);
 
         this._fftBuf = new Float32Array(this._analyser.frequencyBinCount); // 256
 
-        // Resonant 24 dB lowpass — the heart of the techno voice.
+        // Gentle sweep lowpass (no resonance) — the XY pad's Y axis drives
+        // this within a narrow bass-only range. Q≤0.9 keeps it warm, not
+        // whistle-y.
         this._filter = ctx.createBiquadFilter();
         this._filter.type            = 'lowpass';
-        this._filter.frequency.value = 220;
-        this._filter.Q.value         = 6;
+        this._filter.frequency.value = 300;
+        this._filter.Q.value         = 0.7;
 
         // Voice gate — smooth fade-in/out when hand enters/leaves frame.
         this._voiceGain = ctx.createGain();
@@ -227,16 +238,18 @@ class AudioCore {
         this._filter.connect(this._voiceGain);
         this._voiceGain.connect(this._masterGain);
 
-        // ── Upper body: 3 detuned saws at carrier pitch ──────────────────────
-        const detunes = [-9, 0, 9];
-        for (let i = 0; i < 3; i++) {
+        // ── Body: 2 triangles (-7 / +7 cents) — way less harmonic content
+        //         than saws, so no piercing upper partials even if the
+        //         lowpass is fully open.
+        const detunes = [-7, 7];
+        for (let i = 0; i < detunes.length; i++) {
             const osc = ctx.createOscillator();
-            osc.type            = 'sawtooth';
+            osc.type            = 'triangle';
             osc.frequency.value = 110;
             osc.detune.value    = detunes[i];
 
             const g = ctx.createGain();
-            g.gain.value = 0.22;
+            g.gain.value = 0.25;
 
             osc.connect(g);
             g.connect(this._filter);
@@ -246,50 +259,23 @@ class AudioCore {
             this._oscGains.push(g);
         }
 
-        // ── Sub: pure sine one octave below for low-end weight ───────────────
+        // ── Sub: pure sine one octave below — the main bassline tone. ────────
         this._sub = ctx.createOscillator();
         this._sub.type            = 'sine';
         this._sub.frequency.value = 55;
 
         this._subGain = ctx.createGain();
-        this._subGain.gain.value = 0.9;   // heavy sub — the bassline foundation
+        this._subGain.gain.value = 0.85;
 
         this._sub.connect(this._subGain);
         this._subGain.connect(this._filter);
         this._sub.start();
 
-        // ── Atmosphere: brown-noise bed through the same filter ──────────────
-        // Generate a 2s brown-noise buffer, loop it for ambient texture.
-        const noiseLen = ctx.sampleRate * 2;
-        const noiseBuf = ctx.createBuffer(1, noiseLen, ctx.sampleRate);
-        const nd = noiseBuf.getChannelData(0);
-        let last = 0;
-        for (let i = 0; i < noiseLen; i++) {
-            const white = Math.random() * 2 - 1;
-            last = (last + 0.02 * white) / 1.02; // brown (integrated) noise
-            nd[i] = last * 3.5;
-        }
-        this._noise = ctx.createBufferSource();
-        this._noise.buffer = noiseBuf;
-        this._noise.loop   = true;
+        // Atmosphere noise bed removed — was feeding the filter resonance
+        // and adding painful high-frequency hiss.
 
-        this._noiseGain = ctx.createGain();
-        this._noiseGain.gain.value = 0.18;
-
-        this._noise.connect(this._noiseGain);
-        this._noiseGain.connect(this._filter);
-        this._noise.start();
-
-        // ── LFO: slow sine → ±120 Hz wobble on filter cutoff ─────────────────
-        this._lfoGain = ctx.createGain();
-        this._lfoGain.gain.value = 120;
-
-        this._lfo = ctx.createOscillator();
-        this._lfo.type            = 'sine';
-        this._lfo.frequency.value = 0.35;  // slow atmospheric sweep
-        this._lfo.connect(this._lfoGain);
-        this._lfoGain.connect(this._filter.frequency);
-        this._lfo.start();
+        // LFO disabled by default — re-enable via setLFORate if ever needed.
+        // Static filter feels more "dub bass" than wobble.
     }
 
     getFFT() {
@@ -1067,13 +1053,14 @@ class KineticRack {
 
     ctrlChange(key, val) {
         const v = parseFloat(val);
-        if (key === 'vol')    { this._audio.setVolume(v);                   return; }
+        // Master volume hard-capped at 0.5 for ear safety.
+        if (key === 'vol')    { this._audio.setVolume(Math.min(v, 0.5));    return; }
         if (key === 'reverb') { /* no-op */                                  return; }
-        // Bass-first ranges for a techno/IDM live patch:
-        //   pitch  55–360 Hz  (sub-bass ↔ low-mid)
-        //   filter 80–3500 Hz (muffled ↔ sizzling, but never ear-piercing)
-        if (key === 'filter') { this._audio.setFilter(80 + v * 3420);       return; }
-        if (key === 'pitch')  { this._audio.setPitch(55 + v * 305);         return; }
+        // Ears-safe bass-only ranges:
+        //   pitch  40–150 Hz   (true sub-bass — E1 ↔ D3)
+        //   filter 120–750 Hz  (warm low-mid sweep, never reaches treble)
+        if (key === 'filter') { this._audio.setFilter(120 + v * 630);       return; }
+        if (key === 'pitch')  { this._audio.setPitch(40  + v * 110);        return; }
         console.log('[KineticRack] ctrlChange', key, val);
     }
 
