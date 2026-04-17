@@ -174,16 +174,14 @@ class AudioCore {
         this._analyser   = null;
         this._masterGain = null;
         this._fftBuf     = null;
-        this._oscs       = [];
+        this._oscs       = [];           // upper-octave detuned saws (body)
         this._oscGains   = [];
+        this._sub        = null;         // sub-octave sine (weight)
+        this._subGain    = null;
+        this._noise      = null;         // brown-noise atmosphere bed
+        this._noiseGain  = null;
         this._filter     = null;
-        this._spatialGain = null;
-
-        // FM "grit" — sine modulator into each carrier's frequency
-        this._modulator  = null;
-        this._modGain    = null;
-
-        // LFO "wobble" — sine LFO into filter frequency
+        this._voiceGain  = null;         // voice-level gate (fades on hand lose)
         this._lfo        = null;
         this._lfoGain    = null;
     }
@@ -194,16 +192,17 @@ class AudioCore {
 
         const ctx = this.ctx;
 
-        // Master chain: masterGain → compressor → analyser → destination
+        // Master chain: masterGain → compressor → analyser → destination.
+        // Hotter compressor for techno thickness.
         this._masterGain = ctx.createGain();
-        this._masterGain.gain.value = 0.7;
+        this._masterGain.gain.value = 0.85;
 
         const compressor = ctx.createDynamicsCompressor();
-        compressor.threshold.value = -18;
-        compressor.knee.value      = 10;
-        compressor.ratio.value     = 6;
-        compressor.attack.value    = 0.003;
-        compressor.release.value   = 0.25;
+        compressor.threshold.value = -14;
+        compressor.knee.value      = 8;
+        compressor.ratio.value     = 8;
+        compressor.attack.value    = 0.004;
+        compressor.release.value   = 0.18;
 
         this._analyser = ctx.createAnalyser();
         this._analyser.fftSize             = 512;
@@ -215,27 +214,29 @@ class AudioCore {
 
         this._fftBuf = new Float32Array(this._analyser.frequencyBinCount); // 256
 
-        // Spatial synth: 3 detuned saws → filter → spatialGain → masterGain
+        // Resonant 24 dB lowpass — the heart of the techno voice.
         this._filter = ctx.createBiquadFilter();
         this._filter.type            = 'lowpass';
-        this._filter.frequency.value = 800;
-        this._filter.Q.value         = 3;
+        this._filter.frequency.value = 220;
+        this._filter.Q.value         = 6;
 
-        this._spatialGain = ctx.createGain();
-        this._spatialGain.gain.value = 0;  // MUTED until hand detected
+        // Voice gate — smooth fade-in/out when hand enters/leaves frame.
+        this._voiceGain = ctx.createGain();
+        this._voiceGain.gain.value = 0;
 
-        this._filter.connect(this._spatialGain);
-        this._spatialGain.connect(this._masterGain);
+        this._filter.connect(this._voiceGain);
+        this._voiceGain.connect(this._masterGain);
 
-        const detunes = [-7, 0, 7];
+        // ── Upper body: 3 detuned saws at carrier pitch ──────────────────────
+        const detunes = [-9, 0, 9];
         for (let i = 0; i < 3; i++) {
             const osc = ctx.createOscillator();
             osc.type            = 'sawtooth';
-            osc.frequency.value = 220;
+            osc.frequency.value = 110;
             osc.detune.value    = detunes[i];
 
             const g = ctx.createGain();
-            g.gain.value = 0.28;
+            g.gain.value = 0.22;
 
             osc.connect(g);
             g.connect(this._filter);
@@ -245,28 +246,47 @@ class AudioCore {
             this._oscGains.push(g);
         }
 
-        // ── FM Modulator (sine → modGain → each carrier's .frequency) ────────
-        // Depth starts at 0 — silent until hand drives setFM().
-        this._modGain = ctx.createGain();
-        this._modGain.gain.value = 0;
+        // ── Sub: pure sine one octave below for low-end weight ───────────────
+        this._sub = ctx.createOscillator();
+        this._sub.type            = 'sine';
+        this._sub.frequency.value = 55;
 
-        this._modulator = ctx.createOscillator();
-        this._modulator.type            = 'sine';
-        this._modulator.frequency.value = 220; // tracks carrier pitch
-        this._modulator.connect(this._modGain);
-        for (const osc of this._oscs) {
-            this._modGain.connect(osc.frequency);
+        this._subGain = ctx.createGain();
+        this._subGain.gain.value = 0.9;   // heavy sub — the bassline foundation
+
+        this._sub.connect(this._subGain);
+        this._subGain.connect(this._filter);
+        this._sub.start();
+
+        // ── Atmosphere: brown-noise bed through the same filter ──────────────
+        // Generate a 2s brown-noise buffer, loop it for ambient texture.
+        const noiseLen = ctx.sampleRate * 2;
+        const noiseBuf = ctx.createBuffer(1, noiseLen, ctx.sampleRate);
+        const nd = noiseBuf.getChannelData(0);
+        let last = 0;
+        for (let i = 0; i < noiseLen; i++) {
+            const white = Math.random() * 2 - 1;
+            last = (last + 0.02 * white) / 1.02; // brown (integrated) noise
+            nd[i] = last * 3.5;
         }
-        this._modulator.start();
+        this._noise = ctx.createBufferSource();
+        this._noise.buffer = noiseBuf;
+        this._noise.loop   = true;
 
-        // ── LFO (slow sine → lfoGain → filter.frequency) ─────────────────────
-        // ±200 Hz wobble around the current filter cutoff.
+        this._noiseGain = ctx.createGain();
+        this._noiseGain.gain.value = 0.18;
+
+        this._noise.connect(this._noiseGain);
+        this._noiseGain.connect(this._filter);
+        this._noise.start();
+
+        // ── LFO: slow sine → ±120 Hz wobble on filter cutoff ─────────────────
         this._lfoGain = ctx.createGain();
-        this._lfoGain.gain.value = 200;
+        this._lfoGain.gain.value = 120;
 
         this._lfo = ctx.createOscillator();
         this._lfo.type            = 'sine';
-        this._lfo.frequency.value = 2; // 2 Hz default wobble
+        this._lfo.frequency.value = 0.35;  // slow atmospheric sweep
         this._lfo.connect(this._lfoGain);
         this._lfoGain.connect(this._filter.frequency);
         this._lfo.start();
@@ -288,29 +308,33 @@ class AudioCore {
     setPitch(hz) {
         if (!this.ctx) return;
         const t = this.ctx.currentTime;
+        // Slight portamento so XY sweeps feel musical, not stepped.
         for (const osc of this._oscs) {
-            osc.frequency.setTargetAtTime(hz, t, 0.02);
+            osc.frequency.setTargetAtTime(hz,       t, 0.04);
         }
+        if (this._sub) this._sub.frequency.setTargetAtTime(hz * 0.5, t, 0.04);
     }
 
     setFilter(hz) {
         if (!this._filter) return;
-        const clamped = Math.max(80, Math.min(8000, hz));
-        this._filter.frequency.setTargetAtTime(clamped, this.ctx.currentTime, 0.02);
+        const clamped = Math.max(60, Math.min(4500, hz));
+        this._filter.frequency.setTargetAtTime(clamped, this.ctx.currentTime, 0.03);
     }
 
     setVolume(v) {
-        if (!this._masterGain) return;
-        this._masterGain.gain.setTargetAtTime(
+        if (!this._voiceGain) return;
+        // Route "vol" to the voice gate, not the master — master stays hot so
+        // the compressor keeps its curve. 80 ms gate = musical fade in/out.
+        this._voiceGain.gain.setTargetAtTime(
             Math.max(0, Math.min(1, v)),
             this.ctx.currentTime,
-            0.02
+            0.08
         );
     }
 
     setSpatialGate(v) {
-        if (!this._spatialGain || !this.ctx) return;
-        this._spatialGain.gain.setTargetAtTime(v, this.ctx.currentTime, 0.08);
+        if (!this._voiceGain || !this.ctx) return;
+        this._voiceGain.gain.setTargetAtTime(v, this.ctx.currentTime, 0.08);
     }
 
     /** FM depth: 0..3000 Hz into each carrier frequency */
@@ -1045,8 +1069,11 @@ class KineticRack {
         const v = parseFloat(val);
         if (key === 'vol')    { this._audio.setVolume(v);                   return; }
         if (key === 'reverb') { /* no-op */                                  return; }
-        if (key === 'filter') { this._audio.setFilter(80 + v * 7920);       return; }
-        if (key === 'pitch')  { this._audio.setPitch(100 + v * 1100);       return; }
+        // Bass-first ranges for a techno/IDM live patch:
+        //   pitch  55–360 Hz  (sub-bass ↔ low-mid)
+        //   filter 80–3500 Hz (muffled ↔ sizzling, but never ear-piercing)
+        if (key === 'filter') { this._audio.setFilter(80 + v * 3420);       return; }
+        if (key === 'pitch')  { this._audio.setPitch(55 + v * 305);         return; }
         console.log('[KineticRack] ctrlChange', key, val);
     }
 
