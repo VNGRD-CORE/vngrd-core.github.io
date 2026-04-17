@@ -837,23 +837,12 @@ class KineticRack {
             console.warn('[KineticRack] AudioCore failed:', e);
         }
 
-        // Phase 5 — GestureLooper (non-fatal)
-        try {
-            const loopBus = this._audio.createLoopNode();
-            this._looper  = new GestureLooper(this._scene, loopBus, this._audio.ctx);
-        } catch (e) {
-            console.warn('[KineticRack] GestureLooper failed:', e);
-        }
+        // Phase 5 — GestureLooper + HandMesh REMOVED.
+        // The X/Y synth is driven by _handTrackFeed in index.html which draws a
+        // clean 21-point skeleton HUD on #kr-skeleton-canvas. The old 3D line
+        // meshes and pinch-to-loop playhead spheres are intentionally gone.
 
-        // Phase 6 — hand meshes (non-fatal)
-        try {
-            this._handMeshR = new HandMesh(this._scene, 0x00f3ff);
-            this._handMeshL = new HandMesh(this._scene, 0xff00cc);
-        } catch (e) {
-            console.warn('[KineticRack] HandMesh failed:', e);
-        }
-
-        // Phase 7 — MediaPipe (non-fatal)
+        // Phase 6 — MediaPipe (non-fatal)
         try {
             await this._initHandLandmarker();
         } catch (e) {
@@ -864,7 +853,7 @@ class KineticRack {
         this._initialized = true;
 
         document.getElementById('kr-stage-hud')?.classList.add('kr-live');
-        this._setStatus('GESTURE LOOPER // LIVE', true);
+        this._setStatus('HAND SYNTH // LIVE', true);
         console.log('[KineticRack] All phases complete — LIVE');
     }
 
@@ -984,10 +973,6 @@ class KineticRack {
         const rightLm = (cdnFeed && cdnFeed.right) || this._latestRightLm;
         const leftLm  = (cdnFeed && cdnFeed.left)  || this._latestLeftLm;
 
-        // Update visual meshes first (always)
-        this._handMeshR?.update(rightLm);
-        this._handMeshL?.update(leftLm);
-
         // Drive the UI feed (_handTrackFeed) — vol/filter sliders + skeleton
         // HUD. The main-thread CDN tracker (index.html) may ALSO call
         // _handTrackFeed; last-write-wins is fine since both paths converge on
@@ -1009,32 +994,8 @@ class KineticRack {
             const filter = 80 + this._s.rightY * 7920;
             this._audio.setPitch(pitch);
             this._audio.setFilter(filter);
-
-            this._looper?.update(rightLm);
         } else {
             this._audio.setSpatialGate(0);
-            this._looper?.update(null);
-        }
-
-        // Left hand → pinch triggers kick (always active, even with external feed)
-        if (leftLm) {
-            const lm4 = leftLm[4];
-            const lm8 = leftLm[8];
-            const dx   = lm4.x - lm8.x;
-            const dy   = lm4.y - lm8.y;
-            const dist = Math.sqrt(dx * dx + dy * dy);
-
-            this._s.leftPinchDist += (dist - this._s.leftPinchDist) * LERP_FACTOR;
-            const pinched = this._s.leftPinchDist < PINCH_THRESH;
-
-            if (pinched && !this._leftWasPinched && this._leftPinchCooldown <= 0) {
-                this._audio.triggerKick();
-                this._particles?.triggerKickFlash();
-                this._leftPinchCooldown = PINCH_COOLDOWN;
-            }
-            this._leftWasPinched = pinched;
-        } else {
-            this._leftWasPinched = false;
         }
     }
 
