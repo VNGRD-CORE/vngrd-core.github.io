@@ -780,6 +780,7 @@ class KineticRack {
         this._camera.position.set(0, 0, 3.2);
 
         canvas.classList.add('kr-online');
+        document.getElementById('kr-skeleton-canvas')?.classList.add('kr-online');
         document.getElementById('kr-rack')?.classList.add('kr-online');
         document.getElementById('kr-launch-btn')?.classList.add('kr-online');
 
@@ -1009,6 +1010,7 @@ class KineticRack {
             if (this._mpWorker) { this._mpWorker.terminate(); this._mpWorker = null; this._mpWorkerReady = false; }
             document.getElementById('kinetic-canvas')?.classList.remove('kr-online');
             document.getElementById('kinetic-cam-video')?.classList.remove('kr-online');
+            document.getElementById('kr-skeleton-canvas')?.classList.remove('kr-online');
             document.getElementById('kr-launch-btn')?.classList.remove('kr-online');
             document.getElementById('kr-rack')?.classList.remove('kr-online');
             document.getElementById('kr-stage-hud')?.classList.remove('kr-live');
@@ -1028,9 +1030,10 @@ class KineticRack {
             this._lastNow = performance.now();
             this._loop();
             document.getElementById('kinetic-canvas')?.classList.add('kr-online');
+            document.getElementById('kr-skeleton-canvas')?.classList.add('kr-online');
             document.getElementById('kr-launch-btn')?.classList.add('kr-online');
             document.getElementById('kr-stage-hud')?.classList.add('kr-live');
-            this._setStatus('GESTURE LOOPER // LIVE', true);
+            this._setStatus('HAND SYNTH // LIVE', true);
         }
     }
 
