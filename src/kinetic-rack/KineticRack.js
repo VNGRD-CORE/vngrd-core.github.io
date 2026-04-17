@@ -6,38 +6,7 @@
  * No NeuralComposer.js.
  */
 
-// ── EARLY STUB — set window.KineticRack immediately so the button is never dead.
-// The real instance overwrites this at the bottom of the file.
-// If the script crashes mid-way, clicking updates #kr-status with a clear error.
-(function() {
-    function _earlyToggle() {
-        var el = document.getElementById('kr-status');
-        if (el) el.textContent = 'ERROR: KineticRack script failed — check console';
-        console.error('[KineticRack] early-stub toggle fired — script did not finish loading.' +
-            ' Check for a JS error above this line.');
-    }
-    window.KineticRack = {
-        active:          false,
-        toggle:          _earlyToggle,
-        ctrlChange:      function() {},
-        setFM:           function() {},
-        setLFORate:      function() {},
-        midiLearn:       function() {},
-        toggleHelp:      function() {},
-        toggleRecording: function() {},
-        clearLoops:      function() {},
-    };
-})();
-
-// ── MAIN IIFE — keeps every class/const/function out of global scope.
-// Without this wrapper, `class KineticRack {}` creates a lexical binding in the
-// global Declarative Record that *shadows* window.KineticRack, so onclick
-// handlers that use the bare identifier `KineticRack.toggle()` resolve to the
-// CLASS (no static toggle) instead of the instance → TypeError.
-(function() {
-'use strict';
-
-const THREE = window.THREE; // loaded globally via CDN — no module bundler needed
+const THREE = window.THREE;
 // ─────────────────────────────────────────────────────────────────────────────
 //  GLSL Shaders
 // ─────────────────────────────────────────────────────────────────────────────
@@ -104,24 +73,14 @@ class FFTParticles {
     constructor(scene) {
         this._scene       = scene;
         this._kickImpulse = 0;
-        this._mat         = null;
-        this._points      = null;
 
-        this._fftTexData  = new Uint8Array(256 * 4);
-        // Use a safe DataTexture constructor compatible with THREE r128.
-        // r128 UMD: DataTexture(data, width, height, format, type, ...).
-        this._fftTex = new THREE.DataTexture(
-            this._fftTexData, 256, 1,
-            THREE.RGBAFormat || 1023,           // fallback constant
-            THREE.UnsignedByteType || 1009
+        this._fftTexData = new Uint8Array(256 * 4);
+        this._fftTex     = new THREE.DataTexture(
+            this._fftTexData, 256, 1, THREE.RGBAFormat
         );
         this._fftTex.needsUpdate = true;
 
-        try {
-            this._build();
-        } catch (e) {
-            console.warn('[FFTParticles] _build failed (non-fatal):', e);
-        }
+        this._build();
     }
 
     _build() {
@@ -166,7 +125,6 @@ class FFTParticles {
     }
 
     update(fftData, elapsed, dt) {
-        if (!this._mat || !this._points) return; // _build may have failed
         for (let i = 0; i < 256; i++) {
             const v = Math.floor(fftData[i] * 255);
             this._fftTexData[i * 4]     = v;
@@ -191,12 +149,10 @@ class FFTParticles {
     }
 
     dispose() {
-        try {
-            if (this._points) this._scene.remove(this._points);
-            this._points?.geometry.dispose();
-            this._mat?.dispose();
-            this._fftTex?.dispose();
-        } catch (_) {}
+        this._scene.remove(this._points);
+        this._points.geometry.dispose();
+        this._mat.dispose();
+        this._fftTex.dispose();
     }
 }
 
@@ -232,7 +188,7 @@ class AudioCore {
 
         // Master chain: masterGain → compressor → analyser → destination
         this._masterGain = ctx.createGain();
-        this._masterGain.gain.value = 0;
+        this._masterGain.gain.value = 0.7;
 
         const compressor = ctx.createDynamicsCompressor();
         compressor.threshold.value = -18;
@@ -258,7 +214,7 @@ class AudioCore {
         this._filter.Q.value         = 3;
 
         this._spatialGain = ctx.createGain();
-        this._spatialGain.gain.value = 0;
+        this._spatialGain.gain.value = 0;  // MUTED until hand detected
 
         this._filter.connect(this._spatialGain);
         this._spatialGain.connect(this._masterGain);
@@ -753,10 +709,6 @@ class KineticRack {
         this._elapsed     = 0;
         this._lastNow     = 0;
 
-        // Self-contained MediaPipe Pose tracking
-        this._pose        = null;
-        this._poseRunning = false;
-
         // Smoothed gesture values
         this._s = {
             rightX: 0.5, rightY: 0.5,
@@ -855,17 +807,6 @@ class KineticRack {
             }
             this._setStatus('CAM OK');
             console.log('[KineticRack] Phase 3: camera active');
-
-            // Phase 3.5 — kick off self-contained MediaPipe Pose tracking.
-            // We target kr-ai-video directly so we never hit the wrong video element.
-            setTimeout(() => {
-                try {
-                    this._initPoseTracking();
-                } catch (e) {
-                    console.warn('[KineticRack] Phase 3.5: pose init failed:', e);
-                }
-            }, 800);
-
         } catch (e) {
             console.warn('[KineticRack] Camera unavailable:', e);
             this._setStatus('NO CAM — AUDIO ONLY');
@@ -875,7 +816,7 @@ class KineticRack {
         try {
             await this._audio.start();
             this._setStatus('AUDIO OK');
-            console.log('[KineticRack] Phase 4: audio started');
+            console.log('[KineticRack] Phase 4: audio started (synth muted until hand detected)');
         } catch (e) {
             console.warn('[KineticRack] AudioCore failed:', e);
         }
@@ -977,65 +918,6 @@ class KineticRack {
         }
     }
 
-    // ── Pose tracking ─────────────────────────────────────────────────────────
-
-    _initPoseTracking() {
-        // Guard: need global Pose class from @mediapipe/pose@0.5 loaded in <head>
-        if (typeof Pose === 'undefined') {
-            console.warn('[KineticRack] MediaPipe Pose not loaded — no pose tracking');
-            return;
-        }
-
-        const videoEl = document.getElementById('kr-ai-video');
-        if (!videoEl) {
-            console.warn('[KineticRack] #kr-ai-video not found');
-            return;
-        }
-        if (!videoEl.srcObject) {
-            console.warn('[KineticRack] #kr-ai-video has no srcObject — camera not streaming');
-            return;
-        }
-
-        if (this._poseRunning) return; // already running
-
-        this._pose = new Pose({
-            locateFile: (f) =>
-                'https://cdn.jsdelivr.net/npm/@mediapipe/pose@0.5.1675469404/' + f,
-        });
-
-        this._pose.setOptions({
-            modelComplexity:          1,
-            smoothLandmarks:          true,
-            minDetectionConfidence:   0.5,
-            minTrackingConfidence:    0.5,
-        });
-
-        this._pose.onResults((results) => {
-            if (results.poseLandmarks && typeof window._smPoseFeed === 'function') {
-                try { window._smPoseFeed(results.poseLandmarks); } catch (_) {}
-            }
-        });
-
-        this._poseRunning = true;
-        this._setStatus('POSE LIVE', true);
-        console.log('[KineticRack] Pose tracking ACTIVE on #kr-ai-video');
-
-        // Frame-send loop at ~12 fps — gentle on the CPU, enough for gesture control
-        const _tick = () => {
-            if (!this._active || !this._poseRunning || !this._pose) return;
-            if (videoEl.readyState >= 2) {
-                this._pose.send({ image: videoEl }).catch(() => {});
-            }
-            setTimeout(_tick, 80);
-        };
-        _tick();
-    }
-
-    _stopPoseTracking() {
-        this._poseRunning = false;
-        this._pose        = null;
-    }
-
     // ── Main loop ─────────────────────────────────────────────────────────────
 
     _loop() {
@@ -1083,66 +965,35 @@ class KineticRack {
         const rightLm = this._latestRightLm;
         const leftLm  = this._latestLeftLm;
 
-        // Right hand → Performance Gate + pitch + filter via index fingertip (lm8)
-        const canvas = document.getElementById('kr-skeleton-canvas');
-        const ctx = canvas ? canvas.getContext('2d') : null;
-
-        if (canvas && ctx) {
-            canvas.width = window.innerWidth;
-            canvas.height = window.innerHeight;
-            ctx.clearRect(0, 0, canvas.width, canvas.height);
-        }
-
+        // Update visual meshes first (always)
         this._handMeshR?.update(rightLm);
+        this._handMeshL?.update(leftLm);
 
-        if (rightLm) {
-            const lm8 = rightLm[8]; // Index tip
+        // External feed override — if _handTrackFeed is wired, it owns audio
+        if (typeof window._handTrackFeed === 'function') {
+            window._handTrackFeed(rightLm || null, leftLm || null);
+        } else {
+            // Internal default: right hand → pitch + filter via index fingertip (lm8)
+            if (rightLm) {
+                this._audio.setSpatialGate(0.35);
 
-            // 1. UN-MIRRORED MAPPING (Viewer Perspective)
-            const unMirroredX = 1 - lm8.x;
+                const lm8 = rightLm[8];
+                this._s.rightX += (lm8.x - this._s.rightX) * LERP_FACTOR;
+                this._s.rightY += (lm8.y - this._s.rightY) * LERP_FACTOR;
 
-            // 2. SMOOTHING
-            this._s.rightX += (unMirroredX - this._s.rightX) * LERP_FACTOR;
-            this._s.rightY += (lm8.y - this._s.rightY) * LERP_FACTOR;
-
-            // 3. THE GESTURE GATE
-            // Active zone: Hand must be physically raised (Y < 0.7 in MediaPipe space, which is top 70% of screen)
-            const isConducting = this._s.rightY < 0.7;
-
-            if (isConducting) {
-                // Boost volume based on how high the hand is
-                const volDrive = Math.max(0, (0.7 - this._s.rightY) * 1.5);
-                this._audio.setVolume(volDrive);
-                this._audio.setSpatialGate(0.55);
-
-                // Map X to filter or pitch as desired
-                const pitch = 55 * Math.pow(16, this._s.rightX * 3);
-                const filter = 80 + (1 - this._s.rightY) * 7920;
+                const pitch  = 55 * Math.pow(16, this._s.rightX * 3);
+                const filter = 80 + this._s.rightY * 7920;
                 this._audio.setPitch(pitch);
                 this._audio.setFilter(filter);
+
+                this._looper?.update(rightLm);
             } else {
-                // Drop volume to 0 if hand goes below the chest/waist
-                this._audio.setVolume(0);
+                this._audio.setSpatialGate(0);
+                this._looper?.update(null);
             }
-
-            // 4. DRAW 2D HUD INDICATOR
-            if (ctx) {
-                ctx.fillStyle = isConducting ? '#00FFCC' : '#FF0000'; // Green if playing, Red if gated
-                ctx.shadowBlur = 15; ctx.shadowColor = ctx.fillStyle;
-                ctx.beginPath();
-                ctx.arc(unMirroredX * canvas.width, lm8.y * canvas.height, 15, 0, Math.PI * 2);
-                ctx.fill();
-            }
-
-            this._looper?.update(rightLm);
-        } else {
-            // If no hands detected, kill volume
-            this._audio.setVolume(0);
-            this._looper?.update(null);
         }
 
-        // Left hand → pinch triggers kick
-        this._handMeshL?.update(leftLm);
+        // Left hand → pinch triggers kick (always active, even with external feed)
         if (leftLm) {
             const lm4 = leftLm[4];
             const lm8 = leftLm[8];
@@ -1170,7 +1021,6 @@ class KineticRack {
         if (this._active) {
             // Stop
             this._active = false;
-            this._stopPoseTracking();
             if (this._rafId) cancelAnimationFrame(this._rafId);
             if (this._mpWorker) { this._mpWorker.terminate(); this._mpWorker = null; this._mpWorkerReady = false; }
             document.getElementById('kinetic-canvas')?.classList.remove('kr-online');
@@ -1209,6 +1059,7 @@ class KineticRack {
         if (key === 'vol')    { this._audio.setVolume(v);                   return; }
         if (key === 'reverb') { /* no-op */                                  return; }
         if (key === 'filter') { this._audio.setFilter(80 + v * 7920);       return; }
+        if (key === 'pitch')  { this._audio.setPitch(100 + v * 1100);       return; }
         console.log('[KineticRack] ctrlChange', key, val);
     }
 
@@ -1273,5 +1124,3 @@ if (typeof THREE === 'undefined') {
     }
     window.KineticRack = _rack;
 }
-
-})(); // end main IIFE — window.KineticRack is now the only global export
