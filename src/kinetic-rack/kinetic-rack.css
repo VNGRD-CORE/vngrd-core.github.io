@@ -12,6 +12,18 @@
 }
 #kinetic-canvas.kr-online { display: block; }
 
+/* Hand-skeleton HUD overlay — sits above the Three.js canvas, below modals */
+#kr-skeleton-canvas {
+    position: fixed;
+    top: 0; left: 0;
+    width:  100vw;
+    height: 100vh;
+    z-index: 3600;
+    display: none;
+    pointer-events: none;
+}
+#kr-skeleton-canvas.kr-online { display: block; }
+
 /* 4K camera feed — darkened cinema mode */
 #kinetic-cam-video {
     position: fixed;
