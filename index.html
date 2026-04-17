@@ -21666,14 +21666,14 @@ if (document.readyState !== 'loading') { _vbWireButtons(); }
         rack.ctrlChange('filter', yNorm);
 
         // ── 4. PERFORMANCE GATE ON ───────────────────────────────────────────
-        // Ease in with 0.85 so the voice-gate envelope (80 ms) gives a soft
-        // attack instead of an instant-on blast.
-        rack.ctrlChange('vol', 0.85);
+        // Ears-safe gate: 0.45 is plenty since AudioCore already caps master
+        // and lives behind a 900 Hz safety lowpass.
+        rack.ctrlChange('vol', 0.45);
 
         // ── 5. SYNC SLIDERS 1:1 ─────────────────────────────────────────────
         var volSlider  = document.querySelector('[data-ctrl="vol"]');
         var filtSlider = document.querySelector('[data-ctrl="filter"]');
-        if (volSlider)  volSlider.value  = 0.85;
+        if (volSlider)  volSlider.value  = 0.45;
         if (filtSlider) filtSlider.value = yNorm.toFixed(3);
 
         // ── 6. DRAW SKELETON HUD ────────────────────────────────────────────
@@ -21716,7 +21716,7 @@ if (document.readyState !== 'loading') { _vbWireButtons(); }
 <script src="https://cdn.jsdelivr.net/npm/@mediapipe/camera_utils@0.3.1675466124/camera_utils.js"></script>
 <script src="./src/hand-tracker.js?v=2"></script>
 
-<script src="./src/kinetic-rack/KineticRack.js?v=14"></script>
+<script src="./src/kinetic-rack/KineticRack.js?v=15"></script>
 
 <!-- NLE seam controls are fully canvas-drawn (no DOM panel) -->
 
