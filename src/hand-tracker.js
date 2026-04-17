@@ -65,8 +65,11 @@
         });
         _hands.setOptions({
             maxNumHands:              2,
-            modelComplexity:          1,
-            minDetectionConfidence:   0.6,
+            // complexity 0 = fast lite model (~2× faster than 1). For an XY
+            // pad where we mainly need lm[8], the accuracy hit is negligible
+            // and the latency win is huge.
+            modelComplexity:          0,
+            minDetectionConfidence:   0.5,
             minTrackingConfidence:    0.5,
             selfieMode:               false,
         });
