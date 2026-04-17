@@ -961,18 +961,21 @@ class KineticRack {
             );
         }
 
-        // Consume the latest landmark data produced by the worker
-        const rightLm = this._latestRightLm;
-        const leftLm  = this._latestLeftLm;
+        // Consume the latest landmark data — prefer the CDN main-thread tracker
+        // (window._latestHandsLm.right/left) if it's populated, otherwise fall back
+        // to the worker-supplied landmarks. The CDN tracker owns _handTrackFeed.
+        const cdnFeed = window._latestHandsLm || null;
+        const rightLm = (cdnFeed && cdnFeed.right) || this._latestRightLm;
+        const leftLm  = (cdnFeed && cdnFeed.left)  || this._latestLeftLm;
 
         // Update visual meshes first (always)
         this._handMeshR?.update(rightLm);
         this._handMeshL?.update(leftLm);
 
-        // External feed override — if _handTrackFeed is wired, it owns audio
-        if (typeof window._handTrackFeed === 'function') {
-            window._handTrackFeed(rightLm || null, leftLm || null);
-        } else {
+        // _handTrackFeed is driven exclusively from the main-thread MediaPipe
+        // Hands tracker (index.html). We only run the legacy internal default
+        // path when _handTrackFeed is NOT wired, so audio isn't double-driven.
+        if (typeof window._handTrackFeed !== 'function') {
             // Internal default: right hand → pitch + filter via index fingertip (lm8)
             if (rightLm) {
                 this._audio.setSpatialGate(0.35);
@@ -1063,10 +1066,10 @@ class KineticRack {
         console.log('[KineticRack] ctrlChange', key, val);
     }
 
-    /** FM grit depth in Hz — driven by _smPoseFeed right-hand Y */
+    /** FM grit depth in Hz — optional external driver (e.g. _handTrackFeed) */
     setFM(depthHz) { this._audio.setFM(depthHz); }
 
-    /** LFO wobble rate in Hz — driven by _smPoseFeed left-hand Y */
+    /** LFO wobble rate in Hz — optional external driver (e.g. _handTrackFeed) */
     setLFORate(hz) { this._audio.setLFORate(hz); }
 
     midiLearn(target) {

@@ -4369,7 +4369,7 @@ body.fullscreen #transcription-hud { pointer-events: none !important; } /* keep 
 #nc-window.vt-ghost-glass .nc-titlebar,
 #nc-window.vt-ghost-fade .nc-titlebar { opacity: 1 !important; }
 
-/* ═══ VNGRD SONIC SUITE LAUNCHER (sidebar, between SFX and SPATIAL SYNTH) ═══ */
+/* ═══ VNGRD SONIC SUITE LAUNCHER (sidebar, between SFX and HAND SYNTH) ═══ */
 #vt-sonic-rack { margin-top: 6px; position: relative; }
 #vt-sonic-launch-btn {
     display: block; width: 100%; padding: 6px 4px;
@@ -5644,15 +5644,15 @@ body.fullscreen #transcription-hud { pointer-events: none !important; } /* keep 
                         <div id="probox-v2-status">GROOVEBOX · 6-SLOT · PCM/PROC</div>
                     </div>
 
-                    <!-- ══ SPATIAL SYNTH ════════════════════════════════ -->
+                    <!-- ══ HAND SYNTH — MediaPipe Hands X/Y pad ═════════ -->
                     <div id="kr-rack">
-                        <button id="kr-launch-btn" onclick="window.KineticRack && KineticRack.toggle()">[ SPATIAL SYNTH ]</button>
+                        <button id="kr-launch-btn" onclick="window.KineticRack && KineticRack.toggle()">[ HAND SYNTH ]</button>
                         <button class="kr-help-btn" onclick="window.KineticRack && KineticRack.toggleHelp()" title="How to play">?</button>
                         <div id="kr-status">OFFLINE</div>
                        
                     <!-- Floating HUD — VOL RVB FILT, all MIDI-assignable -->
                     <div id="kr-stage-hud">
-                        <div id="kr-hud-title">SPATIAL SYNTH</div>
+                        <div id="kr-hud-title">HAND SYNTH</div>
                         <div class="kr-ctrl-row">
                             <span class="kr-ctrl-label">VOL</span>
                             <input type="range" class="kr-ctrl-slider" data-ctrl="vol"
@@ -21508,7 +21508,8 @@ if (document.readyState !== 'loading') { _vbWireButtons(); }
 
 <script>
 // ── _handTrackFeed — X/Y Synth Pad Engine ─────────────────────────────────────
-// Called by KineticRack._detectHands() with live 21-point hand landmarks.
+// Called by the main-thread MediaPipe Hands tracker (_startHandTracker above)
+// with live 21-point hand landmarks.
 // Right Hand lm[8] (index fingertip): X → Pitch 100-1200Hz, Y → Filter 200-8000Hz.
 // Performance gate: vol=0.7 when hand detected, vol=0 when lost.
 window._handTrackFeed = function(rightLm, leftLm) {
@@ -21626,7 +21627,119 @@ window._handTrackFeed = function(rightLm, leftLm) {
 
 <script src="./src/synesthesia-voice-engine.js"></script>
 
-<script src="./src/kinetic-rack/KineticRack.js?v=8"></script>
+<!-- ══ MediaPipe Hands (main-thread X/Y synth driver) ═══════════════════════════ -->
+<script src="https://cdn.jsdelivr.net/npm/@mediapipe/hands/hands.js" crossorigin="anonymous"></script>
+<script src="https://cdn.jsdelivr.net/npm/@mediapipe/camera_utils/camera_utils.js" crossorigin="anonymous"></script>
+
+<script>
+// ── Main-thread MediaPipe Hands tracker — wires onResults → _handTrackFeed ───
+// Sole driver of the synth. KineticRack.js no longer calls _handTrackFeed; this
+// block does. Activated on first KineticRack.toggle() once the webcam video
+// element is live, then stays up for the session.
+(function () {
+    'use strict';
+
+    var _started = false;
+    var _hands   = null;
+    var _camera  = null;
+
+    // Shared landmark cache — lets KineticRack.js draw its hand meshes off the
+    // same data without double-running MediaPipe.
+    window._latestHandsLm = { right: null, left: null };
+
+    function _pickLandmarks(results) {
+        var right = null, left = null;
+        if (!results || !results.multiHandLandmarks || !results.multiHandedness) {
+            return { right: right, left: left };
+        }
+        for (var i = 0; i < results.multiHandLandmarks.length; i++) {
+            var label = results.multiHandedness[i] && results.multiHandedness[i].label;
+            var lms   = results.multiHandLandmarks[i];
+            // MediaPipe labels from the camera POV (un-mirrored); our feed is
+            // mirrored in _handTrackFeed via (1 - x), so label 'Right' here is
+            // the user's right hand.
+            if (label === 'Right') right = lms;
+            else if (label === 'Left') left = lms;
+        }
+        return { right: right, left: left };
+    }
+
+    function _onResults(results) {
+        var picked = _pickLandmarks(results);
+        window._latestHandsLm.right = picked.right;
+        window._latestHandsLm.left  = picked.left;
+        if (typeof window._handTrackFeed === 'function') {
+            window._handTrackFeed(picked.right, picked.left);
+        }
+    }
+
+    window._startHandTracker = function () {
+        if (_started) return;
+        if (typeof Hands === 'undefined') {
+            console.warn('[HandSynth] MediaPipe Hands CDN not ready — retrying');
+            setTimeout(window._startHandTracker, 500);
+            return;
+        }
+        var vid = document.getElementById('kr-ai-video');
+        if (!vid) {
+            console.warn('[HandSynth] #kr-ai-video missing');
+            return;
+        }
+        _started = true;
+
+        _hands = new Hands({
+            locateFile: function (f) {
+                return 'https://cdn.jsdelivr.net/npm/@mediapipe/hands/' + f;
+            },
+        });
+        _hands.setOptions({
+            maxNumHands:              2,
+            modelComplexity:          1,
+            minDetectionConfidence:   0.6,
+            minTrackingConfidence:    0.5,
+            selfieMode:               false,
+        });
+        _hands.onResults(_onResults);
+
+        // Drive Hands off the existing video element via rAF — we don't use the
+        // camera_utils Camera helper because it would call getUserMedia again
+        // and clobber the stream KineticRack already assigned.
+        var _busy = false;
+        function _pump() {
+            if (!_started) return;
+            requestAnimationFrame(_pump);
+            if (_busy) return;
+            if (vid.readyState < 2) return;
+            _busy = true;
+            _hands.send({ image: vid }).then(function () {
+                _busy = false;
+            }).catch(function () {
+                _busy = false;
+            });
+        }
+        _pump();
+        console.log('[HandSynth] MediaPipe Hands tracker LIVE');
+    };
+
+    // Auto-start when KineticRack toggles on and the video has a stream.
+    // We poll at 500ms until a stream is attached, then boot the tracker.
+    function _watch() {
+        var vid = document.getElementById('kr-ai-video');
+        if (vid && vid.srcObject) {
+            window._startHandTracker();
+            return;
+        }
+        setTimeout(_watch, 500);
+    }
+    if (document.readyState === 'loading') {
+        document.addEventListener('DOMContentLoaded', _watch);
+    } else {
+        _watch();
+    }
+})();
+</script>
+
+<script src="./src/kinetic-rack/KineticRack.js?v=9"></script>
 
 <!-- NLE seam controls are fully canvas-drawn (no DOM panel) -->
 
