@@ -807,9 +807,17 @@ class KineticRack {
             }
             this._setStatus('CAM OK');
             console.log('[KineticRack] Phase 3: camera active');
+
+            // Kick the main-thread MediaPipe Hands tracker now that the video
+            // element has a live stream. Safe to call repeatedly — idempotent.
+            if (typeof window._startHandTracker === 'function') {
+                try { window._startHandTracker(); } catch (e) {
+                    console.warn('[KineticRack] _startHandTracker threw:', e);
+                }
+            }
         } catch (e) {
             console.warn('[KineticRack] Camera unavailable:', e);
-            this._setStatus('NO CAM — AUDIO ONLY');
+            this._setStatus('NO CAM: ' + (e && e.name || 'ERR'));
         }
 
         // Phase 4 — audio (non-fatal)
@@ -972,28 +980,27 @@ class KineticRack {
         this._handMeshR?.update(rightLm);
         this._handMeshL?.update(leftLm);
 
-        // _handTrackFeed is driven exclusively from the main-thread MediaPipe
-        // Hands tracker (index.html). We only run the legacy internal default
-        // path when _handTrackFeed is NOT wired, so audio isn't double-driven.
-        if (typeof window._handTrackFeed !== 'function') {
-            // Internal default: right hand → pitch + filter via index fingertip (lm8)
-            if (rightLm) {
-                this._audio.setSpatialGate(0.35);
+        // Internal default path — pitch+filter from right-hand fingertip.
+        // This runs regardless of whether _handTrackFeed (CDN main-thread
+        // tracker) is wired; _handTrackFeed only controls the rack's vol/filter
+        // sliders + skeleton HUD. Last-write-wins on audio is fine because both
+        // paths converge on the same values.
+        if (rightLm) {
+            this._audio.setSpatialGate(0.35);
 
-                const lm8 = rightLm[8];
-                this._s.rightX += (lm8.x - this._s.rightX) * LERP_FACTOR;
-                this._s.rightY += (lm8.y - this._s.rightY) * LERP_FACTOR;
+            const lm8 = rightLm[8];
+            this._s.rightX += (lm8.x - this._s.rightX) * LERP_FACTOR;
+            this._s.rightY += (lm8.y - this._s.rightY) * LERP_FACTOR;
 
-                const pitch  = 55 * Math.pow(16, this._s.rightX * 3);
-                const filter = 80 + this._s.rightY * 7920;
-                this._audio.setPitch(pitch);
-                this._audio.setFilter(filter);
+            const pitch  = 55 * Math.pow(16, this._s.rightX * 3);
+            const filter = 80 + this._s.rightY * 7920;
+            this._audio.setPitch(pitch);
+            this._audio.setFilter(filter);
 
-                this._looper?.update(rightLm);
-            } else {
-                this._audio.setSpatialGate(0);
-                this._looper?.update(null);
-            }
+            this._looper?.update(rightLm);
+        } else {
+            this._audio.setSpatialGate(0);
+            this._looper?.update(null);
         }
 
         // Left hand → pinch triggers kick (always active, even with external feed)

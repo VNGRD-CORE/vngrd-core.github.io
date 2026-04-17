@@ -21628,8 +21628,8 @@ window._handTrackFeed = function(rightLm, leftLm) {
 <script src="./src/synesthesia-voice-engine.js"></script>
 
 <!-- ══ MediaPipe Hands (main-thread X/Y synth driver) ═══════════════════════════ -->
-<script src="https://cdn.jsdelivr.net/npm/@mediapipe/hands/hands.js" crossorigin="anonymous"></script>
-<script src="https://cdn.jsdelivr.net/npm/@mediapipe/camera_utils/camera_utils.js" crossorigin="anonymous"></script>
+<script src="https://cdn.jsdelivr.net/npm/@mediapipe/hands@0.4.1675469240/hands.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/@mediapipe/camera_utils@0.3.1675466124/camera_utils.js"></script>
 
 <script>
 // ── Main-thread MediaPipe Hands tracker — wires onResults → _handTrackFeed ───
@@ -21689,7 +21689,7 @@ window._handTrackFeed = function(rightLm, leftLm) {
 
         _hands = new Hands({
             locateFile: function (f) {
-                return 'https://cdn.jsdelivr.net/npm/@mediapipe/hands/' + f;
+                return 'https://cdn.jsdelivr.net/npm/@mediapipe/hands@0.4.1675469240/' + f;
             },
         });
         _hands.setOptions({
