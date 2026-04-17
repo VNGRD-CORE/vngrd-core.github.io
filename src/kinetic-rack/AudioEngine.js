@@ -111,16 +111,23 @@ export class AudioEngine {
             rolloff:   -24,
         }).connect(this._masterGain);
 
+        // ── SuperSaw: 3-oscillator stack via fatsawtooth ──────────────────────
+        // FM modulation (sine) provides the "grit"; spread detunes the 3 saws.
         this._bass = new Tone.FMSynth({
             harmonicity:        0.5,
             modulationIndex:    4,
-            oscillator:         { type: 'sawtooth' },
+            oscillator:         { type: 'fatsawtooth', count: 3, spread: 20 },
             envelope:           { attack: 0.6, decay: 0.1, sustain: 0.9, release: 3.0 },
             modulation:         { type: 'sine' },
             modulationEnvelope: { attack: 0.4, decay: 0, sustain: 1, release: 2.5 },
         }).connect(this._bassFilter);
         this._bass.volume.value = -14;
         this._bass.triggerAttack('A1');
+
+        // ── LFO → Filter frequency wobble ────────────────────────────────────
+        this._lfo = new Tone.LFO({ frequency: 0.5, min: 80, max: 1200, type: 'sine' });
+        this._lfo.connect(this._bassFilter.frequency);
+        this._lfo.start();
 
         // ── GlitchChannel ─────────────────────────────────────────────────────
         this._pingPong = new Tone.PingPongDelay({
@@ -287,6 +294,20 @@ export class AudioEngine {
     setFilterCutoff(y)    { this.setBassFilterCutoff(y); }
     setAutoFilterFreq(y)  { this.setBassFilterCutoff(y); }
 
+    /** FM grit depth (0..2000 → modulationIndex 0..20) */
+    setFM(depth) {
+        try {
+            this._bass?.modulationIndex.rampTo(Math.max(0, Math.min(20, depth / 100)), 0.05);
+        } catch (_) {}
+    }
+
+    /** LFO wobble rate (0..15 Hz) */
+    setLFORate(rate) {
+        try {
+            this._lfo?.frequency.rampTo(Math.max(0.05, Math.min(15, rate)), 0.1);
+        } catch (_) {}
+    }
+
     // ── HUD sliders ───────────────────────────────────────────────────────────
     setVolume(v) {
         try {
@@ -321,6 +342,7 @@ export class AudioEngine {
             [
                 this._kick, this._kickDist,
                 this._bass, this._bassFilter,
+                this._lfo,
                 this._glitch, this._bitCrusher, this._pingPong,
                 this._atmos, this._atmosReverb, this._atmosPanner,
                 this._masterGain, this._limiter, this._analyser,

@@ -23,7 +23,8 @@
  *   All param changes via setTargetAtTime to prevent clicks.
  */
 
-import * as THREE from 'three';
+// THREE is loaded globally via CDN (window.THREE = r128); no importmap needed.
+const THREE = window.THREE;
 
 const GRID_COLS    = 40;
 const GRID_ROWS    = 50;
