@@ -10875,6 +10875,163 @@ window.SonicSuite = (function() {
 })();
 
 
+// ═══════════════════════════════════════════════════════════════
+//  VNGRD CODE CARD — live-coding DSL
+//  Exposed in the sandbox: bpm, beat, play, synth, loop, tone
+//    bpm(v)          — set master BPM
+//    await beat(v)   — wait v beats anchored to the master clock
+//    play(n, vol?)   — fire Sampler pad (window.play passthrough)
+//    synth(t, n, v)  — InternalSynth voice (window.synth passthrough)
+//    tone(hz, dur, env?) — quick sine lead through the card bus
+//    loop(fn)        — re-run fn forever until STOP
+//  Program executes as an async function; STOP sets cancel=true and
+//  the next beat()/loop iteration rejects.
+// ═══════════════════════════════════════════════════════════════
+(function() {
+    const DEFAULT_CODE =
+        "// Welcome. Press RUN or LOOP.\n" +
+        "bpm(128);\n" +
+        "loop(async () => {\n" +
+        "  tone(220, 0.18);\n" +
+        "  await beat(1);\n" +
+        "  tone(330, 0.12);\n" +
+        "  await beat(1);\n" +
+        "  tone(440, 0.1);\n" +
+        "  await beat(2);\n" +
+        "});\n";
+
+    function _makeApi(ctx, cancelRef) {
+        const state = SonicSuite._state;
+        function _waitBeats(v) {
+            return new Promise(function(resolve, reject) {
+                const a = ctx.audioCtx;
+                const spb = 60 / state.bpm;
+                const target = a.currentTime + v * spb;
+                function poll() {
+                    if (cancelRef.cancel) return reject(new Error('cancel'));
+                    if (a.currentTime >= target) return resolve();
+                    setTimeout(poll, 8);
+                }
+                poll();
+            });
+        }
+        function _tone(hz, dur, env) {
+            const a = ctx.audioCtx;
+            const t = a.currentTime;
+            env = env || {};
+            const peak = env.peak != null ? env.peak : 0.35;
+            const osc = a.createOscillator();
+            osc.type = env.wave || 'sine';
+            osc.frequency.setValueAtTime(hz, t);
+            const g = a.createGain();
+            g.gain.setValueAtTime(0, t);
+            g.gain.linearRampToValueAtTime(peak, t + 0.004);
+            g.gain.exponentialRampToValueAtTime(0.0001, t + dur);
+            osc.connect(g).connect(ctx.bus);
+            osc.start(t); osc.stop(t + dur + 0.05);
+        }
+        function _loop(fn) {
+            (async function run() {
+                while (!cancelRef.cancel) {
+                    try { await fn(); }
+                    catch (e) { if (cancelRef.cancel) return; throw e; }
+                }
+            })();
+        }
+        return {
+            bpm:   v => SonicSuite.setBPM(v),
+            beat:  _waitBeats,
+            play:  (n, v) => (typeof window.play === 'function' ? window.play(n, v) : null),
+            synth: (...args) => (typeof window.synth === 'function' ? window.synth.apply(null, args) : null),
+            tone:  _tone,
+            loop:  _loop
+        };
+    }
+
+    function init() {
+        SonicSuite.registerCard('code', {
+            tag: 'C',
+            label: '◈ CODE',
+            mount(body, ctx) {
+                const state = { cancelRef: { cancel: false }, running: false };
+
+                const ta = document.createElement('textarea');
+                ta.className = 'ss-code-ta';
+                ta.value = DEFAULT_CODE;
+                ta.spellcheck = false;
+                ta.style.cssText =
+                    'width:100%;min-height:150px;padding:8px;' +
+                    'background:#00060a;color:#9ff;border:1px solid rgba(0,243,255,.3);' +
+                    'font-family:\'JetBrains Mono\',monospace;font-size:10px;line-height:1.4;' +
+                    'resize:vertical;outline:none;border-radius:2px;';
+                body.appendChild(ta);
+
+                const row = document.createElement('div');
+                row.style.cssText = 'display:flex;gap:6px;align-items:center;';
+                row.innerHTML =
+                    '<button class="ss-card-btn ss-code-run"  style="width:auto;padding:0 10px;">▶ RUN</button>' +
+                    '<button class="ss-card-btn ss-code-loop" style="width:auto;padding:0 10px;">◎ LOOP</button>' +
+                    '<button class="ss-card-btn ss-code-stop" style="width:auto;padding:0 10px;color:rgba(255,120,0,.85);border-color:rgba(255,120,0,.4);">■ STOP</button>' +
+                    '<span class="ss-code-status" style="flex:1;text-align:right;font-family:\'JetBrains Mono\',monospace;font-size:9px;color:rgba(0,243,255,.45);">IDLE</span>';
+                body.appendChild(row);
+
+                const status = row.querySelector('.ss-code-status');
+                function _run(looped) {
+                    if (state.running) { _stop(); }
+                    state.cancelRef = { cancel: false };
+                    state.running = true;
+                    status.textContent = looped ? 'LOOPING' : 'RUNNING';
+                    status.style.color = '#00f3ff';
+                    const api = _makeApi(ctx, state.cancelRef);
+                    const src = ta.value;
+                    try {
+                        const wrapped = 'return (async function(){\n' + src + '\n})();';
+                        const fn = new Function('bpm','beat','play','synth','loop','tone', wrapped);
+                        const p = fn(api.bpm, api.beat, api.play, api.synth, api.loop, api.tone);
+                        Promise.resolve(p).then(
+                            () => { if (!looped) { state.running = false; status.textContent = 'DONE'; status.style.color = 'rgba(0,243,255,.5)'; } },
+                            err => { state.running = false; status.textContent = 'ERR: ' + err.message.slice(0, 40); status.style.color = '#ff4444'; }
+                        );
+                        if (looped) {
+                            // Auto-repeat on natural completion
+                            Promise.resolve(p).then(() => {
+                                if (state.running && !state.cancelRef.cancel) _run(true);
+                            });
+                        }
+                    } catch (e) {
+                        state.running = false;
+                        status.textContent = 'PARSE: ' + e.message.slice(0, 40);
+                        status.style.color = '#ff4444';
+                    }
+                }
+                function _stop() {
+                    state.cancelRef.cancel = true;
+                    state.running = false;
+                    status.textContent = 'STOPPED';
+                    status.style.color = 'rgba(255,120,0,.85)';
+                }
+
+                row.querySelector('.ss-code-run').addEventListener('click',  () => _run(false));
+                row.querySelector('.ss-code-loop').addEventListener('click', () => _run(true));
+                row.querySelector('.ss-code-stop').addEventListener('click', _stop);
+
+                this._stop = _stop;
+            },
+            onStop() { if (this._stop) this._stop(); }
+        });
+    }
+
+    document.addEventListener('DOMContentLoaded', function() {
+        const btn = document.getElementById('vt-sonic-launch-btn');
+        function _once() {
+            btn && btn.removeEventListener('click', _once);
+            setTimeout(init, 90);
+        }
+        btn && btn.addEventListener('click', _once);
+    });
+})();
+
+
 function connectVideoAudio(vid) {
     if (!vid || vid.tagName !== 'VIDEO') return;
     try {
