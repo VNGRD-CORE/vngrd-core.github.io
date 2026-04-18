@@ -15903,13 +15903,22 @@ document.addEventListener('DOMContentLoaded', () => {
         }
 
         // ── GEAR DROPDOWN — global toggle (closes others) ────────────────
+        // Menu is portaled to <body> on open because .sidebar has
+        // transform+overflow, which makes position:fixed inside it scope
+        // to the sidebar instead of the viewport.
         function _closeAllGearMenus() {
             document.querySelectorAll('.pad-gear.open').forEach(function(g) {
                 g.classList.remove('open');
                 var pad = g.closest('.sfx-pad');
                 if (pad) pad.classList.remove('z-elevated');
-                var m = g.querySelector('.pad-gear-menu');
-                if (m) { m.removeAttribute('style'); }
+            });
+            // Restore any portaled menus to their original parent
+            document.querySelectorAll('.pad-gear-menu[data-portaled="1"]').forEach(function(m) {
+                m.removeAttribute('style');
+                m.removeAttribute('data-portaled');
+                var homeSel = m.getAttribute('data-gear-home');
+                var home = homeSel && document.querySelector(homeSel);
+                if (home) home.appendChild(m);
             });
             var padBody = document.getElementById('sfx-pad-body');
             if (padBody) padBody.classList.remove('gear-open');
@@ -15925,7 +15934,8 @@ document.addEventListener('DOMContentLoaded', () => {
                 var padBody = document.getElementById('sfx-pad-body');
                 if (padBody) padBody.classList.add('gear-open');
 
-                // VIEWPORT-AWARE POSITIONING — position:fixed so parent overflow never clips it
+                // VIEWPORT-AWARE POSITIONING — portal to <body> so that
+                // ancestor transforms/overflow don't clip or re-scope us.
                 var menu = gearEl.querySelector('.pad-gear-menu');
                 if (menu) {
                     var ir = iconEl.getBoundingClientRect();
@@ -15945,7 +15955,16 @@ document.addEventListener('DOMContentLoaded', () => {
                     if (top + mH > window.innerHeight - 8) top = window.innerHeight - mH - 8;
                     if (top < 8) top = 8;
 
+                    // Remember original home so we can restore on close.
+                    // Identify the gear by the pad's sfx id (unique).
+                    if (pad && pad.id) {
+                        menu.setAttribute('data-gear-home', '#' + pad.id + ' > .pad-gear');
+                    }
+                    menu.setAttribute('data-portaled', '1');
+                    document.body.appendChild(menu);
+
                     menu.style.cssText = [
+                        'display:block',
                         'position:fixed',
                         'top:' + top + 'px',
                         'left:' + left + 'px',
