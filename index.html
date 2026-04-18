@@ -922,8 +922,7 @@
         .sidebar.hud-glass .btn        { background: rgba(18,18,28,0.58) !important; }
         .sidebar.hud-glass .btn:hover  { background: rgba(26,26,40,0.80) !important; }
         /* sub-panels that carry their own bg */
-        .sidebar.hud-glass #sfx-sampler-wrap,
-        .sidebar.hud-glass .nc-section-inner { background: rgba(6,6,10,0.30) !important; }
+        .sidebar.hud-glass #sfx-sampler-wrap { background: rgba(6,6,10,0.30) !important; }
 
         /* ── GHOST: almost invisible lens — maximum stage visibility ── */
         .sidebar.hud-ghost {
@@ -940,8 +939,7 @@
         .sidebar.hud-ghost .section    { border-top-color: rgba(0,0,0,0.45) !important; border-bottom-color: rgba(255,255,255,0.05) !important; }
         .sidebar.hud-ghost .btn        { background: rgba(10,10,18,0.45) !important; }
         .sidebar.hud-ghost .btn:hover  { background: rgba(20,20,32,0.72) !important; }
-        .sidebar.hud-ghost #sfx-sampler-wrap,
-        .sidebar.hud-ghost .nc-section-inner { background: rgba(6,6,10,0.12) !important; }
+        .sidebar.hud-ghost #sfx-sampler-wrap { background: rgba(6,6,10,0.12) !important; }
         /* keep text sharp with subtle backing shadow in ghost mode */
         .sidebar.hud-ghost .btn, .sidebar.hud-ghost .sec-title,
         .sidebar.hud-ghost label, .sidebar.hud-ghost .info-val { text-shadow: 0 1px 5px rgba(0,0,0,0.95); }
@@ -4311,63 +4309,22 @@ body.fullscreen #transcription-hud { pointer-events: none !important; } /* keep 
 }
 .vt-hud-close:hover { background: rgba(0,243,255,0.1); color: #00f3ff; }
 
-/* ── Glowing NC launch button in tracker titlebar ── */
-.vt-btn-nc-launch {
-    font-family: 'Orbitron', sans-serif;
-    font-size: 7.5px; font-weight: 700;
-    background: rgba(176,0,255,0.12);
-    border: 1px solid rgba(176,0,255,0.5);
-    color: #b000ff;
-    padding: 3px 10px;
-    cursor: pointer;
-    letter-spacing: 1px;
-    white-space: nowrap;
-    box-shadow: 0 0 10px rgba(176,0,255,0.2), inset 0 0 8px rgba(176,0,255,0.05);
-    animation: nc-btn-pulse 2.5s ease-in-out infinite;
-    transition: all 0.1s;
-}
-.vt-btn-nc-launch:hover {
-    background: rgba(176,0,255,0.25);
-    box-shadow: 0 0 18px rgba(176,0,255,0.45), inset 0 0 12px rgba(176,0,255,0.1);
-    color: #cc44ff;
-}
-.vt-btn-nc-launch.active {
-    background: rgba(176,0,255,0.3);
-    box-shadow: 0 0 24px rgba(176,0,255,0.6);
-    animation: none;
-}
-@keyframes nc-btn-pulse {
-    0%,100% { box-shadow: 0 0 8px rgba(176,0,255,0.2), inset 0 0 6px rgba(176,0,255,0.05); }
-    50%      { box-shadow: 0 0 18px rgba(176,0,255,0.45), inset 0 0 10px rgba(176,0,255,0.12); }
-}
-
 /* ═══ GHOST MODE — panel backgrounds only, tracer borders unaffected ═══ */
 /* GLASS: 70% */
 #vanguard-tracker-window.vt-ghost-glass { background: rgba(3,4,10,0.57) !important; }
 #vanguard-tracker-window.vt-ghost-glass .vt-wave-strip { background: rgba(0,0,0,0.28) !important; }
 #vanguard-tracker-window.vt-ghost-glass .vt-col-headers { background: rgba(0,0,0,0.21) !important; }
 #vanguard-tracker-window.vt-ghost-glass .vt-status-bar { background: rgba(0,0,0,0.56) !important; }
-#nc-window.vt-ghost-glass { background: rgba(4,2,12,0.63) !important; }
-#nc-window.vt-ghost-glass .nc-output-panel { background: rgba(0,0,0,0.28) !important; }
-#nc-window.vt-ghost-glass .nc-toolbar { background: rgba(0,0,0,0.35) !important; }
 /* GHOST: 40% */
 #vanguard-tracker-window.vt-ghost-fade { background: rgba(3,4,10,0.33) !important; }
 #vanguard-tracker-window.vt-ghost-fade .vt-wave-strip { background: rgba(0,0,0,0.16) !important; }
 #vanguard-tracker-window.vt-ghost-fade .vt-col-headers { background: rgba(0,0,0,0.12) !important; }
 #vanguard-tracker-window.vt-ghost-fade .vt-status-bar { background: rgba(0,0,0,0.32) !important; }
-#nc-window.vt-ghost-fade { background: rgba(4,2,12,0.36) !important; }
-#nc-window.vt-ghost-fade .nc-output-panel { background: rgba(0,0,0,0.16) !important; }
-#nc-window.vt-ghost-fade .nc-toolbar { background: rgba(0,0,0,0.20) !important; }
-/* nc-editor NEVER changes opacity in any ghost state — code stays sharp */
-#nc-window.vt-ghost-glass .nc-editor,
-#nc-window.vt-ghost-fade .nc-editor { background: rgba(0,0,0,0.35) !important; }
 /* Tracer lines (cyan + purple borders) — explicit 1.0 opacity enforcement */
 #vanguard-tracker-window.vt-ghost-glass .vt-titlebar,
 #vanguard-tracker-window.vt-ghost-fade .vt-titlebar,
 #vanguard-tracker-window.vt-ghost-glass .vt-status-bar,
-#vanguard-tracker-window.vt-ghost-fade .vt-status-bar,
-#nc-window.vt-ghost-glass .nc-titlebar,
-#nc-window.vt-ghost-fade .nc-titlebar { opacity: 1 !important; }
+#vanguard-tracker-window.vt-ghost-fade .vt-status-bar { opacity: 1 !important; }
 
 /* ═══ VNGRD SONIC SUITE LAUNCHER (sidebar, between SFX and HAND SYNTH) ═══ */
 #vt-sonic-rack { margin-top: 6px; position: relative; }
@@ -4396,132 +4353,6 @@ body.fullscreen #transcription-hud { pointer-events: none !important; } /* keep 
 }
 #vt-sonic-status.live { color: rgba(0,255,136,.72); }
 
-/* ═══ NEURAL COMPILER WINDOW ═══ */
-.nc-window {
-    position: fixed;
-    top: 80px;
-    left: 50%;
-    transform: translateX(-50%);
-    width: 580px;
-    min-width: 400px;
-    min-height: 240px;
-    height: 460px;
-    background: rgba(4, 2, 12, 0.90);
-    backdrop-filter: blur(30px) saturate(1.3);
-    -webkit-backdrop-filter: blur(30px) saturate(1.3);
-    border: 1px solid rgba(176,0,255,0.4);
-    box-shadow: 0 0 40px rgba(176,0,255,0.15), 0 0 80px rgba(0,0,0,0.7);
-    z-index: 9600;
-    display: none;
-    flex-direction: column;
-    font-family: 'JetBrains Mono', monospace;
-    resize: both;
-    overflow: hidden;
-    border-radius: 3px;
-}
-.nc-window.visible { display: flex; }
-.nc-titlebar {
-    display: flex; align-items: center; gap: 6px; padding: 5px 8px;
-    background: #000000;
-    border-bottom: 1px solid rgba(176,0,255,0.25);
-    cursor: move; user-select: none; flex-shrink: 0;
-}
-.nc-title {
-    font-family: 'Orbitron', sans-serif; font-size: 8.5px; font-weight: 700;
-    color: #b000ff; letter-spacing: 2px; flex: 1; text-shadow: 0 0 10px rgba(176,0,255,0.6);
-}
-.nc-preset-bar {
-    display: flex; align-items: center; gap: 5px;
-    padding: 4px 8px;
-    background: rgba(0,0,0,0.45);
-    border-bottom: 1px solid rgba(176,0,255,0.18);
-    flex-shrink: 0;
-}
-.nc-preset-lbl {
-    font-size: 6.5px; font-family: 'Orbitron', sans-serif; letter-spacing: 1.5px;
-    color: rgba(176,0,255,0.5); white-space: nowrap;
-}
-#nc-preset-select {
-    flex: 1;
-    font-size: 7.5px; font-family: 'JetBrains Mono', monospace;
-    background: rgba(12,0,20,0.9); color: rgba(176,0,255,0.9);
-    border: 1px solid rgba(176,0,255,0.35); border-radius: 2px;
-    padding: 3px 5px; cursor: pointer; outline: none;
-}
-#nc-preset-select:focus { border-color: rgba(176,0,255,0.7); }
-#nc-load-preset-btn {
-    font-size: 7px; font-family: 'Orbitron', sans-serif; letter-spacing: 1px;
-    background: rgba(176,0,255,0.12); color: rgba(176,0,255,0.85);
-    border: 1px solid rgba(176,0,255,0.4); border-radius: 2px;
-    padding: 3px 8px; cursor: pointer; white-space: nowrap;
-    transition: all 0.15s;
-}
-#nc-load-preset-btn:hover { background: rgba(176,0,255,0.28); color: #b000ff; box-shadow: 0 0 10px rgba(176,0,255,0.3); }
-.nc-body {
-    flex: 1; display: flex; flex-direction: column; overflow: hidden; min-height: 0;
-}
-.nc-editor-wrap {
-    flex: 1; position: relative; min-height: 0; border-bottom: 1px solid rgba(176,0,255,0.15);
-}
-.nc-editor {
-    position: absolute; inset: 0;
-    width: 100%; height: 100%;
-    background: rgba(0,0,0,0.35);
-    border: none; outline: none; resize: none;
-    color: rgba(176,0,255,0.85);
-    font-size: 10px; line-height: 1.6;
-    font-family: 'JetBrains Mono', monospace;
-    padding: 8px 10px;
-    caret-color: #b000ff;
-    user-select: text; cursor: text;
-    tab-size: 2;
-    scrollbar-width: thin;
-    scrollbar-color: rgba(176,0,255,0.2) transparent;
-    box-sizing: border-box;
-}
-.nc-editor::-webkit-scrollbar { width: 3px; }
-.nc-editor::-webkit-scrollbar-thumb { background: rgba(176,0,255,0.2); }
-.nc-editor::placeholder { color: rgba(176,0,255,0.2); }
-.nc-output-panel {
-    height: 100px; overflow-y: auto; overflow-x: hidden;
-    background: rgba(0,0,0,0.4); flex-shrink: 0;
-    padding: 4px 8px; display: flex; flex-direction: column; gap: 1px;
-    scrollbar-width: thin; scrollbar-color: rgba(176,0,255,0.15) transparent;
-}
-.nc-output-panel::-webkit-scrollbar { width: 3px; }
-.nc-output-panel::-webkit-scrollbar-thumb { background: rgba(176,0,255,0.15); }
-.nc-output-line {
-    font-size: 8.5px; line-height: 1.5; font-family: 'JetBrains Mono', monospace;
-    color: rgba(176,0,255,0.65); white-space: pre-wrap; word-break: break-all;
-}
-.nc-output-line.nc-ok  { color: rgba(0,255,136,0.8); }
-.nc-output-line.nc-err { color: rgba(255,51,51,0.85); }
-.nc-output-line.nc-sys { color: rgba(0,243,255,0.65); }
-.nc-toolbar {
-    display: flex; align-items: center; gap: 5px; padding: 4px 8px;
-    background: rgba(0,0,0,0.5); border-top: 1px solid rgba(176,0,255,0.12); flex-shrink: 0;
-}
-.nc-run-btn {
-    font-size: 7.5px; background: rgba(176,0,255,0.15); border: 1px solid rgba(176,0,255,0.4);
-    color: rgba(176,0,255,0.9); padding: 3px 10px; cursor: pointer;
-    font-family: 'JetBrains Mono', monospace; letter-spacing: 1px;
-    box-shadow: 0 0 8px rgba(176,0,255,0.15);
-}
-.nc-run-btn:hover { background: rgba(176,0,255,0.3); color: #b000ff; box-shadow: 0 0 14px rgba(176,0,255,0.3); }
-.nc-stop-btn {
-    font-size: 7.5px; background: rgba(255,51,51,0.1); border: 1px solid rgba(255,51,51,0.3);
-    color: rgba(255,51,51,0.7); padding: 3px 8px; cursor: pointer;
-    font-family: 'JetBrains Mono', monospace; letter-spacing: 1px;
-}
-.nc-stop-btn:hover { background: rgba(255,51,51,0.2); color: #ff3333; }
-.nc-hint {
-    font-size: 6.5px; color: rgba(176,0,255,0.35); letter-spacing: 0.5px; margin-left: auto;
-}
-.nc-status-bar {
-    display: flex; align-items: center; gap: 6px; padding: 2px 8px;
-    background: rgba(0,0,0,0.45); border-top: 1px solid rgba(176,0,255,0.1);
-    flex-shrink: 0; font-size: 6.5px; color: rgba(176,0,255,0.4); letter-spacing: 1px;
-}
 
 
 
@@ -10863,323 +10694,6 @@ const KitManager = (() => {
 })();
 
 
-// ═══════════════════════════════════════════════════════════════
-//  NEURAL COMPILER v3 — eval()-based Live-Coding Engine
-//  APIs: loop(bpm, fn)  p(n).play(vol)  synth(note, type)
-//  Shift+Enter to execute. Routes audio through InternalSynth
-//  → Engineering Mode AnalyserNode → seismic/kinetic naturally.
-// ═══════════════════════════════════════════════════════════════
-const NeuralCompiler = (() => {
-    var _visible = false;
-    var _drag    = false;
-    var _dx = 0, _dy = 0;
-    var _loopId  = null;
-    var _ncBeat  = 0;
-    var _dragInit = false;
-    var _inputInit = false;
-
-    // p(n) pad names: liq1-8 for drums, custom1-4 for user samples
-    var _PAD_NAMES = ['liq1','liq2','liq3','liq4','liq5','liq6','liq7','liq8',
-                      'custom1','custom2','custom3','custom4',
-                      'applause','cheer','horn','boom'];
-
-    var _NOTE_MAP = {
-        'C-2':65.4,'D-2':73.4,'E-2':82.4,'F-2':87.3,'G-2':98.0,'A-2':110,'B-2':123.5,
-        'C-3':130.8,'D-3':146.8,'E-3':164.8,'F-3':174.6,'G-3':196,'A-3':220,'B-3':246.9,
-        'C-4':261.6,'D-4':293.7,'E-4':329.6,'F-4':349.2,'G-4':392,'A-4':440,'B-4':493.9,
-        'C-5':523.3,'D-5':587.3,'E-5':659.3,'F-5':698.5,'G-5':784,'A-5':880,'B-5':987.8,
-        'C-6':1046.5,'D-6':1174.7,'E-6':1318.5
-    };
-
-    // ── Preloaded preset bank — pickable from #nc-preset-select ──────────
-    // All presets share the GlobalClock; press ▶ RUN (or Shift+Enter) to fire.
-    var _PRELOADS = [
-        {
-            name: 'IDM CORE — Breakbeat',
-            code:
-'// IDM CORE — auto-loops on the GlobalClock (Shift+Enter to run)\n' +
-'bpm(124);\n' +
-'play(0, 0.9);              // Kick (kit pad 0)\n' +
-'await beat(1);\n' +
-'play(1, 0.65);             // Snare\n' +
-'synth(\'pluck\', \'E-4\', 0.5);\n' +
-'await beat(1);\n' +
-'play(0, 0.8);\n' +
-'play(2, 0.4);              // Hat\n' +
-'await beat(0.5);\n' +
-'play(1, 0.6);\n' +
-'synth(\'sub\', \'C-2\', 0.7);  // Sub bass → seismic\n' +
-'await beat(0.5);'
-        },
-        {
-            name: 'CINEMATIC SUB — Slow Drone',
-            code:
-'// CINEMATIC SUB — slow drone with risers\n' +
-'bpm(80);\n' +
-'synth(\'sub\', \'C-2\', 0.85);\n' +
-'await beat(2);\n' +
-'synth(\'sweep\', \'G-2\', 0.55);\n' +
-'await beat(1);\n' +
-'synth(\'noise\', \'A-3\', 0.35);\n' +
-'play(3, 0.7);              // Cinematic boom\n' +
-'await beat(1);'
-        },
-        {
-            name: 'TECHNO 4×4 — Acid Rumble',
-            code:
-'// TECHNO 4×4 — kick on every beat, off-beat hat\n' +
-'bpm(132);\n' +
-'play(0, 1.0);             // Kick\n' +
-'await beat(0.5);\n' +
-'play(2, 0.42);            // Off-beat hat\n' +
-'await beat(0.5);\n' +
-'play(0, 1.0);\n' +
-'synth(\'metal\', \'E-3\', 0.5);\n' +
-'await beat(0.5);\n' +
-'play(2, 0.42);\n' +
-'await beat(0.5);'
-        },
-        {
-            name: 'GLITCH RATCHET — Step Hot-Swap',
-            code:
-'// GLITCH RATCHET — drives the in-grid hyper-tracker via window.step()\n' +
-'bpm(140);\n' +
-'step(0, 0,  { on:true,  slice:0,  ratchet:1 });\n' +
-'step(0, 4,  { on:true,  slice:0,  ratchet:2 });\n' +
-'step(0, 8,  { on:true,  slice:0,  ratchet:1 });\n' +
-'step(0, 12, { on:true,  slice:0,  ratchet:4 });\n' +
-'step(1, 4,  { on:true,  slice:0,  ratchet:1 });\n' +
-'step(1, 12, { on:true,  slice:0,  ratchet:2 });\n' +
-'await beat(4);'
-        },
-        {
-            name: 'MELODIC PLUCK — Arpeggio',
-            code:
-'// MELODIC PLUCK — 8-note arpeggio in C minor pentatonic\n' +
-'bpm(118);\n' +
-'var notes = [\'C-4\',\'D#4\',\'F-4\',\'G-4\',\'A#4\',\'C-5\',\'A#4\',\'G-4\'];\n' +
-'for (var i = 0; i < notes.length; i++) {\n' +
-'    synth(\'pluck\', notes[i], 0.6);\n' +
-'    if (i % 2 === 0) play(0, 0.6);\n' +
-'    await beat(0.5);\n' +
-'}'
-        }
-    ];
-    var _PRELOAD = _PRELOADS[0].code;
-
-    function _win() { return document.getElementById('nc-window'); }
-    function _out() { return document.getElementById('nc-output'); }
-    function _editor() { return document.getElementById('nc-editor'); }
-
-    function _ncLog(msg, cls) {
-        var out = _out(); if (!out) return;
-        var line = document.createElement('div');
-        line.className = 'nc-output-line' + (cls ? ' ' + cls : '');
-        line.textContent = msg;
-        out.appendChild(line);
-        out.scrollTop = out.scrollHeight;
-    }
-
-    function _noteToFreq(note) {
-        if (!note) return 110;
-        var n = String(note).replace(/^([A-G]#?)(\d)$/, '$1-$2');
-        return _NOTE_MAP[n] || 110;
-    }
-
-    // p(n) returns a pad proxy with .play(vol)
-    function _ncP(n) {
-        return {
-            play: function(vol) {
-                var name = _PAD_NAMES[n] || null;
-                if (!name) return;
-                Sampler.trigger(name, typeof vol === 'number' ? vol : 0.8);
-                _vjHeavySync();
-            }
-        };
-    }
-
-    // synth(note, type) — routes through InternalSynth → analyser → seismic
-    function _ncSynth(note, type) {
-        var freq = _noteToFreq(note);
-        var t = (type || 'sub').toLowerCase();
-        if (t === 'sub')        InternalSynth.triggerSub(freq, 0.8, 0x80);
-        else if (t === 'noise') InternalSynth.triggerNoise(freq, 0.7, 8, 0x80);
-        else if (t === 'sweep') InternalSynth.triggerSweep(freq, 0.8, 0x80);
-        else if (t === 'metal') InternalSynth.triggerMetal(freq, 0.75, freq * 3.1, 0x80);
-        else if (t === 'am')    InternalSynth.triggerAM(freq, 0.75, 8, 0x80);
-        else if (t === 'boom')  InternalSynth.triggerBoom(freq, 0.9, 0x80);
-        else                    InternalSynth.triggerSub(freq, 0.8, 0x80);
-    }
-
-    // ── bpm(v) — sets global BPM and syncs tracker input ─────────────────
-    function _ncBpmSet(v) {
-        var b = Math.max(20, Math.min(300, v | 0));
-        window.currentBPM = b;
-        var inp = document.getElementById('vt-bpm');
-        if (inp) { inp.value = b; inp.dispatchEvent(new Event('change')); }
-    }
-
-    // ── loop(bpm, fn) — beat-aligned callback loop (backward compat) ──────
-    function _ncLoop(bpm, fn) {
-        _stopLoop();
-        _ncBpmSet(bpm);
-        _ncBeat = 0;
-        var ms = Math.round(60000 / Math.max(20, Math.min(300, bpm)) / 4);
-        _loopId = setInterval(function() {
-            window.loopBeat = _ncBeat;
-            try { fn(_ncBeat); } catch(e) { _ncLog('ERR: ' + e.message, 'nc-err'); _stopLoop(); }
-            _ncBeat++;
-        }, ms);
-        _ncLog('LOOP @ ' + bpm + 'BPM', 'nc-ok');
-        var cs = document.getElementById('nc-clock-status');
-        if (cs) cs.textContent = 'LOOP: ' + bpm + 'BPM';
-    }
-
-    function _stopLoop() {
-        window._ncLoopActive = false;
-        if (_loopId) { clearInterval(_loopId); _loopId = null; }
-        _ncBeat = 0; window.loopBeat = 0;
-        var cs = document.getElementById('nc-clock-status');
-        if (cs) cs.textContent = 'LOOP: IDLE';
-    }
-
-    // ── Temporal recursion engine (Sonic Pi style) ────────────────────────
-    // Re-executes _ncCurrentCode after each async cycle completes.
-    // Hot-swap: updating _ncCurrentCode takes effect on the next iteration.
-    var _ncCurrentCode = null;
-
-    function _ncTemporalLoop() {
-        if (!window._ncLoopActive) return;
-        var code = _ncCurrentCode;
-        if (!code) return;
-        try {
-            var transpiled = code.replace(/\bbeat\(/g, 'await beat(');
-            var wrapped    = 'return (async () => {\n' + transpiled + '\n})();';
-            // APIs exposed to user code: p, synth, play, beat, bpm, loop
-            var fn = new Function('p', 'synth', 'play', 'beat', 'bpm', 'loop', wrapped);
-            var promise = fn(_ncP, window.synth, window.play, window.beat, _ncBpmSet, _ncLoop);
-            if (promise && typeof promise.then === 'function') {
-                promise
-                    .then(function() {
-                        if (window._ncLoopActive) {
-                            _ncTemporalLoop(); // re-execute with latest _ncCurrentCode
-                        } else {
-                            _ncLog('✓ SEQUENCE COMPLETE', 'nc-ok');
-                            var cs = document.getElementById('nc-clock-status');
-                            if (cs) cs.textContent = 'LOOP: IDLE';
-                        }
-                    })
-                    .catch(function(e) {
-                        _ncLog('ERR: ' + e.message, 'nc-err');
-                        window._ncLoopActive = false;
-                        var cs = document.getElementById('nc-clock-status');
-                        if (cs) cs.textContent = 'LOOP: ERR';
-                    });
-            } else {
-                // Sync code — still recurse if active
-                if (window._ncLoopActive) _ncTemporalLoop();
-            }
-        } catch(e) {
-            _ncLog('ERR: ' + e.message, 'nc-err');
-            window._ncLoopActive = false;
-        }
-    }
-
-    // ── _run(): execute or hot-swap editor code ───────────────────────────
-    function _run() {
-        var ed = _editor(); if (!ed) return;
-        var code = ed.value.trim();
-        if (!code) return;
-        if (!APP.audio.ctx) igniteAudio();
-        if (APP.audio.ctx && APP.audio.ctx.state === 'suspended') APP.audio.ctx.resume();
-
-        if (window._ncLoopActive) {
-            // Hot-swap: update code; takes effect when current iteration ends
-            _ncCurrentCode = code;
-            _ncLog('↺ HOT-SWAP on next cycle', 'nc-sys');
-            return;
-        }
-
-        // Stop any legacy setInterval loop
-        if (_loopId) { clearInterval(_loopId); _loopId = null; }
-        _ncCurrentCode = code;
-        window._ncLoopActive = true;
-        _ncLog('─── RUN ───────────────────────────────', 'nc-sys');
-        _ncLog('✓ RUNNING (temporal recursion)...', 'nc-ok');
-        var cs = document.getElementById('nc-clock-status');
-        if (cs) cs.textContent = 'LOOP: RUN';
-        _ncTemporalLoop();
-    }
-
-    function _initDrag() {
-        if (_dragInit) return; _dragInit = true;
-        var tb  = document.getElementById('nc-titlebar');
-        var win = _win();
-        if (!tb || !win) return;
-        tb.addEventListener('mousedown', function(e) {
-            if (e.target.tagName === 'BUTTON' || e.target.tagName === 'TEXTAREA') return;
-            _drag = true;
-            var rect = win.getBoundingClientRect();
-            _dx = e.clientX - rect.left; _dy = e.clientY - rect.top;
-            win.style.transition = 'none'; e.preventDefault();
-        });
-        document.addEventListener('mousemove', function(e) {
-            if (!_drag) return;
-            var x = Math.max(0, Math.min(window.innerWidth - 120, e.clientX - _dx));
-            var y = Math.max(0, Math.min(window.innerHeight - 50, e.clientY - _dy));
-            win.style.left = x + 'px'; win.style.top = y + 'px'; win.style.transform = 'none';
-        });
-        document.addEventListener('mouseup', function() { _drag = false; });
-    }
-
-    function _loadPreset() {
-        var sel = document.getElementById('nc-preset-select');
-        var idx = sel ? (parseInt(sel.value, 10) || 0) : 0;
-        var preset = _PRELOADS[idx];
-        if (!preset) return;
-        var ed = _editor(); if (!ed) return;
-        ed.value = preset.code;
-        _ncLog('LOADED: ' + preset.name, 'nc-sys');
-        ed.focus();
-    }
-
-    function _initInput() {
-        if (_inputInit) return; _inputInit = true;
-        var ed = _editor();
-        if (ed) {
-            if (!ed.value.trim()) ed.value = _PRELOAD;
-            ed.addEventListener('keydown', function(e) {
-                if (e.key === 'Enter' && e.shiftKey) { e.preventDefault(); _run(); }
-            });
-        }
-        var runBtn = document.getElementById('nc-run-btn');
-        if (runBtn) runBtn.addEventListener('click', _run);
-        var stopBtn = document.getElementById('nc-stop-btn');
-        if (stopBtn) stopBtn.addEventListener('click', function() {
-            _stopLoop(); _ncLog('LOOP STOPPED', 'nc-sys');
-        });
-    }
-
-    function toggle() {
-        var win = _win(); if (!win) return;
-        _visible = !_visible;
-        win.classList.toggle('visible', _visible);
-        var btn = document.getElementById('nc-toggle-btn');
-        if (btn) btn.classList.toggle('active', _visible);
-        if (_visible) {
-            _initDrag();
-            _initInput();
-            _ncLog('NEURAL_COMPILER v3 READY — Shift+Enter to run / re-run to hot-swap', 'nc-sys');
-            _ncLog('APIs: bpm(n) play(n,v) synth(t,n,v) beat(n) loop(bpm,fn) p(n).play(v)', 'nc-sys');
-            _ncLog('CLOCK: GlobalClock-locked — compiler & tracker share the same grid', 'nc-sys');
-            var ed = _editor(); if (ed) ed.focus();
-        } else {
-            _stopLoop();
-        }
-    }
-
-    return { toggle, run: _run, stopLoop: _stopLoop, loadPreset: _loadPreset, _synth: _ncSynth };
-})();
 
 // ═══════════════════════════════════════════════════════════════
 //  VNGRD GLOBAL AUDIO API  v2
@@ -11190,13 +10704,7 @@ const NeuralCompiler = (() => {
 // ═══════════════════════════════════════════════════════════════
 
 // ── Shared precision clock globals ───────────────────────────────────
-// nextNoteTime: shared between VanguardTracker ProScheduler and NeuralCompiler
-//   so both systems stay on the same beat grid without drift.
-// _ncLoopActive: NeuralCompiler temporal recursion flag.
-//   true  = keep re-executing editor code after each cycle (hot-swap safe)
-//   false = stop after current cycle finishes
 window.nextNoteTime   = 0;
-window._ncLoopActive  = false;
 window.currentBPM     = 120;
 
 // ═══════════════════════════════════════════════════════════════
@@ -11255,42 +10763,6 @@ window.GlobalClock = (function() {
         setRunning: function(v) { _running = !!v; }
     };
 })();
-
-// ── window.beat — Promise-based timing engine, GlobalClock-locked ────
-// beat(v) resolves at the next GlobalClock beat boundary v beats away.
-// Falls back to setTimeout when AudioContext isn't running yet.
-// NeuralCompiler transpiles bare beat( → await beat( before eval().
-window._ncBeatTarget = 0;
-window.beat = function(v) {
-    var beats = (typeof v === 'number') ? v : 1;
-    return new Promise(function(res) {
-        var c = (typeof APP !== 'undefined' && APP.audio && APP.audio.ctx) ? APP.audio.ctx : null;
-        if (!c) {
-            // Audio not yet ignited — fall back to wall clock
-            setTimeout(res, beats * (60000 / (window.currentBPM || 120)));
-            return;
-        }
-        // Anchor to GlobalClock so the compiler stays locked to the tracker grid
-        var startBeat = GlobalClock.elapsedBeats();
-        // Snap forward to the next integer-beat (or fractional grid step)
-        // when starting fresh; otherwise just add `beats` to the prior target.
-        var target;
-        if (window._ncBeatTarget > startBeat) {
-            target = window._ncBeatTarget + beats;
-        } else {
-            target = startBeat + beats;
-        }
-        window._ncBeatTarget = target;
-        var dueAt = GlobalClock.timeAtBeat(target);
-        var ms = Math.max(0, (dueAt - c.currentTime) * 1000);
-        setTimeout(function() {
-            // Update the shared scheduler reference so the tracker's lookahead
-            // window stays aligned to the compiler's last fired beat.
-            window.nextNoteTime = Math.max(window.nextNoteTime, dueAt);
-            res();
-        }, ms);
-    });
-};
 
 // Keep currentBPM in sync with the BPM input + re-anchor GlobalClock
 (function() {
@@ -14119,9 +13591,8 @@ function setTheme(theme) { const structClass = ['theme-broadcast','theme-etherea
   };
 })();
 
-// GHOST MODE — cycles tracker/compiler panel opacity: 1.0 → 0.7 → 0.4
-// Borders (cyan/purple tracer lines) are CSS 'border' props — unaffected by bg changes
-// Code editor (.nc-editor) background is never changed — text stays sharp
+// GHOST MODE — cycles tracker panel opacity: 1.0 → 0.7 → 0.4
+// Borders (cyan tracer lines) are CSS 'border' props — unaffected by bg changes
 (function() {
   const GHOST_STATES = [
     { name: 'OPAQUE', cls: null },
@@ -14131,14 +13602,13 @@ function setTheme(theme) { const structClass = ['theme-broadcast','theme-etherea
   let _ghostIdx = 0;
   window.toggleGhostMode = function() {
     const vt = document.getElementById('vanguard-tracker-window');
-    const nc = document.getElementById('nc-window');
     const btn = document.getElementById('vt-alpha-btn');
     GHOST_STATES.forEach(function(s) {
-      if (s.cls) { vt && vt.classList.remove(s.cls); nc && nc.classList.remove(s.cls); }
+      if (s.cls) { vt && vt.classList.remove(s.cls); }
     });
     _ghostIdx = (_ghostIdx + 1) % GHOST_STATES.length;
     const state = GHOST_STATES[_ghostIdx];
-    if (state.cls) { vt && vt.classList.add(state.cls); nc && nc.classList.add(state.cls); }
+    if (state.cls) { vt && vt.classList.add(state.cls); }
     if (btn) btn.textContent = '[ ALPHA: ' + state.name + ' ]';
   };
 })();
@@ -18369,65 +17839,6 @@ var isVideo = nft.forceVideo || (imageUrl.toLowerCase().match(/\.(mp4|webm|mov|o
         if (hud) hud.classList.toggle('visible');
     };
 
-    // ── NC editor auto-preload on page load ──────────────────────────────
-    (function() {
-        // IDM | Kit: Funny — async sequential pattern using await beat()
-        var PRELOAD =
-'// IDM | Kit: Funny  — async sequencer (Shift+Enter to run)\n' +
-'// beat(v) = Promise; resolves after v beats at current BPM\n' +
-'// synth(type, note, vol)  · play(pad, vol)  · window.currentBPM\n' +
-'\n' +
-'window.currentBPM = 124;\n' +
-'\n' +
-'// Kick on every beat, snare on 2 and 4\n' +
-'play(0, 0.9);               // liq1 = Deep Kick\n' +
-'synth(\'sub\', \'C2\', 0.7); // Sub reinforcement\n' +
-'await beat(1);\n' +
-'\n' +
-'play(1, 0.65);              // liq2 = Snare\n' +
-'synth(\'pluck\', \'E4\', 0.5); // High pluck → Luma_Bloom\n' +
-'await beat(1);\n' +
-'\n' +
-'play(0, 0.85);              // Kick\n' +
-'synth(\'noise\', \'A2\', 0.4);\n' +
-'await beat(0.5);\n' +
-'\n' +
-'play(2, 0.4);               // liq3 = Rumble ghost\n' +
-'await beat(0.5);\n' +
-'\n' +
-'play(1, 0.7);               // Snare\n' +
-'synth(\'boom\', \'G1\', 0.9); // Cinematic sub boom\n' +
-'await beat(1);';
-        var ed = document.getElementById('nc-editor');
-        if (ed && !ed.value.trim()) ed.value = PRELOAD;
-    })();
-
-    // ── NeuralCompiler clock sync ticker (GlobalClock-anchored) ──────────
-    setInterval(function() {
-        var el = document.getElementById('nc-clock-status');
-        if (!el) return;
-        var bpm   = (window.GlobalClock ? GlobalClock.bpm() : (window.currentBPM || 120));
-        var beats = (window.GlobalClock ? GlobalClock.elapsedBeats() : 0);
-        var beat  = (Math.floor(beats) % 16).toString(16).toUpperCase();
-        if (VanguardTracker.isPlaying()) {
-            el.textContent = 'CLOCK: PLAY ' + bpm + 'BPM B:' + beat +
-                             ' ROW:' + VanguardTracker.currentStep().toString(16).toUpperCase();
-        } else if (window._ncLoopActive) {
-            el.textContent = 'CLOCK: NC-LOOP ' + bpm + 'BPM B:' + beat;
-        } else {
-            el.textContent = 'CLOCK: IDLE ' + bpm + 'BPM';
-        }
-        var ss = document.getElementById('vt-sonic-status');
-        if (ss) {
-            if (VanguardTracker.isPlaying() || window._ncLoopActive) {
-                ss.textContent = 'LIVE ' + bpm + 'BPM';
-                ss.classList.add('live');
-            } else {
-                ss.classList.remove('live');
-            }
-        }
-    }, 100);
-
     // ── Per-pad controls: kill × (custom only) + mute M (all pads) ──────────
     (function() {
         document.querySelectorAll('.sfx-pad').forEach(function(pad) {
@@ -21528,7 +20939,6 @@ if (document.readyState !== 'loading') { _vbWireButtons(); }
             <button class="vt-btn vt-play-btn" id="vt-play-btn" onclick="VanguardTracker.play()">▶ PLAY</button>
             <button class="vt-btn" onclick="VanguardTracker.stop()">■ STOP</button>
             <button class="vt-btn" onclick="VanguardTracker.clear()" style="color:rgba(255,120,0,0.65);border-color:rgba(255,120,0,0.25);">CLR</button>
-            <button class="vt-btn-nc-launch" id="nc-toggle-btn" onclick="NeuralCompiler.toggle()">[ OPEN NEURAL COMPILER ]</button>
             <button class="vt-btn" onclick="_vtToggleHud()" style="color:rgba(255,204,0,0.65);border-color:rgba(255,204,0,0.22);font-size:7px;">? HUD</button>
             <button class="vt-btn" id="vt-alpha-btn" onclick="toggleGhostMode()" style="color:rgba(255,255,255,0.45);border-color:#333;font-size:7px;letter-spacing:0.5px;">[ ALPHA ]</button>
         </div>
@@ -21631,66 +21041,11 @@ if (document.readyState !== 'loading') { _vbWireButtons(); }
                 <span class="vt-hud-cmd">FX  03</span>
                 <span class="vt-hud-desc">PARTY — beat-reactive mode</span>
             </div>
-            <div class="vt-hud-sep"></div>
-            <div class="vt-hud-section-title">[ COMPILER ] — NEURAL SCRIPTING</div>
-            <div class="vt-hud-row">
-                <span class="vt-hud-cmd">loop(bpm, () =&gt; { })</span>
-                <span class="vt-hud-desc">Live loop. 'beat' is auto-injected.<br>Output routes through master analyser.</span>
-            </div>
-            <div class="vt-hud-row">
-                <span class="vt-hud-cmd">p(n).play(vol)</span>
-                <span class="vt-hud-desc">Fire Sampler pad n (0–11)<br>Triggers gear-coupled VJ FX</span>
-            </div>
-            <div class="vt-hud-row">
-                <span class="vt-hud-cmd">synth(note, type)</span>
-                <span class="vt-hud-desc">Play note via InternalSynth<br>type: sub / noise / boom / metal / sweep</span>
-            </div>
-            <div class="vt-hud-row">
-                <span class="vt-hud-cmd">Shift+Enter</span>
-                <span class="vt-hud-desc">Execute script. Hot-swap — no clock stop.</span>
-            </div>
         </div>
         <button class="vt-hud-close" onclick="_vtToggleHud()">[ CLOSE ]</button>
     </div>
 </div>
 
-<!-- ═══════════════════════════════════════════════════════════
-     NEURAL COMPILER — DRIS-STYLE IDE WINDOW
-     ═══════════════════════════════════════════════════════════ -->
-<div id="nc-window" class="nc-window">
-    <div class="nc-titlebar" id="nc-titlebar">
-        <span class="nc-title">⟨/⟩ NEURAL_COMPILER</span>
-        <span style="font-size:6.5px;color:rgba(176,0,255,0.4);letter-spacing:1px;margin-left:auto;">SONIC SUITE v3</span>
-        <button class="vt-close-btn" onclick="NeuralCompiler.toggle()" style="color:rgba(176,0,255,0.5);margin-left:8px;">✕</button>
-    </div>
-    <!-- Preset picker bar -->
-    <div class="nc-preset-bar">
-        <span class="nc-preset-lbl">PRESET</span>
-        <select id="nc-preset-select">
-            <option value="0">1 · IDM CORE — Breakbeat</option>
-            <option value="1">2 · CINEMATIC SUB — Drone</option>
-            <option value="2">3 · TECHNO 4×4 — Acid</option>
-            <option value="3">4 · GLITCH RATCHET — Hot-Swap</option>
-            <option value="4">5 · MELODIC PLUCK — Arp</option>
-        </select>
-        <button id="nc-load-preset-btn" onclick="NeuralCompiler.loadPreset()">LOAD</button>
-    </div>
-    <div class="nc-body">
-        <div class="nc-editor-wrap">
-            <textarea class="nc-editor" id="nc-editor" spellcheck="false" autocomplete="one-time-code" autocorrect="off" autocapitalize="off"></textarea>
-        </div>
-        <div class="nc-output-panel" id="nc-output"></div>
-    </div>
-    <div class="nc-toolbar">
-        <button class="nc-run-btn" id="nc-run-btn">▶ RUN</button>
-        <button class="nc-stop-btn" id="nc-stop-btn">■ STOP LOOP</button>
-        <span class="nc-hint">Shift+Enter · RUN · GlobalClock-locked</span>
-    </div>
-    <div class="nc-status-bar">
-        <span>OUTPUT ROUTED → ENGINE ANALYSER → SEISMIC/KINETIC</span>
-        <span style="margin-left:auto;" id="nc-clock-status">LOOP: IDLE</span>
-    </div>
-</div>
 <!-- ── VANGUARD_B WIRING — _setFXBank / _vbActivate / _vbDeactivate / _vbClearAll ── -->
 <script>
 (function(){
