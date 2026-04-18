@@ -1495,23 +1495,26 @@
         /* ── GEAR DROPDOWN ── */
         .pad-gear {
             position: absolute;
-            top: 4px;
-            right: 4px;
+            top: 0;
+            right: 0;
+            padding: 3px 4px;
             z-index: 10;
+            /* Ensure clicks land on the dot even at 7px font size */
+            cursor: pointer;
         }
         /* Discoverable pulse — subtle cyan breathe, draws the eye */
         @keyframes gear-discover-pulse {
             /* dims for 40% of the cycle, then lights up with a clear cyan glow */
-            0%, 40%, 100% { opacity: 0.1;  filter: drop-shadow(0 0 0px transparent); }
-            55%, 70%      { opacity: 0.65; filter: drop-shadow(0 0 5px rgba(0,243,255,0.75)); }
+            0%, 40%, 100% { opacity: 0.18; filter: drop-shadow(0 0 0px transparent); }
+            55%, 70%      { opacity: 0.75; filter: drop-shadow(0 0 5px rgba(0,243,255,0.75)); }
         }
         .pad-gear-icon {
             display: block;
-            font-size: 7px;
-            opacity: 0.1;
+            font-size: 8px;
+            opacity: 0.18;
             cursor: pointer;
             line-height: 1;
-            padding: 2px;
+            padding: 3px 4px;
             transition: opacity 0.12s, color 0.12s, text-shadow 0.12s;
             user-select: none;
             animation: gear-discover-pulse 3.5s ease-in-out infinite;
@@ -1533,6 +1536,9 @@
         .sfx-pad.coupled-seismic .pad-gear-icon,
         .sfx-pad.coupled-punch .pad-gear-icon                                { opacity: 0.85 !important; animation: none; color: #ff6600; text-shadow: 0 0 6px rgba(255,102,0,0.85); }
         .sfx-pad.coupled-party .pad-gear-icon                                { opacity: 0.85 !important; animation: none; color: #ff00ff; text-shadow: 0 0 6px rgba(255,0,255,0.85); }
+        .sfx-pad.coupled-scan .pad-gear-icon,
+        .sfx-pad.coupled-tear .pad-gear-icon                                 { opacity: 0.85 !important; animation: none; color: var(--accent); text-shadow: 0 0 6px rgba(0,243,255,0.85); }
+        .sfx-pad.coupled-vhs .pad-gear-icon                                  { opacity: 0.85 !important; animation: none; color: #ffaa00; text-shadow: 0 0 6px rgba(255,170,0,0.85); }
         /* Hover on armed pad: snap to max brightness */
         .sfx-pad.coupled .pad-gear:hover .pad-gear-icon,
         .sfx-pad.coupled .pad-gear.open .pad-gear-icon { opacity: 1 !important; filter: brightness(1.4); }
@@ -1977,6 +1983,39 @@
             color: rgba(255,60,140,0.9) !important;
             box-shadow: 2px 3px 8px rgba(0,0,0,0.95), inset 0 3px 12px rgba(0,0,0,0.7),
                 0 0 18px rgba(255,0,100,0.5), inset 0 0 12px rgba(255,0,100,0.08) !important;
+        }
+        /* SCAN / TEAR — Cyan underglow */
+        .sfx-pad.coupled-scan,
+        .sfx-pad.coupled-tear {
+            border-color: rgba(0,243,255,0.8) !important;
+            color: rgba(0,243,255,0.9) !important;
+            box-shadow:
+                2px 3px 8px rgba(0,0,0,0.95),
+                inset 0 3px 12px rgba(0,0,0,0.7),
+                0 0 10px rgba(0,243,255,0.45),
+                inset 0 0 12px rgba(0,243,255,0.08) !important;
+        }
+        /* VHS — Amber underglow */
+        .sfx-pad.coupled-vhs {
+            border-color: rgba(255,170,0,0.85) !important;
+            color: rgba(255,190,60,0.9) !important;
+            box-shadow:
+                2px 3px 8px rgba(0,0,0,0.95),
+                inset 0 3px 12px rgba(0,0,0,0.7),
+                0 0 10px rgba(255,170,0,0.45),
+                inset 0 0 12px rgba(255,170,0,0.08) !important;
+        }
+        /* Playing fills for Bank A additions */
+        .sfx-pad.coupled-scan.sfx-playing,
+        .sfx-pad.coupled-tear.sfx-playing {
+            background: rgba(0,243,255,0.22) !important;
+            border-color: var(--accent) !important;
+            box-shadow: 0 0 14px rgba(0,243,255,0.6), inset 0 0 18px rgba(0,243,255,0.2) !important;
+        }
+        .sfx-pad.coupled-vhs.sfx-playing {
+            background: rgba(255,170,0,0.22) !important;
+            border-color: #ffaa00 !important;
+            box-shadow: 0 0 14px rgba(255,170,0,0.6), inset 0 0 18px rgba(255,170,0,0.2) !important;
         }
 
         /* ── SAMPLER HELP BUTTON & MODAL ── */
@@ -5224,18 +5263,20 @@ body.fullscreen #transcription-hud { pointer-events: none !important; } /* keep 
                         <div class="sfx-bank-label">SIG BANK <em>// TAP TO FIRE</em></div>
 
                         <button class="btn sfx-btn sfx-pad sfx-sig" id="sfx-applause" data-sfx="applause" data-midi-target="sfx:applause" data-pad-num="01" title="Applause — click or MIDI">
-                            <div class="pad-gear" onclick="event.stopPropagation()">
-                                <span class="pad-gear-icon" onclick="_padGearToggle(this)">⚙</span>
+                            <div class="pad-gear" onclick="event.stopPropagation(); _padGearToggle(this.querySelector('.pad-gear-icon'))">
+                                <span class="pad-gear-icon">⚙</span>
                                 <div class="pad-gear-menu">
                                     <div data-fx="none">— NONE —</div>
-                                    <div data-fx="nvg">NVG</div>
+                                    <div class="gear-bank-sep">— BANK A —</div>
+                                    <div data-fx="scan">X-RAY</div>
+                                    <div data-fx="tear">TEAR</div>
+                                    <div data-fx="failure">FAILURE</div>
                                     <div data-fx="shoot">SHOOT</div>
                                     <div data-fx="void">VOID</div>
-                                    <div data-fx="failure">FAILURE</div>
                                     <div data-fx="lucy">LUCY</div>
-                                    <div data-fx="seismic">SEISMIC</div>
-                                    <div data-fx="punch">PUNCH</div>
-                                    <div data-fx="party">PARTY</div>
+                                    <div data-fx="vhs">VHS</div>
+                                    <div data-fx="nvg">NVG</div>
+                                    <div data-fx="reset">RESET</div>
                                     <div class="gear-bank-sep">— BANK B —</div>
                                     <div data-fx="vb-slit-scan">SLIT_SCAN</div>
                                     <div data-fx="vb-luma-bloom">LUMA_BLOOM</div>
@@ -5253,18 +5294,20 @@ body.fullscreen #transcription-hud { pointer-events: none !important; } /* keep 
                         </button>
 
                         <button class="btn sfx-btn sfx-pad sfx-sig" id="sfx-cheer" data-sfx="cheer" data-midi-target="sfx:cheer" data-pad-num="02" title="Cheer — click or MIDI">
-                            <div class="pad-gear" onclick="event.stopPropagation()">
-                                <span class="pad-gear-icon" onclick="_padGearToggle(this)">⚙</span>
+                            <div class="pad-gear" onclick="event.stopPropagation(); _padGearToggle(this.querySelector('.pad-gear-icon'))">
+                                <span class="pad-gear-icon">⚙</span>
                                 <div class="pad-gear-menu">
                                     <div data-fx="none">— NONE —</div>
-                                    <div data-fx="nvg">NVG</div>
+                                    <div class="gear-bank-sep">— BANK A —</div>
+                                    <div data-fx="scan">X-RAY</div>
+                                    <div data-fx="tear">TEAR</div>
+                                    <div data-fx="failure">FAILURE</div>
                                     <div data-fx="shoot">SHOOT</div>
                                     <div data-fx="void">VOID</div>
-                                    <div data-fx="failure">FAILURE</div>
                                     <div data-fx="lucy">LUCY</div>
-                                    <div data-fx="seismic">SEISMIC</div>
-                                    <div data-fx="punch">PUNCH</div>
-                                    <div data-fx="party">PARTY</div>
+                                    <div data-fx="vhs">VHS</div>
+                                    <div data-fx="nvg">NVG</div>
+                                    <div data-fx="reset">RESET</div>
                                     <div class="gear-bank-sep">— BANK B —</div>
                                     <div data-fx="vb-slit-scan">SLIT_SCAN</div>
                                     <div data-fx="vb-luma-bloom">LUMA_BLOOM</div>
@@ -5282,18 +5325,20 @@ body.fullscreen #transcription-hud { pointer-events: none !important; } /* keep 
                         </button>
 
                         <button class="btn sfx-btn sfx-pad sfx-sig" id="sfx-horn" data-sfx="horn" data-midi-target="sfx:horn" data-pad-num="03" title="Air Horn — click or MIDI">
-                            <div class="pad-gear" onclick="event.stopPropagation()">
-                                <span class="pad-gear-icon" onclick="_padGearToggle(this)">⚙</span>
+                            <div class="pad-gear" onclick="event.stopPropagation(); _padGearToggle(this.querySelector('.pad-gear-icon'))">
+                                <span class="pad-gear-icon">⚙</span>
                                 <div class="pad-gear-menu">
                                     <div data-fx="none">— NONE —</div>
-                                    <div data-fx="nvg">NVG</div>
+                                    <div class="gear-bank-sep">— BANK A —</div>
+                                    <div data-fx="scan">X-RAY</div>
+                                    <div data-fx="tear">TEAR</div>
+                                    <div data-fx="failure">FAILURE</div>
                                     <div data-fx="shoot">SHOOT</div>
                                     <div data-fx="void">VOID</div>
-                                    <div data-fx="failure">FAILURE</div>
                                     <div data-fx="lucy">LUCY</div>
-                                    <div data-fx="seismic">SEISMIC</div>
-                                    <div data-fx="punch">PUNCH</div>
-                                    <div data-fx="party">PARTY</div>
+                                    <div data-fx="vhs">VHS</div>
+                                    <div data-fx="nvg">NVG</div>
+                                    <div data-fx="reset">RESET</div>
                                     <div class="gear-bank-sep">— BANK B —</div>
                                     <div data-fx="vb-slit-scan">SLIT_SCAN</div>
                                     <div data-fx="vb-luma-bloom">LUMA_BLOOM</div>
@@ -5311,18 +5356,20 @@ body.fullscreen #transcription-hud { pointer-events: none !important; } /* keep 
                         </button>
 
                         <button class="btn sfx-btn sfx-pad sfx-sig" id="sfx-boom" data-sfx="boom" data-midi-target="sfx:boom" data-pad-num="04" title="Boom — click or MIDI">
-                            <div class="pad-gear" onclick="event.stopPropagation()">
-                                <span class="pad-gear-icon" onclick="_padGearToggle(this)">⚙</span>
+                            <div class="pad-gear" onclick="event.stopPropagation(); _padGearToggle(this.querySelector('.pad-gear-icon'))">
+                                <span class="pad-gear-icon">⚙</span>
                                 <div class="pad-gear-menu">
                                     <div data-fx="none">— NONE —</div>
-                                    <div data-fx="nvg">NVG</div>
+                                    <div class="gear-bank-sep">— BANK A —</div>
+                                    <div data-fx="scan">X-RAY</div>
+                                    <div data-fx="tear">TEAR</div>
+                                    <div data-fx="failure">FAILURE</div>
                                     <div data-fx="shoot">SHOOT</div>
                                     <div data-fx="void">VOID</div>
-                                    <div data-fx="failure">FAILURE</div>
                                     <div data-fx="lucy">LUCY</div>
-                                    <div data-fx="seismic">SEISMIC</div>
-                                    <div data-fx="punch">PUNCH</div>
-                                    <div data-fx="party">PARTY</div>
+                                    <div data-fx="vhs">VHS</div>
+                                    <div data-fx="nvg">NVG</div>
+                                    <div data-fx="reset">RESET</div>
                                     <div class="gear-bank-sep">— BANK B —</div>
                                     <div data-fx="vb-slit-scan">SLIT_SCAN</div>
                                     <div data-fx="vb-luma-bloom">LUMA_BLOOM</div>
@@ -5345,18 +5392,20 @@ body.fullscreen #transcription-hud { pointer-events: none !important; } /* keep 
                         <div class="sfx-bank-label" style="color:rgba(255,140,0,0.6);">CUSTOM BANK <em>// TAP: LOAD · R-CLICK: ARM REC</em></div>
 
                         <button class="btn sfx-btn sfx-pad sfx-cust" id="sfx-custom1" data-sfx="custom1" data-midi-target="sfx:custom1" data-pad-num="05" title="Custom 1 — click: load / right-click: arm rec">
-                            <div class="pad-gear" onclick="event.stopPropagation()">
-                                <span class="pad-gear-icon" onclick="_padGearToggle(this)">⚙</span>
+                            <div class="pad-gear" onclick="event.stopPropagation(); _padGearToggle(this.querySelector('.pad-gear-icon'))">
+                                <span class="pad-gear-icon">⚙</span>
                                 <div class="pad-gear-menu">
                                     <div data-fx="none">— NONE —</div>
-                                    <div data-fx="nvg">NVG</div>
+                                    <div class="gear-bank-sep">— BANK A —</div>
+                                    <div data-fx="scan">X-RAY</div>
+                                    <div data-fx="tear">TEAR</div>
+                                    <div data-fx="failure">FAILURE</div>
                                     <div data-fx="shoot">SHOOT</div>
                                     <div data-fx="void">VOID</div>
-                                    <div data-fx="failure">FAILURE</div>
                                     <div data-fx="lucy">LUCY</div>
-                                    <div data-fx="seismic">SEISMIC</div>
-                                    <div data-fx="punch">PUNCH</div>
-                                    <div data-fx="party">PARTY</div>
+                                    <div data-fx="vhs">VHS</div>
+                                    <div data-fx="nvg">NVG</div>
+                                    <div data-fx="reset">RESET</div>
                                     <div class="gear-bank-sep">— BANK B —</div>
                                     <div data-fx="vb-slit-scan">SLIT_SCAN</div>
                                     <div data-fx="vb-luma-bloom">LUMA_BLOOM</div>
@@ -5377,18 +5426,20 @@ body.fullscreen #transcription-hud { pointer-events: none !important; } /* keep 
                         </button>
 
                         <button class="btn sfx-btn sfx-pad sfx-cust" id="sfx-custom2" data-sfx="custom2" data-midi-target="sfx:custom2" data-pad-num="06" title="Custom 2 — click: load / right-click: arm rec">
-                            <div class="pad-gear" onclick="event.stopPropagation()">
-                                <span class="pad-gear-icon" onclick="_padGearToggle(this)">⚙</span>
+                            <div class="pad-gear" onclick="event.stopPropagation(); _padGearToggle(this.querySelector('.pad-gear-icon'))">
+                                <span class="pad-gear-icon">⚙</span>
                                 <div class="pad-gear-menu">
                                     <div data-fx="none">— NONE —</div>
-                                    <div data-fx="nvg">NVG</div>
+                                    <div class="gear-bank-sep">— BANK A —</div>
+                                    <div data-fx="scan">X-RAY</div>
+                                    <div data-fx="tear">TEAR</div>
+                                    <div data-fx="failure">FAILURE</div>
                                     <div data-fx="shoot">SHOOT</div>
                                     <div data-fx="void">VOID</div>
-                                    <div data-fx="failure">FAILURE</div>
                                     <div data-fx="lucy">LUCY</div>
-                                    <div data-fx="seismic">SEISMIC</div>
-                                    <div data-fx="punch">PUNCH</div>
-                                    <div data-fx="party">PARTY</div>
+                                    <div data-fx="vhs">VHS</div>
+                                    <div data-fx="nvg">NVG</div>
+                                    <div data-fx="reset">RESET</div>
                                     <div class="gear-bank-sep">— BANK B —</div>
                                     <div data-fx="vb-slit-scan">SLIT_SCAN</div>
                                     <div data-fx="vb-luma-bloom">LUMA_BLOOM</div>
@@ -5409,18 +5460,20 @@ body.fullscreen #transcription-hud { pointer-events: none !important; } /* keep 
                         </button>
 
                         <button class="btn sfx-btn sfx-pad sfx-cust" id="sfx-custom3" data-sfx="custom3" data-midi-target="sfx:custom3" data-pad-num="07" title="Custom 3 — click: load / right-click: arm rec">
-                            <div class="pad-gear" onclick="event.stopPropagation()">
-                                <span class="pad-gear-icon" onclick="_padGearToggle(this)">⚙</span>
+                            <div class="pad-gear" onclick="event.stopPropagation(); _padGearToggle(this.querySelector('.pad-gear-icon'))">
+                                <span class="pad-gear-icon">⚙</span>
                                 <div class="pad-gear-menu">
                                     <div data-fx="none">— NONE —</div>
-                                    <div data-fx="nvg">NVG</div>
+                                    <div class="gear-bank-sep">— BANK A —</div>
+                                    <div data-fx="scan">X-RAY</div>
+                                    <div data-fx="tear">TEAR</div>
+                                    <div data-fx="failure">FAILURE</div>
                                     <div data-fx="shoot">SHOOT</div>
                                     <div data-fx="void">VOID</div>
-                                    <div data-fx="failure">FAILURE</div>
                                     <div data-fx="lucy">LUCY</div>
-                                    <div data-fx="seismic">SEISMIC</div>
-                                    <div data-fx="punch">PUNCH</div>
-                                    <div data-fx="party">PARTY</div>
+                                    <div data-fx="vhs">VHS</div>
+                                    <div data-fx="nvg">NVG</div>
+                                    <div data-fx="reset">RESET</div>
                                     <div class="gear-bank-sep">— BANK B —</div>
                                     <div data-fx="vb-slit-scan">SLIT_SCAN</div>
                                     <div data-fx="vb-luma-bloom">LUMA_BLOOM</div>
@@ -5441,18 +5494,20 @@ body.fullscreen #transcription-hud { pointer-events: none !important; } /* keep 
                         </button>
 
                         <button class="btn sfx-btn sfx-pad sfx-cust" id="sfx-custom4" data-sfx="custom4" data-midi-target="sfx:custom4" data-pad-num="08" title="Custom 4 — click: load / right-click: arm rec">
-                            <div class="pad-gear" onclick="event.stopPropagation()">
-                                <span class="pad-gear-icon" onclick="_padGearToggle(this)">⚙</span>
+                            <div class="pad-gear" onclick="event.stopPropagation(); _padGearToggle(this.querySelector('.pad-gear-icon'))">
+                                <span class="pad-gear-icon">⚙</span>
                                 <div class="pad-gear-menu">
                                     <div data-fx="none">— NONE —</div>
-                                    <div data-fx="nvg">NVG</div>
+                                    <div class="gear-bank-sep">— BANK A —</div>
+                                    <div data-fx="scan">X-RAY</div>
+                                    <div data-fx="tear">TEAR</div>
+                                    <div data-fx="failure">FAILURE</div>
                                     <div data-fx="shoot">SHOOT</div>
                                     <div data-fx="void">VOID</div>
-                                    <div data-fx="failure">FAILURE</div>
                                     <div data-fx="lucy">LUCY</div>
-                                    <div data-fx="seismic">SEISMIC</div>
-                                    <div data-fx="punch">PUNCH</div>
-                                    <div data-fx="party">PARTY</div>
+                                    <div data-fx="vhs">VHS</div>
+                                    <div data-fx="nvg">NVG</div>
+                                    <div data-fx="reset">RESET</div>
                                     <div class="gear-bank-sep">— BANK B —</div>
                                     <div data-fx="vb-slit-scan">SLIT_SCAN</div>
                                     <div data-fx="vb-luma-bloom">LUMA_BLOOM</div>
@@ -5476,18 +5531,20 @@ body.fullscreen #transcription-hud { pointer-events: none !important; } /* keep 
                         <div class="sfx-bank-label" style="color:rgba(100,60,255,0.65);">LIQUID LIB <em>// 0.75× · HEAVY DRAG</em></div>
 
                         <button class="btn sfx-btn sfx-pad sfx-liq" id="sfx-liq1" data-sfx="liq1" data-midi-target="sfx:liq1" data-pad-num="09" title="Liquid 1 — tap or arm groovebox">
-                            <div class="pad-gear" onclick="event.stopPropagation()">
-                                <span class="pad-gear-icon" onclick="_padGearToggle(this)">⚙</span>
+                            <div class="pad-gear" onclick="event.stopPropagation(); _padGearToggle(this.querySelector('.pad-gear-icon'))">
+                                <span class="pad-gear-icon">⚙</span>
                                 <div class="pad-gear-menu">
                                     <div data-fx="none">— NONE —</div>
-                                    <div data-fx="nvg">NVG</div>
+                                    <div class="gear-bank-sep">— BANK A —</div>
+                                    <div data-fx="scan">X-RAY</div>
+                                    <div data-fx="tear">TEAR</div>
+                                    <div data-fx="failure">FAILURE</div>
                                     <div data-fx="shoot">SHOOT</div>
                                     <div data-fx="void">VOID</div>
-                                    <div data-fx="failure">FAILURE</div>
                                     <div data-fx="lucy">LUCY</div>
-                                    <div data-fx="seismic">SEISMIC</div>
-                                    <div data-fx="punch">PUNCH</div>
-                                    <div data-fx="party">PARTY</div>
+                                    <div data-fx="vhs">VHS</div>
+                                    <div data-fx="nvg">NVG</div>
+                                    <div data-fx="reset">RESET</div>
                                     <div class="gear-bank-sep">— BANK B —</div>
                                     <div data-fx="vb-slit-scan">SLIT_SCAN</div>
                                     <div data-fx="vb-luma-bloom">LUMA_BLOOM</div>
@@ -5503,18 +5560,20 @@ body.fullscreen #transcription-hud { pointer-events: none !important; } /* keep 
                         </button>
 
                         <button class="btn sfx-btn sfx-pad sfx-liq" id="sfx-liq2" data-sfx="liq2" data-midi-target="sfx:liq2" data-pad-num="10" title="Liquid 2 — tap or arm groovebox">
-                            <div class="pad-gear" onclick="event.stopPropagation()">
-                                <span class="pad-gear-icon" onclick="_padGearToggle(this)">⚙</span>
+                            <div class="pad-gear" onclick="event.stopPropagation(); _padGearToggle(this.querySelector('.pad-gear-icon'))">
+                                <span class="pad-gear-icon">⚙</span>
                                 <div class="pad-gear-menu">
                                     <div data-fx="none">— NONE —</div>
-                                    <div data-fx="nvg">NVG</div>
+                                    <div class="gear-bank-sep">— BANK A —</div>
+                                    <div data-fx="scan">X-RAY</div>
+                                    <div data-fx="tear">TEAR</div>
+                                    <div data-fx="failure">FAILURE</div>
                                     <div data-fx="shoot">SHOOT</div>
                                     <div data-fx="void">VOID</div>
-                                    <div data-fx="failure">FAILURE</div>
                                     <div data-fx="lucy">LUCY</div>
-                                    <div data-fx="seismic">SEISMIC</div>
-                                    <div data-fx="punch">PUNCH</div>
-                                    <div data-fx="party">PARTY</div>
+                                    <div data-fx="vhs">VHS</div>
+                                    <div data-fx="nvg">NVG</div>
+                                    <div data-fx="reset">RESET</div>
                                     <div class="gear-bank-sep">— BANK B —</div>
                                     <div data-fx="vb-slit-scan">SLIT_SCAN</div>
                                     <div data-fx="vb-luma-bloom">LUMA_BLOOM</div>
@@ -5530,18 +5589,20 @@ body.fullscreen #transcription-hud { pointer-events: none !important; } /* keep 
                         </button>
 
                         <button class="btn sfx-btn sfx-pad sfx-liq" id="sfx-liq3" data-sfx="liq3" data-midi-target="sfx:liq3" data-pad-num="11" title="Liquid 3 — tap or arm groovebox">
-                            <div class="pad-gear" onclick="event.stopPropagation()">
-                                <span class="pad-gear-icon" onclick="_padGearToggle(this)">⚙</span>
+                            <div class="pad-gear" onclick="event.stopPropagation(); _padGearToggle(this.querySelector('.pad-gear-icon'))">
+                                <span class="pad-gear-icon">⚙</span>
                                 <div class="pad-gear-menu">
                                     <div data-fx="none">— NONE —</div>
-                                    <div data-fx="nvg">NVG</div>
+                                    <div class="gear-bank-sep">— BANK A —</div>
+                                    <div data-fx="scan">X-RAY</div>
+                                    <div data-fx="tear">TEAR</div>
+                                    <div data-fx="failure">FAILURE</div>
                                     <div data-fx="shoot">SHOOT</div>
                                     <div data-fx="void">VOID</div>
-                                    <div data-fx="failure">FAILURE</div>
                                     <div data-fx="lucy">LUCY</div>
-                                    <div data-fx="seismic">SEISMIC</div>
-                                    <div data-fx="punch">PUNCH</div>
-                                    <div data-fx="party">PARTY</div>
+                                    <div data-fx="vhs">VHS</div>
+                                    <div data-fx="nvg">NVG</div>
+                                    <div data-fx="reset">RESET</div>
                                     <div class="gear-bank-sep">— BANK B —</div>
                                     <div data-fx="vb-slit-scan">SLIT_SCAN</div>
                                     <div data-fx="vb-luma-bloom">LUMA_BLOOM</div>
@@ -5557,18 +5618,20 @@ body.fullscreen #transcription-hud { pointer-events: none !important; } /* keep 
                         </button>
 
                         <button class="btn sfx-btn sfx-pad sfx-liq" id="sfx-liq4" data-sfx="liq4" data-midi-target="sfx:liq4" data-pad-num="12" title="Liquid 4">
-                            <div class="pad-gear" onclick="event.stopPropagation()">
-                                <span class="pad-gear-icon" onclick="_padGearToggle(this)">⚙</span>
+                            <div class="pad-gear" onclick="event.stopPropagation(); _padGearToggle(this.querySelector('.pad-gear-icon'))">
+                                <span class="pad-gear-icon">⚙</span>
                                 <div class="pad-gear-menu">
                                     <div data-fx="none">— NONE —</div>
-                                    <div data-fx="nvg">NVG</div>
+                                    <div class="gear-bank-sep">— BANK A —</div>
+                                    <div data-fx="scan">X-RAY</div>
+                                    <div data-fx="tear">TEAR</div>
+                                    <div data-fx="failure">FAILURE</div>
                                     <div data-fx="shoot">SHOOT</div>
                                     <div data-fx="void">VOID</div>
-                                    <div data-fx="failure">FAILURE</div>
                                     <div data-fx="lucy">LUCY</div>
-                                    <div data-fx="seismic">SEISMIC</div>
-                                    <div data-fx="punch">PUNCH</div>
-                                    <div data-fx="party">PARTY</div>
+                                    <div data-fx="vhs">VHS</div>
+                                    <div data-fx="nvg">NVG</div>
+                                    <div data-fx="reset">RESET</div>
                                     <div class="gear-bank-sep">— BANK B —</div>
                                     <div data-fx="vb-slit-scan">SLIT_SCAN</div>
                                     <div data-fx="vb-luma-bloom">LUMA_BLOOM</div>
@@ -15750,6 +15813,8 @@ document.addEventListener('DOMContentLoaded', () => {
             'coupled-nvg','coupled-shoot','coupled-reset',
             'coupled-void','coupled-failure','coupled-lucy',
             'coupled-seismic','coupled-punch','coupled-party','coupled-glitch',
+            // Bank A additions — to match Bank A button set
+            'coupled-scan','coupled-tear','coupled-vhs',
             // Bank B GPU shaders
             'coupled-vb-slit-scan','coupled-vb-luma-bloom','coupled-vb-dither-luxe',
             'coupled-vb-caustics','coupled-vb-ghost-echo','coupled-vb-spectral-mosh'
@@ -15758,6 +15823,7 @@ document.addEventListener('DOMContentLoaded', () => {
             none:'', nvg:'NVG', shoot:'SHOOT', reset:'RESET',
             void:'VOID', failure:'FAILURE', lucy:'LUCY',
             seismic:'SEISMIC', punch:'PUNCH', party:'PARTY', glitch:'GLITCH',
+            scan:'X-RAY', tear:'TEAR', vhs:'VHS',
             'vb-slit-scan':'SLIT_SCN', 'vb-luma-bloom':'LUM_BLM',
             'vb-dither-luxe':'DITHER', 'vb-caustics':'CAUSTIC',
             'vb-ghost-echo':'GHO_ECH', 'vb-spectral-mosh':'SPEC_MSH'
@@ -15868,6 +15934,23 @@ document.addEventListener('DOMContentLoaded', () => {
             if (fx === 'reset') {
                 if (typeof triggerHardReset === 'function') triggerHardReset();
                 _flashFXBtn('btn-reset', 1000);
+                return;
+            }
+            // VHS — toggle overlay on for 3s (uses dedicated toggleVHS)
+            if (fx === 'vhs') {
+                if (typeof toggleVHS === 'function') {
+                    var vhsBtn = document.getElementById('btn-vhs');
+                    var wasOn = vhsBtn && vhsBtn.classList.contains('on');
+                    if (!wasOn) {
+                        toggleVHS();
+                        setTimeout(function() {
+                            var b = document.getElementById('btn-vhs');
+                            if (b && b.classList.contains('on')) toggleVHS();
+                        }, 3000);
+                    } else {
+                        _flashFXBtn('btn-vhs', 3000);
+                    }
+                }
                 return;
             }
             // BANK B — VNGRD_B GPU shader burst (3s one-shot via coupling)
