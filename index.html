@@ -3719,6 +3719,7 @@ body.fullscreen #transcription-hud { pointer-events: none !important; } /* keep 
     padding: 18px 10px; text-align: center;
     color: rgba(0,243,255,.3); font-size: 7px; letter-spacing: 2px;
 }
+.ss-drums-step.cur { outline: 1px solid #ff4444 !important; outline-offset: -1px; }
 
 /* ═══ VNGRD SONIC SUITE LAUNCHER (sidebar, between SFX and HAND SYNTH) ═══ */
 #vt-sonic-rack { margin-top: 6px; position: relative; }
@@ -10353,6 +10354,311 @@ window.SonicSuite = (function() {
         registerCard, setMute, setFocus,
         _state: state,
     };
+})();
+
+
+// ═══════════════════════════════════════════════════════════════
+//  VNGRD DRUMS CARD — 12 kits, 4 tracks × 16 steps
+//  Shared voice(type, freq, dur, env, filter) helper.
+//  Shared 2-second white-noise buffer (built once).
+// ═══════════════════════════════════════════════════════════════
+(function() {
+    const TRACKS = ['kick', 'snare', 'hat', 'perc'];
+    const STEPS  = 16;
+    const KITS = [
+        '909','808','TRAP','LOFI','CARTOON','INDUSTRIAL',
+        'GLITCH','BROKEN','APHEX','DOOM','GABBER','DUB'
+    ];
+    let _NOISE = null;
+
+    function _buildNoise(ctx) {
+        if (_NOISE) return _NOISE;
+        const len = ctx.sampleRate * 2;
+        const buf = ctx.createBuffer(1, len, ctx.sampleRate);
+        const d = buf.getChannelData(0);
+        for (let i = 0; i < len; i++) d[i] = Math.random() * 2 - 1;
+        _NOISE = buf;
+        return buf;
+    }
+
+    //  voice(type, freq, dur, env, filter?)
+    //    type:   'sine'|'square'|'sawtooth'|'triangle'|'noise'|'fm'
+    //    freq:   number OR [start,end] (exp sweep)
+    //    dur:    seconds
+    //    env:    { a?, d?, r?, peak? }   (a attack, d decay, r release, peak gain)
+    //    filter: { type, freq, q?, sweep?:[s,e] }
+    function _voice(ctx, dest, t0, type, freq, dur, env, filter, pan) {
+        const now = t0;
+        env = env || {};
+        const peak = env.peak != null ? env.peak : 0.9;
+        const a = env.a != null ? env.a : 0.001;
+        const d = env.d != null ? env.d : dur * 0.6;
+        const r = env.r != null ? env.r : dur * 0.3;
+
+        let src;
+        if (type === 'noise') {
+            src = ctx.createBufferSource();
+            src.buffer = _buildNoise(ctx);
+            src.loop = false;
+        } else if (type === 'fm') {
+            src = ctx.createOscillator();
+            src.type = 'sine';
+            const mod = ctx.createOscillator();
+            const modGain = ctx.createGain();
+            const [fC, fM, idx] = Array.isArray(freq) ? freq : [freq, freq * 2, 200];
+            src.frequency.setValueAtTime(fC, now);
+            mod.frequency.setValueAtTime(fM, now);
+            modGain.gain.setValueAtTime(idx, now);
+            mod.connect(modGain).connect(src.frequency);
+            mod.start(now); mod.stop(now + dur + 0.1);
+        } else {
+            src = ctx.createOscillator();
+            src.type = type;
+            if (Array.isArray(freq)) {
+                src.frequency.setValueAtTime(Math.max(1, freq[0]), now);
+                src.frequency.exponentialRampToValueAtTime(Math.max(1, freq[1]), now + dur);
+            } else {
+                src.frequency.setValueAtTime(freq, now);
+            }
+        }
+
+        const g = ctx.createGain();
+        g.gain.setValueAtTime(0, now);
+        g.gain.linearRampToValueAtTime(peak, now + a);
+        g.gain.exponentialRampToValueAtTime(Math.max(0.0001, peak * 0.35), now + a + d);
+        g.gain.exponentialRampToValueAtTime(0.0001, now + a + d + r);
+
+        let tail = g;
+        if (filter) {
+            const f = ctx.createBiquadFilter();
+            f.type = filter.type || 'lowpass';
+            f.Q.value = filter.q != null ? filter.q : 0.9;
+            if (filter.sweep) {
+                f.frequency.setValueAtTime(filter.sweep[0], now);
+                f.frequency.exponentialRampToValueAtTime(Math.max(20, filter.sweep[1]), now + dur);
+            } else {
+                f.frequency.setValueAtTime(filter.freq || 1200, now);
+            }
+            g.connect(f); tail = f;
+        }
+        if (pan != null) {
+            const p = ctx.createStereoPanner ? ctx.createStereoPanner() : null;
+            if (p) { p.pan.value = Math.max(-1, Math.min(1, pan)); tail.connect(p); tail = p; }
+        }
+        src.connect(g);
+        tail.connect(dest);
+        src.start(now);
+        src.stop(now + dur + a + r + 0.05);
+    }
+
+    // ─── KITS ────────────────────────────────────────────────────
+    //  Each kit: { kick(t), snare(t), hat(t), perc(t) } on a shared
+    //  ctx/dest closure. Kits differ on timbre + envelope + filter.
+    function _makeKits(ctx, dest) {
+        const V = (ty, fq, du, en, fi, pn) => _voice(ctx, dest, 0, ty, fq, du, en, fi, pn);
+        // Re-wrap so each call uses a live t0
+        function _v(t) {
+            return (ty, fq, du, en, fi, pn) => _voice(ctx, dest, t, ty, fq, du, en, fi, pn);
+        }
+        return {
+            '909': {
+                kick:  t => _v(t)('sine',     [160, 48], 0.28, {a:0.001, d:0.08, r:0.2, peak:1.0}),
+                snare: t => { _v(t)('triangle', [240, 160], 0.14, {a:0.001, d:0.08, r:0.08, peak:0.55});
+                              _v(t)('noise', 0, 0.18, {a:0.001, d:0.06, r:0.12, peak:0.55}, {type:'highpass', freq:1800, q:0.8}); },
+                hat:   t => _v(t)('noise', 0, 0.05, {a:0.001, d:0.02, r:0.04, peak:0.45}, {type:'highpass', freq:8000, q:0.8}),
+                perc:  t => _v(t)('square', [620, 380], 0.09, {a:0.001, d:0.05, r:0.05, peak:0.38}, {type:'bandpass', freq:900, q:6})
+            },
+            '808': {
+                kick:  t => _v(t)('sine',     [120, 36], 0.7,  {a:0.001, d:0.25, r:0.55, peak:1.0}),
+                snare: t => { _v(t)('triangle', [200, 140], 0.22, {a:0.001, d:0.1, r:0.12, peak:0.45});
+                              _v(t)('noise', 0, 0.26, {a:0.001, d:0.08, r:0.2, peak:0.45}, {type:'bandpass', freq:1600, q:1.2}); },
+                hat:   t => _v(t)('noise', 0, 0.08, {a:0.001, d:0.03, r:0.06, peak:0.4}, {type:'highpass', freq:7000, q:0.6}),
+                perc:  t => _v(t)('square', 800, 0.18, {a:0.001, d:0.08, r:0.1, peak:0.42}, {type:'bandpass', freq:800, q:8})
+            },
+            'TRAP': {
+                kick:  t => _v(t)('sine',     [100, 32], 1.0,  {a:0.001, d:0.3, r:0.8, peak:1.0}),
+                snare: t => { _v(t)('triangle', [260, 180], 0.12, {a:0.001, d:0.06, r:0.08, peak:0.4});
+                              _v(t)('noise', 0, 0.14, {a:0.001, d:0.05, r:0.1, peak:0.5}, {type:'bandpass', freq:2400, q:1}); },
+                hat:   t => _v(t)('noise', 0, 0.04, {a:0.001, d:0.015, r:0.03, peak:0.5}, {type:'highpass', freq:9500, q:1.1}),
+                perc:  t => _v(t)('noise', 0, 0.22, {a:0.001, d:0.1, r:0.15, peak:0.42}, {type:'bandpass', freq:5500, q:4})
+            },
+            'LOFI': {
+                kick:  t => _v(t)('sine',     [90, 45], 0.45, {a:0.002, d:0.18, r:0.35, peak:0.85}, {type:'lowpass', freq:900, q:0.6}),
+                snare: t => { _v(t)('triangle', [200, 170], 0.16, {a:0.002, d:0.1, r:0.12, peak:0.42}, {type:'lowpass', freq:1800, q:0.5});
+                              _v(t)('noise', 0, 0.2, {a:0.002, d:0.09, r:0.15, peak:0.38}, {type:'bandpass', freq:1400, q:2}); },
+                hat:   t => _v(t)('noise', 0, 0.12, {a:0.002, d:0.05, r:0.08, peak:0.3}, {type:'bandpass', freq:3200, q:3}),
+                perc:  t => _v(t)('noise', 0, 0.3, {a:0.01, d:0.12, r:0.2, peak:0.25}, {type:'lowpass', freq:1200, q:0.4})
+            },
+            'CARTOON': {
+                kick:  t => _v(t)('sine',     [900, 80], 0.2,  {a:0.001, d:0.08, r:0.14, peak:0.7}),
+                snare: t => _v(t)('sawtooth', [1800, 300], 0.14, {a:0.001, d:0.06, r:0.1, peak:0.45}, {type:'bandpass', freq:2000, q:4}),
+                hat:   t => _v(t)('square',   [4000, 6500], 0.06, {a:0.001, d:0.02, r:0.05, peak:0.38}),
+                perc:  t => _v(t)('triangle', [1200, 2400], 0.12, {a:0.001, d:0.05, r:0.08, peak:0.42})
+            },
+            'INDUSTRIAL': {
+                kick:  t => _v(t)('sawtooth', [80, 42], 0.42, {a:0.001, d:0.15, r:0.3, peak:0.9}, {type:'lowpass', freq:400, q:6}),
+                snare: t => _v(t)('fm', [260, 900, 400], 0.24, {a:0.001, d:0.1, r:0.14, peak:0.5}, {type:'bandpass', freq:1200, q:3}),
+                hat:   t => _v(t)('noise', 0, 0.14, {a:0.001, d:0.06, r:0.08, peak:0.42}, {type:'bandpass', freq:6800, q:9}),
+                perc:  t => _v(t)('fm', [180, 1400, 800], 0.18, {a:0.001, d:0.08, r:0.12, peak:0.45})
+            },
+            'GLITCH': {
+                kick:  t => _v(t)('square', [Math.random()*120+40, 20+Math.random()*40], 0.2, {a:0.0005, d:0.05, r:0.1, peak:0.85}),
+                snare: t => _v(t)('noise', 0, 0.1 + Math.random()*0.18, {a:0.0005, d:0.02, r:0.08, peak:0.5}, {type:'bandpass', freq:300+Math.random()*4000, q:5}),
+                hat:   t => _v(t)('noise', 0, 0.02+Math.random()*0.06, {a:0.0005, d:0.01, r:0.03, peak:0.4}, {type:'highpass', freq:5000+Math.random()*6000, q:2}),
+                perc:  t => _v(t)('fm', [200+Math.random()*1200, 400+Math.random()*2000, 200+Math.random()*800], 0.1, {a:0.001, d:0.04, r:0.06, peak:0.45})
+            },
+            'BROKEN': {
+                kick:  t => _v(t)('sine', [140, 28+Math.random()*12], 0.38, {a:0.002, d:0.12, r:0.25, peak:0.92}, {type:'lowpass', freq:700, q:1.2}, Math.random()*0.4-0.2),
+                snare: t => _v(t)('triangle', [190+Math.random()*60, 150], 0.18, {a:0.001, d:0.08, r:0.12, peak:0.42}, {type:'bandpass', freq:1500, q:2.5}, Math.random()*0.6-0.3),
+                hat:   t => _v(t)('noise', 0, 0.07, {a:0.001, d:0.03, r:0.05, peak:0.34}, {type:'highpass', freq:6000+Math.random()*3000, q:2}, Math.random()-0.5),
+                perc:  t => _v(t)('square', [380+Math.random()*180, 180], 0.15, {a:0.001, d:0.06, r:0.1, peak:0.38}, {type:'bandpass', freq:1200+Math.random()*600, q:4})
+            },
+            'APHEX': {
+                kick:  t => _v(t)('fm', [58, 180, 600], 0.55, {a:0.001, d:0.2, r:0.4, peak:1.0}),
+                snare: t => _v(t)('fm', [340, 1400, 1200], 0.22, {a:0.001, d:0.08, r:0.14, peak:0.55}, {type:'highpass', freq:800, q:3}),
+                hat:   t => _v(t)('fm', [8000, 12000, 2000], 0.05, {a:0.001, d:0.02, r:0.04, peak:0.45}, {type:'highpass', freq:6500, q:2}),
+                perc:  t => _v(t)('fm', [460, 3200, 1800], 0.14, {a:0.001, d:0.06, r:0.1, peak:0.48})
+            },
+            'DOOM': {
+                kick:  t => _v(t)('sine', [80, 24], 1.4, {a:0.001, d:0.5, r:1.0, peak:1.0}, {type:'lowpass', freq:180, q:0.9}),
+                snare: t => { _v(t)('triangle', [140, 80], 0.35, {a:0.002, d:0.2, r:0.18, peak:0.5}, {type:'lowpass', freq:900, q:0.8});
+                              _v(t)('noise', 0, 0.4, {a:0.002, d:0.15, r:0.25, peak:0.38}, {type:'bandpass', freq:600, q:1.4}); },
+                hat:   t => _v(t)('noise', 0, 0.16, {a:0.002, d:0.07, r:0.1, peak:0.32}, {type:'bandpass', freq:2800, q:2}),
+                perc:  t => _v(t)('sine', [120, 55], 0.5, {a:0.002, d:0.18, r:0.32, peak:0.6})
+            },
+            'GABBER': {
+                kick:  t => _v(t)('sawtooth', [160, 38], 0.5, {a:0.0003, d:0.1, r:0.35, peak:1.0}, {type:'lowpass', freq:260, q:10}),
+                snare: t => _v(t)('sawtooth', [380, 200], 0.16, {a:0.0005, d:0.06, r:0.1, peak:0.55}, {type:'highpass', freq:600, q:3.5}),
+                hat:   t => _v(t)('noise', 0, 0.05, {a:0.0005, d:0.015, r:0.03, peak:0.55}, {type:'highpass', freq:9000, q:1.2}),
+                perc:  t => _v(t)('square', [520, 280], 0.1, {a:0.001, d:0.04, r:0.06, peak:0.45}, {type:'bandpass', freq:1100, q:9})
+            },
+            'DUB': {
+                kick:  t => _v(t)('sine', [70, 30], 1.2, {a:0.005, d:0.35, r:0.9, peak:1.0}, {type:'lowpass', freq:200, q:0.8}),
+                snare: t => { _v(t)('triangle', [220, 140], 0.28, {a:0.002, d:0.12, r:0.16, peak:0.45}, {type:'bandpass', freq:1400, q:2.2});
+                              _v(t)('noise', 0, 0.4, {a:0.004, d:0.16, r:0.25, peak:0.3}, {type:'bandpass', freq:2200, q:4}); },
+                hat:   t => _v(t)('noise', 0, 0.18, {a:0.003, d:0.08, r:0.1, peak:0.28}, {type:'bandpass', freq:3000, q:2}),
+                perc:  t => _v(t)('sine', [360, 180], 0.35, {a:0.005, d:0.15, r:0.2, peak:0.42})
+            }
+        };
+    }
+
+    function _defaultPattern() {
+        // Classic four-on-the-floor starter
+        const p = { kick:[], snare:[], hat:[], perc:[] };
+        for (let i = 0; i < STEPS; i++) {
+            p.kick[i]  = (i % 4 === 0);
+            p.snare[i] = (i % 8 === 4);
+            p.hat[i]   = (i % 2 === 0);
+            p.perc[i]  = false;
+        }
+        return p;
+    }
+
+    function init() {
+        SonicSuite.registerCard('drums', {
+            tag:   'D',
+            label: '◈ DRUMS',
+            defaults: { kit: 0 },
+            mount(body, ctx) {
+                const state = { kit: 0, pattern: _defaultPattern(), kits: null };
+
+                // Kit selector
+                const head = document.createElement('div');
+                head.style.cssText = 'display:flex;gap:8px;align-items:center;';
+                head.innerHTML =
+                    '<span style="font-size:7px;color:rgba(0,243,255,.45);letter-spacing:2px;">KIT</span>' +
+                    '<select class="ss-drums-kit" style="flex:1;background:#000;color:#00f3ff;border:1px solid rgba(0,243,255,.3);font-family:\'JetBrains Mono\',monospace;font-size:9px;padding:3px;">' +
+                    KITS.map((k, i) => '<option value="' + i + '">' + (i+1).toString().padStart(2,'0') + ' · ' + k + '</option>').join('') +
+                    '</select>' +
+                    '<button class="ss-card-btn ss-drums-clr" title="Clear pattern">CLR</button>';
+                body.appendChild(head);
+
+                // Grid
+                const grid = document.createElement('div');
+                grid.style.cssText = 'display:grid;grid-template-columns:44px repeat(16,1fr);gap:2px;';
+                TRACKS.forEach(track => {
+                    const lbl = document.createElement('div');
+                    lbl.textContent = track.toUpperCase();
+                    lbl.style.cssText = 'font-size:7px;color:rgba(0,243,255,.5);letter-spacing:1px;display:flex;align-items:center;';
+                    grid.appendChild(lbl);
+                    for (let i = 0; i < STEPS; i++) {
+                        const c = document.createElement('button');
+                        c.className = 'ss-drums-step';
+                        c.dataset.track = track;
+                        c.dataset.step  = i;
+                        c.style.cssText =
+                            'height:18px;padding:0;background:rgba(0,243,255,' + ((i%4===0)?0.08:0.03) + ');' +
+                            'border:1px solid rgba(0,243,255,.18);cursor:pointer;border-radius:1px;';
+                        if (state.pattern[track][i]) c.classList.add('on');
+                        c.addEventListener('click', () => {
+                            state.pattern[track][i] = !state.pattern[track][i];
+                            _paintCell(c, state.pattern[track][i]);
+                        });
+                        grid.appendChild(c);
+                    }
+                });
+                body.appendChild(grid);
+
+                // Paint cells
+                body.querySelectorAll('.ss-drums-step').forEach(el => {
+                    _paintCell(el, state.pattern[el.dataset.track][+el.dataset.step]);
+                });
+
+                head.querySelector('.ss-drums-kit').addEventListener('change', e => {
+                    state.kit = +e.target.value;
+                });
+                head.querySelector('.ss-drums-clr').addEventListener('click', () => {
+                    state.pattern = _defaultPattern();
+                    body.querySelectorAll('.ss-drums-step').forEach(el => {
+                        _paintCell(el, state.pattern[el.dataset.track][+el.dataset.step]);
+                    });
+                });
+
+                // Lazy kit build (ctx may need to be ready)
+                state.kits = ctx ? _makeKits(ctx.audioCtx, ctx.bus) : null;
+                this._state = state;
+                this._ctx   = ctx;
+            },
+            onTick(t, step) {
+                const s = this._state;
+                if (!s) return;
+                if (!s.kits && this._ctx) s.kits = _makeKits(this._ctx.audioCtx, this._ctx.bus);
+                const kit = s.kits && s.kits[KITS[s.kit]];
+                if (!kit) return;
+                if (s.pattern.kick[step])  kit.kick(t);
+                if (s.pattern.snare[step]) kit.snare(t);
+                if (s.pattern.hat[step])   kit.hat(t);
+                if (s.pattern.perc[step])  kit.perc(t);
+                // Highlight current step
+                const cells = document.querySelectorAll('.ss-card[data-card-id=drums] .ss-drums-step');
+                cells.forEach(c => c.classList.remove('cur'));
+                cells.forEach(c => { if (+c.dataset.step === step) c.classList.add('cur'); });
+            },
+            onStop() {
+                document.querySelectorAll('.ss-card[data-card-id=drums] .ss-drums-step.cur').forEach(c => c.classList.remove('cur'));
+            }
+        });
+    }
+
+    function _paintCell(el, on) {
+        el.classList.toggle('on', !!on);
+        el.style.background = on
+            ? 'rgba(0,243,255,.75)'
+            : ((+el.dataset.step % 4 === 0) ? 'rgba(0,243,255,.08)' : 'rgba(0,243,255,.03)');
+        el.style.borderColor = on ? '#00f3ff' : 'rgba(0,243,255,.18)';
+        el.style.boxShadow = on ? '0 0 6px rgba(0,243,255,.5)' : 'none';
+    }
+
+    document.addEventListener('DOMContentLoaded', function() {
+        // Register when user opens the suite for the first time (audioCtx ready)
+        const btn = document.getElementById('vt-sonic-launch-btn');
+        function _once() {
+            btn && btn.removeEventListener('click', _once);
+            // Wait a tick for SonicSuite.open() to ignite audio
+            setTimeout(init, 30);
+        }
+        btn && btn.addEventListener('click', _once);
+    });
 })();
 
 
