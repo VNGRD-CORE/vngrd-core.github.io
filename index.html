@@ -3600,6 +3600,126 @@ body.fullscreen #transcription-hud { pointer-events: none !important; } /* keep 
     z-index: 2500;
 }
 
+/* ═══ VNGRD SONIC SUITE — STUDIO SHELL ═══ */
+#ss-backdrop {
+    position: fixed; inset: 0; z-index: 4000;
+    display: none; pointer-events: none;
+    background: radial-gradient(ellipse at 50% 30%, rgba(0,18,28,.88), rgba(2,4,10,.94));
+    backdrop-filter: blur(14px) saturate(1.1); -webkit-backdrop-filter: blur(14px) saturate(1.1);
+    opacity: 0; transition: opacity .24s ease;
+    font-family: 'Orbitron', sans-serif;
+}
+#ss-backdrop.visible { display: block; pointer-events: auto; opacity: 1; }
+#ss-backdrop::before {
+    content: ''; position: absolute; inset: 0; pointer-events: none;
+    background-image:
+        linear-gradient(rgba(0,243,255,.04) 1px, transparent 1px),
+        linear-gradient(90deg, rgba(0,243,255,.04) 1px, transparent 1px);
+    background-size: 44px 44px;
+    mask-image: radial-gradient(ellipse at 50% 50%, #000 40%, transparent 75%);
+    -webkit-mask-image: radial-gradient(ellipse at 50% 50%, #000 40%, transparent 75%);
+}
+#ss-master-bar {
+    position: fixed; top: 14px; left: 50%; transform: translateX(-50%);
+    z-index: 4010;
+    display: flex; align-items: center; gap: 10px;
+    padding: 8px 14px;
+    background: rgba(2,8,14,.85);
+    border: 1px solid rgba(0,243,255,.3);
+    border-top: 1px solid rgba(255,255,255,.16);
+    border-radius: 3px;
+    box-shadow: 0 4px 20px rgba(0,0,0,.6), 0 0 24px rgba(0,243,255,.12);
+    font-size: 8px; letter-spacing: 1.5px;
+    color: rgba(0,243,255,.75);
+    user-select: none;
+}
+.ss-mb-label { font-size: 7px; color: rgba(0,243,255,.45); letter-spacing: 2px; }
+.ss-mb-bpm {
+    width: 42px; height: 20px;
+    background: rgba(0,0,0,.55); border: 1px solid rgba(0,243,255,.3);
+    color: #00f3ff; font-family: 'JetBrains Mono', monospace; font-size: 10px;
+    text-align: center; padding: 0; outline: none; border-radius: 2px;
+}
+.ss-mb-bpm::-webkit-inner-spin-button,
+.ss-mb-bpm::-webkit-outer-spin-button { -webkit-appearance: none; margin: 0; }
+.ss-mb-btn {
+    height: 22px; padding: 0 10px;
+    background: transparent; border: 1px solid rgba(0,243,255,.3);
+    color: rgba(0,243,255,.7); font-family: 'Orbitron', sans-serif;
+    font-size: 7.5px; font-weight: 700; letter-spacing: 1.5px;
+    cursor: pointer; border-radius: 2px; transition: all .12s;
+}
+.ss-mb-btn:hover { border-color: #00f3ff; color: #00f3ff; box-shadow: 0 0 8px rgba(0,243,255,.3); }
+.ss-mb-btn.playing { border-color: #ff4444; color: #ff6666; box-shadow: 0 0 10px rgba(255,60,60,.4); }
+.ss-mb-btn.stop { border-color: rgba(255,120,0,.45); color: rgba(255,160,60,.8); }
+.ss-mb-metro { display: flex; gap: 4px; align-items: center; padding: 0 6px; }
+.ss-mb-dot {
+    width: 7px; height: 7px; border-radius: 50%;
+    background: rgba(0,243,255,.12); border: 1px solid rgba(0,243,255,.28);
+    transition: background .05s, box-shadow .05s;
+}
+.ss-mb-dot.on { background: #00f3ff; box-shadow: 0 0 8px #00f3ff; }
+.ss-mb-dot.downbeat.on { background: #ff4444; box-shadow: 0 0 10px #ff4444; }
+.ss-mb-cardtoggles { display: flex; gap: 4px; padding: 0 6px; border-left: 1px solid rgba(0,243,255,.18); border-right: 1px solid rgba(0,243,255,.18); }
+.ss-mb-ct {
+    width: 20px; height: 20px; padding: 0;
+    background: transparent; border: 1px solid rgba(0,243,255,.3);
+    color: rgba(0,243,255,.6); font-family: 'JetBrains Mono', monospace;
+    font-size: 10px; font-weight: 700; cursor: pointer; border-radius: 2px;
+    transition: all .1s;
+}
+.ss-mb-ct:hover { color: #00f3ff; border-color: #00f3ff; }
+.ss-mb-ct.muted { opacity: .3; text-decoration: line-through; }
+.ss-mb-ct.focused { background: rgba(0,243,255,.22); color: #eafeff; border-color: #00f3ff; box-shadow: 0 0 8px rgba(0,243,255,.5); }
+.ss-mb-hide { margin-left: 4px; }
+
+/* Card base */
+.ss-card {
+    position: absolute;
+    width: 360px;
+    background: rgba(4,10,16,.85);
+    border: 1px solid rgba(0,243,255,.28);
+    border-top: 1px solid rgba(255,255,255,.14);
+    border-radius: 3px;
+    box-shadow: 0 6px 24px rgba(0,0,0,.6), 0 0 18px rgba(0,243,255,.08);
+    backdrop-filter: blur(6px); -webkit-backdrop-filter: blur(6px);
+    color: rgba(0,243,255,.75);
+    font-family: 'Orbitron', sans-serif; font-size: 8px;
+    display: flex; flex-direction: column;
+    pointer-events: auto;
+}
+.ss-card.minimised .ss-card-body { display: none; }
+.ss-card.minimised { width: 200px; }
+.ss-card.focused { border-color: rgba(0,243,255,.75); box-shadow: 0 6px 24px rgba(0,0,0,.7), 0 0 28px rgba(0,243,255,.28); }
+.ss-card.muted { opacity: .38; }
+.ss-card-head {
+    display: flex; align-items: center;
+    padding: 6px 10px;
+    background: rgba(0,18,24,.75);
+    border-bottom: 1px solid rgba(0,243,255,.18);
+    cursor: grab;
+    font-size: 7.5px; letter-spacing: 2px;
+    user-select: none;
+}
+.ss-card-head:active { cursor: grabbing; }
+.ss-card-title { flex: 1; color: rgba(0,243,255,.85); }
+.ss-card-tag { color: rgba(0,243,255,.45); font-size: 6.5px; letter-spacing: 1px; margin-right: 6px; }
+.ss-card-btn {
+    width: 18px; height: 18px; margin-left: 2px; padding: 0;
+    background: transparent; border: 1px solid rgba(0,243,255,.22);
+    color: rgba(0,243,255,.55); font-family: 'JetBrains Mono', monospace;
+    font-size: 9px; cursor: pointer; border-radius: 2px;
+}
+.ss-card-btn:hover { color: #00f3ff; border-color: #00f3ff; }
+.ss-card-body {
+    padding: 10px 12px;
+    display: flex; flex-direction: column; gap: 8px;
+}
+.ss-card-placeholder {
+    padding: 18px 10px; text-align: center;
+    color: rgba(0,243,255,.3); font-size: 7px; letter-spacing: 2px;
+}
+
 /* ═══ VNGRD SONIC SUITE LAUNCHER (sidebar, between SFX and HAND SYNTH) ═══ */
 #vt-sonic-rack { margin-top: 6px; position: relative; }
 #vt-sonic-launch-btn {
@@ -9917,6 +10037,323 @@ var VFXLayer = (function() {
 
 document.addEventListener('DOMContentLoaded', function() { VFXLayer.init(); });
 
+
+// ═══════════════════════════════════════════════════════════════
+//  VNGRD SONIC SUITE — studio shell, master clock, card registry
+//  ───────────────────────────────────────────────────────────────
+//  SonicSuite.registerCard(id, { label, tag, mount(body, ctx), onTick(time, step), defaults })
+//    • body     — DOM node cards render into
+//    • ctx.bus  — per-card GainNode (→ master)
+//    • ctx.audioCtx / ctx.master / ctx.reverbSend
+//    • onTick(time, step16)  — called just-in-time for each 16th note
+//  Single lookahead scheduler anchored to audioCtx.currentTime,
+//  25 ms tick, 120 ms lookahead. Cards share a mute matrix driven
+//  by the master bar's [D][B][C][M] toggles and a focus flag.
+// ═══════════════════════════════════════════════════════════════
+window.SonicSuite = (function() {
+    const LS_KEY = 'vngrd.sonicsuite.v1';
+    const LOOK  = 0.12;   // 120 ms lookahead
+    const TICK  = 25;     // 25 ms scheduler interval
+
+    const state = {
+        open:     false,
+        playing:  false,
+        bpm:      120,
+        step:     0,
+        nextTime: 0,
+        mutes:    {},      // id → bool
+        focused:  null,    // id of focused card, or null
+        cards:    {},      // id → { spec, dom, bus }
+        order:    [],
+    };
+    let _schedId = null;
+    let _audio   = null;  // { ctx, master, reverb, reverbSend }
+
+    function _ensureAudio() {
+        if (_audio) return _audio;
+        if (typeof igniteAudio === 'function' && !APP.audio.ctx) igniteAudio();
+        const ctx = APP.audio.ctx;
+        if (!ctx) return null;
+        const masterOut = APP.audio.masterGain || ctx.destination;
+
+        // Master bus — all cards land here, gets sent to the app masterGain
+        const master = ctx.createGain();
+        master.gain.value = 0.95;
+        master.connect(masterOut);
+
+        // Shared reverb send (short plate IR)
+        const reverb = ctx.createConvolver();
+        reverb.buffer = _buildIR(ctx, 1.8, 2.0);
+        const reverbSend = ctx.createGain();
+        reverbSend.gain.value = 0.0; // mixer card dials this
+        reverbSend.connect(reverb).connect(master);
+
+        _audio = { ctx, master, reverb, reverbSend };
+        return _audio;
+    }
+
+    function _buildIR(ctx, seconds, decay) {
+        const rate = ctx.sampleRate;
+        const len  = Math.floor(rate * seconds);
+        const ir   = ctx.createBuffer(2, len, rate);
+        for (let c = 0; c < 2; c++) {
+            const d = ir.getChannelData(c);
+            for (let i = 0; i < len; i++) {
+                d[i] = (Math.random() * 2 - 1) * Math.pow(1 - i / len, decay);
+            }
+        }
+        return ir;
+    }
+
+    function _stepDur() { return 60 / state.bpm / 4; }   // 16th note
+
+    function _scheduler() {
+        if (!_audio) return;
+        const now = _audio.ctx.currentTime;
+        while (state.nextTime < now + LOOK) {
+            const t = state.nextTime;
+            const s = state.step;
+            // Fire each registered card if not muted / masked by focus
+            state.order.forEach(function(id) {
+                if (state.mutes[id]) return;
+                if (state.focused && state.focused !== id) return;
+                const card = state.cards[id];
+                if (card && typeof card.spec.onTick === 'function') {
+                    try { card.spec.onTick(t, s); }
+                    catch (e) { console.warn('[SS] onTick ' + id, e); }
+                }
+            });
+            // Metronome dots
+            _paintMetro(s);
+            state.nextTime += _stepDur();
+            state.step = (s + 1) % 16;
+        }
+    }
+
+    function _paintMetro(step16) {
+        const dots = document.querySelectorAll('#ss-metro .ss-mb-dot');
+        if (!dots.length) return;
+        const q = step16 >> 2; // 0..3
+        dots.forEach(function(d, i) {
+            d.classList.toggle('on', i === q && (step16 % 4) === 0);
+        });
+    }
+
+    function start() {
+        const a = _ensureAudio();
+        if (!a) return;
+        if (a.ctx.state === 'suspended') a.ctx.resume();
+        if (state.playing) return;
+        state.playing  = true;
+        state.step     = 0;
+        state.nextTime = a.ctx.currentTime + 0.05;
+        _schedId = setInterval(_scheduler, TICK);
+        const btn = document.getElementById('ss-play');
+        if (btn) { btn.textContent = '▶ PLAYING'; btn.classList.add('playing'); }
+    }
+
+    function stop() {
+        state.playing = false;
+        if (_schedId) { clearInterval(_schedId); _schedId = null; }
+        const btn = document.getElementById('ss-play');
+        if (btn) { btn.textContent = '▶ PLAY ALL'; btn.classList.remove('playing'); }
+        document.querySelectorAll('#ss-metro .ss-mb-dot').forEach(function(d) { d.classList.remove('on'); });
+        // Let cards release their tails
+        state.order.forEach(function(id) {
+            const c = state.cards[id];
+            if (c && typeof c.spec.onStop === 'function') { try { c.spec.onStop(); } catch (e) {} }
+        });
+    }
+
+    function setBPM(v) {
+        v = Math.max(40, Math.min(300, +v || 120));
+        state.bpm = v;
+        const inp = document.getElementById('ss-bpm');
+        if (inp && +inp.value !== v) inp.value = v;
+        window.currentBPM = v;
+    }
+
+    function registerCard(id, spec) {
+        if (state.cards[id]) return state.cards[id];
+        const a = _ensureAudio();
+        const bus = a ? a.ctx.createGain() : null;
+        if (bus) { bus.gain.value = 1.0; bus.connect(a.master); }
+        const ctx = a ? { audioCtx: a.ctx, master: a.master, bus, reverbSend: a.reverbSend } : null;
+
+        const dom = _buildCardDom(id, spec);
+        document.getElementById('ss-workspace').appendChild(dom.root);
+        _restoreCardPos(id, dom.root);
+
+        const card = { spec, dom, bus, ctx };
+        state.cards[id] = card;
+        state.order.push(id);
+        _addMbToggle(id, spec);
+
+        try { spec.mount && spec.mount(dom.body, ctx); }
+        catch (e) { console.warn('[SS] mount ' + id, e); }
+        return card;
+    }
+
+    function _buildCardDom(id, spec) {
+        const root = document.createElement('div');
+        root.className = 'ss-card';
+        root.dataset.cardId = id;
+        root.innerHTML =
+            '<div class="ss-card-head">' +
+              '<span class="ss-card-tag">' + (spec.tag || '') + '</span>' +
+              '<span class="ss-card-title">' + (spec.label || id) + '</span>' +
+              '<button class="ss-card-btn" data-act="min" title="Minimise">_</button>' +
+              '<button class="ss-card-btn" data-act="focus" title="Solo focus">◉</button>' +
+            '</div>' +
+            '<div class="ss-card-body"></div>';
+        const body = root.querySelector('.ss-card-body');
+
+        // Drag
+        const head = root.querySelector('.ss-card-head');
+        head.addEventListener('mousedown', function(e) {
+            if (e.target.classList.contains('ss-card-btn')) return;
+            _startDrag(root, id, e);
+        });
+        // Minimise + focus
+        root.querySelector('[data-act=min]').addEventListener('click', function() {
+            root.classList.toggle('minimised');
+            _saveCardPos(id, root);
+        });
+        root.querySelector('[data-act=focus]').addEventListener('click', function() {
+            setFocus(state.focused === id ? null : id);
+        });
+        return { root, head, body };
+    }
+
+    function _startDrag(el, id, e) {
+        const r = el.getBoundingClientRect();
+        const ox = e.clientX - r.left, oy = e.clientY - r.top;
+        function mv(ev) {
+            el.style.left = Math.max(0, ev.clientX - ox) + 'px';
+            el.style.top  = Math.max(60, ev.clientY - oy) + 'px';
+        }
+        function up() {
+            window.removeEventListener('mousemove', mv);
+            window.removeEventListener('mouseup', up);
+            _saveCardPos(id, el);
+        }
+        window.addEventListener('mousemove', mv);
+        window.addEventListener('mouseup', up);
+    }
+
+    function _addMbToggle(id, spec) {
+        const wrap = document.getElementById('ss-cardtoggles');
+        if (!wrap) return;
+        const btn = document.createElement('button');
+        btn.className = 'ss-mb-ct';
+        btn.dataset.cardId = id;
+        btn.textContent = (spec.tag || id[0] || '?').slice(0, 1).toUpperCase();
+        btn.title = spec.label || id;
+        btn.addEventListener('click', function(e) {
+            if (e.shiftKey) { setFocus(state.focused === id ? null : id); return; }
+            setMute(id, !state.mutes[id]);
+        });
+        wrap.appendChild(btn);
+    }
+
+    function setMute(id, muted) {
+        state.mutes[id] = !!muted;
+        const c = state.cards[id];
+        if (c && c.bus) c.bus.gain.setTargetAtTime(muted ? 0 : 1, _audio.ctx.currentTime, 0.01);
+        const btn = document.querySelector('.ss-mb-ct[data-card-id="' + id + '"]');
+        if (btn) btn.classList.toggle('muted', !!muted);
+        if (c) c.dom.root.classList.toggle('muted', !!muted);
+    }
+
+    function setFocus(id) {
+        state.focused = id;
+        state.order.forEach(function(cid) {
+            const c = state.cards[cid];
+            if (!c) return;
+            c.dom.root.classList.toggle('focused', cid === id);
+        });
+        document.querySelectorAll('.ss-mb-ct').forEach(function(b) {
+            b.classList.toggle('focused', b.dataset.cardId === id);
+        });
+    }
+
+    function _loadState() {
+        try { return JSON.parse(localStorage.getItem(LS_KEY) || '{}') || {}; }
+        catch (e) { return {}; }
+    }
+    function _saveState(s) {
+        try { localStorage.setItem(LS_KEY, JSON.stringify(s)); } catch (e) {}
+    }
+    function _saveCardPos(id, el) {
+        const s = _loadState();
+        s.cards = s.cards || {};
+        s.cards[id] = {
+            left: parseInt(el.style.left, 10) || null,
+            top:  parseInt(el.style.top, 10)  || null,
+            min:  el.classList.contains('minimised')
+        };
+        _saveState(s);
+    }
+    function _restoreCardPos(id, el) {
+        const s = _loadState();
+        const cp = (s.cards || {})[id];
+        if (cp) {
+            if (cp.left != null) el.style.left = cp.left + 'px';
+            if (cp.top  != null) el.style.top  = cp.top  + 'px';
+            if (cp.min) el.classList.add('minimised');
+        } else {
+            // Default cascade
+            const n = state.order.length;
+            el.style.left = (80 + n * 24) + 'px';
+            el.style.top  = (80 + n * 24) + 'px';
+        }
+    }
+
+    function open() {
+        const bd = document.getElementById('ss-backdrop');
+        if (!bd) return;
+        bd.classList.add('visible');
+        state.open = true;
+        const btn = document.getElementById('vt-sonic-launch-btn');
+        if (btn) btn.classList.add('active');
+        const status = document.getElementById('vt-sonic-status');
+        if (status) { status.textContent = 'STUDIO LIVE'; status.classList.add('live'); }
+        _ensureAudio();
+    }
+    function close() {
+        stop();
+        const bd = document.getElementById('ss-backdrop');
+        if (bd) bd.classList.remove('visible');
+        state.open = false;
+        const btn = document.getElementById('vt-sonic-launch-btn');
+        if (btn) btn.classList.remove('active');
+        const status = document.getElementById('vt-sonic-status');
+        if (status) { status.textContent = 'DRUMS · BASS · CODE · MIXER'; status.classList.remove('live'); }
+    }
+    function toggle() { state.open ? close() : open(); }
+
+    document.addEventListener('DOMContentLoaded', function() {
+        const bpm = document.getElementById('ss-bpm');
+        if (bpm) bpm.addEventListener('input', function() { setBPM(bpm.value); });
+        const play = document.getElementById('ss-play');
+        if (play) play.addEventListener('click', start);
+        const stopB = document.getElementById('ss-stop');
+        if (stopB) stopB.addEventListener('click', stop);
+        const hide = document.getElementById('ss-hide');
+        if (hide) hide.addEventListener('click', close);
+        // Esc closes
+        document.addEventListener('keydown', function(e) {
+            if (e.key === 'Escape' && state.open) close();
+        });
+    });
+
+    return {
+        open, close, toggle,
+        start, stop, setBPM,
+        registerCard, setMute, setFocus,
+        _state: state,
+    };
+})();
 
 
 function connectVideoAudio(vid) {
@@ -18840,6 +19277,28 @@ if (document.readyState !== 'loading') { _vbWireButtons(); }
 <script src="./src/kinetic-rack/KineticRack.js?v=15"></script>
 
 <!-- NLE seam controls are fully canvas-drawn (no DOM panel) -->
+
+<!-- ═══════════════════════════════════════════════════════════
+     VNGRD SONIC SUITE — STUDIO SHELL
+     Master bar + card workspace. Cards are injected by stage 3+.
+     ═══════════════════════════════════════════════════════════ -->
+<div id="ss-backdrop" aria-hidden="true">
+    <div id="ss-master-bar">
+        <span class="ss-mb-label">BPM</span>
+        <input type="number" class="ss-mb-bpm" id="ss-bpm" value="120" min="40" max="300">
+        <button class="ss-mb-btn" id="ss-play">▶ PLAY ALL</button>
+        <button class="ss-mb-btn stop" id="ss-stop">■ STOP</button>
+        <div class="ss-mb-metro" id="ss-metro">
+            <span class="ss-mb-dot downbeat"></span>
+            <span class="ss-mb-dot"></span>
+            <span class="ss-mb-dot"></span>
+            <span class="ss-mb-dot"></span>
+        </div>
+        <div class="ss-mb-cardtoggles" id="ss-cardtoggles"></div>
+        <button class="ss-mb-btn ss-mb-hide" id="ss-hide">HIDE</button>
+    </div>
+    <div id="ss-workspace"></div>
+</div>
 
 <!-- ═══════════════════════════════════════════════════════════════
 <!-- ── VANGUARD_B WIRING — _setFXBank / _vbActivate / _vbDeactivate / _vbClearAll ── -->
