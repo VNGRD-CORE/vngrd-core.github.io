@@ -1536,9 +1536,6 @@
         .sfx-pad.coupled-seismic .pad-gear-icon,
         .sfx-pad.coupled-punch .pad-gear-icon                                { opacity: 0.85 !important; animation: none; color: #ff6600; text-shadow: 0 0 6px rgba(255,102,0,0.85); }
         .sfx-pad.coupled-party .pad-gear-icon                                { opacity: 0.85 !important; animation: none; color: #ff00ff; text-shadow: 0 0 6px rgba(255,0,255,0.85); }
-        .sfx-pad.coupled-scan .pad-gear-icon,
-        .sfx-pad.coupled-tear .pad-gear-icon                                 { opacity: 0.85 !important; animation: none; color: var(--accent); text-shadow: 0 0 6px rgba(0,243,255,0.85); }
-        .sfx-pad.coupled-vhs .pad-gear-icon                                  { opacity: 0.85 !important; animation: none; color: #ffaa00; text-shadow: 0 0 6px rgba(255,170,0,0.85); }
         /* Hover on armed pad: snap to max brightness */
         .sfx-pad.coupled .pad-gear:hover .pad-gear-icon,
         .sfx-pad.coupled .pad-gear.open .pad-gear-icon { opacity: 1 !important; filter: brightness(1.4); }
@@ -1983,39 +1980,6 @@
             color: rgba(255,60,140,0.9) !important;
             box-shadow: 2px 3px 8px rgba(0,0,0,0.95), inset 0 3px 12px rgba(0,0,0,0.7),
                 0 0 18px rgba(255,0,100,0.5), inset 0 0 12px rgba(255,0,100,0.08) !important;
-        }
-        /* SCAN / TEAR — Cyan underglow */
-        .sfx-pad.coupled-scan,
-        .sfx-pad.coupled-tear {
-            border-color: rgba(0,243,255,0.8) !important;
-            color: rgba(0,243,255,0.9) !important;
-            box-shadow:
-                2px 3px 8px rgba(0,0,0,0.95),
-                inset 0 3px 12px rgba(0,0,0,0.7),
-                0 0 10px rgba(0,243,255,0.45),
-                inset 0 0 12px rgba(0,243,255,0.08) !important;
-        }
-        /* VHS — Amber underglow */
-        .sfx-pad.coupled-vhs {
-            border-color: rgba(255,170,0,0.85) !important;
-            color: rgba(255,190,60,0.9) !important;
-            box-shadow:
-                2px 3px 8px rgba(0,0,0,0.95),
-                inset 0 3px 12px rgba(0,0,0,0.7),
-                0 0 10px rgba(255,170,0,0.45),
-                inset 0 0 12px rgba(255,170,0,0.08) !important;
-        }
-        /* Playing fills for Bank A additions */
-        .sfx-pad.coupled-scan.sfx-playing,
-        .sfx-pad.coupled-tear.sfx-playing {
-            background: rgba(0,243,255,0.22) !important;
-            border-color: var(--accent) !important;
-            box-shadow: 0 0 14px rgba(0,243,255,0.6), inset 0 0 18px rgba(0,243,255,0.2) !important;
-        }
-        .sfx-pad.coupled-vhs.sfx-playing {
-            background: rgba(255,170,0,0.22) !important;
-            border-color: #ffaa00 !important;
-            box-shadow: 0 0 14px rgba(255,170,0,0.6), inset 0 0 18px rgba(255,170,0,0.2) !important;
         }
 
         /* ── SAMPLER HELP BUTTON & MODAL ── */
@@ -5267,16 +5231,14 @@ body.fullscreen #transcription-hud { pointer-events: none !important; } /* keep 
                                 <span class="pad-gear-icon">⚙</span>
                                 <div class="pad-gear-menu">
                                     <div data-fx="none">— NONE —</div>
-                                    <div class="gear-bank-sep">— BANK A —</div>
-                                    <div data-fx="scan">X-RAY</div>
-                                    <div data-fx="tear">TEAR</div>
-                                    <div data-fx="failure">FAILURE</div>
+                                    <div data-fx="nvg">NVG</div>
                                     <div data-fx="shoot">SHOOT</div>
                                     <div data-fx="void">VOID</div>
+                                    <div data-fx="failure">FAILURE</div>
                                     <div data-fx="lucy">LUCY</div>
-                                    <div data-fx="vhs">VHS</div>
-                                    <div data-fx="nvg">NVG</div>
-                                    <div data-fx="reset">RESET</div>
+                                    <div data-fx="seismic">SEISMIC</div>
+                                    <div data-fx="punch">PUNCH</div>
+                                    <div data-fx="party">PARTY</div>
                                     <div class="gear-bank-sep">— BANK B —</div>
                                     <div data-fx="vb-slit-scan">SLIT_SCAN</div>
                                     <div data-fx="vb-luma-bloom">LUMA_BLOOM</div>
@@ -5298,16 +5260,14 @@ body.fullscreen #transcription-hud { pointer-events: none !important; } /* keep 
                                 <span class="pad-gear-icon">⚙</span>
                                 <div class="pad-gear-menu">
                                     <div data-fx="none">— NONE —</div>
-                                    <div class="gear-bank-sep">— BANK A —</div>
-                                    <div data-fx="scan">X-RAY</div>
-                                    <div data-fx="tear">TEAR</div>
-                                    <div data-fx="failure">FAILURE</div>
+                                    <div data-fx="nvg">NVG</div>
                                     <div data-fx="shoot">SHOOT</div>
                                     <div data-fx="void">VOID</div>
+                                    <div data-fx="failure">FAILURE</div>
                                     <div data-fx="lucy">LUCY</div>
-                                    <div data-fx="vhs">VHS</div>
-                                    <div data-fx="nvg">NVG</div>
-                                    <div data-fx="reset">RESET</div>
+                                    <div data-fx="seismic">SEISMIC</div>
+                                    <div data-fx="punch">PUNCH</div>
+                                    <div data-fx="party">PARTY</div>
                                     <div class="gear-bank-sep">— BANK B —</div>
                                     <div data-fx="vb-slit-scan">SLIT_SCAN</div>
                                     <div data-fx="vb-luma-bloom">LUMA_BLOOM</div>
@@ -5329,16 +5289,14 @@ body.fullscreen #transcription-hud { pointer-events: none !important; } /* keep 
                                 <span class="pad-gear-icon">⚙</span>
                                 <div class="pad-gear-menu">
                                     <div data-fx="none">— NONE —</div>
-                                    <div class="gear-bank-sep">— BANK A —</div>
-                                    <div data-fx="scan">X-RAY</div>
-                                    <div data-fx="tear">TEAR</div>
-                                    <div data-fx="failure">FAILURE</div>
+                                    <div data-fx="nvg">NVG</div>
                                     <div data-fx="shoot">SHOOT</div>
                                     <div data-fx="void">VOID</div>
+                                    <div data-fx="failure">FAILURE</div>
                                     <div data-fx="lucy">LUCY</div>
-                                    <div data-fx="vhs">VHS</div>
-                                    <div data-fx="nvg">NVG</div>
-                                    <div data-fx="reset">RESET</div>
+                                    <div data-fx="seismic">SEISMIC</div>
+                                    <div data-fx="punch">PUNCH</div>
+                                    <div data-fx="party">PARTY</div>
                                     <div class="gear-bank-sep">— BANK B —</div>
                                     <div data-fx="vb-slit-scan">SLIT_SCAN</div>
                                     <div data-fx="vb-luma-bloom">LUMA_BLOOM</div>
@@ -5360,16 +5318,14 @@ body.fullscreen #transcription-hud { pointer-events: none !important; } /* keep 
                                 <span class="pad-gear-icon">⚙</span>
                                 <div class="pad-gear-menu">
                                     <div data-fx="none">— NONE —</div>
-                                    <div class="gear-bank-sep">— BANK A —</div>
-                                    <div data-fx="scan">X-RAY</div>
-                                    <div data-fx="tear">TEAR</div>
-                                    <div data-fx="failure">FAILURE</div>
+                                    <div data-fx="nvg">NVG</div>
                                     <div data-fx="shoot">SHOOT</div>
                                     <div data-fx="void">VOID</div>
+                                    <div data-fx="failure">FAILURE</div>
                                     <div data-fx="lucy">LUCY</div>
-                                    <div data-fx="vhs">VHS</div>
-                                    <div data-fx="nvg">NVG</div>
-                                    <div data-fx="reset">RESET</div>
+                                    <div data-fx="seismic">SEISMIC</div>
+                                    <div data-fx="punch">PUNCH</div>
+                                    <div data-fx="party">PARTY</div>
                                     <div class="gear-bank-sep">— BANK B —</div>
                                     <div data-fx="vb-slit-scan">SLIT_SCAN</div>
                                     <div data-fx="vb-luma-bloom">LUMA_BLOOM</div>
@@ -5396,16 +5352,14 @@ body.fullscreen #transcription-hud { pointer-events: none !important; } /* keep 
                                 <span class="pad-gear-icon">⚙</span>
                                 <div class="pad-gear-menu">
                                     <div data-fx="none">— NONE —</div>
-                                    <div class="gear-bank-sep">— BANK A —</div>
-                                    <div data-fx="scan">X-RAY</div>
-                                    <div data-fx="tear">TEAR</div>
-                                    <div data-fx="failure">FAILURE</div>
+                                    <div data-fx="nvg">NVG</div>
                                     <div data-fx="shoot">SHOOT</div>
                                     <div data-fx="void">VOID</div>
+                                    <div data-fx="failure">FAILURE</div>
                                     <div data-fx="lucy">LUCY</div>
-                                    <div data-fx="vhs">VHS</div>
-                                    <div data-fx="nvg">NVG</div>
-                                    <div data-fx="reset">RESET</div>
+                                    <div data-fx="seismic">SEISMIC</div>
+                                    <div data-fx="punch">PUNCH</div>
+                                    <div data-fx="party">PARTY</div>
                                     <div class="gear-bank-sep">— BANK B —</div>
                                     <div data-fx="vb-slit-scan">SLIT_SCAN</div>
                                     <div data-fx="vb-luma-bloom">LUMA_BLOOM</div>
@@ -5430,16 +5384,14 @@ body.fullscreen #transcription-hud { pointer-events: none !important; } /* keep 
                                 <span class="pad-gear-icon">⚙</span>
                                 <div class="pad-gear-menu">
                                     <div data-fx="none">— NONE —</div>
-                                    <div class="gear-bank-sep">— BANK A —</div>
-                                    <div data-fx="scan">X-RAY</div>
-                                    <div data-fx="tear">TEAR</div>
-                                    <div data-fx="failure">FAILURE</div>
+                                    <div data-fx="nvg">NVG</div>
                                     <div data-fx="shoot">SHOOT</div>
                                     <div data-fx="void">VOID</div>
+                                    <div data-fx="failure">FAILURE</div>
                                     <div data-fx="lucy">LUCY</div>
-                                    <div data-fx="vhs">VHS</div>
-                                    <div data-fx="nvg">NVG</div>
-                                    <div data-fx="reset">RESET</div>
+                                    <div data-fx="seismic">SEISMIC</div>
+                                    <div data-fx="punch">PUNCH</div>
+                                    <div data-fx="party">PARTY</div>
                                     <div class="gear-bank-sep">— BANK B —</div>
                                     <div data-fx="vb-slit-scan">SLIT_SCAN</div>
                                     <div data-fx="vb-luma-bloom">LUMA_BLOOM</div>
@@ -5464,16 +5416,14 @@ body.fullscreen #transcription-hud { pointer-events: none !important; } /* keep 
                                 <span class="pad-gear-icon">⚙</span>
                                 <div class="pad-gear-menu">
                                     <div data-fx="none">— NONE —</div>
-                                    <div class="gear-bank-sep">— BANK A —</div>
-                                    <div data-fx="scan">X-RAY</div>
-                                    <div data-fx="tear">TEAR</div>
-                                    <div data-fx="failure">FAILURE</div>
+                                    <div data-fx="nvg">NVG</div>
                                     <div data-fx="shoot">SHOOT</div>
                                     <div data-fx="void">VOID</div>
+                                    <div data-fx="failure">FAILURE</div>
                                     <div data-fx="lucy">LUCY</div>
-                                    <div data-fx="vhs">VHS</div>
-                                    <div data-fx="nvg">NVG</div>
-                                    <div data-fx="reset">RESET</div>
+                                    <div data-fx="seismic">SEISMIC</div>
+                                    <div data-fx="punch">PUNCH</div>
+                                    <div data-fx="party">PARTY</div>
                                     <div class="gear-bank-sep">— BANK B —</div>
                                     <div data-fx="vb-slit-scan">SLIT_SCAN</div>
                                     <div data-fx="vb-luma-bloom">LUMA_BLOOM</div>
@@ -5498,16 +5448,14 @@ body.fullscreen #transcription-hud { pointer-events: none !important; } /* keep 
                                 <span class="pad-gear-icon">⚙</span>
                                 <div class="pad-gear-menu">
                                     <div data-fx="none">— NONE —</div>
-                                    <div class="gear-bank-sep">— BANK A —</div>
-                                    <div data-fx="scan">X-RAY</div>
-                                    <div data-fx="tear">TEAR</div>
-                                    <div data-fx="failure">FAILURE</div>
+                                    <div data-fx="nvg">NVG</div>
                                     <div data-fx="shoot">SHOOT</div>
                                     <div data-fx="void">VOID</div>
+                                    <div data-fx="failure">FAILURE</div>
                                     <div data-fx="lucy">LUCY</div>
-                                    <div data-fx="vhs">VHS</div>
-                                    <div data-fx="nvg">NVG</div>
-                                    <div data-fx="reset">RESET</div>
+                                    <div data-fx="seismic">SEISMIC</div>
+                                    <div data-fx="punch">PUNCH</div>
+                                    <div data-fx="party">PARTY</div>
                                     <div class="gear-bank-sep">— BANK B —</div>
                                     <div data-fx="vb-slit-scan">SLIT_SCAN</div>
                                     <div data-fx="vb-luma-bloom">LUMA_BLOOM</div>
@@ -5535,16 +5483,14 @@ body.fullscreen #transcription-hud { pointer-events: none !important; } /* keep 
                                 <span class="pad-gear-icon">⚙</span>
                                 <div class="pad-gear-menu">
                                     <div data-fx="none">— NONE —</div>
-                                    <div class="gear-bank-sep">— BANK A —</div>
-                                    <div data-fx="scan">X-RAY</div>
-                                    <div data-fx="tear">TEAR</div>
-                                    <div data-fx="failure">FAILURE</div>
+                                    <div data-fx="nvg">NVG</div>
                                     <div data-fx="shoot">SHOOT</div>
                                     <div data-fx="void">VOID</div>
+                                    <div data-fx="failure">FAILURE</div>
                                     <div data-fx="lucy">LUCY</div>
-                                    <div data-fx="vhs">VHS</div>
-                                    <div data-fx="nvg">NVG</div>
-                                    <div data-fx="reset">RESET</div>
+                                    <div data-fx="seismic">SEISMIC</div>
+                                    <div data-fx="punch">PUNCH</div>
+                                    <div data-fx="party">PARTY</div>
                                     <div class="gear-bank-sep">— BANK B —</div>
                                     <div data-fx="vb-slit-scan">SLIT_SCAN</div>
                                     <div data-fx="vb-luma-bloom">LUMA_BLOOM</div>
@@ -5564,16 +5510,14 @@ body.fullscreen #transcription-hud { pointer-events: none !important; } /* keep 
                                 <span class="pad-gear-icon">⚙</span>
                                 <div class="pad-gear-menu">
                                     <div data-fx="none">— NONE —</div>
-                                    <div class="gear-bank-sep">— BANK A —</div>
-                                    <div data-fx="scan">X-RAY</div>
-                                    <div data-fx="tear">TEAR</div>
-                                    <div data-fx="failure">FAILURE</div>
+                                    <div data-fx="nvg">NVG</div>
                                     <div data-fx="shoot">SHOOT</div>
                                     <div data-fx="void">VOID</div>
+                                    <div data-fx="failure">FAILURE</div>
                                     <div data-fx="lucy">LUCY</div>
-                                    <div data-fx="vhs">VHS</div>
-                                    <div data-fx="nvg">NVG</div>
-                                    <div data-fx="reset">RESET</div>
+                                    <div data-fx="seismic">SEISMIC</div>
+                                    <div data-fx="punch">PUNCH</div>
+                                    <div data-fx="party">PARTY</div>
                                     <div class="gear-bank-sep">— BANK B —</div>
                                     <div data-fx="vb-slit-scan">SLIT_SCAN</div>
                                     <div data-fx="vb-luma-bloom">LUMA_BLOOM</div>
@@ -5593,16 +5537,14 @@ body.fullscreen #transcription-hud { pointer-events: none !important; } /* keep 
                                 <span class="pad-gear-icon">⚙</span>
                                 <div class="pad-gear-menu">
                                     <div data-fx="none">— NONE —</div>
-                                    <div class="gear-bank-sep">— BANK A —</div>
-                                    <div data-fx="scan">X-RAY</div>
-                                    <div data-fx="tear">TEAR</div>
-                                    <div data-fx="failure">FAILURE</div>
+                                    <div data-fx="nvg">NVG</div>
                                     <div data-fx="shoot">SHOOT</div>
                                     <div data-fx="void">VOID</div>
+                                    <div data-fx="failure">FAILURE</div>
                                     <div data-fx="lucy">LUCY</div>
-                                    <div data-fx="vhs">VHS</div>
-                                    <div data-fx="nvg">NVG</div>
-                                    <div data-fx="reset">RESET</div>
+                                    <div data-fx="seismic">SEISMIC</div>
+                                    <div data-fx="punch">PUNCH</div>
+                                    <div data-fx="party">PARTY</div>
                                     <div class="gear-bank-sep">— BANK B —</div>
                                     <div data-fx="vb-slit-scan">SLIT_SCAN</div>
                                     <div data-fx="vb-luma-bloom">LUMA_BLOOM</div>
@@ -5622,16 +5564,14 @@ body.fullscreen #transcription-hud { pointer-events: none !important; } /* keep 
                                 <span class="pad-gear-icon">⚙</span>
                                 <div class="pad-gear-menu">
                                     <div data-fx="none">— NONE —</div>
-                                    <div class="gear-bank-sep">— BANK A —</div>
-                                    <div data-fx="scan">X-RAY</div>
-                                    <div data-fx="tear">TEAR</div>
-                                    <div data-fx="failure">FAILURE</div>
+                                    <div data-fx="nvg">NVG</div>
                                     <div data-fx="shoot">SHOOT</div>
                                     <div data-fx="void">VOID</div>
+                                    <div data-fx="failure">FAILURE</div>
                                     <div data-fx="lucy">LUCY</div>
-                                    <div data-fx="vhs">VHS</div>
-                                    <div data-fx="nvg">NVG</div>
-                                    <div data-fx="reset">RESET</div>
+                                    <div data-fx="seismic">SEISMIC</div>
+                                    <div data-fx="punch">PUNCH</div>
+                                    <div data-fx="party">PARTY</div>
                                     <div class="gear-bank-sep">— BANK B —</div>
                                     <div data-fx="vb-slit-scan">SLIT_SCAN</div>
                                     <div data-fx="vb-luma-bloom">LUMA_BLOOM</div>
@@ -15813,8 +15753,6 @@ document.addEventListener('DOMContentLoaded', () => {
             'coupled-nvg','coupled-shoot','coupled-reset',
             'coupled-void','coupled-failure','coupled-lucy',
             'coupled-seismic','coupled-punch','coupled-party','coupled-glitch',
-            // Bank A additions — to match Bank A button set
-            'coupled-scan','coupled-tear','coupled-vhs',
             // Bank B GPU shaders
             'coupled-vb-slit-scan','coupled-vb-luma-bloom','coupled-vb-dither-luxe',
             'coupled-vb-caustics','coupled-vb-ghost-echo','coupled-vb-spectral-mosh'
@@ -15823,7 +15761,6 @@ document.addEventListener('DOMContentLoaded', () => {
             none:'', nvg:'NVG', shoot:'SHOOT', reset:'RESET',
             void:'VOID', failure:'FAILURE', lucy:'LUCY',
             seismic:'SEISMIC', punch:'PUNCH', party:'PARTY', glitch:'GLITCH',
-            scan:'X-RAY', tear:'TEAR', vhs:'VHS',
             'vb-slit-scan':'SLIT_SCN', 'vb-luma-bloom':'LUM_BLM',
             'vb-dither-luxe':'DITHER', 'vb-caustics':'CAUSTIC',
             'vb-ghost-echo':'GHO_ECH', 'vb-spectral-mosh':'SPEC_MSH'
@@ -15934,23 +15871,6 @@ document.addEventListener('DOMContentLoaded', () => {
             if (fx === 'reset') {
                 if (typeof triggerHardReset === 'function') triggerHardReset();
                 _flashFXBtn('btn-reset', 1000);
-                return;
-            }
-            // VHS — toggle overlay on for 3s (uses dedicated toggleVHS)
-            if (fx === 'vhs') {
-                if (typeof toggleVHS === 'function') {
-                    var vhsBtn = document.getElementById('btn-vhs');
-                    var wasOn = vhsBtn && vhsBtn.classList.contains('on');
-                    if (!wasOn) {
-                        toggleVHS();
-                        setTimeout(function() {
-                            var b = document.getElementById('btn-vhs');
-                            if (b && b.classList.contains('on')) toggleVHS();
-                        }, 3000);
-                    } else {
-                        _flashFXBtn('btn-vhs', 3000);
-                    }
-                }
                 return;
             }
             // BANK B — VNGRD_B GPU shader burst (3s one-shot via coupling)
