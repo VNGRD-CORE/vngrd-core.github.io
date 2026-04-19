@@ -3711,6 +3711,7 @@ body.fullscreen #transcription-hud { pointer-events: none !important; } /* keep 
     font-size: 9px; cursor: pointer; border-radius: 2px;
 }
 .ss-card-btn:hover { color: #00f3ff; border-color: #00f3ff; }
+.ss-card-btn.playing { color: #ff4444; border-color: #ff4444; box-shadow: 0 0 8px rgba(255,60,60,.4); }
 .ss-card-body {
     padding: 10px 12px;
     display: flex; flex-direction: column; gap: 8px;
@@ -10163,6 +10164,7 @@ window.SonicSuite = (function() {
         _schedId = setInterval(_scheduler, TICK);
         const btn = document.getElementById('ss-play');
         if (btn) { btn.textContent = '▶ PLAYING'; btn.classList.add('playing'); }
+        state.order.forEach(_paintCardPlay);
     }
 
     function stop() {
@@ -10176,6 +10178,7 @@ window.SonicSuite = (function() {
             const c = state.cards[id];
             if (c && typeof c.spec.onStop === 'function') { try { c.spec.onStop(); } catch (e) {} }
         });
+        state.order.forEach(_paintCardPlay);
     }
 
     function setBPM(v) {
@@ -10221,6 +10224,7 @@ window.SonicSuite = (function() {
             '<div class="ss-card-head">' +
               '<span class="ss-card-tag">' + (spec.tag || '') + '</span>' +
               '<span class="ss-card-title">' + (spec.label || id) + '</span>' +
+              '<button class="ss-card-btn ss-card-play" data-act="play" title="Play / Pause">▶</button>' +
               '<button class="ss-card-btn" data-act="min" title="Minimise">_</button>' +
               '<button class="ss-card-btn" data-act="focus" title="Solo focus">◉</button>' +
             '</div>' +
@@ -10233,6 +10237,22 @@ window.SonicSuite = (function() {
             if (e.target.classList.contains('ss-card-btn')) return;
             _startDrag(root, id, e);
         });
+        // Per-card play/stop
+        const playBtn = root.querySelector('[data-act=play]');
+        playBtn.addEventListener('click', function() {
+            const card = state.cards[id];
+            if (card && typeof card.spec.onCardPlay === 'function') {
+                // Card handles its own transport (e.g. CODE)
+                card.spec.onCardPlay(playBtn);
+                return;
+            }
+            // Default: master transport + mute toggle for this card
+            const muted = !!state.mutes[id];
+            if (!state.playing) start();
+            if (muted) setMute(id, false);
+            else if (state.playing) setMute(id, true);
+            _paintCardPlay(id);
+        });
         // Minimise + focus
         root.querySelector('[data-act=min]').addEventListener('click', function() {
             root.classList.toggle('minimised');
@@ -10242,6 +10262,16 @@ window.SonicSuite = (function() {
             setFocus(state.focused === id ? null : id);
         });
         return { root, head, body };
+    }
+
+    function _paintCardPlay(id) {
+        const root = state.cards[id] && state.cards[id].dom.root;
+        if (!root) return;
+        const btn = root.querySelector('.ss-card-play');
+        if (!btn) return;
+        const active = state.playing && !state.mutes[id];
+        btn.textContent = active ? '■' : '▶';
+        btn.classList.toggle('playing', active);
     }
 
     function _startDrag(el, id, e) {
@@ -10282,6 +10312,7 @@ window.SonicSuite = (function() {
         const btn = document.querySelector('.ss-mb-ct[data-card-id="' + id + '"]');
         if (btn) btn.classList.toggle('muted', !!muted);
         if (c) c.dom.root.classList.toggle('muted', !!muted);
+        _paintCardPlay(id);
     }
 
     function setFocus(id) {
@@ -10995,27 +11026,40 @@ window.SonicSuite = (function() {
 
                 const status = row.querySelector('.ss-code-status');
                 function _run(looped) {
-                    if (state.running) { _stop(); }
-                    state.cancelRef = { cancel: false };
+                    if (state.running) _stop();
+                    const cancel = { cancel: false };
+                    state.cancelRef = cancel;
                     state.running = true;
                     status.textContent = looped ? 'LOOPING' : 'RUNNING';
                     status.style.color = '#00f3ff';
-                    const api = _makeApi(ctx, state.cancelRef);
+                    const api = _makeApi(ctx, cancel);
                     const src = ta.value;
+                    const wrapped = looped
+                        ? 'return (async function(){ while(!__cancel.cancel){ await (async function(){\n' + src + '\n}).call(null); } })();'
+                        : 'return (async function(){\n' + src + '\n})();';
                     try {
-                        const wrapped = 'return (async function(){\n' + src + '\n})();';
-                        const fn = new Function('bpm','beat','play','synth','loop','tone', wrapped);
-                        const p = fn(api.bpm, api.beat, api.play, api.synth, api.loop, api.tone);
+                        const fn = new Function('bpm','beat','play','synth','loop','tone','__cancel', wrapped);
+                        const p = fn(api.bpm, api.beat, api.play, api.synth, api.loop, api.tone, cancel);
                         Promise.resolve(p).then(
-                            () => { if (!looped) { state.running = false; status.textContent = 'DONE'; status.style.color = 'rgba(0,243,255,.5)'; } },
-                            err => { state.running = false; status.textContent = 'ERR: ' + err.message.slice(0, 40); status.style.color = '#ff4444'; }
+                            () => {
+                                if (state.cancelRef !== cancel) return;
+                                state.running = false;
+                                status.textContent = cancel.cancel ? 'STOPPED' : 'DONE';
+                                status.style.color = cancel.cancel ? 'rgba(255,120,0,.85)' : 'rgba(0,243,255,.5)';
+                            },
+                            err => {
+                                if (state.cancelRef !== cancel) return;
+                                state.running = false;
+                                const msg = (err && err.message) || String(err);
+                                if (msg === 'cancel') {
+                                    status.textContent = 'STOPPED';
+                                    status.style.color = 'rgba(255,120,0,.85)';
+                                } else {
+                                    status.textContent = 'ERR: ' + msg.slice(0, 40);
+                                    status.style.color = '#ff4444';
+                                }
+                            }
                         );
-                        if (looped) {
-                            // Auto-repeat on natural completion
-                            Promise.resolve(p).then(() => {
-                                if (state.running && !state.cancelRef.cancel) _run(true);
-                            });
-                        }
                     } catch (e) {
                         state.running = false;
                         status.textContent = 'PARSE: ' + e.message.slice(0, 40);
@@ -11023,7 +11067,7 @@ window.SonicSuite = (function() {
                     }
                 }
                 function _stop() {
-                    state.cancelRef.cancel = true;
+                    if (state.cancelRef) state.cancelRef.cancel = true;
                     state.running = false;
                     status.textContent = 'STOPPED';
                     status.style.color = 'rgba(255,120,0,.85)';
@@ -11034,8 +11078,21 @@ window.SonicSuite = (function() {
                 row.querySelector('.ss-code-stop').addEventListener('click', _stop);
 
                 this._stop = _stop;
+                this._runLoop = () => _run(true);
+                this._isRunning = () => state.running;
             },
-            onStop() { if (this._stop) this._stop(); }
+            onStop() { if (this._stop) this._stop(); },
+            onCardPlay(btn) {
+                if (this._isRunning && this._isRunning()) {
+                    if (this._stop) this._stop();
+                    btn.textContent = '▶';
+                    btn.classList.remove('playing');
+                } else if (this._runLoop) {
+                    this._runLoop();
+                    btn.textContent = '■';
+                    btn.classList.add('playing');
+                }
+            }
         });
     }
 
