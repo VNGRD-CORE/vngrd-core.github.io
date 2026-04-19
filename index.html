@@ -10089,45 +10089,43 @@ window.SonicSuite = (function() {
         if (!ctx) return null;
         const masterOut = APP.audio.masterGain || ctx.destination;
 
-        // Master bus — all cards land here, then glue-compression, then a
-        // soft limiter, before being sent to the app masterGain. This is
-        // what gives the suite its DAW-feel density instead of thin voices.
+        // Master bus — cards sum here, then glue-compression, then a soft
+        // limiter, then straight out. No post-limiter makeup (it would only
+        // drive the next stage back into clipping). Slightly lower master
+        // gain leaves headroom for three or four cards playing at once.
         const master = ctx.createGain();
-        master.gain.value = 0.85;
+        master.gain.value = 0.72;
 
         const glue = ctx.createDynamicsCompressor();
-        glue.threshold.value = -16;
-        glue.knee.value      = 22;
-        glue.ratio.value     = 2.6;
-        glue.attack.value    = 0.008;
-        glue.release.value   = 0.14;
+        glue.threshold.value = -14;
+        glue.knee.value      = 18;
+        glue.ratio.value     = 3.2;
+        glue.attack.value    = 0.005;
+        glue.release.value   = 0.12;
 
         const limiter = ctx.createDynamicsCompressor();
-        limiter.threshold.value = -2;
+        limiter.threshold.value = -3;
         limiter.knee.value      = 0;
         limiter.ratio.value     = 20;
         limiter.attack.value    = 0.001;
-        limiter.release.value   = 0.06;
+        limiter.release.value   = 0.05;
 
-        const makeup = ctx.createGain();
-        makeup.gain.value = 1.35;
-
-        master.connect(glue).connect(limiter).connect(makeup).connect(masterOut);
+        master.connect(glue).connect(limiter).connect(masterOut);
 
         // Shared reverb send (short plate IR). reverbSend is the input bus;
         // reverbReturn controls how much wet signal the master hears.
         const reverb = ctx.createConvolver();
-        reverb.buffer = _buildIR(ctx, 1.8, 2.0);
+        reverb.buffer = _buildIR(ctx, 1.0, 2.4);
         const reverbSend   = ctx.createGain();
         const reverbReturn = ctx.createGain();
         reverbSend.gain.value   = 1.0;
-        reverbReturn.gain.value = 0.35;
+        reverbReturn.gain.value = 0.22;
         reverbSend.connect(reverb).connect(reverbReturn).connect(master);
 
         // Master analyser for VU meter (taps the post-limiter signal)
         const analyser = ctx.createAnalyser();
         analyser.fftSize = 512;
-        makeup.connect(analyser);
+        limiter.connect(analyser);
 
         // Public handles for the mixer card
         window._ssAnalyser     = analyser;
@@ -10255,7 +10253,7 @@ window.SonicSuite = (function() {
         const bus = a ? a.ctx.createGain() : null;
         const reverbTap = a ? a.ctx.createGain() : null;
         if (bus && a) {
-            bus.gain.value = 1.0;
+            bus.gain.value = 0.62;        // per-card headroom so summed mix doesn't slam the limiter
             bus.connect(a.master);
             reverbTap.gain.value = 0.0;
             bus.connect(reverbTap).connect(a.reverbSend);
@@ -10522,7 +10520,7 @@ window.SonicSuite = (function() {
             curve[i] = Math.tanh(k * x) / Math.tanh(k || 0.0001);
         }
         const ws = ctx.createWaveShaper();
-        ws.curve = curve; ws.oversample = '2x';
+        ws.curve = curve; ws.oversample = 'none';
         _SHAPERS[key] = ws;
         return ws;
     }
@@ -10617,12 +10615,14 @@ window.SonicSuite = (function() {
             return (ty, fq, du, en, fi, pn) => _voice(ctx, dest, t, ty, fq, du, en, fi, pn);
         }
         // ─── PRO DRUM LAYER HELPERS ──────────────────────────────
-        // 909-style metallic hat: stack of six square partials + BPF + HPF.
+        // 909-style metallic hat: stack of four square partials + BPF + HPF.
+        // Four instead of six keeps voice count manageable when a hat plays
+        // on every second 16th (8 hits/bar × 4 osc = 32 voices/bar).
         function _metalHat(t, open) {
-            const HH = [2, 3, 4.16, 5.43, 6.79, 8.21];       // inharmonic ratios
+            const HH = [2, 3, 4.16, 5.43];                    // inharmonic ratios
             const f0  = 325;                                  // fundamental
-            const dur = open ? 0.45 : 0.055;
-            const peak = open ? 0.32 : 0.38;
+            const dur = open ? 0.4 : 0.05;
+            const peak = open ? 0.3 : 0.36;
             const bus = ctx.createGain();
             bus.gain.setValueAtTime(0, t);
             bus.gain.linearRampToValueAtTime(peak, t + 0.002);
@@ -10688,13 +10688,9 @@ window.SonicSuite = (function() {
                 snare: t => _snareLayers(t, 230, 2600, 0.9, 0.18, 0.38, 0.58),
                 hat:   t => _v(t)('pink', 0, 0.045, {a:0.0005, d:0.018, r:0.028, peak:0.52},
                                   {type:'highpass', freq:9500, q:0.8}),
-                perc:  t => { // rolled hat
-                    for (let i = 0; i < 3; i++) {
-                        _v(t + i * 0.02, 'pink', 0, 0.035,
-                          {a:0.0005, d:0.014, r:0.02, peak:0.28 - i*0.05},
-                          {type:'highpass', freq:9200, q:0.8});
-                    }
-                }
+                perc:  t => _v(t)('pink', 0, 0.08,
+                                  {a:0.0005, d:0.03, r:0.05, peak:0.42},
+                                  {type:'bandpass', freq:3400, q:3})
             },
             'LOFI': {
                 kick:  t => _kickLayers(t, 95, 42, 0.5, 0.88, 38, 0.3, 0.2),
@@ -10968,7 +10964,7 @@ window.SonicSuite = (function() {
             c[i] = Math.tanh(k * x) / Math.tanh(k || 0.0001);
         }
         const ws = ctx.createWaveShaper();
-        ws.curve = c; ws.oversample = '4x';
+        ws.curve = c; ws.oversample = '2x';
         _BASS_SHAPER[key] = ws;
         return ws;
     }
@@ -10994,10 +10990,10 @@ window.SonicSuite = (function() {
             o.start(t); o.stop(t + dur + 0.2);
             return o;
         }
-        _osc(preset.wave, 0, 0.55);
+        _osc(preset.wave, 0, preset.detune ? 0.5 : 0.75);
         if (preset.detune) {
-            _osc(preset.wave, +preset.detune, 0.4);
-            _osc(preset.wave, -preset.detune, 0.4);
+            // Single detuned partner (not pair) keeps voice count reasonable.
+            _osc(preset.wave, +preset.detune, 0.45);
         }
         if (preset.subAmt > 0) {
             const o = ctx.createOscillator();
@@ -11273,8 +11269,8 @@ window.SonicSuite = (function() {
                 o.connect(og).connect(g);
                 o.start(t); o.stop(t + dur + 0.2);
             }
-            _osc(0, 0.7);
-            if (dt) { _osc(+dt, 0.4); _osc(-dt, 0.4); }
+            _osc(0, dt ? 0.55 : 0.8);
+            if (dt) _osc(+dt, 0.45);
             tail.connect(ctx.bus);
         }
         // Awaitable loop: blocks until cancelled. Inside: run fn forever.
