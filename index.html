@@ -20934,6 +20934,19 @@ if (document.readyState !== 'loading') { _vbWireButtons(); }
         rack.ctrlChange('pitch', xNorm);
         rack.ctrlChange('macro', yNorm);
 
+        // ── 4b. LEFT HAND Y → preset bank (ambient / techno / dubstep) ─────
+        // Top third of the frame = dubstep, middle = techno, bottom = ambient.
+        // Without a left hand we leave the current bank alone — so the
+        // player can drop their left hand without losing the vibe.
+        var presetName = null;
+        if (lDraw && lDraw[0]) {
+            var lY = lDraw[0].y; // 0 at top, 1 at bottom
+            if (lY < 0.33)      presetName = 'dubstep';
+            else if (lY < 0.66) presetName = 'techno';
+            else                presetName = 'ambient';
+            rack.ctrlChange('preset', presetName);
+        }
+
         // ── 5. GESTURES ─────────────────────────────────────────────────────
         var handSize = Math.max(0.03, _dist3(rDraw[0], rDraw[9]));
         var pinchRaw = _dist3(rDraw[4], rDraw[8]) / handSize;
@@ -21048,6 +21061,23 @@ if (document.readyState !== 'loading') { _vbWireButtons(); }
         ctx.fillStyle    = 'rgba(0,243,255,0.9)';
         ctx.fillText('SPREAD / WOBBLE', 16, 56);
 
+        // Preset badge — mirrors the active bank. Colour-coded per preset so
+        // the player gets instant feedback on which mode the left hand set.
+        var activeName = presetName || (rack._presetName || 'techno');
+        var PRESET_COLOR = { ambient: '#7CFF4F', techno: '#00F3FF', dubstep: '#FF4FD8' };
+        var badgeCol = PRESET_COLOR[activeName] || '#00F3FF';
+        ctx.font          = '700 12px "JetBrains Mono", monospace';
+        ctx.globalAlpha   = 0.95;
+        ctx.strokeStyle   = badgeCol;
+        ctx.shadowColor   = badgeCol;
+        ctx.shadowBlur    = 10;
+        ctx.lineWidth     = 1.5;
+        var bw = ctx.measureText(activeName.toUpperCase()).width + 20;
+        ctx.strokeRect(16, 82, bw, 22);
+        ctx.fillStyle     = badgeCol;
+        ctx.fillText(activeName.toUpperCase(), 26, 98);
+        ctx.shadowBlur    = 0;
+
         ctx.restore();
     };
 })();
@@ -21077,12 +21107,12 @@ if (document.readyState !== 'loading') { _vbWireButtons(); }
 
 <script src="./src/synesthesia-voice-engine.js"></script>
 
-<!-- ══ MediaPipe Hands (main-thread X/Y synth driver) ═══════════════════════════ -->
-<script src="https://cdn.jsdelivr.net/npm/@mediapipe/hands@0.4.1675469240/hands.js"></script>
-<script src="https://cdn.jsdelivr.net/npm/@mediapipe/camera_utils@0.3.1675466124/camera_utils.js"></script>
-<script src="./src/hand-tracker.js?v=2"></script>
+<!-- ══ MediaPipe Tasks HandLandmarker — GPU-accelerated, rVFC-driven ═══════ -->
+<!-- vision_bundle.mjs is imported dynamically from inside hand-tracker.js,  -->
+<!-- so no separate <script> tag for the Tasks CDN is needed here.           -->
+<script src="./src/hand-tracker.js?v=3"></script>
 
-<script src="./src/kinetic-rack/KineticRack.js?v=19"></script>
+<script src="./src/kinetic-rack/KineticRack.js?v=20"></script>
 
 <!-- NLE seam controls are fully canvas-drawn (no DOM panel) -->
 
