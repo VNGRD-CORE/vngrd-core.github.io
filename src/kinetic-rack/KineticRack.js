@@ -247,8 +247,15 @@ class AudioCore {
         this._voiceGain = ctx.createGain();
         this._voiceGain.gain.value = 0;
 
+        // Sidechain duck — kick pulses this gain down briefly so the bass
+        // pumps under every kick hit. Kick itself bypasses this gain (goes
+        // straight to masterGain), so it's only the melodic voices that duck.
+        this._duckGain = ctx.createGain();
+        this._duckGain.gain.value = 1.0;
+
         this._filter.connect(this._voiceGain);
-        this._voiceGain.connect(this._masterGain);
+        this._voiceGain.connect(this._duckGain);
+        this._duckGain.connect(this._masterGain);
 
         // ── Soft-clip waveshaper adds odd-harmonic grit to the body oscs
         //    so the bass has chest-thump weight even when the fundamental
@@ -397,6 +404,13 @@ class AudioCore {
         g.exponentialRampToValueAtTime(0.001, t + 0.32);
     }
 
+    /** Scale-index (0..9) + octave bias → note-on. Preset-aware entry point. */
+    noteOnAt(idx, octaveBias = 0, vel = 0.7) {
+        const base = this._scaleFreq(Math.max(0, Math.min(9, idx)) / 10 + 0.001);
+        const freq = base * Math.pow(2, octaveBias);
+        this.noteOn(freq, vel);
+    }
+
     /** Macro (0..1) — opens filter + adds grit + thickens sub in one
      *  choreographed move. Driven by hand proximity to camera. */
     setMacro(v01) {
@@ -451,32 +465,66 @@ class AudioCore {
         this._lfoGain.gain.setTargetAtTime(clamped, this.ctx.currentTime, 0.06);
     }
 
-    triggerKick() {
+    /** Short, punchy kick with click transient + sidechain duck pulse. */
+    triggerKick(vel = 1.0) {
         if (!this.ctx) return;
         const ctx = this.ctx;
         const t   = ctx.currentTime;
+        const V   = Math.max(0, Math.min(1, vel));
 
-        // Sine osc with pitch envelope 100→30 Hz over 0.5s
-        const osc  = ctx.createOscillator();
-        osc.type   = 'sine';
-        osc.frequency.setValueAtTime(100, t);
-        osc.frequency.exponentialRampToValueAtTime(30, t + 0.5);
+        // Body: pitch-enveloped sine 140 → 42 Hz over 90 ms (snappy).
+        const body = ctx.createOscillator();
+        body.type  = 'sine';
+        body.frequency.setValueAtTime(140, t);
+        body.frequency.exponentialRampToValueAtTime(42, t + 0.09);
 
-        // Soft-clip waveshaper (distortion)
-        const ws        = ctx.createWaveShaper();
-        ws.curve        = _makeSoftClipCurve(256);
-        ws.oversample   = '2x';
+        const bodyEnv = ctx.createGain();
+        bodyEnv.gain.setValueAtTime(0, t);
+        bodyEnv.gain.linearRampToValueAtTime(V * 0.85, t + 0.003);
+        bodyEnv.gain.exponentialRampToValueAtTime(0.001, t + 0.28);
+        body.connect(bodyEnv);
+        bodyEnv.connect(this._masterGain);
+        body.start(t); body.stop(t + 0.3);
 
-        const env = ctx.createGain();
-        env.gain.setValueAtTime(1.2, t);
-        env.gain.exponentialRampToValueAtTime(0.001, t + 0.5);
+        // Click transient — 8 ms noise burst through a highpass.
+        const noiseBuf = ctx.createBuffer(1, 0.02 * ctx.sampleRate, ctx.sampleRate);
+        const data     = noiseBuf.getChannelData(0);
+        for (let i = 0; i < data.length; i++) data[i] = Math.random() * 2 - 1;
+        const noise   = ctx.createBufferSource();
+        noise.buffer  = noiseBuf;
+        const hp      = ctx.createBiquadFilter();
+        hp.type       = 'highpass';
+        hp.frequency.value = 1200;
+        const clickEnv = ctx.createGain();
+        clickEnv.gain.setValueAtTime(V * 0.6, t);
+        clickEnv.gain.exponentialRampToValueAtTime(0.001, t + 0.018);
+        noise.connect(hp); hp.connect(clickEnv);
+        clickEnv.connect(this._masterGain);
+        noise.start(t); noise.stop(t + 0.02);
 
-        osc.connect(ws);
-        ws.connect(env);
-        env.connect(this._masterGain);
+        // Sidechain duck — dip the duckGain to 0.22 on kick, rebound 220 ms.
+        if (this._duckGain) {
+            const g = this._duckGain.gain;
+            g.cancelScheduledValues(t);
+            g.setValueAtTime(g.value, t);
+            g.linearRampToValueAtTime(0.22, t + 0.012);
+            g.linearRampToValueAtTime(1.0,  t + 0.22);
+        }
+    }
 
-        osc.start(t);
-        osc.stop(t + 0.52);
+    /** Swap oscillator / pluck character per preset ('ambient'|'techno'|'dubstep'). */
+    setPresetSound(preset) {
+        if (!this._pluck || !this._oscs.length) return;
+        if (preset === 'ambient') {
+            for (const o of this._oscs) o.type = 'sine';
+            this._pluck.type = 'triangle';
+        } else if (preset === 'dubstep') {
+            for (const o of this._oscs) o.type = 'sawtooth';
+            this._pluck.type = 'square';
+        } else { // techno (default)
+            for (const o of this._oscs) o.type = 'triangle';
+            this._pluck.type = 'sawtooth';
+        }
     }
 
     createLoopNode() {
@@ -950,8 +998,9 @@ class KineticRack {
         try {
             await this._audio.start();
             this._setStatus('AUDIO OK');
-            this._startArp(120); // 16th-note arp at 120 BPM, gated by _handPresent
-            console.log('[KineticRack] Phase 4: audio + arp started (gated by hand presence)');
+            this._applyPreset('techno'); // default bank
+            this._startArp(120);         // 16th-note arp at 120 BPM, gated by _handPresent
+            console.log('[KineticRack] Phase 4: audio + arp + preset banks live');
         } catch (e) {
             console.warn('[KineticRack] AudioCore failed:', e);
         }
@@ -1126,14 +1175,52 @@ class KineticRack {
             document.getElementById('kr-skeleton-canvas')?.classList.add('kr-online');
             document.getElementById('kr-launch-btn')?.classList.add('kr-online');
             document.getElementById('kr-stage-hud')?.classList.add('kr-live');
-            this._setStatus('HAND SYNTH // LIVE', true);
+            this._setStatus('HAND SYNTH // ' + (this._presetName || 'techno').toUpperCase(), true);
         }
     }
 
-    // ── Arpeggiator — BPM-locked 16th-note pluck voice ───────────────────────
-    //  Hand X picks a pivot into the scale; the arp walks forward from there
-    //  so static hand positions still make moving patterns. Hand presence
-    //  gates it: no hand = no notes.
+    // ── Preset banks — one gesture switches the whole instrument ─────────────
+    //  AMBIENT : sparse 1/4-note pluck, kick every 2 bars, soft waves
+    //  TECHNO  : straight 16ths, kick on 1+3, bright bite
+    //  DUBSTEP : syncopated 8ths, kick on 1+3 + ghost 15, growling saws
+    // Each preset is a dict of step-sets (booleans over 16 steps) + hop
+    // pattern + velocity curve + scale root offset.
+    static get PRESETS() {
+        return {
+            ambient: {
+                arpSteps: [0, 0, 0, 0,  1, 0, 0, 0,  0, 0, 0, 0,  1, 0, 0, 0],
+                kickSteps:[1, 0, 0, 0,  0, 0, 0, 0,  0, 0, 0, 0,  0, 0, 0, 0],
+                hops:     [0, 2, 4, 2],
+                velBase: 0.25, velAccent: 0.35,
+                kickVel: 0.55,
+                octaveBias: -1,   // drop one octave for pad-ness
+            },
+            techno: {
+                arpSteps: [1, 0, 1, 0,  1, 0, 1, 0,  1, 0, 1, 0,  1, 0, 1, 0],
+                kickSteps:[1, 0, 0, 0,  1, 0, 0, 0,  1, 0, 0, 0,  1, 0, 0, 0],
+                hops:     [0, 2, 1, 3, 0, 4, 2, 5],
+                velBase: 0.35, velAccent: 0.7,
+                kickVel: 0.95,
+                octaveBias: 0,
+            },
+            dubstep: {
+                arpSteps: [1, 0, 0, 1,  1, 0, 1, 0,  1, 0, 0, 1,  1, 0, 1, 0],
+                kickSteps:[1, 0, 0, 0,  0, 0, 1, 0,  1, 0, 0, 0,  0, 0, 1, 0],
+                hops:     [0, 0, 3, 0,  2, 0, 5, 2],
+                velBase: 0.45, velAccent: 0.95,
+                kickVel: 1.0,
+                octaveBias: 0,
+            },
+        };
+    }
+
+    _applyPreset(name) {
+        if (this._presetName === name) return;
+        this._presetName = name;
+        this._audio?.setPresetSound(name);
+        // Status line mirrors the active preset so the player sees it.
+        this._setStatus('HAND SYNTH // ' + name.toUpperCase(), true);
+    }
 
     _startArp(bpm = 120) {
         if (this._arpId) return;
@@ -1144,32 +1231,39 @@ class KineticRack {
 
     _stopArp() {
         if (this._arpId) { clearInterval(this._arpId); this._arpId = null; }
-        this._audio?.noteOn(0, 0); // flush env
     }
 
     _arpTick() {
         if (!this._active || !this._handPresent) return;
-        const pv   = this._lastPitchV ?? 0.5;
-        const mac  = this._lastMacro  ?? 0.3;
-        // Step pattern: 0,2,1,3,0,4,2,5 — hops that feel melodic even when
-        // the pivot (hand X) is stationary.
-        const HOPS = [0, 2, 1, 3, 0, 4, 2, 5];
-        const pivotIdx = Math.floor(pv * 10);
-        const idx      = (pivotIdx + HOPS[this._arpStep % HOPS.length]) % 10;
-        const SEMIS    = [0, 3, 5, 7, 10];
-        const oct      = Math.floor(idx / 5);
-        const deg      = idx % 5;
-        const freq     = 55 * Math.pow(2, (SEMIS[deg] + oct * 12) / 12);
-        const vel      = 0.35 + mac * 0.5;
-        this._audio.noteOn(freq, vel);
-        this._arpStep  = (this._arpStep + 1) % 16;
+        const name = this._presetName || 'techno';
+        const p    = KineticRack.PRESETS[name] || KineticRack.PRESETS.techno;
+        const step = this._arpStep % 16;
+
+        // Kick first (feels tight when bass ducks at the same sample).
+        if (p.kickSteps[step]) this._audio.triggerKick(p.kickVel);
+
+        // Arp note — only on active steps. Accent on beat 1 + 3.
+        if (p.arpSteps[step]) {
+            const pv    = this._lastPitchV ?? 0.5;
+            const mac   = this._lastMacro  ?? 0.3;
+            const pivot = Math.floor(pv * 10);
+            const hop   = p.hops[this._arpStep % p.hops.length];
+            const rawIdx = pivot + hop;
+            const clamped = Math.max(0, Math.min(9, rawIdx));
+            const isAccent = (step === 0 || step === 8);
+            const vel     = (isAccent ? p.velAccent : p.velBase) + mac * 0.3;
+            this._audio.noteOnAt(clamped, p.octaveBias, vel);
+        }
+
+        this._arpStep = (this._arpStep + 1) % 16;
     }
 
     /** Pinch rising-edge trigger — fires a scale-quantised pluck at current X. */
     triggerPluck(xV01, vel = 0.8) {
         if (!this._audio) return;
-        const freq = this._audio._scaleFreq(xV01);
-        this._audio.noteOn(freq, vel);
+        const idx = Math.max(0, Math.min(9, Math.floor(xV01 * 10)));
+        const bias = KineticRack.PRESETS[this._presetName || 'techno'].octaveBias;
+        this._audio.noteOnAt(idx, bias, vel);
     }
 
     // ── Public API ────────────────────────────────────────────────────────────
@@ -1205,6 +1299,13 @@ class KineticRack {
         if (key === 'fm')       { this._audio.setFM(v * 2000);          return; }
         if (key === 'lfoRate')  { this._audio.setLFORate(0.3 + v * 11); return; }
         if (key === 'lfoDepth') { this._audio.setLFODepth(v * 420);     return; }
+        // Preset — left-hand Y selects ambient/techno/dubstep.
+        if (key === 'preset')   {
+            const names = ['ambient', 'techno', 'dubstep'];
+            const name  = typeof val === 'string' ? val : names[Math.max(0, Math.min(2, Math.floor(v)))];
+            this._applyPreset(name);
+            return;
+        }
         console.log('[KineticRack] ctrlChange', key, val);
     }
 
