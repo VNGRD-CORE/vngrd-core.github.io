@@ -897,12 +897,13 @@ class KineticRack {
         // clean 21-point skeleton HUD on #kr-skeleton-canvas. The old 3D line
         // meshes and pinch-to-loop playhead spheres are intentionally gone.
 
-        // Phase 6 — MediaPipe (non-fatal)
-        try {
-            await this._initHandLandmarker();
-        } catch (e) {
-            console.warn('[KineticRack] MediaPipe failed:', e);
-        }
+        // Phase 6 — MediaPipe. The main-thread CDN tracker in
+        // src/hand-tracker.js is the single source of truth for landmarks;
+        // it writes window._latestHandsLm which _detectHands reads each
+        // frame. The old Web Worker path ran a SECOND MediaPipe instance
+        // and did a getImageData() per frame — that was tanking render
+        // FPS to single digits. It's gone; keep only the lean CDN path.
+        this._mpWorkerReady = false;
 
         window.addEventListener('resize', this._onResize);
         this._initialized = true;
@@ -1002,45 +1003,21 @@ class KineticRack {
     // ── Hand detection ────────────────────────────────────────────────────────
 
     _detectHands() {
-        // Dispatch a video frame to the MediaPipe worker (Transferable ArrayBuffer)
-        // at the render loop cadence — the worker's LANDMARKS message updates
-        // this._latestRightLm / this._latestLeftLm asynchronously.
-        const video = document.getElementById('kr-ai-video');
-        if (this._mpWorkerReady && !this._mpPending && video && video.readyState >= 2) {
-            const fc = this._mpFrameCtx;
-            const fw = this._mpFrameCanvas.width;
-            const fh = this._mpFrameCanvas.height;
-            fc.drawImage(video, 0, 0, fw, fh);
-            const imgData = fc.getImageData(0, 0, fw, fh);
-            // Transfer the pixel buffer to the worker — zero-copy
-            const pixelBuf = imgData.data.buffer.slice(0); // clone for transfer
-            this._mpPending = true;
-            this._mpWorker.postMessage(
-                { type: 'DETECT', buffer: pixelBuf, width: fw, height: fh, timestamp: performance.now() },
-                [pixelBuf]
-            );
-        }
-
-        // Consume the latest landmark data — prefer the CDN main-thread tracker
-        // (window._latestHandsLm.right/left) if it's populated, otherwise fall back
-        // to the worker-supplied landmarks. The CDN tracker owns _handTrackFeed.
+        // Landmarks come from the CDN main-thread tracker (hand-tracker.js)
+        // which writes window._latestHandsLm after every MediaPipe detection.
+        // No per-frame getImageData / worker postMessage here — that was the
+        // FPS killer.
         const cdnFeed = window._latestHandsLm || null;
-        const rightLm = (cdnFeed && cdnFeed.right) || this._latestRightLm;
-        const leftLm  = (cdnFeed && cdnFeed.left)  || this._latestLeftLm;
+        const rightLm = cdnFeed ? cdnFeed.right : null;
+        const leftLm  = cdnFeed ? cdnFeed.left  : null;
 
-        // Drive the UI feed (_handTrackFeed) — vol/filter sliders + skeleton
-        // HUD. The main-thread CDN tracker (index.html) may ALSO call
-        // _handTrackFeed; last-write-wins is fine since both paths converge on
-        // the same values and the HUD canvas redraws every frame.
+        // _handTrackFeed handles audio (pitch/filter/FM/LFO) and the
+        // velocity-extrapolated skeleton HUD — single source of truth.
         if (typeof window._handTrackFeed === 'function') {
             try { window._handTrackFeed(rightLm || null, leftLm || null); }
             catch (e) { /* never let UI feed kill the render loop */ }
         }
 
-        // Spatial gate — open on hand present, close on hand absent.
-        // Pitch / filter / FM / LFO are all driven by _handTrackFeed (above),
-        // which operates on velocity-extrapolated landmarks so response is
-        // tied to the same "predicted now" pose the HUD is drawing.
         if (rightLm) {
             const lm8 = rightLm[8];
             this._s.rightX += (lm8.x - this._s.rightX) * LERP_FACTOR;
