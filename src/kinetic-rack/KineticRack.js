@@ -238,34 +238,47 @@ class AudioCore {
         this._filter.connect(this._voiceGain);
         this._voiceGain.connect(this._masterGain);
 
-        // ── Body: 2 triangles (-7 / +7 cents) — way less harmonic content
-        //         than saws, so no piercing upper partials even if the
-        //         lowpass is fully open.
-        const detunes = [-7, 7];
+        // ── Soft-clip waveshaper adds odd-harmonic grit to the body oscs
+        //    so the bass has chest-thump weight even when the fundamental
+        //    is below what most laptop speakers can reproduce.
+        const shaper = ctx.createWaveShaper();
+        const _curveN = 2048;
+        const _curve  = new Float32Array(_curveN);
+        for (let i = 0; i < _curveN; i++) {
+            const x = (i * 2) / _curveN - 1;
+            _curve[i] = Math.tanh(x * 2.4) / Math.tanh(2.4);
+        }
+        shaper.curve      = _curve;
+        shaper.oversample = '4x';
+        shaper.connect(this._filter);
+
+        // ── Body: 2 triangles (-9 / +9 cents) at 70 Hz — true bass register,
+        //         a full octave below the old 110 Hz. Soft-clip adds warmth.
+        const detunes = [-9, 9];
         for (let i = 0; i < detunes.length; i++) {
             const osc = ctx.createOscillator();
             osc.type            = 'triangle';
-            osc.frequency.value = 110;
+            osc.frequency.value = 70;
             osc.detune.value    = detunes[i];
 
             const g = ctx.createGain();
-            g.gain.value = 0.25;
+            g.gain.value = 0.34;
 
             osc.connect(g);
-            g.connect(this._filter);
+            g.connect(shaper);
             osc.start();
 
             this._oscs.push(osc);
             this._oscGains.push(g);
         }
 
-        // ── Sub: pure sine one octave below — the main bassline tone. ────────
+        // ── Sub: pure sine one octave below body — the main bassline tone. ───
         this._sub = ctx.createOscillator();
         this._sub.type            = 'sine';
-        this._sub.frequency.value = 55;
+        this._sub.frequency.value = 35;
 
         this._subGain = ctx.createGain();
-        this._subGain.gain.value = 0.85;
+        this._subGain.gain.value = 1.15;
 
         this._sub.connect(this._subGain);
         this._subGain.connect(this._filter);
@@ -293,12 +306,15 @@ class AudioCore {
 
     setPitch(hz) {
         if (!this.ctx) return;
+        // Hard sub-bass clamp — defense-in-depth so stray callers can't
+        // ever push the body oscs into piercing register.
+        const clamped = Math.max(28, Math.min(160, hz));
         const t = this.ctx.currentTime;
         // Slight portamento so XY sweeps feel musical, not stepped.
         for (const osc of this._oscs) {
-            osc.frequency.setTargetAtTime(hz,       t, 0.04);
+            osc.frequency.setTargetAtTime(clamped, t, 0.04);
         }
-        if (this._sub) this._sub.frequency.setTargetAtTime(hz * 0.5, t, 0.04);
+        if (this._sub) this._sub.frequency.setTargetAtTime(clamped * 0.5, t, 0.04);
     }
 
     setFilter(hz) {
@@ -994,15 +1010,22 @@ class KineticRack {
         }
 
         // Internal audio path — pitch+filter from right-hand fingertip.
+        // MediaPipe x is mirrored (camera POV) so we un-mirror to (1 - x)
+        // before mapping. Both axes stay in sub-bass / low-mid range so
+        // nothing piercing can reach the speakers no matter where the hand
+        // goes. Matches the ranges in ctrlChange() for consistency.
         if (rightLm) {
-            this._audio.setSpatialGate(0.35);
+            this._audio.setSpatialGate(0.4);
 
             const lm8 = rightLm[8];
             this._s.rightX += (lm8.x - this._s.rightX) * LERP_FACTOR;
             this._s.rightY += (lm8.y - this._s.rightY) * LERP_FACTOR;
 
-            const pitch  = 55 * Math.pow(16, this._s.rightX * 3);
-            const filter = 80 + this._s.rightY * 7920;
+            const xNorm = Math.max(0, Math.min(1, 1 - this._s.rightX));
+            const yNorm = Math.max(0, Math.min(1, 1 - this._s.rightY));
+
+            const pitch  = 32 + xNorm * 88;        // 32–120 Hz  (C1 → B2)
+            const filter = 160 + yNorm * 740;      // 160–900 Hz (warm low-mid)
             this._audio.setPitch(pitch);
             this._audio.setFilter(filter);
         } else {
@@ -1056,11 +1079,11 @@ class KineticRack {
         // Master volume hard-capped at 0.5 for ear safety.
         if (key === 'vol')    { this._audio.setVolume(Math.min(v, 0.5));    return; }
         if (key === 'reverb') { /* no-op */                                  return; }
-        // Ears-safe bass-only ranges:
-        //   pitch  40–150 Hz   (true sub-bass — E1 ↔ D3)
-        //   filter 120–750 Hz  (warm low-mid sweep, never reaches treble)
-        if (key === 'filter') { this._audio.setFilter(120 + v * 630);       return; }
-        if (key === 'pitch')  { this._audio.setPitch(40  + v * 110);        return; }
+        // Ears-safe bass-only ranges (matches _detectHands):
+        //   pitch  32–120 Hz   (heavy sub-bass — C1 ↔ B2)
+        //   filter 160–900 Hz  (warm low-mid sweep, never reaches treble)
+        if (key === 'filter') { this._audio.setFilter(160 + v * 740);       return; }
+        if (key === 'pitch')  { this._audio.setPitch(32  + v * 88);         return; }
         console.log('[KineticRack] ctrlChange', key, val);
     }
 
