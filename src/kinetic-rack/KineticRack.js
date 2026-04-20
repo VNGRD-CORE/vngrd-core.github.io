@@ -284,11 +284,34 @@ class AudioCore {
         this._subGain.connect(this._filter);
         this._sub.start();
 
+        // ── FM modulator — silent by default. Pinch gesture opens _modGain
+        //    to inject growly sidebands into the body carriers (dubstep-style
+        //    wob when fully pinched). Modulator tracks 2× carrier for that
+        //    classic metallic-reese character; kept under the safety LP.
+        this._modulator = ctx.createOscillator();
+        this._modulator.type            = 'sine';
+        this._modulator.frequency.value = 140;
+        this._modGain = ctx.createGain();
+        this._modGain.gain.value = 0;
+        this._modulator.connect(this._modGain);
+        for (const osc of this._oscs) {
+            this._modGain.connect(osc.frequency);
+        }
+        this._modulator.start();
+
+        // ── LFO — silent by default. Finger-spread opens _lfoGain to wobble
+        //    the filter cutoff (dub-bass wub). Rate 0.2–12 Hz.
+        this._lfo = ctx.createOscillator();
+        this._lfo.type            = 'sine';
+        this._lfo.frequency.value = 2.0;
+        this._lfoGain = ctx.createGain();
+        this._lfoGain.gain.value = 0;
+        this._lfo.connect(this._lfoGain);
+        this._lfoGain.connect(this._filter.frequency);
+        this._lfo.start();
+
         // Atmosphere noise bed removed — was feeding the filter resonance
         // and adding painful high-frequency hiss.
-
-        // LFO disabled by default — re-enable via setLFORate if ever needed.
-        // Static filter feels more "dub bass" than wobble.
     }
 
     getFFT() {
@@ -308,13 +331,17 @@ class AudioCore {
         if (!this.ctx) return;
         // Hard sub-bass clamp — defense-in-depth so stray callers can't
         // ever push the body oscs into piercing register.
-        const clamped = Math.max(28, Math.min(160, hz));
+        const clamped = Math.max(28, Math.min(240, hz));
         const t = this.ctx.currentTime;
         // Slight portamento so XY sweeps feel musical, not stepped.
         for (const osc of this._oscs) {
             osc.frequency.setTargetAtTime(clamped, t, 0.04);
         }
         if (this._sub) this._sub.frequency.setTargetAtTime(clamped * 0.5, t, 0.04);
+        // Keep FM modulator at 2× carrier so growl tracks pitch.
+        if (this._modulator) {
+            this._modulator.frequency.setTargetAtTime(clamped * 2.0, t, 0.04);
+        }
     }
 
     setFilter(hz) {
@@ -339,25 +366,26 @@ class AudioCore {
         this._voiceGain.gain.setTargetAtTime(v, this.ctx.currentTime, 0.08);
     }
 
-    /** FM depth: 0..3000 Hz into each carrier frequency */
+    /** FM depth: 0..2500 Hz into each carrier frequency (pinch → growl). */
     setFM(depthHz) {
         if (!this._modGain || !this.ctx) return;
-        const clamped = Math.max(0, Math.min(3000, depthHz));
-        this._modGain.gain.setTargetAtTime(clamped, this.ctx.currentTime, 0.05);
-        // Keep modulator in tune with the current carrier pitch
-        if (this._modulator && this._oscs.length) {
-            this._modulator.frequency.setTargetAtTime(
-                this._oscs[0].frequency.value, this.ctx.currentTime, 0.02
-            );
-        }
+        const clamped = Math.max(0, Math.min(2500, depthHz));
+        this._modGain.gain.setTargetAtTime(clamped, this.ctx.currentTime, 0.04);
     }
 
-    /** LFO rate: 0.01..20 Hz wobble on the filter cutoff */
+    /** LFO rate: 0.1..14 Hz wobble on the filter cutoff. */
     setLFORate(hz) {
         if (!this._lfo || !this.ctx) return;
         this._lfo.frequency.setTargetAtTime(
-            Math.max(0.01, Math.min(20, hz)), this.ctx.currentTime, 0.1
+            Math.max(0.1, Math.min(14, hz)), this.ctx.currentTime, 0.08
         );
+    }
+
+    /** LFO depth in Hz — how far the filter wobbles around its base cutoff. */
+    setLFODepth(hz) {
+        if (!this._lfoGain || !this.ctx) return;
+        const clamped = Math.max(0, Math.min(500, hz));
+        this._lfoGain.gain.setTargetAtTime(clamped, this.ctx.currentTime, 0.06);
     }
 
     triggerKick() {
@@ -1009,25 +1037,15 @@ class KineticRack {
             catch (e) { /* never let UI feed kill the render loop */ }
         }
 
-        // Internal audio path — pitch+filter from right-hand fingertip.
-        // MediaPipe x is mirrored (camera POV) so we un-mirror to (1 - x)
-        // before mapping. Both axes stay in sub-bass / low-mid range so
-        // nothing piercing can reach the speakers no matter where the hand
-        // goes. Matches the ranges in ctrlChange() for consistency.
+        // Spatial gate — open on hand present, close on hand absent.
+        // Pitch / filter / FM / LFO are all driven by _handTrackFeed (above),
+        // which operates on velocity-extrapolated landmarks so response is
+        // tied to the same "predicted now" pose the HUD is drawing.
         if (rightLm) {
-            this._audio.setSpatialGate(0.4);
-
             const lm8 = rightLm[8];
             this._s.rightX += (lm8.x - this._s.rightX) * LERP_FACTOR;
             this._s.rightY += (lm8.y - this._s.rightY) * LERP_FACTOR;
-
-            const xNorm = Math.max(0, Math.min(1, 1 - this._s.rightX));
-            const yNorm = Math.max(0, Math.min(1, 1 - this._s.rightY));
-
-            const pitch  = 32 + xNorm * 88;        // 32–120 Hz  (C1 → B2)
-            const filter = 160 + yNorm * 740;      // 160–900 Hz (warm low-mid)
-            this._audio.setPitch(pitch);
-            this._audio.setFilter(filter);
+            this._audio.setSpatialGate(0.4);
         } else {
             this._audio.setSpatialGate(0);
         }
@@ -1080,10 +1098,14 @@ class KineticRack {
         if (key === 'vol')    { this._audio.setVolume(Math.min(v, 0.5));    return; }
         if (key === 'reverb') { /* no-op */                                  return; }
         // Ears-safe bass-only ranges (matches _detectHands):
-        //   pitch  32–120 Hz   (heavy sub-bass — C1 ↔ B2)
-        //   filter 160–900 Hz  (warm low-mid sweep, never reaches treble)
-        if (key === 'filter') { this._audio.setFilter(160 + v * 740);       return; }
-        if (key === 'pitch')  { this._audio.setPitch(32  + v * 88);         return; }
+        //   pitch  35–220 Hz   (log-mapped — 2.65 octaves, clearly audible)
+        //   filter 140–900 Hz  (warm low-mid sweep, never reaches treble)
+        if (key === 'filter') { this._audio.setFilter(140 + v * 760);           return; }
+        if (key === 'pitch')  { this._audio.setPitch(35 * Math.pow(6.3, v));    return; }
+        // Gesture-driven modulation — pinch → FM growl, spread → wobble.
+        if (key === 'fm')       { this._audio.setFM(v * 2000);                  return; }
+        if (key === 'lfoRate')  { this._audio.setLFORate(0.3 + v * 11);         return; }
+        if (key === 'lfoDepth') { this._audio.setLFODepth(v * 420);             return; }
         console.log('[KineticRack] ctrlChange', key, val);
     }
 

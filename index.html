@@ -20434,6 +20434,65 @@ if (document.readyState !== 'loading') { _vbWireButtons(); }
         }
     }
 
+    // ── LANDMARK SMOOTHER / EXTRAPOLATOR ─────────────────────────────────
+    // MediaPipe Hands detects at ~20–30 Hz on most laptops, but we redraw
+    // the skeleton at rAF rate (60 Hz). Without extrapolation, the same
+    // stale landmark set gets redrawn 2–3 times per detection, which reads
+    // as visible lag. We keep the two most recent MP samples + timestamps,
+    // compute per-landmark velocity, and extrapolate to "now" on every
+    // draw. This effectively cancels detection latency when the hand moves
+    // at constant velocity.
+    function _makeSmoother() {
+        return { cur: null, prev: null, tCur: 0, tPrev: 0, tag: 0 };
+    }
+    var _smR = _makeSmoother();
+    var _smL = _makeSmoother();
+
+    function _ingest(s, lm) {
+        if (!lm) { s.cur = null; s.prev = null; return; }
+        // Detect a fresh MP sample by checking if landmark reference changed.
+        // (MediaPipe returns a new array per detection; between detections
+        //  the same object is passed back unchanged.)
+        var tag = (lm[0].x * 1e6 + lm[0].y * 1e3) | 0;
+        if (tag !== s.tag) {
+            s.prev  = s.cur;
+            s.tPrev = s.tCur;
+            s.cur   = lm;
+            s.tCur  = performance.now();
+            s.tag   = tag;
+        }
+    }
+
+    function _predict(s, now) {
+        if (!s.cur) return null;
+        if (!s.prev || s.tPrev === 0) return s.cur;
+        var dt = s.tCur - s.tPrev;
+        if (dt <= 0 || dt > 400) return s.cur;  // gap too large — don't extrapolate
+        // Alpha = how far past the last sample we are, in units of "one MP
+        // period". Capped at 1.4 so sudden detection drop-outs can't fling
+        // the skeleton off-screen.
+        var alpha = Math.min(1.4, (now - s.tCur) / dt);
+        if (alpha <= 0) return s.cur;
+        var out = new Array(21);
+        for (var i = 0; i < 21; i++) {
+            var a = s.cur[i], b = s.prev[i];
+            if (!a) { out[i] = b || null; continue; }
+            if (!b) { out[i] = a; continue; }
+            out[i] = {
+                x: a.x + (a.x - b.x) * alpha,
+                y: a.y + (a.y - b.y) * alpha,
+                z: (a.z || 0) + ((a.z || 0) - (b.z || 0)) * alpha
+            };
+        }
+        return out;
+    }
+
+    function _dist3(a, b) {
+        if (!a || !b) return 0;
+        var dx = a.x - b.x, dy = a.y - b.y, dz = (a.z || 0) - (b.z || 0);
+        return Math.sqrt(dx * dx + dy * dy + dz * dz);
+    }
+
     window._handTrackFeed = function(rightLm, leftLm) {
         var rack = window.KineticRack;
         if (!rack || !rack.active) return;
@@ -20451,51 +20510,89 @@ if (document.readyState !== 'loading') { _vbWireButtons(); }
             ctx.clearRect(0, 0, canvas.width, canvas.height);
         }
 
-        // ── 2. PERFORMANCE GATE ──────────────────────────────────────────────
-        if (!rightLm) {
-            rack.ctrlChange('vol', 0);
+        // ── 2. SMOOTH / EXTRAPOLATE TO CURRENT FRAME TIME ───────────────────
+        _ingest(_smR, rightLm);
+        _ingest(_smL, leftLm);
+        var tNow    = performance.now();
+        var rDraw   = _predict(_smR, tNow);
+        var lDraw   = _predict(_smL, tNow);
+
+        // ── 3. PERFORMANCE GATE ──────────────────────────────────────────────
+        if (!rDraw) {
+            rack.ctrlChange('vol',      0);
+            rack.ctrlChange('fm',       0);
+            rack.ctrlChange('lfoDepth', 0);
             var vs = document.querySelector('[data-ctrl="vol"]');
             if (vs) vs.value = 0;
-            // Still render the left hand if present, so the HUD isn't empty
-            if (leftLm && ctx) {
+            if (lDraw && ctx) {
                 ctx.save();
-                _drawHand(ctx, leftLm, canvas.width, canvas.height, false);
+                _drawHand(ctx, lDraw, canvas.width, canvas.height, false);
                 ctx.restore();
             }
             return;
         }
 
-        var lm8 = rightLm[8]; // index fingertip
+        var lm8 = rDraw[8]; // index fingertip
 
-        // ── 3. X/Y → PITCH + FILTER ──────────────────────────────────────────
-        // MediaPipe X=0 is camera-left; un-mirror so viewer's right → higher value
+        // ── 4. X/Y → PITCH + FILTER (log pitch, warm low-mid filter) ────────
         var xNorm = Math.max(0, Math.min(1, 1 - lm8.x));
-        // Y=0 is top of frame; invert so hand-up = higher value
         var yNorm = Math.max(0, Math.min(1, 1 - lm8.y));
-
-        // KineticRack.ctrlChange maps its 0-1 input into the AudioCore range
-        // (pitch 55-360 Hz, filter 80-3500 Hz). We just pass normalised axes.
         rack.ctrlChange('pitch',  xNorm);
         rack.ctrlChange('filter', yNorm);
 
-        // ── 4. PERFORMANCE GATE ON ───────────────────────────────────────────
-        // Heavy sub-bass needs more gate to be felt; AudioCore's setVolume
-        // still hard-caps at 0.5, and everything stays under the 900 Hz
-        // safety lowpass, so this is ears-safe.
+        // ── 5. GESTURES → FM GROWL + WOBBLE LFO ─────────────────────────────
+        // handSize = wrist (0) → middle-finger base (9). Normalises pinch /
+        // spread so the response is distance-independent.
+        var handSize = Math.max(0.03, _dist3(rDraw[0], rDraw[9]));
+
+        // Pinch = thumb-tip (4) ↔ index-tip (8). Touching ≈ 0.3× handSize,
+        //         splayed ≈ 1.8× handSize. Map to 0..1 with 1 = fully pinched.
+        var pinchRaw = _dist3(rDraw[4], rDraw[8]) / handSize;
+        var pinch    = Math.max(0, Math.min(1, 1 - (pinchRaw - 0.35) / 1.25));
+
+        // Spread = mean distance from wrist (0) to each fingertip (4,8,12,16,20).
+        // Closed fist ≈ 1.8×, wide open ≈ 3.6× handSize.
+        var tips = [4, 8, 12, 16, 20];
+        var sum  = 0;
+        for (var t = 0; t < 5; t++) sum += _dist3(rDraw[0], rDraw[tips[t]]);
+        var spreadRaw = (sum / 5) / handSize;
+        var spread    = Math.max(0, Math.min(1, (spreadRaw - 1.8) / 1.6));
+
+        rack.ctrlChange('fm',       pinch);            // growl on pinch
+        rack.ctrlChange('lfoRate',  spread);            // faster wobble when open
+        rack.ctrlChange('lfoDepth', spread * 0.9);      // deeper wobble when open
+
+        // ── 6. PERFORMANCE GATE ON ──────────────────────────────────────────
         rack.ctrlChange('vol', 0.6);
 
-        // ── 5. SYNC SLIDERS 1:1 ─────────────────────────────────────────────
+        // ── 7. SYNC SLIDERS ─────────────────────────────────────────────────
         var volSlider  = document.querySelector('[data-ctrl="vol"]');
         var filtSlider = document.querySelector('[data-ctrl="filter"]');
         if (volSlider)  volSlider.value  = 0.6;
         if (filtSlider) filtSlider.value = yNorm.toFixed(3);
 
-        // ── 6. DRAW SKELETON HUD ────────────────────────────────────────────
+        // ── 8. DRAW SKELETON HUD ────────────────────────────────────────────
         if (!ctx) return;
         var W = canvas.width, H = canvas.height;
         ctx.save();
-        if (leftLm)  _drawHand(ctx, leftLm,  W, H, false);
-        _drawHand(ctx, rightLm, W, H, true);
+        if (lDraw) _drawHand(ctx, lDraw, W, H, false);
+        _drawHand(ctx, rDraw, W, H, true);
+
+        // Pinch indicator — glowing line between thumb & index when pinch > 0.15
+        if (pinch > 0.15 && rDraw[4] && rDraw[8]) {
+            var ax = (1 - rDraw[4].x) * W, ay = rDraw[4].y * H;
+            var bx = (1 - rDraw[8].x) * W, by = rDraw[8].y * H;
+            ctx.globalCompositeOperation = 'lighter';
+            ctx.strokeStyle = '#FF4FD8';
+            ctx.shadowColor = '#FF4FD8';
+            ctx.shadowBlur  = 18 * pinch;
+            ctx.lineWidth   = 2 + pinch * 5;
+            ctx.globalAlpha = 0.35 + pinch * 0.6;
+            ctx.beginPath();
+            ctx.moveTo(ax, ay);
+            ctx.lineTo(bx, by);
+            ctx.stroke();
+        }
         ctx.restore();
     };
 })();
@@ -20530,7 +20627,7 @@ if (document.readyState !== 'loading') { _vbWireButtons(); }
 <script src="https://cdn.jsdelivr.net/npm/@mediapipe/camera_utils@0.3.1675466124/camera_utils.js"></script>
 <script src="./src/hand-tracker.js?v=2"></script>
 
-<script src="./src/kinetic-rack/KineticRack.js?v=16"></script>
+<script src="./src/kinetic-rack/KineticRack.js?v=17"></script>
 
 <!-- NLE seam controls are fully canvas-drawn (no DOM panel) -->
 
