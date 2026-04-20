@@ -3682,6 +3682,20 @@ body.fullscreen #transcription-hud { pointer-events: none !important; } /* keep 
 .ss-mb-ct.focused { background: rgba(0,243,255,.22); color: #eafeff; border-color: #00f3ff; box-shadow: 0 0 8px rgba(0,243,255,.5); }
 .ss-mb-hide { margin-left: 4px; }
 
+/* ── SLICER card ── */
+.ss-slicer-pad {
+    width: 100%; height: 30px; padding: 0;
+    font-size: 7px; letter-spacing: .5px;
+    border-radius: 2px; transition: background .06s, box-shadow .06s;
+}
+.ss-slicer-pad.hit { background: rgba(0,243,255,.18); box-shadow: 0 0 8px rgba(0,243,255,.5); }
+.ss-slicer-step {
+    width: 100%; height: 20px; padding: 0;
+    font-size: 6.5px; letter-spacing: 0;
+    border-radius: 1px; transition: background .05s;
+}
+.ss-slicer-step.active { background: rgba(0,243,255,.2); box-shadow: 0 0 6px rgba(0,243,255,.4); }
+
 /* Card base */
 .ss-card {
     position: absolute;
@@ -11413,6 +11427,381 @@ window.SonicSuite = (function() {
 
 
 // ═══════════════════════════════════════════════════════════════
+//  VNGRD SLICER CARD
+//  Drop any audio file → auto-slice (equal-division + spectral
+//  flux onset detection) → 16 pads → 16-step sequencer.
+//  pitch / gate / reverse per-playback. All audio is pre-decoded
+//  so every hit is a single AudioBufferSourceNode.start(t) — no
+//  per-note synthesis, no GC churn.
+// ═══════════════════════════════════════════════════════════════
+(function() {
+    const MAX_SLICES = 16;
+    const STEPS      = 16;
+
+    // ── Equal-division fallback (always works, immediately musical) ──
+    function _equalOnsets(buffer, count) {
+        const onsets = [];
+        for (let i = 0; i < count; i++)
+            onsets.push(Math.floor(i * buffer.length / count));
+        return onsets;
+    }
+
+    // ── Spectral-flux onset detection (RMS-based, lightweight) ──────
+    function _detectOnsets(buffer) {
+        const ch     = buffer.getChannelData(0);
+        const hop    = 512;
+        const win    = 2048;
+        const minGap = Math.floor(buffer.sampleRate * 0.07); // 70 ms min gap
+        const thresh = 0.018;
+        const onsets = [0];
+        let prevRMS  = 0;
+        for (let i = 0; i + win < ch.length; i += hop) {
+            let s = 0;
+            for (let j = 0; j < win; j++) s += ch[i + j] ** 2;
+            const rms  = Math.sqrt(s / win);
+            const flux = Math.max(0, rms - prevRMS);
+            prevRMS = rms;
+            if (flux > thresh && (i - onsets[onsets.length - 1]) >= minGap)
+                onsets.push(i);
+        }
+        return onsets.slice(0, MAX_SLICES);
+    }
+
+    // ── Build slice AudioBuffers from onset sample positions ─────────
+    function _buildSlices(actx, buffer, onsets) {
+        const sr = buffer.sampleRate;
+        const ch = buffer.numberOfChannels;
+        return onsets.map((start, idx) => {
+            const end  = onsets[idx + 1] || buffer.length;
+            const size = Math.max(1, end - start);
+            const sb   = actx.createBuffer(ch, size, sr);
+            for (let c = 0; c < ch; c++) {
+                const src = buffer.getChannelData(c);
+                const dst = sb.getChannelData(c);
+                for (let j = 0; j < size; j++) dst[j] = src[start + j] || 0;
+            }
+            return sb;
+        });
+    }
+
+    // ── Pre-compute reversed copies so reverse is free at play-time ──
+    function _buildRevSlices(actx, slices) {
+        return slices.map(sb => {
+            const rb = actx.createBuffer(sb.numberOfChannels, sb.length, sb.sampleRate);
+            for (let c = 0; c < sb.numberOfChannels; c++) {
+                rb.copyToChannel(sb.getChannelData(c).slice().reverse(), c);
+            }
+            return rb;
+        });
+    }
+
+    // ── Fire a single slice — cheapest possible hit ──────────────────
+    function _fire(actx, dest, buf, t, pitch, gate) {
+        if (!buf) return;
+        const bsn = actx.createBufferSource();
+        bsn.buffer = buf;
+        bsn.playbackRate.value = pitch;
+        const dur = (buf.duration / pitch) * gate;
+        const g   = actx.createGain();
+        g.gain.setValueAtTime(0.88, t);
+        g.gain.setValueAtTime(0.88, t + Math.max(0, dur - 0.01));
+        g.gain.linearRampToValueAtTime(0, t + dur);
+        bsn.connect(g).connect(dest);
+        bsn.start(t);
+        bsn.stop(t + dur + 0.02);
+    }
+
+    // ── Waveform canvas — drawn once after decode ────────────────────
+    function _drawWave(canvas, buffer, onsets) {
+        const W  = canvas.width, H = canvas.height;
+        const c2 = canvas.getContext('2d');
+        const ch = buffer.getChannelData(0);
+        c2.clearRect(0, 0, W, H);
+        c2.fillStyle = 'rgba(0,12,20,1)';
+        c2.fillRect(0, 0, W, H);
+        const step = Math.max(1, Math.floor(ch.length / W));
+        c2.beginPath();
+        c2.strokeStyle = 'rgba(0,243,255,.65)';
+        c2.lineWidth = 1;
+        for (let x = 0; x < W; x++) {
+            let lo = 1, hi = -1;
+            for (let j = 0; j < step; j++) {
+                const v = ch[x * step + j] || 0;
+                if (v < lo) lo = v;
+                if (v > hi) hi = v;
+            }
+            const y0 = (0.5 - hi * 0.48) * H;
+            const y1 = (0.5 - lo * 0.48) * H;
+            if (x === 0) c2.moveTo(0, y0);
+            c2.lineTo(x, y0);
+            c2.lineTo(x, y1);
+        }
+        c2.stroke();
+        // slice markers
+        c2.lineWidth = 1;
+        onsets.forEach((s, i) => {
+            const x = Math.floor(s / buffer.length * W);
+            c2.strokeStyle = i === 0 ? 'rgba(255,200,0,.7)' : 'rgba(255,80,80,.6)';
+            c2.beginPath(); c2.moveTo(x, 0); c2.lineTo(x, H); c2.stroke();
+            c2.fillStyle = 'rgba(255,80,80,.9)';
+            c2.font = '7px monospace';
+            c2.fillText(i + 1, x + 2, 10);
+        });
+    }
+
+    function init() {
+        SonicSuite.registerCard('slicer', {
+            tag:   'S',
+            label: '◈ SLICER',
+            mount(body, ctx) {
+                const st = {
+                    slices:    [],
+                    revSlices: [],
+                    onsets:    [],
+                    sequence:  new Array(STEPS).fill(-1),
+                    pitch:     1.0,
+                    gate:      0.92,
+                    reverse:   false,
+                    activeStep: -1,
+                };
+
+                // ── Drop zone ─────────────────────────────────────
+                const drop = document.createElement('div');
+                drop.style.cssText =
+                    'border:2px dashed rgba(0,243,255,.28);border-radius:3px;' +
+                    'padding:10px 8px;text-align:center;cursor:pointer;' +
+                    'font-size:8px;letter-spacing:2px;color:rgba(0,243,255,.4);' +
+                    'margin-bottom:6px;transition:all .15s;';
+                drop.textContent = '▼ DROP AUDIO  OR  CLICK TO BROWSE';
+                body.appendChild(drop);
+
+                const fileIn = document.createElement('input');
+                fileIn.type = 'file'; fileIn.accept = 'audio/*';
+                fileIn.style.display = 'none';
+                body.appendChild(fileIn);
+
+                // ── Waveform ──────────────────────────────────────
+                const waveCanvas = document.createElement('canvas');
+                waveCanvas.width  = 336; waveCanvas.height = 44;
+                waveCanvas.style.cssText =
+                    'width:100%;height:44px;display:block;border-radius:2px;' +
+                    'border:1px solid rgba(0,243,255,.15);margin-bottom:6px;';
+                body.appendChild(waveCanvas);
+
+                // ── 16 pads ───────────────────────────────────────
+                const padGrid = document.createElement('div');
+                padGrid.style.cssText = 'display:grid;grid-template-columns:repeat(16,1fr);gap:2px;margin-bottom:5px;';
+                const padEls = Array.from({ length: MAX_SLICES }, (_, i) => {
+                    const b = document.createElement('button');
+                    b.className = 'ss-slicer-pad';
+                    b.textContent = String(i + 1).padStart(2, '0');
+                    b.style.cssText = 'opacity:.2;border:1px solid rgba(0,243,255,.12);' +
+                        'background:transparent;color:rgba(0,243,255,.3);border-radius:2px;cursor:pointer;';
+                    b.addEventListener('pointerdown', () => {
+                        if (!st.slices[i]) return;
+                        const buf = st.reverse ? st.revSlices[i] : st.slices[i];
+                        _fire(ctx.audioCtx, ctx.bus, buf,
+                              ctx.audioCtx.currentTime, st.pitch, st.gate);
+                        b.classList.add('hit');
+                        setTimeout(() => b.classList.remove('hit'), 120);
+                    });
+                    padGrid.appendChild(b);
+                    return b;
+                });
+                body.appendChild(padGrid);
+
+                // ── 16-step sequencer ─────────────────────────────
+                const seqGrid = document.createElement('div');
+                seqGrid.style.cssText = 'display:grid;grid-template-columns:repeat(16,1fr);gap:2px;margin-bottom:7px;';
+                const seqEls = Array.from({ length: STEPS }, (_, i) => {
+                    const b = document.createElement('button');
+                    b.className = 'ss-slicer-step';
+                    b.textContent = '—';
+                    b.style.cssText = 'background:transparent;' +
+                        'border:1px solid rgba(0,243,255,' + (i % 4 === 0 ? '.28' : '.12') + ');' +
+                        'color:rgba(0,243,255,.28);border-radius:1px;cursor:pointer;';
+                    // Left-click: cycle to next slice
+                    b.addEventListener('click', () => {
+                        if (!st.slices.length) return;
+                        const cur = st.sequence[i];
+                        st.sequence[i] = (cur < st.slices.length - 1) ? cur + 1 : -1;
+                        _paintSeq();
+                    });
+                    // Right-click: clear step
+                    b.addEventListener('contextmenu', e => {
+                        e.preventDefault();
+                        st.sequence[i] = -1;
+                        _paintSeq();
+                    });
+                    seqGrid.appendChild(b);
+                    return b;
+                });
+                body.appendChild(seqGrid);
+
+                // ── Controls ──────────────────────────────────────
+                const ctrl = document.createElement('div');
+                ctrl.style.cssText = 'display:flex;gap:6px;align-items:center;flex-wrap:wrap;';
+                ctrl.innerHTML =
+                    '<span style="font-size:6.5px;color:rgba(0,243,255,.38);letter-spacing:1.5px;">PITCH</span>' +
+                    '<input type="range" class="sl-pitch" min="0.25" max="4" step="0.01" value="1" style="width:55px;">' +
+                    '<span class="sl-pv" style="font:8px/1 \'JetBrains Mono\',monospace;color:#00f3ff;width:26px;">×1.00</span>' +
+                    '<span style="font-size:6.5px;color:rgba(0,243,255,.38);letter-spacing:1.5px;">GATE</span>' +
+                    '<input type="range" class="sl-gate" min="0.05" max="1" step="0.01" value="0.92" style="width:55px;">' +
+                    '<span class="sl-gv" style="font:8px/1 \'JetBrains Mono\',monospace;color:#00f3ff;width:26px;">0.92</span>' +
+                    '<button class="ss-card-btn sl-rev" style="width:auto;padding:0 8px;font-size:7px;">REV</button>' +
+                    '<button class="ss-card-btn sl-det" style="width:auto;padding:0 8px;font-size:7px;">DETECT</button>' +
+                    '<button class="ss-card-btn sl-clr" style="width:auto;padding:0 8px;font-size:7px;">CLR</button>';
+                body.appendChild(ctrl);
+
+                // ── Paint helpers (use cached elements, no querySelectorAll in hot path) ──
+                function _paintPads() {
+                    padEls.forEach((b, i) => {
+                        const has = !!st.slices[i];
+                        b.style.opacity     = has ? '1' : '.2';
+                        b.style.color       = has ? '#00f3ff' : 'rgba(0,243,255,.3)';
+                        b.style.borderColor = has ? 'rgba(0,243,255,.45)' : 'rgba(0,243,255,.12)';
+                    });
+                }
+
+                function _paintSeq() {
+                    seqEls.forEach((b, i) => {
+                        const v   = st.sequence[i];
+                        const cur = i === st.activeStep;
+                        b.textContent   = v >= 0 ? String(v + 1).padStart(2, '0') : '—';
+                        b.style.background  = cur ? 'rgba(0,243,255,.18)' : '';
+                        b.style.color       = cur ? '#eafeff' : (v >= 0 ? '#00f3ff' : 'rgba(0,243,255,.28)');
+                        b.style.borderColor = cur ? '#00f3ff' :
+                            (v >= 0 ? 'rgba(0,243,255,.4)' :
+                             'rgba(0,243,255,' + (i % 4 === 0 ? '.28' : '.12') + ')');
+                        b.style.boxShadow   = cur ? '0 0 6px rgba(0,243,255,.35)' : '';
+                    });
+                }
+
+                // ── Load & process ────────────────────────────────
+                function _loadBuffer(arrayBuf) {
+                    drop.textContent = '⟳ DECODING…';
+                    ctx.audioCtx.decodeAudioData(arrayBuf,
+                        buf => {
+                            waveCanvas._rawBuf = buf;          // stash for DETECT
+                            st.onsets    = _equalOnsets(buf, MAX_SLICES);
+                            st.slices    = _buildSlices(ctx.audioCtx, buf, st.onsets);
+                            st.revSlices = _buildRevSlices(ctx.audioCtx, st.slices);
+                            for (let i = 0; i < STEPS; i++)
+                                st.sequence[i] = i < st.slices.length ? i : -1;
+                            _drawWave(waveCanvas, buf, st.onsets);
+                            _paintPads();
+                            _paintSeq();
+                            drop.textContent       = '✓ ' + st.slices.length + ' SLICES  —  DROP TO REPLACE';
+                            drop.style.color       = 'rgba(0,243,255,.7)';
+                            drop.style.borderColor = 'rgba(0,243,255,.5)';
+                        },
+                        () => {
+                            drop.textContent       = '✗ DECODE FAILED — try another file';
+                            drop.style.color       = '#ff4444';
+                            drop.style.borderColor = '#ff4444';
+                        }
+                    );
+                }
+
+                // ── File input ────────────────────────────────────
+                drop.addEventListener('click', () => fileIn.click());
+                fileIn.addEventListener('change', e => {
+                    const f = e.target.files[0];
+                    if (f) { const r = new FileReader(); r.onload = ev => _loadBuffer(ev.target.result); r.readAsArrayBuffer(f); }
+                    fileIn.value = '';
+                });
+                ['dragover','dragenter'].forEach(ev =>
+                    drop.addEventListener(ev, e => { e.preventDefault(); drop.style.borderColor = '#00f3ff'; drop.style.color = '#00f3ff'; })
+                );
+                drop.addEventListener('dragleave', () => {
+                    drop.style.borderColor = 'rgba(0,243,255,.28)';
+                    drop.style.color = 'rgba(0,243,255,.4)';
+                });
+                drop.addEventListener('drop', e => {
+                    e.preventDefault();
+                    const f = e.dataTransfer.files[0];
+                    if (f && f.type.startsWith('audio/')) {
+                        const r = new FileReader(); r.onload = ev => _loadBuffer(ev.target.result); r.readAsArrayBuffer(f);
+                    }
+                });
+
+                // ── Controls wiring ───────────────────────────────
+                ctrl.querySelector('.sl-pitch').addEventListener('input', e => {
+                    st.pitch = +e.target.value;
+                    ctrl.querySelector('.sl-pv').textContent = '×' + st.pitch.toFixed(2);
+                });
+                ctrl.querySelector('.sl-gate').addEventListener('input', e => {
+                    st.gate = +e.target.value;
+                    ctrl.querySelector('.sl-gv').textContent = st.gate.toFixed(2);
+                });
+                ctrl.querySelector('.sl-rev').addEventListener('click', e => {
+                    st.reverse = !st.reverse;
+                    e.target.style.color = st.reverse ? '#ff4444' : '';
+                    e.target.style.borderColor = st.reverse ? '#ff4444' : '';
+                });
+                ctrl.querySelector('.sl-det').addEventListener('click', () => {
+                    if (!waveCanvas._rawBuf) return;
+                    const raw    = waveCanvas._rawBuf;
+                    st.onsets    = _detectOnsets(raw);
+                    st.slices    = _buildSlices(ctx.audioCtx, raw, st.onsets);
+                    st.revSlices = _buildRevSlices(ctx.audioCtx, st.slices);
+                    _drawWave(waveCanvas, raw, st.onsets);
+                    _paintPads();
+                });
+                ctrl.querySelector('.sl-clr').addEventListener('click', () => {
+                    st.sequence.fill(-1); _paintSeq();
+                });
+
+                // ── Store refs for onTick / onStop ───────────────
+                this._st     = st;
+                this._ctx    = ctx;
+                this._seqEls = seqEls;
+            },
+
+            onTick(t, step16) {
+                const st  = this._st;
+                if (!st || !st.slices.length) return;
+                const idx = st.sequence[step16];
+                st.activeStep = step16;
+                if (idx >= 0) {
+                    const buf = st.reverse ? st.revSlices[idx] : st.slices[idx];
+                    _fire(this._ctx.audioCtx, this._ctx.bus, buf, t, st.pitch, st.gate);
+                }
+                // Seq highlight — off the audio-scheduling hot path
+                const seqEls = this._seqEls;
+                if (seqEls) setTimeout(() => {
+                    seqEls.forEach((b, i) => {
+                        const cur = i === step16;
+                        const v   = st.sequence[i];
+                        b.style.background  = cur ? 'rgba(0,243,255,.18)' : '';
+                        b.style.color       = cur ? '#eafeff' : (v >= 0 ? '#00f3ff' : 'rgba(0,243,255,.28)');
+                        b.style.borderColor = cur ? '#00f3ff' : (v >= 0 ? 'rgba(0,243,255,.4)' : 'rgba(0,243,255,' + (i % 4 === 0 ? '.28' : '.12') + ')');
+                        b.style.boxShadow   = cur ? '0 0 6px rgba(0,243,255,.35)' : '';
+                    });
+                }, 0);
+            },
+
+            onStop() {
+                if (this._st) this._st.activeStep = -1;
+                if (this._seqEls) this._seqEls.forEach(b => {
+                    b.style.background = b.style.boxShadow = '';
+                });
+            }
+        });
+    }
+
+    document.addEventListener('DOMContentLoaded', function() {
+        const btn = document.getElementById('vt-sonic-launch-btn');
+        function _once() {
+            btn && btn.removeEventListener('click', _once);
+            setTimeout(init, 110);
+        }
+        btn && btn.addEventListener('click', _once);
+    });
+})();
+
+
+// ═══════════════════════════════════════════════════════════════
 //  VNGRD MIXER CARD — per-card fader/mute/solo + master meter + reverb
 // ═══════════════════════════════════════════════════════════════
 (function() {
@@ -12122,7 +12511,7 @@ function drawLTToPreview(preset, title, subtitle) {
 
 // AUDIO ENGINEER IMPLEMENTATION
 APP.audio.element = $('audio-el');
-function loadAudioFiles(input) { Array.from(input.files).forEach(file => { APP.audio.playlist.push({ url: URL.createObjectURL(file), name: file.name.replace(/\.[^.]+$/, '') }); }); $('audio-dot').classList.remove('off'); if (!APP.audio.isPlaying && APP.audio.playlist.length) { playTrack(0); } log(`AUDIO: +${input.files.length}`); }
+function loadAudioFiles(input) { Array.from(input.files).forEach(file => { APP.audio.playlist.push({ url: URL.createObjectURL(file), name: file.name.replace(/\.[^.]+$/, '') }); }); $('audio-dot').classList.remove('off'); if (APP.audio.element.paused && APP.audio.playlist.length) { playTrack(APP.audio.currentTrack >= 0 ? APP.audio.currentTrack : 0); } log(`AUDIO: +${input.files.length}`); }
 
 function playTrack(idx) {
     if (!APP.audio.playlist.length) return;
