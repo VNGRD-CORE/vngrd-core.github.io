@@ -20434,67 +20434,57 @@ if (document.readyState !== 'loading') { _vbWireButtons(); }
         }
     }
 
-    // ── LANDMARK SMOOTHER / EXTRAPOLATOR ─────────────────────────────────
-    // MediaPipe Hands detects at ~20–30 Hz on most laptops, but we redraw
-    // the skeleton at rAF rate (60 Hz). Without extrapolation, the same
-    // stale landmark set gets redrawn 2–3 times per detection, which reads
-    // as visible lag. We keep the two most recent MP samples + timestamps,
-    // compute per-landmark velocity, and extrapolate to "now" on every
-    // draw. This effectively cancels detection latency when the hand moves
-    // at constant velocity.
-    function _makeSmoother() {
-        return { cur: null, prev: null, tCur: 0, tPrev: 0, tag: 0 };
-    }
-    var _smR = _makeSmoother();
-    var _smL = _makeSmoother();
+    // ── ONE-EURO FILTER per landmark/axis ────────────────────────────────
+    // Industry-standard adaptive smoother for gesture input: heavy smoothing
+    // when the hand is still (kills MediaPipe jitter), light smoothing when
+    // it moves fast (preserves intent). Cuts visible lag AND the stray-wrist
+    // spikes in one shot. Tuned for MP Hands at ~25 Hz.
+    var OE_MIN_CUTOFF = 1.2;  // base smoothing — lower = smoother still-hand
+    var OE_BETA       = 0.06; // how quickly cutoff follows velocity
+    var OE_DCUTOFF    = 1.0;  // smoothing on the derivative itself
 
-    function _ingest(s, lm) {
-        if (!lm) { s.cur = null; s.prev = null; return; }
-        // Detect a fresh MP sample by checking if landmark reference changed.
-        // (MediaPipe returns a new array per detection; between detections
-        //  the same object is passed back unchanged.)
-        var tag = (lm[0].x * 1e6 + lm[0].y * 1e3) | 0;
-        if (tag !== s.tag) {
-            s.prev  = s.cur;
-            s.tPrev = s.tCur;
-            s.cur   = lm;
-            s.tCur  = performance.now();
-            s.tag   = tag;
+    function _oeMakeHand() {
+        var h = new Array(21);
+        for (var i = 0; i < 21; i++) {
+            h[i] = { x: null, y: null, z: null,
+                     dx: 0, dy: 0, dz: 0, t: 0 };
         }
+        return h;
+    }
+    var _oeR = _oeMakeHand();
+    var _oeL = _oeMakeHand();
+
+    function _oeAlpha(cutoff, dt) {
+        var r = 2 * Math.PI * cutoff * dt;
+        return r / (r + 1);
     }
 
-    function _predict(s, now) {
-        if (!s.cur) return null;
-        if (!s.prev || s.tPrev === 0) return s.cur;
-        var dt = s.tCur - s.tPrev;
-        if (dt <= 0 || dt > 300) return s.cur;  // gap too large — don't extrapolate
-        // Alpha capped at 0.8 of one MP period (was 1.4): MediaPipe's per-
-        // landmark noise — especially the wrist near frame edges — means
-        // aggressive extrapolation projects the skeleton to garbage
-        // positions. 0.8 still hides most of the latency without amplifying
-        // detection jitter.
-        var alpha = Math.min(0.8, Math.max(0, (now - s.tCur) / dt));
-        if (alpha <= 0) return s.cur;
-        // Per-landmark velocity gate: if a joint moved more than 0.12 (of
-        // normalised frame height) between MP samples, treat that sample as
-        // a glitch and don't extrapolate it. Prevents the stray line you
-        // see when the wrist estimate pops.
-        var MAX_DELTA = 0.12;
+    function _oeAxis(st, axis, dAxis, raw, t) {
+        var prev = st[axis];
+        if (prev === null) { st[axis] = raw; st.t = t; return raw; }
+        var dt = Math.max(0.001, (t - st.t) / 1000);
+        var aD = _oeAlpha(OE_DCUTOFF, dt);
+        var dRaw = (raw - prev) / dt;
+        st[dAxis] = st[dAxis] + aD * (dRaw - st[dAxis]);
+        var cutoff = OE_MIN_CUTOFF + OE_BETA * Math.abs(st[dAxis]);
+        var a = _oeAlpha(cutoff, dt);
+        st[axis] = prev + a * (raw - prev);
+        return st[axis];
+    }
+
+    function _oeFilter(hand, lm, t) {
+        if (!lm) return null;
         var out = new Array(21);
         for (var i = 0; i < 21; i++) {
-            var a = s.cur[i], b = s.prev[i];
-            if (!a) { out[i] = b || null; continue; }
-            if (!b) { out[i] = a; continue; }
-            var dx = a.x - b.x, dy = a.y - b.y;
-            if (Math.abs(dx) > MAX_DELTA || Math.abs(dy) > MAX_DELTA) {
-                out[i] = a; // snap to most recent sample; skip velocity
-                continue;
-            }
+            var a = lm[i]; if (!a) { out[i] = null; continue; }
+            var s = hand[i];
+            s.t = s.t || t;
             out[i] = {
-                x: a.x + dx * alpha,
-                y: a.y + dy * alpha,
-                z: (a.z || 0) + ((a.z || 0) - (b.z || 0)) * alpha
+                x: _oeAxis(s, 'x', 'dx', a.x, t),
+                y: _oeAxis(s, 'y', 'dy', a.y, t),
+                z: _oeAxis(s, 'z', 'dz', a.z || 0, t)
             };
+            s.t = t;
         }
         return out;
     }
@@ -20504,6 +20494,10 @@ if (document.readyState !== 'loading') { _vbWireButtons(); }
         var dx = a.x - b.x, dy = a.y - b.y, dz = (a.z || 0) - (b.z || 0);
         return Math.sqrt(dx * dx + dy * dy + dz * dz);
     }
+
+    // Pinch rising-edge latch (with hysteresis) → triggers a pluck note.
+    var _prevPinchHigh = false;
+    var NOTE_LABELS = ['A1','C2','D2','E2','G2','A2','C3','D3','E3','G3'];
 
     window._handTrackFeed = function(rightLm, leftLm) {
         var rack = window.KineticRack;
@@ -20522,18 +20516,17 @@ if (document.readyState !== 'loading') { _vbWireButtons(); }
             ctx.clearRect(0, 0, canvas.width, canvas.height);
         }
 
-        // ── 2. SMOOTH / EXTRAPOLATE TO CURRENT FRAME TIME ───────────────────
-        _ingest(_smR, rightLm);
-        _ingest(_smL, leftLm);
-        var tNow    = performance.now();
-        var rDraw   = _predict(_smR, tNow);
-        var lDraw   = _predict(_smL, tNow);
+        // ── 2. ONE-EURO SMOOTH ──────────────────────────────────────────────
+        var tNow  = performance.now();
+        var rDraw = _oeFilter(_oeR, rightLm, tNow);
+        var lDraw = _oeFilter(_oeL, leftLm,  tNow);
 
-        // ── 3. PERFORMANCE GATE ──────────────────────────────────────────────
+        // ── 3. PERFORMANCE GATE (no right hand = silence) ───────────────────
         if (!rDraw) {
             rack.ctrlChange('vol',      0);
             rack.ctrlChange('fm',       0);
             rack.ctrlChange('lfoDepth', 0);
+            _prevPinchHigh = false;
             var vs = document.querySelector('[data-ctrl="vol"]');
             if (vs) vs.value = 0;
             if (lDraw && ctx) {
@@ -20544,54 +20537,54 @@ if (document.readyState !== 'loading') { _vbWireButtons(); }
             return;
         }
 
-        var lm8 = rDraw[8]; // index fingertip
+        var lm8 = rDraw[8];
 
-        // ── 4. X/Y → PITCH + FILTER (log pitch, warm low-mid filter) ────────
+        // ── 4. X → PITCH, Y → MACRO (opens filter + body + sub together) ───
         var xNorm = Math.max(0, Math.min(1, 1 - lm8.x));
         var yNorm = Math.max(0, Math.min(1, 1 - lm8.y));
-        rack.ctrlChange('pitch',  xNorm);
-        rack.ctrlChange('filter', yNorm);
+        rack.ctrlChange('pitch', xNorm);
+        rack.ctrlChange('macro', yNorm);
 
-        // ── 5. GESTURES → FM GROWL + WOBBLE LFO ─────────────────────────────
-        // handSize = wrist (0) → middle-finger base (9). Normalises pinch /
-        // spread so the response is distance-independent.
+        // ── 5. GESTURES ─────────────────────────────────────────────────────
         var handSize = Math.max(0.03, _dist3(rDraw[0], rDraw[9]));
-
-        // Pinch = thumb-tip (4) ↔ index-tip (8). Touching ≈ 0.3× handSize,
-        //         splayed ≈ 1.8× handSize. Map to 0..1 with 1 = fully pinched.
         var pinchRaw = _dist3(rDraw[4], rDraw[8]) / handSize;
         var pinch    = Math.max(0, Math.min(1, 1 - (pinchRaw - 0.35) / 1.25));
-
-        // Spread = mean distance from wrist (0) to each fingertip (4,8,12,16,20).
-        // Closed fist ≈ 1.8×, wide open ≈ 3.6× handSize.
         var tips = [4, 8, 12, 16, 20];
         var sum  = 0;
         for (var t = 0; t < 5; t++) sum += _dist3(rDraw[0], rDraw[tips[t]]);
         var spreadRaw = (sum / 5) / handSize;
         var spread    = Math.max(0, Math.min(1, (spreadRaw - 1.8) / 1.6));
 
-        rack.ctrlChange('fm',       pinch);            // growl on pinch
-        rack.ctrlChange('lfoRate',  spread);            // faster wobble when open
-        rack.ctrlChange('lfoDepth', spread * 0.9);      // deeper wobble when open
+        rack.ctrlChange('fm',       pinch);
+        rack.ctrlChange('lfoRate',  spread);
+        rack.ctrlChange('lfoDepth', spread * 0.9);
 
-        // ── 6. PERFORMANCE GATE ON ──────────────────────────────────────────
+        // Pinch rising edge → scale-quantised pluck. Hysteresis (0.7 up /
+        // 0.45 down) so a fluttering finger doesn't machine-gun triggers.
+        var isPinchHigh = _prevPinchHigh ? (pinch > 0.45) : (pinch > 0.7);
+        if (isPinchHigh && !_prevPinchHigh && typeof rack.triggerPluck === 'function') {
+            rack.triggerPluck(xNorm, Math.min(1, 0.6 + pinch * 0.5));
+        }
+        _prevPinchHigh = isPinchHigh;
+
+        // ── 6. GATE ON ──────────────────────────────────────────────────────
         rack.ctrlChange('vol', 0.6);
 
-        // ── 7. SYNC SLIDERS ─────────────────────────────────────────────────
+        // Slider sync
         var volSlider  = document.querySelector('[data-ctrl="vol"]');
         var filtSlider = document.querySelector('[data-ctrl="filter"]');
         if (volSlider)  volSlider.value  = 0.6;
         if (filtSlider) filtSlider.value = yNorm.toFixed(3);
 
-        // ── 8. DRAW SKELETON HUD ────────────────────────────────────────────
+        // ── 7. DRAW SKELETON + MODULATOR HUD ────────────────────────────────
         if (!ctx) return;
         var W = canvas.width, H = canvas.height;
         ctx.save();
         if (lDraw) _drawHand(ctx, lDraw, W, H, false);
         _drawHand(ctx, rDraw, W, H, true);
 
-        // Pinch indicator — glowing line between thumb & index when pinch > 0.15
-        if (pinch > 0.15 && rDraw[4] && rDraw[8]) {
+        // Pinch glow line — thumb ↔ index, magenta, scales with pinch amount
+        if (pinch > 0.15) {
             var ax = (1 - rDraw[4].x) * W, ay = rDraw[4].y * H;
             var bx = (1 - rDraw[8].x) * W, by = rDraw[8].y * H;
             ctx.globalCompositeOperation = 'lighter';
@@ -20601,10 +20594,71 @@ if (document.readyState !== 'loading') { _vbWireButtons(); }
             ctx.lineWidth   = 2 + pinch * 5;
             ctx.globalAlpha = 0.35 + pinch * 0.6;
             ctx.beginPath();
-            ctx.moveTo(ax, ay);
-            ctx.lineTo(bx, by);
+            ctx.moveTo(ax, ay); ctx.lineTo(bx, by);
             ctx.stroke();
         }
+
+        // LFO wobble ring around the index-fingertip target reticle — its
+        // radius pulses at the current LFO rate * spread depth.
+        var tx = (1 - lm8.x) * W, ty = lm8.y * H;
+        if (spread > 0.05) {
+            var lfoPhase = (tNow * 0.001) * (0.3 + spread * 11) * 2 * Math.PI;
+            var ringR = 26 + Math.sin(lfoPhase) * (8 + spread * 22);
+            ctx.globalCompositeOperation = 'lighter';
+            ctx.strokeStyle = '#7CFF4F';
+            ctx.shadowColor = '#7CFF4F';
+            ctx.shadowBlur  = 12;
+            ctx.lineWidth   = 2;
+            ctx.globalAlpha = 0.4 + spread * 0.4;
+            ctx.beginPath();
+            ctx.arc(tx, ty, ringR, 0, Math.PI * 2);
+            ctx.stroke();
+        }
+
+        // Current note label — shows which scale note the arp/pluck will hit
+        var noteIdx = Math.max(0, Math.min(9, Math.floor(xNorm * 10)));
+        ctx.globalCompositeOperation = 'source-over';
+        ctx.globalAlpha = 0.95;
+        ctx.shadowBlur  = 0;
+        ctx.font        = '600 14px "JetBrains Mono", monospace';
+        ctx.fillStyle   = '#00F3FF';
+        ctx.fillText(NOTE_LABELS[noteIdx], tx + 22, ty - 22);
+
+        // Pinch meter — thin bar top-left
+        ctx.globalAlpha  = 0.8;
+        ctx.fillStyle    = 'rgba(255,79,216,0.15)';
+        ctx.fillRect(16, 16, 160, 6);
+        ctx.fillStyle    = '#FF4FD8';
+        ctx.shadowColor  = '#FF4FD8';
+        ctx.shadowBlur   = 8;
+        ctx.fillRect(16, 16, 160 * pinch, 6);
+        ctx.shadowBlur   = 0;
+        ctx.font         = '500 10px "JetBrains Mono", monospace';
+        ctx.fillStyle    = 'rgba(255,79,216,0.9)';
+        ctx.fillText('PINCH', 16, 12);
+
+        // Macro meter — below pinch
+        ctx.fillStyle    = 'rgba(124,255,79,0.15)';
+        ctx.fillRect(16, 38, 160, 6);
+        ctx.fillStyle    = '#7CFF4F';
+        ctx.shadowColor  = '#7CFF4F';
+        ctx.shadowBlur   = 8;
+        ctx.fillRect(16, 38, 160 * yNorm, 6);
+        ctx.shadowBlur   = 0;
+        ctx.fillStyle    = 'rgba(124,255,79,0.9)';
+        ctx.fillText('MACRO', 16, 34);
+
+        // Spread meter
+        ctx.fillStyle    = 'rgba(0,243,255,0.15)';
+        ctx.fillRect(16, 60, 160, 6);
+        ctx.fillStyle    = '#00F3FF';
+        ctx.shadowColor  = '#00F3FF';
+        ctx.shadowBlur   = 8;
+        ctx.fillRect(16, 60, 160 * spread, 6);
+        ctx.shadowBlur   = 0;
+        ctx.fillStyle    = 'rgba(0,243,255,0.9)';
+        ctx.fillText('SPREAD / WOBBLE', 16, 56);
+
         ctx.restore();
     };
 })();
@@ -20639,7 +20693,7 @@ if (document.readyState !== 'loading') { _vbWireButtons(); }
 <script src="https://cdn.jsdelivr.net/npm/@mediapipe/camera_utils@0.3.1675466124/camera_utils.js"></script>
 <script src="./src/hand-tracker.js?v=2"></script>
 
-<script src="./src/kinetic-rack/KineticRack.js?v=18"></script>
+<script src="./src/kinetic-rack/KineticRack.js?v=19"></script>
 
 <!-- NLE seam controls are fully canvas-drawn (no DOM panel) -->
 

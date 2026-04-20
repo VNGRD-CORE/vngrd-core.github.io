@@ -200,16 +200,27 @@ class AudioCore {
         this._masterGain.gain.value = 0.55;
 
         const compressor = ctx.createDynamicsCompressor();
-        compressor.threshold.value = -16;
-        compressor.knee.value      = 10;
-        compressor.ratio.value     = 6;
-        compressor.attack.value    = 0.008;
-        compressor.release.value   = 0.22;
+        compressor.threshold.value = -12;
+        compressor.knee.value      = 6;
+        compressor.ratio.value     = 10;
+        compressor.attack.value    = 0.004;
+        compressor.release.value   = 0.18;
 
-        // Hard safety ceiling — catches any accidental high-frequency content.
+        // Brick-wall limiter — catches transients from pluck/arp so the
+        // lifted 3.5 kHz ceiling is safe.
+        const limiter = ctx.createDynamicsCompressor();
+        limiter.threshold.value = -3;
+        limiter.knee.value      = 0;
+        limiter.ratio.value     = 20;
+        limiter.attack.value    = 0.001;
+        limiter.release.value   = 0.08;
+
+        // Safety ceiling lifted 900 → 3500 Hz so the synth can actually
+        // sound bright / percussive. Still cut above 3.5 kHz so piercing
+        // high harmonics can never reach the speakers.
         this._safetyLP = ctx.createBiquadFilter();
         this._safetyLP.type            = 'lowpass';
-        this._safetyLP.frequency.value = 900;   // absolute ceiling, never moves
+        this._safetyLP.frequency.value = 3500;
         this._safetyLP.Q.value         = 0.707;
 
         this._analyser = ctx.createAnalyser();
@@ -217,7 +228,8 @@ class AudioCore {
         this._analyser.smoothingTimeConstant = 0.8;
 
         this._masterGain.connect(compressor);
-        compressor.connect(this._safetyLP);
+        compressor.connect(limiter);
+        limiter.connect(this._safetyLP);
         this._safetyLP.connect(this._analyser);
         this._analyser.connect(ctx.destination);
 
@@ -284,6 +296,18 @@ class AudioCore {
         this._subGain.connect(this._filter);
         this._sub.start();
 
+        // ── Pluck voice — percussive ADSR-shaped sawtooth for arp + pinch
+        //    triggers. Uses a dedicated gain env so the drone keeps running
+        //    underneath while notes punch through on top.
+        this._pluck = ctx.createOscillator();
+        this._pluck.type            = 'sawtooth';
+        this._pluck.frequency.value = 55;
+        this._pluckGain = ctx.createGain();
+        this._pluckGain.gain.value  = 0;
+        this._pluck.connect(this._pluckGain);
+        this._pluckGain.connect(shaper);
+        this._pluck.start();
+
         // ── FM modulator — silent by default. Pinch gesture opens _modGain
         //    to inject growly sidebands into the body carriers (dubstep-style
         //    wob when fully pinched). Modulator tracks 2× carrier for that
@@ -348,6 +372,45 @@ class AudioCore {
         if (!this._filter) return;
         const clamped = Math.max(60, Math.min(4500, hz));
         this._filter.frequency.setTargetAtTime(clamped, this.ctx.currentTime, 0.03);
+    }
+
+    /** Minor-pentatonic scale quantiser — v in 0..1 → one of 10 notes
+     *  across two octaves rooted at A1 (55 Hz). Every hand position lands
+     *  on an in-key note so the arp / pluck triggers always sound musical. */
+    _scaleFreq(v01) {
+        const SEMIS = [0, 3, 5, 7, 10]; // A minor pentatonic
+        const idx   = Math.max(0, Math.min(9, Math.floor(v01 * 10)));
+        const oct   = Math.floor(idx / 5);
+        const deg   = idx % 5;
+        return 55 * Math.pow(2, (SEMIS[deg] + oct * 12) / 12);
+    }
+
+    /** Trigger a percussive note on the pluck voice. vel 0..1. */
+    noteOn(freq, vel = 0.7) {
+        if (!this._pluck || !this.ctx) return;
+        const t = this.ctx.currentTime;
+        this._pluck.frequency.setValueAtTime(freq, t);
+        const g = this._pluckGain.gain;
+        g.cancelScheduledValues(t);
+        g.setValueAtTime(g.value, t);
+        g.linearRampToValueAtTime(Math.min(0.45, vel * 0.55), t + 0.005);
+        g.exponentialRampToValueAtTime(0.001, t + 0.32);
+    }
+
+    /** Macro (0..1) — opens filter + adds grit + thickens sub in one
+     *  choreographed move. Driven by hand proximity to camera. */
+    setMacro(v01) {
+        if (!this.ctx) return;
+        const v = Math.max(0, Math.min(1, v01));
+        const t = this.ctx.currentTime;
+        // Filter rides 180 → 2600 Hz (brighter) as macro opens
+        this._filter.frequency.setTargetAtTime(180 + v * 2420, t, 0.05);
+        // Sub gets heavier
+        if (this._subGain) this._subGain.gain.setTargetAtTime(0.8 + v * 0.9, t, 0.05);
+        // Body oscs grow slightly
+        for (const g of this._oscGains) {
+            g.gain.setTargetAtTime(0.22 + v * 0.22, t, 0.05);
+        }
     }
 
     setVolume(v) {
@@ -887,7 +950,8 @@ class KineticRack {
         try {
             await this._audio.start();
             this._setStatus('AUDIO OK');
-            console.log('[KineticRack] Phase 4: audio started (synth muted until hand detected)');
+            this._startArp(120); // 16th-note arp at 120 BPM, gated by _handPresent
+            console.log('[KineticRack] Phase 4: audio + arp started (gated by hand presence)');
         } catch (e) {
             console.warn('[KineticRack] AudioCore failed:', e);
         }
@@ -1034,6 +1098,7 @@ class KineticRack {
         if (this._active) {
             // Stop
             this._active = false;
+            this._stopArp();
             if (this._rafId) cancelAnimationFrame(this._rafId);
             if (this._mpWorker) { this._mpWorker.terminate(); this._mpWorker = null; this._mpWorkerReady = false; }
             document.getElementById('kinetic-canvas')?.classList.remove('kr-online');
@@ -1065,24 +1130,81 @@ class KineticRack {
         }
     }
 
+    // ── Arpeggiator — BPM-locked 16th-note pluck voice ───────────────────────
+    //  Hand X picks a pivot into the scale; the arp walks forward from there
+    //  so static hand positions still make moving patterns. Hand presence
+    //  gates it: no hand = no notes.
+
+    _startArp(bpm = 120) {
+        if (this._arpId) return;
+        const stepMs = (60 / bpm) / 4 * 1000; // 16th note
+        this._arpStep = 0;
+        this._arpId   = setInterval(() => this._arpTick(), stepMs);
+    }
+
+    _stopArp() {
+        if (this._arpId) { clearInterval(this._arpId); this._arpId = null; }
+        this._audio?.noteOn(0, 0); // flush env
+    }
+
+    _arpTick() {
+        if (!this._active || !this._handPresent) return;
+        const pv   = this._lastPitchV ?? 0.5;
+        const mac  = this._lastMacro  ?? 0.3;
+        // Step pattern: 0,2,1,3,0,4,2,5 — hops that feel melodic even when
+        // the pivot (hand X) is stationary.
+        const HOPS = [0, 2, 1, 3, 0, 4, 2, 5];
+        const pivotIdx = Math.floor(pv * 10);
+        const idx      = (pivotIdx + HOPS[this._arpStep % HOPS.length]) % 10;
+        const SEMIS    = [0, 3, 5, 7, 10];
+        const oct      = Math.floor(idx / 5);
+        const deg      = idx % 5;
+        const freq     = 55 * Math.pow(2, (SEMIS[deg] + oct * 12) / 12);
+        const vel      = 0.35 + mac * 0.5;
+        this._audio.noteOn(freq, vel);
+        this._arpStep  = (this._arpStep + 1) % 16;
+    }
+
+    /** Pinch rising-edge trigger — fires a scale-quantised pluck at current X. */
+    triggerPluck(xV01, vel = 0.8) {
+        if (!this._audio) return;
+        const freq = this._audio._scaleFreq(xV01);
+        this._audio.noteOn(freq, vel);
+    }
+
     // ── Public API ────────────────────────────────────────────────────────────
 
     get active() { return this._active; }
 
     ctrlChange(key, val) {
         const v = parseFloat(val);
-        // Master volume hard-capped at 0.5 for ear safety.
-        if (key === 'vol')    { this._audio.setVolume(Math.min(v, 0.5));    return; }
-        if (key === 'reverb') { /* no-op */                                  return; }
-        // Ears-safe bass-only ranges (matches _detectHands):
-        //   pitch  35–220 Hz   (log-mapped — 2.65 octaves, clearly audible)
-        //   filter 140–900 Hz  (warm low-mid sweep, never reaches treble)
-        if (key === 'filter') { this._audio.setFilter(140 + v * 760);           return; }
-        if (key === 'pitch')  { this._audio.setPitch(35 * Math.pow(6.3, v));    return; }
-        // Gesture-driven modulation — pinch → FM growl, spread → wobble.
-        if (key === 'fm')       { this._audio.setFM(v * 2000);                  return; }
-        if (key === 'lfoRate')  { this._audio.setLFORate(0.3 + v * 11);         return; }
-        if (key === 'lfoDepth') { this._audio.setLFODepth(v * 420);             return; }
+        // Master volume capped at 0.55 — headroom for the pluck voice under
+        // the brick-wall limiter.
+        if (key === 'vol')    {
+            this._audio.setVolume(Math.min(v, 0.55));
+            this._handPresent = v > 0.01;
+            return;
+        }
+        if (key === 'reverb') { /* no-op */ return; }
+        // X (horizontal) — continuous log-mapped drone pitch, 35 → 220 Hz.
+        // Also tracked for the arpeggiator note selection.
+        if (key === 'pitch')  {
+            this._audio.setPitch(35 * Math.pow(6.3, v));
+            this._lastPitchV = v;
+            return;
+        }
+        // Y (vertical) — macro: filter + body + sub together.
+        if (key === 'macro')  {
+            this._audio.setMacro(v);
+            this._lastMacro = v;
+            return;
+        }
+        // Kept for legacy callers (sliders) — macro is preferred.
+        if (key === 'filter') { this._audio.setFilter(180 + v * 2420);  return; }
+        // Gestures → modulation. Pinch = FM growl, spread = wobble.
+        if (key === 'fm')       { this._audio.setFM(v * 2000);          return; }
+        if (key === 'lfoRate')  { this._audio.setLFORate(0.3 + v * 11); return; }
+        if (key === 'lfoDepth') { this._audio.setLFODepth(v * 420);     return; }
         console.log('[KineticRack] ctrlChange', key, val);
     }
 
