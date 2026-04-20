@@ -20479,14 +20479,15 @@ if (document.readyState !== 'loading') { _vbWireButtons(); }
         rack.ctrlChange('filter', yNorm);
 
         // ── 4. PERFORMANCE GATE ON ───────────────────────────────────────────
-        // Ears-safe gate: 0.45 is plenty since AudioCore already caps master
-        // and lives behind a 900 Hz safety lowpass.
-        rack.ctrlChange('vol', 0.45);
+        // Heavy sub-bass needs more gate to be felt; AudioCore's setVolume
+        // still hard-caps at 0.5, and everything stays under the 900 Hz
+        // safety lowpass, so this is ears-safe.
+        rack.ctrlChange('vol', 0.6);
 
         // ── 5. SYNC SLIDERS 1:1 ─────────────────────────────────────────────
         var volSlider  = document.querySelector('[data-ctrl="vol"]');
         var filtSlider = document.querySelector('[data-ctrl="filter"]');
-        if (volSlider)  volSlider.value  = 0.45;
+        if (volSlider)  volSlider.value  = 0.6;
         if (filtSlider) filtSlider.value = yNorm.toFixed(3);
 
         // ── 6. DRAW SKELETON HUD ────────────────────────────────────────────
@@ -20529,7 +20530,7 @@ if (document.readyState !== 'loading') { _vbWireButtons(); }
 <script src="https://cdn.jsdelivr.net/npm/@mediapipe/camera_utils@0.3.1675466124/camera_utils.js"></script>
 <script src="./src/hand-tracker.js?v=2"></script>
 
-<script src="./src/kinetic-rack/KineticRack.js?v=15"></script>
+<script src="./src/kinetic-rack/KineticRack.js?v=16"></script>
 
 <!-- NLE seam controls are fully canvas-drawn (no DOM panel) -->
 
