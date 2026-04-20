@@ -20467,20 +20467,32 @@ if (document.readyState !== 'loading') { _vbWireButtons(); }
         if (!s.cur) return null;
         if (!s.prev || s.tPrev === 0) return s.cur;
         var dt = s.tCur - s.tPrev;
-        if (dt <= 0 || dt > 400) return s.cur;  // gap too large — don't extrapolate
-        // Alpha = how far past the last sample we are, in units of "one MP
-        // period". Capped at 1.4 so sudden detection drop-outs can't fling
-        // the skeleton off-screen.
-        var alpha = Math.min(1.4, (now - s.tCur) / dt);
+        if (dt <= 0 || dt > 300) return s.cur;  // gap too large — don't extrapolate
+        // Alpha capped at 0.8 of one MP period (was 1.4): MediaPipe's per-
+        // landmark noise — especially the wrist near frame edges — means
+        // aggressive extrapolation projects the skeleton to garbage
+        // positions. 0.8 still hides most of the latency without amplifying
+        // detection jitter.
+        var alpha = Math.min(0.8, Math.max(0, (now - s.tCur) / dt));
         if (alpha <= 0) return s.cur;
+        // Per-landmark velocity gate: if a joint moved more than 0.12 (of
+        // normalised frame height) between MP samples, treat that sample as
+        // a glitch and don't extrapolate it. Prevents the stray line you
+        // see when the wrist estimate pops.
+        var MAX_DELTA = 0.12;
         var out = new Array(21);
         for (var i = 0; i < 21; i++) {
             var a = s.cur[i], b = s.prev[i];
             if (!a) { out[i] = b || null; continue; }
             if (!b) { out[i] = a; continue; }
+            var dx = a.x - b.x, dy = a.y - b.y;
+            if (Math.abs(dx) > MAX_DELTA || Math.abs(dy) > MAX_DELTA) {
+                out[i] = a; // snap to most recent sample; skip velocity
+                continue;
+            }
             out[i] = {
-                x: a.x + (a.x - b.x) * alpha,
-                y: a.y + (a.y - b.y) * alpha,
+                x: a.x + dx * alpha,
+                y: a.y + dy * alpha,
                 z: (a.z || 0) + ((a.z || 0) - (b.z || 0)) * alpha
             };
         }
@@ -20627,7 +20639,7 @@ if (document.readyState !== 'loading') { _vbWireButtons(); }
 <script src="https://cdn.jsdelivr.net/npm/@mediapipe/camera_utils@0.3.1675466124/camera_utils.js"></script>
 <script src="./src/hand-tracker.js?v=2"></script>
 
-<script src="./src/kinetic-rack/KineticRack.js?v=17"></script>
+<script src="./src/kinetic-rack/KineticRack.js?v=18"></script>
 
 <!-- NLE seam controls are fully canvas-drawn (no DOM panel) -->
 
