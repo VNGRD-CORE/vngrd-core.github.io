@@ -3699,8 +3699,8 @@ body.fullscreen #transcription-hud { pointer-events: none !important; } /* keep 
 /* Card base */
 .ss-card {
     position: absolute;
-    width: 520px;
-    background: rgba(4,10,16,.55);
+    width: 600px;
+    background: rgba(4,10,16,.45);
     border: 1px solid rgba(0,243,255,.28);
     border-top: 1px solid rgba(255,255,255,.14);
     border-radius: 3px;
@@ -10076,7 +10076,7 @@ document.addEventListener('DOMContentLoaded', function() { VFXLayer.init(); });
 //  by the master bar's [D][B][C][M] toggles and a focus flag.
 // ═══════════════════════════════════════════════════════════════
 window.SonicSuite = (function() {
-    const LS_KEY = 'vngrd.sonicsuite.v1';
+    const LS_KEY = 'vngrd.sonicsuite.v2';
     const LOOK  = 0.12;   // 120 ms lookahead
     const TICK  = 25;     // 25 ms scheduler interval
 
@@ -10424,10 +10424,16 @@ window.SonicSuite = (function() {
             if (cp.top  != null) el.style.top  = cp.top  + 'px';
             if (cp.min) el.classList.add('minimised');
         } else {
-            // Default cascade
-            const n = state.order.length;
-            el.style.left = (80 + n * 24) + 'px';
-            el.style.top  = (80 + n * 24) + 'px';
+            // Default dock: cards land along the bottom edge so the centre
+            // canvas (images / video / VJ rig) stays visible while playing.
+            const n  = state.order.length;
+            const W  = 600, GAP = 16;
+            const vw = window.innerWidth  || 1920;
+            const vh = window.innerHeight || 1080;
+            const totalRow = 3 * W + 2 * GAP;
+            const startX   = Math.max(20, (vw - totalRow) / 2);
+            el.style.left = (startX + n * (W + GAP)) + 'px';
+            el.style.top  = (vh - 440) + 'px';
         }
     }
 
@@ -20350,8 +20356,11 @@ if (document.readyState !== 'loading') { _vbWireButtons(); }
         </div>
         <div class="ss-mb-cardtoggles" id="ss-cardtoggles"></div>
         <button class="ss-mb-btn" id="ss-rec" style="border-color:rgba(255,60,60,.45);color:rgba(255,120,120,.85);">● REC</button>
-        <a href="https://andreamerella.github.io/DrisLab/" target="_blank" rel="noopener"
-           class="ss-mb-btn" style="text-decoration:none;letter-spacing:1px;color:rgba(0,243,255,.75);">◈ DRISLAB ↗</a>
+        <a href="https://andreamerella.github.io/DrisLab/" target="_blank" rel="noopener noreferrer"
+           id="ss-drislab"
+           class="ss-mb-btn"
+           style="text-decoration:none;letter-spacing:1px;color:rgba(0,243,255,.75);"
+           onclick="event.preventDefault();event.stopPropagation();window.open('https://andreamerella.github.io/DrisLab/','_blank','noopener,noreferrer');return false;">◈ DRISLAB ↗</a>
         <button class="ss-mb-btn ss-mb-hide" id="ss-hide">HIDE</button>
     </div>
     <div id="ss-workspace"></div>
