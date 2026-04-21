@@ -3620,8 +3620,8 @@ body.fullscreen #transcription-hud { pointer-events: none !important; } /* keep 
     -webkit-mask-image: radial-gradient(ellipse at 50% 50%, #000 40%, transparent 75%);
 }
 #ss-master-bar {
-    position: fixed; top: 14px; left: 50%; transform: translateX(-50%);
-    z-index: 4010;
+    position: fixed; top: 120px; left: 50%; transform: translateX(-50%);
+    z-index: 9999;
     display: flex; align-items: center; gap: 10px;
     padding: 8px 14px;
     background: rgba(2,8,14,.85);
@@ -3700,7 +3700,7 @@ body.fullscreen #transcription-hud { pointer-events: none !important; } /* keep 
 .ss-card {
     position: absolute;
     width: 520px;
-    background: rgba(4,10,16,.85);
+    background: rgba(4,10,16,.55);
     border: 1px solid rgba(0,243,255,.28);
     border-top: 1px solid rgba(255,255,255,.14);
     border-radius: 3px;
@@ -10463,6 +10463,43 @@ window.SonicSuite = (function() {
         if (stopB) stopB.addEventListener('click', stop);
         const hide = document.getElementById('ss-hide');
         if (hide) hide.addEventListener('click', close);
+
+        // ── REC: MediaRecorder tap off the limiter, downloads .webm on stop ──
+        const recBtn = document.getElementById('ss-rec');
+        let _rec = null, _recChunks = [], _recDest = null;
+        if (recBtn) recBtn.addEventListener('click', function() {
+            const a = _ensureAudio(); if (!a) return;
+            if (_rec && _rec.state === 'recording') {
+                _rec.stop();
+                recBtn.textContent = '● REC';
+                recBtn.style.background = '';
+                recBtn.classList.remove('playing');
+                return;
+            }
+            if (!_recDest) {
+                _recDest = a.ctx.createMediaStreamDestination();
+                a.limiter.connect(_recDest);
+            }
+            _recChunks = [];
+            try {
+                _rec = new MediaRecorder(_recDest.stream, { mimeType: 'audio/webm;codecs=opus' });
+            } catch (e) { _rec = new MediaRecorder(_recDest.stream); }
+            _rec.ondataavailable = e => { if (e.data && e.data.size) _recChunks.push(e.data); };
+            _rec.onstop = () => {
+                const blob = new Blob(_recChunks, { type: _rec.mimeType || 'audio/webm' });
+                const url  = URL.createObjectURL(blob);
+                const ts   = new Date().toISOString().replace(/[:.]/g, '-').slice(0, 19);
+                const link = document.createElement('a');
+                link.href = url; link.download = 'vngrd-' + ts + '.webm';
+                document.body.appendChild(link); link.click();
+                setTimeout(() => { URL.revokeObjectURL(url); link.remove(); }, 400);
+            };
+            _rec.start();
+            recBtn.textContent = '■ STOP REC';
+            recBtn.style.background = 'rgba(255,60,60,.25)';
+            recBtn.classList.add('playing');
+        });
+
         // Esc closes
         document.addEventListener('keydown', function(e) {
             if (e.key === 'Escape' && state.open) close();
@@ -20312,6 +20349,7 @@ if (document.readyState !== 'loading') { _vbWireButtons(); }
             <span class="ss-mb-clock-time" id="ss-clock-time">00:00.00</span>
         </div>
         <div class="ss-mb-cardtoggles" id="ss-cardtoggles"></div>
+        <button class="ss-mb-btn" id="ss-rec" style="border-color:rgba(255,60,60,.45);color:rgba(255,120,120,.85);">● REC</button>
         <a href="https://andreamerella.github.io/DrisLab/" target="_blank" rel="noopener"
            class="ss-mb-btn" style="text-decoration:none;letter-spacing:1px;color:rgba(0,243,255,.75);">◈ DRISLAB ↗</a>
         <button class="ss-mb-btn ss-mb-hide" id="ss-hide">HIDE</button>
