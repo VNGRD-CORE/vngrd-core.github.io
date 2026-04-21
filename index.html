@@ -13480,117 +13480,116 @@ document.addEventListener('DOMContentLoaded', () => {
     // user-logo-layer lives in #gif-host (direct child of body, position:fixed, opacity:0.01)
     // No extra styling needed — gif-host CSS handles compositing.
 
-    // ═══════════════════════════════════════════════════════════════════
-    // CINEMA_ENGINE — ElevenLabs Voiceover Director
-    // API key stored in localStorage as 'elevenlabs_api_key'
-    // Ducks APP.audio.duckingGain during playback; restores on end.
-    // ═══════════════════════════════════════════════════════════════════
-    APP.ui = APP.ui || {};
-    APP.ui.sveSync = false;
+   // ═══════════════════════════════════════════════════════════════════
+// HYBRID CINEMA ENGINE — ElevenLabs with Native Browser Fallback
+// ═══════════════════════════════════════════════════════════════════
+
+window._runSVE = async function() {
+    const scriptEl = document.getElementById('sve-script');
+    const statusEl = document.getElementById('sve-status');
+    const btn = document.getElementById('sve-voiceover-btn');
+    const script = scriptEl ? scriptEl.value.trim() : '';
+
+    if (!script) { if (statusEl) statusEl.textContent = 'ERR: EMPTY_SCRIPT'; return; }
+    if (APP.ui.svePlaying) return;
+
+    // 1. Get Key and Trim (Prevents 401 from accidental spaces)
+    let apiKey = (localStorage.getItem('elevenlabs_api_key') || localStorage.getItem('ELEVENLABS_API_KEY') || '').trim();
+
+    APP.ui.svePlaying = true;
+    if (btn) btn.textContent = '[ TRANSMITTING... ]';
+    if (statusEl) statusEl.textContent = 'REQUESTING AI VOICE...';
+
+    try {
+        // Force key check
+        if (!apiKey) throw new Error('NO_KEY');
+
+        ensureAudioChain();
+        const _ctx = APP.audio.ctx;
+        if (_ctx.state === 'suspended') await _ctx.resume();
+
+        const voiceId = '21m00Tcm4TlvDq8ikWAM'; // Rachel
+        const res = await fetch(`https://api.elevenlabs.io/v1/text-to-speech/${voiceId}`, {
+            method: 'POST',
+            headers: {
+                'xi-api-key': apiKey,
+                'Content-Type': 'application/json',
+                'Accept': 'audio/mpeg'
+            },
+            body: JSON.stringify({
+                text: script,
+                model_id: 'eleven_monolingual_v1',
+                voice_settings: { stability: 0.5, similarity_boost: 0.75 }
+            })
+        });
+
+        if (!res.ok) throw new Error(`API_ERR: ${res.status}`);
+
+        const arrayBuf = await res.arrayBuffer();
+        const audioBuf = await _ctx.decodeAudioData(arrayBuf);
+
+        // DUCKING ON
+        _applyDucking(true);
+
+        const voSrc = _ctx.createBufferSource();
+        voSrc.buffer = audioBuf;
+        voSrc.connect(APP.audio.masterGain || _ctx.destination);
+
+        voSrc.onended = () => {
+            _applyDucking(false);
+            _finishSVE('COMPLETE');
+        };
+
+        if (statusEl) statusEl.textContent = 'AI_VOICE: PLAYING';
+        voSrc.start();
+
+    } catch(e) {
+        // 🚨 FALLBACK: Switch to Native Browser Voice
+        console.warn('ElevenLabs Failed, switching to Native:', e.message);
+        if (statusEl) statusEl.textContent = 'FALLBACK: NATIVE_VOICE';
+        _runNativeTTS(script);
+    }
+};
+
+// --- NATIVE BROWSER FALLBACK ENGINE ---
+function _runNativeTTS(text) {
+    const statusEl = document.getElementById('sve-status');
+    const msg = new SpeechSynthesisUtterance(text);
+    
+    // Choose a professional sounding voice if available
+    const voices = window.speechSynthesis.getVoices();
+    msg.voice = voices.find(v => v.name.includes('Google') || v.lang === 'en-US') || voices[0];
+    msg.pitch = 0.9; // Slightly lower for that "Cinema" vibe
+    msg.rate = 0.95;
+
+    msg.onstart = () => _applyDucking(true);
+    msg.onend = () => {
+        _applyDucking(false);
+        _finishSVE('COMPLETE (NATIVE)');
+    };
+
+    window.speechSynthesis.speak(msg);
+}
+
+// --- HELPER: AUDIO DUCKING ---
+function _applyDucking(active) {
+    if (!APP.audio.duckingGain) return;
+    const _ctx = APP.audio.ctx;
+    const _dg = APP.audio.duckingGain.gain;
+    _dg.cancelScheduledValues(_ctx.currentTime);
+    _dg.setValueAtTime(_dg.value, _ctx.currentTime);
+    _dg.linearRampToValueAtTime(active ? 0.15 : 1.0, _ctx.currentTime + 0.4);
+}
+
+// --- HELPER: CLEANUP ---
+function _finishSVE(msg) {
     APP.ui.svePlaying = false;
-
-    window._toggleSveSync = function(btn) {
-        APP.ui.sveSync = !APP.ui.sveSync;
-        if (btn) {
-            btn.textContent = 'SYNC_CAROUSEL: ' + (APP.ui.sveSync ? 'ON' : 'OFF');
-            btn.style.color = APP.ui.sveSync ? 'var(--accent)' : 'var(--text-dim)';
-            btn.style.borderColor = APP.ui.sveSync ? 'var(--accent)' : 'var(--border-light)';
-        }
-    };
-
-    window._runSVE = async function() {
-        var scriptEl = document.getElementById('sve-script');
-        var statusEl = document.getElementById('sve-status');
-        var btn = document.getElementById('sve-voiceover-btn');
-        var script = scriptEl ? scriptEl.value.trim() : '';
-
-        if (!script) { if (statusEl) statusEl.textContent = 'ERR: EMPTY_SCRIPT'; return; }
-        if (APP.ui.svePlaying) { if (statusEl) statusEl.textContent = 'BUSY: PLAYBACK_ACTIVE'; return; }
-
-        var apiKey = localStorage.getItem('elevenlabs_api_key') ||
-                     localStorage.getItem('ELEVENLABS_API_KEY') || '';
-        if (!apiKey) {
-            if (statusEl) statusEl.textContent = 'ERR: SET elevenlabs_api_key IN localStorage';
-            return;
-        }
-
-        APP.ui.svePlaying = true;
-        if (btn) btn.textContent = '[ TRANSMITTING... ]';
-        if (statusEl) statusEl.textContent = 'ELEVENLABS: REQUESTING...';
-
-        try {
-            ensureAudioChain();
-            var _ctx = APP.audio.ctx;
-            if (_ctx.state === 'suspended') await _ctx.resume();
-
-            var voiceId = '21m00Tcm4TlvDq8ikWAM'; // ElevenLabs default: Rachel
-            var res = await fetch('https://api.elevenlabs.io/v1/text-to-speech/' + voiceId, {
-                method: 'POST',
-                headers: {
-                    'xi-api-key': apiKey,
-                    'Content-Type': 'application/json',
-                    'Accept': 'audio/mpeg'
-                },
-                body: JSON.stringify({
-                    text: script,
-                    model_id: 'eleven_monolingual_v1',
-                    voice_settings: { stability: 0.5, similarity_boost: 0.75 }
-                })
-            });
-
-            if (!res.ok) throw new Error('API_ERR: HTTP_' + res.status);
-
-            var arrayBuf = await res.arrayBuffer();
-            var audioBuf = await _ctx.decodeAudioData(arrayBuf);
-
-            // DUCKING: ramp ambient down before playback
-            if (APP.audio.duckingGain) {
-                var _dg = APP.audio.duckingGain.gain;
-                _dg.cancelScheduledValues(_ctx.currentTime);
-                _dg.setValueAtTime(_dg.value, _ctx.currentTime);
-                _dg.linearRampToValueAtTime(0.15, _ctx.currentTime + 0.3);
-            }
-
-            var voSrc = _ctx.createBufferSource();
-            voSrc.buffer = audioBuf;
-            voSrc.connect(APP.audio.masterGain || _ctx.destination);
-
-            if (statusEl) statusEl.textContent = 'PLAYING: ' + audioBuf.duration.toFixed(1) + 's';
-            if (btn) btn.textContent = '[ PLAYING... ]';
-
-            voSrc.onended = function() {
-                APP.ui.svePlaying = false;
-                // Ramp ambient back up
-                if (APP.audio.duckingGain) {
-                    var _dg2 = APP.audio.duckingGain.gain;
-                    _dg2.cancelScheduledValues(_ctx.currentTime);
-                    _dg2.setValueAtTime(_dg2.value, _ctx.currentTime);
-                    _dg2.linearRampToValueAtTime(1.0, _ctx.currentTime + 0.5);
-                }
-                // SYNC_CAROUSEL: advance media on voice end
-                if (APP.ui.sveSync && typeof carouselNext === 'function') carouselNext();
-                if (statusEl) statusEl.textContent = 'COMPLETE';
-                if (btn) btn.textContent = '[ VOICEOVER ]';
-            };
-
-            voSrc.start();
-
-        } catch(e) {
-            APP.ui.svePlaying = false;
-            if (statusEl) statusEl.textContent = 'ERR: ' + (e.message || e);
-            if (btn) btn.textContent = '[ VOICEOVER ]';
-            // Restore ducking on error
-            if (APP.audio && APP.audio.duckingGain && APP.audio.ctx) {
-                var _dg3 = APP.audio.duckingGain.gain;
-                _dg3.cancelScheduledValues(APP.audio.ctx.currentTime);
-                _dg3.setValueAtTime(1.0, APP.audio.ctx.currentTime);
-            }
-        }
-    };
-
-    requestAnimationFrame(renderLoop);
-    updateClock(); setInterval(updateClock, 1000); morphLogo(); setTimeout(morphLogo, 4000);
-
+    const btn = document.getElementById('sve-voiceover-btn');
+    const statusEl = document.getElementById('sve-status');
+    if (btn) btn.textContent = '[ VOICEOVER ]';
+    if (statusEl) statusEl.textContent = msg;
+    if (APP.ui.sveSync && typeof carouselNext === 'function') carouselNext();
+}
     // ── PHASE 1 (1s): COMPOSITOR + LAYERS — let UI settle first ──
     setTimeout(() => {
         log('BOOT: COMPOSITOR');
