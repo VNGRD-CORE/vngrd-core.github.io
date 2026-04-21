@@ -13481,9 +13481,42 @@ document.addEventListener('DOMContentLoaded', () => {
     // No extra styling needed — gif-host CSS handles compositing.
 
    // ═══════════════════════════════════════════════════════════════════
-// HYBRID CINEMA ENGINE — ElevenLabs with Native Browser Fallback
+// ═══════════════════════════════════════════════════════════════════
+// VNGRD// CORE — SYSTEM HEARTBEAT & HYBRID CINEMA ENGINE
 // ═══════════════════════════════════════════════════════════════════
 
+APP.ui = APP.ui || {};
+APP.ui.sveSync = false;
+APP.ui.svePlaying = false;
+
+// --- 1. SYSTEM HEARTBEATS (The "Clock & Visuals" Fix) ---
+function updateClock() {
+    const el = document.getElementById('rack-clock');
+    if (!el) return;
+    const now = new Date();
+    el.textContent = now.toTimeString().split(' ')[0];
+}
+
+// Start the heartbeats
+setInterval(updateClock, 1000);
+updateClock(); 
+
+// Kickstart the visual engine (Make sure renderLoop is defined in your main file)
+if (typeof renderLoop === 'function') {
+    requestAnimationFrame(renderLoop);
+}
+
+// --- 2. THE CINEMA ENGINE GESTURES ---
+window._toggleSveSync = function(btn) {
+    APP.ui.sveSync = !APP.ui.sveSync;
+    if (btn) {
+        btn.textContent = 'SYNC_CAROUSEL: ' + (APP.ui.sveSync ? 'ON' : 'OFF');
+        btn.style.color = APP.ui.sveSync ? 'var(--accent)' : 'var(--text-dim)';
+        btn.style.borderColor = APP.ui.sveSync ? 'var(--accent)' : 'var(--border-light)';
+    }
+};
+
+// --- 3. THE HYBRID VOICE ENGINE (With 401 Fix & Fallback) ---
 window._runSVE = async function() {
     const scriptEl = document.getElementById('sve-script');
     const statusEl = document.getElementById('sve-status');
@@ -13493,7 +13526,7 @@ window._runSVE = async function() {
     if (!script) { if (statusEl) statusEl.textContent = 'ERR: EMPTY_SCRIPT'; return; }
     if (APP.ui.svePlaying) return;
 
-    // 1. Get Key and Trim (Prevents 401 from accidental spaces)
+    // Fix 401: Auto-trim the key to remove accidental spaces
     let apiKey = (localStorage.getItem('elevenlabs_api_key') || localStorage.getItem('ELEVENLABS_API_KEY') || '').trim();
 
     APP.ui.svePlaying = true;
@@ -13501,10 +13534,9 @@ window._runSVE = async function() {
     if (statusEl) statusEl.textContent = 'REQUESTING AI VOICE...';
 
     try {
-        // Force key check
-        if (!apiKey) throw new Error('NO_KEY');
+        if (!apiKey) throw new Error('NO_KEY_FOUND');
 
-        ensureAudioChain();
+        if (typeof ensureAudioChain === 'function') ensureAudioChain();
         const _ctx = APP.audio.ctx;
         if (_ctx.state === 'suspended') await _ctx.resume();
 
@@ -13523,12 +13555,11 @@ window._runSVE = async function() {
             })
         });
 
-        if (!res.ok) throw new Error(`API_ERR: ${res.status}`);
+        if (!res.ok) throw new Error(`HTTP_${res.status}`);
 
         const arrayBuf = await res.arrayBuffer();
         const audioBuf = await _ctx.decodeAudioData(arrayBuf);
 
-        // DUCKING ON
         _applyDucking(true);
 
         const voSrc = _ctx.createBufferSource();
@@ -13544,36 +13575,32 @@ window._runSVE = async function() {
         voSrc.start();
 
     } catch(e) {
-        // 🚨 FALLBACK: Switch to Native Browser Voice
-        console.warn('ElevenLabs Failed, switching to Native:', e.message);
+        // 🚨 FALLBACK: Switch to Native Browser Voice if API fails
+        console.warn('Cinema Engine Fallback Kicked In:', e.message);
         if (statusEl) statusEl.textContent = 'FALLBACK: NATIVE_VOICE';
         _runNativeTTS(script);
     }
 };
 
-// --- NATIVE BROWSER FALLBACK ENGINE ---
+// --- 4. NATIVE ENGINE ---
 function _runNativeTTS(text) {
-    const statusEl = document.getElementById('sve-status');
     const msg = new SpeechSynthesisUtterance(text);
-    
-    // Choose a professional sounding voice if available
     const voices = window.speechSynthesis.getVoices();
-    msg.voice = voices.find(v => v.name.includes('Google') || v.lang === 'en-US') || voices[0];
-    msg.pitch = 0.9; // Slightly lower for that "Cinema" vibe
-    msg.rate = 0.95;
+    msg.voice = voices.find(v => v.lang === 'it-IT' || v.name.includes('Google')) || voices[0];
+    msg.pitch = 0.85; 
+    msg.rate = 0.9;
 
     msg.onstart = () => _applyDucking(true);
     msg.onend = () => {
         _applyDucking(false);
         _finishSVE('COMPLETE (NATIVE)');
     };
-
     window.speechSynthesis.speak(msg);
 }
 
-// --- HELPER: AUDIO DUCKING ---
+// --- 5. UTILITIES ---
 function _applyDucking(active) {
-    if (!APP.audio.duckingGain) return;
+    if (!APP.audio || !APP.audio.duckingGain) return;
     const _ctx = APP.audio.ctx;
     const _dg = APP.audio.duckingGain.gain;
     _dg.cancelScheduledValues(_ctx.currentTime);
@@ -13581,7 +13608,6 @@ function _applyDucking(active) {
     _dg.linearRampToValueAtTime(active ? 0.15 : 1.0, _ctx.currentTime + 0.4);
 }
 
-// --- HELPER: CLEANUP ---
 function _finishSVE(msg) {
     APP.ui.svePlaying = false;
     const btn = document.getElementById('sve-voiceover-btn');
@@ -13589,6 +13615,12 @@ function _finishSVE(msg) {
     if (btn) btn.textContent = '[ VOICEOVER ]';
     if (statusEl) statusEl.textContent = msg;
     if (APP.ui.sveSync && typeof carouselNext === 'function') carouselNext();
+}
+
+// Kick off logo animation if it exists
+if (typeof morphLogo === 'function') {
+    morphLogo();
+    setTimeout(morphLogo, 4000);
 }
     // ── PHASE 1 (1s): COMPOSITOR + LAYERS — let UI settle first ──
     setTimeout(() => {
