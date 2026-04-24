@@ -3613,6 +3613,18 @@ body.fullscreen #transcription-hud { pointer-events: none !important; } /* keep 
     font-family: 'Orbitron', sans-serif;
 }
 #ss-backdrop.visible { display: block; pointer-events: auto; opacity: 1; }
+/* Stealth mode: let the DRIS//CORE canvas show through. Clicks pass to the
+   app underneath; only the master bar + cards capture pointer events. */
+#ss-backdrop.stealth {
+    background: transparent;
+    backdrop-filter: none; -webkit-backdrop-filter: none;
+    pointer-events: none;
+}
+#ss-backdrop.stealth::before { display: none; }
+#ss-backdrop.stealth #ss-master-bar,
+#ss-backdrop.stealth #ss-workspace { pointer-events: auto; }
+#ss-backdrop.stealth #ss-workspace { pointer-events: none; }
+#ss-backdrop.stealth .ss-card { pointer-events: auto; }
 #ss-backdrop::before {
     content: ''; position: absolute; inset: 0; pointer-events: none;
     background-image:
@@ -10444,12 +10456,26 @@ window.SonicSuite = (function() {
         const bd = document.getElementById('ss-backdrop');
         if (!bd) return;
         bd.classList.add('visible');
+        // Default to stealth (canvas visible) unless user explicitly turned it off
+        const pref = localStorage.getItem('vngrd.sonicsuite.stealth');
+        if (pref !== '0') bd.classList.add('stealth');
+        _syncCanvasBtn();
         state.open = true;
         const btn = document.getElementById('vt-sonic-launch-btn');
         if (btn) btn.classList.add('active');
         const status = document.getElementById('vt-sonic-status');
         if (status) { status.textContent = 'STUDIO LIVE'; status.classList.add('live'); }
         _ensureAudio();
+    }
+    function _syncCanvasBtn() {
+        const bd = document.getElementById('ss-backdrop');
+        const b  = document.getElementById('ss-canvas-btn');
+        if (!bd || !b) return;
+        const on = bd.classList.contains('stealth');
+        b.style.borderColor = on ? '#00f3ff' : '';
+        b.style.color       = on ? '#00f3ff' : '';
+        b.style.background  = on ? 'rgba(0,243,255,.14)' : '';
+        b.textContent       = on ? '◈ CANVAS ON' : '◈ CANVAS';
     }
     function close() {
         stop();
@@ -10472,6 +10498,14 @@ window.SonicSuite = (function() {
         if (stopB) stopB.addEventListener('click', stop);
         const hide = document.getElementById('ss-hide');
         if (hide) hide.addEventListener('click', close);
+        const canvasBtn = document.getElementById('ss-canvas-btn');
+        if (canvasBtn) canvasBtn.addEventListener('click', function() {
+            const bd = document.getElementById('ss-backdrop');
+            if (!bd) return;
+            bd.classList.toggle('stealth');
+            localStorage.setItem('vngrd.sonicsuite.stealth', bd.classList.contains('stealth') ? '1' : '0');
+            _syncCanvasBtn();
+        });
 
         // ── REC: MediaRecorder tap off the limiter, downloads .webm on stop ──
         const recBtn = document.getElementById('ss-rec');
@@ -20603,6 +20637,7 @@ if (document.readyState !== 'loading') { _vbWireButtons(); }
             <span class="ss-mb-clock-time" id="ss-clock-time">00:00.00</span>
         </div>
         <div class="ss-mb-cardtoggles" id="ss-cardtoggles"></div>
+        <button class="ss-mb-btn" id="ss-canvas-btn" title="Toggle canvas visibility (see DRIS//CORE behind the suite)">◈ CANVAS</button>
         <button class="ss-mb-btn" id="ss-rec" style="border-color:rgba(255,60,60,.45);color:rgba(255,120,120,.85);">● REC</button>
         <a href="https://andreamerella.github.io/DrisLab/" target="_blank" rel="noopener noreferrer"
            id="ss-drislab"
