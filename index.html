@@ -12956,21 +12956,20 @@ function stopNFTRecording() {
     log('VGD_REC_STOP');
 }
 
-function updateNFTTimer() { 
-    if (!APP.nft.isRecording) return; 
-    
-    const elapsed = Date.now() - APP.nft.startTime; 
+// ── PHASE B: own rAF removed — called from mainLoop every frame ──
+function updateNFTTimer() {
+    if (!APP.nft.isRecording) return;
+
+    const elapsed = Date.now() - APP.nft.startTime;
     const totalSeconds = Math.floor(elapsed / 1000);
     const mins = Math.floor(totalSeconds / 60);
     const secs = totalSeconds % 60;
-    
+
     // Dynamic timer that handles 30s, 30m, or 3 hours
-    $('nft-timer').textContent = `${String(mins).padStart(2,'0')}:${String(secs).padStart(2,'0')}`; 
-    
+    $('nft-timer').textContent = `${String(mins).padStart(2,'0')}:${String(secs).padStart(2,'0')}`;
+
     // Progress bar stays full/active instead of stopping at 30s
     $('nft-fill').style.width = `100%`;
-    
-    requestAnimationFrame(updateNFTTimer); 
 }
 
 // ── NFT HUD: draggable + dimmable ────────────────────────────────────
@@ -13237,14 +13236,19 @@ function initMicDucking(micStream) {
     } catch (e) { log('DUCKING_ERR: ' + e.message); }
 }
 
+// ── PHASE D: pre-allocated buffer — reused every frame, eliminates per-frame GC pressure ──
+var _duckingBuf = null;
+
 function monitorDucking() {
     if (!APP.audio.duckingActive || !APP.audio.micAnalyzer) return;
     requestAnimationFrame(monitorDucking);
-    const buf = new Float32Array(APP.audio.micAnalyzer.frequencyBinCount);
-    APP.audio.micAnalyzer.getFloatTimeDomainData(buf);
+    // Reallocate only if analyzer size changed (e.g. after mic reinit); normally reuses same buffer
+    var _needed = APP.audio.micAnalyzer.frequencyBinCount;
+    if (!_duckingBuf || _duckingBuf.length !== _needed) _duckingBuf = new Float32Array(_needed);
+    APP.audio.micAnalyzer.getFloatTimeDomainData(_duckingBuf);
     let sum = 0;
-    for (let i = 0; i < buf.length; i++) sum += buf[i] * buf[i];
-    const db = 20 * Math.log10(Math.max(Math.sqrt(sum / buf.length), 1e-10));
+    for (let i = 0; i < _duckingBuf.length; i++) sum += _duckingBuf[i] * _duckingBuf[i];
+    const db = 20 * Math.log10(Math.max(Math.sqrt(sum / _duckingBuf.length), 1e-10));
     const now = APP.audio.ctx.currentTime;
     // setTargetAtTime: exponential approach = zero pops/clicks in 15Mbps recording
     if (db > -20) {
@@ -13656,6 +13660,7 @@ document.addEventListener('DOMContentLoaded', () => {
     };
 
     requestAnimationFrame(renderLoop);
+    startMainLoop(); // ── PHASE A: boot central loop once
     updateClock(); setInterval(updateClock, 1000); morphLogo(); setTimeout(morphLogo, 4000);
     // ── PHASE 1 (1s): COMPOSITOR + LAYERS — let UI settle first ──
     setTimeout(() => {
@@ -16510,6 +16515,8 @@ function endCallCleanup() {
     
     // 48KHZ RAW DIRECT PATH - DISABLE ALL BROWSER PROCESSING
     async function switchAudioInput(deviceId) {
+        // ── PHASE C: reset guard so monitorInputLevel() re-initialises buffers for the new analyzer ──
+        _inputLevelActive = false;
         // 1. HARDWARE RELEASE (MEMORY CLEAR)
         // Stop the active input-device stream so the OS releases the hardware lock.
         if (APP.inputDevices.stream) {
@@ -16657,61 +16664,67 @@ function endCallCleanup() {
     
     // SEISMIC SHAKE TRIGGER THRESHOLD
     let seismicTimeout = null;
-    
-    function monitorInputLevel() {
-        if (!APP.inputDevices.analyzer) return;
-        
-        const dataArray = new Uint8Array(APP.inputDevices.analyzer.frequencyBinCount);
-        const bassArray = new Uint8Array(16); // Low frequencies only
-        
-        function update() {
-            if (!APP.inputDevices.analyzer) return;
-            
-            APP.inputDevices.analyzer.getByteFrequencyData(dataArray);
-            
-            // Overall level
-            const avg = dataArray.reduce((a, b) => a + b, 0) / dataArray.length;
-            const level = Math.min(100, (avg / 128) * 100);
-            
-            // Bass level (first 16 bins = low frequencies)
-            for (let i = 0; i < 16; i++) bassArray[i] = dataArray[i];
-            const bassAvg = bassArray.reduce((a, b) => a + b, 0) / bassArray.length;
-            const bassLevel = Math.min(100, (bassAvg / 128) * 100);
-            
-            $('input-level-bar').style.width = level + '%';
-            
-            // KINETIC RACK LOGIC GATES — visual effects fire only when the matching
-            // UI control is explicitly armed; audio threshold alone is never enough.
-            if (bassLevel > 70 || level > 80) {
-                if (!seismicTimeout) {
-                    // SEISMIC GATE: vb-seismic (+ body shake) only when Rumble is armed
-                    if (APP.vj.rumbleEnabled) {
-                        document.body.classList.add('seismic-active', 'vb-seismic');
-                    }
-                    // PUNCH GATE: vb-punch only when Punch FX is explicitly armed
-                    if (document.body.classList.contains('fx-punch')) {
-                        document.body.classList.add('vb-punch');
-                    }
-                    // Schedule cleanup only if at least one gate was triggered
-                    if (APP.vj.rumbleEnabled || document.body.classList.contains('fx-punch')) {
-                        seismicTimeout = setTimeout(() => {
-                            document.body.classList.remove('seismic-active', 'vb-seismic', 'vb-punch');
-                            seismicTimeout = null;
-                        }, 150);
-                    }
+    // ── PHASE C: loop-stack guard + pre-allocated buffers ──
+    let _inputLevelActive = false;
+    let _inputLevelData   = null;
+    let _inputLevelBass   = null;
+
+    // Pure tick — called from mainLoop every frame; replaces the old inner update() rAF loop.
+    // Exposed via window._inputLevelTick so mainLoop (outside this closure) can call it.
+    function updateInputLevel() {
+        if (!_inputLevelActive || !APP.inputDevices.analyzer) return;
+
+        APP.inputDevices.analyzer.getByteFrequencyData(_inputLevelData);
+
+        // Overall level
+        const avg = _inputLevelData.reduce((a, b) => a + b, 0) / _inputLevelData.length;
+        const level = Math.min(100, (avg / 128) * 100);
+
+        // Bass level (first 16 bins = low frequencies)
+        for (let i = 0; i < 16; i++) _inputLevelBass[i] = _inputLevelData[i];
+        const bassAvg = _inputLevelBass.reduce((a, b) => a + b, 0) / _inputLevelBass.length;
+        const bassLevel = Math.min(100, (bassAvg / 128) * 100);
+
+        $('input-level-bar').style.width = level + '%';
+
+        // KINETIC RACK LOGIC GATES — visual effects fire only when the matching
+        // UI control is explicitly armed; audio threshold alone is never enough.
+        if (bassLevel > 70 || level > 80) {
+            if (!seismicTimeout) {
+                // SEISMIC GATE: vb-seismic (+ body shake) only when Rumble is armed
+                if (APP.vj.rumbleEnabled) {
+                    document.body.classList.add('seismic-active', 'vb-seismic');
+                }
+                // PUNCH GATE: vb-punch only when Punch FX is explicitly armed
+                if (document.body.classList.contains('fx-punch')) {
+                    document.body.classList.add('vb-punch');
+                }
+                // Schedule cleanup only if at least one gate was triggered
+                if (APP.vj.rumbleEnabled || document.body.classList.contains('fx-punch')) {
+                    seismicTimeout = setTimeout(() => {
+                        document.body.classList.remove('seismic-active', 'vb-seismic', 'vb-punch');
+                        seismicTimeout = null;
+                    }, 150);
                 }
             }
-            
-            // Voice reactivity - WHITE_FLASH
-            if (APP.atmosphere.voiceReact && level > 60) {
-                document.body.classList.add('voice-flash');
-                setTimeout(() => document.body.classList.remove('voice-flash'), 80);
-                
-            }
-            
-            requestAnimationFrame(update);
         }
-        update();
+
+        // Voice reactivity - WHITE_FLASH
+        if (APP.atmosphere.voiceReact && level > 60) {
+            document.body.classList.add('voice-flash');
+            setTimeout(() => document.body.classList.remove('voice-flash'), 80);
+        }
+    }
+    window._inputLevelTick = updateInputLevel;
+
+    // ── PHASE C: guard prevents a new rAF loop stacking on every input switch ──
+    function monitorInputLevel() {
+        if (!APP.inputDevices.analyzer) return;
+        if (_inputLevelActive) return;
+        // Allocate typed buffers once per activation; updateInputLevel() reuses them every frame
+        _inputLevelData = new Uint8Array(APP.inputDevices.analyzer.frequencyBinCount);
+        _inputLevelBass = new Uint8Array(16);
+        _inputLevelActive = true;
     }
     
     $('btn-scan-inputs').onclick = scanAudioInputDevices;
@@ -17732,6 +17745,29 @@ var isVideo = nft.forceVideo || (imageUrl.toLowerCase().match(/\.(mp4|webm|mov|o
     // ── END PRESENCE MONITOR ──────────────────────────────────────────────────
 
 }); // THIS IS THE END of the startup block. Do not put code after this line.
+
+// ─────────────────────────────────────────────────────────────────────────────
+// MAIN LOOP — Phase A: Central animation hub
+// Migrated functions tick here instead of running their own rAF loops.
+// startMainLoop() is guarded — boots exactly once from DOMContentLoaded.
+// ─────────────────────────────────────────────────────────────────────────────
+var _mainLoopRunning = false;
+
+function mainLoop(timestamp) {
+    requestAnimationFrame(mainLoop);
+
+    // Phase B: NFT recording timer (was an unbounded rAF loop — now a pure tick)
+    updateNFTTimer();
+
+    // Phase C: audio input level meter (was an rAF loop that stacked on every input switch)
+    if (window._inputLevelTick) window._inputLevelTick();
+}
+
+function startMainLoop() {
+    if (_mainLoopRunning) return; // single-boot guard
+    _mainLoopRunning = true;
+    requestAnimationFrame(mainLoop);
+}
 // --- TACTICAL FX ELITE BRIDGE ---
 </script>
 <script type="module">
