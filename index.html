@@ -16572,9 +16572,9 @@ function endCallCleanup() {
             APP.inputDevices.analyzer.smoothingTimeConstant = 0.3;
             APP.audio.livePreAmp.connect(APP.inputDevices.analyzer);
 
-            // KINETIC RACK (VISUALS): boosted signal triggers Seismic/Punch CSS shaders.
-            if (APP.audio.analyzer) APP.audio.livePreAmp.connect(APP.audio.analyzer);
             // SPATIAL & DOLBY BUS: route vinyl through 3D panning network (audible output).
+            // NOTE: analyzer is downstream of panner in the main chain — do NOT also connect
+            // livePreAmp directly to APP.audio.analyzer or the signal doubles at that node.
             if (APP.audio.panner) {
                 APP.audio.livePreAmp.connect(APP.audio.panner);
             } else if (APP.audio.masterGain) {
@@ -16630,9 +16630,8 @@ function endCallCleanup() {
                 APP.inputDevices.analyzer.smoothingTimeConstant = 0.3;
                 APP.audio.livePreAmp.connect(APP.inputDevices.analyzer);
 
-                // KINETIC RACK (fallback path).
-                if (APP.audio.analyzer) APP.audio.livePreAmp.connect(APP.audio.analyzer);
                 // SPATIAL & DOLBY BUS (fallback path).
+                // NOTE: same as primary path — analyzer is downstream of panner, skip direct connect.
                 if (APP.audio.panner) {
                     APP.audio.livePreAmp.connect(APP.audio.panner);
                 } else if (APP.audio.masterGain) {
