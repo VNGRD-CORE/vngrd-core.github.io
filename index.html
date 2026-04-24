@@ -482,8 +482,19 @@
         .version { font-size: 10px; color: var(--accent); padding: 3px 8px; background: var(--accent-dim); border: 1px solid var(--accent); margin-left: 10px; }
 
         #stage { position: fixed; top: 45px; left: 200px; right: 200px; bottom: 55px; background: #000; border: 1px solid var(--border); overflow: hidden; }
+        /* MEDIA LAYER — receives all seismic/punch transforms; 1.1× base overscan so
+           the 10% bleed absorbs translations without ever exposing the #stage background.
+           transform-origin:center keeps scale anchored to the viewport centre. */
+        #media-layer {
+            position: absolute; inset: 0;
+            transform: scale(1.1);
+            transform-origin: center center;
+            will-change: transform;
+            pointer-events: none;
+        }
         #vj-canvas { position: absolute; top: 0; left: 0; width: 100%; height: 100%; z-index: 1000; pointer-events: none !important; }
-        #overlay-layer { position: absolute; inset: 0; z-index: 2000; pointer-events: none; }
+        /* OVERLAY LAYER — HUD/UI sits OUTSIDE the media transform stack; never moves. */
+        #overlay-layer { position: absolute; inset: 0; z-index: 2000; pointer-events: none; transform: none !important; }
         
         #stage::before { content: ""; position: absolute; inset: 0; z-index: 3000; pointer-events: none; background: repeating-linear-gradient(0deg, transparent, transparent 2px, rgba(0,0,0,0.03) 2px, rgba(0,0,0,0.03) 4px); opacity: 0.3; }
         #stage::after { content: ""; position: absolute; inset: 0; z-index: 3001; pointer-events: none; background: radial-gradient(ellipse at center, transparent 50%, rgba(0,0,0,0.5) 100%); }
@@ -2604,53 +2615,43 @@ body.shooting-mode #btn-shooting {
             60% { transform: translate(-2px, 3px); }
             80% { transform: translate(2px, -3px); }
         }
-        /* seismic-shake: body-level shake for visible feedback even without canvas media */
-        body.seismic-active { animation: seismic-body-shake 0.10s ease-in-out infinite; }
-        @keyframes seismic-body-shake {
-            0%   { transform: translate3d(0,    0,    0); }
-            20%  { transform: translate3d(-2px,  1px,  0); }
-            40%  { transform: translate3d( 2px, -1px,  0); }
-            60%  { transform: translate3d(-1px,  2px,  0); }
-            80%  { transform: translate3d( 2px,  0px,  0); }
-            100% { transform: translate3d(0,    0,    0); }
-        }
 
-        /* ── KINETIC RACK: OVERSCAN BUFFER ──────────────────────────────────────
-           During seismic events the body translates ±2px, which as a transform-
-           ancestor of #stage (position:fixed) shifts the entire stage. Scaling
-           #vj-canvas 1.05× ensures the 5% bleed area absorbs that shift and
-           #stage's overflow:hidden clips the excess — no black edges exposed.
-           Scale is applied to the canvas only, keeping HUD elements unaffected. */
-        body.vb-seismic #vj-canvas,
-        body.seismic-active #vj-canvas {
+        /* ── MEDIA LAYER: SEISMIC ────────────────────────────────────────────────
+           Translations ride on the 1.1× base scale so they always stay within the
+           10% bleed area — the stage background is never revealed.
+           Body and #stage receive NO transform; HUD/UI layer stays 100% static. */
+        body.vb-seismic #media-layer,
+        body.seismic-active #media-layer {
             animation: kr-seismic-overscan 0.10s ease-in-out infinite;
         }
         @keyframes kr-seismic-overscan {
-            0%   { transform: scale(1.05) translate(0,      0);     }
-            10%  { transform: scale(1.05) translate(-10px,  10px);  }
-            20%  { transform: scale(1.05) translate( 10px, -10px);  }
-            30%  { transform: scale(1.05) translate(-8px,    6px);  }
-            40%  { transform: scale(1.05) translate(  8px,  -6px);  }
-            50%  { transform: scale(1.05) translate(-6px,    8px);  }
-            60%  { transform: scale(1.05) translate(  6px,  -8px);  }
-            70%  { transform: scale(1.05) translate(-4px,    4px);  }
-            80%  { transform: scale(1.05) translate(  4px,  -4px);  }
-            90%  { transform: scale(1.05) translate(-2px,    2px);  }
-            100% { transform: scale(1.05) translate(0,      0);     }
+            0%   { transform: scale(1.1) translate(0,      0);    }
+            10%  { transform: scale(1.1) translate(-9px,   9px);  }
+            20%  { transform: scale(1.1) translate( 9px,  -9px);  }
+            30%  { transform: scale(1.1) translate(-7px,   5px);  }
+            40%  { transform: scale(1.1) translate( 7px,  -5px);  }
+            50%  { transform: scale(1.1) translate(-5px,   7px);  }
+            60%  { transform: scale(1.1) translate( 5px,  -7px);  }
+            70%  { transform: scale(1.1) translate(-3px,   3px);  }
+            80%  { transform: scale(1.1) translate( 3px,  -3px);  }
+            90%  { transform: scale(1.1) translate(-1px,   1px);  }
+            100% { transform: scale(1.1) translate(0,      0);    }
         }
 
-        /* PUNCH: canvas scales UP on beat (outward zoom — never inward, which exposes edges) */
-        body.vb-punch #vj-canvas {
+        /* ── MEDIA LAYER: PUNCH ─────────────────────────────────────────────────
+           Returns to 1.1× base (not 1.0×) — spring pull-back can never dip below
+           the overscan floor, so black edges remain hidden at all times. */
+        body.vb-punch #media-layer {
             animation: kr-punch-zoom 0.20s ease-out forwards;
         }
         @keyframes kr-punch-zoom {
-            0%   { transform: scale(1.00); }
-            15%  { transform: scale(1.08); }
-            60%  { transform: scale(1.04); }
-            100% { transform: scale(1.00); }
+            0%   { transform: scale(1.1);  }
+            15%  { transform: scale(1.22); }
+            60%  { transform: scale(1.16); }
+            100% { transform: scale(1.1);  }
         }
 
-        /* Suppress scrollbar flash caused by body-translate during shake events */
+        /* Suppress scrollbar flash during effect events */
         body.seismic-active,
         body.vb-seismic,
         body.vb-punch { overflow: hidden; }
@@ -2745,7 +2746,7 @@ body.shooting-mode #btn-shooting {
         body.party-active .sidebar, body.party-active header, body.party-active footer {
             animation: none !important;
         }
-        body.seismic-active { animation: none !important; }
+        body.seismic-active #media-layer { animation: none !important; transform: scale(1.1) !important; }
 
         /* P2P modal: fit mobile viewport */
         #p2p-modal { right: 10px !important; left: 10px !important; width: auto !important; }
@@ -2948,27 +2949,12 @@ body.fx-nvg .sidebar { z-index: 9999; }
     pointer-events: none !important;
 }
 
-/* VINYL VISUAL LOCK — prevent layout overflow during seismic/punch events.
-   Constrains the primary canvas and off-screen AI video to viewport bounds
-   so boosted vinyl bass cannot cause elements to spill outside the screen. */
-body.seismic-active #vj-canvas,
-body.vb-seismic #vj-canvas,
-body.vb-punch #vj-canvas,
-body.fx-punch #vj-canvas {
-    object-fit: contain !important;
-    width: 100vw !important;
-    height: 100vh !important;
-    max-width: 100% !important;
-    max-height: 100% !important;
-    overflow: hidden;
-}
+/* #vj-canvas fills the media-layer completely; object-fit does not apply to <canvas>.
+   #media-layer's 1.1× CSS scale provides the overscan buffer. */
 #kr-ai-video {
-    object-fit: contain !important;
-    width: 100vw !important;
-    height: 100vh !important;
-    max-width: 100%;
-    max-height: 100%;
-    overflow: hidden;
+    object-fit: cover !important;
+    width: 100%;
+    height: 100%;
 }
 
 /* VOID: Full Collapse — harsh grayscale crunch + visible warp */
@@ -3941,18 +3927,23 @@ body.fullscreen #transcription-hud { pointer-events: none !important; } /* keep 
     </header>
 
     <main id="stage">
-        <canvas id="vj-canvas"></canvas>
-        <!-- VANGUARD_B post-process canvas — WebGL2 shader layer over VJ output -->
-        <canvas id="vb-canvas" style="position:absolute;top:0;left:0;width:100%;height:100%;z-index:1001;pointer-events:none;display:none;"></canvas>
-        <!-- VFX LAYER: WebGL chromatic-aberration / webcam displacement (Hyper-Tracker ratchet pulses) -->
-        <canvas id="vfx-layer" style="position:absolute;top:0;left:0;width:100%;height:100%;z-index:1002;pointer-events:none;opacity:0;transition:opacity 0.3s;"></canvas>
-        <!-- KINETIC RACK — Three.js WebGL post-processing pipeline -->
-        <!-- GIF overlay: DOM-rendered animated GIFs (not captured by captureStream) -->
-        <div id="gif-overlay" style="position:absolute; top:0; left:0; width:100%; height:100%; pointer-events:none; z-index: 1100;"></div>
-        <!-- 2D logo GIF overlay: positioned by rAF to match canvas logo coords -->
-        <img id="logo-gif-overlay" alt="" style="position:absolute;display:none;pointer-events:none;z-index:1200;image-rendering:auto;">
+        <!-- MEDIA LAYER — all canvas/GIF elements that receive seismic/punch transforms.
+             The 1.1× CSS base scale (see #media-layer rule) provides the overscan buffer.
+             #overlay-layer lives outside this div and is never transformed. -->
+        <div id="media-layer">
+            <canvas id="vj-canvas"></canvas>
+            <!-- VANGUARD_B post-process canvas — WebGL2 shader layer over VJ output -->
+            <canvas id="vb-canvas" style="position:absolute;top:0;left:0;width:100%;height:100%;z-index:1001;pointer-events:none;display:none;"></canvas>
+            <!-- VFX LAYER: WebGL chromatic-aberration / webcam displacement (Hyper-Tracker ratchet pulses) -->
+            <canvas id="vfx-layer" style="position:absolute;top:0;left:0;width:100%;height:100%;z-index:1002;pointer-events:none;opacity:0;transition:opacity 0.3s;"></canvas>
+            <!-- GIF overlay: DOM-rendered animated GIFs (not captured by captureStream) -->
+            <div id="gif-overlay" style="position:absolute; top:0; left:0; width:100%; height:100%; pointer-events:none; z-index: 1100;"></div>
+            <!-- 2D logo GIF overlay: positioned by rAF to match canvas logo coords -->
+            <img id="logo-gif-overlay" alt="" style="position:absolute;display:none;pointer-events:none;z-index:1200;image-rendering:auto;">
+        </div>
 
         <div id="glass-fracture-layer"></div>
+        <!-- OVERLAY LAYER — HUD/UI elements anchored to #stage; immune to media transforms. -->
         <div id="overlay-layer">
             <!-- V33 MANUAL LAYER SEPARATION -->
             <div id="station-bug">VNGRD</div>
@@ -7289,12 +7280,17 @@ function renderLoop(timestamp) {
     }
     APP.vj._canvasShakeX = finalShakeX;
     APP.vj._canvasShakeY = finalShakeY;
-    // Console shake: only if console mode is enabled
-    if (APP.vj.rumbleEnabled && APP.vj.seismicConsoleMode && (Math.abs(finalShakeX) > 0.5 || Math.abs(finalShakeY) > 0.5)) {
-        document.body.style.transform = 'translate3d(' + finalShakeX.toFixed(1) + 'px,' + finalShakeY.toFixed(1) + 'px,0)';
-    } else {
-        if (document.body.style.transform) document.body.style.transform = '';
+    // Apply shake to #media-layer only — HUD/UI layer is never touched.
+    // scale(1.1) base ensures translations stay within the 10% overscan bleed.
+    var _mediaLayerEl = document.getElementById('media-layer');
+    if (_mediaLayerEl) {
+        if (Math.abs(finalShakeX) > 0.5 || Math.abs(finalShakeY) > 0.5) {
+            _mediaLayerEl.style.transform = 'scale(1.1) translate3d(' + finalShakeX.toFixed(1) + 'px,' + finalShakeY.toFixed(1) + 'px,0)';
+        } else if (_mediaLayerEl.style.transform && _mediaLayerEl.style.transform !== 'scale(1.1)') {
+            _mediaLayerEl.style.transform = 'scale(1.1)';
+        }
     }
+    if (document.body.style.transform) document.body.style.transform = '';
 
     // --- PUNCH: BPM-linked beat pulser — TWEETER SPRING PHYSICS ---
     // Underdamped spring oscillator: canvas punches FORWARD then snaps BACK past rest
@@ -13883,7 +13879,11 @@ document.addEventListener('DOMContentLoaded', () => {
                 APP.vj.seismicConsoleMode = APP.vj.rumbleEnabled;
                 btn.classList.toggle('on', APP.vj.rumbleEnabled);
                 btn.classList.toggle('console-mode', APP.vj.rumbleEnabled);
-                if (!APP.vj.rumbleEnabled) document.body.style.transform = '';
+                if (!APP.vj.rumbleEnabled) {
+                    document.body.style.transform = '';
+                    var _mlOff = document.getElementById('media-layer');
+                    if (_mlOff) _mlOff.style.transform = 'scale(1.1)';
+                }
                 btn.title = APP.vj.rumbleEnabled ? 'SEISMIC: PERSISTENT\nClick: one-shot' : 'SEISMIC';
                 log(APP.vj.rumbleEnabled ? 'SEISMIC: PERSISTENT [CONSOLE+CANVAS]' : 'SEISMIC: OFF');
                 return;
