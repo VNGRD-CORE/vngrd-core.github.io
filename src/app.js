@@ -1462,22 +1462,23 @@ function updateVU() {
     const bassDelta = currentBass - APP.vj.lastBassLevel;
     APP.audio.bassLevel = currentBass;
     
-    // SEISMIC ENGINE: Target #media-layer only — HUD/UI stays anchored.
-    // scale(1.1) base keeps translations inside the 10% overscan bleed zone.
+    // SEISMIC ENGINE: Target ONLY the #stage, not the whole body
     if (APP.vj.rumbleEnabled) {
         if (bassDelta > 40 && currentBass > 150) {
             APP.vj.shakeIntensity = Math.min(1, currentBass / 200);
         }
-        const _ml = document.getElementById('media-layer');
+        
         if (APP.vj.shakeIntensity > 0.05) {
             const x = (Math.random() - 0.5) * 20 * APP.vj.shakeIntensity;
             const y = (Math.random() - 0.5) * 15 * APP.vj.shakeIntensity;
             const r = (Math.random() - 0.5) * 4 * APP.vj.shakeIntensity;
-            if (_ml) _ml.style.transform = `scale(1.1) translate3d(${x}px, ${y}px, 0) rotate(${r}deg)`;
+            
+            // FIX: translate3d triggers the GPU; targeting 'stage' keeps UI stable
+            $('stage').style.transform = `translate3d(${x}px, ${y}px, 0) rotate(${r}deg)`;
             APP.vj.shakeIntensity *= 0.88;
         } else {
             APP.vj.shakeIntensity = 0;
-            if (_ml) _ml.style.transform = 'scale(1.1)';
+            $('stage').style.transform = '';
         }
     }
     
