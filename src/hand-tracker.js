@@ -1,17 +1,14 @@
 /**
- * hand-tracker.js — MediaPipe Tasks HandLandmarker (GPU-accelerated).
+ * hand-tracker.js — MediaPipe HandLandmarker offloaded to a Web Worker.
  *
  *   - No internal rAF or requestVideoFrameCallback loop.
  *   - Detection is driven exclusively by KineticRack._loop() via
  *     window._detectHandsOnce(video, now), throttled to ~20 FPS.
- *   - Single source of truth: writes window._latestHandsLm and calls
- *     window._handTrackFeed(right, left) only when landmarks change
- *     significantly.
- *
- * KineticRack's _detectHands reads window._latestHandsLm each render frame;
- * the one-euro filter in index.html smooths the raw landmarks before they
- * ever hit audio or draw. No main-thread MP graph, no worker, no
- * getImageData per frame.
+ *   - Each call: createImageBitmap(video) → transfer to worker → worker runs
+ *     detectForVideo → posts {right,left} back → _pushLandmarks updates state.
+ *   - Main thread never calls detectForVideo. No getImageData. No pixel reads.
+ *   - Single source of truth: window._latestHandsLm; _handTrackFeed only on
+ *     significant landmark change.
  */
 
 (function () {
@@ -22,7 +19,8 @@
     const MODEL_URL  = 'https://storage.googleapis.com/mediapipe-models/hand_landmarker/hand_landmarker/float16/latest/hand_landmarker.task';
 
     let _started        = false;
-    let _landmarker     = null;
+    let _worker         = null;
+    let _workerReady    = false;
     let _detectInFlight = false;
     let _lastDetectAt   = 0;
 
@@ -53,62 +51,57 @@
         }
     }
 
-    function _pickFromTasksResult(res) {
-        let right = null, left = null;
-        if (!res || !res.landmarks || !res.handednesses) return { right, left };
-        for (let i = 0; i < res.landmarks.length; i++) {
-            const hand  = res.handednesses[i];
-            const label = hand && hand[0] && hand[0].categoryName;
-            const lms   = res.landmarks[i];
-            // MediaPipe Tasks reports handedness from the camera POV; we mirror
-            // X in the UI feed (1 - x) so the camera's 'Right' is the user's
-            // right hand in the frame.
-            if (label === 'Right') right = lms;
-            else if (label === 'Left') left = lms;
-        }
-        return { right, left };
+    function _initWorker() {
+        _worker = new Worker('./src/mediapipe-worker.js', { type: 'module' });
+
+        _worker.onmessage = function (e) {
+            const { type, right, left } = e.data;
+            if (type === 'READY') {
+                _workerReady = true;
+                console.log('[HandSynth] MediaPipe worker ready (CPU delegate, off-thread)');
+                return;
+            }
+            if (type === 'RESULT') {
+                _detectInFlight = false;
+                _pushLandmarks(right, left);
+                return;
+            }
+            if (type === 'ERROR') {
+                console.warn('[HandSynth] Worker error:', e.data.message);
+            }
+        };
+
+        _worker.onerror = function (e) {
+            console.warn('[HandSynth] Worker crashed:', e);
+            _workerReady    = false;
+            _detectInFlight = false;
+        };
     }
 
-    async function _initLandmarker() {
-        const mod  = await import(TASKS_CDN + '/vision_bundle.mjs');
-        const fs   = await mod.FilesetResolver.forVisionTasks(WASM_BASE);
-        _landmarker = await mod.HandLandmarker.createFromOptions(fs, {
-            baseOptions: {
-                modelAssetPath: MODEL_URL,
-                delegate:       'GPU',
-            },
-            runningMode:                'VIDEO',
-            numHands:                   2,
-            minHandDetectionConfidence: 0.5,
-            minHandPresenceConfidence:  0.5,
-            minTrackingConfidence:      0.5,
-        });
-        console.log('[HandSynth] MediaPipe Tasks HandLandmarker (GPU) ready');
-    }
-
-    // Called by KineticRack._loop() — no internal rAF/rVFC loop needed.
-    function _detectOnce(video, now) {
-        if (!_landmarker || _detectInFlight) return;
+    // Called by KineticRack._loop() — fire-and-forget, no awaiting in mainLoop.
+    async function _detectOnce(video, now) {
+        if (!_worker || !_workerReady || _detectInFlight) return;
         if (!video || video.readyState < 2) return;
         if (document.hidden) return;
-        // ~20 FPS throttle — MediaPipe needs ~50 ms between calls to be useful.
+        // ~20 FPS throttle
         if (now - _lastDetectAt < 50) return;
-        _lastDetectAt = now;
+        _lastDetectAt   = now;
+        _detectInFlight = true;  // held until worker posts RESULT
 
-        _detectInFlight = true;
+        let bitmap;
         try {
-            const res = _landmarker.detectForVideo(video, now);
-            const picked = _pickFromTasksResult(res);
-            _pushLandmarks(picked.right, picked.left);
+            bitmap = await createImageBitmap(video);
         } catch (e) {
-            // swallow — don't let a detect blip kill the loop
+            _detectInFlight = false;
+            return;
         }
-        _detectInFlight = false;
+        // Transfer bitmap — zero-copy; neutered on main thread after this line.
+        _worker.postMessage({ type: 'DETECT', imageBitmap: bitmap, now }, [bitmap]);
     }
 
     window._detectHandsOnce = _detectOnce;
 
-    window._startHandTracker = async function () {
+    window._startHandTracker = function () {
         if (_started) return;
         const vid = document.getElementById('kr-ai-video');
         if (!vid) {
@@ -117,16 +110,9 @@
             return;
         }
         _started = true;
-
-        try {
-            await _initLandmarker();
-        } catch (e) {
-            console.warn('[HandSynth] HandLandmarker init failed:', e);
-            _started = false;
-            return;
-        }
-        // Detection is driven by KineticRack._loop() via window._detectHandsOnce.
-        console.log('[HandSynth] Ready — awaiting mainLoop-driven detection');
+        // Spin up the worker; it posts READY when the model is loaded.
+        // _detectOnce is gated on _workerReady so no frames fly before then.
+        _initWorker();
     };
 
     // Auto-start once #kr-ai-video has a MediaStream.

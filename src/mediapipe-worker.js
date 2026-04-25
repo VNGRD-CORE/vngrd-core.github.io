@@ -1,132 +1,81 @@
 /**
- * mediapipe-worker.js — Isolated MediaPipe Hand Landmarker
+ * mediapipe-worker.js — MediaPipe HandLandmarker running off the main thread.
  *
- * Runs entirely off the main thread. Receives raw RGBA pixel buffers from
- * the main thread via Transferable ArrayBuffers, runs detection, and posts
- * back packed landmark Float32Arrays — also as Transferables — at 60 FPS.
- *
- * Protocol:
+ * Protocol (ImageBitmap path — no getImageData, no pixel reads):
  *   Main → Worker:
- *     { type: 'INIT' }
- *     { type: 'DETECT', buffer: ArrayBuffer, width: number, height: number, timestamp: number }
+ *     { type: 'DETECT', imageBitmap: ImageBitmap, now: number }
+ *       imageBitmap is transferred (zero-copy); worker closes it after use.
  *
  *   Worker → Main:
  *     { type: 'READY' }
- *     { type: 'ERROR', message: string }
- *     { type: 'LANDMARKS', data: ArrayBuffer, handedness: ArrayBuffer, count: number }
- *       data      — Float32Array: [hand0_lm0_x, hand0_lm0_y, hand0_lm0_z, …, hand1_lm20_z]
- *                   2 hands × 21 landmarks × 3 floats = 126 floats
- *       handedness — Uint8Array[2]:  0=unknown, 1=Left, 2=Right
- *       count      — number of hands detected (0–2)
+ *     { type: 'RESULT', right: {x,y,z}[] | null, left: {x,y,z}[] | null }
+ *     { type: 'ERROR',  message: string }
+ *
+ * No loops, no rAF. One frame in, one RESULT out.
  */
 
 'use strict';
 
-const LMS_PER_HAND  = 21;
-const FLOATS_PER_LM = 3;
-const LM_FLOATS     = LMS_PER_HAND * FLOATS_PER_LM; // 63
-const MAX_HANDS     = 2;
+const TASKS_CDN = 'https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@0.10.14';
+const WASM_BASE = TASKS_CDN + '/wasm';
+const MODEL_URL = 'https://storage.googleapis.com/mediapipe-models/hand_landmarker/hand_landmarker/float16/latest/hand_landmarker.task';
 
-let handLandmarker = null;
-let ready          = false;
+let _landmarker = null;
+let _ready      = false;
 
-// ── Initialise MediaPipe inside the Worker context ────────────────────────────
-
-async function initWorker() {
+async function _init() {
     try {
-        // Dynamic import works in module workers
-        const { HandLandmarker, FilesetResolver } = await import(
-            'https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@0.10.14/vision_bundle.js'
-        );
-
-        const vision = await FilesetResolver.forVisionTasks(
-            'https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@0.10.14/wasm'
-        );
-
-        handLandmarker = await HandLandmarker.createFromOptions(vision, {
+        const mod = await import(TASKS_CDN + '/vision_bundle.mjs');
+        const fs  = await mod.FilesetResolver.forVisionTasks(WASM_BASE);
+        _landmarker = await mod.HandLandmarker.createFromOptions(fs, {
             baseOptions: {
-                modelAssetPath: 'https://storage.googleapis.com/mediapipe-models/hand_landmarker/hand_landmarker/float16/1/hand_landmarker.task',
-                // GPU delegate is not available in Worker context; CPU is reliable
-                delegate: 'CPU',
+                modelAssetPath: MODEL_URL,
+                delegate:       'CPU',  // WebGL not available in Worker context
             },
-            runningMode:                'IMAGE', // VIDEO mode requires DOM video element
-            numHands:                   MAX_HANDS,
-            minHandDetectionConfidence: 0.6,
-            minHandPresenceConfidence:  0.6,
+            runningMode:                'VIDEO',
+            numHands:                   2,
+            minHandDetectionConfidence: 0.5,
+            minHandPresenceConfidence:  0.5,
             minTrackingConfidence:      0.5,
         });
-
-        ready = true;
+        _ready = true;
         self.postMessage({ type: 'READY' });
-
     } catch (err) {
-        self.postMessage({ type: 'ERROR', message: err.message });
+        self.postMessage({ type: 'ERROR', message: String(err) });
     }
 }
 
-// ── Detection & packing ───────────────────────────────────────────────────────
-
-function detect(buffer, width, height, timestamp) {
-    if (!ready || !handLandmarker) return;
-
-    // Reconstruct ImageData from the transferred pixel buffer
-    let imageData;
-    try {
-        imageData = new ImageData(new Uint8ClampedArray(buffer), width, height);
-    } catch (e) {
-        return; // invalid frame dimensions
+function _pick(res) {
+    let right = null, left = null;
+    if (!res || !res.landmarks || !res.handednesses) return { right, left };
+    for (let i = 0; i < res.landmarks.length; i++) {
+        const label = res.handednesses[i]?.[0]?.categoryName;
+        // Map to plain {x,y,z} objects so structured clone is guaranteed clean.
+        const plain = res.landmarks[i].map(({ x, y, z }) => ({ x, y, z }));
+        if (label === 'Right') right = plain;
+        else if (label === 'Left')  left  = plain;
     }
-
-    let results;
-    try {
-        // detectForVideo requires timestamp; detect() works with ImageData in IMAGE mode
-        results = handLandmarker.detect(imageData);
-    } catch (_) { return; }
-
-    const hands      = results?.landmarks  ?? [];
-    const handedness = results?.handedness ?? [];
-    const count      = Math.min(hands.length, MAX_HANDS);
-
-    // Allocate output Transferables
-    const landmarkBuf  = new Float32Array(MAX_HANDS * LM_FLOATS);
-    const handednessBuf = new Uint8Array(MAX_HANDS);
-
-    for (let h = 0; h < count; h++) {
-        const lms   = hands[h];
-        const label = handedness[h]?.[0]?.categoryName;
-        handednessBuf[h] = label === 'Left' ? 1 : label === 'Right' ? 2 : 0;
-
-        const base = h * LM_FLOATS;
-        for (let l = 0; l < LMS_PER_HAND; l++) {
-            landmarkBuf[base + l * FLOATS_PER_LM]     = lms[l]?.x ?? 0;
-            landmarkBuf[base + l * FLOATS_PER_LM + 1] = lms[l]?.y ?? 0;
-            landmarkBuf[base + l * FLOATS_PER_LM + 2] = lms[l]?.z ?? 0;
-        }
-    }
-
-    // Transfer — zero-copy back to main thread
-    self.postMessage(
-        {
-            type:       'LANDMARKS',
-            data:       landmarkBuf.buffer,
-            handedness: handednessBuf.buffer,
-            count,
-        },
-        [landmarkBuf.buffer, handednessBuf.buffer]
-    );
+    return { right, left };
 }
 
-// ── Message handler ───────────────────────────────────────────────────────────
+self.onmessage = function (e) {
+    const { type, imageBitmap, now } = e.data;
 
-self.onmessage = (e) => {
-    const { type, buffer, width, height, timestamp } = e.data;
+    if (type !== 'DETECT') return;
 
-    if (type === 'INIT') {
-        initWorker();
+    if (!_ready || !_landmarker) {
+        imageBitmap?.close();
+        self.postMessage({ type: 'RESULT', right: null, left: null });
         return;
     }
 
-    if (type === 'DETECT') {
-        detect(buffer, width, height, timestamp);
-    }
+    let right = null, left = null;
+    try {
+        const res = _landmarker.detectForVideo(imageBitmap, now);
+        ({ right, left } = _pick(res));
+    } catch (_) { /* swallow blip — RESULT with nulls keeps _detectInFlight unblocked */ }
+    imageBitmap?.close();
+    self.postMessage({ type: 'RESULT', right, left });
 };
+
+_init();
