@@ -977,6 +977,7 @@ class KineticRack {
             }
             if (aiVid) {
                 aiVid.srcObject = stream;
+                this._aiVid = aiVid;
                 await aiVid.play().catch(() => {});
             }
             this._setStatus('CAM OK');
@@ -1105,7 +1106,7 @@ class KineticRack {
 
         this._leftPinchCooldown = Math.max(0, this._leftPinchCooldown - dt);
 
-        this._detectHands();
+        this._detectHands(now);
 
         const fft = this._audio.getFFT();
         this._particles?.update(fft, this._elapsed, dt);
@@ -1115,21 +1116,17 @@ class KineticRack {
 
     // ── Hand detection ────────────────────────────────────────────────────────
 
-    _detectHands() {
-        // Landmarks come from the CDN main-thread tracker (hand-tracker.js)
-        // which writes window._latestHandsLm after every MediaPipe detection.
-        // No per-frame getImageData / worker postMessage here — that was the
-        // FPS killer.
+    _detectHands(now) {
+        // Drive MediaPipe detection from the main loop (single-loop architecture).
+        // _detectHandsOnce is throttled to ~20 FPS internally and guards against
+        // overlapping calls via _detectInFlight. _handTrackFeed is called inside
+        // hand-tracker.js only when landmarks change significantly — not here.
+        if (typeof window._detectHandsOnce === 'function' && this._aiVid) {
+            window._detectHandsOnce(this._aiVid, now);
+        }
+
         const cdnFeed = window._latestHandsLm || null;
         const rightLm = cdnFeed ? cdnFeed.right : null;
-        const leftLm  = cdnFeed ? cdnFeed.left  : null;
-
-        // _handTrackFeed handles audio (pitch/filter/FM/LFO) and the
-        // velocity-extrapolated skeleton HUD — single source of truth.
-        if (typeof window._handTrackFeed === 'function') {
-            try { window._handTrackFeed(rightLm || null, leftLm || null); }
-            catch (e) { /* never let UI feed kill the render loop */ }
-        }
 
         if (rightLm) {
             const lm8 = rightLm[8];

@@ -1,15 +1,12 @@
 /**
  * hand-tracker.js — MediaPipe Tasks HandLandmarker (GPU-accelerated).
  *
- * Upgraded from the legacy @mediapipe/hands graph-runtime CDN build:
- *
- *   - Uses the new @mediapipe/tasks-vision HandLandmarker, which runs via a
- *     WebGL/GPU delegate (2-3x faster detect on most laptops).
- *   - Driven by video.requestVideoFrameCallback(): detection fires exactly
- *     when the camera produces a new frame, not on rAF phase. Eliminates
- *     the 1-frame jitter you got when render and detect were out of sync.
+ *   - No internal rAF or requestVideoFrameCallback loop.
+ *   - Detection is driven exclusively by KineticRack._loop() via
+ *     window._detectHandsOnce(video, now), throttled to ~20 FPS.
  *   - Single source of truth: writes window._latestHandsLm and calls
- *     window._handTrackFeed(right, left) after every successful detect.
+ *     window._handTrackFeed(right, left) only when landmarks change
+ *     significantly.
  *
  * KineticRack's _detectHands reads window._latestHandsLm each render frame;
  * the one-euro filter in index.html smooths the raw landmarks before they
@@ -24,14 +21,30 @@
     const WASM_BASE  = TASKS_CDN + '/wasm';
     const MODEL_URL  = 'https://storage.googleapis.com/mediapipe-models/hand_landmarker/hand_landmarker/float16/latest/hand_landmarker.task';
 
-    let _started       = false;
-    let _landmarker    = null;
+    let _started        = false;
+    let _landmarker     = null;
     let _detectInFlight = false;
-    let _lastDetectAt  = 0;
+    let _lastDetectAt   = 0;
 
     window._latestHandsLm = { right: null, left: null };
 
+    // Minimum per-landmark movement (normalised 0-1 coords) to trigger a feed update.
+    const _CHANGE_THRESH = 0.008;
+
+    function _landmarksDiffer(a, b) {
+        if (!a && !b) return false;
+        if (!a || !b) return true;
+        for (const idx of [0, 8, 12]) {
+            const dx = a[idx].x - b[idx].x;
+            const dy = a[idx].y - b[idx].y;
+            if (dx * dx + dy * dy > _CHANGE_THRESH * _CHANGE_THRESH) return true;
+        }
+        return false;
+    }
+
     function _pushLandmarks(right, left) {
+        const prev = window._latestHandsLm;
+        if (!_landmarksDiffer(right, prev.right) && !_landmarksDiffer(left, prev.left)) return;
         window._latestHandsLm.right = right;
         window._latestHandsLm.left  = left;
         if (typeof window._handTrackFeed === 'function') {
@@ -73,36 +86,13 @@
         console.log('[HandSynth] MediaPipe Tasks HandLandmarker (GPU) ready');
     }
 
-    function _startDetectLoop(video) {
-        // Prefer requestVideoFrameCallback — fires exactly when a new camera
-        // frame is decoded. Falls back to rAF where unavailable (Firefox <132).
-        const hasVFC = typeof video.requestVideoFrameCallback === 'function';
-
-        function _pumpVFC(_now, _meta) {
-            _detectOnce(video);
-            video.requestVideoFrameCallback(_pumpVFC);
-        }
-        function _pumpRAF() {
-            _detectOnce(video);
-            requestAnimationFrame(_pumpRAF);
-        }
-
-        if (hasVFC) {
-            video.requestVideoFrameCallback(_pumpVFC);
-            console.log('[HandSynth] Detect loop: requestVideoFrameCallback');
-        } else {
-            requestAnimationFrame(_pumpRAF);
-            console.log('[HandSynth] Detect loop: rAF (fallback)');
-        }
-    }
-
-    function _detectOnce(video) {
+    // Called by KineticRack._loop() — no internal rAF/rVFC loop needed.
+    function _detectOnce(video, now) {
         if (!_landmarker || _detectInFlight) return;
         if (!video || video.readyState < 2) return;
-        // De-dupe on the same video frame (rVFC can fire multiple times per
-        // frame with fast cameras; Tasks needs monotonically-increasing ts).
-        const now = performance.now();
-        if (now - _lastDetectAt < 4) return;
+        if (document.hidden) return;
+        // ~20 FPS throttle — MediaPipe needs ~50 ms between calls to be useful.
+        if (now - _lastDetectAt < 50) return;
         _lastDetectAt = now;
 
         _detectInFlight = true;
@@ -115,6 +105,8 @@
         }
         _detectInFlight = false;
     }
+
+    window._detectHandsOnce = _detectOnce;
 
     window._startHandTracker = async function () {
         if (_started) return;
@@ -133,7 +125,8 @@
             _started = false;
             return;
         }
-        _startDetectLoop(vid);
+        // Detection is driven by KineticRack._loop() via window._detectHandsOnce.
+        console.log('[HandSynth] Ready — awaiting mainLoop-driven detection');
     };
 
     // Auto-start once #kr-ai-video has a MediaStream.
