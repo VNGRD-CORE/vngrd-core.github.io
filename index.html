@@ -9888,6 +9888,7 @@ var VFXLayer = (function() {
     var _camSource  = null;  // live <video> element (webcam feed)
     var _pulse      = 0.0;   // accumulated pulse value [0..1]
     var _ready      = false;
+    var _frameT0    = 0;     // ── PHASE F Task 2: start time for u_time uniform ──
 
     /* ── Vertex shader: full-screen clip-space quad ── */
     var VS = [
@@ -10002,53 +10003,55 @@ var VFXLayer = (function() {
         return true;
     }
 
-    function _startLoop() {
-        var t0 = performance.now();
+    // ── PHASE F Task 2: pure tick — called from mainLoop with rAF timestamp ──
+    function _frameTick(now) {
+        if (!_ready || !_gl) return;
         var gl = _gl;
 
-        (function _frame(now) {
-            requestAnimationFrame(_frame);
-            if (!_ready || !gl) return;
+        // Resize to CSS display size
+        var w = _canvas.clientWidth  | 0;
+        var h = _canvas.clientHeight | 0;
+        if (_canvas.width !== w || _canvas.height !== h) {
+            _canvas.width = w; _canvas.height = h;
+            gl.viewport(0, 0, w, h);
+        }
 
-            // Resize to CSS display size
-            var w = _canvas.clientWidth  | 0;
-            var h = _canvas.clientHeight | 0;
-            if (_canvas.width !== w || _canvas.height !== h) {
-                _canvas.width = w; _canvas.height = h;
-                gl.viewport(0, 0, w, h);
-            }
+        // Exponential pulse decay (~8 frames at 60fps)
+        _pulse *= 0.88;
+        if (_pulse < 0.001) _pulse = 0.0;
 
-            // Exponential pulse decay (~8 frames at 60fps)
-            _pulse *= 0.88;
-            if (_pulse < 0.001) _pulse = 0.0;
+        // Show layer opacity proportional to pulse
+        _canvas.style.opacity = _pulse > 0.01
+            ? String(Math.min(0.78, _pulse * 1.3)) : '0';
 
-            // Show layer opacity proportional to pulse
-            _canvas.style.opacity = _pulse > 0.01
-                ? String(Math.min(0.78, _pulse * 1.3)) : '0';
+        // Upload live webcam frame
+        var hasCam = 0;
+        if (_camSource && _camSource.readyState >= 2) {
+            gl.activeTexture(gl.TEXTURE0);
+            gl.bindTexture(gl.TEXTURE_2D, _camTexture);
+            try {
+                gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA,
+                    gl.RGBA, gl.UNSIGNED_BYTE, _camSource);
+                hasCam = 1;
+            } catch(e) {}
+        }
 
-            // Upload live webcam frame
-            var hasCam = 0;
-            if (_camSource && _camSource.readyState >= 2) {
-                gl.activeTexture(gl.TEXTURE0);
-                gl.bindTexture(gl.TEXTURE_2D, _camTexture);
-                try {
-                    gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA,
-                        gl.RGBA, gl.UNSIGNED_BYTE, _camSource);
-                    hasCam = 1;
-                } catch(e) {}
-            }
+        gl.useProgram(_prog);
+        gl.uniform1f(_unifTime,   (now - _frameT0) * 0.001);
+        gl.uniform2f(_unifRes,    w, h);
+        gl.uniform1f(_unifPulse,  _pulse);
+        gl.uniform1i(_unifCam,    0);
+        gl.uniform1i(_unifHasCam, hasCam);
 
-            gl.useProgram(_prog);
-            gl.uniform1f(_unifTime,   (now - t0) * 0.001);
-            gl.uniform2f(_unifRes,    w, h);
-            gl.uniform1f(_unifPulse,  _pulse);
-            gl.uniform1i(_unifCam,    0);
-            gl.uniform1i(_unifHasCam, hasCam);
+        gl.clearColor(0, 0, 0, 0);
+        gl.clear(gl.COLOR_BUFFER_BIT);
+        gl.drawArrays(gl.TRIANGLE_STRIP, 0, 4);
+    }
 
-            gl.clearColor(0, 0, 0, 0);
-            gl.clear(gl.COLOR_BUFFER_BIT);
-            gl.drawArrays(gl.TRIANGLE_STRIP, 0, 4);
-        })(performance.now());
+    function _startLoop() {
+        _frameT0 = performance.now();
+        // Expose tick to mainLoop (which lives outside this IIFE)
+        window._vfxFrameTick = _frameTick;
     }
 
     // ── Public API ────────────────────────────────────────────
@@ -13231,17 +13234,16 @@ function initMicDucking(micStream) {
         APP.audio.micSource = APP.audio.ctx.createMediaStreamSource(micStream);
         APP.audio.micSource.connect(APP.audio.micAnalyzer);
         APP.audio.duckingActive = true;
-        monitorDucking();
+        // ── PHASE F: mainLoop drives updateDucking() — no explicit boot needed ──
         log('DUCKING: ARMED_-20dB');
     } catch (e) { log('DUCKING_ERR: ' + e.message); }
 }
 
-// ── PHASE D: pre-allocated buffer — reused every frame, eliminates per-frame GC pressure ──
+// ── PHASE F Task 3: own rAF removed — called from mainLoop every frame ──
 var _duckingBuf = null;
 
-function monitorDucking() {
+function updateDucking() {
     if (!APP.audio.duckingActive || !APP.audio.micAnalyzer) return;
-    requestAnimationFrame(monitorDucking);
     // Reallocate only if analyzer size changed (e.g. after mic reinit); normally reuses same buffer
     var _needed = APP.audio.micAnalyzer.frequencyBinCount;
     if (!_duckingBuf || _duckingBuf.length !== _needed) _duckingBuf = new Float32Array(_needed);
@@ -17767,6 +17769,15 @@ function mainLoop(timestamp) {
 
     // Phase E Task 2: audio reactor (was its own rAF loop in a separate script block)
     if (window._audioReactorTick) window._audioReactorTick();
+
+    // Phase F Task 1: WebGL VU bar shader (was _vbRender own rAF)
+    if (window._vbRenderTick) window._vbRenderTick();
+
+    // Phase F Task 2: VFXLayer chromatic aberration shader (was _frame IIFE rAF)
+    if (window._vfxFrameTick) window._vfxFrameTick(timestamp);
+
+    // Phase F Task 3: mic ducking monitor (was monitorDucking own rAF)
+    updateDucking();
 }
 
 function startMainLoop() {
@@ -20040,9 +20051,8 @@ function _initVB() {
     _vbInited = true;
 }
 
-// ── Render loop ───────────────────────────────────────────────────────
+// ── Render tick — PHASE F Task 1: own rAF removed, called from mainLoop every frame ──
 function _vbRender() {
-    _vbRAF = requestAnimationFrame(_vbRender);
     var shader = _vbShader;
     if (!shader || !_vbInited) return;
 
@@ -20121,7 +20131,7 @@ function _vbActivate(shaderName, persistent) {
     var vbCanvas = document.getElementById('vb-canvas');
     _vbShader = shaderName;
     if (vbCanvas) vbCanvas.style.display = 'block';
-    if (!_vbRAF) _vbRender();
+    // ── PHASE F: rAF boot removed — mainLoop drives _vbRender via window._vbRenderTick ──
     if (persistent) {
         _vbLocked[shaderName] = true;
     }
@@ -20164,6 +20174,8 @@ function _vbUpdateUI(shaderName, locked) {
 // Expose internals for coupling and ghost voice commands
 window._vbActivate   = function(sn, p) { _vbActivate(sn, p); };
 window._vbDeactivate = function(sn)    { _vbDeactivate(sn); };
+// ── PHASE F Task 1: expose tick so mainLoop (outside this IIFE) can drive rendering ──
+window._vbRenderTick = _vbRender;
 
 window._setFXBank = function(bank) {
     _vbActive = (bank === 'B');
