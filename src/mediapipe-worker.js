@@ -63,6 +63,8 @@ self.onmessage = function (e) {
 
     if (type !== 'DETECT') return;
 
+    console.log('[worker] received frame, ready:', _ready);
+
     if (!_ready || !_landmarker) {
         imageBitmap?.close();
         self.postMessage({ type: 'RESULT', right: null, left: null });
@@ -70,10 +72,12 @@ self.onmessage = function (e) {
     }
 
     let right = null, left = null;
+    console.time('detect');
     try {
         const res = _landmarker.detectForVideo(imageBitmap, now);
         ({ right, left } = _pick(res));
     } catch (_) { /* swallow blip — RESULT with nulls keeps _detectInFlight unblocked */ }
+    console.timeEnd('detect');
     imageBitmap?.close();
     self.postMessage({ type: 'RESULT', right, left });
 };

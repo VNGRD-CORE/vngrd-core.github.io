@@ -74,7 +74,12 @@ void main() {
 //  FFTParticles — 8192 shader-driven GPU particles on a sphere
 // ─────────────────────────────────────────────────────────────────────────────
 
-const N_PARTICLES     = 8192;
+// ── DIAGNOSTIC TOGGLES — flip to isolate subsystems, revert when done ────────
+const DISABLE_DETECTION = false;  // skip _detectHandsOnce entirely
+const REDUCE_PARTICLES  = false;  // drop particle count to 512 for render test
+// ─────────────────────────────────────────────────────────────────────────────
+
+const N_PARTICLES     = REDUCE_PARTICLES ? 512 : 8192;
 const SUB_BASS_THRESH = 0.68;
 
 class FFTParticles {
@@ -881,6 +886,8 @@ class KineticRack {
         this._rafId       = null;
         this._elapsed     = 0;
         this._lastNow     = 0;
+        this._frameCount  = 0;
+        this._lastLogAt   = 0;
 
         // Smoothed gesture values
         this._s = {
@@ -1104,9 +1111,24 @@ class KineticRack {
         this._lastNow = now;
         this._elapsed += dt;
 
+        // ── FPS + worker-traffic diagnostics (log every second) ───────────────
+        this._frameCount++;
+        if (now - this._lastLogAt >= 1000) {
+            console.log('[DIAG] FPS:', this._frameCount,
+                '| worker sent:', window._dbgSent || 0,
+                '| worker recv:', window._dbgRecv || 0);
+            this._frameCount = 0;
+            this._lastLogAt  = now;
+            window._dbgSent  = 0;
+            window._dbgRecv  = 0;
+        }
+        // ─────────────────────────────────────────────────────────────────────
+
         this._leftPinchCooldown = Math.max(0, this._leftPinchCooldown - dt);
 
-        this._detectHands(now);
+        if (!DISABLE_DETECTION) {
+            this._detectHands(now);
+        }
 
         const fft = this._audio.getFFT();
         this._particles?.update(fft, this._elapsed, dt);
