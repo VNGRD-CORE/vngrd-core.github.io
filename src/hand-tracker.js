@@ -62,6 +62,8 @@
                 return;
             }
             if (type === 'RESULT') {
+                console.timeEnd('workerRoundtrip');
+                window._dbgRecv = (window._dbgRecv || 0) + 1;
                 _detectInFlight = false;
                 _pushLandmarks(right, left);
                 return;
@@ -89,14 +91,21 @@
         _detectInFlight = true;  // held until worker posts RESULT
 
         let bitmap;
+        console.time('bitmap');
         try {
             bitmap = await createImageBitmap(video);
         } catch (e) {
+            console.timeEnd('bitmap');
             _detectInFlight = false;
             return;
         }
-        // Transfer bitmap — zero-copy; neutered on main thread after this line.
+        console.timeEnd('bitmap');
+
+        console.time('workerRoundtrip');
+        console.time('postMessage');
         _worker.postMessage({ type: 'DETECT', imageBitmap: bitmap, now }, [bitmap]);
+        console.timeEnd('postMessage');
+        window._dbgSent = (window._dbgSent || 0) + 1;
     }
 
     window._detectHandsOnce = _detectOnce;
