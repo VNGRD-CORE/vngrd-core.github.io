@@ -12188,17 +12188,17 @@ function setAudioMode(mode) {
     });
 }
 
+// ── PHASE E Task 1: own rAF removed — called from mainLoop every frame ──
 function updateVU() {
-    requestAnimationFrame(updateVU);
     if (!APP.audio.analyzer || (!APP.audio.isPlaying && !APP.audio.videoSource && !APP.audio.sfxPlaying)) return;
     APP.audio.analyzer.getByteFrequencyData(APP.audio.vuData);
-    const bars = $('vu').children; 
+    const bars = $('vu').children;
     if(bars.length === 0) { const vu = $('vu'); for (let i = 0; i < 16; i++) { const bar = document.createElement('div'); bar.className = 'vu-bar'; vu.appendChild(bar); } }
     for (let i = 0; i < bars.length; i++) bars[i].style.height = Math.max(2, (APP.audio.vuData[i * 2] / 255) * 28) + 'px';
-    
+
     const bass = (APP.audio.vuData[0] + APP.audio.vuData[1]) / 2;
     APP.audio.bassLevel = bass;
-    
+
     // LIGHT PLAY (PARTY MODE)
     if(APP.vj.uiReactivity && bass > 200) {
         document.body.style.boxShadow = `inset 0 0 ${bass/2}px var(--accent)`;
@@ -17761,6 +17761,12 @@ function mainLoop(timestamp) {
 
     // Phase C: audio input level meter (was an rAF loop that stacked on every input switch)
     if (window._inputLevelTick) window._inputLevelTick();
+
+    // Phase E Task 1: VU meter (was its own rAF loop)
+    updateVU();
+
+    // Phase E Task 2: audio reactor (was its own rAF loop in a separate script block)
+    if (window._audioReactorTick) window._audioReactorTick();
 }
 
 function startMainLoop() {
@@ -17976,6 +17982,39 @@ window.triggerHardReset = function() {
 };</script>
 <script>
 // --- BASS REACTIVE VJ ENGINE ---
+// ── PHASE E Task 2: state lifted out of initAudioReactor so the tick runs via mainLoop ──
+var _arAnalyzer      = null;
+var _arData          = null;
+var _arLastPunchTime = 0;
+var _arCooldown      = 300;   // ms — minimum gap between punch triggers
+var _arBassThreshold = 210;   // 0-255 threshold for a kick hit
+
+// Pure tick — called from mainLoop every frame.
+// initAudioReactor() must have run first to populate _arAnalyzer/_arData.
+function updateAudioReactor() {
+    if (!window.audioReactorActive || !_arAnalyzer || !_arData) return;
+
+    _arAnalyzer.getByteFrequencyData(_arData);
+
+    // Average the lowest 8 bins (sub-bass / kick drum)
+    let bassSum = 0;
+    for (let i = 0; i < 8; i++) bassSum += _arData[i];
+    const bassAvg = bassSum / 8;
+
+    const now = Date.now();
+    if (bassAvg > _arBassThreshold && (now - _arLastPunchTime > _arCooldown)) {
+        const stage = document.getElementById('stage');
+        if (stage) {
+            stage.style.animation = 'none';
+            void stage.offsetWidth; // force reflow to restart animation
+            stage.style.animation = 'kinetic-punch 0.25s cubic-bezier(0.25, 1, 0.5, 1)';
+        }
+        _arLastPunchTime = now;
+    }
+}
+// Expose so mainLoop (in the main script block) can call it
+window._audioReactorTick = updateAudioReactor;
+
 window.initAudioReactor = function() {
     if (window.audioReactorActive) {
         console.log("[SYS] REACTOR: ALREADY RUNNING");
@@ -17992,47 +18031,10 @@ window.initAudioReactor = function() {
     console.log("[SYS] REACTOR: BASS SYNC ONLINE");
     window.audioReactorActive = true;
 
-    const analyzer = window.APP.audio.analyzer;
-    const bufferLength = analyzer.frequencyBinCount;
-    const dataArray = new Uint8Array(bufferLength);
-    
-    // Reactor settings
-    let lastPunchTime = 0;
-    const cooldown = 300; // Minimum MS between punches (prevents machine-gunning)
-    const bassThreshold = 210; // 0-255 volume threshold for a "hit"
-
-    function renderLoop() {
-        if (!window.audioReactorActive) return;
-        requestAnimationFrame(renderLoop);
-
-        analyzer.getByteFrequencyData(dataArray);
-
-        // Calculate average volume of the lowest frequencies (Bass / Kick drum)
-        // Usually the first 5-10 bins represent the sub-bass
-        let bassSum = 0;
-        const bassBins = 8;
-        for (let i = 0; i < bassBins; i++) {
-            bassSum += dataArray[i];
-        }
-        const bassAvg = bassSum / bassBins;
-
-        const now = Date.now();
-        
-        // If the bass hits hard AND cooldown has passed, trigger the punch!
-        if (bassAvg > bassThreshold && (now - lastPunchTime > cooldown)) {
-            // Force the punch animation by applying it directly
-            const stage = document.getElementById('stage');
-            if (stage) {
-                // Remove and re-add the animation to restart it instantly
-                stage.style.animation = 'none';
-                void stage.offsetWidth; // Trigger reflow
-                stage.style.animation = 'kinetic-punch 0.25s cubic-bezier(0.25, 1, 0.5, 1)';
-            }
-            lastPunchTime = now;
-        }
-    }
-
-    renderLoop();
+    // Store references so updateAudioReactor() can reach them each frame
+    _arAnalyzer = window.APP.audio.analyzer;
+    _arData     = new Uint8Array(_arAnalyzer.frequencyBinCount);
+    // Tick is already registered as window._audioReactorTick — mainLoop drives it
 };
 
 // Auto-init the bass reactor engine when audio is ready
@@ -19834,6 +19836,9 @@ var _vbPrevTex   = null;    // Previous-frame texture for GHOST_ECHO feedback
 var _vbPrevCvs   = null;    // Off-screen 2D canvas storing last rendered frame
 var _vbPrevCtx2d = null;    // 2D context for _vbPrevCvs
 var _vbInited    = false;
+// ── PHASE E Task 3: cached canvas dimensions — avoids offsetWidth/offsetHeight inside the loop ──
+var _vbW         = 0;
+var _vbH         = 0;
 
 // ── GLSL Shaders (GLSL ES 3.00) ───────────────────────────────────────
 var VS = '#version 300 es\nin vec2 a;out vec2 v;void main(){v=a*0.5+0.5;v.y=1.0-v.y;gl_Position=vec4(a,0,1);}';
@@ -20046,8 +20051,9 @@ function _vbRender() {
     var gl = _vbGl;
     if (!vjCanvas || !vbCanvas || !gl) return;
 
-    // Sync resolution
-    var w = vbCanvas.offsetWidth, h = vbCanvas.offsetHeight;
+    // ── PHASE E Task 3: use cached dimensions; offsetWidth/offsetHeight only as first-run fallback ──
+    var w = _vbW, h = _vbH;
+    if (w === 0 || h === 0) { w = vbCanvas.offsetWidth; h = vbCanvas.offsetHeight; _vbW = w; _vbH = h; }
     if (vbCanvas.width !== w || vbCanvas.height !== h) {
         vbCanvas.width = w; vbCanvas.height = h;
         gl.viewport(0, 0, w, h);
@@ -20237,6 +20243,12 @@ function _vbWireButtons() {
 }
 document.addEventListener('DOMContentLoaded', _vbWireButtons);
 if (document.readyState !== 'loading') { _vbWireButtons(); }
+
+// ── PHASE E Task 3: update cached dimensions whenever the window resizes ──
+window.addEventListener('resize', function() {
+    var vbCanvas = document.getElementById('vb-canvas');
+    if (vbCanvas) { _vbW = vbCanvas.offsetWidth; _vbH = vbCanvas.offsetHeight; }
+});
 
 })();
 </script>
