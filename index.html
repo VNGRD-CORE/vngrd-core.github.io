@@ -7237,8 +7237,8 @@ function _decodeGIF(buf) {
 }
 
 let _lastFrameTime = 0;
+// ── PHASE G Task 1: own rAF removed — called from mainLoop every frame ──
 function renderLoop(timestamp) {
-    APP.render.rafId = requestAnimationFrame(renderLoop);
     // ── 60 FPS TARGET: skip only if <16ms since last frame ──
     if (timestamp - _lastFrameTime < 16) return;
     _lastFrameTime = timestamp;
@@ -11404,7 +11404,8 @@ window.SonicSuite = (function() {
                 const vu = master.querySelector('.ss-mx-vu');
                 const vg = vu.getContext('2d');
                 const buf = new Uint8Array(256);
-                (function draw() {
+                // ── PHASE G Task 2: rAF removed — called from mainLoop every frame ──
+                window._ssDrawTick = function() {
                     const an = _getAnalyser();
                     if (an) {
                         an.getByteTimeDomainData(buf);
@@ -11423,8 +11424,7 @@ window.SonicSuite = (function() {
                         vg.fillStyle = grad;
                         vg.fillRect(0, vu.height - h, vu.width, h);
                     }
-                    requestAnimationFrame(draw);
-                })();
+                };
 
                 this._persist = _persist;
             }
@@ -13661,8 +13661,7 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     };
 
-    requestAnimationFrame(renderLoop);
-    startMainLoop(); // ── PHASE A: boot central loop once
+    startMainLoop(); // ── boots mainLoop, which now drives renderLoop ──
     updateClock(); setInterval(updateClock, 1000); morphLogo(); setTimeout(morphLogo, 4000);
     // ── PHASE 1 (1s): COMPOSITOR + LAYERS — let UI settle first ──
     setTimeout(() => {
@@ -17758,26 +17757,33 @@ var _mainLoopRunning = false;
 function mainLoop(timestamp) {
     requestAnimationFrame(mainLoop);
 
-    // Phase B: NFT recording timer (was an unbounded rAF loop — now a pure tick)
+    // Phase G Task 1: main VJ canvas renderer (was its own rAF loop)
+    // Must run before _vbRenderTick — vbCanvas blits onto vjCanvas after this draw
+    renderLoop(timestamp);
+
+    // Phase B: NFT recording timer (was an unbounded rAF loop)
     updateNFTTimer();
 
-    // Phase C: audio input level meter (was an rAF loop that stacked on every input switch)
+    // Phase C: audio input level meter (was rAF loop that stacked on every input switch)
     if (window._inputLevelTick) window._inputLevelTick();
 
-    // Phase E Task 1: VU meter (was its own rAF loop)
+    // Phase E Task 1: VU meter
     updateVU();
 
-    // Phase E Task 2: audio reactor (was its own rAF loop in a separate script block)
+    // Phase E Task 2: audio reactor
     if (window._audioReactorTick) window._audioReactorTick();
 
-    // Phase F Task 1: WebGL VU bar shader (was _vbRender own rAF)
+    // Phase F Task 1: WebGL VU bar shader — runs after renderLoop (blit order)
     if (window._vbRenderTick) window._vbRenderTick();
 
-    // Phase F Task 2: VFXLayer chromatic aberration shader (was _frame IIFE rAF)
+    // Phase F Task 2: VFXLayer chromatic aberration shader
     if (window._vfxFrameTick) window._vfxFrameTick(timestamp);
 
-    // Phase F Task 3: mic ducking monitor (was monitorDucking own rAF)
+    // Phase F Task 3: mic ducking monitor
     updateDucking();
+
+    // Phase G Task 2: synesthesia mixer VU draw (was self-referencing IIFE rAF)
+    if (window._ssDrawTick) window._ssDrawTick();
 }
 
 function startMainLoop() {
