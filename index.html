@@ -1979,6 +1979,23 @@
             box-shadow: 2px 3px 8px rgba(0,0,0,0.95), inset 0 3px 12px rgba(0,0,0,0.7),
                 0 0 18px rgba(255,0,100,0.5), inset 0 0 12px rgba(255,0,100,0.08) !important;
         }
+        /* BANK B GPU shaders — cyan accent glow */
+        .sfx-pad[class*="coupled-vb-"] {
+            border-color: rgba(0,243,255,0.85) !important;
+            color: rgba(0,243,255,0.9) !important;
+            box-shadow:
+                2px 3px 8px rgba(0,0,0,0.95),
+                inset 0 3px 12px rgba(0,0,0,0.7),
+                0 0 10px rgba(0,243,255,0.45),
+                inset 0 0 12px rgba(0,243,255,0.08) !important;
+        }
+        .sfx-pad[class*="coupled-vb-"].sfx-playing {
+            animation: sfx-pad-pulse 0.3s ease-out;
+            box-shadow:
+                0 0 20px rgba(0,243,255,0.7),
+                0 0 40px rgba(0,243,255,0.35),
+                inset 0 0 12px rgba(0,243,255,0.15) !important;
+        }
 
         /* ── SAMPLER HELP BUTTON & MODAL ── */
         @keyframes help-discover-pulse {
@@ -14618,10 +14635,14 @@ document.addEventListener('DOMContentLoaded', () => {
             _padCoupling[sfxName] = fx;
             btn.classList.remove('coupled', ...ALL_COUPLING_CLASSES);
             var fxLabel = btn.querySelector('.pad-fx-label');
-            // Update active state in gear menu
-            btn.querySelectorAll('.pad-gear-menu [data-fx]').forEach(function(opt) {
-                opt.classList.toggle('active-fx-opt', opt.dataset.fx === fx);
-            });
+            // Update active state in gear menu — works even when menu is portaled to <body>
+            var _gearMenu = btn.querySelector('.pad-gear-menu') ||
+                (btn.id ? document.querySelector('.pad-gear-menu[data-gear-home="#' + btn.id + ' > .pad-gear"]') : null);
+            if (_gearMenu) {
+                _gearMenu.querySelectorAll('[data-fx]').forEach(function(o) {
+                    o.classList.toggle('active-fx-opt', o.dataset.fx === fx);
+                });
+            }
             if (fx !== 'none') {
                 btn.classList.add('coupled', 'coupled-' + fx);
                 if (fxLabel) fxLabel.textContent = COUPLING_LABELS[fx] || fx.toUpperCase();
@@ -14728,10 +14749,13 @@ document.addEventListener('DOMContentLoaded', () => {
                     'vb-ghost-echo':'GHOST_ECHO','vb-spectral-mosh':'SPECTRAL_MOSH'
                 };
                 var sn = shaderMap[fx];
-                if (sn && typeof _vbActivate === 'function') {
-                    // Switch to Bank B if not already there
+                if (sn) {
                     if (typeof _setFXBank === 'function') _setFXBank('B');
-                    _vbActivate(sn, false); // false = 3s burst (not persistent)
+                    if (typeof window._vbCoupleActivate === 'function') {
+                        window._vbCoupleActivate(sn);
+                    } else if (typeof window._vbActivate === 'function') {
+                        window._vbActivate(sn, false);
+                    }
                 }
                 return;
             }
@@ -14821,6 +14845,10 @@ document.addEventListener('DOMContentLoaded', () => {
                         'max-height:' + (window.innerHeight - top - 12) + 'px',
                         'overflow-y:auto'
                     ].join(';');
+                    // Sync active-fx-opt to reflect current coupling
+                    if (typeof window._syncPadGearActive === 'function' && pad && pad.id) {
+                        window._syncPadGearActive(pad.id);
+                    }
                 }
             }
         };
@@ -15114,6 +15142,21 @@ document.addEventListener('DOMContentLoaded', () => {
                 }
             });
         });
+
+        // Sync gear menu active-fx-opt after portaling (called by _padGearToggle)
+        window._syncPadGearActive = function(padId) {
+            var btn = document.getElementById(padId);
+            if (!btn) return;
+            var sn = btn.dataset.sfx;
+            var fx = sn && _padCoupling[sn];
+            if (!fx || fx === 'none') return;
+            var menu = document.querySelector('.pad-gear-menu[data-gear-home="#' + padId + ' > .pad-gear"]')
+                    || btn.querySelector('.pad-gear-menu');
+            if (!menu) return;
+            menu.querySelectorAll('[data-fx]').forEach(function(o) {
+                o.classList.toggle('active-fx-opt', o.dataset.fx === fx);
+            });
+        };
     })();
 
     // --- MIDI CONTROLLER (JIT — user gesture gated) ---
@@ -20268,6 +20311,20 @@ window._vbActivate   = function(sn, p) { _vbActivate(sn, p); };
 window._vbDeactivate = function(sn)    { _vbDeactivate(sn); };
 // ── PHASE F Task 1: expose tick so mainLoop (outside this IIFE) can drive rendering ──
 window._vbRenderTick = _vbRender;
+
+// ── Coupling-system activate: GPU render + CSS body class + 3s auto-off ──
+// Used by _fireCoupledFX so all 6 shaders (incl. GHOST_ECHO, SPECTRAL_MOSH) fire correctly.
+window._vbCoupleActivate = function(sn) {
+    _vbActivate(sn, false);                    // GPU: sets _vbShader, shows vb-canvas
+    document.body.classList.add('vb-' + sn);   // CSS: activates CSS-filter shaders
+    var btn = document.getElementById('vb-' + sn);
+    if (btn) btn.classList.add('on');
+    setTimeout(function() {
+        _vbDeactivate(sn);                         // GPU: clears _vbShader if no locks
+        document.body.classList.remove('vb-' + sn);
+        if (btn) btn.classList.remove('on', 'vb-locked');
+    }, 3000);
+};
 
 window._setFXBank = function(bank) {
     _vbActive = (bank === 'B');
