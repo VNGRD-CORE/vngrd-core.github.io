@@ -11060,7 +11060,8 @@ window.SonicSuite = (function() {
                     '<span class="sl-lv sl-val">16</span>' +
                     '<button class="ss-card-btn sl-dir" style="width:auto;padding:0 7px;font-size:7px;">FWD</button>' +
                     '<button class="ss-card-btn sl-chr" style="width:auto;padding:0 7px;font-size:7px;" title="Chromatic pads: slice 0 across 16 semitones">CHR</button>' +
-                    '<button class="ss-card-btn sl-rec" style="width:auto;padding:0 7px;font-size:7px;" title="Record: pads hit during playback write to current step">REC</button>';
+                    '<button class="ss-card-btn sl-rec" style="width:auto;padding:0 7px;font-size:7px;" title="Record: pads hit during playback write to current step">REC</button>' +
+                    '<button class="ss-card-btn sl-snap" style="width:auto;padding:0 7px;font-size:7px;color:#ffc800;border-color:rgba(255,200,0,.5);" title="Snap 10s of master output into slicer pads">[ SNAP ]</button>';
                 body.appendChild(ctrl2);
 
                 // ── Inline style for step bars & labels (scoped via classes) ─
@@ -11106,20 +11107,82 @@ window.SonicSuite = (function() {
                     });
                 }
 
-                // ── Load & process ────────────────────────────────
+                // ── Shared buffer processor (file upload + snap share this path) ─
+                function _processNewBuffer(buf) {
+                    waveCanvas._rawBuf  = buf;
+                    st.onsets    = _equalOnsets(buf, MAX_SLICES);
+                    st.slices    = _buildSlices(ctx.audioCtx, buf, st.onsets);
+                    st.revSlices = _buildRevSlices(ctx.audioCtx, st.slices);
+                    for (let i = 0; i < STEPS; i++)
+                        st.sequence[i] = i < st.slices.length ? i : -1;
+                    _drawWave(waveCanvas, buf, st.onsets);
+                    _paintPads();
+                    _paintSeq();
+                }
+
+                // ── Rolling 10-second circular buffer (pre-allocated, never reallocated) ──
+                const _snapSR   = ctx.audioCtx.sampleRate;
+                const _snapLen  = Math.floor(_snapSR * 10);
+                const _snapCirc = new Float32Array(_snapLen); // mono, pre-alloc'd
+                let   _snapWP   = 0;   // circular write pointer (samples)
+                let   _snapSpn  = null;
+
+                function _startRollingCapture() {
+                    if (_snapSpn || !window._ssAnalyser) return;
+                    // ScriptProcessorNode records into pre-allocated _snapCirc.
+                    // No object allocation inside onaudioprocess — zero GC pressure.
+                    const spn = ctx.audioCtx.createScriptProcessor(4096, 1, 1);
+                    spn.onaudioprocess = function(e) {
+                        const inp   = e.inputBuffer.getChannelData(0);
+                        const circ  = _snapCirc;
+                        const total = _snapLen;
+                        let   wp    = _snapWP;
+                        for (let i = 0, n = inp.length; i < n; i++) {
+                            circ[wp] = inp[i];
+                            if (++wp === total) wp = 0;
+                        }
+                        _snapWP = wp;
+                        // Output buffer starts zeroed — no signal added to mix.
+                    };
+                    window._ssAnalyser.connect(spn);
+                    // Must connect SPN output to keep the node alive in Chrome.
+                    // Gain=0 so nothing audible reaches destination.
+                    const sink = ctx.audioCtx.createGain();
+                    sink.gain.value = 0;
+                    spn.connect(sink);
+                    sink.connect(ctx.audioCtx.destination);
+                    _snapSpn = spn;
+                }
+                // _ssAnalyser is set by _ensureAudio() which runs before mount(),
+                // but audio context may not be started yet — poll until available.
+                if (window._ssAnalyser) {
+                    _startRollingCapture();
+                } else {
+                    const _snapPoll = setInterval(function() {
+                        if (window._ssAnalyser) { clearInterval(_snapPoll); _startRollingCapture(); }
+                    }, 500);
+                }
+
+                // ── SNAP: freeze current 10-s window → slicer pads (instantaneous) ──
+                function snapToSlicer() {
+                    const wp  = _snapWP; // capture write-head before any further writes
+                    const cap = ctx.audioCtx.createBuffer(1, _snapLen, _snapSR);
+                    const dst = cap.getChannelData(0);
+                    // Unroll circular buffer into chronological order.
+                    dst.set(_snapCirc.subarray(wp), 0);
+                    dst.set(_snapCirc.subarray(0, wp), _snapLen - wp);
+                    _processNewBuffer(cap);
+                    drop.textContent       = '✓ SNAPPED — ' + st.slices.length + ' SLICES';
+                    drop.style.color       = 'rgba(0,243,255,.7)';
+                    drop.style.borderColor = 'rgba(0,243,255,.5)';
+                }
+
+                // ── Load & process (file upload path) ────────────────────────────
                 function _loadBuffer(arrayBuf) {
                     drop.textContent = '⟳ DECODING…';
                     ctx.audioCtx.decodeAudioData(arrayBuf,
                         buf => {
-                            waveCanvas._rawBuf = buf;          // stash for DETECT
-                            st.onsets    = _equalOnsets(buf, MAX_SLICES);
-                            st.slices    = _buildSlices(ctx.audioCtx, buf, st.onsets);
-                            st.revSlices = _buildRevSlices(ctx.audioCtx, st.slices);
-                            for (let i = 0; i < STEPS; i++)
-                                st.sequence[i] = i < st.slices.length ? i : -1;
-                            _drawWave(waveCanvas, buf, st.onsets);
-                            _paintPads();
-                            _paintSeq();
+                            _processNewBuffer(buf);
                             drop.textContent       = '✓ ' + st.slices.length + ' SLICES  —  DROP TO REPLACE';
                             drop.style.color       = 'rgba(0,243,255,.7)';
                             drop.style.borderColor = 'rgba(0,243,255,.5)';
@@ -11211,6 +11274,13 @@ window.SonicSuite = (function() {
                     st.record = !st.record;
                     recBtn.style.color       = st.record ? '#ff4444' : '';
                     recBtn.style.borderColor = st.record ? '#ff4444' : '';
+                });
+                const snapBtn = ctrl2.querySelector('.sl-snap');
+                snapBtn.addEventListener('click', () => {
+                    _startRollingCapture(); // no-op if already running
+                    snapToSlicer();
+                    snapBtn.style.background = 'rgba(255,200,0,.18)';
+                    setTimeout(() => { snapBtn.style.background = ''; }, 250);
                 });
 
                 // ── Store refs for onTick / onStop ───────────────
