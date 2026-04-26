@@ -20465,6 +20465,11 @@ window._gestureState = {
         var rack = window.KineticRack;
         if (!rack || !rack.active) return;
 
+        // Set presence + vol immediately so _loop() always sees a valid state
+        // even if we return early below (e.g. no canvas, no right hand).
+        window._gestureState.handPresent = !!rightLm;
+        window._gestureState.vol         = rightLm ? 0.6 : 0;
+
         var canvas = document.getElementById('kr-skeleton-canvas');
         var ctx    = canvas ? canvas.getContext('2d') : null;
 
