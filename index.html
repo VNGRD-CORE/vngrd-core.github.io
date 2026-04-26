@@ -12040,6 +12040,10 @@ function updatePlayIcon() {
 
 function setupAudioChain() {
     const ctx = APP.audio.ctx;
+    // Tear down any chain left by ensureAudioChain() so only one chain feeds ctx.destination.
+    if (APP.audio.outputLimiter) {
+        try { APP.audio.outputLimiter.disconnect(); } catch(_) {}
+    }
     if (APP.audio.source) APP.audio.source.disconnect();
     APP.audio.source = ctx.createMediaElementSource(APP.audio.element);
     APP.audio.analyzer = ctx.createAnalyser();
@@ -12145,6 +12149,16 @@ function setupAudioChain() {
 
     APP.audio.vuData = new Uint8Array(APP.audio.analyzer.frequencyBinCount);
     APP.audio.isConnected = true;
+
+    // If the turntable input was wired before this chain was built, rewire it to the new nodes
+    // so it routes through the correct outputLimiter (NFT/broadcast recording taps this).
+    if (APP.audio.livePreAmp) {
+        try { APP.audio.livePreAmp.disconnect(); } catch(_) {}
+        APP.audio.livePreAmp.connect(APP.audio.panner);
+        if (APP.inputDevices && APP.inputDevices.analyzer) {
+            APP.audio.livePreAmp.connect(APP.inputDevices.analyzer);
+        }
+    }
 
     log('DAW_ENGINE: TRIPLE_PATH + LIMITER + DUCKING');
     updateVU();
@@ -16481,8 +16495,9 @@ function endCallCleanup() {
     // ========================================
     async function scanAudioInputDevices() {
         try {
-            // Request permission with basic constraints first
-            await navigator.mediaDevices.getUserMedia({ audio: true });
+            // Request permission, then immediately release — we only need the label list.
+            const _permStream = await navigator.mediaDevices.getUserMedia({ audio: true });
+            _permStream.getTracks().forEach(t => t.stop());
             
             const devices = await navigator.mediaDevices.enumerateDevices();
             const audioInputs = devices.filter(d => d.kind === 'audioinput');
@@ -16557,6 +16572,12 @@ function endCallCleanup() {
             if (APP.audio.micSource) {
                 try { APP.audio.micSource.disconnect(); } catch (_) {}
             }
+            // Race-condition guard: a concurrent call may have connected a new livePreAmp
+            // while we were awaiting getUserMedia. Disconnect it before creating ours.
+            if (APP.audio.livePreAmp) {
+                try { APP.audio.livePreAmp.disconnect(); } catch (_) {}
+                APP.audio.livePreAmp = null;
+            }
 
             // Create new source node and store it for future teardown.
             APP.audio.micSource = _ctx.createMediaStreamSource(stream);
@@ -16572,16 +16593,14 @@ function endCallCleanup() {
             APP.inputDevices.analyzer.smoothingTimeConstant = 0.3;
             APP.audio.livePreAmp.connect(APP.inputDevices.analyzer);
 
-            // SPATIAL & DOLBY BUS: route vinyl through 3D panning network (audible output).
-            // NOTE: analyzer is downstream of panner in the main chain — do NOT also connect
-            // livePreAmp directly to APP.audio.analyzer or the signal doubles at that node.
+            // SPATIAL BUS: route vinyl through 3D panning network → EQ → compressor → limiter → output.
+            // Recording (NFT/broadcast) taps outputLimiter downstream — do NOT also connect
+            // livePreAmp directly to recorderDest or the signal doubles in the recording bus.
             if (APP.audio.panner) {
                 APP.audio.livePreAmp.connect(APP.audio.panner);
             } else if (APP.audio.masterGain) {
                 APP.audio.livePreAmp.connect(APP.audio.masterGain);
             }
-            // RECORDING LOCK: boosted signal into master recording bus — captured on Record.
-            if (APP.audio.recorderDest) APP.audio.livePreAmp.connect(APP.audio.recorderDest);
             // FEEDBACK PREVENTION: source is NOT connected to ctx.destination directly.
 
             // 4. UI CONFIRMATION: display the real hardware label from the stream.
@@ -16617,6 +16636,11 @@ function endCallCleanup() {
                 if (APP.audio.micSource) {
                     try { APP.audio.micSource.disconnect(); } catch (_) {}
                 }
+                // Race-condition guard: same as primary path.
+                if (APP.audio.livePreAmp) {
+                    try { APP.audio.livePreAmp.disconnect(); } catch (_) {}
+                    APP.audio.livePreAmp = null;
+                }
 
                 APP.audio.micSource = _ctx2.createMediaStreamSource(stream);
 
@@ -16630,15 +16654,13 @@ function endCallCleanup() {
                 APP.inputDevices.analyzer.smoothingTimeConstant = 0.3;
                 APP.audio.livePreAmp.connect(APP.inputDevices.analyzer);
 
-                // SPATIAL & DOLBY BUS (fallback path).
-                // NOTE: same as primary path — analyzer is downstream of panner, skip direct connect.
+                // SPATIAL BUS (fallback path): panner → EQ → compressor → limiter → output.
+                // Recording taps outputLimiter downstream — no direct recorderDest connection.
                 if (APP.audio.panner) {
                     APP.audio.livePreAmp.connect(APP.audio.panner);
                 } else if (APP.audio.masterGain) {
                     APP.audio.livePreAmp.connect(APP.audio.masterGain);
                 }
-                // RECORDING LOCK (fallback path).
-                if (APP.audio.recorderDest) APP.audio.livePreAmp.connect(APP.audio.recorderDest);
                 // FEEDBACK PREVENTION: NOT connected to ctx.destination directly.
 
                 var _trackLabel2 = (stream.getAudioTracks()[0] && stream.getAudioTracks()[0].label)
