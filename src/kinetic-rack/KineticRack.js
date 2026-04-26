@@ -1127,7 +1127,7 @@ class KineticRack {
         this._leftPinchCooldown = Math.max(0, this._leftPinchCooldown - dt);
 
         if (!DISABLE_DETECTION) {
-            this._detectHands(now);
+            this._detectHands();
         }
 
         const fft = this._audio.getFFT();
@@ -1138,17 +1138,15 @@ class KineticRack {
 
     // ── Hand detection ────────────────────────────────────────────────────────
 
-    _detectHands(now) {
-        // Drive MediaPipe detection from the main loop (single-loop architecture).
-        // _detectHandsOnce is throttled to ~20 FPS internally and guards against
-        // overlapping calls via _detectInFlight. _handTrackFeed is called inside
-        // hand-tracker.js only when landmarks change significantly — not here.
-        if (typeof window._detectHandsOnce === 'function' && this._aiVid) {
-            window._detectHandsOnce(this._aiVid, now);
-        }
-
+    _detectHands() {
         const cdnFeed = window._latestHandsLm || null;
         const rightLm = cdnFeed ? cdnFeed.right : null;
+        const leftLm  = cdnFeed ? cdnFeed.left  : null;
+
+        if (typeof window._handTrackFeed === 'function') {
+            try { window._handTrackFeed(rightLm || null, leftLm || null); }
+            catch (e) { /* never let UI feed kill the render loop */ }
+        }
 
         if (rightLm) {
             const lm8 = rightLm[8];
