@@ -1133,6 +1133,10 @@ class KineticRack {
         // ── Gesture → audio (decoupled from _handTrackFeed, runs at render rate) ─
         const g = window._gestureState;
         if (g) {
+            // Restore hand-presence signal — arp and vol-gate depend on this.
+            this._handPresent = g.handPresent || false;
+            if (this._audio) this._audio.setSpatialGate(this._handPresent ? 0.4 : 0);
+
             if (!this._smooth) {
                 this._smooth = { pitch: 0.5, macro: 0.5, fm: 0, lfoRate: 0, lfoDepth: 0 };
             }
