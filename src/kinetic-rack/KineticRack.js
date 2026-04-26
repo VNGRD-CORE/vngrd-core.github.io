@@ -1130,43 +1130,6 @@ class KineticRack {
             this._detectHands(now);
         }
 
-        // ── Gesture → audio (decoupled from _handTrackFeed, runs at render rate) ─
-        const g = window._gestureState;
-        if (g) {
-            // Restore hand-presence signal — arp and vol-gate depend on this.
-            this._handPresent = g.handPresent || false;
-            if (this._audio) this._audio.setSpatialGate(this._handPresent ? 0.4 : 0);
-
-            if (!this._smooth) {
-                this._smooth = { pitch: 0.5, macro: 0.5, fm: 0, lfoRate: 0, lfoDepth: 0 };
-            }
-            const LERP = 0.15;
-            this._smooth.pitch    += (g.pitch    - this._smooth.pitch)    * LERP;
-            this._smooth.macro    += (g.macro    - this._smooth.macro)    * LERP;
-            this._smooth.fm       += (g.fm       - this._smooth.fm)       * LERP;
-            this._smooth.lfoRate  += (g.lfoRate  - this._smooth.lfoRate)  * LERP;
-            this._smooth.lfoDepth += (g.lfoDepth - this._smooth.lfoDepth) * LERP;
-
-            this.ctrlChange('vol',      g.vol);
-            this.ctrlChange('pitch',    this._smooth.pitch);
-            this.ctrlChange('macro',    this._smooth.macro);
-            this.ctrlChange('fm',       this._smooth.fm);
-            this.ctrlChange('lfoRate',  this._smooth.lfoRate);
-            this.ctrlChange('lfoDepth', this._smooth.lfoDepth);
-
-            if (g.preset !== null) {
-                this.ctrlChange('preset', g.preset);
-                g.preset = null;
-            }
-            if (g.pluck) {
-                g.pluck = false;
-                if (typeof this.triggerPluck === 'function') {
-                    this.triggerPluck(g.pluckX, g.pluckVel);
-                }
-            }
-        }
-        // ─────────────────────────────────────────────────────────────────────
-
         const fft = this._audio.getFFT();
         this._particles?.update(fft, this._elapsed, dt);
 
