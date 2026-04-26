@@ -20278,14 +20278,6 @@ window.addEventListener('resize', function() {
 // with live 21-point hand landmarks.
 // Right Hand lm[8] (index fingertip): X → Pitch 100-1200Hz, Y → Filter 200-8000Hz.
 // Performance gate: vol=0.7 when hand detected, vol=0 when lost.
-
-// Gesture values written here, consumed by KineticRack._loop() at render rate.
-window._gestureState = {
-    pitch: 0.5, macro: 0.5, fm: 0, lfoRate: 0, lfoDepth: 0,
-    vol: 0, preset: null,
-    pluck: false, pluckX: 0.5, pluckVel: 0.8,
-    handPresent: false,
-};
 (function(){
     // Per-finger neon palette (thumb, index, middle, ring, pinky)
     var FINGER_COLORS = ['#FF4FD8','#00F3FF','#7CFF4F','#FFD24F','#C77DFF'];
@@ -20465,11 +20457,6 @@ window._gestureState = {
         var rack = window.KineticRack;
         if (!rack || !rack.active) return;
 
-        // Set presence + vol immediately so _loop() always sees a valid state
-        // even if we return early below (e.g. no canvas, no right hand).
-        window._gestureState.handPresent = !!rightLm;
-        window._gestureState.vol         = rightLm ? 0.6 : 0;
-
         var canvas = document.getElementById('kr-skeleton-canvas');
         var ctx    = canvas ? canvas.getContext('2d') : null;
 
@@ -20490,10 +20477,9 @@ window._gestureState = {
 
         // ── 3. PERFORMANCE GATE (no right hand = silence) ───────────────────
         if (!rDraw) {
-            window._gestureState.vol      = 0;
-            window._gestureState.fm       = 0;
-            window._gestureState.lfoDepth = 0;
-            window._gestureState.handPresent = false;
+            rack.ctrlChange('vol',      0);
+            rack.ctrlChange('fm',       0);
+            rack.ctrlChange('lfoDepth', 0);
             _prevPinchHigh = false;
             var vs = document.querySelector('[data-ctrl="vol"]');
             if (vs) vs.value = 0;
@@ -20510,8 +20496,8 @@ window._gestureState = {
         // ── 4. X → PITCH, Y → MACRO (opens filter + body + sub together) ───
         var xNorm = Math.max(0, Math.min(1, 1 - lm8.x));
         var yNorm = Math.max(0, Math.min(1, 1 - lm8.y));
-        window._gestureState.pitch = xNorm;
-        window._gestureState.macro = yNorm;
+        rack.ctrlChange('pitch', xNorm);
+        rack.ctrlChange('macro', yNorm);
 
         // ── 4b. LEFT HAND Y → preset bank (ambient / techno / dubstep) ─────
         // Top third of the frame = dubstep, middle = techno, bottom = ambient.
@@ -20523,7 +20509,7 @@ window._gestureState = {
             if (lY < 0.33)      presetName = 'dubstep';
             else if (lY < 0.66) presetName = 'techno';
             else                presetName = 'ambient';
-            window._gestureState.preset = presetName;
+            rack.ctrlChange('preset', presetName);
         }
 
         // ── 5. GESTURES ─────────────────────────────────────────────────────
@@ -20536,22 +20522,20 @@ window._gestureState = {
         var spreadRaw = (sum / 5) / handSize;
         var spread    = Math.max(0, Math.min(1, (spreadRaw - 1.8) / 1.6));
 
-        window._gestureState.fm       = pinch;
-        window._gestureState.lfoRate  = spread;
-        window._gestureState.lfoDepth = spread * 0.9;
+        rack.ctrlChange('fm',       pinch);
+        rack.ctrlChange('lfoRate',  spread);
+        rack.ctrlChange('lfoDepth', spread * 0.9);
 
-        // Pinch rising edge → pluck. Store as one-shot event; _loop() fires it.
+        // Pinch rising edge → scale-quantised pluck. Hysteresis (0.7 up /
+        // 0.45 down) so a fluttering finger doesn't machine-gun triggers.
         var isPinchHigh = _prevPinchHigh ? (pinch > 0.45) : (pinch > 0.7);
-        if (isPinchHigh && !_prevPinchHigh) {
-            window._gestureState.pluck    = true;
-            window._gestureState.pluckX   = xNorm;
-            window._gestureState.pluckVel = Math.min(1, 0.6 + pinch * 0.5);
+        if (isPinchHigh && !_prevPinchHigh && typeof rack.triggerPluck === 'function') {
+            rack.triggerPluck(xNorm, Math.min(1, 0.6 + pinch * 0.5));
         }
         _prevPinchHigh = isPinchHigh;
 
         // ── 6. GATE ON ──────────────────────────────────────────────────────
-        window._gestureState.vol         = 0.6;
-        window._gestureState.handPresent = true;
+        rack.ctrlChange('vol', 0.6);
 
         // Slider sync
         var volSlider  = document.querySelector('[data-ctrl="vol"]');
