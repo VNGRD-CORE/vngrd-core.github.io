@@ -20267,6 +20267,13 @@ window.addEventListener('resize', function() {
 
 
 <script>
+// Gesture values written by _handTrackFeed, consumed by KineticRack._loop().
+window._gestureState = {
+    pitch: 0.5, macro: 0.5, fm: 0, lfoRate: 0, lfoDepth: 0,
+    vol: 0, preset: null, pluck: false, pluckX: 0.5, pluckVel: 0.8,
+    handPresent: false,
+};
+
 // ── _handTrackFeed — X/Y Synth Pad Engine ─────────────────────────────────────
 // Called by the main-thread MediaPipe Hands tracker (_startHandTracker above)
 // with live 21-point hand landmarks.
@@ -20470,10 +20477,11 @@ window.addEventListener('resize', function() {
         var lDraw = _oeFilter(_oeL, leftLm,  tNow);
 
         // ── 3. PERFORMANCE GATE (no right hand = silence) ───────────────────
+        window._gestureState.handPresent = !!rDraw;
+        window._gestureState.vol         = rDraw ? 0.6 : 0;
         if (!rDraw) {
-            rack.ctrlChange('vol',      0);
-            rack.ctrlChange('fm',       0);
-            rack.ctrlChange('lfoDepth', 0);
+            window._gestureState.fm       = 0;
+            window._gestureState.lfoDepth = 0;
             _prevPinchHigh = false;
             var vs = document.querySelector('[data-ctrl="vol"]');
             if (vs) vs.value = 0;
@@ -20490,20 +20498,17 @@ window.addEventListener('resize', function() {
         // ── 4. X → PITCH, Y → MACRO (opens filter + body + sub together) ───
         var xNorm = Math.max(0, Math.min(1, 1 - lm8.x));
         var yNorm = Math.max(0, Math.min(1, 1 - lm8.y));
-        rack.ctrlChange('pitch', xNorm);
-        rack.ctrlChange('macro', yNorm);
+        window._gestureState.pitch = xNorm;
+        window._gestureState.macro = yNorm;
 
         // ── 4b. LEFT HAND Y → preset bank (ambient / techno / dubstep) ─────
-        // Top third of the frame = dubstep, middle = techno, bottom = ambient.
-        // Without a left hand we leave the current bank alone — so the
-        // player can drop their left hand without losing the vibe.
         var presetName = null;
         if (lDraw && lDraw[0]) {
-            var lY = lDraw[0].y; // 0 at top, 1 at bottom
+            var lY = lDraw[0].y;
             if (lY < 0.33)      presetName = 'dubstep';
             else if (lY < 0.66) presetName = 'techno';
             else                presetName = 'ambient';
-            rack.ctrlChange('preset', presetName);
+            window._gestureState.preset = presetName;
         }
 
         // ── 5. GESTURES ─────────────────────────────────────────────────────
@@ -20516,20 +20521,20 @@ window.addEventListener('resize', function() {
         var spreadRaw = (sum / 5) / handSize;
         var spread    = Math.max(0, Math.min(1, (spreadRaw - 1.8) / 1.6));
 
-        rack.ctrlChange('fm',       pinch);
-        rack.ctrlChange('lfoRate',  spread);
-        rack.ctrlChange('lfoDepth', spread * 0.9);
+        window._gestureState.fm       = pinch;
+        window._gestureState.lfoRate  = spread;
+        window._gestureState.lfoDepth = spread * 0.9;
 
-        // Pinch rising edge → scale-quantised pluck. Hysteresis (0.7 up /
-        // 0.45 down) so a fluttering finger doesn't machine-gun triggers.
+        // Pinch rising edge — store as one-shot; _loop() fires with cooldown.
         var isPinchHigh = _prevPinchHigh ? (pinch > 0.45) : (pinch > 0.7);
-        if (isPinchHigh && !_prevPinchHigh && typeof rack.triggerPluck === 'function') {
-            rack.triggerPluck(xNorm, Math.min(1, 0.6 + pinch * 0.5));
+        if (isPinchHigh && !_prevPinchHigh) {
+            window._gestureState.pluck    = true;
+            window._gestureState.pluckX   = xNorm;
+            window._gestureState.pluckVel = Math.min(1, 0.6 + pinch * 0.5);
         }
         _prevPinchHigh = isPinchHigh;
 
-        // ── 6. GATE ON ──────────────────────────────────────────────────────
-        rack.ctrlChange('vol', 0.6);
+        // ── 6. GATE ON (vol + handPresent set at top of function) ───────────
 
         // Slider sync
         var volSlider  = document.querySelector('[data-ctrl="vol"]');

@@ -82,6 +82,18 @@ const REDUCE_PARTICLES  = false;  // drop particle count to 512 for render test
 const N_PARTICLES     = REDUCE_PARTICLES ? 512 : 8192;
 const SUB_BASS_THRESH = 0.68;
 
+// ── Playability helpers ───────────────────────────────────────────────────────
+function applyDeadzone(v, dead = 0.08) {
+    if (Math.abs(v - 0.5) < dead) return 0.5;
+    return v;
+}
+const PENTA_SCALE = [0, 2, 4, 7, 9];
+function quantizePitch(v) {
+    const i = Math.min(Math.floor(v * PENTA_SCALE.length), PENTA_SCALE.length - 1);
+    return PENTA_SCALE[i] / 12;
+}
+// ─────────────────────────────────────────────────────────────────────────────
+
 class FFTParticles {
     constructor(scene) {
         this._scene       = scene;
@@ -888,6 +900,12 @@ class KineticRack {
         this._lastNow     = 0;
         this._frameCount  = 0;
         this._lastLogAt   = 0;
+        this._lastPlayLogAt = 0;
+
+        // Playability — smoothed gesture state
+        this._smooth        = null;  // lazy init in _loop
+        this._lastPluckTime = 0;
+        this._velSmooth     = 0.8;
 
         // Smoothed gesture values
         this._s = {
@@ -1129,6 +1147,58 @@ class KineticRack {
         if (!DISABLE_DETECTION) {
             this._detectHands();
         }
+
+        // ── Playability: smooth + quantize _gestureState → ctrlChange ────────
+        const g = window._gestureState;
+        if (g) {
+            this._handPresent = g.handPresent || false;
+
+            if (!this._smooth) {
+                this._smooth = { pitch: 0.5, macro: 0.5, fm: 0, lfoRate: 0, lfoDepth: 0 };
+            }
+
+            // Deadzone → quantize → smooth (pitch)
+            const pitchQ = quantizePitch(applyDeadzone(g.pitch));
+            this._smooth.pitch    += (pitchQ             - this._smooth.pitch)    * 0.05;
+            this._smooth.macro    += (applyDeadzone(g.macro) - this._smooth.macro) * 0.1;
+            this._smooth.fm       += (g.fm               - this._smooth.fm)       * 0.1;
+            this._smooth.lfoRate  += (g.lfoRate          - this._smooth.lfoRate)  * 0.1;
+            this._smooth.lfoDepth += (g.lfoDepth         - this._smooth.lfoDepth) * 0.1;
+
+            this.ctrlChange('vol',      g.vol);
+            this.ctrlChange('pitch',    this._smooth.pitch);
+            this.ctrlChange('macro',    this._smooth.macro);
+            this.ctrlChange('fm',       this._smooth.fm);
+            this.ctrlChange('lfoRate',  this._smooth.lfoRate);
+            this.ctrlChange('lfoDepth', this._smooth.lfoDepth);
+
+            if (g.preset !== null) {
+                this.ctrlChange('preset', g.preset);
+                g.preset = null;
+            }
+
+            // Velocity smoothing + pluck cooldown
+            this._velSmooth += ((g.pluckVel || 0.8) - this._velSmooth) * 0.2;
+            if (g.pluck) {
+                g.pluck = false;
+                if (now - this._lastPluckTime > 200) {
+                    this._lastPluckTime = now;
+                    if (typeof this.triggerPluck === 'function') {
+                        this.triggerPluck(g.pluckX, this._velSmooth);
+                    }
+                }
+            }
+
+            // Debug log every second
+            if (now - this._lastPlayLogAt >= 1000) {
+                console.log('[PLAYABILITY] pitchRaw:', (g.pitch || 0).toFixed(3),
+                    '| pitchSmoothed:', this._smooth.pitch.toFixed(3),
+                    '| macro:', this._smooth.macro.toFixed(3),
+                    '| pluck:', g.pluck || false);
+                this._lastPlayLogAt = now;
+            }
+        }
+        // ─────────────────────────────────────────────────────────────────────
 
         const fft = this._audio.getFFT();
         this._particles?.update(fft, this._elapsed, dt);
