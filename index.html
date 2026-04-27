@@ -680,6 +680,22 @@
             margin: 6px 0;
         }
         #cam-preview-float.active { display: block; border-color: var(--accent); }
+        #p2p-bug-overlay {
+            display: none;
+            position: absolute;
+            top: 4px; left: 4px;
+            font-family: 'Orbitron', sans-serif;
+            font-size: 8px; font-weight: 800;
+            color: #ffffff;
+            text-shadow: 1px 1px 3px rgba(0,0,0,0.9);
+            pointer-events: none;
+            z-index: 20;
+            letter-spacing: 0.5px;
+            max-width: 80%;
+            overflow: hidden;
+            white-space: nowrap;
+            text-overflow: ellipsis;
+        }
         #cam-preview-float video {
             width: 100%;
             height: 100%;
@@ -4021,6 +4037,7 @@ body.fullscreen #transcription-hud { pointer-events: none !important; } /* keep 
                     <canvas id="lt-preview-canvas"></canvas>
                     <div class="preview-label">PREVIEW</div>
                     <div class="rec-indicator" id="rec-dot-float"></div>
+                    <div id="p2p-bug-overlay"></div>
                 </div>
                 <div id="cam-ctrls" style="display:none">
                     <button class="btn cam-panel-btn" id="btn-go-live" style="color:var(--y)">GO LIVE [3-2-1]</button>
@@ -7570,6 +7587,11 @@ function renderLoop(timestamp) {
     var T = APP.trinity;
     
     // ACTOR 1: STATION BUG (text or uploaded image)
+    // P2P: when a call is active, show the REMOTE peer's identity bug (received via
+    // data-channel) on the main canvas — which is showing the remote's video stream.
+    // Local identity is shown in the cam-preview-float overlay instead.
+    var _bugDrawText = (APP.guest && APP.guest.isActive && APP.bug.p2pText && APP.bug.p2pVisible !== false)
+        ? APP.bug.p2pText : APP.bug.text;
     if (T.bug.visible) {
         var bugEl = $('station-bug');
         var bx = T.bug.x * w, by = T.bug.y * h, bScale = T.bug.scale;
@@ -7581,7 +7603,7 @@ function renderLoop(timestamp) {
                 var bh = bugImg.naturalHeight * bScale * (h / 1080);
                 ctx.drawImage(bugImg, bx, by, bw, bh);
                 ctx.restore();
-            } else if (APP.bug.text) {
+            } else if (_bugDrawText) {
                 // Canvas is sole renderer for all styles — keep DOM element invisible
                 if (!bugEl.classList.contains('hidden')) bugEl.style.opacity = '0';
                 ctx.save();
@@ -7592,23 +7614,19 @@ function renderLoop(timestamp) {
                 var _bugMode = APP.bug.mode || 'solid';
                 // ── RENDER MODE ──────────────────────────────────────────────────
                 if (_bugMode === 'knockout') {
-                    // Stroke-only: letter shapes show the video behind them
                     ctx.strokeStyle = _bc;
                     ctx.lineWidth = Math.max(1, bugFS * 0.06);
                     ctx.shadowColor = _bc; ctx.shadowBlur = 8;
-                    // Animated stroke-width pulse
                     var _kp = (Math.sin(timestamp * 0.0018) + 1) / 2;
                     ctx.lineWidth = Math.max(1, bugFS * (0.04 + 0.04 * _kp));
-                    ctx.strokeText(APP.bug.text, bx, by);
+                    ctx.strokeText(_bugDrawText, bx, by);
                 } else if (_bugMode === 'inverted') {
-                    // mix-blend difference equivalent: draw white text in difference mode
                     ctx.globalCompositeOperation = 'difference';
                     ctx.fillStyle = '#ffffff';
                     ctx.shadowColor = 'transparent'; ctx.shadowBlur = 0;
-                    // Rare phase drift — subtle opacity shimmer
                     var _ip = (Math.sin(timestamp * 0.0012) + 1) / 2;
                     ctx.globalAlpha = 0.88 + 0.12 * _ip;
-                    ctx.fillText(APP.bug.text, bx, by);
+                    ctx.fillText(_bugDrawText, bx, by);
                 } else {
                     // SOLID — standard fill with style variants
                     if (APP.bug.style === 'pulse') {
@@ -7616,21 +7634,21 @@ function renderLoop(timestamp) {
                         var _pr = parseInt(_bc.slice(1,3),16), _pg = parseInt(_bc.slice(3,5),16), _pb = parseInt(_bc.slice(5,7),16);
                         ctx.fillStyle = 'rgba('+_pr+','+_pg+','+_pb+','+(0.65+0.35*_p)+')';
                         ctx.shadowColor = _bc; ctx.shadowBlur = 4 + 20 * _p;
-                        ctx.fillText(APP.bug.text, bx, by);
+                        ctx.fillText(_bugDrawText, bx, by);
                     } else if (APP.bug.style === 'glitch') {
                         var _gt = timestamp % 200;
                         var _gx = _gt < 66 ? -3 : _gt < 133 ? 3 : 0;
                         var _gy = _gt < 100 ? 1 : -1;
                         ctx.globalAlpha = 0.8;
-                        ctx.fillStyle = '#ff0055'; ctx.fillText(APP.bug.text, bx + 3, by + _gy);
-                        ctx.fillStyle = '#00f3ff'; ctx.fillText(APP.bug.text, bx - 3, by - _gy);
+                        ctx.fillStyle = '#ff0055'; ctx.fillText(_bugDrawText, bx + 3, by + _gy);
+                        ctx.fillStyle = '#00f3ff'; ctx.fillText(_bugDrawText, bx - 3, by - _gy);
                         ctx.globalAlpha = 1;
-                        ctx.fillStyle = _bc; ctx.fillText(APP.bug.text, bx + _gx, by);
+                        ctx.fillStyle = _bc; ctx.fillText(_bugDrawText, bx + _gx, by);
                     } else {
                         ctx.fillStyle = _bc;
                         ctx.shadowColor = 'rgba(0,0,0,0.5)'; ctx.shadowBlur = 4;
                         ctx.shadowOffsetX = 2; ctx.shadowOffsetY = 2;
-                        ctx.fillText(APP.bug.text, bx, by);
+                        ctx.fillText(_bugDrawText, bx, by);
                     }
                 }
                 ctx.restore();
@@ -8415,9 +8433,12 @@ function makeDraggable(el) {
 if ($('btn-set-station')) {
     $('btn-set-station').onclick = () => {
         const text = $('bug-text').value || 'VNGRD';
-        APP.bug.text = text; // always track for toggle
+        APP.bug.text = text;
+        // Update preview overlay so host sees their own identity during a call
+        var _pov2 = $('p2p-bug-overlay');
+        if (_pov2) _pov2.textContent = text;
         if (APP.peer && APP.peer.call) {
-            // P2P: send to guest only — do NOT render on host's own canvas
+            // P2P active: send to remote peer; local canvas handled by render loop
             sendUISync('STATION_LOGO', { text: text });
         } else {
             const bug = $('station-bug');
@@ -8428,18 +8449,19 @@ if ($('btn-set-station')) {
     };
 }
 
-// Station Bug text — live sync guard: during a P2P call send text to guest
-// without rendering it on the host's own canvas.
+// Station Bug text — update local identity and sync to remote peer in real-time
 if ($('bug-text')) {
     $('bug-text').oninput = function() {
         var val = this.value.trim() || 'VNGRD';
         APP.bug.text = val;
-        if (APP.peer && APP.peer.call) {
-            sendUISync('STATION_LOGO', { text: val });
-            return; // do not touch local DOM during call
+        // Always keep preview overlay current (visible during P2P calls)
+        var _pov3 = $('p2p-bug-overlay');
+        if (_pov3) _pov3.textContent = val;
+        sendUISync('STATION_LOGO', { text: val });
+        if (!APP.peer || !APP.peer.call) {
+            var _bug = $('station-bug');
+            if (_bug && APP.trinity.bug.visible) { _bug.textContent = val; }
         }
-        var _bug = $('station-bug');
-        if (_bug && APP.trinity.bug.visible) { _bug.textContent = val; }
     };
 }
 
@@ -8447,14 +8469,12 @@ if ($('bug-text')) {
 if ($('btn-bug-toggle')) {
     $('btn-bug-toggle').onclick = () => {
         APP.trinity.bug.visible = !APP.trinity.bug.visible;
-        if (APP.peer && APP.peer.call) {
-            // P2P: send visibility state to guest, don't render locally
-            sendUISync('STATION_LOGO', { text: APP.bug.text || 'VNGRD', visible: APP.trinity.bug.visible });
-        } else {
-            var bug = $('station-bug');
-            if (bug) bug.classList.toggle('hidden', !APP.trinity.bug.visible);
-            sendUISync('STATION_LOGO', { text: APP.bug.text || 'VNGRD', visible: APP.trinity.bug.visible });
-        }
+        var bug = $('station-bug');
+        if (bug) bug.classList.toggle('hidden', !APP.trinity.bug.visible);
+        // Update preview overlay visibility
+        var _pov4 = $('p2p-bug-overlay');
+        if (_pov4) _pov4.style.opacity = APP.trinity.bug.visible ? '1' : '0.2';
+        sendUISync('STATION_LOGO', { text: APP.bug.text || 'VNGRD', visible: APP.trinity.bug.visible });
         log(APP.trinity.bug.visible ? 'BUG: VISIBLE' : 'BUG: HIDDEN');
     };
 }
@@ -16179,7 +16199,7 @@ $('btn-call-guest').onclick = async () => {
     let localStream;
     try {
         localStream = await navigator.mediaDevices.getUserMedia({
-            video: { facingMode: 'user', width: { ideal: 640 }, height: { ideal: 480 }, frameRate: { ideal: 30 } },
+            video: { facingMode: 'user', width: { ideal: 1920 }, height: { ideal: 1080 }, frameRate: { ideal: 30 } },
             audio: audioConstraints
         });
     } catch (e) {
@@ -16302,10 +16322,13 @@ function handleCallStream(call) {
         $('btn-call-guest').classList.add('call-active');
         $('btn-open-p2p-modal').classList.add('call-active');
 
-        // Mix-Minus: hide host's own station bug from their stage —
-        // they will receive guest's bug via handleUISync STATION_LOGO
-        var _lb = $('station-bug');
-        if (_lb) _lb.classList.add('hidden');
+        // Show local identity bug in the preview float (host sees their own brand).
+        // The main canvas will show the remote peer's bug via APP.bug.p2pText.
+        var _pov = $('p2p-bug-overlay');
+        if (_pov) {
+            _pov.textContent = APP.bug.text || 'VNGRD';
+            _pov.style.display = 'block';
+        }
 
         log('CALL_ESTABLISHED_WITH: ' + call.peer);
     });
@@ -16343,7 +16366,7 @@ function handleCallStream(call) {
                 var pc = APP.peer.call.peerConnection;
                 // Re-acquire camera with same constraints
                 var newStream = await navigator.mediaDevices.getUserMedia({
-                    video: { facingMode: 'user', width: { ideal: 640 }, height: { ideal: 480 }, frameRate: { ideal: 30 } },
+                    video: { facingMode: 'user', width: { ideal: 1920 }, height: { ideal: 1080 }, frameRate: { ideal: 30 } },
                     audio: APP.inputDevices && APP.inputDevices.selectedId
                         ? { deviceId: { exact: APP.inputDevices.selectedId }, echoCancellation: true, noiseSuppression: true, autoGainControl: true }
                         : { echoCancellation: true, noiseSuppression: true, autoGainControl: true }
@@ -16430,8 +16453,9 @@ function sendUISync(target, payload) {
 // Push host's current graphics state to peer the moment the data channel opens.
 // This ensures logos / bug / LT set BEFORE the call are still received by the guest.
 function _pushCurrentState() {
-    // Station bug
-    if (APP.trinity.bug.visible && APP.bug.text) {
+    // Station bug — always send local identity if text is set so the remote peer
+    // can display it on their canvas over our video stream immediately at call start.
+    if (APP.bug.text) {
         sendUISync('STATION_LOGO', { text: APP.bug.text, visible: true });
     }
     // 2D logo — compress to JPEG before sending (stays within ~64KB data channel limit)
@@ -16540,21 +16564,13 @@ function handleUISync(msg) {
             log('DATA_SYNC_RECV: 2D_LOGO/CLEAR');
         }
     } else if (msg.target === 'STATION_LOGO') {
-        const bug = $('station-bug');
-        if (!bug) { log('[ERROR] SYNC: #station-bug NOT FOUND'); return; }
-        // Update both DOM and APP state that the compositor reads
-        APP.bug.text = msg.payload.text;
-        bug.textContent = msg.payload.text;
-        bug.style.display = 'block';
-        bug.style.background = 'transparent';
-        if (msg.payload.visible !== undefined) {
-            APP.trinity.bug.visible = msg.payload.visible;
-            bug.classList.toggle('hidden', !msg.payload.visible);
-        } else {
-            // "Set text" action — make visible
-            APP.trinity.bug.visible = true;
-            bug.classList.remove('hidden');
-        }
+        // Store as REMOTE identity — never overwrite APP.bug.text (local identity).
+        // The render loop reads APP.bug.p2pText when APP.guest.isActive so the
+        // remote peer's brand appears on top of their video stream on our canvas.
+        APP.bug.p2pText = msg.payload.text || '';
+        APP.bug.p2pVisible = msg.payload.visible !== false;
+        // Ensure the trinity block in the render loop is active
+        APP.trinity.bug.visible = true;
         log('DATA_SYNC_RECV: STATION_LOGO "' + msg.payload.text + '"');
     }
     } finally {
@@ -16592,12 +16608,20 @@ function endCallCleanup() {
     $('call-status').style.color = 'var(--text-dim)';
     $('p2p-modal').classList.remove('incoming');
 
+    // Clear remote identity — back to local bug rendering
+    APP.bug.p2pText = '';
+    APP.bug.p2pVisible = false;
+
     // Restore host's own station bug text + visibility from APP state
     var _rb = $('station-bug');
     if (_rb) {
         _rb.textContent = APP.bug.text || 'VNGRD';
         _rb.classList.toggle('hidden', !APP.trinity.bug.visible);
     }
+
+    // Hide preview bug overlay
+    var _pov = $('p2p-bug-overlay');
+    if (_pov) _pov.style.display = 'none';
 
     // Close the preview float and the HUD panel
     var _pf = $('cam-preview-float');
