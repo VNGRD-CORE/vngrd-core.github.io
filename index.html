@@ -18,48 +18,6 @@
 <script src="https://unpkg.com/peerjs@1.5.2/dist/peerjs.min.js"></script>
 <script src="https://unpkg.com/tone@14.8.49/build/Tone.js" crossorigin="anonymous"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/ethers/5.7.2/ethers.umd.min.js"></script>
-<script src="https://js.puter.com/v2/"></script>
-<script>
-// Auto-dismiss Puter.AI "Low Balance" / upgrade dialogs instantly.
-(function() {
-    var _keywords = ['low balance','upgrade','not enough funding','upgrade to continue','upgrade now'];
-    function _isPuterDialog(node) {
-        if (!node || node.nodeType !== 1) return false;
-        var text = (node.textContent || '').toLowerCase();
-        return _keywords.some(function(k) { return text.indexOf(k) !== -1; });
-    }
-    function _dismissNode(node) {
-        // Try close/dismiss buttons first
-        var btns = node.querySelectorAll ? node.querySelectorAll('button') : [];
-        for (var i = 0; i < btns.length; i++) {
-            var t = (btns[i].textContent || '').toLowerCase();
-            if (t.indexOf('close') !== -1 || t.indexOf('cancel') !== -1 || t.indexOf('dismiss') !== -1) {
-                btns[i].click(); return;
-            }
-        }
-        // Fall back to hiding the node
-        node.style.display = 'none';
-        if (node.parentNode) node.parentNode.removeChild(node);
-    }
-    var obs = new MutationObserver(function(mutations) {
-        mutations.forEach(function(m) {
-            m.addedNodes.forEach(function(node) {
-                if (_isPuterDialog(node)) { _dismissNode(node); }
-                // Also check children (nested overlays)
-                if (node.querySelectorAll) {
-                    var children = node.querySelectorAll('*');
-                    for (var i = 0; i < children.length; i++) {
-                        if (_isPuterDialog(children[i])) { _dismissNode(children[i]); break; }
-                    }
-                }
-            });
-        });
-    });
-    document.addEventListener('DOMContentLoaded', function() {
-        obs.observe(document.body, { childList: true, subtree: true });
-    });
-})();
-</script>
 <script src="src/Compositor.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
 <!-- Three.js r128 loaded globally above; importmap removed -->
@@ -12869,17 +12827,15 @@ window.saveSessionToCloud = async function() {
             var cid = data.IpfsHash;
             log('WALLET_SAVE: DIRECTORY_PINNED CID=' + cid);
 
-            // Step 4 — Bind the master CID to the user's wallet address via puter.kv
-            if (typeof puter !== 'undefined' && puter.kv) {
-                try {
-                    await puter.kv.set(address.toLowerCase(), JSON.stringify({
-                        payloadCID: cid,
-                        address:    address,
-                        timestamp:  Date.now()
-                    }));
-                    log('WALLET_SAVE: PUTER_KV_BOUND ' + address.slice(0, 6) + ' → ' + cid.slice(0, 10) + '…');
-                } catch(e) { log('WALLET_SAVE: PUTER_KV_WARN ' + e.message); }
-            }
+            // Step 4 — Bind the master CID to the user's wallet address via localStorage
+            try {
+                localStorage.setItem('vngrd_cid_' + address.toLowerCase(), JSON.stringify({
+                    payloadCID: cid,
+                    address:    address,
+                    timestamp:  Date.now()
+                }));
+                log('WALLET_SAVE: CID_BOUND ' + address.slice(0, 6) + ' → ' + cid.slice(0, 10) + '…');
+            } catch(e) { log('WALLET_SAVE: CID_BIND_WARN ' + e.message); }
 
             // Step 5 — Show snapshot thumbnail + success state; never blocked render loop
             _showWalletSaveThumbnail(snapshotDataURL, cid);
