@@ -2383,8 +2383,7 @@
         }
         /* INJECT & MIC — accent-coloured hover */
         #btn-inject.cam-panel-btn:hover,
-        #btn-mic.cam-panel-btn:hover,
-        #btn-flip-cam.cam-panel-btn:hover {
+        #btn-mic.cam-panel-btn:hover {
             border-color: var(--accent) !important;
             box-shadow: var(--theme-glow), 0 0 0 1px var(--theme-border) !important;
             transform: translateY(-1px) !important;
@@ -4076,7 +4075,6 @@ body.fullscreen #transcription-hud { pointer-events: none !important; } /* keep 
                         <button class="btn cam-panel-btn" id="btn-inject">INJECT LOOP (10s)</button>
                         <button class="btn cam-panel-btn" id="btn-mic">MIC</button>
                     </div>
-                    <button class="btn cam-panel-btn" id="btn-flip-cam" onclick="flipCamera()" style="display:none;width:100%;margin-top:4px;">&#x21BB; FLIP CAM</button>
                 </div>
                 <div id="live-ctrls" style="display:none">
                     <div class="lbl" style="font-size:6.5px;opacity:0.4;letter-spacing:2px;margin-bottom:4px;">BROADCAST CONTROLS</div>
@@ -4084,7 +4082,6 @@ body.fullscreen #transcription-hud { pointer-events: none !important; } /* keep 
                         <button class="btn rec bcast-btn" id="btn-rec">⏺ REC_BROADCAST</button>
                         <button class="btn bcast-btn" id="btn-end">■ END LIVE</button>
                     </div>
-                    <button class="btn cam-panel-btn" id="btn-flip-cam-live" onclick="flipCamera()" style="display:none;width:100%;margin-top:4px;">&#x21BB; FLIP CAM</button>
                 </div>
                 <button class="btn bcast-btn bcast-kill" id="btn-kill" style="display:none;">SHUTDOWN CAM</button>
             </div>
@@ -12071,7 +12068,6 @@ async function initCamera() {
         $('cam-ctrls').style.display = 'block';
         $('btn-kill').style.display = 'block';
         $('cam-dot').classList.remove('off');
-        var _fc = $('btn-flip-cam'); if (_fc) _fc.style.display = 'block';
         var _fco = $('btn-flip-cam-overlay'); if (_fco) _fco.style.display = 'block';
         log('CAM_ONLINE');
         if (!APP.audio.ctx) { APP.audio.ctx = new (window.AudioContext || window.webkitAudioContext)(); }
@@ -12090,9 +12086,7 @@ async function initCamera() {
 
 async function flipCamera() {
     if (!APP.camera.stream) return;
-    var flipBtns = [$('btn-flip-cam'), $('btn-flip-cam-live')].filter(Boolean);
     var overlayBtn = $('btn-flip-cam-overlay');
-    flipBtns.forEach(b => { b.disabled = true; b.textContent = '...'; });
     if (overlayBtn) { overlayBtn.disabled = true; overlayBtn.textContent = '⟳'; }
     var next = (APP.camera.facingMode === 'user') ? 'environment' : 'user';
     APP.camera.stream.getTracks().forEach(t => t.stop());
@@ -12109,8 +12103,6 @@ async function flipCamera() {
         var previewVid = $('preview-vid-float');
         if (previewVid) { previewVid.srcObject = APP.camera.stream; APP.camera.previewEl = previewVid; }
         if (APP.camera.videoEl) APP.camera.videoEl.srcObject = APP.camera.stream;
-        var label = next === 'user' ? '↻ SELFIE' : '↻ REAR CAM';
-        flipBtns.forEach(b => { b.textContent = label; b.disabled = false; });
         if (overlayBtn) { overlayBtn.textContent = '↻'; overlayBtn.disabled = false; }
         log('CAM_FLIP_' + next.toUpperCase());
     } catch (e) {
@@ -12119,7 +12111,6 @@ async function flipCamera() {
             APP.camera.stream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: APP.camera.facingMode }, audio: false });
             var pv = $('preview-vid-float'); if (pv) { pv.srcObject = APP.camera.stream; APP.camera.previewEl = pv; }
         } catch (_) {}
-        flipBtns.forEach(b => { b.textContent = '↻ FLIP CAM'; b.disabled = false; });
         if (overlayBtn) { overlayBtn.textContent = '↻'; overlayBtn.disabled = false; }
         log('CAM_FLIP_FAIL');
     }
@@ -12189,7 +12180,6 @@ function goLive() {
 
             var _pf = $('cam-preview-float'); if (_pf) { _pf.classList.remove('active'); _pf.style.display = 'none'; }
             $('cam-ctrls').style.display = 'none'; $('live-ctrls').style.display = 'block'; $('tally').style.display = 'block'; $('status-text').textContent = 'LIVE'; $('main-dot').classList.add('live');
-            var _fcl = $('btn-flip-cam-live'); if (_fcl) _fcl.style.display = 'block';
             document.querySelector('.preview-label').textContent = 'LIVE'; log('LIVE_PODCAST_MODE');
         }
     }, 1000);
@@ -12252,8 +12242,6 @@ function endLive() {
     APP.state.isLive = false; APP.camera.mode = 'preview';
     if (window.applyAudioDuck) window.applyAudioDuck(false);
     $('live-ctrls').style.display = 'none'; $('cam-ctrls').style.display = 'block'; $('tally').style.display = 'none'; $('status-text').textContent = 'STANDBY'; $('main-dot').classList.remove('live'); $('btn-go-live').textContent = 'GO LIVE [3-2-1]'; var _pf3 = $('cam-preview-float'); if (_pf3 && APP.camera.stream) { _pf3.style.display = ''; _pf3.classList.add('active'); }
-    var _fcl2 = $('btn-flip-cam-live'); if (_fcl2) _fcl2.style.display = 'none';
-    var _fc2 = $('btn-flip-cam'); if (_fc2) _fc2.style.display = 'block';
     log('END_LIVE');
     $('rec-status').style.display = 'none';
 }
@@ -12274,7 +12262,6 @@ function killCamera() {
     $('btn-init-cam').style.display = 'block';
     $('btn-kill').style.display = 'none';
     $('cam-dot').classList.add('off');
-    [$('btn-flip-cam'), $('btn-flip-cam-live')].forEach(function(b){ if(b){ b.style.display='none'; b.textContent='↻ FLIP CAM'; b.disabled=false; } });
     var _fco2 = $('btn-flip-cam-overlay'); if (_fco2) { _fco2.style.display = 'none'; _fco2.textContent = '↻'; _fco2.disabled = false; }
     $('tally').style.display = 'none';
     $('status-text').textContent = 'STANDBY';
