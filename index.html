@@ -5087,7 +5087,7 @@ const APP = {
     nftVault: { thumbnails: [], scrollOffset: 0 },
     camera: { stream: null, recorder: null, chunks: [], mode: 'off', isRecording: false, videoEl: null, previewEl: null, micStream: null },
     render: { canvas: null, ctx: null, width: 3840, height: 2160, fps: 0, frameCount: 0, lastTime: 0, lastFpsUpdate: 0, rafId: null, scale: 1.0, pixelCanvas: null, pixelCtx: null, rgbActive: false, source: null },
-    bug: { visible: true, text: 'VNGRD', style: 'plain', color: '#ffffff', mode: 'solid', image: null, textMode: 0, textVisible: true, imageVisible: false },
+    bug: { visible: true, text: 'VNGRD', style: 'plain', color: '#ffffff', mode: 'solid', image: null, textMode: 0, textVisible: true, imageVisible: false, p2pText: '', p2pVisible: false },
     layers: { logoScale: 1.0, logoSrc: null, bugScale: 1.0 },
     // IDENTITY TRINITY — three independent broadcast actors
     trinity: {
@@ -16345,6 +16345,10 @@ $('btn-init-peer').onclick = () => {
             conn.on('close', () => {
                 log('DATA_CHANNEL: CLOSED');
                 if (APP.peer.dataConn === conn) APP.peer.dataConn = null;
+                // FORK A (answerer) does not initiate reconnect — the caller (FORK B) will
+                // re-connect via peer.connect() and this peer.on('connection', ...) will handle it.
+                // Log so we can diagnose if reconnect never arrives.
+                if (APP.peer.call) log('DATA_CHANNEL: AWAITING_RECONNECT_FROM_CALLER');
             });
         });
 
@@ -16522,6 +16526,32 @@ $('btn-call-guest').onclick = async () => {
         dataConn.on('close', function() {
             log('DATA_CHANNEL: CLOSED');
             if (APP.peer.dataConn === dataConn) APP.peer.dataConn = null;
+            // Auto-reconnect: caller side re-initiates the data channel if the media call is still alive.
+            // Receiver side accepts the reconnect via peer.on('connection', ...) automatically.
+            if (APP.peer.call && APP.peer.peer) {
+                setTimeout(function() {
+                    if (APP.peer.dataConn && APP.peer.dataConn.open) return; // already reconnected
+                    if (!APP.peer.call) return; // call ended in the meantime
+                    log('DATA_CHANNEL: RECONNECTING TO ' + remoteId);
+                    var _dc = APP.peer.peer.connect(remoteId);
+                    _dc.on('open', function() {
+                        APP.peer.dataConn = _dc;
+                        log('DATA_CHANNEL: RECONNECTED');
+                        _flushSyncQueue();
+                        // Re-send current state so the remote peer has the latest identity bug
+                        sendUISync('STATION_LOGO', { text: APP.bug.text, visible: APP.trinity.bug.visible });
+                    });
+                    _dc.on('data', function(data) {
+                        try {
+                            var msg = typeof data === 'string' ? JSON.parse(data) : data;
+                            if (msg.type === 'UI_SYNC') handleUISync(msg);
+                        } catch(e) {}
+                    });
+                    _dc.on('close', function() {
+                        if (APP.peer.dataConn === _dc) APP.peer.dataConn = null;
+                    });
+                }, 2000);
+            }
         });
 
     } catch (e) {
@@ -16535,6 +16565,9 @@ $('btn-call-guest').onclick = async () => {
 // Shared Logic for both Incoming and Outgoing calls
 function handleCallStream(call) {
     call.on('stream', (remoteStream) => {
+        // Guard: PeerJS fires 'stream' multiple times on ICE renegotiation / track additions.
+        // Skip if this is the exact same stream object we already set up.
+        if (APP.guest.stream === remoteStream) { log('STREAM_DUP_SKIPPED'); return; }
         // Ensure video element exists — must be in DOM for iOS Safari to play
         if (!APP.guest.videoElement) {
             APP.guest.videoElement = document.createElement('video');
