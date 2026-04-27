@@ -727,6 +727,31 @@
             animation: rec-blink 1s infinite;
         }
         #cam-preview-float .rec-indicator.on { display: block; }
+        #btn-flip-cam-overlay {
+            display: none;
+            position: absolute;
+            bottom: 6px;
+            right: 6px;
+            z-index: 30;
+            background: rgba(0,0,0,0.65);
+            border: 1px solid rgba(0,243,255,0.4);
+            border-radius: 50%;
+            width: 32px;
+            height: 32px;
+            padding: 0;
+            cursor: pointer;
+            font-size: 17px;
+            line-height: 32px;
+            text-align: center;
+            color: var(--accent);
+            transition: background 0.15s, border-color 0.15s, transform 0.15s;
+        }
+        #btn-flip-cam-overlay:hover,
+        #btn-flip-cam-overlay:active {
+            background: rgba(0,243,255,0.18);
+            border-color: var(--accent);
+            transform: scale(1.12);
+        }
 
         /* LT preview overlay: shows what the sender is broadcasting via P2P */
         #lt-preview-canvas {
@@ -4039,6 +4064,7 @@ body.fullscreen #transcription-hud { pointer-events: none !important; } /* keep 
                     <div class="preview-label">PREVIEW</div>
                     <div class="rec-indicator" id="rec-dot-float"></div>
                     <div id="p2p-bug-overlay"></div>
+                    <button id="btn-flip-cam-overlay" onclick="flipCamera()" title="Switch camera">&#x21BB;</button>
                 </div>
                 <div id="cam-ctrls" style="display:none">
                     <button class="btn cam-panel-btn" id="btn-go-live" style="color:var(--y)">GO LIVE [3-2-1]</button>
@@ -12042,6 +12068,7 @@ async function initCamera() {
         $('btn-kill').style.display = 'block';
         $('cam-dot').classList.remove('off');
         var _fc = $('btn-flip-cam'); if (_fc) _fc.style.display = 'block';
+        var _fco = $('btn-flip-cam-overlay'); if (_fco) _fco.style.display = 'block';
         log('CAM_ONLINE');
         if (!APP.audio.ctx) { APP.audio.ctx = new (window.AudioContext || window.webkitAudioContext)(); }
 
@@ -12060,7 +12087,9 @@ async function initCamera() {
 async function flipCamera() {
     if (!APP.camera.stream) return;
     var flipBtns = [$('btn-flip-cam'), $('btn-flip-cam-live')].filter(Boolean);
+    var overlayBtn = $('btn-flip-cam-overlay');
     flipBtns.forEach(b => { b.disabled = true; b.textContent = '...'; });
+    if (overlayBtn) { overlayBtn.disabled = true; overlayBtn.textContent = '⟳'; }
     var next = (APP.camera.facingMode === 'user') ? 'environment' : 'user';
     APP.camera.stream.getTracks().forEach(t => t.stop());
     try {
@@ -12078,6 +12107,7 @@ async function flipCamera() {
         if (APP.camera.videoEl) APP.camera.videoEl.srcObject = APP.camera.stream;
         var label = next === 'user' ? '↻ SELFIE' : '↻ REAR CAM';
         flipBtns.forEach(b => { b.textContent = label; b.disabled = false; });
+        if (overlayBtn) { overlayBtn.textContent = '↻'; overlayBtn.disabled = false; }
         log('CAM_FLIP_' + next.toUpperCase());
     } catch (e) {
         // Revert if flip fails (device may not have that camera)
@@ -12086,6 +12116,7 @@ async function flipCamera() {
             var pv = $('preview-vid-float'); if (pv) { pv.srcObject = APP.camera.stream; APP.camera.previewEl = pv; }
         } catch (_) {}
         flipBtns.forEach(b => { b.textContent = '↻ FLIP CAM'; b.disabled = false; });
+        if (overlayBtn) { overlayBtn.textContent = '↻'; overlayBtn.disabled = false; }
         log('CAM_FLIP_FAIL');
     }
 }
@@ -12240,6 +12271,7 @@ function killCamera() {
     $('btn-kill').style.display = 'none';
     $('cam-dot').classList.add('off');
     [$('btn-flip-cam'), $('btn-flip-cam-live')].forEach(function(b){ if(b){ b.style.display='none'; b.textContent='↻ FLIP CAM'; b.disabled=false; } });
+    var _fco2 = $('btn-flip-cam-overlay'); if (_fco2) { _fco2.style.display = 'none'; _fco2.textContent = '↻'; _fco2.disabled = false; }
     $('tally').style.display = 'none';
     $('status-text').textContent = 'STANDBY';
     $('main-dot').classList.remove('live');
