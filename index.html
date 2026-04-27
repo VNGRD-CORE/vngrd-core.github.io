@@ -940,6 +940,10 @@
 
         .badge { display: flex; align-items: center; gap: 5px; padding: 3px 8px; border: 1px solid; font-size: 9px; transition: all 0.2s; white-space: nowrap; }
         .badge:hover { box-shadow: 0 0 10px currentColor; }
+        #btn-snapshot { background: none; cursor: pointer; font-family: inherit; letter-spacing: 1px; border-color: var(--g); color: var(--g); }
+        #btn-snapshot:hover { background: rgba(0,255,136,0.08); }
+        @keyframes snap-flash-anim { 0%,100% { opacity:1; box-shadow:0 0 14px var(--g); } 50% { opacity:0.4; box-shadow:0 0 4px var(--g); } }
+        #btn-snapshot.snap-flash { animation: snap-flash-anim 0.55s ease; }
         #fps-badge { border-color: var(--g); color: var(--g); background: rgba(0,255,136,0.05); }
         #cycle-badge { border-color: var(--y); color: var(--y); background: rgba(255,204,0,0.05); display: none; }
         #cycle-badge.on { display: flex; }
@@ -3999,6 +4003,7 @@ body.fullscreen #transcription-hud { pointer-events: none !important; } /* keep 
             <div class="badge" id="cycle-badge">CYCLE</div>
             <div class="stat"><div class="dot" id="main-dot"></div><span id="status-text">STANDBY</span></div>
             <div id="tally">ON_AIR</div>
+            <button id="btn-snapshot" class="badge" title="Screenshot [Ctrl+Shift+S]" onclick="takeScreenshot()">&#x1F4F7;</button>
             <div id="clock">00:00:00</div>
         </div>
     </header>
@@ -5083,13 +5088,36 @@ body.fullscreen #transcription-hud { pointer-events: none !important; } /* keep 
 <script>
 const $ = id => document.getElementById(id);
 
+function takeScreenshot() {
+    if (!APP.render || !APP.render.canvas) {
+        typeof ghostLog === 'function' && ghostLog('SNAP_ERR: canvas not ready', 'crit');
+        return;
+    }
+    try {
+        var dataUrl = APP.render.canvas.toDataURL('image/png');
+        APP.nft.dnaSnapshot = dataUrl;
+        var a = document.createElement('a');
+        a.href = dataUrl;
+        a.download = 'VNGRD_SNAP_' + Date.now() + '.png';
+        a.click();
+        var snapBtn = document.getElementById('btn-snapshot');
+        if (snapBtn) { snapBtn.classList.add('snap-flash'); setTimeout(() => snapBtn.classList.remove('snap-flash'), 600); }
+        typeof ghostLog === 'function' && ghostLog('SNAPSHOT_SAVED // ' + (dataUrl.length / 1024).toFixed(0) + 'KB PNG', 'success');
+    } catch (err) {
+        typeof ghostLog === 'function' && ghostLog('SNAPSHOT_ERROR: ' + err.message, 'crit');
+    }
+}
+
 // --- BROADCAST SAFE DRAG MODULE ---
 function makeLogSafeDraggable(el) {
     // Legacy no-op — handle-based drag is wired in _sysLogInit()
 }
 // --- KILL SWITCH ---
 document.addEventListener('keydown', e => {
-    if ((e.ctrlKey || e.metaKey) && (e.key === 's' || e.key === 'S')) { e.preventDefault(); console.log('SYS: SAVE_DISABLED'); }
+    if ((e.ctrlKey || e.metaKey) && (e.key === 's' || e.key === 'S')) {
+        e.preventDefault();
+        if (e.shiftKey) { takeScreenshot(); } else { console.log('SYS: SAVE_DISABLED'); }
+    }
 });
 document.ondragstart = function() { return false; };
 
@@ -5916,15 +5944,7 @@ function processGhostCommand(cmd, voiceMode) {
 
             // ── WALLET & NFT ──
             case 'mint':
-                if (APP.render.canvas) {
-                    try {
-                        var dataUrl = APP.render.canvas.toDataURL('image/png');
-                        APP.nft.dnaSnapshot = dataUrl;
-                        var a = document.createElement('a'); a.href = dataUrl;
-                        a.download = 'VNGRD_SNAP_' + Date.now() + '.png'; a.click();
-                        ghostLog('SNAPSHOT_SAVED // ' + (dataUrl.length / 1024).toFixed(0) + 'KB PNG', 'success');
-                    } catch (e) { ghostLog('SNAPSHOT_ERROR: ' + e.message, 'crit'); }
-                }
+                takeScreenshot();
                 break;
 
             case 'wallet_help':
