@@ -6398,10 +6398,8 @@ function drawMediaStripToggle(ctx, w, h) {
     APP.state.mediaStripToggleZone.w = tabW;
     APP.state.mediaStripToggleZone.h = tabH;
 
-    // During any active user-triggered recording: skip drawing so it doesn't appear in output
-    if ((APP.broadcast && APP.broadcast.isRecording) ||
-        (APP.compositor && APP.compositor.isRecording) ||
-        (APP.nft && APP.nft.isRecording)) return tabH;
+    // During recording: skip drawing the arrow so it doesn't appear in the output
+    if (APP.broadcast && APP.broadcast.isRecording) return tabH;
 
     ctx.save();
     ctx.globalCompositeOperation = 'source-over';
@@ -6445,9 +6443,6 @@ function drawNFTVault(ctx, w, h, bottomY) {
     var assets = APP.user.assets;
     if (!assets || assets.length === 0) return 0;
     if (!APP.state.showMediaStrips) return 0;
-    if ((APP.broadcast && APP.broadcast.isRecording) ||
-        (APP.compositor && APP.compositor.isRecording) ||
-        (APP.nft && APP.nft.isRecording)) return 0;
 
     var thumbSize = Math.round(h * 0.08);
     var padding = Math.round(thumbSize * 0.15);
@@ -6536,9 +6531,6 @@ function drawMediaQueue(ctx, w, h, bottomY) {
     var queue = APP.media.queue;
     if (!queue || queue.length === 0) return;
     if (!APP.state.showMediaStrips) return;
-    if ((APP.broadcast && APP.broadcast.isRecording) ||
-        (APP.compositor && APP.compositor.isRecording) ||
-        (APP.nft && APP.nft.isRecording)) return;
 
     var thumbSize = Math.round(h * 0.065);
     var padding   = Math.round(thumbSize * 0.15);
