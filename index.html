@@ -940,9 +940,7 @@
 
         .badge { display: flex; align-items: center; gap: 5px; padding: 3px 8px; border: 1px solid; font-size: 9px; transition: all 0.2s; white-space: nowrap; }
         .badge:hover { box-shadow: 0 0 10px currentColor; }
-        #btn-snapshot { background: none; cursor: pointer; font-family: inherit; letter-spacing: 1px; border-color: var(--g); color: var(--g); }
-        #btn-snapshot:hover { background: rgba(0,255,136,0.08); }
-        @keyframes snap-flash-anim { 0%,100% { opacity:1; box-shadow:0 0 14px var(--g); } 50% { opacity:0.4; box-shadow:0 0 4px var(--g); } }
+        @keyframes snap-flash-anim { 0%,100% { opacity:1; box-shadow:0 0 10px rgba(0,255,136,0.6); } 50% { opacity:0.35; box-shadow:none; } }
         #btn-snapshot.snap-flash { animation: snap-flash-anim 0.55s ease; }
         #fps-badge { border-color: var(--g); color: var(--g); background: rgba(0,255,136,0.05); }
         #cycle-badge { border-color: var(--y); color: var(--y); background: rgba(255,204,0,0.05); display: none; }
@@ -4003,7 +4001,6 @@ body.fullscreen #transcription-hud { pointer-events: none !important; } /* keep 
             <div class="badge" id="cycle-badge">CYCLE</div>
             <div class="stat"><div class="dot" id="main-dot"></div><span id="status-text">STANDBY</span></div>
             <div id="tally">ON_AIR</div>
-            <button id="btn-snapshot" class="badge" title="Screenshot [Ctrl+Shift+S]" onclick="takeScreenshot()">&#x1F4F7;</button>
             <div id="clock">00:00:00</div>
         </div>
     </header>
@@ -4957,6 +4954,7 @@ body.fullscreen #transcription-hud { pointer-events: none !important; } /* keep 
                 </div>
             </div>
             <div class="info-group" style="gap:8px;flex-shrink:0;align-items:center;">
+                <div id="btn-snapshot" onclick="takeScreenshot()" title="Screenshot [Ctrl+Shift+S]" style="cursor:pointer;display:flex;align-items:center;padding:2px 5px;border:1px solid rgba(0,255,136,0.3);border-radius:2px;transition:all 0.15s;background:rgba(0,255,136,0.03);" onmouseenter="this.style.background='rgba(0,255,136,0.10)';this.style.borderColor='rgba(0,255,136,0.7)'" onmouseleave="this.style.background='rgba(0,255,136,0.03)';this.style.borderColor='rgba(0,255,136,0.3)'"><span style="font-size:7px;color:rgba(0,255,136,0.7);font-family:'JetBrains Mono',monospace;letter-spacing:1px;">SNAP</span></div>
                 <div class="info-item" style="color:rgba(255,255,255,0.4);">AI:<span style="color:var(--g);margin-left:2px;">[G]</span></div>
                 <div onclick="toggleSystemSlide()" title="Tab — expand canvas" style="cursor:pointer;display:flex;align-items:center;gap:3px;padding:2px 5px;border:1px solid rgba(0,243,255,0.25);border-radius:2px;transition:all 0.15s;background:rgba(0,243,255,0.04);" onmouseenter="this.style.background='rgba(0,243,255,0.12)';this.style.borderColor='rgba(0,243,255,0.6)'" onmouseleave="this.style.background='rgba(0,243,255,0.04)';this.style.borderColor='rgba(0,243,255,0.25)'">
                     <span style="font-size:7px;color:rgba(0,243,255,0.7);font-family:'JetBrains Mono',monospace;letter-spacing:1px;">TAB</span>
