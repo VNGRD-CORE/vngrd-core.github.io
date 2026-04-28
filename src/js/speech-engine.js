@@ -1193,6 +1193,11 @@
                 try {
                     recognition.start();
                     setOnAirUI(true);
+                    // Arm TimeMachine on this user gesture so CAPTURE VNGRD has a pre-filled buffer
+                    if (window.APP && APP.timeMachine && !APP.timeMachine.isRecording &&
+                            typeof initTimeMachine === 'function') {
+                        try { initTimeMachine(); } catch(tmErr) {}
+                    }
                 } catch (e) {
                     setStatus('STT_ERR: START_FAIL');
                     if (typeof ghostLog === 'function') ghostLog('STT START ERR: ' + e.message, 'crit');
