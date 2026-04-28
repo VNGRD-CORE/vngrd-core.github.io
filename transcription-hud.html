@@ -37,22 +37,11 @@
 
     html, body { width: 100%; height: 100%; overflow: hidden; background: #000; }
 
-    /* ── Camera backdrop ───────────────────────────────────────────────── */
-    #camera-feed {
+    /* ── Composite canvas (camera + burned-in subtitles) ──────────────── */
+    #composite-canvas {
       position: fixed; inset: 0;
       width: 100%; height: 100%;
-      object-fit: cover;
-      transform: scaleX(-1);   /* mirror like a selfie cam */
       z-index: 0;
-    }
-
-    /* Subtle vignette so HUD pops */
-    #camera-feed::after {
-      content: '';
-      position: fixed; inset: 0;
-      background: radial-gradient(ellipse at center,
-        transparent 40%, rgba(0,0,0,0.7) 100%);
-      pointer-events: none; z-index: 1;
     }
 
     /* ── HUD root ──────────────────────────────────────────────────────── */
@@ -187,60 +176,6 @@
       color: var(--accent);
       white-space: nowrap;
       opacity: 0.8;
-    }
-
-    /* ── Subtitle card ────────────────────────────────────────────────── */
-    .subtitle-wrap {
-      position: absolute;
-      bottom: 80px; left: 50%;
-      transform: translateX(-50%);
-      width: min(860px, 88vw);
-      text-align: center;
-    }
-
-    .subtitle-card {
-      display: inline-block;
-      padding: 14px 28px;
-      text-align: center;
-      min-width: 320px;
-    }
-
-    .subtitle-original {
-      font-size: 12px;
-      font-weight: 300;
-      color: var(--text);
-      letter-spacing: 0.5px;
-      margin-bottom: 6px;
-      font-style: italic;
-    }
-
-    .subtitle-translation {
-      font-size: 22px;
-      font-weight: 500;
-      color: var(--text-bright);
-      line-height: 1.35;
-      text-shadow: 0 2px 12px rgba(0,0,0,0.9);
-      letter-spacing: 0.3px;
-      transition: opacity 0.25s;
-    }
-
-    .subtitle-translation.flash {
-      animation: textflash 0.3s ease-out;
-    }
-
-    @keyframes textflash {
-      0%   { opacity: 0; transform: translateY(4px); }
-      100% { opacity: 1; transform: translateY(0); }
-    }
-
-    .subtitle-lang-tag {
-      display: inline-block;
-      margin-top: 8px;
-      font-size: 9px;
-      letter-spacing: 2px;
-      color: var(--accent);
-      opacity: 0.7;
-      text-transform: uppercase;
     }
 
     /* ── Activity log (bottom-left) ───────────────────────────────────── */
@@ -525,8 +460,10 @@
 </head>
 <body>
 
-<!-- Camera backdrop -->
-<video id="camera-feed" autoplay muted playsinline></video>
+<!-- Hidden camera source — feeds the composite canvas -->
+<video id="camera-src" autoplay muted playsinline style="display:none"></video>
+<!-- Composite canvas: camera frame + subtitle card burned in every rAF tick -->
+<canvas id="composite-canvas"></canvas>
 <div class="no-cam" id="no-cam-msg">[ CAMERA UNAVAILABLE ]</div>
 
 <!-- React mount point -->
@@ -557,6 +494,77 @@ function msToSrtTime(ms) {
 }
 function cuesToSRT(cues) {
   return cues.map(c => `${c.index}\n${c.start} --> ${c.end}\n${c.translation}\n`).join('\n');
+}
+
+// ── Canvas subtitle card (mirrors the DOM card's visual, burned into rAF) ──
+function drawSubtitleCard(ctx, W, H, original, translation, langFull) {
+  if (!translation && !original) return;
+
+  const PAD_X = 28, PAD_Y = 14, BOTTOM = 80;
+  const cx = W / 2;
+  const FONT = '"JetBrains Mono", monospace';
+
+  // Measure all text blocks to size the panel
+  let maxTextW = 280, totalH = PAD_Y * 2;
+  if (original) {
+    ctx.font = `italic 12px ${FONT}`;
+    maxTextW = Math.max(maxTextW, ctx.measureText(original).width);
+    totalH += 18 + 4;
+  }
+  if (translation) {
+    ctx.font = `500 22px ${FONT}`;
+    maxTextW = Math.max(maxTextW, ctx.measureText(translation).width);
+    totalH += 30 + 8;
+    if (langFull) {
+      ctx.font = `9px ${FONT}`;
+      maxTextW = Math.max(maxTextW, ctx.measureText(`◈  ${langFull.toUpperCase()}  ◈`).width);
+      totalH += 12;
+    }
+  }
+
+  const cardW = maxTextW + PAD_X * 2;
+  const cardH = totalH;
+  const cardX = cx - cardW / 2;
+  const cardY = H - BOTTOM - cardH;
+  const maxW  = cardW - PAD_X * 2;
+
+  // Background panel
+  ctx.save();
+  ctx.beginPath();
+  if (ctx.roundRect) ctx.roundRect(cardX, cardY, cardW, cardH, 4);
+  else ctx.rect(cardX, cardY, cardW, cardH);
+  ctx.fillStyle   = 'rgba(5, 5, 12, 0.78)';
+  ctx.fill();
+  ctx.strokeStyle = 'rgba(0, 243, 255, 0.28)';
+  ctx.lineWidth   = 1;
+  ctx.stroke();
+  ctx.restore();
+
+  // Text
+  ctx.textAlign    = 'center';
+  ctx.textBaseline = 'top';
+  let ty = cardY + PAD_Y;
+
+  if (original) {
+    ctx.font      = `italic 12px ${FONT}`;
+    ctx.fillStyle = 'rgba(160, 160, 168, 0.85)';
+    ctx.fillText(original, cx, ty, maxW);
+    ty += 18 + 4;
+  }
+  if (translation) {
+    ctx.font        = `500 22px ${FONT}`;
+    ctx.fillStyle   = '#e8e8ec';
+    ctx.shadowColor = 'rgba(0,0,0,0.9)';
+    ctx.shadowBlur  = 12;
+    ctx.fillText(translation, cx, ty, maxW);
+    ctx.shadowBlur  = 0;
+    ty += 30 + 8;
+    if (langFull) {
+      ctx.font      = `9px ${FONT}`;
+      ctx.fillStyle = 'rgba(0, 243, 255, 0.72)';
+      ctx.fillText(`◈  ${langFull.toUpperCase()}  ◈`, cx, ty, maxW);
+    }
+  }
 }
 
 // ── Subtitle Editor ─────────────────────────────────────────────────────────
@@ -689,10 +697,8 @@ function TranscriptionHUD() {
   const [statusMsg,    setStatusMsg]    = useState("GHOST> STANDBY ◼  Awaiting start.");
   const [original,     setOriginal]     = useState("");
   const [translation,  setTranslation]  = useState("");
-  const [langTag,      setLangTag]      = useState("FR");
-  const [flashKey,     setFlashKey]     = useState(0);
-  const [log,          setLog]          = useState([]);
-  const [srtCuesData,  setSrtCuesData]  = useState([]);
+  const [log,         setLog]         = useState([]);
+  const [srtCuesData, setSrtCuesData] = useState([]);
   const [srtFilename,  setSrtFilename]  = useState("");
   const [wsReady,      setWsReady]      = useState(false);
   const [showEditor,   setShowEditor]   = useState(false);
@@ -701,6 +707,11 @@ function TranscriptionHUD() {
   const originalRef      = useRef("");
   const sessionStartRef  = useRef(null);
   const lastCueEndMsRef  = useRef(0);
+
+  // Refs read by the rAF loop — keep canvas in sync without triggering re-renders
+  const canvasTranslationRef = useRef("");
+  const canvasOriginalRef    = useRef("");
+  const canvasLangRef        = useRef("fr");
 
   const pushLog = useCallback((msg, isNew = false) => {
     const ts  = new Date().toLocaleTimeString("en-GB", { hour12: false });
@@ -747,8 +758,6 @@ function TranscriptionHUD() {
 
         // Live display — always runs first so subtitle card never blocks
         setTranslation(data.text);
-        setLangTag(lang);
-        setFlashKey(k => k + 1);
         pushLog(`[${lang}] ${data.text}`, true);
 
         // Cue tracking for the editor — isolated so any failure can't break display
@@ -789,19 +798,70 @@ function TranscriptionHUD() {
     return () => wsRef.current?.close();
   }, [connectWS]);
 
-  // ── Camera ──────────────────────────────────────────────────────────────
+  // ── Canvas compositor + camera ─────────────────────────────────────────
   useEffect(() => {
+    const canvas  = document.getElementById("composite-canvas");
+    const videoSrc = document.getElementById("camera-src");
+    if (!canvas) return;
+
+    const ctx = canvas.getContext("2d");
+
+    function resize() {
+      canvas.width  = window.innerWidth;
+      canvas.height = window.innerHeight;
+    }
+    resize();
+    window.addEventListener("resize", resize);
+
+    let animId;
+    function render() {
+      const W = canvas.width;
+      const H = canvas.height;
+
+      // Camera frame (mirrored, same as the old CSS scaleX(-1))
+      if (videoSrc && videoSrc.readyState >= 2) {
+        ctx.save();
+        ctx.translate(W, 0);
+        ctx.scale(-1, 1);
+        ctx.drawImage(videoSrc, 0, 0, W, H);
+        ctx.restore();
+      } else {
+        ctx.fillStyle = "#050508";
+        ctx.fillRect(0, 0, W, H);
+      }
+
+      // Vignette (replaces the old CSS ::after pseudo-element)
+      const vg = ctx.createRadialGradient(W / 2, H / 2, H * 0.28, W / 2, H / 2, Math.max(W, H) * 0.72);
+      vg.addColorStop(0, "rgba(0,0,0,0)");
+      vg.addColorStop(1, "rgba(0,0,0,0.7)");
+      ctx.fillStyle = vg;
+      ctx.fillRect(0, 0, W, H);
+
+      // Subtitle card — burned into every frame so recorders capture it
+      const langFull = LANGS.find(l => l.code === canvasLangRef.current)?.full || "";
+      drawSubtitleCard(ctx, W, H, canvasOriginalRef.current, canvasTranslationRef.current, langFull);
+
+      animId = requestAnimationFrame(render);
+    }
+    animId = requestAnimationFrame(render);
+
+    // Expose composite stream so broadcast/recording code can use it
+    canvas.compositeStream = () => canvas.captureStream(30);
+
+    // Camera stream
     navigator.mediaDevices?.getUserMedia({ video: true, audio: false })
       .then(stream => {
-        const vid = document.getElementById("camera-feed");
-        if (vid) {
-          vid.srcObject = stream;
-          document.getElementById("no-cam-msg").style.display = "none";
-        }
+        videoSrc.srcObject = stream;
+        document.getElementById("no-cam-msg").style.display = "none";
       })
       .catch(() => {
-        // Camera denied — HUD still works, just no video background
+        // Camera denied — dark background, HUD still functions
       });
+
+    return () => {
+      cancelAnimationFrame(animId);
+      window.removeEventListener("resize", resize);
+    };
   }, []);
 
   // ── Toggle On-Air ───────────────────────────────────────────────────────
@@ -845,6 +905,11 @@ function TranscriptionHUD() {
     URL.revokeObjectURL(url);
   }, [srtCuesData, srtFilename, targetLang]);
 
+  // ── Sync state → canvas refs (read by rAF loop, no re-render needed) ───
+  canvasTranslationRef.current = translation;
+  canvasOriginalRef.current    = original;
+  canvasLangRef.current        = targetLang;
+
   // ── Render ──────────────────────────────────────────────────────────────
   const langFull    = LANGS.find(l => l.code === targetLang)?.full || "";
   const hasCues     = srtCuesData.length > 0;
@@ -879,7 +944,7 @@ function TranscriptionHUD() {
             <button
               key={l.code}
               className={`lang-btn${targetLang === l.code ? " selected" : ""}`}
-              onClick={() => { setTargetLang(l.code); setLangTag(l.code.toUpperCase()); }}
+              onClick={() => setTargetLang(l.code)}
               disabled={active}
               title={l.full}
             >
@@ -897,29 +962,7 @@ function TranscriptionHUD() {
       {/* ── Signal meter ── */}
       <SignalMeter active={active} />
 
-      {/* ── Subtitle area ── */}
-      {(original || translation) && (
-        <div className="subtitle-wrap">
-          <div className="subtitle-card glass">
-            {original && (
-              <div className="subtitle-original">{original}</div>
-            )}
-            {translation && (
-              <div
-                key={flashKey}
-                className="subtitle-translation flash"
-              >
-                {translation}
-              </div>
-            )}
-            {translation && (
-              <div className="subtitle-lang-tag">
-                ◈ &nbsp;{langFull.toUpperCase()}&nbsp; ◈
-              </div>
-            )}
-          </div>
-        </div>
-      )}
+      {/* Subtitle card is drawn directly on #composite-canvas — visible in all recorders */}
 
       {/* ── Activity log ── */}
       <div className="activity-log glass">
