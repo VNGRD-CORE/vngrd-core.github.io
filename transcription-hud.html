@@ -346,6 +346,181 @@
       letter-spacing: 2px;
       z-index: -1;
     }
+
+    /* ── Subtitle Editor Overlay ──────────────────────────────────────────── */
+    .editor-overlay {
+      position: fixed; inset: 0;
+      z-index: 200;
+      display: flex; align-items: center; justify-content: center;
+      background: rgba(5, 5, 12, 0.9);
+      backdrop-filter: blur(10px);
+      -webkit-backdrop-filter: blur(10px);
+      padding: 20px;
+    }
+
+    .editor-panel {
+      width: min(960px, 96vw);
+      max-height: 90vh;
+      display: flex; flex-direction: column;
+      border-color: var(--accent);
+      box-shadow: 0 0 50px rgba(0, 243, 255, 0.12);
+    }
+
+    .editor-header {
+      display: flex; align-items: center; justify-content: space-between;
+      padding: 14px 20px;
+      border-bottom: 1px solid var(--glass-border);
+      flex-shrink: 0;
+    }
+
+    .editor-col-header {
+      display: grid;
+      grid-template-columns: 28px 220px 1fr 1fr 28px;
+      gap: 8px;
+      padding: 6px 20px 6px 20px;
+      border-bottom: 1px solid var(--glass-border);
+      flex-shrink: 0;
+    }
+    .editor-col-header span {
+      font-size: 9px;
+      letter-spacing: 2px;
+      color: var(--accent);
+      opacity: 0.6;
+      text-transform: uppercase;
+    }
+
+    .editor-body {
+      overflow-y: auto;
+      flex: 1;
+      padding: 6px 12px;
+    }
+    .editor-body::-webkit-scrollbar { width: 3px; }
+    .editor-body::-webkit-scrollbar-thumb { background: var(--accent-dim); border-radius: 2px; }
+
+    .cue-row {
+      display: grid;
+      grid-template-columns: 28px 220px 1fr 1fr 28px;
+      gap: 8px;
+      align-items: center;
+      padding: 6px 8px;
+      border-bottom: 1px solid rgba(0, 243, 255, 0.06);
+      border-radius: 2px;
+      transition: background 0.15s;
+    }
+    .cue-row:hover { background: rgba(0, 243, 255, 0.04); }
+
+    .cue-index {
+      font-size: 10px;
+      color: var(--accent);
+      opacity: 0.5;
+      text-align: right;
+      font-weight: 300;
+    }
+
+    .cue-times {
+      display: flex; align-items: center; gap: 4px;
+    }
+    .cue-arrow { font-size: 9px; color: var(--text); opacity: 0.4; flex-shrink: 0; }
+
+    .cue-input {
+      font-family: var(--mono);
+      font-size: 11px;
+      background: rgba(0, 243, 255, 0.04);
+      border: 1px solid rgba(0, 243, 255, 0.12);
+      border-radius: 3px;
+      color: var(--text-bright);
+      padding: 5px 8px;
+      outline: none;
+      width: 100%;
+      transition: border-color 0.2s, box-shadow 0.2s, background 0.2s;
+    }
+    .cue-input:focus {
+      border-color: var(--accent);
+      box-shadow: 0 0 8px rgba(0, 243, 255, 0.18);
+      background: rgba(0, 243, 255, 0.07);
+      color: #fff;
+    }
+    .cue-input.dim { color: var(--text); font-style: italic; font-size: 10px; }
+    .cue-input.time {
+      width: 96px;
+      font-size: 10px;
+      text-align: center;
+      flex-shrink: 0;
+      letter-spacing: 0.5px;
+    }
+
+    .cue-delete {
+      font-family: var(--mono);
+      font-size: 10px;
+      background: transparent;
+      border: 1px solid rgba(255, 0, 85, 0.2);
+      border-radius: 3px;
+      color: rgba(255, 0, 85, 0.45);
+      cursor: pointer;
+      padding: 5px;
+      line-height: 1;
+      transition: all 0.2s;
+    }
+    .cue-delete:hover {
+      border-color: var(--red);
+      color: var(--red);
+      box-shadow: 0 0 8px rgba(255, 0, 85, 0.25);
+    }
+
+    .editor-footer {
+      display: flex; align-items: center; justify-content: space-between;
+      padding: 12px 20px;
+      border-top: 1px solid var(--glass-border);
+      flex-shrink: 0;
+      gap: 10px;
+    }
+
+    .editor-close-btn {
+      font-family: var(--mono);
+      font-size: 10px;
+      font-weight: 500;
+      letter-spacing: 1.5px;
+      padding: 6px 14px;
+      border-radius: 3px;
+      border: 1px solid var(--glass-border);
+      background: transparent;
+      color: var(--text);
+      cursor: pointer;
+      text-transform: uppercase;
+      transition: all 0.2s;
+    }
+    .editor-close-btn:hover { border-color: var(--red); color: var(--red); }
+
+    .editor-empty {
+      text-align: center;
+      padding: 48px 20px;
+      color: var(--text);
+      font-size: 11px;
+      letter-spacing: 3px;
+      opacity: 0.4;
+    }
+
+    /* Review button in SRT panel */
+    .srt-review-btn {
+      font-family: var(--mono);
+      font-size: 10px;
+      font-weight: 500;
+      letter-spacing: 1.5px;
+      padding: 6px 14px;
+      border-radius: 3px;
+      border: 1px solid var(--glass-border);
+      background: transparent;
+      color: var(--text);
+      cursor: pointer;
+      text-transform: uppercase;
+      transition: all 0.2s;
+    }
+    .srt-review-btn:hover:not(:disabled) {
+      border-color: var(--accent);
+      color: var(--accent);
+      box-shadow: 0 0 10px rgba(0, 243, 255, 0.2);
+    }
+    .srt-review-btn:disabled { opacity: 0.3; cursor: default; }
   </style>
 </head>
 <body>
@@ -369,6 +544,117 @@ const LANGS    = [
   { code: "es", label: "ES", full: "Spanish" },
 ];
 const MAX_LOG  = 6;
+
+// ── SRT time helpers ────────────────────────────────────────────────────────
+function p2(n) { return String(n).padStart(2, '0'); }
+function p3(n) { return String(n).padStart(3, '0'); }
+function msToSrtTime(ms) {
+  const h = Math.floor(ms / 3600000);
+  const m = Math.floor((ms % 3600000) / 60000);
+  const s = Math.floor((ms % 60000) / 1000);
+  const f = ms % 1000;
+  return `${p2(h)}:${p2(m)}:${p2(s)},${p3(f)}`;
+}
+function cuesToSRT(cues) {
+  return cues.map(c => `${c.index}\n${c.start} --> ${c.end}\n${c.translation}\n`).join('\n');
+}
+
+// ── Subtitle Editor ─────────────────────────────────────────────────────────
+function SubtitleEditor({ initialCues, filename, targetLang, onClose }) {
+  const [cues, setCues] = useState(() =>
+    initialCues.map((c, i) => ({ ...c, index: i + 1 }))
+  );
+
+  const update = (id, field, val) =>
+    setCues(prev => prev.map(c => c.id === id ? { ...c, [field]: val } : c));
+
+  const remove = (id) =>
+    setCues(prev => prev.filter(c => c.id !== id).map((c, i) => ({ ...c, index: i + 1 })));
+
+  const exportSRT = () => {
+    const content = cuesToSRT(cues);
+    const blob = new Blob([content], { type: 'text/plain;charset=utf-8' });
+    const url  = URL.createObjectURL(blob);
+    const a    = document.createElement('a');
+    a.href     = url;
+    a.download = filename || `transcription_${targetLang}.srt`;
+    a.click();
+    URL.revokeObjectURL(url);
+    onClose();
+  };
+
+  return (
+    <div className="editor-overlay">
+      <div className="editor-panel glass">
+
+        <div className="editor-header">
+          <span className="logo" style={{ fontSize: 12, letterSpacing: 3 }}>
+            DRIS//CORE — SUBTITLE REVIEW
+          </span>
+          <div style={{ display: 'flex', gap: 8 }}>
+            <button className="editor-close-btn" onClick={onClose}>CLOSE</button>
+            <button
+              className="srt-download-btn"
+              onClick={exportSRT}
+              disabled={cues.length === 0}
+            >
+              ⬇ Export .srt
+            </button>
+          </div>
+        </div>
+
+        <div className="editor-col-header">
+          <span>#</span>
+          <span>TIMECODE</span>
+          <span>ORIGINAL (EN)</span>
+          <span>TRANSLATION</span>
+          <span></span>
+        </div>
+
+        <div className="editor-body">
+          {cues.length === 0 ? (
+            <div className="editor-empty">[ NO CUES CAPTURED ]</div>
+          ) : cues.map(cue => (
+            <div key={cue.id} className="cue-row">
+              <span className="cue-index">{cue.index}</span>
+              <div className="cue-times">
+                <input
+                  className="cue-input time"
+                  value={cue.start}
+                  onChange={e => update(cue.id, 'start', e.target.value)}
+                />
+                <span className="cue-arrow">→</span>
+                <input
+                  className="cue-input time"
+                  value={cue.end}
+                  onChange={e => update(cue.id, 'end', e.target.value)}
+                />
+              </div>
+              <input
+                className="cue-input dim"
+                value={cue.original}
+                onChange={e => update(cue.id, 'original', e.target.value)}
+              />
+              <input
+                className="cue-input"
+                value={cue.translation}
+                onChange={e => update(cue.id, 'translation', e.target.value)}
+              />
+              <button className="cue-delete" onClick={() => remove(cue.id)}>✕</button>
+            </div>
+          ))}
+        </div>
+
+        <div className="editor-footer">
+          <span className="srt-counter">
+            CUES: <span>{cues.length}</span>
+          </span>
+        </div>
+
+      </div>
+    </div>
+  );
+}
 
 // ── Signal bars animated helper ────────────────────────────────────────────
 function SignalMeter({ active }) {
@@ -398,20 +684,23 @@ function SignalMeter({ active }) {
 
 // ── Main HUD ───────────────────────────────────────────────────────────────
 function TranscriptionHUD() {
-  const [active,      setActive]      = useState(false);
-  const [targetLang,  setTargetLang]  = useState("fr");
-  const [statusMsg,   setStatusMsg]   = useState("GHOST> STANDBY ◼  Awaiting start.");
-  const [original,    setOriginal]    = useState("");
-  const [translation, setTranslation] = useState("");
-  const [langTag,     setLangTag]     = useState("FR");
-  const [flashKey,    setFlashKey]    = useState(0);
-  const [log,         setLog]         = useState([]);
-  const [srtCues,     setSrtCues]     = useState(0);
-  const [srtContent,  setSrtContent]  = useState("");
-  const [srtFilename, setSrtFilename] = useState("");
-  const [wsReady,     setWsReady]     = useState(false);
+  const [active,       setActive]       = useState(false);
+  const [targetLang,   setTargetLang]   = useState("fr");
+  const [statusMsg,    setStatusMsg]    = useState("GHOST> STANDBY ◼  Awaiting start.");
+  const [original,     setOriginal]     = useState("");
+  const [translation,  setTranslation]  = useState("");
+  const [langTag,      setLangTag]      = useState("FR");
+  const [flashKey,     setFlashKey]     = useState(0);
+  const [log,          setLog]          = useState([]);
+  const [srtCuesData,  setSrtCuesData]  = useState([]);
+  const [srtFilename,  setSrtFilename]  = useState("");
+  const [wsReady,      setWsReady]      = useState(false);
+  const [showEditor,   setShowEditor]   = useState(false);
 
-  const wsRef = useRef(null);
+  const wsRef            = useRef(null);
+  const originalRef      = useRef("");
+  const sessionStartRef  = useRef(null);
+  const lastCueEndMsRef  = useRef(0);
 
   const pushLog = useCallback((msg, isNew = false) => {
     const ts  = new Date().toLocaleTimeString("en-GB", { hour12: false });
@@ -449,21 +738,36 @@ function TranscriptionHUD() {
       }
 
       if (data.type === "transcript") {
+        originalRef.current = data.original;
         setOriginal(data.original);
       }
 
       if (data.type === "translation") {
+        const now     = Date.now();
+        const elapsed = sessionStartRef.current ? (now - sessionStartRef.current) : 3000;
+        const startMs = lastCueEndMsRef.current;
+        const endMs   = Math.max(elapsed, startMs + 800);
+        lastCueEndMsRef.current = endMs + 100;
+
+        const cue = {
+          id         : now + Math.random(),
+          start      : msToSrtTime(startMs),
+          end        : msToSrtTime(endMs),
+          original   : originalRef.current,
+          translation: data.text,
+          lang       : data.lang.toUpperCase(),
+        };
+        setSrtCuesData(prev => [...prev, { ...cue, index: prev.length + 1 }]);
+
         setTranslation(data.text);
         setLangTag(data.lang.toUpperCase());
         setFlashKey(k => k + 1);
-        setSrtCues(c => c + 1);
         pushLog(`[${data.lang.toUpperCase()}] ${data.text}`, true);
       }
 
       if (data.type === "srt_ready") {
-        setSrtContent(data.content);
         setSrtFilename(data.filename);
-        pushLog(`SRT saved: ${data.filename}`);
+        pushLog(`SRT ready: ${data.filename}`);
       }
 
       if (data.type === "error") {
@@ -502,8 +806,9 @@ function TranscriptionHUD() {
 
     const ws = wsRef.current;
     if (!active) {
-      setSrtCues(0);
-      setSrtContent("");
+      sessionStartRef.current  = Date.now();
+      lastCueEndMsRef.current  = 0;
+      setSrtCuesData([]);
       setSrtFilename("");
       setOriginal("");
       setTranslation("");
@@ -514,24 +819,27 @@ function TranscriptionHUD() {
       }));
     } else {
       ws.send(JSON.stringify({ action: "stop" }));
+      setShowEditor(true);
     }
     setActive(a => !a);
   }, [active, wsReady, targetLang, pushLog]);
 
-  // ── SRT Download ────────────────────────────────────────────────────────
+  // ── Quick SRT Download (skip editor) ───────────────────────────────────
   const downloadSRT = useCallback(() => {
-    if (!srtContent) return;
-    const blob = new Blob([srtContent], { type: "text/plain;charset=utf-8" });
+    if (!srtCuesData.length) return;
+    const content = cuesToSRT(srtCuesData);
+    const blob = new Blob([content], { type: "text/plain;charset=utf-8" });
     const url  = URL.createObjectURL(blob);
     const a    = document.createElement("a");
     a.href     = url;
     a.download = srtFilename || `transcription_${targetLang}.srt`;
     a.click();
     URL.revokeObjectURL(url);
-  }, [srtContent, srtFilename, targetLang]);
+  }, [srtCuesData, srtFilename, targetLang]);
 
   // ── Render ──────────────────────────────────────────────────────────────
-  const langFull = LANGS.find(l => l.code === targetLang)?.full || "";
+  const langFull    = LANGS.find(l => l.code === targetLang)?.full || "";
+  const hasCues     = srtCuesData.length > 0;
 
   return (
     <div className={active ? "" : "idle"}>
@@ -623,17 +931,35 @@ function TranscriptionHUD() {
       {/* ── SRT panel ── */}
       <div className="srt-panel glass">
         <div className="srt-counter">
-          SRT CUES: <span>{srtCues}</span>
+          SRT CUES: <span>{srtCuesData.length}</span>
         </div>
+        <button
+          className="srt-review-btn"
+          onClick={() => setShowEditor(true)}
+          disabled={!hasCues}
+          title="Review and edit subtitles before export"
+        >
+          ✎ Review & Edit
+        </button>
         <button
           className="srt-download-btn"
           onClick={downloadSRT}
-          disabled={!srtContent}
-          title="Download .srt subtitle file"
+          disabled={!hasCues}
+          title="Download .srt subtitle file directly"
         >
           ⬇ Export .srt
         </button>
       </div>
+
+      {/* ── Subtitle Editor overlay ── */}
+      {showEditor && (
+        <SubtitleEditor
+          initialCues={srtCuesData}
+          filename={srtFilename}
+          targetLang={targetLang}
+          onClose={() => setShowEditor(false)}
+        />
+      )}
 
     </div>
   );
