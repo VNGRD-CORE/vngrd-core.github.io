@@ -426,6 +426,40 @@
     }
     .editor-close-btn:hover { border-color: var(--red); color: var(--red); }
 
+    /* Render button + progress */
+    .srt-render-btn {
+      font-family: var(--mono);
+      font-size: 10px; font-weight: 500;
+      letter-spacing: 1.5px;
+      padding: 6px 14px; border-radius: 3px;
+      border: 1px solid var(--green);
+      background: transparent; color: var(--green);
+      cursor: pointer; text-transform: uppercase;
+      transition: all 0.2s;
+    }
+    .srt-render-btn:hover:not(:disabled) {
+      background: var(--green-dim);
+      box-shadow: 0 0 10px rgba(0,255,136,0.25);
+    }
+    .srt-render-btn:disabled { opacity: 0.3; cursor: default; }
+
+    .render-progress-wrap {
+      position: relative; flex: 1;
+      height: 24px; border-radius: 3px;
+      border: 1px solid var(--glass-border);
+      overflow: hidden;
+      display: flex; align-items: center; justify-content: center;
+    }
+    .render-progress-bar {
+      position: absolute; left: 0; top: 0; bottom: 0;
+      background: var(--green-dim);
+      transition: width 0.4s linear;
+    }
+    .render-progress-label {
+      position: relative;
+      font-size: 10px; letter-spacing: 1px; color: var(--green);
+    }
+
     .editor-empty {
       text-align: center;
       padding: 48px 20px;
@@ -461,7 +495,7 @@
 <body>
 
 <!-- Hidden camera source — feeds the composite canvas -->
-<video id="camera-src" autoplay muted playsinline style="display:none"></video>
+<video id="camera-src" autoplay muted playsinline style="position:fixed;top:-2px;left:-2px;width:1px;height:1px;opacity:0;pointer-events:none"></video>
 <!-- Composite canvas: camera frame + subtitle card burned in every rAF tick -->
 <canvas id="composite-canvas"></canvas>
 <div class="no-cam" id="no-cam-msg">[ CAMERA UNAVAILABLE ]</div>
@@ -491,6 +525,11 @@ function msToSrtTime(ms) {
   const s = Math.floor((ms % 60000) / 1000);
   const f = ms % 1000;
   return `${p2(h)}:${p2(m)}:${p2(s)},${p3(f)}`;
+}
+function srtTimeToSeconds(t) {
+  const [hms, ms] = t.split(',');
+  const [h, m, s] = hms.split(':').map(Number);
+  return h * 3600 + m * 60 + s + Number(ms || 0) / 1000;
 }
 function cuesToSRT(cues) {
   return cues.map(c => `${c.index}\n${c.start} --> ${c.end}\n${c.translation}\n`).join('\n');
@@ -568,10 +607,12 @@ function drawSubtitleCard(ctx, W, H, original, translation, langFull) {
 }
 
 // ── Subtitle Editor ─────────────────────────────────────────────────────────
-function SubtitleEditor({ initialCues, filename, targetLang, onClose }) {
-  const [cues, setCues] = useState(() =>
+function SubtitleEditor({ initialCues, filename, targetLang, onClose, cleanRecording }) {
+  const [cues, setCues]               = useState(() =>
     initialCues.map((c, i) => ({ ...c, index: i + 1 }))
   );
+  const [rendering, setRendering]     = useState(false);
+  const [renderPct, setRenderPct]     = useState(0);
 
   const update = (id, field, val) =>
     setCues(prev => prev.map(c => c.id === id ? { ...c, [field]: val } : c));
@@ -590,6 +631,79 @@ function SubtitleEditor({ initialCues, filename, targetLang, onClose }) {
     URL.revokeObjectURL(url);
     onClose();
   };
+
+  const renderFinalVideo = useCallback(async () => {
+    if (!cleanRecording || rendering) return;
+    setRendering(true);
+    setRenderPct(0);
+
+    const srcUrl = URL.createObjectURL(cleanRecording);
+    const videoEl = document.createElement('video');
+    videoEl.src = srcUrl;
+    videoEl.preload = 'auto';
+
+    await new Promise((res, rej) => {
+      videoEl.onloadedmetadata = res;
+      videoEl.onerror = rej;
+    });
+
+    const W = videoEl.videoWidth  || 1280;
+    const H = videoEl.videoHeight || 720;
+    const duration = videoEl.duration;
+    const langFull = LANGS.find(l => l.code === targetLang)?.full || '';
+
+    const canvas = document.createElement('canvas');
+    canvas.width = W; canvas.height = H;
+    const ctx = canvas.getContext('2d');
+
+    // Route audio from the source video into the output stream
+    let finalStream = canvas.captureStream(30);
+    try {
+      const audioCtx = new AudioContext();
+      const src = audioCtx.createMediaElementSource(videoEl);
+      const dst = audioCtx.createMediaStreamDestination();
+      src.connect(dst);
+      finalStream = new MediaStream([
+        ...canvas.captureStream(30).getVideoTracks(),
+        ...dst.stream.getAudioTracks(),
+      ]);
+    } catch (_) { /* audio routing failed — video only */ }
+
+    const mime = MediaRecorder.isTypeSupported('video/webm;codecs=vp9,opus')
+      ? 'video/webm;codecs=vp9,opus' : 'video/webm';
+    const chunks = [];
+    const rec = new MediaRecorder(finalStream, { mimeType: mime, videoBitsPerSecond: 8_000_000 });
+    rec.ondataavailable = e => { if (e.data.size > 0) chunks.push(e.data); };
+    rec.onstop = () => {
+      const blob = new Blob(chunks, { type: 'video/webm' });
+      const url  = URL.createObjectURL(blob);
+      const a    = document.createElement('a');
+      a.href = url;
+      a.download = (filename || 'output').replace(/\.srt$/, '') + '_final.webm';
+      a.click();
+      URL.revokeObjectURL(url);
+      URL.revokeObjectURL(srcUrl);
+      setRendering(false);
+      setRenderPct(0);
+    };
+
+    rec.start(500);
+
+    function drawFrame() {
+      if (videoEl.ended) { rec.stop(); return; }
+      ctx.drawImage(videoEl, 0, 0, W, H);
+      const t = videoEl.currentTime;
+      const active = cues.find(c =>
+        t >= srtTimeToSeconds(c.start) && t <= srtTimeToSeconds(c.end)
+      );
+      if (active) drawSubtitleCard(ctx, W, H, active.original, active.translation, langFull);
+      setRenderPct(Math.round((t / duration) * 100));
+      requestAnimationFrame(drawFrame);
+    }
+
+    videoEl.onplay = () => requestAnimationFrame(drawFrame);
+    videoEl.play().catch(() => setRendering(false));
+  }, [cleanRecording, rendering, cues, filename, targetLang]);
 
   return (
     <div className="editor-overlay">
@@ -654,9 +768,22 @@ function SubtitleEditor({ initialCues, filename, targetLang, onClose }) {
         </div>
 
         <div className="editor-footer">
-          <span className="srt-counter">
-            CUES: <span>{cues.length}</span>
-          </span>
+          <span className="srt-counter">CUES: <span>{cues.length}</span></span>
+          {rendering ? (
+            <div className="render-progress-wrap" style={{ minWidth: 180 }}>
+              <div className="render-progress-bar" style={{ width: `${renderPct}%` }} />
+              <span className="render-progress-label">RENDERING {renderPct}%</span>
+            </div>
+          ) : (
+            <button
+              className="srt-render-btn"
+              onClick={renderFinalVideo}
+              disabled={!cleanRecording || cues.length === 0}
+              title={!cleanRecording ? "No recording from this session" : "Burn edited subs into video"}
+            >
+              ▶ Render Final Video
+            </button>
+          )}
         </div>
 
       </div>
@@ -707,6 +834,10 @@ function TranscriptionHUD() {
   const originalRef      = useRef("");
   const sessionStartRef  = useRef(null);
   const lastCueEndMsRef  = useRef(0);
+  const cameraStreamRef  = useRef(null);
+  const mediaRecorderRef = useRef(null);
+  const recordingChunks  = useRef([]);
+  const [cleanRecording, setCleanRecording] = useState(null);
 
   // Refs read by the rAF loop — keep canvas in sync without triggering re-renders
   const canvasTranslationRef = useRef("");
@@ -848,14 +979,15 @@ function TranscriptionHUD() {
     // Expose composite stream so broadcast/recording code can use it
     canvas.compositeStream = () => canvas.captureStream(30);
 
-    // Camera stream
-    navigator.mediaDevices?.getUserMedia({ video: true, audio: false })
+    // Camera + mic stream (audio needed for final render)
+    navigator.mediaDevices?.getUserMedia({ video: true, audio: true })
       .then(stream => {
+        cameraStreamRef.current = stream;
         videoSrc.srcObject = stream;
         document.getElementById("no-cam-msg").style.display = "none";
       })
       .catch(() => {
-        // Camera denied — dark background, HUD still functions
+        // Camera/mic denied — dark background, HUD still functions
       });
 
     return () => {
@@ -877,17 +1009,35 @@ function TranscriptionHUD() {
       lastCueEndMsRef.current  = 0;
       setSrtCuesData([]);
       setSrtFilename("");
+      setCleanRecording(null);
       setOriginal("");
       setTranslation("");
       setShowEditor(false);
+
+      // Start clean recording if camera stream is available
+      if (cameraStreamRef.current) {
+        recordingChunks.current = [];
+        const mime = MediaRecorder.isTypeSupported('video/webm;codecs=vp9,opus')
+          ? 'video/webm;codecs=vp9,opus' : 'video/webm';
+        const rec = new MediaRecorder(cameraStreamRef.current, { mimeType: mime });
+        rec.ondataavailable = e => { if (e.data.size > 0) recordingChunks.current.push(e.data); };
+        rec.onstop = () => {
+          const blob = new Blob(recordingChunks.current, { type: 'video/webm' });
+          setCleanRecording(blob);
+        };
+        rec.start(500);
+        mediaRecorderRef.current = rec;
+      }
+
       ws.send(JSON.stringify({
         action     : "start",
         target_lang: targetLang,
         source_lang: "en",
       }));
     } else {
+      mediaRecorderRef.current?.stop();
       ws.send(JSON.stringify({ action: "stop" }));
-      setShowEditor(true);
+      // Editor does NOT auto-open — user clicks "Review & Edit" if they want it
     }
     setActive(a => !a);
   }, [active, wsReady, targetLang, pushLog]);
@@ -1009,6 +1159,7 @@ function TranscriptionHUD() {
           filename={srtFilename}
           targetLang={targetLang}
           onClose={() => setShowEditor(false)}
+          cleanRecording={cleanRecording}
         />
       )}
 
