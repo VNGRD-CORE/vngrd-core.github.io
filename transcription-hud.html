@@ -743,26 +743,33 @@ function TranscriptionHUD() {
       }
 
       if (data.type === "translation") {
-        const now     = Date.now();
-        const elapsed = sessionStartRef.current ? (now - sessionStartRef.current) : 3000;
-        const startMs = lastCueEndMsRef.current;
-        const endMs   = Math.max(elapsed, startMs + 800);
-        lastCueEndMsRef.current = endMs + 100;
+        const lang = (data.lang || "").toUpperCase();
 
-        const cue = {
-          id         : now + Math.random(),
-          start      : msToSrtTime(startMs),
-          end        : msToSrtTime(endMs),
-          original   : originalRef.current,
-          translation: data.text,
-          lang       : data.lang.toUpperCase(),
-        };
-        setSrtCuesData(prev => [...prev, { ...cue, index: prev.length + 1 }]);
-
+        // Live display — always runs first so subtitle card never blocks
         setTranslation(data.text);
-        setLangTag(data.lang.toUpperCase());
+        setLangTag(lang);
         setFlashKey(k => k + 1);
-        pushLog(`[${data.lang.toUpperCase()}] ${data.text}`, true);
+        pushLog(`[${lang}] ${data.text}`, true);
+
+        // Cue tracking for the editor — isolated so any failure can't break display
+        try {
+          const now     = Date.now();
+          const elapsed = sessionStartRef.current ? (now - sessionStartRef.current) : 3000;
+          const startMs = lastCueEndMsRef.current;
+          const endMs   = Math.max(elapsed, startMs + 800);
+          lastCueEndMsRef.current = endMs + 100;
+          const cue = {
+            id         : now + Math.random(),
+            start      : msToSrtTime(startMs),
+            end        : msToSrtTime(endMs),
+            original   : originalRef.current,
+            translation: data.text,
+            lang,
+          };
+          setSrtCuesData(prev => [...prev, { ...cue, index: prev.length + 1 }]);
+        } catch (e) {
+          console.warn("Cue tracking error:", e);
+        }
       }
 
       if (data.type === "srt_ready") {
@@ -812,6 +819,7 @@ function TranscriptionHUD() {
       setSrtFilename("");
       setOriginal("");
       setTranslation("");
+      setShowEditor(false);
       ws.send(JSON.stringify({
         action     : "start",
         target_lang: targetLang,
