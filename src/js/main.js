@@ -1,1272 +1,461 @@
-<html lang="en">
-<head>
-    <meta charset="UTF-8">
-    <meta http-equiv="Content-Security-Policy" content="default-src * 'unsafe-inline' 'unsafe-eval' data: blob:; img-src * data: blob: 'unsafe-inline'; connect-src * 'unsafe-inline';">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <meta name="theme-color" content="#000000">
-    <meta name="mobile-web-app-capable" content="yes">
-    <meta name="apple-mobile-web-app-capable" content="yes">
-    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
-    <link rel="manifest" href="manifest.json">
-    <link rel="stylesheet" href="./src/kinetic-rack/kinetic-rack.css?v=2">
-
-   <title>DRIS//CORE VNGRD</title>
-<script>if('serviceWorker' in navigator){navigator.serviceWorker.register('sw.js').catch(function(){});}</script>
-<script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
-<script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/loaders/OBJLoader.js"></script>
-<script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/loaders/STLLoader.js"></script>
-<script src="https://unpkg.com/peerjs@1.5.2/dist/peerjs.min.js"></script>
-<script src="https://unpkg.com/tone@14.8.49/build/Tone.js" crossorigin="anonymous"></script>
-<script src="https://cdnjs.cloudflare.com/ajax/libs/ethers/5.7.2/ethers.umd.min.js"></script>
-<script src="src/Compositor.js"></script>
-<script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
-<!-- Three.js r128 loaded globally above; importmap removed -->
-    <link rel="stylesheet" href="./src/css/main.css">
-</head>
-<body oncontextmenu="return false;">
-    <!-- PORTRAIT ORIENTATION LOCK -->
-    <div id="portrait-lock">
-        <div class="lock-brand">VNGRD</div>
-        <div class="lock-line"></div>
-        <div class="lock-icon"></div>
-        <div class="lock-msg">PLEASE ROTATE FOR FULL EXPERIENCE</div>
-        <div class="lock-line"></div>
-    </div>
-
-    <!-- SHOOTING_OVERLAY -->
-    <div id="shooting-overlay"></div>
-    
-
-    
-    <svg style="position:absolute;width:0;height:0;">
-        <defs>
-            <filter id="chromatic-ghost" x="-20%" y="-20%" width="140%" height="140%">
-                <feColorMatrix in="SourceGraphic" type="matrix" values="1 0 0 0 0  0 0 0 0 0  0 0 0 0 0  0 0 0 1 0" result="red"/>
-                <feColorMatrix in="SourceGraphic" type="matrix" values="0 0 0 0 0  0 1 0 0 0  0 0 0 0 0  0 0 0 1 0" result="green"/>
-                <feColorMatrix in="SourceGraphic" type="matrix" values="0 0 0 0 0  0 0 0 0 0  0 0 1 0 0  0 0 0 1 0" result="blue"/>
-                <feOffset in="red" dx="-15" dy="0" result="red-shift"/>
-                <feOffset in="blue" dx="15" dy="0" result="blue-shift"/>
-                <feBlend in="red-shift" in2="green" mode="screen" result="rg"/>
-                <feBlend in="rg" in2="blue-shift" mode="screen"/>
-            </filter>
-            <filter id="heat-distort" x="-10%" y="-10%" width="120%" height="120%">
-                <feTurbulence type="fractalNoise" baseFrequency="0.02 0.06" numOctaves="2" result="noise">
-                    <animate attributeName="seed" from="0" to="100" dur="1s" repeatCount="indefinite"/>
-                </feTurbulence>
-                <feDisplacementMap in="SourceGraphic" in2="noise" scale="6" xChannelSelector="R" yChannelSelector="G"/>
-            </filter>
-
-            <filter id="nvg-grain" x="0%" y="0%" width="100%" height="100%" color-interpolation-filters="sRGB">
-                <feTurbulence type="fractalNoise" baseFrequency="0.72 0.68" numOctaves="4" stitchTiles="stitch" result="noise">
-                    <animate attributeName="seed" from="0" to="99" dur="0.09s" repeatCount="indefinite"/>
-                </feTurbulence>
-                <feColorMatrix type="saturate" values="0" in="noise" result="grey-noise"/>
-                <feBlend in="SourceGraphic" in2="grey-noise" mode="overlay" result="blended"/>
-                <feComponentTransfer in="blended">
-                    <feFuncA type="linear" slope="1"/>
-                </feComponentTransfer>
-            </filter>
-
-        </defs>
-    </svg>
-    
-    <!-- STRUCTURAL INTEGRITY BAR -->
-    <div id="integrity-bar">
-        <div id="integrity-fill"></div>
-        <div id="integrity-text">INTEGRITY: 100%</div>
-    </div>
-    
-    <div class="blur-reveal" id="blur-reveal"></div>
-    
-    <header id="top-bar">
-        <div id="brand">
-            <!-- TRIPLE-STACK IDENTITY: [Image] [Text] [Controls] -->
-            <img id="brand-logo-slot" src="" alt="" style="display:none;">
-            <span class="logo m1" id="main-logo">DRIS<span style="font-size:14px;font-weight:400;color:var(--accent);opacity:0.6;margin-left:2px;letter-spacing:1px">//&nbsp;CORE</span></span>
-            <span class="sub-tag">VNGRD</span>
-            <span class="version">V34</span>
-        </div>
-        <div id="status-bar">
-            <div id="wallet-badge" class="badge" style="cursor:pointer;border-color:var(--o);color:var(--o);"><span class="dot off" id="wallet-dot"></span>WALLET</div>
-            <div id="btn-open-p2p-modal" class="badge" style="cursor:pointer;border-color:var(--c);color:var(--c);margin-left:10px;"><span class="dot off" id="p2p-dot"></span>&#9742; P2P CALL</div>
-            <div id="rec-status">REC</div>
-            
-            <div class="badge" id="fps-badge">FPS: <span id="fps-val">60</span></div>
-            <div class="badge" id="cycle-badge">CYCLE</div>
-            <div class="stat"><div class="dot" id="main-dot"></div><span id="status-text">STANDBY</span></div>
-            <div id="tally">ON_AIR</div>
-            <div id="clock">00:00:00</div>
-        </div>
-    </header>
-
-    <main id="stage">
-        <canvas id="vj-canvas"></canvas>
-        <!-- VANGUARD_B post-process canvas — WebGL2 shader layer over VJ output -->
-        <canvas id="vb-canvas" style="position:absolute;top:0;left:0;width:100%;height:100%;z-index:1001;pointer-events:none;display:none;"></canvas>
-        <!-- VFX LAYER: WebGL chromatic-aberration / webcam displacement (Hyper-Tracker ratchet pulses) -->
-        <canvas id="vfx-layer" style="position:absolute;top:0;left:0;width:100%;height:100%;z-index:1002;pointer-events:none;opacity:0;transition:opacity 0.3s;"></canvas>
-        <!-- KINETIC RACK — Three.js WebGL post-processing pipeline -->
-        <!-- GIF overlay: DOM-rendered animated GIFs (not captured by captureStream) -->
-        <div id="gif-overlay" style="position:absolute; top:0; left:0; width:100%; height:100%; pointer-events:none; z-index: 1100;"></div>
-        <!-- 2D logo GIF overlay: positioned by rAF to match canvas logo coords -->
-        <img id="logo-gif-overlay" alt="" style="position:absolute;display:none;pointer-events:none;z-index:1200;image-rendering:auto;">
-
-        <div id="glass-fracture-layer"></div>
-        <div id="overlay-layer">
-            <!-- V33 MANUAL LAYER SEPARATION -->
-            <div id="station-bug">VNGRD</div>
-            <!-- user-logo-layer moved to gif-host for reliable GIF compositing -->
-            <div id="lower-third">
-                <div class="lt-container lt-guest">
-                    <div class="lt-title" id="lt-title-text">GUEST_NAME</div>
-                    <div class="lt-subtitle" id="lt-subtitle-text">TITLE_ROLE</div>
-                </div>
-            </div>
-        </div>
-        <div id="countdown"><div id="countdown-num">3</div></div>
-    </main>
-    
-    <!-- Camera preview moved inline into sidebar CAMERA_4K section -->
-
-    <!-- IMAGE LIGHTBOX OVERLAY -->
-    <div id="img-lightbox" onclick="closeLightbox()" style="display:none;position:fixed;top:0;left:0;width:100%;height:100%;background:rgba(0,0,0,0.93);z-index:9999;cursor:zoom-out;align-items:center;justify-content:center;flex-direction:column;">
-        <img id="img-lightbox-src" style="max-width:95vw;max-height:88vh;object-fit:contain;box-shadow:0 0 40px rgba(0,255,255,0.15);border:1px solid rgba(0,255,255,0.1);" onclick="event.stopPropagation()">
-        <div style="margin-top:10px;font-family:'JetBrains Mono',monospace;font-size:9px;color:rgba(255,255,255,0.35);letter-spacing:2px;">CLICK OUTSIDE TO CLOSE &nbsp;|&nbsp; ESC</div>
-    </div>
-
-    <div id="ghost-terminal">
-        <div id="ghost-terminal-header">
-            <span id="ghost-terminal-title">GHOST://COMMAND_INTERFACE</span>
-            <div id="ghost-terminal-controls">
-                <span id="ghost-terminal-status">ONLINE</span>
-                <button id="btn-ghost-mic" onclick="_ghostVoiceToggle()" title="Voice commands — speak any GHOST command hands-free" style="background:none;border:1px solid rgba(0,243,255,0.15);color:rgba(0,243,255,0.45);cursor:pointer;font-size:10px;line-height:1;padding:2px 5px;font-family:'JetBrains Mono',monospace;letter-spacing:0;border-radius:1px;transition:all 0.15s;">🎤</button>
-                <button onclick="$('ghost-terminal-body').innerHTML='';_ghostLastMsg='';" title="Purge chat log" style="background:none;border:none;color:rgba(255,255,255,0.28);cursor:pointer;font-size:13px;line-height:1;padding:1px 2px;opacity:0.7;">⌫</button>
-                <button id="ghost-close-btn" onclick="toggleGhost()" style="background:none;border:1px solid rgba(0,243,255,0.2);color:var(--c);cursor:pointer;font-size:9px;line-height:1;padding:3px 6px;font-family:'JetBrains Mono',monospace;display:block;letter-spacing:1px;opacity:0.85;border-radius:1px;">✕&nbsp;[G]</button>
-            </div>
-        </div>
-        <div id="ghost-terminal-body"></div>
-        <div id="ghost-input-line">
-            <span id="ghost-prompt">GHOST></span>
-            <!-- SVG label hack: prevents Chrome autofill popup -->
-            <label for="ghost-input" style="position:absolute;width:1px;height:1px;clip:rect(0 0 0 0);overflow:hidden;pointer-events:none;"><svg xmlns="http://www.w3.org/2000/svg" width="1" height="1"></svg></label>
-            <input type="text" id="ghost-input" placeholder="Talk to me..." autocomplete="one-time-code">
-        </div>
-    </div>
-
-    <aside class="sidebar" id="left-panel">
-        <div class="section">
-            <div class="sec-head"><span class="sec-title">CAMERA_4K</span><button class="sampler-help-btn" onclick="event.stopPropagation();_toggleSectionHelp(this,'camera')">?</button><div class="sec-dot off" id="cam-dot"></div></div>
-            <div class="sec-body">
-                <button class="btn" id="btn-init-cam">CAM CAPTURE [4K]</button>
-                <div id="cam-preview-float">
-                    <video id="preview-vid-float" autoplay muted playsinline></video>
-                    <canvas id="lt-preview-canvas"></canvas>
-                    <div class="preview-label">PREVIEW</div>
-                    <div class="rec-indicator" id="rec-dot-float"></div>
-                    <div id="p2p-bug-overlay"></div>
-                    <button id="btn-flip-cam-overlay" onclick="flipCamera()" title="Switch camera">&#x21BB;</button>
-                </div>
-                <div id="cam-ctrls" style="display:none">
-                    <button class="btn cam-panel-btn" id="btn-go-live" style="color:var(--y)">GO LIVE [3-2-1]</button>
-                    <div class="btn-row">
-                        <button class="btn cam-panel-btn" id="btn-inject">INJECT LOOP (10s)</button>
-                        <button class="btn cam-panel-btn" id="btn-mic">MIC</button>
-                    </div>
-                </div>
-                <div id="live-ctrls" style="display:none">
-                    <div class="lbl" style="font-size:6.5px;opacity:0.4;letter-spacing:2px;margin-bottom:4px;">BROADCAST CONTROLS</div>
-                    <div class="bcast-block">
-                        <button class="btn rec bcast-btn" id="btn-rec">⏺ REC_BROADCAST</button>
-                        <button class="btn bcast-btn" id="btn-end">■ END LIVE</button>
-                    </div>
-                </div>
-                <button class="btn bcast-btn bcast-kill" id="btn-kill" style="display:none;">SHUTDOWN CAM</button>
-            </div>
-        </div>
-        
-        <div class="section">
-            <div class="sec-head" id="media-header"><span class="sec-title">MEDIA_DECK</span><div class="sec-dot off" id="media-dot"></div></div>
-            <div class="sec-body">
-                <button class="btn" id="btn-load-media">LOAD MEDIA</button>
-                
-                <div class="audio-ctrl-row">
-                    <button class="btn btn-compact" id="btn-prev"><svg width="10" height="10" viewBox="0 0 12 12"><path fill="currentColor" d="M2 2h2v8H2zm2 4l6 4V2z"/></svg></button>
-                    <button class="btn btn-compact" id="btn-cycle-toggle" style="flex:3; font-size:9px;">CYCLE: OFF</button>
-                    <button class="btn btn-compact" id="btn-rotate"><svg width="10" height="10" viewBox="0 0 12 12"><path fill="currentColor" d="M2 10l6-4-6-4v8zm6-8v8h2V2H8z"/></svg></button>
-                </div>
-                <div class="slider-wrap" id="cycle-slider-wrap" style="display:none;">
-                    <div class="slider-top"><span class="slider-lbl">CYCLE TIME</span><span class="slider-val" id="val-cycle">8s</span></div>
-                    <input type="range" min="2" max="30" value="8" id="sl-cycle">
-                </div>
-                <div class="btn-grid-3" style="margin-top:4px;">
-                    <button class="btn btn-compact eject" id="btn-eject" style="font-size:8px;">EJECT</button>
-                    <button class="btn btn-compact warn" id="btn-clear-deck" style="font-size:8px;">CLEAR</button>
-                    <button class="btn btn-compact panic" id="btn-panic" style="font-size:8px;" title="PANIC KILL [ESC]">[ESC]</button>
-                </div>
-                <button class="btn btn-compact" id="btn-zoom-img" style="width:100%;margin-top:4px;font-size:8px;display:none;" title="View current image full screen">&#x1F50D; ZOOM IMAGE</button>
-            </div>
-        </div>
-         <div class="section">
-            <div class="sec-head collapsible"><span class="sec-title">AI_INJECTION</span><span class="sec-arrow">&#x25B8;</span><button class="sampler-help-btn" onclick="event.stopPropagation();_toggleSectionHelp(this,'ai')">?</button><div class="sec-dot off" id="neural-dot"></div></div>
-            <div class="sec-body" id="lexica-nano-body">
-                <div class="lbl" style="font-size:7px;opacity:0.5;margin-bottom:2px;">MODEL</div>
-                <select class="inp" id="ai-model-select" style="font-size:8px;padding:4px;background:var(--panel);border:1px solid var(--border);color:var(--text);margin-bottom:4px;">
-                    <option value="flux" selected>FLUX [DEFAULT]</option>
-                    <option value="flux-anime">FLUX ANIME</option>
-                    <option value="flux-3d">FLUX 3D</option>
-                    <option value="flux-cinematic">FLUX CINEMATIC</option>
-                    <option value="dirtberry">FLUX REALISM</option>
-                    <option value="gptimage">FLUX VIVID</option>
-                    <option value="seedream">DREAMLIKE</option>
-                    <option value="nanobanana">SURREAL</option>
-                </select>
-                <div style="display:flex;align-items:center;gap:4px;margin-bottom:3px;">
-                    <span id="ai-key-toggle" title="API key settings" style="cursor:pointer;font-size:9px;opacity:0.35;user-select:none;">&#x2699;</span>
-                    <div id="ai-key-wrap" style="display:none;flex:1;">
-                        <input type="password" class="inp" id="ai-api-key" placeholder="pk_... (optional)" style="font-size:7px;padding:2px 4px;width:100%;">
-                    </div>
-                </div>
-                <input type="text" class="inp" id="ai-prompt" placeholder="Describe your image..." style="font-size:9px;">
-                <button class="btn" id="btn-generate-ai" style="color:var(--v);border-color:var(--v);">GENERATE</button>
-                <div id="ai-status" style="font-size:8px;color:var(--text-dim);margin-top:4px;">READY</div>
-                <div id="ai-preview" style="display:none;margin-top:4px;text-align:center;">
-                    <img id="ai-preview-img" style="max-width:60px;max-height:60px;border:1px solid var(--border);border-radius:3px;opacity:0.7;">
-                </div>
-            </div>
-        </div>
-        <div class="section">
-            <div class="sec-head"><span class="sec-title">REACTIVITY</span><button class="sampler-help-btn" onclick="event.stopPropagation();_toggleSectionHelp(this,'reactivity')">?</button><div class="sec-dot" id="vb-status-dot"></div></div>
-            <div class="sec-body">
-                <!-- Bank switcher -->
-                <div class="btn-row" style="gap:3px;margin-bottom:5px;">
-                    <button class="btn" id="fx-bank-a-btn" onclick="_setFXBank('A')" style="font-size:7px;flex:1;text-align:center;padding:4px 3px;letter-spacing:0.5px;white-space:nowrap;" title="VNGRD Bank A — console FX">[ BANK A ]</button>
-                    <button class="btn" id="fx-bank-b-btn" onclick="_setFXBank('B')" style="font-size:7px;flex:1;text-align:center;padding:4px 3px;letter-spacing:0.5px;white-space:nowrap;" title="VNGRD Bank B — GPU shader FX">[ BANK B ]</button>
-                </div>
-                <!-- Bank A — console FX -->
-                <div id="fx-bank-a-panel">
-                <div class="btn-grid-3" style="margin-bottom:4px;">
-                    <button class="btn va-btn" onclick="toggleFX('scan')" style="--va-color:#00f3ff;" title="Tap=toggle">X-RAY</button>
-                    <button class="btn va-btn" onclick="toggleFX('tear')" style="--va-color:#00f3ff;" title="Tap=toggle">TEAR</button>
-                    <button class="btn va-btn" id="btn-psychosis" style="--va-color:#ff00ff;" title="Tap=toggle">FAILURE</button>
-                </div>
-                <div class="btn-grid-3" style="margin-bottom:4px;">
-                    <button class="btn va-btn" id="btn-shooting" style="--va-color:#ff8800;" title="Tap=toggle">SHOOT</button>
-                    <button class="btn va-btn" onclick="toggleFX('void')" style="--va-color:#aa44ff;" title="Tap=toggle">VOID</button>
-                    <button class="btn va-btn" onclick="toggleFX('lucy')" style="--va-color:#ff00ff;" title="Tap=toggle">LUCY</button>
-                </div>
-                <div class="btn-grid-3" style="margin-bottom:4px;">
-                    <button class="btn va-btn" id="btn-vhs" onclick="toggleVHS()" style="--va-color:#ffaa00;" title="Tap=toggle">VHS_OVR</button>
-                    <button class="btn va-btn" id="btn-nvg" onclick="toggleFX('nvg')" style="--va-color:#00ff41;" title="Tap=toggle">NVG</button>
-                    <button class="btn va-btn" onclick="triggerHardReset()" style="--va-color:#ff3333;" title="Hard reset all FX">RESET</button>
-                </div>
-                <div style="font-size:7px;text-align:center;letter-spacing:1.5px;color:rgba(0,243,255,0.3);padding-bottom:2px;">BANK A // TAP=TOGGLE</div>
-                </div>
-                <!-- Bank B — VNGRD_B GPU Shaders -->
-                <div id="fx-bank-b-panel" style="display:none;">
-                <div class="btn-grid-3" style="margin-bottom:4px;">
-                    <button class="btn va-btn vb-btn" id="vb-SLIT_SCAN" data-shader="SLIT_SCAN" style="--va-color:#00f3ff;" title="Tap=3s burst · Double-tap=lock · Say: slitscan off">SLITSCAN</button>
-                    <button class="btn va-btn vb-btn" id="vb-LUMA_BLOOM" data-shader="LUMA_BLOOM" style="--va-color:#ffcc00;" title="Tap=3s burst · Double-tap=lock · Say: bloom off">BLOOM</button>
-                    <button class="btn va-btn vb-btn" id="vb-DITHER_LUXE" data-shader="DITHER_LUXE" style="--va-color:#aa44ff;" title="Tap=3s burst · Double-tap=lock · Say: dither off">DITHER</button>
-                </div>
-                <div class="btn-grid-3" style="margin-bottom:4px;">
-                    <button class="btn va-btn vb-btn" id="vb-CAUSTICS" data-shader="CAUSTICS" style="--va-color:#00ddbb;" title="Tap=3s burst · Double-tap=lock · Say: caustics off">CAUSTICS</button>
-                    <button class="btn va-btn vb-btn" id="vb-GHOST_ECHO" data-shader="GHOST_ECHO" style="--va-color:#4488ff;" title="Tap=3s burst · Double-tap=lock · Say: ghost off">GHOSTECHO</button>
-                    <button class="btn va-btn vb-btn" id="vb-SPECTRAL_MOSH" data-shader="SPECTRAL_MOSH" style="--va-color:#00ff41;" title="Tap=3s burst · Double-tap=lock · Say: mosh off">MOSH</button>
-                </div>
-                <div style="font-size:7px;text-align:center;letter-spacing:1.5px;color:rgba(0,243,255,0.3);padding-bottom:2px;" id="vb-sys-status">SYSTEM_STATUS: STANDBY</div>
-                <button class="btn va-btn" onclick="_vbClearAll()" style="width:100%;margin-top:2px;--va-color:#ff3333;">[ CLEAR ALL ]</button>
-                </div>
-            </div>
-        </div>
-
-     
-        
-        <div class="section">
-            <div class="sec-head"><span class="sec-title">IDENTITY</span><button class="sampler-help-btn" onclick="event.stopPropagation();_toggleSectionHelp(this,'identity')">?</button><div class="sec-dot"></div></div>
-            <div class="sec-body">
-                <div class="btn-row" style="gap:4px;margin-bottom:4px;">
-                    <input type="text" class="inp" id="bug-text" placeholder="STATION_NAME..." value="VNGRD" style="flex:1;margin:0;">
-                    <label title="Bug Colour" style="width:26px;height:26px;cursor:pointer;position:relative;flex-shrink:0;display:flex;align-items:center;justify-content:center;">
-                        <input type="color" id="bug-color" value="#ffffff" style="position:absolute;inset:0;opacity:0;cursor:pointer;width:100%;height:100%;">
-                        <div id="bug-color-dot" style="width:13px;height:13px;border-radius:50%;background:#ffffff;border:1px solid rgba(255,255,255,0.3);pointer-events:none;box-shadow:0 0 5px rgba(255,255,255,0.5);"></div>
-                    </label>
-                </div>
-                <div class="btn-row" style="gap:4px;">
-                    <button class="btn" id="btn-set-station" style="flex:2;">SET BUG</button>
-                    <select id="bug-style-select" title="Style" style="flex:1;min-width:60px;">
-                        <option value="plain">PLAIN</option>
-                        <option value="pulse">PULSE</option>
-                        <option value="glitch">GLITCH</option>
-                    </select>
-                    <select id="bug-mode-select" title="Render mode" style="flex:1;min-width:60px;">
-                        <option value="solid">SOLID</option>
-                        <option value="knockout">K/OUT</option>
-                        <option value="inverted">INVRT</option>
-                    </select>
-                    <button class="btn" id="btn-bug-toggle" title="Toggle Bug">[X]</button>
-                </div>
-                <div class="btn-row" style="margin-top:6px;">
-                    <button class="btn" id="btn-upload-2d" style="flex:2;">2D LOGO</button>
-                    <button class="btn" id="btn-2d-x" title="Hide/Clear 2D">[X]</button>
-                </div>
-                <input type="file" id="file-2d-logo" accept=".png,.jpg,.jpeg,.gif,.webp" style="display:none;">
-                <div class="btn-row" style="margin-top:6px;">
-                    <button class="btn" id="btn-upload-3d" style="flex:2;color:var(--c);">3D LOGO</button>
-                    <button class="btn" id="btn-3d-x" title="Hide/Clear 3D">[X]</button>
-                </div>
-                <input type="file" id="file-3d-logo" accept=".obj,.fbx,.stl,.amf,.igs,.iges" style="display:none;">
-            </div>
-        </div>
-
-        <div class="section">
-            <div class="sec-head"><span class="sec-title">LOWER_THIRD</span><button class="sampler-help-btn" onclick="event.stopPropagation();_toggleSectionHelp(this,'lower-third')">?</button><div class="sec-dot"></div></div>
-            <div class="sec-body">
-                <input type="text" class="inp" id="lt-title" placeholder="Name..." value="GUEST NAME">
-                <input type="text" class="inp" id="lt-sub" placeholder="Role..." value="TITLE / ROLE" style="margin-top:4px;">
-                <div class="btn-row" style="margin-top:6px;gap:3px;">
-                    <button class="btn active-mode" id="btn-lt-guest" style="flex:1;font-size:8px;">GUEST</button>
-                    <button class="btn" id="btn-lt-track" style="flex:1;font-size:8px;color:var(--g);border-color:rgba(0,255,136,0.25);">TRACK</button>
-                    <button class="btn" id="btn-lt-breaking" style="flex:1;font-size:8px;color:var(--r);border-color:rgba(255,51,51,0.25);">BREAK</button>
-                    <button class="btn" id="btn-lt-off" title="Hide lower third" style="font-size:11px;padding:3px 7px;opacity:0.45;letter-spacing:0;border-color:rgba(255,255,255,0.1);">×</button>
-                </div>
-                <div class="btn-row" style="margin-top:4px;gap:4px;">
-                    <select id="lt-style-select" style="flex:1;background:var(--panel);border:1px solid var(--border);color:var(--text);font-size:8px;font-family:inherit;padding:3px 4px;cursor:pointer;">
-                        <option value="default">DEFAULT</option>
-                        <option value="neon">NEON</option>
-                        <option value="split">SPLIT</option>
-                        <option value="glitch">GLITCH</option>
-                    </select>
-                    <label title="Colour" style="width:26px;height:26px;cursor:pointer;position:relative;flex-shrink:0;display:flex;align-items:center;justify-content:center;">
-                        <input type="color" id="lt-color" value="#00f3ff" style="position:absolute;inset:0;opacity:0;cursor:pointer;width:100%;height:100%;">
-                        <div id="lt-color-dot" style="width:13px;height:13px;border-radius:50%;background:#00f3ff;border:1px solid rgba(0,243,255,0.4);pointer-events:none;box-shadow:0 0 5px rgba(0,243,255,0.6);"></div>
-                    </label>
-                </div>
-            </div>
-        </div>
-        
-    </aside>
-
-    <aside class="sidebar" id="right-panel">
-
-        <!-- ── POLYTRANSLATOR // V3.0_MODULAR ─────────────────────── -->
-        <div class="section" id="mcr-section">
-            <div class="sec-head">
-                <span class="sec-title">POLYTRANSLATOR // V3.0_MODULAR</span>
-                <button class="sampler-help-btn" onclick="event.stopPropagation();_toggleSectionHelp(this,'polytranslator')">?</button>
-                <div id="mcr-on-air-dot"></div>
-            </div>
-            <div class="sec-body">
-                <div style="display:flex;align-items:center;gap:6px;margin-bottom:8px;">
-                    <span id="mcr-status">STT: STANDBY</span>
-                </div>
-                <button id="btn-on-air" class="onair-pill">OFF-AIR</button>
-                <button id="btn-slots-toggle" class="btn" style="margin-top:5px;width:100%;font-size:8px;letter-spacing:1.5px;" onclick="var g=this.nextElementSibling;var o=g.classList.toggle('open');this.classList.toggle('opened',o);this.textContent=o?'SUBS.LANG// \u25B4':'SUBS.LANG// \u25BE';">SUBS.LANG// &#x25BE;</button>
-                <div class="slot-grid">
-                    <div class="slot-row"><span class="slot-lbl">LANG 1</span><select class="slot-select" id="slot-1"><option value="OFF">OFF</option><option value="EN" selected>EN</option><option value="NL">NL</option><option value="ES">ES</option><option value="FR">FR</option><option value="ZH">ZH</option><option value="JA">JA</option><option value="AR">AR</option><option value="IT">IT</option><option value="DE">DE</option><option value="SCOUSE">SCOUSE</option><option value="NAP">NAP</option><option value="GEN">GEN</option></select></div>
-                    <div class="slot-row"><span class="slot-lbl">LANG 2</span><select class="slot-select" id="slot-2"><option value="OFF" selected>OFF</option><option value="EN">EN</option><option value="NL">NL</option><option value="ES">ES</option><option value="FR">FR</option><option value="ZH">ZH</option><option value="JA">JA</option><option value="AR">AR</option><option value="IT">IT</option><option value="DE">DE</option><option value="SCOUSE">SCOUSE</option><option value="NAP">NAP</option><option value="GEN">GEN</option></select></div>
-                    <div class="slot-row"><span class="slot-lbl">LANG 3</span><select class="slot-select" id="slot-3"><option value="OFF" selected>OFF</option><option value="EN">EN</option><option value="NL">NL</option><option value="ES">ES</option><option value="FR">FR</option><option value="ZH">ZH</option><option value="JA">JA</option><option value="AR">AR</option><option value="IT">IT</option><option value="DE">DE</option><option value="SCOUSE">SCOUSE</option><option value="NAP">NAP</option><option value="GEN">GEN</option></select></div>
-                    <div class="slot-row"><span class="slot-lbl">LANG 4</span><select class="slot-select" id="slot-4"><option value="OFF" selected>OFF</option><option value="EN">EN</option><option value="NL">NL</option><option value="ES">ES</option><option value="FR">FR</option><option value="ZH">ZH</option><option value="JA">JA</option><option value="AR">AR</option><option value="IT">IT</option><option value="DE">DE</option><option value="SCOUSE">SCOUSE</option><option value="NAP">NAP</option><option value="GEN">GEN</option></select></div>
-                </div>
-                <div class="btn-grid-3" style="margin-top:6px;">
-                    <button id="btn-sub-opacity" class="btn sfx-pad sfx-sig" title="Cycle subtitle background opacity">SUB_BG<br><small style="font-size:7px;opacity:.7;">67%</small></button>
-                    <button id="btn-p2p-stt" class="btn sfx-pad sfx-sig" title="Toggle STT source: local mic or P2P guest audio">STT<br><small id="p2p-stt-sub" style="font-size:7px;opacity:.7;">MIC</small></button>
-                    <select id="vngrd-input-lang" title="Input language for speech recognition">
-                        <option value="en-US">EN</option>
-                        <option value="it-IT">IT</option>
-                        <option value="nl-NL">NL</option>
-                        <option value="es-ES">ES</option>
-                        <option value="fr-FR">FR</option>
-                        <option value="de-DE">DE</option>
-                        <option value="zh-CN">ZH</option>
-                        <option value="ja-JP">JA</option>
-                        <option value="ar-SA">AR</option>
-                    </select>
-                </div>
-            </div>
-        </div>
-
-        <div class="section">
-            <div class="sec-head"><span class="sec-title">AUDIO_ENGINE</span><button class="sampler-help-btn" onclick="event.stopPropagation();_toggleSectionHelp(this,'audio-engine')">?</button><div class="sec-dot off" id="audio-dot"></div></div>
-            <div class="sec-body" style="padding:5px 8px;">
-                <div id="audio-box" style="padding:5px;margin-bottom:5px;">
-                    <div id="vu"></div>
-                    <div id="track-info">NO_TRACK</div>
-                </div>
-                <div class="btn-row" style="margin-bottom:4px;"><button class="btn" id="btn-audio" style="flex:1;font-size:8px;padding:4px 6px;">LOAD AUDIO</button><button class="btn" id="btn-mute-vid" style="width:28px;font-size:11px;padding:2px;" title="Toggle video audio">&#x1F50A;</button><button class="btn" id="btn-mic-engine" style="width:28px;font-size:10px;padding:2px;" title="Mic on/off">&#x1F3A4;</button></div>
-                <div class="audio-ctrl-row">
-                    <button class="btn btn-compact" id="btn-prev-track"><svg width="10" height="10" viewBox="0 0 12 12"><path fill="currentColor" d="M2 2h2v8H2zm2 4l6 4V2z"/></svg></button>
-                    <button class="btn btn-compact" id="btn-play-pause"><svg width="10" height="10" viewBox="0 0 12 12" id="icon-play-state"><path fill="currentColor" d="M3 2v8l7-4z"/></svg></button>
-                    <button class="btn btn-compact" id="btn-next-track"><svg width="10" height="10" viewBox="0 0 12 12"><path fill="currentColor" d="M2 10l6-4-6-4v8zm6-8v8h2V2H8z"/></svg></button>
-                </div>
-                <div class="sec-divider"></div>
-                <div class="lbl" style="font-size:6.5px;opacity:0.4;letter-spacing:2px;margin-bottom:4px;">INPUT</div>
-                <button class="btn" id="btn-scan-inputs" style="font-size:8px;">SCAN_INPUTS</button>
-                <select class="inp" id="audio-input-select" style="width:100%;font-size:9px;padding:5px;background:var(--panel);border:1px solid var(--border);color:var(--text);display:none;margin-top:4px;">
-                    <option value="">SELECT_DEVICE...</option>
-                </select>
-                <div id="input-level" style="height:3px;background:var(--border);margin-top:4px;">
-                    <div id="input-level-bar" style="height:100%;width:0%;background:var(--g);transition:width 0.05s;"></div>
-                </div>
-                <div class="sec-divider"></div>
-                <div class="lbl" style="font-size:6.5px;opacity:0.4;letter-spacing:2px;margin-bottom:4px;">ENGINEER_MODE</div>
-                <div class="btn-grid-3">
-                    <button class="btn active-mode" id="btn-stereo">STEREO</button>
-                    <button class="btn" id="btn-spatial">3D_SPATIAL</button>
-                    <button class="btn" id="btn-dolby" style="color:#00f3ff">DOLBY</button>
-                </div>
-            </div>
-        </div>
-
-        <!-- ── REC_ENGINE // moved here from bottom: co-located with audio for fast access ── -->
-        <div class="section">
-            <div class="sec-head collapsible open" style="display:flex;align-items:center;gap:6px;">
-                <span class="sec-dot gold" style="flex-shrink:0;animation:pulse-rec 1.4s ease-in-out infinite;"></span>
-                <span class="sec-title" style="color:var(--o);letter-spacing:2.5px;">REC_ENGINE</span>
-                <span class="sec-arrow">&#x25BE;</span>
-                <button class="sampler-help-btn" onclick="event.stopPropagation();_toggleSectionHelp(this,'session-lab')">?</button>
-                <div id="sync-led" title="INTEL: AUTO_SAVE // 60s PULSE" style="margin-left:auto;"></div>
-            </div>
-            <div class="sec-body" id="session-lab-body" style="max-height:500px;padding:8px 10px;">
-                <button class="btn" id="btn-nft-30"
-                    style="width:100%;font-size:8px;font-weight:700;letter-spacing:2px;color:var(--o);border-color:var(--o);padding:6px;margin-bottom:6px;"
-                    title="INTEL: CAPTURE_VNGRD_CLIP">&#x25CF; CAPTURE_VNGRD_CLIP</button>
-                <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:4px;margin-bottom:6px;">
-                    <button class="btn" id="btn-save" style="font-size:7px;padding:3px 4px;" title="INTEL: SAVE_ENGINE // LOCAL + WALLET">SAVE</button>
-                    <button class="btn" id="btn-import-dna" style="font-size:7px;padding:3px 4px;" title="INTEL: IMPORT_DECK // .VGD / .JSON">IMPORT</button>
-                    <button class="btn" id="btn-share-qr" style="font-size:7px;padding:3px 4px;" title="INTEL: EXPORT_ENGINE // IPFS + QR">SHARE</button>
-                </div>
-                <button class="btn" id="btn-vr" style="width:100%;font-size:7px;padding:3px 4px;color:var(--v);border-color:var(--v);" title="INTEL: SPATIAL_GATEWAY // WEBXR">ENTER_VR</button>
-            </div>
-        </div>
-
-        <div class="section">
-            <div class="sec-head"><span class="sec-title">AUDIO_REACTIVE</span><button class="sampler-help-btn" onclick="event.stopPropagation();_toggleSectionHelp(this,'audio-reactive')">?</button><div class="sec-dot on"></div></div>
-            <div class="sec-body">
-                <div class="lbl" style="font-size:6.5px;opacity:0.4;margin-bottom:4px;letter-spacing:2px;">BEAT REACT</div>
-                <div class="btn-grid-3">
-                    <button class="btn" id="btn-ui-react" style="font-size:8px;" title="Beat-reactive auto-morph">PARTY</button>
-                    <button class="btn" id="btn-rumble" style="font-size:8px;" title="Click: arm SEISMIC&#10;Double-click: toggle canvas-only vs console shake">SEISMIC</button>
-                    <button class="btn" id="btn-punch" style="font-size:8px;" title="Click: arm PUNCH&#10;Double-click: toggle canvas-only vs console flash">PUNCH</button>
-                </div>
-                <div class="sec-divider"></div>
-                <div id="sfx-sampler-wrap">
-                    <div id="sfx-sampler-header" onclick="_toggleSamplerBody()" style="cursor:pointer;">
-                        <span class="sampler-title">Sampler SFX</span>
-                        <span class="sampler-collapse-arrow" id="sfx-collapse-arrow" style="font-size:8px;color:var(--accent);margin-left:4px;margin-right:auto;transition:color 0.2s;line-height:1;">&#x25B8;</span>
-                        <button class="sampler-help-btn" onclick="event.stopPropagation();_toggleSectionHelp(this,'sampler')">?</button>
-                        <span class="sampler-badge">SFX · 12-PAD</span>
-                    </div>
-                    <div id="sfx-pad-body" class="collapsed">
-                    <div id="sfx-pad-grid">
-                        <!-- Row 1: Signature Vanguard Bank -->
-                        <div class="sfx-bank-label">SIG BANK <em>// TAP TO FIRE</em></div>
-
-                        <button class="btn sfx-btn sfx-pad sfx-sig" id="sfx-applause" data-sfx="applause" data-midi-target="sfx:applause" data-pad-num="01" title="Applause — click or MIDI">
-                            <div class="pad-gear" onclick="event.stopPropagation(); _padGearToggle(this.querySelector('.pad-gear-icon'))">
-                                <span class="pad-gear-icon">⚙</span>
-                                <div class="pad-gear-menu">
-                                    <div data-fx="none">— NONE —</div>
-                                    <div data-fx="nvg">NVG</div>
-                                    <div data-fx="shoot">SHOOT</div>
-                                    <div data-fx="void">VOID</div>
-                                    <div data-fx="failure">FAILURE</div>
-                                    <div data-fx="lucy">LUCY</div>
-                                    <div data-fx="seismic">SEISMIC</div>
-                                    <div data-fx="punch">PUNCH</div>
-                                    <div data-fx="party">PARTY</div>
-                                    <div class="gear-bank-sep">— BANK B —</div>
-                                    <div data-fx="vb-slit-scan">SLIT_SCAN</div>
-                                    <div data-fx="vb-luma-bloom">LUMA_BLOOM</div>
-                                    <div data-fx="vb-dither-luxe">DITHER_LUXE</div>
-                                    <div data-fx="vb-caustics">CAUSTICS</div>
-                                    <div data-fx="vb-ghost-echo">GHOST_ECHO</div>
-                                    <div data-fx="vb-spectral-mosh">SPECTRAL_MOSH</div>
-                                </div>
-                            </div>
-                            <span class="pad-id">PAD 1</span>
-                            <span class="pad-name">APPLAUSE</span>
-                            <span class="pad-hint">SIG BANK</span>
-                            <span class="pad-fx-label"></span>
-                            <span class="pad-lcd">applause_3.wav</span>
-                        </button>
-
-                        <button class="btn sfx-btn sfx-pad sfx-sig" id="sfx-cheer" data-sfx="cheer" data-midi-target="sfx:cheer" data-pad-num="02" title="Cheer — click or MIDI">
-                            <div class="pad-gear" onclick="event.stopPropagation(); _padGearToggle(this.querySelector('.pad-gear-icon'))">
-                                <span class="pad-gear-icon">⚙</span>
-                                <div class="pad-gear-menu">
-                                    <div data-fx="none">— NONE —</div>
-                                    <div data-fx="nvg">NVG</div>
-                                    <div data-fx="shoot">SHOOT</div>
-                                    <div data-fx="void">VOID</div>
-                                    <div data-fx="failure">FAILURE</div>
-                                    <div data-fx="lucy">LUCY</div>
-                                    <div data-fx="seismic">SEISMIC</div>
-                                    <div data-fx="punch">PUNCH</div>
-                                    <div data-fx="party">PARTY</div>
-                                    <div class="gear-bank-sep">— BANK B —</div>
-                                    <div data-fx="vb-slit-scan">SLIT_SCAN</div>
-                                    <div data-fx="vb-luma-bloom">LUMA_BLOOM</div>
-                                    <div data-fx="vb-dither-luxe">DITHER_LUXE</div>
-                                    <div data-fx="vb-caustics">CAUSTICS</div>
-                                    <div data-fx="vb-ghost-echo">GHOST_ECHO</div>
-                                    <div data-fx="vb-spectral-mosh">SPECTRAL_MOSH</div>
-                                </div>
-                            </div>
-                            <span class="pad-id">PAD 2</span>
-                            <span class="pad-name">CHEER</span>
-                            <span class="pad-hint">SIG BANK</span>
-                            <span class="pad-fx-label"></span>
-                            <span class="pad-lcd">800men_laugh.wav</span>
-                        </button>
-
-                        <button class="btn sfx-btn sfx-pad sfx-sig" id="sfx-horn" data-sfx="horn" data-midi-target="sfx:horn" data-pad-num="03" title="Air Horn — click or MIDI">
-                            <div class="pad-gear" onclick="event.stopPropagation(); _padGearToggle(this.querySelector('.pad-gear-icon'))">
-                                <span class="pad-gear-icon">⚙</span>
-                                <div class="pad-gear-menu">
-                                    <div data-fx="none">— NONE —</div>
-                                    <div data-fx="nvg">NVG</div>
-                                    <div data-fx="shoot">SHOOT</div>
-                                    <div data-fx="void">VOID</div>
-                                    <div data-fx="failure">FAILURE</div>
-                                    <div data-fx="lucy">LUCY</div>
-                                    <div data-fx="seismic">SEISMIC</div>
-                                    <div data-fx="punch">PUNCH</div>
-                                    <div data-fx="party">PARTY</div>
-                                    <div class="gear-bank-sep">— BANK B —</div>
-                                    <div data-fx="vb-slit-scan">SLIT_SCAN</div>
-                                    <div data-fx="vb-luma-bloom">LUMA_BLOOM</div>
-                                    <div data-fx="vb-dither-luxe">DITHER_LUXE</div>
-                                    <div data-fx="vb-caustics">CAUSTICS</div>
-                                    <div data-fx="vb-ghost-echo">GHOST_ECHO</div>
-                                    <div data-fx="vb-spectral-mosh">SPECTRAL_MOSH</div>
-                                </div>
-                            </div>
-                            <span class="pad-id">PAD 3</span>
-                            <span class="pad-name">HORN</span>
-                            <span class="pad-hint">SIG BANK</span>
-                            <span class="pad-fx-label"></span>
-                            <span class="pad-lcd">airhorn.mp3</span>
-                        </button>
-
-                        <button class="btn sfx-btn sfx-pad sfx-sig" id="sfx-boom" data-sfx="boom" data-midi-target="sfx:boom" data-pad-num="04" title="Boom — click or MIDI">
-                            <div class="pad-gear" onclick="event.stopPropagation(); _padGearToggle(this.querySelector('.pad-gear-icon'))">
-                                <span class="pad-gear-icon">⚙</span>
-                                <div class="pad-gear-menu">
-                                    <div data-fx="none">— NONE —</div>
-                                    <div data-fx="nvg">NVG</div>
-                                    <div data-fx="shoot">SHOOT</div>
-                                    <div data-fx="void">VOID</div>
-                                    <div data-fx="failure">FAILURE</div>
-                                    <div data-fx="lucy">LUCY</div>
-                                    <div data-fx="seismic">SEISMIC</div>
-                                    <div data-fx="punch">PUNCH</div>
-                                    <div data-fx="party">PARTY</div>
-                                    <div class="gear-bank-sep">— BANK B —</div>
-                                    <div data-fx="vb-slit-scan">SLIT_SCAN</div>
-                                    <div data-fx="vb-luma-bloom">LUMA_BLOOM</div>
-                                    <div data-fx="vb-dither-luxe">DITHER_LUXE</div>
-                                    <div data-fx="vb-caustics">CAUSTICS</div>
-                                    <div data-fx="vb-ghost-echo">GHOST_ECHO</div>
-                                    <div data-fx="vb-spectral-mosh">SPECTRAL_MOSH</div>
-                                </div>
-                            </div>
-                            <span class="pad-id">PAD 4</span>
-                            <span class="pad-name">BOOM</span>
-                            <span class="pad-hint">SIG BANK</span>
-                            <span class="pad-fx-label"></span>
-                            <span class="pad-lcd">BOOM.wav</span>
-                        </button>
-
-                        <!-- Row 2+3: Custom + Liquid — hidden in GROOVEBOX mode, replaced by sequencer -->
-                        <div id="sfx-cust-liq-section" style="display:contents">
-                        <!-- Row 2: Custom Performance Bank -->
-                        <div class="sfx-bank-label" style="color:rgba(255,140,0,0.6);">CUSTOM BANK <em>// TAP: LOAD · R-CLICK: ARM REC</em></div>
-
-                        <button class="btn sfx-btn sfx-pad sfx-cust" id="sfx-custom1" data-sfx="custom1" data-midi-target="sfx:custom1" data-pad-num="05" title="Custom 1 — click: load / right-click: arm rec">
-                            <div class="pad-gear" onclick="event.stopPropagation(); _padGearToggle(this.querySelector('.pad-gear-icon'))">
-                                <span class="pad-gear-icon">⚙</span>
-                                <div class="pad-gear-menu">
-                                    <div data-fx="none">— NONE —</div>
-                                    <div data-fx="nvg">NVG</div>
-                                    <div data-fx="shoot">SHOOT</div>
-                                    <div data-fx="void">VOID</div>
-                                    <div data-fx="failure">FAILURE</div>
-                                    <div data-fx="lucy">LUCY</div>
-                                    <div data-fx="seismic">SEISMIC</div>
-                                    <div data-fx="punch">PUNCH</div>
-                                    <div data-fx="party">PARTY</div>
-                                    <div class="gear-bank-sep">— BANK B —</div>
-                                    <div data-fx="vb-slit-scan">SLIT_SCAN</div>
-                                    <div data-fx="vb-luma-bloom">LUMA_BLOOM</div>
-                                    <div data-fx="vb-dither-luxe">DITHER_LUXE</div>
-                                    <div data-fx="vb-caustics">CAUSTICS</div>
-                                    <div data-fx="vb-ghost-echo">GHOST_ECHO</div>
-                                    <div data-fx="vb-spectral-mosh">SPECTRAL_MOSH</div>
-                                    <div data-fx="clear" style="border-top:1px solid rgba(255,255,255,0.07);margin-top:2px;padding-top:4px;color:rgba(255,80,80,0.7);">✕ CLEAR</div>
-                                </div>
-                            </div>
-                            <span class="pad-id">PAD 5</span>
-                            <span class="pad-name">C-01</span>
-                            <span class="pad-hint">LOAD SAMPLE</span>
-                            <span class="pad-sub">R-CLICK: ARM REC</span>
-                            <span class="pad-timer">10</span>
-                            <span class="pad-fx-label"></span>
-                            <span class="pad-lcd">— empty —</span>
-                        </button>
-
-                        <button class="btn sfx-btn sfx-pad sfx-cust" id="sfx-custom2" data-sfx="custom2" data-midi-target="sfx:custom2" data-pad-num="06" title="Custom 2 — click: load / right-click: arm rec">
-                            <div class="pad-gear" onclick="event.stopPropagation(); _padGearToggle(this.querySelector('.pad-gear-icon'))">
-                                <span class="pad-gear-icon">⚙</span>
-                                <div class="pad-gear-menu">
-                                    <div data-fx="none">— NONE —</div>
-                                    <div data-fx="nvg">NVG</div>
-                                    <div data-fx="shoot">SHOOT</div>
-                                    <div data-fx="void">VOID</div>
-                                    <div data-fx="failure">FAILURE</div>
-                                    <div data-fx="lucy">LUCY</div>
-                                    <div data-fx="seismic">SEISMIC</div>
-                                    <div data-fx="punch">PUNCH</div>
-                                    <div data-fx="party">PARTY</div>
-                                    <div class="gear-bank-sep">— BANK B —</div>
-                                    <div data-fx="vb-slit-scan">SLIT_SCAN</div>
-                                    <div data-fx="vb-luma-bloom">LUMA_BLOOM</div>
-                                    <div data-fx="vb-dither-luxe">DITHER_LUXE</div>
-                                    <div data-fx="vb-caustics">CAUSTICS</div>
-                                    <div data-fx="vb-ghost-echo">GHOST_ECHO</div>
-                                    <div data-fx="vb-spectral-mosh">SPECTRAL_MOSH</div>
-                                    <div data-fx="clear" style="border-top:1px solid rgba(255,255,255,0.07);margin-top:2px;padding-top:4px;color:rgba(255,80,80,0.7);">✕ CLEAR</div>
-                                </div>
-                            </div>
-                            <span class="pad-id">PAD 6</span>
-                            <span class="pad-name">C-02</span>
-                            <span class="pad-hint">LOAD SAMPLE</span>
-                            <span class="pad-sub">R-CLICK: ARM REC</span>
-                            <span class="pad-timer">10</span>
-                            <span class="pad-fx-label"></span>
-                            <span class="pad-lcd">— empty —</span>
-                        </button>
-
-                        <button class="btn sfx-btn sfx-pad sfx-cust" id="sfx-custom3" data-sfx="custom3" data-midi-target="sfx:custom3" data-pad-num="07" title="Custom 3 — click: load / right-click: arm rec">
-                            <div class="pad-gear" onclick="event.stopPropagation(); _padGearToggle(this.querySelector('.pad-gear-icon'))">
-                                <span class="pad-gear-icon">⚙</span>
-                                <div class="pad-gear-menu">
-                                    <div data-fx="none">— NONE —</div>
-                                    <div data-fx="nvg">NVG</div>
-                                    <div data-fx="shoot">SHOOT</div>
-                                    <div data-fx="void">VOID</div>
-                                    <div data-fx="failure">FAILURE</div>
-                                    <div data-fx="lucy">LUCY</div>
-                                    <div data-fx="seismic">SEISMIC</div>
-                                    <div data-fx="punch">PUNCH</div>
-                                    <div data-fx="party">PARTY</div>
-                                    <div class="gear-bank-sep">— BANK B —</div>
-                                    <div data-fx="vb-slit-scan">SLIT_SCAN</div>
-                                    <div data-fx="vb-luma-bloom">LUMA_BLOOM</div>
-                                    <div data-fx="vb-dither-luxe">DITHER_LUXE</div>
-                                    <div data-fx="vb-caustics">CAUSTICS</div>
-                                    <div data-fx="vb-ghost-echo">GHOST_ECHO</div>
-                                    <div data-fx="vb-spectral-mosh">SPECTRAL_MOSH</div>
-                                    <div data-fx="clear" style="border-top:1px solid rgba(255,255,255,0.07);margin-top:2px;padding-top:4px;color:rgba(255,80,80,0.7);">✕ CLEAR</div>
-                                </div>
-                            </div>
-                            <span class="pad-id">PAD 7</span>
-                            <span class="pad-name">C-03</span>
-                            <span class="pad-hint">LOAD SAMPLE</span>
-                            <span class="pad-sub">R-CLICK: ARM REC</span>
-                            <span class="pad-timer">10</span>
-                            <span class="pad-fx-label"></span>
-                            <span class="pad-lcd">— empty —</span>
-                        </button>
-
-                        <button class="btn sfx-btn sfx-pad sfx-cust" id="sfx-custom4" data-sfx="custom4" data-midi-target="sfx:custom4" data-pad-num="08" title="Custom 4 — click: load / right-click: arm rec">
-                            <div class="pad-gear" onclick="event.stopPropagation(); _padGearToggle(this.querySelector('.pad-gear-icon'))">
-                                <span class="pad-gear-icon">⚙</span>
-                                <div class="pad-gear-menu">
-                                    <div data-fx="none">— NONE —</div>
-                                    <div data-fx="nvg">NVG</div>
-                                    <div data-fx="shoot">SHOOT</div>
-                                    <div data-fx="void">VOID</div>
-                                    <div data-fx="failure">FAILURE</div>
-                                    <div data-fx="lucy">LUCY</div>
-                                    <div data-fx="seismic">SEISMIC</div>
-                                    <div data-fx="punch">PUNCH</div>
-                                    <div data-fx="party">PARTY</div>
-                                    <div class="gear-bank-sep">— BANK B —</div>
-                                    <div data-fx="vb-slit-scan">SLIT_SCAN</div>
-                                    <div data-fx="vb-luma-bloom">LUMA_BLOOM</div>
-                                    <div data-fx="vb-dither-luxe">DITHER_LUXE</div>
-                                    <div data-fx="vb-caustics">CAUSTICS</div>
-                                    <div data-fx="vb-ghost-echo">GHOST_ECHO</div>
-                                    <div data-fx="vb-spectral-mosh">SPECTRAL_MOSH</div>
-                                    <div data-fx="clear" style="border-top:1px solid rgba(255,255,255,0.07);margin-top:2px;padding-top:4px;color:rgba(255,80,80,0.7);">✕ CLEAR</div>
-                                </div>
-                            </div>
-                            <span class="pad-id">PAD 8</span>
-                            <span class="pad-name">C-04</span>
-                            <span class="pad-hint">LOAD SAMPLE</span>
-                            <span class="pad-sub">R-CLICK: ARM REC</span>
-                            <span class="pad-timer">10</span>
-                            <span class="pad-fx-label"></span>
-                            <span class="pad-lcd">— empty —</span>
-                        </button>
-
-                        <!-- Zone 3: Liquid Library -->
-                        <div class="sfx-bank-label" style="color:rgba(100,60,255,0.65);">LIQUID LIB <em>// 0.75× · HEAVY DRAG</em></div>
-
-                        <button class="btn sfx-btn sfx-pad sfx-liq" id="sfx-liq1" data-sfx="liq1" data-midi-target="sfx:liq1" data-pad-num="09" title="Liquid 1 — tap or arm groovebox">
-                            <div class="pad-gear" onclick="event.stopPropagation(); _padGearToggle(this.querySelector('.pad-gear-icon'))">
-                                <span class="pad-gear-icon">⚙</span>
-                                <div class="pad-gear-menu">
-                                    <div data-fx="none">— NONE —</div>
-                                    <div data-fx="nvg">NVG</div>
-                                    <div data-fx="shoot">SHOOT</div>
-                                    <div data-fx="void">VOID</div>
-                                    <div data-fx="failure">FAILURE</div>
-                                    <div data-fx="lucy">LUCY</div>
-                                    <div data-fx="seismic">SEISMIC</div>
-                                    <div data-fx="punch">PUNCH</div>
-                                    <div data-fx="party">PARTY</div>
-                                    <div class="gear-bank-sep">— BANK B —</div>
-                                    <div data-fx="vb-slit-scan">SLIT_SCAN</div>
-                                    <div data-fx="vb-luma-bloom">LUMA_BLOOM</div>
-                                    <div data-fx="vb-dither-luxe">DITHER_LUXE</div>
-                                    <div data-fx="vb-caustics">CAUSTICS</div>
-                                    <div data-fx="vb-ghost-echo">GHOST_ECHO</div>
-                                    <div data-fx="vb-spectral-mosh">SPECTRAL_MOSH</div>
-                                </div>
-                            </div>
-                            <span class="pad-name">LIQ-1</span>
-                            <span class="pad-fx-label"></span>
-                            <span class="pad-rate">0.75×</span>
-                        </button>
-
-                        <button class="btn sfx-btn sfx-pad sfx-liq" id="sfx-liq2" data-sfx="liq2" data-midi-target="sfx:liq2" data-pad-num="10" title="Liquid 2 — tap or arm groovebox">
-                            <div class="pad-gear" onclick="event.stopPropagation(); _padGearToggle(this.querySelector('.pad-gear-icon'))">
-                                <span class="pad-gear-icon">⚙</span>
-                                <div class="pad-gear-menu">
-                                    <div data-fx="none">— NONE —</div>
-                                    <div data-fx="nvg">NVG</div>
-                                    <div data-fx="shoot">SHOOT</div>
-                                    <div data-fx="void">VOID</div>
-                                    <div data-fx="failure">FAILURE</div>
-                                    <div data-fx="lucy">LUCY</div>
-                                    <div data-fx="seismic">SEISMIC</div>
-                                    <div data-fx="punch">PUNCH</div>
-                                    <div data-fx="party">PARTY</div>
-                                    <div class="gear-bank-sep">— BANK B —</div>
-                                    <div data-fx="vb-slit-scan">SLIT_SCAN</div>
-                                    <div data-fx="vb-luma-bloom">LUMA_BLOOM</div>
-                                    <div data-fx="vb-dither-luxe">DITHER_LUXE</div>
-                                    <div data-fx="vb-caustics">CAUSTICS</div>
-                                    <div data-fx="vb-ghost-echo">GHOST_ECHO</div>
-                                    <div data-fx="vb-spectral-mosh">SPECTRAL_MOSH</div>
-                                </div>
-                            </div>
-                            <span class="pad-name">LIQ-2</span>
-                            <span class="pad-fx-label"></span>
-                            <span class="pad-rate">0.75×</span>
-                        </button>
-
-                        <button class="btn sfx-btn sfx-pad sfx-liq" id="sfx-liq3" data-sfx="liq3" data-midi-target="sfx:liq3" data-pad-num="11" title="Liquid 3 — tap or arm groovebox">
-                            <div class="pad-gear" onclick="event.stopPropagation(); _padGearToggle(this.querySelector('.pad-gear-icon'))">
-                                <span class="pad-gear-icon">⚙</span>
-                                <div class="pad-gear-menu">
-                                    <div data-fx="none">— NONE —</div>
-                                    <div data-fx="nvg">NVG</div>
-                                    <div data-fx="shoot">SHOOT</div>
-                                    <div data-fx="void">VOID</div>
-                                    <div data-fx="failure">FAILURE</div>
-                                    <div data-fx="lucy">LUCY</div>
-                                    <div data-fx="seismic">SEISMIC</div>
-                                    <div data-fx="punch">PUNCH</div>
-                                    <div data-fx="party">PARTY</div>
-                                    <div class="gear-bank-sep">— BANK B —</div>
-                                    <div data-fx="vb-slit-scan">SLIT_SCAN</div>
-                                    <div data-fx="vb-luma-bloom">LUMA_BLOOM</div>
-                                    <div data-fx="vb-dither-luxe">DITHER_LUXE</div>
-                                    <div data-fx="vb-caustics">CAUSTICS</div>
-                                    <div data-fx="vb-ghost-echo">GHOST_ECHO</div>
-                                    <div data-fx="vb-spectral-mosh">SPECTRAL_MOSH</div>
-                                </div>
-                            </div>
-                            <span class="pad-name">LIQ-3</span>
-                            <span class="pad-fx-label"></span>
-                            <span class="pad-rate">0.75×</span>
-                        </button>
-
-                        <button class="btn sfx-btn sfx-pad sfx-liq" id="sfx-liq4" data-sfx="liq4" data-midi-target="sfx:liq4" data-pad-num="12" title="Liquid 4">
-                            <div class="pad-gear" onclick="event.stopPropagation(); _padGearToggle(this.querySelector('.pad-gear-icon'))">
-                                <span class="pad-gear-icon">⚙</span>
-                                <div class="pad-gear-menu">
-                                    <div data-fx="none">— NONE —</div>
-                                    <div data-fx="nvg">NVG</div>
-                                    <div data-fx="shoot">SHOOT</div>
-                                    <div data-fx="void">VOID</div>
-                                    <div data-fx="failure">FAILURE</div>
-                                    <div data-fx="lucy">LUCY</div>
-                                    <div data-fx="seismic">SEISMIC</div>
-                                    <div data-fx="punch">PUNCH</div>
-                                    <div data-fx="party">PARTY</div>
-                                    <div class="gear-bank-sep">— BANK B —</div>
-                                    <div data-fx="vb-slit-scan">SLIT_SCAN</div>
-                                    <div data-fx="vb-luma-bloom">LUMA_BLOOM</div>
-                                    <div data-fx="vb-dither-luxe">DITHER_LUXE</div>
-                                    <div data-fx="vb-caustics">CAUSTICS</div>
-                                    <div data-fx="vb-ghost-echo">GHOST_ECHO</div>
-                                    <div data-fx="vb-spectral-mosh">SPECTRAL_MOSH</div>
-                                </div>
-                            </div>
-                            <span class="pad-name">LIQ-4</span>
-                            <span class="pad-fx-label"></span>
-                            <span class="pad-rate">0.75×</span>
-                        </button>
-
-                        </div><!-- /sfx-cust-liq-section -->
-                    </div><!-- /sfx-pad-grid -->
-
-                    <!-- Kit selector (performance mode) -->
-                    <select id="liq-lib-select">
-                        <option value="0">▶ VOID DRIFT — Ethereal Drones</option>
-                        <option value="1">▶ DARK ETHER — Cinematic Tension</option>
-                        <option value="2">▶ SPECTRAL — Crystalline Shimmer</option>
-                        <option value="3">▶ GLITCH OPS — Digital Texture</option>
-                        <option value="4">▶ CASSETTE NOIR — Lo-Fi Warped</option>
-                        <option value="5">▶ NEURAL STATIC — Noise Textures</option>
-                        <option value="6">▶ DEEP FIELD — Cosmic Sub Bass</option>
-                    </select>
-
-
-                    <!-- Hidden file inputs for custom pad uploads -->
-                    <input type="file" id="sfx-file-1" accept="audio/*" style="display:none;">
-                    <input type="file" id="sfx-file-2" accept="audio/*" style="display:none;">
-                    <input type="file" id="sfx-file-3" accept="audio/*" style="display:none;">
-                    <input type="file" id="sfx-file-4" accept="audio/*" style="display:none;">
-                    <div id="sfx-midi-arm" style="font-size:7px;color:var(--text-dim);margin-top:6px;text-align:center;letter-spacing:1px;"></div>
-                    </div><!-- /sfx-pad-body -->
-
-                    <!-- ══ VNGRD SONIC SUITE — DRUMS · BASS · CODE · MIXER ══ -->
-                    <div id="vt-sonic-rack">
-                        <button id="vt-sonic-launch-btn" onclick="window.SonicSuite && SonicSuite.toggle()">[ VNGRD SONIC SUITE ]</button>
-                        <div id="vt-sonic-status">DRUMS · BASS · CODE · MIXER</div>
-                    </div>
-
-                    <!-- ══ HAND SYNTH — MediaPipe Hands X/Y pad ═════════ -->
-                    <div id="kr-rack">
-                        <button id="kr-launch-btn" onclick="window.KineticRack && KineticRack.toggle()">[ HAND SYNTH ]</button>
-                        <button class="kr-help-btn" onclick="window.KineticRack && KineticRack.toggleHelp()" title="How to play">?</button>
-                        <div id="kr-status">OFFLINE</div>
-                       
-                    <!-- Floating HUD — VOL RVB FILT, all MIDI-assignable -->
-                    <div id="kr-stage-hud">
-                        <div id="kr-hud-title">HAND SYNTH</div>
-                        <div class="kr-ctrl-row">
-                            <span class="kr-ctrl-label">VOL</span>
-                            <input type="range" class="kr-ctrl-slider" data-ctrl="vol"
-                                min="0" max="1" step="0.01" value="0.8"
-                                oninput="KineticRack.ctrlChange('vol', this.value)">
-                            <button class="kr-ctrl-learn" data-ctrl="vol"
-                                onclick="KineticRack.midiLearn('vol')">M</button>
-                        </div>
-                        <div class="kr-ctrl-row">
-                            <span class="kr-ctrl-label">RVB</span>
-                            <input type="range" class="kr-ctrl-slider" data-ctrl="reverb"
-                                min="0" max="1" step="0.01" value="0.28"
-                                oninput="KineticRack.ctrlChange('reverb', this.value)">
-                            <button class="kr-ctrl-learn" data-ctrl="reverb"
-                                onclick="KineticRack.midiLearn('reverb')">M</button>
-                        </div>
-                        <div class="kr-ctrl-row">
-                            <span class="kr-ctrl-label">FILT</span>
-                            <input type="range" class="kr-ctrl-slider" data-ctrl="filter"
-                                min="0" max="1" step="0.01" value="0.5"
-                                oninput="KineticRack.ctrlChange('filter', this.value)">
-                            <button class="kr-ctrl-learn" data-ctrl="filter"
-                                onclick="KineticRack.midiLearn('filter')">M</button>
-                        </div>
-                        <button id="kr-rec-btn" onclick="window.KineticRack && KineticRack.toggleRecording()">⏺ REC</button>
-                    </div>
-
-                    <!-- SAMPLER HELP OVERLAY -->
-                    <div id="sampler-help-modal">
-                        <div id="sampler-help-header">
-                            <span>HOW TO USE</span>
-                            <button id="sampler-help-close" onclick="_toggleSamplerHelp()">✕</button>
-                        </div>
-                        <div class="sampler-help-rows">
-                            <div class="sampler-help-row">
-                                <span class="sampler-help-key">TAP</span>
-                                <span class="sampler-help-desc">Fire the sound. Works with mouse, touch, or MIDI keyboard.</span>
-                            </div>
-                            <div class="sampler-help-row">
-                                <span class="sampler-help-key">⚙ FX</span>
-                                <span class="sampler-help-desc">Tap the gear icon on any pad to couple a visual effect that fires with the sound.</span>
-                            </div>
-                            <div class="sampler-help-row">
-                                <span class="sampler-help-key">LOAD</span>
-                                <span class="sampler-help-desc">Tap a Custom pad (C-01 – C-04) to load any audio file from your device.</span>
-                            </div>
-                            <div class="sampler-help-row">
-                                <span class="sampler-help-key">REC</span>
-                                <span class="sampler-help-desc">Right-click a Custom pad to arm mic recording. A 10-second count begins on tap.</span>
-                            </div>
-                            <div class="sampler-help-row">
-                                <span class="sampler-help-key">MIDI</span>
-                                <span class="sampler-help-desc">Use MIDI LEARN in the MIDI_HOST section to bind any pad to your controller.</span>
-                            </div>
-                        </div>
-                        <div class="sampler-help-footer">VNGRD // SAMPLER SFX · 12-PAD · GROOVEBOX &nbsp;·&nbsp; <a href="https://andreamerella.github.io/DrisLab/" target="_blank" rel="noopener" style="color:rgba(0,243,255,0.45);text-decoration:none;letter-spacing:1px;" onmouseover="this.style.color='rgba(0,243,255,0.85)'" onmouseout="this.style.color='rgba(0,243,255,0.45)'">DRISLAB</a></div>
-                    </div>
-                </div>
-            </div>
-        </div>
-        <!-- ── CINEMA_ENGINE // ELEVENLABS VOICEOVER DIRECTOR ───────────── -->
-        <div class="section" id="sve-section">
-            <div class="sec-head collapsible" style="position:relative;">
-                <span class="sec-title">CINEMA_ENGINE</span>
-                <span class="sec-arrow">&#x25B8;</span>
-                <button class="sampler-help-btn" onclick="event.stopPropagation();_toggleSectionHelp(this,'voice-lab')">?</button>
-                <div class="sec-dot off" id="sve-dot"></div>
-                <!-- Help overlay -->
-                <div class="section-help-overlay">
-                    <div style="position:absolute;top:4px;right:4px;">
-                        <button style="background:none;border:none;color:var(--text-dim);cursor:pointer;font-size:10px;" onclick="event.stopPropagation();this.closest('.section-help-overlay').classList.remove('visible')">✕</button>
-                    </div>
-                    <div style="font-family:'Orbitron',sans-serif;font-size:8px;color:var(--accent);letter-spacing:2px;margin-bottom:7px;padding-right:14px;">CINEMA_ENGINE // HOW TO USE</div>
-                    <div style="font-size:7.5px;color:var(--text);line-height:1.6;margin-bottom:4px;"><span style="color:var(--g);">SCRIPT</span> — Type narration. Space bar works normally here.</div>
-                    <div style="font-size:7.5px;color:var(--text);line-height:1.6;margin-bottom:4px;"><span style="color:var(--accent);">[ VOICEOVER ]</span> — Sends script to ElevenLabs API. Ducks ambient audio during playback.</div>
-                    <div style="font-size:7.5px;color:var(--text);line-height:1.6;margin-bottom:4px;"><span style="color:var(--accent);">SYNC</span> — When ON, advances the media carousel automatically on voice end.</div>
-                    <div style="font-size:7.5px;color:var(--text);line-height:1.6;"><span style="color:var(--y);">API KEY</span> — Paste your ElevenLabs key in the KEY field — it saves to localStorage automatically.</div>
-                </div>
-            </div>
-            <div class="sec-body" id="sve-body" style="max-height:0;overflow:hidden;padding:0 8px;transition:max-height 0.3s ease;">
-
-                <!-- SVG label hack: blocks Chrome autofill popup on adjacent inputs -->
-                <label for="sve-script" style="position:absolute;width:1px;height:1px;clip:rect(0 0 0 0);overflow:hidden;pointer-events:none;"><svg xmlns="http://www.w3.org/2000/svg" width="1" height="1"></svg></label>
-
-                <!-- API Key — stored to localStorage -->
-                <input type="password"
-                    id="sve-api-key"
-                    class="inp"
-                    placeholder="ElevenLabs API key..."
-                    autocomplete="one-time-code"
-                    style="font-size:8px;padding:4px 6px;width:100%;box-sizing:border-box;margin-bottom:5px;letter-spacing:0.5px;"
-                    oninput="localStorage.setItem('elevenlabs_api_key',this.value);document.getElementById('sve-status').textContent='KEY: SAVED';"
-                    onfocus="if(!this.value){var _k=localStorage.getItem('elevenlabs_api_key')||'';if(_k)this.value=_k;}"
-                >
-
-                <!-- Narration script -->
-                <textarea
-                    id="sve-script"
-                    class="inp"
-                    placeholder="Narration script..."
-                    spellcheck="false"
-                    rows="3"
-                    autocomplete="one-time-code"
-                    style="min-height:44px;resize:vertical;font-size:9px;line-height:1.5;margin-bottom:5px;border-left:2px solid rgba(0,243,255,0.3);"
-                    onkeydown="event.stopPropagation()"
-                    onkeyup="event.stopPropagation()"
-                ></textarea>
-
-                <!-- Cinema Engine controls — compact single row -->
-                <div style="display:flex;gap:4px;margin-bottom:4px;">
-                    <button class="btn" id="sve-voiceover-btn"
-                        style="flex:1;font-size:7.5px;letter-spacing:1px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;padding:5px 4px;font-family:'Orbitron',sans-serif;"
-                        onclick="_runSVE()">[ VOICEOVER ]</button>
-                    <button class="btn" id="sve-sync-toggle"
-                        style="flex:1;font-size:7px;letter-spacing:0.5px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;padding:5px 4px;color:var(--text-dim);border-color:var(--border-light);"
-                        onclick="_toggleSveSync(this)" title="Auto-advance carousel on voice end">SYNC: OFF</button>
-                </div>
-
-                <!-- Status -->
-                <div id="sve-status" style="font-family:'JetBrains Mono',monospace;font-size:7px;color:var(--accent);letter-spacing:1px;min-height:12px;word-break:break-all;opacity:0.8;padding-bottom:4px;">STANDBY</div>
-
-            </div>
-        </div>
-        <!-- ── END CINEMA_ENGINE ──────────────────────────────────────────── -->
-
-        <div class="section">
-            <div class="sec-head collapsible"><span class="sec-title">MIDI_HOST</span><span class="sec-arrow">&#x25B8;</span><button class="sampler-help-btn" onclick="event.stopPropagation();_toggleSectionHelp(this,'midi')">?</button><div class="sec-dot off" id="midi-dot"></div></div>
-            <div class="sec-body" id="midi-host-body" style="max-height:0;padding:0 12px;">
-                <div class="btn-row" style="gap:4px;">
-                    <button class="btn" id="btn-midi" style="flex:1;font-size:7px;padding:3px 4px;letter-spacing:1px;">MIDI INIT</button>
-                    <button class="btn" id="btn-midi-learn" style="flex:1;font-size:7px;padding:3px 4px;letter-spacing:1px;color:var(--v);border-color:var(--v);">LEARN: OFF</button>
-                </div>
-                <div id="midi-status" style="font-size:7px;color:var(--text-dim);margin-top:3px;">NO DEVICE</div>
-                <div id="midi-bindings" style="font-size:7px;color:var(--accent);margin-top:3px;word-break:break-all;line-height:1.4;"></div>
-            </div>
-        </div>
-
-        <div class="section">
-            <div class="sec-head collapsible"><span class="sec-title">NFT_VAULT</span><span class="sec-arrow">&#x25B8;</span><button class="sampler-help-btn" onclick="event.stopPropagation();_toggleSectionHelp(this,'nft-vault')">?</button><div class="sec-dot off" id="vault-dot"></div></div>
-            <div class="sec-body" id="nft-vault-body">
-                <input type="text" class="inp" id="eth-addr-manual" placeholder="0x... or name.eth (OPTIONAL)" style="font-size:7px;margin-bottom:4px;padding:3px 4px;" title="Override ETH address or enter an ENS name like vitalik.eth">
-                <input type="text" class="inp" id="tezos-addr" placeholder="tz1... or name.tez (OPTIONAL)" style="font-size:7px;margin-bottom:4px;padding:3px 4px;" title="Enter a Tezos address or TezDomains name like alice.tez">
-                <div id="vault-resolved-label" style="font-size:7px;color:var(--accent);margin-bottom:4px;display:none;"></div>
-                <button class="btn" id="btn-scan-nfts" style="font-size:8px;">SCAN_WALLET_ASSETS</button>
-                <div id="nft-vault-list" style="max-height:60px;overflow-y:auto;font-size:8px;color:var(--text-dim);margin-top:4px;">CONNECT_WALLET_FIRST</div>
-                <div id="nft-count" style="font-size:8px;color:var(--accent);margin-top:4px;">ASSETS: 0</div>
-            </div>
-        </div>
-
-
-        <!-- P2P controls moved to dropdown in header #p2p-anchor -->
-
-        <div class="section">
-            <div class="sec-head"><span class="sec-title">THEME</span><div class="sec-dot"></div></div>
-            <div class="sec-body">
-                <div class="palette-grid">
-                    <div class="pal on" data-t="cyan"></div>
-                    <div class="pal" data-t="magenta"></div>
-                    <div class="pal" data-t="green"></div>
-                    <div class="pal" data-t="purple"></div>
-                    <div class="pal" data-t="gold"></div>
-                    <div class="pal" data-t="night"></div>
-                </div>
-                <button class="btn" onclick="cycleStructuralTheme()" style="font-size:9px; letter-spacing:0.8px; font-weight:600; padding:4px 8px; margin-top:5px;">Change Theme</button>
-            </div>
-        </div>
-
-    </aside>
-
-    <footer id="bottom-bar">
-        <div id="ticker-wrap">
-            <div id="ticker-label">SYS</div>
-            <div id="ticker-scroll">
-                <div id="ticker-text">INITIALIZING_CRYPTO_STREAM...</div>
-            </div>
-        </div>
-        <div id="info-bar">
-            <div class="info-group">
-                <div class="info-item">UP: <span id="uptime" class="hl">00:00:00</span></div>
-                <div class="info-item">RES: <span id="res">3840x2160</span></div>
-                <div class="info-item">Q: <span id="q-info">0</span></div>
-                <div id="presence-monitor" class="info-item" style="opacity:0.3;display:flex;align-items:center;gap:4px;">
-                    <div id="presence-dot" style="width:3px;height:3px;background:var(--c);border-radius:50%;flex-shrink:0;"></div>
-                    <span>NODES: <span id="presence-count">1</span></span>
-                </div>
-            </div>
-            <div class="info-group" style="gap:8px;flex-shrink:0;align-items:center;">
-                <div id="btn-snapshot" onclick="takeScreenshot()" title="Screenshot [Ctrl+Shift+S]" style="cursor:pointer;display:flex;align-items:center;padding:2px 5px;border:1px solid rgba(0,255,136,0.3);border-radius:2px;transition:all 0.15s;background:rgba(0,255,136,0.03);" onmouseenter="this.style.background='rgba(0,255,136,0.10)';this.style.borderColor='rgba(0,255,136,0.7)'" onmouseleave="this.style.background='rgba(0,255,136,0.03)';this.style.borderColor='rgba(0,255,136,0.3)'"><span style="font-size:7px;color:rgba(0,255,136,0.7);font-family:'JetBrains Mono',monospace;letter-spacing:1px;">SNAP</span></div>
-                <div class="info-item" style="color:rgba(255,255,255,0.4);">AI:<span style="color:var(--g);margin-left:2px;">[G]</span></div>
-                <div onclick="toggleSystemSlide()" title="Tab — expand canvas" style="cursor:pointer;display:flex;align-items:center;gap:3px;padding:2px 5px;border:1px solid rgba(0,243,255,0.25);border-radius:2px;transition:all 0.15s;background:rgba(0,243,255,0.04);" onmouseenter="this.style.background='rgba(0,243,255,0.12)';this.style.borderColor='rgba(0,243,255,0.6)'" onmouseleave="this.style.background='rgba(0,243,255,0.04)';this.style.borderColor='rgba(0,243,255,0.25)'">
-                    <span style="font-size:7px;color:rgba(0,243,255,0.7);font-family:'JetBrains Mono',monospace;letter-spacing:1px;">TAB</span>
-                    <span style="font-size:7px;color:rgba(255,255,255,0.4);font-family:'JetBrains Mono',monospace;letter-spacing:1px;">SLIDE</span>
-                </div>
-                <div onclick="if(typeof toggleFullscreen==='function')toggleFullscreen()" title="H — fullscreen" style="cursor:pointer;display:flex;align-items:center;gap:3px;padding:2px 5px;border:1px solid rgba(0,243,255,0.25);border-radius:2px;transition:all 0.15s;background:rgba(0,243,255,0.04);" onmouseenter="this.style.background='rgba(0,243,255,0.12)';this.style.borderColor='rgba(0,243,255,0.6)'" onmouseleave="this.style.background='rgba(0,243,255,0.04)';this.style.borderColor='rgba(0,243,255,0.25)'">
-                    <span style="font-size:7px;color:rgba(0,243,255,0.7);font-family:'JetBrains Mono',monospace;letter-spacing:1px;">H</span>
-                    <span style="font-size:7px;color:rgba(255,255,255,0.4);font-family:'JetBrains Mono',monospace;letter-spacing:1px;">FULL</span>
-                </div>
-                <div id="btn-hud-alpha" onclick="if(typeof toggleHudAlpha==='function')toggleHudAlpha()" title="Panel skin — SOLID / GLASS / GHOST" style="cursor:pointer;display:flex;align-items:center;gap:3px;padding:2px 5px;border:1px solid rgba(0,243,255,0.25);border-radius:2px;transition:all 0.15s;background:rgba(0,243,255,0.04);" onmouseenter="this.style.background='rgba(0,243,255,0.12)';this.style.borderColor='rgba(0,243,255,0.6)'" onmouseleave="this.style.background='rgba(0,243,255,0.04)';this.style.borderColor='rgba(0,243,255,0.25)'">
-                    <span id="hud-alpha-label" style="font-size:7px;color:rgba(0,243,255,0.7);font-family:'JetBrains Mono',monospace;letter-spacing:1px;">SOLID</span>
-                </div>
-            </div>
-        </div>
-    </footer>
-
-    <!-- SAVE MODAL -->
-    <div id="save-modal" style="display:none;">
-        <div id="save-modal-inner">
-            <div id="save-modal-title">SAVE_SESSION</div>
-            <div id="save-modal-actions">
-                <button class="btn" id="btn-save-local" style="flex:1;font-size:9px;" title="INTEL: LOCAL_JSON // DOWNLOAD .VGD">LOCAL_JSON</button>
-                <button class="btn" id="btn-save-wallet" style="flex:1;font-size:9px;color:var(--accent);border-color:var(--accent);" title="INTEL: WALLET_SYNC // SIGN + STORE">WALLET_SYNC</button>
-            </div>
-            <button class="btn" id="btn-save-modal-close" style="width:100%;font-size:8px;opacity:0.6;margin-top:4px;">CLOSE</button>
-        </div>
-    </div>
-
-    <!-- QR MODAL -->
-    <div id="qr-modal" style="display:none;">
-        <div id="qr-modal-inner">
-            <div id="qr-modal-header">
-                <span id="qr-modal-title">WORKSPACE_EXPORT</span>
-                <span id="qr-modal-cid-label"></span>
-            </div>
-            <div id="qr-code-container"></div>
-            <div id="qr-url-display"></div>
-            <div id="qr-modal-actions">
-                <button class="btn" id="btn-qr-copy" style="flex:1;font-size:9px;">COPY_URL</button>
-                <button class="btn" id="btn-qr-close" style="flex:1;font-size:9px;color:var(--p);border-color:var(--p);">CLOSE</button>
-            </div>
-        </div>
-    </div>
-
-    <!-- WALLET SYNC HUD — IPFS upload indicator + snapshot thumbnail -->
-    <div id="wallet-sync-hud">
-        <div id="ipfs-sync-indicator">
-            <div id="ipfs-sync-dot"></div>
-            <span id="ipfs-sync-label">IPFS SYNC</span>
-        </div>
-        <div id="wallet-sync-thumbnail">
-            <img id="wallet-sync-snapshot" src="" alt="webgl snapshot" />
-        </div>
-        <div id="wallet-sync-cid"></div>
-        <div id="wallet-sync-dismiss" onclick="document.getElementById('wallet-sync-hud').classList.remove('visible','syncing','synced','error');">DISMISS ✕</div>
-    </div>
-
-    <div id="sys-log">
-        <div id="sys-log-handle">
-            <span id="sys-log-handle-label">SYS//LOG</span>
-            <span id="sys-log-badge">0</span>
-            <button id="sys-log-pin-btn" title="Pin visible" onclick="event.stopPropagation();_sysLogTogglePin()">⊙</button>
-            <button id="sys-log-clear-btn" title="Clear log" onclick="event.stopPropagation();_sysLogClear()">✕</button>
-        </div>
-        <div id="sys-log-body"></div>
-    </div>
-    
-    <div id="nft-hud">
-        <div id="nft-hud-controls">
-            <button id="nft-dim-btn" title="Dim HUD (click to cycle opacity)" onclick="_nftHudDim()">◐</button>
-            <span id="nft-drag-handle" title="Drag to reposition">⠿</span>
-        </div>
-        <div id="nft-timer">00:00</div>
-        <div id="nft-label">SYSTEM_CAPTURING</div>
-        <div class="nft-bar"><div class="nft-fill" id="nft-fill"></div></div>
-    </div>
-
-    <!-- ══════════════════════════════════════════════════════════
-         TRANSCRIPTION HUD OVERLAY — DRIS//CORE POLYTRANSLATOR V1.0_SYNC
-         Sits above #bottom-bar, between the sidebars.
-         Visibility controlled by JS (.visible class).
-         pointer-events:none so VJ canvas stays fully interactive.
-         ══════════════════════════════════════════════════════════ -->
-    <div id="transcription-hud" role="region" aria-label="Live Transcription">
-
-        <!-- Primary English transcription slot -->
-        <div id="hud-en">
-            <div class="hud-en-label" id="live-transcription-label">EN // LIVE TRANSCRIPTION</div>
-            <div id="hud-en-text"></div>
-        </div>
-
-    </div>
-
-    <!-- ══════════════════════════════════════════════════════════
-         PODCAST TRAY — fixed bottom bar, closed by default.
-         Shows EN / ES / FR subtitles when ON-AIR and data arrives.
-         ══════════════════════════════════════════════════════════ -->
-    <div id="podcast-tray" role="region" aria-label="Live Subtitles">
-        <div class="podcast-slot" id="tray-slot-0">
-            <div class="podcast-slot-label" id="tray-label-0">--</div>
-            <div class="podcast-slot-text" id="tray-text-0"></div>
-        </div>
-        <div class="podcast-slot" id="tray-slot-1">
-            <div class="podcast-slot-label" id="tray-label-1">--</div>
-            <div class="podcast-slot-text" id="tray-text-1"></div>
-        </div>
-        <div class="podcast-slot" id="tray-slot-2">
-            <div class="podcast-slot-label" id="tray-label-2">--</div>
-            <div class="podcast-slot-text" id="tray-text-2"></div>
-        </div>
-        <div class="podcast-slot" id="tray-slot-3">
-            <div class="podcast-slot-label" id="tray-label-3">--</div>
-            <div class="podcast-slot-text" id="tray-text-3"></div>
-        </div>
-    </div>
-
-    <!-- ── VANGUARD SUBTITLES — 4-slot broadcast overlay ── -->
-    <div id="vanguard-subtitles" role="region" aria-label="Live Subtitles">
-        <!-- Lines injected dynamically by POLYTRANSLATOR engine -->
-    </div>
-    <input type="file" id="file-media" multiple accept="image/*,video/*">
-    <input type="file" id="file-audio" multiple accept="audio/*">
-    <input type="file" id="file-logo" accept="image/*">
-    <input type="file" id="file-layer-logo" accept="image/*">
-    <input type="file" id="file-vgd" accept=".vgd,.json">
-    <audio id="audio-el"></audio>
-    <div id="media-container" style="display:none;"></div>
-
-<script src="./src/js/main.js"></script>
-<script type="module" src="./src/js/audio-rotation.js"></script>
-<script src="./src/js/vj-engine.js"></script>
-
-<!-- 3D LOGO: offscreen WebGL canvas for Three.js rendering -->
-<canvas id="three-canvas" width="512" height="512" style="position:fixed;left:-9999px;top:-9999px;width:512px;height:512px;pointer-events:none;z-index:-1;"></canvas>
-<script type="module" src="./src/js/logo-3d.js"></script>
-
-    <!-- Sequencer overlay backdrop — must be at body level, NOT inside sidebar.
-         Sidebar has will-change:transform which creates a containing block and
-         traps position:fixed children, preventing true viewport overlay. -->
-
-    <!-- gif-host: DIRECT child of <body>, NOT inside #stage.
-         #stage has transform:translate3d(0,0,0) which creates a containing block for
-         position:fixed children, trapping them inside overflow:hidden.
-         At body level, position:fixed is relative to the viewport. -->
-    <div id="gif-host">
-        <img id="user-logo-layer" alt="Logo">
-    </div>
-
-    <!-- P2P FLOATING PANEL (draggable + minimizable) -->
-    <div id="p2p-modal" style="display:none;position:fixed;top:52px;right:210px;z-index:5000;width:240px;box-sizing:border-box;">
-        <!-- TITLE BAR -->
-        <div id="p2p-titlebar" style="display:flex;align-items:center;justify-content:space-between;padding:6px 10px;cursor:grab;user-select:none;">
-            <span style="font-size:9px;letter-spacing:2px;">&#9632; P2P // SIGNAL</span>
-            <span style="display:flex;gap:8px;align-items:center;">
-                <span id="p2p-dot" class="dot off" style="margin:0;"></span>
-                <button id="btn-min-p2p" style="background:none;border:none;color:rgba(0,243,255,0.45);cursor:pointer;font-size:13px;line-height:1;padding:0;" title="Minimize">&#9604;</button>
-                <button id="btn-close-p2p-modal" style="background:none;border:none;color:rgba(0,243,255,0.45);cursor:pointer;font-size:15px;line-height:1;padding:0;" title="Close">&times;</button>
-            </span>
-        </div>
-        <!-- BODY -->
-        <div id="p2p-body" style="position:relative;padding:10px 10px 12px;box-sizing:border-box;">
-
-            <!-- YOUR CALLSIGN ─────────────────── -->
-            <div class="lbl" style="font-size:7px;letter-spacing:2px;margin-bottom:3px;opacity:0.55;">YOUR_CALLSIGN</div>
-            <input type="text" class="inp" id="peer-id-display" placeholder="TYPE YOUR CALLSIGN..." style="display:block;width:100%;box-sizing:border-box;font-size:9px;text-align:center;color:#00ff88;padding:5px 8px;margin-bottom:4px;" title="Type your callsign then hit INIT">
-            <div style="display:flex;gap:4px;margin-bottom:10px;">
-                <button class="btn" id="btn-copy-id" style="flex:1;text-align:center;color:rgba(0,243,255,0.7);">COPY ID</button>
-                <button class="btn" id="btn-init-peer" style="flex:1;text-align:center;color:#00ff88;">INIT</button>
-            </div>
-
-            <!-- REMOTE ID ──────────────────────── -->
-            <div class="lbl" style="font-size:7px;letter-spacing:2px;margin-bottom:3px;opacity:0.55;">REMOTE_ID</div>
-            <div style="position:relative;margin-bottom:8px;">
-                <input type="text" class="inp" id="remote-peer-id" placeholder="PASTE OR SELECT CONTACT..." style="display:block;width:100%;box-sizing:border-box;font-size:9px;padding:5px 8px;">
-                <!-- Contacts dropdown -->
-                <div id="p2p-contacts-overlay">
-                    <div class="contacts-empty" id="p2p-contacts-empty">NO CONTACTS YET</div>
-                </div>
-            </div>
-
-            <!-- ACTION ROW ─────────────────────── -->
-            <div style="display:flex;gap:4px;margin-bottom:8px;">
-                <button class="btn" id="btn-contacts" style="flex:1;text-align:center;color:rgba(0,243,255,0.6);" title="Recent contacts">BOOK</button>
-                <button class="btn" id="btn-call-guest" style="flex:2;text-align:center;color:#00f3ff;">CALL</button>
-                <button class="btn" id="btn-hangup" style="flex:1;text-align:center;color:#ff4444;border-color:#ff4444;">END</button>
-            </div>
-
-            <div id="call-status" style="font-size:8px;color:rgba(0,243,255,0.4);text-align:center;letter-spacing:1.5px;padding:2px 0;">NOT_CONNECTED</div>
-            <span class="dot off" id="guest-dot" style="display:inline-block;margin-top:5px;"></span>
-
-            <!-- Resize handle -->
-            <div id="p2p-resize" style="position:absolute;bottom:2px;right:2px;width:14px;height:14px;cursor:nwse-resize;opacity:0.35;" title="Resize">
-                <svg width="14" height="14" viewBox="0 0 14 14"><path d="M12 2L2 12M12 6L6 12M12 10L10 12" stroke="#00f3ff" stroke-width="1" fill="none"/></svg>
-            </div>
-        </div>
-    </div>
-
-
-<script src="./src/js/speech-engine.js"></script>
-
-<!-- ═══════════════════════════════════════════════════════════════════
-     VANGUARD_B FX ENGINE — WebGL2 post-process shader bank
-     6 elite GLSL 3.00 ES shaders running on #vb-canvas
-     Single-click: 3s reactive burst  |  Double-click: persistent lock
-     ═══════════════════════════════════════════════════════════════════ -->
-<script src="./src/js/vb-shader.js"></script>
-
-
-<script src="./src/js/gesture.js"></script>
-
-<div id="fs-hint">
-    <span style="font-size:7px;color:rgba(0,243,255,0.7);font-family:'JetBrains Mono',monospace;letter-spacing:1px;">H</span>
-    <span style="font-size:7px;color:rgba(255,255,255,0.4);font-family:'JetBrains Mono',monospace;letter-spacing:1px;">FULL</span>
-</div>
-
-<div id="esc-warn">⚠ ESC ARMED — PRESS AGAIN TO PANIC RESET</div>
-
-<canvas id="kinetic-canvas"></canvas>
-<video id="kinetic-cam-video" autoplay muted playsinline></video>
-<canvas id="kr-skeleton-canvas"></canvas>
+const $ = id => document.getElementById(id);
+
+function takeScreenshot() {
+    if (!APP.render || !APP.render.canvas) {
+        typeof ghostLog === 'function' && ghostLog('SNAP_ERR: canvas not ready', 'crit');
+        return;
+    }
+    try {
+        var dataUrl = APP.render.canvas.toDataURL('image/png');
+        APP.nft.dnaSnapshot = dataUrl;
+        var a = document.createElement('a');
+        a.href = dataUrl;
+        a.download = 'VNGRD_SNAP_' + Date.now() + '.png';
+        a.click();
+        var snapBtn = document.getElementById('btn-snapshot');
+        if (snapBtn) { snapBtn.classList.add('snap-flash'); setTimeout(() => snapBtn.classList.remove('snap-flash'), 600); }
+        typeof ghostLog === 'function' && ghostLog('SNAPSHOT_SAVED // ' + (dataUrl.length / 1024).toFixed(0) + 'KB PNG', 'success');
+    } catch (err) {
+        typeof ghostLog === 'function' && ghostLog('SNAPSHOT_ERROR: ' + err.message, 'crit');
+    }
+}
+
+// --- BROADCAST SAFE DRAG MODULE ---
+function makeLogSafeDraggable(el) {
+    // Legacy no-op — handle-based drag is wired in _sysLogInit()
+}
+// --- KILL SWITCH ---
+document.addEventListener('keydown', e => {
+    if ((e.ctrlKey || e.metaKey) && (e.key === 's' || e.key === 'S')) {
+        e.preventDefault();
+        if (e.shiftKey) { takeScreenshot(); } else { console.log('SYS: SAVE_DISABLED'); }
+    }
+});
+document.ondragstart = function() { return false; };
+
+// ══════════════════════════════════════════════════
+// CACHE BUSTER — forces browser to load new logic
+// ══════════════════════════════════════════════════
+window.VANGUARD_VERSION = '1.0.1';
+window.VANGUARD_BUILD = '2026-02-09T' + Date.now();
+console.log('[VNGRD] Version ' + window.VANGUARD_VERSION + ' build ' + window.VANGUARD_BUILD);
+
+const APP = {
+    state: { isLive: false, isRecording: false, isFullscreen: false, isCycle: false, cycleTimer: null, isMobile: false, theme: 'cyan', startTime: Date.now(), psychosis: false, showMediaStrips: true, activeSource: 'local' },
+    vj: { 
+        brightness: 1.0, contrast: 1.0, saturation: 1.0, hue: 0, trailsEnabled: false, trailAlpha: 0.92, rgbEnabled: false, rgbIntensity: 0, rgbBassLink: false, pixelateEnabled: false, pixelSize: 1, rumbleEnabled: false, invert: false, uiReactivity: false, shakeIntensity: 0, shockwave: 0, lastBassLevel: 0, avgVol: 0, maskMode: false, glitchSnap: 0,
+        seismicVelocity: 0, seismicPosition: 0, springConstant: 0.8, damping: 0.9
+    },
+    media: { queue: [], currentIndex: -1, currentElement: null, _tx: null, audioSync: false, _activeSeam: -1, _seamOpen: false, _seamExpandH: 0, _seamGlitchT: 0, _durDragging: false, _durDragZone: null },
+    fx: { stutter: false, crush: false, invert: false, echo: false, rgbSplit: 0, freezeFrame: null },
+    audio: { ctx: null, analyzer: null, source: null, element: null, playlist: [], currentTrack: -1, currentTrackName: '', bassLevel: 0, vuData: new Uint8Array(32), isPlaying: false, isConnected: false, videoSource: null, videoMuted: false, videoGain: null, spatialMode: 'stereo', panner: null, compressor: null, masterGain: null, lowShelf: null, highShelf: null, spatialInterval: null, recorderDest: null },
+
+    nft: { recorder: null, chunks: [], isRecording: false, startTime: 0, duration: 30000, dnaSnapshot: null, audioDest: null },
+    broadcast: { recorder: null, chunks: [], isRecording: false },
+    loop: { recorder: null, chunks: [], activeUrl: null, timer: null, counter: 10 },
+    guest: { peer: null, connection: null, stream: null, videoElement: null, audioSource: null, isActive: false, peerId: null },
+    peer: { peer: null, call: null, localStream: null, isSyncing: false },
+    wallet: { connected: false, address: null, chainId: null, nfts: [] },
+    user: { assets: [] },
+    nftVault: { thumbnails: [], scrollOffset: 0 },
+    camera: { stream: null, recorder: null, chunks: [], mode: 'off', isRecording: false, videoEl: null, previewEl: null, micStream: null },
+    render: { canvas: null, ctx: null, width: 3840, height: 2160, fps: 0, frameCount: 0, lastTime: 0, lastFpsUpdate: 0, rafId: null, scale: 1.0, pixelCanvas: null, pixelCtx: null, rgbActive: false, source: null },
+    bug: { visible: true, text: 'VNGRD', style: 'plain', color: '#ffffff', mode: 'solid', image: null, textMode: 0, textVisible: true, imageVisible: false, p2pText: '', p2pVisible: false },
+    layers: { logoScale: 1.0, logoSrc: null, bugScale: 1.0 },
+    // IDENTITY TRINITY — three independent broadcast actors
+    trinity: {
+        bug:  { x: 0.015, y: 0.015, scale: 1.5, visible: true },
+        logo: { x: 0.85,  y: 0.015, scale: 1.0, visible: false },
+        logo3d: { x: 0.40, y: 0.015, scale: 2.0, visible: false },
+    },
+    lowerThird: { visible: false, preset: 'guest', mode: 'guest', ltStyle: 'default', ltColor: null, _showTime: 0, _hiding: false, _hideStart: 0 },
+    ui: { logoMorph: 0, morphs: ['m1','m2','m3','m4','m5','m6'] },
+    ghost: { seismicEnergy: 0, nodesSecured: 0, directoryHandle: null },
+    crypto: { ids: 'bitcoin,ethereum,solana,dogecoin' },
+    // WEAPON_STATE_ISOLATION + STRUCTURAL_INTEGRITY
+    shooting: { 
+        active: false, bullets: [], audioCtx: null, 
+        machineGunInterval: null, fractures: [], dents: [],
+        lastX: 0, lastY: 0, tinkBuffer: null,
+        lastFireTime: 0, fireThrottle: 100,
+        repairTimer: null
+    },
+    glassIntegrity: 100,
+    lensShattered: false,
+    // MIDI_HOST + LEARN MODE + INSTRUMENT PASSTHROUGH
+    midi: {
+        access: null, inputs: [], outputs: [],
+        learnMode: false, learnTarget: null,
+        bindings: {}, // { noteOrCC: { element, target, type } }
+        passthrough: false,
+        synthCtx: null, synthOsc: null, synthGain: null
+    },
+    // Phase 1: Compositor (Iron-Clad Recorder Engine)
+    compositor: null,
+    // Phase 3: Web3 Sovereign DNA
+    web3: { provider: null, signer: null, address: null, isConnected: false, mode: 'guest' },
+    // Phase 5: Layer Saver
+    layerSaver: { textureReady: false, fontReady: false, audioReady: false, allReady: false },
+    vr: null,
+    // PRO-AUDIO: 48kHz RAW
+    inputDevices: { 
+        list: [], selectedId: null, stream: null, analyzer: null,
+        sampleRate: 48000, echoCancellation: false, noiseSuppression: false, autoGainControl: false
+    },
+    // TRANSUDATE_ATMOSPHERE_ENGINE
+    atmosphere: { 
+        voiceReact: false, intensity: 50, heatIntensity: 0,
+        rainDrops: [], rainInterval: null,
+        canvas: null, ctx: null, temperature: null,
+        latitude: null, longitude: null, city: 'UNKNOWN', country: '',
+        weatherCode: null, metar: '', isRaining: false,
+        refractionCanvas: null, refractionCtx: null,
+        midiOverride: false
+    },
+
+
+    // LEXICA_NANO
+
+    // JIT STATE TRACKER — prevents double-boot of subsystems
+    status: { is3DActive: false, isMidiActive: false, isAudioActive: false, booted: false }
+};
+
+// ═══════════════════════════════════════════════════════════════════
+// JIT BOOT SEQUENCE — cascading sysLog on load
+// ═══════════════════════════════════════════════════════════════════
+function bootSequence() {
+    if (APP.status.booted) return;
+    APP.status.booted = true;
+    var msgs = [
+        'SYS: CORE ONLINE',
+        'SYS: CANVAS COMPOSITOR [STANDBY]',
+        'SYS: 3D ENGINE [STANDBY]',
+        'SYS: MIDI INTERFACE [STANDBY]',
+        'SYS: AI GENERATOR [STANDBY]',
+        'SYS: P2P NETWORK [STANDBY]'
+    ];
+    msgs.forEach(function(m, i) { setTimeout(function() { log(m); }, i * 180); });
+}
+
+// ── igniteMIDI: lazy MIDI activation (user-gesture gated) ──
+async function igniteMIDI() {
+    if (APP.status.isMidiActive) return APP.midi.access;
+    if (!navigator.requestMIDIAccess) {
+        log('MIDI: NOT_SUPPORTED');
+        return null;
+    }
+    try {
+        var access = await navigator.requestMIDIAccess({ sysex: false });
+        APP.midi.access = access;
+        APP.status.isMidiActive = true;
+        log('MIDI: HARDWARE CONNECTED');
+        return access;
+    } catch (err) {
+        log('MIDI: ACCESS_DENIED (' + err.message + ')');
+        return null;
+    }
+}
+
+// ── igniteAudio: lazy AudioContext creation (user-gesture gated) ──
+function igniteAudio() {
+    if (APP.status.isAudioActive && APP.audio.ctx) return APP.audio.ctx;
+    try {
+        APP.audio.ctx = new (window.AudioContext || window.webkitAudioContext)({ sampleRate: 48000 });
+        APP.status.isAudioActive = true;
+        log('AUDIO: CONTEXT ACTIVE [' + APP.audio.ctx.sampleRate + 'Hz]');
+        return APP.audio.ctx;
+    } catch (err) {
+        log('AUDIO: CONTEXT_FAIL');
+        return null;
+    }
+}
+
+// GHOST TERMINAL — Sentient AI Companion v5
+var _ghostLastMsg = '';
+var _ghostSysLastAt = 0;
+function ghostLog(msg, type = 'cmd') {
+    // Suppress duplicate consecutive messages
+    var dedupKey = type + '|' + msg;
+    if (dedupKey === _ghostLastMsg && type !== 'user') return;
+    _ghostLastMsg = dedupKey;
+    // Throttle system-generated alerts (non-user) to max 1 per 5s
+    if (type !== 'user' && type !== 'success') {
+        var now = Date.now();
+        if (now - _ghostSysLastAt < 5000 && type === 'cmd') return;
+        _ghostSysLastAt = now;
+    }
+    const term = $('ghost-terminal');
+    const body = $('ghost-terminal-body');
+    // Expand to show message, then auto-collapse if input stays empty
+    if (term && term.classList.contains('active')) {
+        clearTimeout(window._ghostCollapseTimer);
+        term.classList.add('expanded');
+        window._ghostCollapseTimer = setTimeout(function() {
+            var inp = $('ghost-input');
+            if (inp && !inp.value.trim() && document.activeElement !== inp) {
+                term.classList.remove('expanded');
+            }
+        }, type === 'ai' ? 9000 : 5000);
+    }
+    const ts = new Date().toTimeString().split(' ')[0].substring(0, 5);
+    const line = document.createElement('div');
+    line.className = 'ghost-log';
+    line.innerHTML = '<span class="ts">' + ts + '</span><span class="' + type + '">' + msg + '</span>';
+    body.appendChild(line);
+    body.scrollTop = body.scrollHeight;
+    if (body.children.length > 80) body.firstChild.remove();
+}
+
+function ghostInit() {
+    let dragging = false, startX, startY, elX, elY;
+    const header = $('ghost-terminal-header');
+    const terminal = $('ghost-terminal');
+    header.addEventListener('mousedown', e => {
+        dragging = true; startX = e.clientX; startY = e.clientY;
+        elX = terminal.offsetLeft; elY = terminal.offsetTop;
+    });
+    document.addEventListener('mousemove', e => {
+        if (!dragging) return;
+        terminal.style.left = (elX + e.clientX - startX) + 'px';
+        terminal.style.top = (elY + e.clientY - startY) + 'px';
+        terminal.style.right = 'auto'; terminal.style.bottom = 'auto';
+    });
+    document.addEventListener('mouseup', () => { dragging = false; });
+}
+
+function toggleGhost() {
+    const term = $('ghost-terminal');
+    const isActive = term.classList.contains('active');
+    if (isActive) {
+        term.classList.remove('active', 'expanded');
+        term.style.display = '';
+        clearTimeout(window._ghostCollapseTimer);
+    } else {
+        term.style.display = 'flex';
+        term.classList.add('active');
+        $('ghost-input').focus();
+    }
+}
+
+$('ghost-input').addEventListener('keydown', e => {
+    if (e.key === 'Escape') { e.preventDefault(); toggleGhost(); return; }
+    if ((e.key === 'g' || e.key === 'G') && e.target.value === '') { e.preventDefault(); toggleGhost(); return; }
+    if (e.key === 'Enter') { const val = e.target.value.trim(); if (val) processGhostCommand(val); e.target.value = ''; }
+});
+
+// ── Ghost HUD expand/collapse on typing ──
+window._ghostCollapseTimer = null;
+function _ghostScheduleCollapse(delay) {
+    clearTimeout(window._ghostCollapseTimer);
+    window._ghostCollapseTimer = setTimeout(function() {
+        var inp = $('ghost-input');
+        if (inp && !inp.value.trim() && document.activeElement !== inp) {
+            $('ghost-terminal').classList.remove('expanded');
+        }
+    }, delay || 6000);
+}
+$('ghost-input').addEventListener('input', function() {
+    var term = $('ghost-terminal');
+    clearTimeout(window._ghostCollapseTimer);
+    if (this.value.trim()) {
+        term.classList.add('expanded');
+    } else {
+        _ghostScheduleCollapse(3000);
+    }
+});
+$('ghost-input').addEventListener('focus', function() {
+    clearTimeout(window._ghostCollapseTimer);
+});
+$('ghost-input').addEventListener('blur', function() {
+    if (!this.value.trim()) _ghostScheduleCollapse(4000);
+});
+
+// ═══════════════════════════════════════════════════════════════
+// GHOST AI — CONTEXTUAL KNOWLEDGE BASE
+// The AI knows everything about this console and gives real advice.
+// ═══════════════════════════════════════════════════════════════
+
+var GHOST = {
+    // Current state awareness
+    getContext: function() {
+        return {
+            hasMedia: APP.media.queue.length > 0,
+            mediaCount: APP.media.queue.length,
+            hasAudio: APP.audio.isPlaying,
+            hasCamera: !!APP.camera.stream,
+            isLive: APP.state.isLive,
+            isRecording: APP.state.isRecording,
+            hasMidi: APP.status.isMidiActive,
+            hasWallet: !!(APP.wallet && APP.wallet.address),
+            hasGuest: !!(APP.guest && APP.guest.isActive),
+            theme: APP.state.theme || 'cyan',
+            fps: APP.render.fps,
+            seismic: APP.vj.rumbleEnabled,
+            party: APP.vj.uiReactivity,
+            isShooting: !!(APP.shooting && APP.shooting.active),
+            glassIntegrity: typeof APP.glassIntegrity !== 'undefined' ? APP.glassIntegrity : 100,
+            uptime: $('uptime') ? $('uptime').textContent : '00:00:00',
+            hour: new Date().getHours(),
+            isCycling: APP.state.isCycle
+        };
+    },
+
+    // Smart tips based on what the user is currently doing (or not doing)
+    tips: [
+        // Getting started — nothing loaded
+        { condition: function(ctx) { return !ctx.hasMedia && !ctx.hasAudio && !ctx.hasCamera; },
+          msgs: [
+            'Your canvas is empty. Load some visuals! Click LOAD_MEDIA in the sidebar or type "load" to scan a folder.',
+            'Tip: Drag & drop images or videos onto the screen to add them to your media deck.',
+            'Try loading some music first — click the audio button in MEDIA_DECK, then arm SEISMIC to feel the bass shake your screen.',
+            'New here? Start by loading media (images/videos) into the deck, then add music. The magic happens when they combine.',
+            'Pro tip: Type "load" to scan a whole folder of visuals at once. Way faster than loading one by one.'
+          ]
+        },
+        // Has media but no audio
+        { condition: function(ctx) { return ctx.hasMedia && !ctx.hasAudio; },
+          msgs: [
+            'Visuals loaded, but no audio yet. Load a track and watch the reactivity come alive!',
+            'Try adding music — then type "seismic" to make the whole screen shake with the bass.',
+            'Your deck has ' + 0 + ' items. Add audio and type "party" for autonomous visual morphing on every beat.',
+            'Tip: With music playing, the VU meter lights up, bass analysis kicks in, and FX become audio-reactive.'
+          ],
+          dynamic: function(ctx) { return 'Your deck has ' + ctx.mediaCount + ' items. Load audio and the console comes alive.'; }
+        },
+        // Has audio playing
+        { condition: function(ctx) { return ctx.hasAudio && !ctx.seismic; },
+          msgs: [
+            'Music detected! Type "seismic" to arm bass-reactive screen shake. Every kick drum shakes the viewport.',
+            'Audio is playing. Try "party" to enable autonomous mode — logos morph, themes shift, FX trigger on beats.',
+            'Tip: The REACTIVITY section has wild FX. Try X-RAY, VOID, or LUCY for real-time visual processing.',
+            'Your audio feeds the FFT analyzer. Arm SEISMIC + load some visuals for a full VJ experience.'
+          ]
+        },
+        // Seismic armed but no party
+        { condition: function(ctx) { return ctx.seismic && !ctx.party && ctx.hasAudio; },
+          msgs: [
+            'Seismic is rumbling. Now type "party" for full autonomous mode — the console becomes self-aware.',
+            'Bass is shaking. Try the REACTIVITY FX: X-RAY scans, VOID crushes to grayscale, LUCY is full hallucination.',
+            'Type "crush" for an instant RGB explosion, "stutter" for a trails burst, or "invert" for color flip.'
+          ]
+        },
+        // Camera is on but not live
+        { condition: function(ctx) { return ctx.hasCamera && !ctx.isLive; },
+          msgs: [
+            'Camera is hot. Hit GO_LIVE for a cinematic 3-2-1 countdown. Audio ducks automatically.',
+            'Your camera feed is ready. Go live, then your stream becomes the canvas source. Record it with REC.',
+            'Tip: Going live overrides the media deck on the canvas. Your camera becomes the broadcast source.'
+          ]
+        },
+        // Is live
+        { condition: function(ctx) { return ctx.isLive && !ctx.isRecording; },
+          msgs: [
+            'You\'re LIVE! Hit REC to capture your broadcast. Everything on the canvas gets recorded.',
+            'Live broadcast active. Try the Lower Third — click GUEST, TRACK, or BREAKING for overlay graphics.',
+            'Tip: While live, you can still trigger FX. Try "crush" or "shatter" for dramatic transitions.'
+          ]
+        },
+        // Recording
+        { condition: function(ctx) { return ctx.isRecording; },
+          msgs: [
+            'Recording in progress. Everything on canvas is being captured. Use FX for dramatic moments.',
+            'REC is hot. Trigger "shatter" for glass fractures or "crush" for an RGB explosion during the recording.'
+          ]
+        },
+        // MIDI connected
+        { condition: function(ctx) { return ctx.hasMidi; },
+          msgs: [
+            'MIDI controller detected. Notes 36-39 trigger FX impacts. Notes 40-47 switch themes. CC1 controls brightness.',
+            'MIDI is live. Use MIDI LEARN to map any knob/fader to any control. Click a button, then move a MIDI control.',
+            'Pro tip: Map your drum pads to FX triggers. Pad 1=Stutter, Pad 2=Invert, Pad 3=Crush, Pad 4=Seismic.'
+          ]
+        },
+        // P2P guest connected
+        { condition: function(ctx) { return ctx.hasGuest; },
+          msgs: [
+            'Guest connected via P2P! Their stream appears in your canvas priority chain. Use Lower Third to label them.',
+            'P2P call active. UI sync sends your lower thirds and logos to the guest in real-time.'
+          ]
+        },
+        // Wallet connected
+        { condition: function(ctx) { return ctx.hasWallet; },
+          msgs: [
+            'Wallet connected. Click SCAN_WALLET_ASSETS to browse and summon assets onto the canvas.',
+            'Assets appear in the vault at the bottom — click any thumbnail to bring it onto the canvas.'
+          ]
+        },
+        // General pro tips (always available as fallback)
+        { condition: function() { return true; },
+          msgs: [
+            'Press SPACE to rotate through your media deck. Hold it down for rapid-fire switching.',
+            'Press H for instant fullscreen. Press G to toggle this terminal. ESC is panic reset.',
+            'Connect a MIDI controller and this whole console becomes a performance instrument.',
+            'Every element on canvas is draggable. Drag your station bug, 2D logo, or 3D logo to reposition them.',
+            'Two-finger pinch on the canvas (or Ctrl+scroll) resizes logos and bugs in real-time.',
+            'Type "theme purple" or "theme gold" to change the entire UI color scheme. 6 themes available.',
+            'The AI_INJECTION section generates images from text. Type a prompt and hit GENERATE to inject AI art onto your canvas.',
+            'Lower Thirds sync to P2P guests. Change text on your side, it appears on theirs instantly.',
+            'VHS mode adds analog scan lines and color bleeding. Toggle it in the sidebar for that retro look.',
+            'Type "shatter" for a glass-fracture explosion across the screen. Pure cinema.',
+            'Connect a MIDI controller and this whole console becomes a performance instrument.',
+            'The IDENTITY section lets you set a station name, upload a 2D logo, or load a 3D model that spins on canvas.',
+            'Session Lab lets you save/load entire sessions. Export as .vgd file to share your complete setup.',
+            'Type "crypto" to fetch live BTC/ETH/SOL prices into the news ticker.',
+            'Audio modes: STEREO is flat, 3D_SPATIAL uses HRTF for immersive positioning, DOLBY adds compression + EQ.',
+            'The SYSTEM_FAILURE button triggers 5 seconds of pure chaos — inverts, flashes, color shifts. Use wisely.',
+            'You can load audio AND video. Video audio feeds the FFT analyzer just like music tracks.',
+            'Type "stutter" for a motion-trails burst, "invert" for instant color flip, "crush" for maximum RGB split.',
+            'The canvas captures at native resolution. Record at 4K for production-quality output.',
+            'Night theme (type "theme night") is perfect for low-light environments. Minimal UI glow.',
+            'SHOOT mode: click the SHOOT button in Reactivity to arm a machine gun crosshair. Each click fractures the glass.',
+            'Glass Integrity drains as you shoot. Deplete it completely to trigger TERMINAL SHATTER — full screen explosion.',
+            'The SFX pads in the lower panel are fully customisable. Click the gear icon on any pad to change sound + linked FX.',
+            'PUNCH FX now oscillates like a tweeter — the canvas punches toward you then snaps back on every kick drum hit.',
+            'Arm PUNCH, load some music, and watch the canvas physically push and pull with the bass. Zero latency.'
+          ]
+        }
+    ],
+
+    // Get a contextual tip
+    getTip: function() {
+        var ctx = this.getContext();
+        // Find the most specific matching tip category
+        for (var i = 0; i < this.tips.length - 1; i++) {
+            if (this.tips[i].condition(ctx)) {
+                if (this.tips[i].dynamic) return this.tips[i].dynamic(ctx);
+                var msgs = this.tips[i].msgs;
+                return msgs[Math.floor(Math.random() * msgs.length)];
+            }
+        }
+        // Fallback to general tips
+        var gen = this.tips[this.tips.length - 1].msgs;
+        return gen[Math.floor(Math.random() * gen.length)];
+    },
+
+    // Natural language understanding — fuzzy match user intent
+    understand: function(input) {
+        var c = input.toLowerCase().trim();
+
+        // Bank B GPU shaders — resolved first to prevent collision with media 'scan'/'ghost' etc.
+        if (c.match(/slit.?scan\s+(off|stop|disable)|slitscan\s+(off|stop|disable)/)) return 'vb_b_off';
+        if (c.match(/(luma.?bloom|bloom)\s+(off|stop|disable)/)) return 'vb_b_off';
+        if (c.match(/(dither.?luxe?|dither)\s+(off|stop|disable)/)) return 'vb_b_off';
+        if (c.match(/caustics?\s+(off|stop|disable)/)) return 'vb_b_off';
+        if (c.match(/(ghost.?echo|ghostecho)\s+(off|stop|disable)/)) return 'vb_b_off';
+        if (c.match(/(spectral.?mosh|mosh|spectral)\s+(off|stop|disable)/)) return 'vb_b_off';
+        if (c.match(/slit.?scan|slitscan/)) return 'vb_slit_scan';
+        if (c.match(/luma.?bloom/)) return 'vb_luma_bloom';
+        if (c.match(/dither|dither.?luxe/)) return 'vb_dither_luxe';
+        if (c.match(/caustic/)) return 'vb_caustics';
+        if (c.match(/ghost.?echo|ghostecho|ghost echo/)) return 'vb_ghost_echo';
+        if (c.match(/spectral.?mosh|mosh/)) return 'vb_spectral_mosh';
+        if (c.match(/bank.?b|gpu.?fx|shader|bank b fx/)) return 'vb_help';
+
+        // Map natural language to intents
+        if (c.match(/^(hi|hello|hey|yo|sup|ciao|hola|bonjour|salut|oi|what'?s up|howdy|greetings?)$/)) return 'greet';
+        if (c.match(/help|what can|how do|commands?|guide|tutorial|show me|teach/)) return 'help';
+        if (c.match(/status|sys|system|stats?|info|diagnostics?/)) return 'status';
+        if (c.match(/^(tip|advice|suggest|idea|what should|bored|nothing|idk|hmm|now what)/)) return 'tip';
 
         // Media & Audio
         if (c.match(/load|open|import|folder|browse|add media|add visual/)) return 'load';
@@ -1667,15 +856,7 @@ function processGhostCommand(cmd, voiceMode) {
 
             // ── WALLET & NFT ──
             case 'mint':
-                if (APP.render.canvas) {
-                    try {
-                        var dataUrl = APP.render.canvas.toDataURL('image/png');
-                        APP.nft.dnaSnapshot = dataUrl;
-                        var a = document.createElement('a'); a.href = dataUrl;
-                        a.download = 'VNGRD_SNAP_' + Date.now() + '.png'; a.click();
-                        ghostLog('SNAPSHOT_SAVED // ' + (dataUrl.length / 1024).toFixed(0) + 'KB PNG', 'success');
-                    } catch (e) { ghostLog('SNAPSHOT_ERROR: ' + e.message, 'crit'); }
-                }
+                takeScreenshot();
                 break;
 
             case 'wallet_help':
@@ -3055,8 +2236,8 @@ function _decodeGIF(buf) {
 }
 
 let _lastFrameTime = 0;
-// ── PHASE G Task 1: own rAF removed — called from mainLoop every frame ──
 function renderLoop(timestamp) {
+    APP.render.rafId = requestAnimationFrame(renderLoop);
     // ── 60 FPS TARGET: skip only if <16ms since last frame ──
     if (timestamp - _lastFrameTime < 16) return;
     _lastFrameTime = timestamp;
@@ -3371,6 +2552,11 @@ function renderLoop(timestamp) {
     var T = APP.trinity;
     
     // ACTOR 1: STATION BUG (text or uploaded image)
+    // P2P: when a call is active, show the REMOTE peer's identity bug (received via
+    // data-channel) on the main canvas — which is showing the remote's video stream.
+    // Local identity is shown in the cam-preview-float overlay instead.
+    var _bugDrawText = (APP.guest && APP.guest.isActive && APP.bug.p2pText && APP.bug.p2pVisible !== false)
+        ? APP.bug.p2pText : APP.bug.text;
     if (T.bug.visible) {
         var bugEl = $('station-bug');
         var bx = T.bug.x * w, by = T.bug.y * h, bScale = T.bug.scale;
@@ -3382,7 +2568,7 @@ function renderLoop(timestamp) {
                 var bh = bugImg.naturalHeight * bScale * (h / 1080);
                 ctx.drawImage(bugImg, bx, by, bw, bh);
                 ctx.restore();
-            } else if (APP.bug.text) {
+            } else if (_bugDrawText) {
                 // Canvas is sole renderer for all styles — keep DOM element invisible
                 if (!bugEl.classList.contains('hidden')) bugEl.style.opacity = '0';
                 ctx.save();
@@ -3393,23 +2579,19 @@ function renderLoop(timestamp) {
                 var _bugMode = APP.bug.mode || 'solid';
                 // ── RENDER MODE ──────────────────────────────────────────────────
                 if (_bugMode === 'knockout') {
-                    // Stroke-only: letter shapes show the video behind them
                     ctx.strokeStyle = _bc;
                     ctx.lineWidth = Math.max(1, bugFS * 0.06);
                     ctx.shadowColor = _bc; ctx.shadowBlur = 8;
-                    // Animated stroke-width pulse
                     var _kp = (Math.sin(timestamp * 0.0018) + 1) / 2;
                     ctx.lineWidth = Math.max(1, bugFS * (0.04 + 0.04 * _kp));
-                    ctx.strokeText(APP.bug.text, bx, by);
+                    ctx.strokeText(_bugDrawText, bx, by);
                 } else if (_bugMode === 'inverted') {
-                    // mix-blend difference equivalent: draw white text in difference mode
                     ctx.globalCompositeOperation = 'difference';
                     ctx.fillStyle = '#ffffff';
                     ctx.shadowColor = 'transparent'; ctx.shadowBlur = 0;
-                    // Rare phase drift — subtle opacity shimmer
                     var _ip = (Math.sin(timestamp * 0.0012) + 1) / 2;
                     ctx.globalAlpha = 0.88 + 0.12 * _ip;
-                    ctx.fillText(APP.bug.text, bx, by);
+                    ctx.fillText(_bugDrawText, bx, by);
                 } else {
                     // SOLID — standard fill with style variants
                     if (APP.bug.style === 'pulse') {
@@ -3417,21 +2599,21 @@ function renderLoop(timestamp) {
                         var _pr = parseInt(_bc.slice(1,3),16), _pg = parseInt(_bc.slice(3,5),16), _pb = parseInt(_bc.slice(5,7),16);
                         ctx.fillStyle = 'rgba('+_pr+','+_pg+','+_pb+','+(0.65+0.35*_p)+')';
                         ctx.shadowColor = _bc; ctx.shadowBlur = 4 + 20 * _p;
-                        ctx.fillText(APP.bug.text, bx, by);
+                        ctx.fillText(_bugDrawText, bx, by);
                     } else if (APP.bug.style === 'glitch') {
                         var _gt = timestamp % 200;
                         var _gx = _gt < 66 ? -3 : _gt < 133 ? 3 : 0;
                         var _gy = _gt < 100 ? 1 : -1;
                         ctx.globalAlpha = 0.8;
-                        ctx.fillStyle = '#ff0055'; ctx.fillText(APP.bug.text, bx + 3, by + _gy);
-                        ctx.fillStyle = '#00f3ff'; ctx.fillText(APP.bug.text, bx - 3, by - _gy);
+                        ctx.fillStyle = '#ff0055'; ctx.fillText(_bugDrawText, bx + 3, by + _gy);
+                        ctx.fillStyle = '#00f3ff'; ctx.fillText(_bugDrawText, bx - 3, by - _gy);
                         ctx.globalAlpha = 1;
-                        ctx.fillStyle = _bc; ctx.fillText(APP.bug.text, bx + _gx, by);
+                        ctx.fillStyle = _bc; ctx.fillText(_bugDrawText, bx + _gx, by);
                     } else {
                         ctx.fillStyle = _bc;
                         ctx.shadowColor = 'rgba(0,0,0,0.5)'; ctx.shadowBlur = 4;
                         ctx.shadowOffsetX = 2; ctx.shadowOffsetY = 2;
-                        ctx.fillText(APP.bug.text, bx, by);
+                        ctx.fillText(_bugDrawText, bx, by);
                     }
                 }
                 ctx.restore();
@@ -4216,9 +3398,12 @@ function makeDraggable(el) {
 if ($('btn-set-station')) {
     $('btn-set-station').onclick = () => {
         const text = $('bug-text').value || 'VNGRD';
-        APP.bug.text = text; // always track for toggle
+        APP.bug.text = text;
+        // Update preview overlay so host sees their own identity during a call
+        var _pov2 = $('p2p-bug-overlay');
+        if (_pov2) _pov2.textContent = text;
         if (APP.peer && APP.peer.call) {
-            // P2P: send to guest only — do NOT render on host's own canvas
+            // P2P active: send to remote peer; local canvas handled by render loop
             sendUISync('STATION_LOGO', { text: text });
         } else {
             const bug = $('station-bug');
@@ -4229,18 +3414,19 @@ if ($('btn-set-station')) {
     };
 }
 
-// Station Bug text — live sync guard: during a P2P call send text to guest
-// without rendering it on the host's own canvas.
+// Station Bug text — update local identity and sync to remote peer in real-time
 if ($('bug-text')) {
     $('bug-text').oninput = function() {
         var val = this.value.trim() || 'VNGRD';
         APP.bug.text = val;
-        if (APP.peer && APP.peer.call) {
-            sendUISync('STATION_LOGO', { text: val });
-            return; // do not touch local DOM during call
+        // Always keep preview overlay current (visible during P2P calls)
+        var _pov3 = $('p2p-bug-overlay');
+        if (_pov3) _pov3.textContent = val;
+        sendUISync('STATION_LOGO', { text: val });
+        if (!APP.peer || !APP.peer.call) {
+            var _bug = $('station-bug');
+            if (_bug && APP.trinity.bug.visible) { _bug.textContent = val; }
         }
-        var _bug = $('station-bug');
-        if (_bug && APP.trinity.bug.visible) { _bug.textContent = val; }
     };
 }
 
@@ -4248,14 +3434,12 @@ if ($('bug-text')) {
 if ($('btn-bug-toggle')) {
     $('btn-bug-toggle').onclick = () => {
         APP.trinity.bug.visible = !APP.trinity.bug.visible;
-        if (APP.peer && APP.peer.call) {
-            // P2P: send visibility state to guest, don't render locally
-            sendUISync('STATION_LOGO', { text: APP.bug.text || 'VNGRD', visible: APP.trinity.bug.visible });
-        } else {
-            var bug = $('station-bug');
-            if (bug) bug.classList.toggle('hidden', !APP.trinity.bug.visible);
-            sendUISync('STATION_LOGO', { text: APP.bug.text || 'VNGRD', visible: APP.trinity.bug.visible });
-        }
+        var bug = $('station-bug');
+        if (bug) bug.classList.toggle('hidden', !APP.trinity.bug.visible);
+        // Update preview overlay visibility
+        var _pov4 = $('p2p-bug-overlay');
+        if (_pov4) _pov4.style.opacity = APP.trinity.bug.visible ? '1' : '0.2';
+        sendUISync('STATION_LOGO', { text: APP.bug.text || 'VNGRD', visible: APP.trinity.bug.visible });
         log(APP.trinity.bug.visible ? 'BUG: VISIBLE' : 'BUG: HIDDEN');
     };
 }
@@ -6596,11 +5780,12 @@ window.SonicSuite = (function() {
 
 
 // ═══════════════════════════════════════════════════════════════
-//  VNGRD SLICER CARD
-//  Drop audio → auto-slice → 16 pads → playable sequencer.
-//  Adds: per-step velocity, swing, pattern length, play direction
-//  (FWD/REV/PP/RND), chromatic pad mode, record-from-pads.
-//  Every hit is one AudioBufferSourceNode.start(t) — zero synth cost.
+//  VNGRD SLICER / SAMPLER CARD
+//  File upload OR live SNAP from master output → 16 pads + sequencer.
+//  Sound engine: anti-click exponential envelope, optional LP/HP filter,
+//  global TUNE transpose, per-pad loop mode (hold pad), peak normalize.
+//  Rolling 10-s circular buffer records master continuously; SNAP freezes
+//  it into slices instantly while the live track keeps playing.
 // ═══════════════════════════════════════════════════════════════
 (function() {
     const MAX_SLICES = 16;
@@ -6616,18 +5801,18 @@ window.SonicSuite = (function() {
         return onsets;
     }
 
-    // ── Spectral-flux onset detection (RMS-based, lightweight) ──────
-    function _detectOnsets(buffer) {
+    // ── Spectral-flux onset detection — sens > 1 = more sensitive ──
+    function _detectOnsets(buffer, sens) {
         const ch     = buffer.getChannelData(0);
         const hop    = 512;
         const win    = 2048;
-        const minGap = Math.floor(buffer.sampleRate * 0.07); // 70 ms min gap
-        const thresh = 0.018;
+        const minGap = Math.floor(buffer.sampleRate * 0.07);
+        const thresh = 0.018 / Math.max(0.1, sens || 1.0);
         const onsets = [0];
         let prevRMS  = 0;
         for (let i = 0; i + win < ch.length; i += hop) {
             let s = 0;
-            for (let j = 0; j < win; j++) s += ch[i + j] ** 2;
+            for (let j = 0; j < win; j++) s += ch[i + j] * ch[i + j];
             const rms  = Math.sqrt(s / win);
             const flux = Math.max(0, rms - prevRMS);
             prevRMS = rms;
@@ -6665,22 +5850,75 @@ window.SonicSuite = (function() {
         });
     }
 
-    // ── Fire a single slice — cheapest possible hit (adds vel + semi) ─
-    function _fire(actx, dest, buf, t, pitch, gate, vel, semi) {
+    // ── In-place peak normalization — each slice → –1.5 dBFS ────────
+    function _normalizeSlices(slices) {
+        slices.forEach(sb => {
+            let peak = 0;
+            for (let c = 0; c < sb.numberOfChannels; c++) {
+                const d = sb.getChannelData(c);
+                for (let i = 0; i < d.length; i++)
+                    if (Math.abs(d[i]) > peak) peak = Math.abs(d[i]);
+            }
+            if (peak < 0.002) return;
+            const gain = 0.84 / peak;
+            for (let c = 0; c < sb.numberOfChannels; c++) {
+                const d = sb.getChannelData(c);
+                for (let i = 0; i < d.length; i++) d[i] *= gain;
+            }
+        });
+    }
+
+    // ── Professional fire: exponential envelope + optional biquad ───
+    //    totalSemi = (chromatic offset) + (global tune)
+    function _fire(actx, dest, buf, t, pitch, gate, vel, totalSemi, atk, rel, filt, ftype) {
         if (!buf) return;
-        const bsn = actx.createBufferSource();
+        const bsn  = actx.createBufferSource();
         bsn.buffer = buf;
-        const rate = pitch * Math.pow(2, (semi || 0) / 12);
+        const rate    = pitch * Math.pow(2, (totalSemi || 0) / 12);
         bsn.playbackRate.value = rate;
-        const dur = (buf.duration / rate) * gate;
-        const g   = actx.createGain();
-        const peak = 0.88 * (vel == null ? 1 : vel);
-        g.gain.setValueAtTime(peak, t);
-        g.gain.setValueAtTime(peak, t + Math.max(0, dur - 0.01));
-        g.gain.linearRampToValueAtTime(0, t + dur);
+        const dur     = Math.max(0.015, (buf.duration / rate) * (gate || 0.92));
+        const atkTime = Math.min(atk || 0.004, dur * 0.4);
+        const relTime = Math.min(rel || 0.08,  dur - atkTime);
+        // Exponential velocity curve — more musical under fingers
+        const peak    = 0.88 * Math.pow(vel == null ? 1 : Math.max(0.001, vel), 1.4);
+
+        const g = actx.createGain();
+        g.gain.setValueAtTime(0.0001, t);
+        g.gain.exponentialRampToValueAtTime(peak, t + atkTime);
+        if (dur - atkTime - relTime > 0.001)
+            g.gain.setValueAtTime(peak, t + dur - relTime);
+        g.gain.exponentialRampToValueAtTime(0.0001, t + dur);
+
+        bsn.connect(g);
+        if (ftype && ftype !== 'off' && filt < 0.999) {
+            const fnode = actx.createBiquadFilter();
+            fnode.type  = ftype;
+            // Exponential Hz map: 200 Hz at filt=0, 20 kHz at filt=1
+            fnode.frequency.value = Math.min(20000, 200 * Math.pow(100, filt));
+            fnode.Q.value = 1.2;
+            g.connect(fnode);
+            fnode.connect(dest);
+        } else {
+            g.connect(dest);
+        }
+        bsn.start(t);
+        bsn.stop(t + dur + 0.05);
+    }
+
+    // ── Loop fire — caller stops via returned {bsn, g} handle ───────
+    function _fireLoop(actx, dest, buf, t, pitch, vel, totalSemi) {
+        if (!buf) return null;
+        const bsn  = actx.createBufferSource();
+        bsn.buffer = buf;
+        bsn.loop   = true;
+        const rate = pitch * Math.pow(2, (totalSemi || 0) / 12);
+        bsn.playbackRate.value = rate;
+        const g = actx.createGain();
+        g.gain.setValueAtTime(0.0001, t);
+        g.gain.exponentialRampToValueAtTime(0.88 * Math.max(0.001, vel || 1), t + 0.012);
         bsn.connect(g).connect(dest);
         bsn.start(t);
-        bsn.stop(t + dur + 0.02);
+        return { bsn, g };
     }
 
     // ── Resolve pattern index for current tick / direction ──────────
@@ -6698,41 +5936,55 @@ window.SonicSuite = (function() {
         }
     }
 
-    // ── Waveform canvas — drawn once after decode ────────────────────
+    // ── Waveform: RMS energy envelope (amber) + min/max (cyan) ─────
     function _drawWave(canvas, buffer, onsets) {
-        const W  = canvas.width, H = canvas.height;
-        const c2 = canvas.getContext('2d');
-        const ch = buffer.getChannelData(0);
+        const W   = canvas.width, H = canvas.height;
+        const c2  = canvas.getContext('2d');
+        const ch  = buffer.getChannelData(0);
+        const mid = H * 0.5;
         c2.clearRect(0, 0, W, H);
-        c2.fillStyle = 'rgba(0,12,20,1)';
+        c2.fillStyle = '#000c14';
         c2.fillRect(0, 0, W, H);
         const step = Math.max(1, Math.floor(ch.length / W));
+
+        // RMS envelope — amber layer, gives energy shape at a glance
         c2.beginPath();
-        c2.strokeStyle = 'rgba(0,243,255,.65)';
-        c2.lineWidth = 1;
+        c2.strokeStyle = 'rgba(255,170,0,.38)';
+        c2.lineWidth   = 1.5;
+        for (let x = 0; x < W; x++) {
+            let sum = 0;
+            for (let j = 0; j < step; j++) { const v = ch[x * step + j] || 0; sum += v * v; }
+            const y = mid - Math.sqrt(sum / step) * mid * 0.94;
+            x === 0 ? c2.moveTo(0, y) : c2.lineTo(x, y);
+        }
+        c2.stroke();
+
+        // Min/max waveform — cyan
+        c2.beginPath();
+        c2.strokeStyle = 'rgba(0,243,255,.7)';
+        c2.lineWidth   = 1;
         for (let x = 0; x < W; x++) {
             let lo = 1, hi = -1;
             for (let j = 0; j < step; j++) {
                 const v = ch[x * step + j] || 0;
-                if (v < lo) lo = v;
-                if (v > hi) hi = v;
+                if (v < lo) lo = v; if (v > hi) hi = v;
             }
-            const y0 = (0.5 - hi * 0.48) * H;
-            const y1 = (0.5 - lo * 0.48) * H;
-            if (x === 0) c2.moveTo(0, y0);
-            c2.lineTo(x, y0);
+            const y0 = (0.5 - hi * 0.47) * H;
+            const y1 = (0.5 - lo * 0.47) * H;
+            x === 0 ? c2.moveTo(0, y0) : c2.lineTo(x, y0);
             c2.lineTo(x, y1);
         }
         c2.stroke();
-        // slice markers
-        c2.lineWidth = 1;
+
+        // Slice boundary markers
         onsets.forEach((s, i) => {
             const x = Math.floor(s / buffer.length * W);
-            c2.strokeStyle = i === 0 ? 'rgba(255,200,0,.7)' : 'rgba(255,80,80,.6)';
+            c2.strokeStyle = i === 0 ? 'rgba(255,200,0,.82)' : 'rgba(255,80,80,.65)';
+            c2.lineWidth   = 1;
             c2.beginPath(); c2.moveTo(x, 0); c2.lineTo(x, H); c2.stroke();
-            c2.fillStyle = 'rgba(255,80,80,.9)';
-            c2.font = '7px monospace';
-            c2.fillText(i + 1, x + 2, 10);
+            c2.fillStyle = i === 0 ? 'rgba(255,200,0,.9)' : 'rgba(255,80,80,.85)';
+            c2.font = '6.5px monospace';
+            c2.fillText(i + 1, x + 2, 9);
         });
     }
 
@@ -6746,27 +5998,56 @@ window.SonicSuite = (function() {
                     revSlices:  [],
                     onsets:     [],
                     sequence:   new Array(STEPS).fill(-1),
-                    velocity:   new Array(STEPS).fill(0),   // index into VEL_LEVELS
+                    velocity:   new Array(STEPS).fill(0),
                     pitch:      1.0,
                     gate:       0.92,
+                    tune:       0,      // global semitone transpose −12..+12
+                    atk:        0.004,  // per-voice attack  (seconds)
+                    rel:        0.08,   // per-voice release (seconds)
+                    filt:       1.0,    // filter cutoff 0..1 (exp Hz map)
+                    ftype:      'off',  // 'off' | 'lowpass' | 'highpass'
+                    sens:       1.0,    // onset detection sensitivity
                     reverse:    false,
                     chromatic:  false,
                     record:     false,
-                    swing:      0.0,          // 0 .. 0.7
-                    len:        16,           // 1 .. 16
-                    dir:        0,            // 0=FWD 1=REV 2=PP 3=RND
-                    tick:       0,            // internal tick counter
+                    swing:      0.0,
+                    len:        16,
+                    dir:        0,
+                    tick:       0,
                     activeStep: -1,
-                    ppPhase:    0,
                 };
+
+                // ── Scoped CSS (injected once) ─────────────────────
+                if (!document.getElementById('sl-style')) {
+                    const sEl = document.createElement('style'); sEl.id = 'sl-style';
+                    sEl.textContent =
+                        '.ss-slicer-step .sl-vb{position:absolute;left:0;right:0;bottom:0;' +
+                        'background:linear-gradient(to top,rgba(0,243,255,.35),rgba(0,243,255,.05));' +
+                        'pointer-events:none;transition:height .08s;height:0;}' +
+                        '.ss-slicer-step .sl-sl{position:relative;z-index:1;}' +
+                        '.sl-lbl{font-size:6.5px;color:rgba(0,243,255,.38);letter-spacing:1.5px;}' +
+                        '.sl-val{font:8px/1 \'JetBrains Mono\',monospace;color:#00f3ff;min-width:26px;display:inline-block;}' +
+                        '.ss-slicer-pad{transition:background .06s,box-shadow .06s;}' +
+                        '.ss-slicer-pad.hit{background:rgba(0,243,255,.25)!important;box-shadow:0 0 8px rgba(0,243,255,.55);}' +
+                        '.ss-slicer-pad.looping{background:rgba(255,200,0,.15)!important;box-shadow:0 0 10px 2px rgba(255,200,0,.55);}' +
+                        '@keyframes sl-pulse{0%,100%{box-shadow:0 0 0 0 rgba(255,200,0,0)}50%{box-shadow:0 0 7px 2px rgba(255,200,0,.55)}}' +
+                        '.sl-snap-armed{animation:sl-pulse 1.4s ease-in-out infinite;}';
+                    document.head.appendChild(sEl);
+                }
+
+                // ── SNAP recording indicator (fills over 10 s) ────
+                const snapBar = document.createElement('div');
+                snapBar.style.cssText = 'height:2px;background:rgba(0,243,255,.08);margin-bottom:3px;border-radius:1px;overflow:hidden;';
+                snapBar.innerHTML = '<div style="height:100%;width:0%;background:rgba(255,200,0,.7);transition:width 10s linear;"></div>';
+                body.appendChild(snapBar);
 
                 // ── Drop zone ─────────────────────────────────────
                 const drop = document.createElement('div');
                 drop.style.cssText =
                     'border:2px dashed rgba(0,243,255,.28);border-radius:3px;' +
-                    'padding:10px 8px;text-align:center;cursor:pointer;' +
+                    'padding:8px;text-align:center;cursor:pointer;' +
                     'font-size:8px;letter-spacing:2px;color:rgba(0,243,255,.4);' +
-                    'margin-bottom:6px;transition:all .15s;';
+                    'margin-bottom:5px;transition:all .15s;';
                 drop.textContent = '▼ DROP AUDIO  OR  CLICK TO BROWSE';
                 body.appendChild(drop);
 
@@ -6775,41 +6056,88 @@ window.SonicSuite = (function() {
                 fileIn.style.display = 'none';
                 body.appendChild(fileIn);
 
-                // ── Waveform ──────────────────────────────────────
-                const waveCanvas = document.createElement('canvas');
-                waveCanvas.width  = 336; waveCanvas.height = 44;
-                waveCanvas.style.cssText =
-                    'width:100%;height:44px;display:block;border-radius:2px;' +
-                    'border:1px solid rgba(0,243,255,.15);margin-bottom:6px;';
-                body.appendChild(waveCanvas);
+                // ── Waveform (canvas + flash overlay in relative wrapper) ──
+                const waveWrap = document.createElement('div');
+                waveWrap.style.cssText = 'position:relative;margin-bottom:5px;';
+                body.appendChild(waveWrap);
 
-                // ── 16 pads (click plays; SHIFT+click = chromatic via slice 0) ───
+                const waveCanvas = document.createElement('canvas');
+                waveCanvas.width = 336; waveCanvas.height = 48;
+                waveCanvas.style.cssText =
+                    'width:100%;height:48px;display:block;border-radius:2px;' +
+                    'border:1px solid rgba(0,243,255,.15);';
+                waveWrap.appendChild(waveCanvas);
+
+                // Translucent overlay highlights the active slice on each trigger
+                const waveFlash = document.createElement('div');
+                waveFlash.style.cssText =
+                    'position:absolute;top:0;bottom:0;left:0;width:0;' +
+                    'background:rgba(255,200,0,.28);pointer-events:none;' +
+                    'border-radius:2px;opacity:0;transition:opacity .1s;';
+                waveWrap.appendChild(waveFlash);
+
+                // ── 16 pads — click fires, hold ≥200 ms loops, SHIFT = chromatic ──
                 const padGrid = document.createElement('div');
-                padGrid.style.cssText = 'display:grid;grid-template-columns:repeat(16,1fr);gap:2px;margin-bottom:5px;';
+                padGrid.style.cssText = 'display:grid;grid-template-columns:repeat(16,1fr);gap:2px;margin-bottom:4px;';
+                let activeLoop = null; // { bsn, g, padEl }
                 const padEls = Array.from({ length: MAX_SLICES }, (_, i) => {
                     const b = document.createElement('button');
                     b.className = 'ss-slicer-pad';
                     b.textContent = String(i + 1).padStart(2, '0');
-                    b.style.cssText = 'opacity:.2;border:1px solid rgba(0,243,255,.12);' +
-                        'background:transparent;color:rgba(0,243,255,.3);border-radius:2px;cursor:pointer;';
+                    b.style.cssText =
+                        'opacity:.22;border:1px solid rgba(0,243,255,.12);background:transparent;' +
+                        'color:rgba(0,243,255,.3);border-radius:2px;cursor:pointer;' +
+                        'font-size:7px;padding:2px 0;line-height:1.4;';
+
+                    let holdTimer = null;
+
                     b.addEventListener('pointerdown', ev => {
                         if (!st.slices.length) return;
-                        const chroma = st.chromatic || ev.shiftKey;
-                        const idx    = chroma ? 0 : i;
-                        const semi   = chroma ? (i - 8) : 0;
+                        b.setPointerCapture(ev.pointerId);
+                        const chroma    = st.chromatic || ev.shiftKey;
+                        const idx       = chroma ? 0 : i;
+                        const semiOff   = chroma ? (i - 8) : 0;
+                        const totalSemi = semiOff + st.tune;
                         if (!st.slices[idx]) return;
                         const buf = st.reverse ? st.revSlices[idx] : st.slices[idx];
-                        _fire(ctx.audioCtx, ctx.bus, buf,
-                              ctx.audioCtx.currentTime, st.pitch, st.gate, 1.0, semi);
-                        // Record: write current slice into active step
+
+                        // Immediate one-shot
+                        _fire(ctx.audioCtx, ctx.bus, buf, ctx.audioCtx.currentTime,
+                              st.pitch, st.gate, 1.0, totalSemi, st.atk, st.rel, st.filt, st.ftype);
+                        _flashSlice(idx);
+
                         if (st.record && st.activeStep >= 0) {
                             st.sequence[st.activeStep] = idx;
-                            if (st.velocity[st.activeStep] === 0 || st.sequence[st.activeStep] < 0) st.velocity[st.activeStep] = 0;
+                            st.velocity[st.activeStep] = 0;
                             _paintSeq();
                         }
                         b.classList.add('hit');
-                        setTimeout(() => b.classList.remove('hit'), 120);
+                        setTimeout(() => b.classList.remove('hit'), 140);
+
+                        // Hold ≥ 200 ms → engage loop mode
+                        holdTimer = setTimeout(() => {
+                            holdTimer = null;
+                            if (activeLoop) {
+                                activeLoop.g.gain.setTargetAtTime(0, ctx.audioCtx.currentTime, 0.05);
+                                activeLoop.bsn.stop(ctx.audioCtx.currentTime + 0.3);
+                                activeLoop.padEl && activeLoop.padEl.classList.remove('looping');
+                            }
+                            activeLoop = _fireLoop(ctx.audioCtx, ctx.bus, buf,
+                                ctx.audioCtx.currentTime, st.pitch, 1.0, totalSemi);
+                            if (activeLoop) { activeLoop.padEl = b; b.classList.add('looping'); }
+                        }, 200);
                     });
+
+                    b.addEventListener('pointerup', () => {
+                        if (holdTimer) { clearTimeout(holdTimer); holdTimer = null; }
+                        if (activeLoop && activeLoop.padEl === b) {
+                            activeLoop.g.gain.setTargetAtTime(0, ctx.audioCtx.currentTime, 0.06);
+                            activeLoop.bsn.stop(ctx.audioCtx.currentTime + 0.35);
+                            b.classList.remove('looping');
+                            activeLoop = null;
+                        }
+                    });
+
                     padGrid.appendChild(b);
                     return b;
                 });
@@ -6851,57 +6179,88 @@ window.SonicSuite = (function() {
                 });
                 body.appendChild(seqGrid);
 
-                // ── Row 1: PITCH / GATE / REV / DETECT / CLR ─────
+                // ── Row 1: PITCH / GATE / TUNE / [REV] [DETECT] [NORM] [CLR] ──
                 const ctrl = document.createElement('div');
-                ctrl.style.cssText = 'display:flex;gap:5px;align-items:center;flex-wrap:wrap;margin-bottom:5px;';
+                ctrl.style.cssText = 'display:flex;gap:5px;align-items:center;flex-wrap:wrap;margin-bottom:4px;';
                 ctrl.innerHTML =
                     '<span class="sl-lbl">PITCH</span>' +
-                    '<input type="range" class="sl-pitch" min="0.25" max="4" step="0.01" value="1" style="width:52px;">' +
+                    '<input type="range" class="sl-pitch" min="0.25" max="4" step="0.01" value="1" style="width:44px;">' +
                     '<span class="sl-pv sl-val">×1.00</span>' +
                     '<span class="sl-lbl">GATE</span>' +
-                    '<input type="range" class="sl-gate" min="0.05" max="1" step="0.01" value="0.92" style="width:52px;">' +
+                    '<input type="range" class="sl-gate" min="0.05" max="1" step="0.01" value="0.92" style="width:44px;">' +
                     '<span class="sl-gv sl-val">0.92</span>' +
-                    '<button class="ss-card-btn sl-rev" style="width:auto;padding:0 7px;font-size:7px;">REV</button>' +
-                    '<button class="ss-card-btn sl-det" style="width:auto;padding:0 7px;font-size:7px;">DETECT</button>' +
-                    '<button class="ss-card-btn sl-clr" style="width:auto;padding:0 7px;font-size:7px;">CLR</button>';
+                    '<span class="sl-lbl">TUNE</span>' +
+                    '<input type="range" class="sl-tune" min="-12" max="12" step="1" value="0" style="width:40px;">' +
+                    '<span class="sl-tv sl-val" style="min-width:24px;">0st</span>' +
+                    '<button class="ss-card-btn sl-rev"  style="width:auto;padding:0 5px;font-size:7px;">REV</button>' +
+                    '<button class="ss-card-btn sl-det"  style="width:auto;padding:0 5px;font-size:7px;">DETECT</button>' +
+                    '<button class="ss-card-btn sl-norm" style="width:auto;padding:0 5px;font-size:7px;" title="Peak-normalize all slices to -1.5 dBFS">NORM</button>' +
+                    '<button class="ss-card-btn sl-clr"  style="width:auto;padding:0 5px;font-size:7px;">CLR</button>';
                 body.appendChild(ctrl);
 
-                // ── Row 2: SWING / LEN / DIR / CHROMA / REC ──────
+                // ── Row 2: SWG / LEN / SENS / [DIR] [CHR] [REC] [[SNAP]] ──
                 const ctrl2 = document.createElement('div');
-                ctrl2.style.cssText = 'display:flex;gap:5px;align-items:center;flex-wrap:wrap;';
+                ctrl2.style.cssText = 'display:flex;gap:5px;align-items:center;flex-wrap:wrap;margin-bottom:4px;';
                 ctrl2.innerHTML =
                     '<span class="sl-lbl">SWG</span>' +
-                    '<input type="range" class="sl-swing" min="0" max="0.7" step="0.01" value="0" style="width:46px;">' +
+                    '<input type="range" class="sl-swing" min="0" max="0.7" step="0.01" value="0" style="width:36px;">' +
                     '<span class="sl-sv sl-val">0%</span>' +
                     '<span class="sl-lbl">LEN</span>' +
-                    '<input type="range" class="sl-len" min="1" max="16" step="1" value="16" style="width:46px;">' +
+                    '<input type="range" class="sl-len" min="1" max="16" step="1" value="16" style="width:36px;">' +
                     '<span class="sl-lv sl-val">16</span>' +
-                    '<button class="ss-card-btn sl-dir" style="width:auto;padding:0 7px;font-size:7px;">FWD</button>' +
-                    '<button class="ss-card-btn sl-chr" style="width:auto;padding:0 7px;font-size:7px;" title="Chromatic pads: slice 0 across 16 semitones">CHR</button>' +
-                    '<button class="ss-card-btn sl-rec" style="width:auto;padding:0 7px;font-size:7px;" title="Record: pads hit during playback write to current step">REC</button>';
+                    '<span class="sl-lbl">SENS</span>' +
+                    '<input type="range" class="sl-sens" min="0.3" max="3" step="0.1" value="1" style="width:34px;">' +
+                    '<span class="sl-snv sl-val">×1.0</span>' +
+                    '<button class="ss-card-btn sl-dir"  style="width:auto;padding:0 5px;font-size:7px;">FWD</button>' +
+                    '<button class="ss-card-btn sl-chr"  style="width:auto;padding:0 5px;font-size:7px;" title="Chromatic: 16 pads = ±8 semitones around root">CHR</button>' +
+                    '<button class="ss-card-btn sl-rec"  style="width:auto;padding:0 5px;font-size:7px;" title="Record pad hits into sequencer">REC</button>' +
+                    '<button class="ss-card-btn sl-snap" style="width:auto;padding:0 5px;font-size:7px;color:#ffc800;border-color:rgba(255,200,0,.5);" title="Freeze 10s of master output into pads">[ SNAP ]</button>';
                 body.appendChild(ctrl2);
 
-                // ── Inline style for step bars & labels (scoped via classes) ─
-                if (!document.getElementById('sl-style')) {
-                    const s = document.createElement('style'); s.id = 'sl-style';
-                    s.textContent =
-                      '.ss-slicer-step .sl-vb{position:absolute;left:0;right:0;bottom:0;' +
-                        'background:linear-gradient(to top,rgba(0,243,255,.35),rgba(0,243,255,.05));' +
-                        'pointer-events:none;transition:height .08s;height:0;}' +
-                      '.ss-slicer-step .sl-sl{position:relative;z-index:1;}' +
-                      '.sl-lbl{font-size:6.5px;color:rgba(0,243,255,.38);letter-spacing:1.5px;}' +
-                      '.sl-val{font:8px/1 \'JetBrains Mono\',monospace;color:#00f3ff;min-width:26px;display:inline-block;}';
-                    document.head.appendChild(s);
-                }
+                // ── Row 3: ATK / REL / FILT / [FTYPE] ─────────────
+                const ctrl3 = document.createElement('div');
+                ctrl3.style.cssText = 'display:flex;gap:5px;align-items:center;flex-wrap:wrap;';
+                ctrl3.innerHTML =
+                    '<span class="sl-lbl">ATK</span>' +
+                    '<input type="range" class="sl-atk" min="0.001" max="0.12" step="0.001" value="0.004" style="width:38px;">' +
+                    '<span class="sl-av sl-val" style="min-width:28px;">4ms</span>' +
+                    '<span class="sl-lbl">REL</span>' +
+                    '<input type="range" class="sl-rel" min="0.01" max="0.5" step="0.005" value="0.08" style="width:38px;">' +
+                    '<span class="sl-rv sl-val" style="min-width:32px;">80ms</span>' +
+                    '<span class="sl-lbl">FILT</span>' +
+                    '<input type="range" class="sl-filt" min="0" max="1" step="0.01" value="1" style="width:44px;">' +
+                    '<span class="sl-fv sl-val" style="min-width:32px;">OPEN</span>' +
+                    '<button class="ss-card-btn sl-ftype" style="width:auto;padding:0 5px;font-size:7px;" title="Filter type">OFF</button>';
+                body.appendChild(ctrl3);
 
                 // ── Paint helpers ─────────────────────────────────
                 function _paintPads() {
                     padEls.forEach((b, i) => {
                         const has = !!st.slices[i];
-                        b.style.opacity     = has ? '1' : '.2';
+                        b.style.opacity     = has ? '1'   : '.22';
                         b.style.color       = has ? '#00f3ff' : 'rgba(0,243,255,.3)';
                         b.style.borderColor = has ? 'rgba(0,243,255,.45)' : 'rgba(0,243,255,.12)';
+                        // Chromatic mode: show semitone offset from root; else slice number
+                        if (has && st.chromatic) {
+                            const dispSemi = (i - 8) + st.tune;
+                            b.textContent = (dispSemi >= 0 ? '+' : '') + dispSemi;
+                        } else {
+                            b.textContent = String(i + 1).padStart(2, '0');
+                        }
                     });
+                }
+
+                // Flash the slice region on the waveform overlay (single CSS transition)
+                function _flashSlice(idx) {
+                    if (!waveCanvas._rawBuf || st.onsets[idx] == null) return;
+                    const bufLen = waveCanvas._rawBuf.length;
+                    const x0 = (st.onsets[idx] / bufLen * 100).toFixed(2);
+                    const x1 = ((st.onsets[idx + 1] || bufLen) / bufLen * 100).toFixed(2);
+                    waveFlash.style.left    = x0 + '%';
+                    waveFlash.style.width   = (x1 - x0) + '%';
+                    waveFlash.style.opacity = '1';
+                    clearTimeout(waveFlash._t);
+                    waveFlash._t = setTimeout(() => { waveFlash.style.opacity = '0'; }, 70);
                 }
 
                 function _paintSeq() {
@@ -6924,20 +6283,88 @@ window.SonicSuite = (function() {
                     });
                 }
 
-                // ── Load & process ────────────────────────────────
+                // ── Shared buffer processor (file upload + snap share this path) ─
+                function _processNewBuffer(buf) {
+                    waveCanvas._rawBuf  = buf;
+                    st.onsets    = _equalOnsets(buf, MAX_SLICES);
+                    st.slices    = _buildSlices(ctx.audioCtx, buf, st.onsets);
+                    st.revSlices = _buildRevSlices(ctx.audioCtx, st.slices);
+                    for (let i = 0; i < STEPS; i++)
+                        st.sequence[i] = i < st.slices.length ? i : -1;
+                    _drawWave(waveCanvas, buf, st.onsets);
+                    _paintPads();
+                    _paintSeq();
+                }
+
+                // ── Rolling 10-second circular buffer (pre-allocated, never reallocated) ──
+                const _snapSR   = ctx.audioCtx.sampleRate;
+                const _snapLen  = Math.floor(_snapSR * 10);
+                const _snapCirc = new Float32Array(_snapLen); // mono, pre-alloc'd
+                let   _snapWP   = 0;   // circular write pointer (samples)
+                let   _snapSpn  = null;
+
+                function _startRollingCapture() {
+                    if (_snapSpn || !window._ssAnalyser) return;
+                    // ScriptProcessorNode records into pre-allocated _snapCirc.
+                    // No object allocation inside onaudioprocess — zero GC pressure.
+                    const spn = ctx.audioCtx.createScriptProcessor(4096, 1, 1);
+                    spn.onaudioprocess = function(e) {
+                        const inp   = e.inputBuffer.getChannelData(0);
+                        const circ  = _snapCirc;
+                        const total = _snapLen;
+                        let   wp    = _snapWP;
+                        for (let i = 0, n = inp.length; i < n; i++) {
+                            circ[wp] = inp[i];
+                            if (++wp === total) wp = 0;
+                        }
+                        _snapWP = wp;
+                        // Output buffer starts zeroed — no signal added to mix.
+                    };
+                    window._ssAnalyser.connect(spn);
+                    // Must connect SPN output to keep the node alive in Chrome.
+                    // Gain=0 so nothing audible reaches destination.
+                    const sink = ctx.audioCtx.createGain();
+                    sink.gain.value = 0;
+                    spn.connect(sink);
+                    sink.connect(ctx.audioCtx.destination);
+                    _snapSpn = spn;
+                    // Visual: pulse the SNAP button + animate fill bar (10 s warmup)
+                    const _sb = ctrl2.querySelector('.sl-snap');
+                    if (_sb) _sb.classList.add('sl-snap-armed');
+                    const fillEl = snapBar.firstElementChild;
+                    fillEl.style.transition = 'width 10s linear';
+                    fillEl.style.width = '100%';
+                }
+                // _ssAnalyser is set by _ensureAudio() which runs before mount(),
+                // but audio context may not be started yet — poll until available.
+                if (window._ssAnalyser) {
+                    _startRollingCapture();
+                } else {
+                    const _snapPoll = setInterval(function() {
+                        if (window._ssAnalyser) { clearInterval(_snapPoll); _startRollingCapture(); }
+                    }, 500);
+                }
+
+                // ── SNAP: freeze current 10-s window → slicer pads (instantaneous) ──
+                function snapToSlicer() {
+                    const wp  = _snapWP; // capture write-head before any further writes
+                    const cap = ctx.audioCtx.createBuffer(1, _snapLen, _snapSR);
+                    const dst = cap.getChannelData(0);
+                    // Unroll circular buffer into chronological order.
+                    dst.set(_snapCirc.subarray(wp), 0);
+                    dst.set(_snapCirc.subarray(0, wp), _snapLen - wp);
+                    _processNewBuffer(cap);
+                    drop.textContent       = '✓ SNAPPED — ' + st.slices.length + ' SLICES';
+                    drop.style.color       = 'rgba(0,243,255,.7)';
+                    drop.style.borderColor = 'rgba(0,243,255,.5)';
+                }
+
+                // ── Load & process (file upload path) ────────────────────────────
                 function _loadBuffer(arrayBuf) {
                     drop.textContent = '⟳ DECODING…';
                     ctx.audioCtx.decodeAudioData(arrayBuf,
                         buf => {
-                            waveCanvas._rawBuf = buf;          // stash for DETECT
-                            st.onsets    = _equalOnsets(buf, MAX_SLICES);
-                            st.slices    = _buildSlices(ctx.audioCtx, buf, st.onsets);
-                            st.revSlices = _buildRevSlices(ctx.audioCtx, st.slices);
-                            for (let i = 0; i < STEPS; i++)
-                                st.sequence[i] = i < st.slices.length ? i : -1;
-                            _drawWave(waveCanvas, buf, st.onsets);
-                            _paintPads();
-                            _paintSeq();
+                            _processNewBuffer(buf);
                             drop.textContent       = '✓ ' + st.slices.length + ' SLICES  —  DROP TO REPLACE';
                             drop.style.color       = 'rgba(0,243,255,.7)';
                             drop.style.borderColor = 'rgba(0,243,255,.5)';
@@ -6981,19 +6408,32 @@ window.SonicSuite = (function() {
                     st.gate = +e.target.value;
                     ctrl.querySelector('.sl-gv').textContent = st.gate.toFixed(2);
                 });
+                ctrl.querySelector('.sl-tune').addEventListener('input', e => {
+                    st.tune = +e.target.value;
+                    ctrl.querySelector('.sl-tv').textContent = (st.tune >= 0 ? '+' : '') + st.tune + 'st';
+                    _paintPads();
+                });
                 ctrl.querySelector('.sl-rev').addEventListener('click', e => {
                     st.reverse = !st.reverse;
-                    e.target.style.color = st.reverse ? '#ff4444' : '';
+                    e.target.style.color       = st.reverse ? '#ff4444' : '';
                     e.target.style.borderColor = st.reverse ? '#ff4444' : '';
                 });
                 ctrl.querySelector('.sl-det').addEventListener('click', () => {
                     if (!waveCanvas._rawBuf) return;
                     const raw    = waveCanvas._rawBuf;
-                    st.onsets    = _detectOnsets(raw);
+                    st.onsets    = _detectOnsets(raw, st.sens);
                     st.slices    = _buildSlices(ctx.audioCtx, raw, st.onsets);
                     st.revSlices = _buildRevSlices(ctx.audioCtx, st.slices);
                     _drawWave(waveCanvas, raw, st.onsets);
-                    _paintPads();
+                    _paintPads(); _paintSeq();
+                });
+                ctrl.querySelector('.sl-norm').addEventListener('click', e => {
+                    if (!st.slices.length) return;
+                    _normalizeSlices(st.slices);
+                    st.revSlices = _buildRevSlices(ctx.audioCtx, st.slices);
+                    e.target.style.color       = '#00f3ff';
+                    e.target.style.borderColor = '#00f3ff';
+                    setTimeout(() => { e.target.style.color = ''; e.target.style.borderColor = ''; }, 500);
                 });
                 ctrl.querySelector('.sl-clr').addEventListener('click', () => {
                     st.sequence.fill(-1); st.velocity.fill(0); _paintSeq();
@@ -7007,15 +6447,18 @@ window.SonicSuite = (function() {
                 ctrl2.querySelector('.sl-len').addEventListener('input', e => {
                     st.len = Math.max(1, Math.min(16, +e.target.value));
                     ctrl2.querySelector('.sl-lv').textContent = st.len;
-                    st.ppPhase = 0;
                     _paintSeq();
+                });
+                ctrl2.querySelector('.sl-sens').addEventListener('input', e => {
+                    st.sens = +e.target.value;
+                    ctrl2.querySelector('.sl-snv').textContent = '×' + st.sens.toFixed(1);
                 });
                 const dirBtn = ctrl2.querySelector('.sl-dir');
                 dirBtn.addEventListener('click', () => {
                     st.dir = (st.dir + 1) % 4;
-                    dirBtn.textContent = DIR_NAMES[st.dir];
-                    dirBtn.style.color       = st.dir === 0 ? '' : '#ffc800';
-                    dirBtn.style.borderColor = st.dir === 0 ? '' : '#ffc800';
+                    dirBtn.textContent       = DIR_NAMES[st.dir];
+                    dirBtn.style.color       = st.dir ? '#ffc800' : '';
+                    dirBtn.style.borderColor = st.dir ? '#ffc800' : '';
                     st.tick = 0;
                 });
                 const chrBtn = ctrl2.querySelector('.sl-chr');
@@ -7023,6 +6466,7 @@ window.SonicSuite = (function() {
                     st.chromatic = !st.chromatic;
                     chrBtn.style.color       = st.chromatic ? '#ffc800' : '';
                     chrBtn.style.borderColor = st.chromatic ? '#ffc800' : '';
+                    _paintPads();
                 });
                 const recBtn = ctrl2.querySelector('.sl-rec');
                 recBtn.addEventListener('click', () => {
@@ -7030,34 +6474,73 @@ window.SonicSuite = (function() {
                     recBtn.style.color       = st.record ? '#ff4444' : '';
                     recBtn.style.borderColor = st.record ? '#ff4444' : '';
                 });
+                const snapBtn = ctrl2.querySelector('.sl-snap');
+                snapBtn.addEventListener('click', () => {
+                    _startRollingCapture();
+                    snapToSlicer();
+                    snapBtn.style.background = 'rgba(255,200,0,.18)';
+                    setTimeout(() => { snapBtn.style.background = ''; }, 300);
+                });
 
-                // ── Store refs for onTick / onStop ───────────────
-                this._st     = st;
-                this._ctx    = ctx;
-                this._seqEls = seqEls;
+                // ── Row 3 wiring ──────────────────────────────────
+                ctrl3.querySelector('.sl-atk').addEventListener('input', e => {
+                    st.atk = +e.target.value;
+                    ctrl3.querySelector('.sl-av').textContent = Math.round(st.atk * 1000) + 'ms';
+                });
+                ctrl3.querySelector('.sl-rel').addEventListener('input', e => {
+                    st.rel = +e.target.value;
+                    ctrl3.querySelector('.sl-rv').textContent = Math.round(st.rel * 1000) + 'ms';
+                });
+                ctrl3.querySelector('.sl-filt').addEventListener('input', e => {
+                    st.filt = +e.target.value;
+                    const fv = ctrl3.querySelector('.sl-fv');
+                    if (st.filt >= 0.999) {
+                        fv.textContent = 'OPEN';
+                    } else {
+                        const hz = 200 * Math.pow(100, st.filt);
+                        fv.textContent = hz >= 1000 ? (hz / 1000).toFixed(1) + 'k' : Math.round(hz) + 'Hz';
+                    }
+                });
+                const FTYPES = ['off', 'lowpass', 'highpass'];
+                const ftypeBtn = ctrl3.querySelector('.sl-ftype');
+                ftypeBtn.addEventListener('click', () => {
+                    st.ftype = FTYPES[(FTYPES.indexOf(st.ftype) + 1) % FTYPES.length];
+                    const labels = { off: 'OFF', lowpass: 'LP ▼', highpass: 'HP ▲' };
+                    ftypeBtn.textContent       = labels[st.ftype];
+                    ftypeBtn.style.color       = st.ftype !== 'off' ? '#ff88ff' : '';
+                    ftypeBtn.style.borderColor = st.ftype !== 'off' ? '#ff88ff' : '';
+                });
+
+                // ── Store refs for onTick / onStop ────────────────
+                this._st        = st;
+                this._ctx       = ctx;
+                this._seqEls    = seqEls;
+                this._flashSlice = _flashSlice;
             },
 
             onTick(t, _step16) {
-                const st  = this._st;
+                const st = this._st;
                 if (!st || !st.slices.length) return;
 
-                // Use our own tick counter so LEN / DIR work independently of the master 16-grid
                 const patIdx = _resolveIdx(st.tick, st.len, st.dir);
                 st.tick++;
                 st.activeStep = patIdx;
 
                 const slot = st.sequence[patIdx];
                 if (slot >= 0 && st.slices[slot]) {
-                    // Swing: delay odd 16ths by (swing * half-step)
                     const bpm     = Math.max(20, Math.min(400, window.currentBPM || 120));
                     const stepDur = 60 / bpm / 4;
-                    const swing   = (patIdx % 2 === 1) ? st.swing * stepDur * 0.5 : 0;
+                    const swing   = patIdx % 2 === 1 ? st.swing * stepDur * 0.5 : 0;
                     const vel     = VEL_LEVELS[st.velocity[patIdx] || 0];
                     const buf     = st.reverse ? st.revSlices[slot] : st.slices[slot];
-                    _fire(this._ctx.audioCtx, this._ctx.bus, buf, t + swing, st.pitch, st.gate, vel, 0);
+                    _fire(this._ctx.audioCtx, this._ctx.bus, buf, t + swing,
+                          st.pitch, st.gate, vel, st.tune, st.atk, st.rel, st.filt, st.ftype);
+                    // Waveform flash — off the audio scheduling hot path
+                    const flash = this._flashSlice;
+                    if (flash) setTimeout(() => flash(slot), 0);
                 }
 
-                // Seq highlight — deferred off the audio-scheduling hot path
+                // Sequencer highlight
                 const seqEls = this._seqEls;
                 if (seqEls) setTimeout(() => {
                     seqEls.forEach((b, i) => {
@@ -7222,8 +6705,7 @@ window.SonicSuite = (function() {
                 const vu = master.querySelector('.ss-mx-vu');
                 const vg = vu.getContext('2d');
                 const buf = new Uint8Array(256);
-                // ── PHASE G Task 2: rAF removed — called from mainLoop every frame ──
-                window._ssDrawTick = function() {
+                (function draw() {
                     const an = _getAnalyser();
                     if (an) {
                         an.getByteTimeDomainData(buf);
@@ -7242,7 +6724,8 @@ window.SonicSuite = (function() {
                         vg.fillStyle = grad;
                         vg.fillRect(0, vu.height - h, vu.width, h);
                     }
-                };
+                    requestAnimationFrame(draw);
+                })();
 
                 this._persist = _persist;
             }
@@ -7515,10 +6998,12 @@ async function initCamera() {
         APP.camera.videoEl.setAttribute('playsinline', '');
         APP.camera.videoEl.muted = true; APP.camera.videoEl.playsInline = true; APP.camera.videoEl.play().catch(() => {});
         APP.camera.mode = 'preview';
+        APP.camera.facingMode = 'user';
         $('btn-init-cam').style.display = 'none';
         $('cam-ctrls').style.display = 'block';
         $('btn-kill').style.display = 'block';
         $('cam-dot').classList.remove('off');
+        var _fco = $('btn-flip-cam-overlay'); if (_fco) _fco.style.display = 'block';
         log('CAM_ONLINE');
         if (!APP.audio.ctx) { APP.audio.ctx = new (window.AudioContext || window.webkitAudioContext)(); }
 
@@ -7532,6 +7017,38 @@ async function initCamera() {
             APP.camera.previewEl = previewVid;
         }
     } catch (e) { log('CAM_DENIED'); }
+}
+
+async function flipCamera() {
+    if (!APP.camera.stream) return;
+    var overlayBtn = $('btn-flip-cam-overlay');
+    if (overlayBtn) { overlayBtn.disabled = true; overlayBtn.textContent = '⟳'; }
+    var next = (APP.camera.facingMode === 'user') ? 'environment' : 'user';
+    APP.camera.stream.getTracks().forEach(t => t.stop());
+    try {
+        try {
+            APP.camera.stream = await navigator.mediaDevices.getUserMedia({
+                video: { width: { ideal: 1920 }, height: { ideal: 1080 }, frameRate: { ideal: 30 }, facingMode: next },
+                audio: false
+            });
+        } catch (_) {
+            APP.camera.stream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: next }, audio: false });
+        }
+        APP.camera.facingMode = next;
+        var previewVid = $('preview-vid-float');
+        if (previewVid) { previewVid.srcObject = APP.camera.stream; APP.camera.previewEl = previewVid; }
+        if (APP.camera.videoEl) APP.camera.videoEl.srcObject = APP.camera.stream;
+        if (overlayBtn) { overlayBtn.textContent = '↻'; overlayBtn.disabled = false; }
+        log('CAM_FLIP_' + next.toUpperCase());
+    } catch (e) {
+        // Revert if flip fails (device may not have that camera)
+        try {
+            APP.camera.stream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: APP.camera.facingMode }, audio: false });
+            var pv = $('preview-vid-float'); if (pv) { pv.srcObject = APP.camera.stream; APP.camera.previewEl = pv; }
+        } catch (_) {}
+        if (overlayBtn) { overlayBtn.textContent = '↻'; overlayBtn.disabled = false; }
+        log('CAM_FLIP_FAIL');
+    }
 }
 
 $('btn-inject').onclick = () => {
@@ -7680,6 +7197,7 @@ function killCamera() {
     $('btn-init-cam').style.display = 'block';
     $('btn-kill').style.display = 'none';
     $('cam-dot').classList.add('off');
+    var _fco2 = $('btn-flip-cam-overlay'); if (_fco2) { _fco2.style.display = 'none'; _fco2.textContent = '↻'; _fco2.disabled = false; }
     $('tally').style.display = 'none';
     $('status-text').textContent = 'STANDBY';
     $('main-dot').classList.remove('live');
@@ -7861,6 +7379,10 @@ function updatePlayIcon() {
 
 function setupAudioChain() {
     const ctx = APP.audio.ctx;
+    // Tear down any chain left by ensureAudioChain() so only one chain feeds ctx.destination.
+    if (APP.audio.outputLimiter) {
+        try { APP.audio.outputLimiter.disconnect(); } catch(_) {}
+    }
     if (APP.audio.source) APP.audio.source.disconnect();
     APP.audio.source = ctx.createMediaElementSource(APP.audio.element);
     APP.audio.analyzer = ctx.createAnalyser();
@@ -7966,6 +7488,16 @@ function setupAudioChain() {
 
     APP.audio.vuData = new Uint8Array(APP.audio.analyzer.frequencyBinCount);
     APP.audio.isConnected = true;
+
+    // If the turntable input was wired before this chain was built, rewire it to the new nodes
+    // so it routes through the correct outputLimiter (NFT/broadcast recording taps this).
+    if (APP.audio.livePreAmp) {
+        try { APP.audio.livePreAmp.disconnect(); } catch(_) {}
+        APP.audio.livePreAmp.connect(APP.audio.panner);
+        if (APP.inputDevices && APP.inputDevices.analyzer) {
+            APP.audio.livePreAmp.connect(APP.inputDevices.analyzer);
+        }
+    }
 
     log('DAW_ENGINE: TRIPLE_PATH + LIMITER + DUCKING');
     updateVU();
@@ -8254,17 +7786,15 @@ window.saveSessionToCloud = async function() {
             var cid = data.IpfsHash;
             log('WALLET_SAVE: DIRECTORY_PINNED CID=' + cid);
 
-            // Step 4 — Bind the master CID to the user's wallet address via puter.kv
-            if (typeof puter !== 'undefined' && puter.kv) {
-                try {
-                    await puter.kv.set(address.toLowerCase(), JSON.stringify({
-                        payloadCID: cid,
-                        address:    address,
-                        timestamp:  Date.now()
-                    }));
-                    log('WALLET_SAVE: PUTER_KV_BOUND ' + address.slice(0, 6) + ' → ' + cid.slice(0, 10) + '…');
-                } catch(e) { log('WALLET_SAVE: PUTER_KV_WARN ' + e.message); }
-            }
+            // Step 4 — Bind the master CID to the user's wallet address via localStorage
+            try {
+                localStorage.setItem('vngrd_cid_' + address.toLowerCase(), JSON.stringify({
+                    payloadCID: cid,
+                    address:    address,
+                    timestamp:  Date.now()
+                }));
+                log('WALLET_SAVE: CID_BOUND ' + address.slice(0, 6) + ' → ' + cid.slice(0, 10) + '…');
+            } catch(e) { log('WALLET_SAVE: CID_BIND_WARN ' + e.message); }
 
             // Step 5 — Show snapshot thumbnail + success state; never blocked render loop
             _showWalletSaveThumbnail(snapshotDataURL, cid);
@@ -9479,7 +9009,8 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     };
 
-    startMainLoop(); // ── boots mainLoop, which now drives renderLoop ──
+    requestAnimationFrame(renderLoop);
+    startMainLoop(); // ── PHASE A: boot central loop once
     updateClock(); setInterval(updateClock, 1000); morphLogo(); setTimeout(morphLogo, 4000);
     // ── PHASE 1 (1s): COMPOSITOR + LAYERS — let UI settle first ──
     setTimeout(() => {
@@ -10351,10 +9882,14 @@ document.addEventListener('DOMContentLoaded', () => {
             _padCoupling[sfxName] = fx;
             btn.classList.remove('coupled', ...ALL_COUPLING_CLASSES);
             var fxLabel = btn.querySelector('.pad-fx-label');
-            // Update active state in gear menu
-            btn.querySelectorAll('.pad-gear-menu [data-fx]').forEach(function(opt) {
-                opt.classList.toggle('active-fx-opt', opt.dataset.fx === fx);
-            });
+            // Update active state in gear menu — works even when menu is portaled to <body>
+            var _gearMenu = btn.querySelector('.pad-gear-menu') ||
+                (btn.id ? document.querySelector('.pad-gear-menu[data-gear-home="#' + btn.id + ' > .pad-gear"]') : null);
+            if (_gearMenu) {
+                _gearMenu.querySelectorAll('[data-fx]').forEach(function(o) {
+                    o.classList.toggle('active-fx-opt', o.dataset.fx === fx);
+                });
+            }
             if (fx !== 'none') {
                 btn.classList.add('coupled', 'coupled-' + fx);
                 if (fxLabel) fxLabel.textContent = COUPLING_LABELS[fx] || fx.toUpperCase();
@@ -10461,10 +9996,13 @@ document.addEventListener('DOMContentLoaded', () => {
                     'vb-ghost-echo':'GHOST_ECHO','vb-spectral-mosh':'SPECTRAL_MOSH'
                 };
                 var sn = shaderMap[fx];
-                if (sn && typeof _vbActivate === 'function') {
-                    // Switch to Bank B if not already there
+                if (sn) {
                     if (typeof _setFXBank === 'function') _setFXBank('B');
-                    _vbActivate(sn, false); // false = 3s burst (not persistent)
+                    if (typeof window._vbCoupleActivate === 'function') {
+                        window._vbCoupleActivate(sn);
+                    } else if (typeof window._vbActivate === 'function') {
+                        window._vbActivate(sn, false);
+                    }
                 }
                 return;
             }
@@ -10554,6 +10092,10 @@ document.addEventListener('DOMContentLoaded', () => {
                         'max-height:' + (window.innerHeight - top - 12) + 'px',
                         'overflow-y:auto'
                     ].join(';');
+                    // Sync active-fx-opt to reflect current coupling
+                    if (typeof window._syncPadGearActive === 'function' && pad && pad.id) {
+                        window._syncPadGearActive(pad.id);
+                    }
                 }
             }
         };
@@ -10847,6 +10389,21 @@ document.addEventListener('DOMContentLoaded', () => {
                 }
             });
         });
+
+        // Sync gear menu active-fx-opt after portaling (called by _padGearToggle)
+        window._syncPadGearActive = function(padId) {
+            var btn = document.getElementById(padId);
+            if (!btn) return;
+            var sn = btn.dataset.sfx;
+            var fx = sn && _padCoupling[sn];
+            if (!fx || fx === 'none') return;
+            var menu = document.querySelector('.pad-gear-menu[data-gear-home="#' + padId + ' > .pad-gear"]')
+                    || btn.querySelector('.pad-gear-menu');
+            if (!menu) return;
+            menu.querySelectorAll('[data-fx]').forEach(function(o) {
+                o.classList.toggle('active-fx-opt', o.dataset.fx === fx);
+            });
+        };
     })();
 
     // --- MIDI CONTROLLER (JIT — user gesture gated) ---
@@ -11772,6 +11329,10 @@ $('btn-init-peer').onclick = () => {
             conn.on('close', () => {
                 log('DATA_CHANNEL: CLOSED');
                 if (APP.peer.dataConn === conn) APP.peer.dataConn = null;
+                // FORK A (answerer) does not initiate reconnect — the caller (FORK B) will
+                // re-connect via peer.connect() and this peer.on('connection', ...) will handle it.
+                // Log so we can diagnose if reconnect never arrives.
+                if (APP.peer.call) log('DATA_CHANNEL: AWAITING_RECONNECT_FROM_CALLER');
             });
         });
 
@@ -11869,7 +11430,7 @@ $('btn-call-guest').onclick = async () => {
     let localStream;
     try {
         localStream = await navigator.mediaDevices.getUserMedia({
-            video: { facingMode: 'user', width: { ideal: 640 }, height: { ideal: 480 }, frameRate: { ideal: 30 } },
+            video: { facingMode: 'user', width: { ideal: 1920 }, height: { ideal: 1080 }, frameRate: { ideal: 30 } },
             audio: audioConstraints
         });
     } catch (e) {
@@ -11949,6 +11510,32 @@ $('btn-call-guest').onclick = async () => {
         dataConn.on('close', function() {
             log('DATA_CHANNEL: CLOSED');
             if (APP.peer.dataConn === dataConn) APP.peer.dataConn = null;
+            // Auto-reconnect: caller side re-initiates the data channel if the media call is still alive.
+            // Receiver side accepts the reconnect via peer.on('connection', ...) automatically.
+            if (APP.peer.call && APP.peer.peer) {
+                setTimeout(function() {
+                    if (APP.peer.dataConn && APP.peer.dataConn.open) return; // already reconnected
+                    if (!APP.peer.call) return; // call ended in the meantime
+                    log('DATA_CHANNEL: RECONNECTING TO ' + remoteId);
+                    var _dc = APP.peer.peer.connect(remoteId);
+                    _dc.on('open', function() {
+                        APP.peer.dataConn = _dc;
+                        log('DATA_CHANNEL: RECONNECTED');
+                        _flushSyncQueue();
+                        // Re-send current state so the remote peer has the latest identity bug
+                        sendUISync('STATION_LOGO', { text: APP.bug.text, visible: APP.trinity.bug.visible });
+                    });
+                    _dc.on('data', function(data) {
+                        try {
+                            var msg = typeof data === 'string' ? JSON.parse(data) : data;
+                            if (msg.type === 'UI_SYNC') handleUISync(msg);
+                        } catch(e) {}
+                    });
+                    _dc.on('close', function() {
+                        if (APP.peer.dataConn === _dc) APP.peer.dataConn = null;
+                    });
+                }, 2000);
+            }
         });
 
     } catch (e) {
@@ -11962,6 +11549,9 @@ $('btn-call-guest').onclick = async () => {
 // Shared Logic for both Incoming and Outgoing calls
 function handleCallStream(call) {
     call.on('stream', (remoteStream) => {
+        // Guard: PeerJS fires 'stream' multiple times on ICE renegotiation / track additions.
+        // Skip if this is the exact same stream object we already set up.
+        if (APP.guest.stream === remoteStream) { log('STREAM_DUP_SKIPPED'); return; }
         // Ensure video element exists — must be in DOM for iOS Safari to play
         if (!APP.guest.videoElement) {
             APP.guest.videoElement = document.createElement('video');
@@ -11992,10 +11582,13 @@ function handleCallStream(call) {
         $('btn-call-guest').classList.add('call-active');
         $('btn-open-p2p-modal').classList.add('call-active');
 
-        // Mix-Minus: hide host's own station bug from their stage —
-        // they will receive guest's bug via handleUISync STATION_LOGO
-        var _lb = $('station-bug');
-        if (_lb) _lb.classList.add('hidden');
+        // Show local identity bug in the preview float (host sees their own brand).
+        // The main canvas will show the remote peer's bug via APP.bug.p2pText.
+        var _pov = $('p2p-bug-overlay');
+        if (_pov) {
+            _pov.textContent = APP.bug.text || 'VNGRD';
+            _pov.style.display = 'block';
+        }
 
         log('CALL_ESTABLISHED_WITH: ' + call.peer);
     });
@@ -12033,7 +11626,7 @@ function handleCallStream(call) {
                 var pc = APP.peer.call.peerConnection;
                 // Re-acquire camera with same constraints
                 var newStream = await navigator.mediaDevices.getUserMedia({
-                    video: { facingMode: 'user', width: { ideal: 640 }, height: { ideal: 480 }, frameRate: { ideal: 30 } },
+                    video: { facingMode: 'user', width: { ideal: 1920 }, height: { ideal: 1080 }, frameRate: { ideal: 30 } },
                     audio: APP.inputDevices && APP.inputDevices.selectedId
                         ? { deviceId: { exact: APP.inputDevices.selectedId }, echoCancellation: true, noiseSuppression: true, autoGainControl: true }
                         : { echoCancellation: true, noiseSuppression: true, autoGainControl: true }
@@ -12120,8 +11713,9 @@ function sendUISync(target, payload) {
 // Push host's current graphics state to peer the moment the data channel opens.
 // This ensures logos / bug / LT set BEFORE the call are still received by the guest.
 function _pushCurrentState() {
-    // Station bug
-    if (APP.trinity.bug.visible && APP.bug.text) {
+    // Station bug — always send local identity if text is set so the remote peer
+    // can display it on their canvas over our video stream immediately at call start.
+    if (APP.bug.text) {
         sendUISync('STATION_LOGO', { text: APP.bug.text, visible: true });
     }
     // 2D logo — compress to JPEG before sending (stays within ~64KB data channel limit)
@@ -12230,21 +11824,13 @@ function handleUISync(msg) {
             log('DATA_SYNC_RECV: 2D_LOGO/CLEAR');
         }
     } else if (msg.target === 'STATION_LOGO') {
-        const bug = $('station-bug');
-        if (!bug) { log('[ERROR] SYNC: #station-bug NOT FOUND'); return; }
-        // Update both DOM and APP state that the compositor reads
-        APP.bug.text = msg.payload.text;
-        bug.textContent = msg.payload.text;
-        bug.style.display = 'block';
-        bug.style.background = 'transparent';
-        if (msg.payload.visible !== undefined) {
-            APP.trinity.bug.visible = msg.payload.visible;
-            bug.classList.toggle('hidden', !msg.payload.visible);
-        } else {
-            // "Set text" action — make visible
-            APP.trinity.bug.visible = true;
-            bug.classList.remove('hidden');
-        }
+        // Store as REMOTE identity — never overwrite APP.bug.text (local identity).
+        // The render loop reads APP.bug.p2pText when APP.guest.isActive so the
+        // remote peer's brand appears on top of their video stream on our canvas.
+        APP.bug.p2pText = msg.payload.text || '';
+        APP.bug.p2pVisible = msg.payload.visible !== false;
+        // Ensure the trinity block in the render loop is active
+        APP.trinity.bug.visible = true;
         log('DATA_SYNC_RECV: STATION_LOGO "' + msg.payload.text + '"');
     }
     } finally {
@@ -12282,12 +11868,20 @@ function endCallCleanup() {
     $('call-status').style.color = 'var(--text-dim)';
     $('p2p-modal').classList.remove('incoming');
 
+    // Clear remote identity — back to local bug rendering
+    APP.bug.p2pText = '';
+    APP.bug.p2pVisible = false;
+
     // Restore host's own station bug text + visibility from APP state
     var _rb = $('station-bug');
     if (_rb) {
         _rb.textContent = APP.bug.text || 'VNGRD';
         _rb.classList.toggle('hidden', !APP.trinity.bug.visible);
     }
+
+    // Hide preview bug overlay
+    var _pov = $('p2p-bug-overlay');
+    if (_pov) _pov.style.display = 'none';
 
     // Close the preview float and the HUD panel
     var _pf = $('cam-preview-float');
@@ -12305,8 +11899,9 @@ function endCallCleanup() {
     // ========================================
     async function scanAudioInputDevices() {
         try {
-            // Request permission with basic constraints first
-            await navigator.mediaDevices.getUserMedia({ audio: true });
+            // Request permission, then immediately release — we only need the label list.
+            const _permStream = await navigator.mediaDevices.getUserMedia({ audio: true });
+            _permStream.getTracks().forEach(t => t.stop());
             
             const devices = await navigator.mediaDevices.enumerateDevices();
             const audioInputs = devices.filter(d => d.kind === 'audioinput');
@@ -12383,6 +11978,12 @@ function endCallCleanup() {
             if (APP.audio.micSource) {
                 try { APP.audio.micSource.disconnect(); } catch (_) {}
             }
+            // Race-condition guard: a concurrent call may have connected a new livePreAmp
+            // while we were awaiting getUserMedia. Disconnect it before creating ours.
+            if (APP.audio.livePreAmp) {
+                try { APP.audio.livePreAmp.disconnect(); } catch (_) {}
+                APP.audio.livePreAmp = null;
+            }
 
             // Create new source node and store it for future teardown.
             APP.audio.micSource = _ctx.createMediaStreamSource(stream);
@@ -12398,16 +11999,14 @@ function endCallCleanup() {
             APP.inputDevices.analyzer.smoothingTimeConstant = 0.3;
             APP.audio.livePreAmp.connect(APP.inputDevices.analyzer);
 
-            // SPATIAL & DOLBY BUS: route vinyl through 3D panning network (audible output).
-            // NOTE: analyzer is downstream of panner in the main chain — do NOT also connect
-            // livePreAmp directly to APP.audio.analyzer or the signal doubles at that node.
+            // SPATIAL BUS: route vinyl through 3D panning network → EQ → compressor → limiter → output.
+            // Recording (NFT/broadcast) taps outputLimiter downstream — do NOT also connect
+            // livePreAmp directly to recorderDest or the signal doubles in the recording bus.
             if (APP.audio.panner) {
                 APP.audio.livePreAmp.connect(APP.audio.panner);
             } else if (APP.audio.masterGain) {
                 APP.audio.livePreAmp.connect(APP.audio.masterGain);
             }
-            // RECORDING LOCK: boosted signal into master recording bus — captured on Record.
-            if (APP.audio.recorderDest) APP.audio.livePreAmp.connect(APP.audio.recorderDest);
             // FEEDBACK PREVENTION: source is NOT connected to ctx.destination directly.
 
             // 4. UI CONFIRMATION: display the real hardware label from the stream.
@@ -12443,6 +12042,11 @@ function endCallCleanup() {
                 if (APP.audio.micSource) {
                     try { APP.audio.micSource.disconnect(); } catch (_) {}
                 }
+                // Race-condition guard: same as primary path.
+                if (APP.audio.livePreAmp) {
+                    try { APP.audio.livePreAmp.disconnect(); } catch (_) {}
+                    APP.audio.livePreAmp = null;
+                }
 
                 APP.audio.micSource = _ctx2.createMediaStreamSource(stream);
 
@@ -12456,15 +12060,13 @@ function endCallCleanup() {
                 APP.inputDevices.analyzer.smoothingTimeConstant = 0.3;
                 APP.audio.livePreAmp.connect(APP.inputDevices.analyzer);
 
-                // SPATIAL & DOLBY BUS (fallback path).
-                // NOTE: same as primary path — analyzer is downstream of panner, skip direct connect.
+                // SPATIAL BUS (fallback path): panner → EQ → compressor → limiter → output.
+                // Recording taps outputLimiter downstream — no direct recorderDest connection.
                 if (APP.audio.panner) {
                     APP.audio.livePreAmp.connect(APP.audio.panner);
                 } else if (APP.audio.masterGain) {
                     APP.audio.livePreAmp.connect(APP.audio.masterGain);
                 }
-                // RECORDING LOCK (fallback path).
-                if (APP.audio.recorderDest) APP.audio.livePreAmp.connect(APP.audio.recorderDest);
                 // FEEDBACK PREVENTION: NOT connected to ctx.destination directly.
 
                 var _trackLabel2 = (stream.getAudioTracks()[0] && stream.getAudioTracks()[0].label)
@@ -13575,33 +13177,26 @@ var _mainLoopRunning = false;
 function mainLoop(timestamp) {
     requestAnimationFrame(mainLoop);
 
-    // Phase G Task 1: main VJ canvas renderer (was its own rAF loop)
-    // Must run before _vbRenderTick — vbCanvas blits onto vjCanvas after this draw
-    renderLoop(timestamp);
-
-    // Phase B: NFT recording timer (was an unbounded rAF loop)
+    // Phase B: NFT recording timer (was an unbounded rAF loop — now a pure tick)
     updateNFTTimer();
 
-    // Phase C: audio input level meter (was rAF loop that stacked on every input switch)
+    // Phase C: audio input level meter (was an rAF loop that stacked on every input switch)
     if (window._inputLevelTick) window._inputLevelTick();
 
-    // Phase E Task 1: VU meter
+    // Phase E Task 1: VU meter (was its own rAF loop)
     updateVU();
 
-    // Phase E Task 2: audio reactor
+    // Phase E Task 2: audio reactor (was its own rAF loop in a separate script block)
     if (window._audioReactorTick) window._audioReactorTick();
 
-    // Phase F Task 1: WebGL VU bar shader — runs after renderLoop (blit order)
+    // Phase F Task 1: WebGL VU bar shader (was _vbRender own rAF)
     if (window._vbRenderTick) window._vbRenderTick();
 
-    // Phase F Task 2: VFXLayer chromatic aberration shader
+    // Phase F Task 2: VFXLayer chromatic aberration shader (was _frame IIFE rAF)
     if (window._vfxFrameTick) window._vfxFrameTick(timestamp);
 
-    // Phase F Task 3: mic ducking monitor
+    // Phase F Task 3: mic ducking monitor (was monitorDucking own rAF)
     updateDucking();
-
-    // Phase G Task 2: synesthesia mixer VU draw (was self-referencing IIFE rAF)
-    if (window._ssDrawTick) window._ssDrawTick();
 }
 
 function startMainLoop() {
@@ -13610,2954 +13205,3 @@ function startMainLoop() {
     requestAnimationFrame(mainLoop);
 }
 // --- TACTICAL FX ELITE BRIDGE ---
-</script>
-<script type="module">
-// --- AUDIO ROTATION SYSTEM ---
-const V_PLAYLIST = {
-    tracks: [],
-    index: 0,
-    player: document.getElementById('audio-el')
-};
-
-// Connect your file input to the handler
-document.getElementById('file-audio').addEventListener('change', function(e) {
-    handleAudioPlaylist(e.target.files);
-});
-
-// Auto-advance when song ends
-V_PLAYLIST.player.addEventListener('ended', () => {
-    if (V_PLAYLIST.tracks.length > 0) {
-        V_PLAYLIST.index = (V_PLAYLIST.index + 1) % V_PLAYLIST.tracks.length;
-        runVanguardTrack();
-    }
-});
-
-function handleAudioPlaylist(files) {
-    // DO NOT reset V_PLAYLIST.tracks = [] here
-    const isFirstLoad = V_PLAYLIST.tracks.length === 0;
-
-    Array.from(files).forEach(f => {
-        if (f.type.startsWith('audio/')) {
-            // APPEND to the existing array
-            V_PLAYLIST.tracks.push(URL.createObjectURL(f));
-        }
-    });
-
-    if (V_PLAYLIST.tracks.length > 0) {
-        log(`QUEUE_UPDATE: ${V_PLAYLIST.tracks.length} TOTAL_TRACKS`);
-        
-        // Only trigger the player if nothing is playing yet
-        if (isFirstLoad) {
-            V_PLAYLIST.index = 0;
-            runVanguardTrack();
-        }
-    }
-}
-
-function runVanguardTrack() {
-    const url = V_PLAYLIST.tracks[V_PLAYLIST.index];
-    V_PLAYLIST.player.src = url;
-    V_PLAYLIST.player.play();
-    
-    // UPDATED: Target the audio module label instead of the bottom ticker
-    const trackID = `TRACK_0${V_PLAYLIST.index + 1}`;
-    const audioLabel = document.querySelector('.audio-engine .module-header') || $('audio-status');
-    
-    if (audioLabel) {
-        audioLabel.textContent = `AUDIO_ENGINE // ${trackID}`;
-    }
-    
-    log(`AUDIO_SYNC: ${trackID}_STARTED`);
-}
-
-
-// --- AUDIO DUCKING & UI CONTROLS ---
-
-// MASTER DUCKING FUNCTION
-const applyAudioDuck = (isActive) => {
-    // Priority: Ducking Gain Node -> Master Gain Node
-    const gainNode = (APP.audio && APP.audio.duckingGain) ? APP.audio.duckingGain : (APP.audio && APP.audio.masterGain ? APP.audio.masterGain : null);
-
-    if (gainNode) {
-        const now = APP.audio.ctx ? APP.audio.ctx.currentTime : 0;
-        const targetValue = isActive ? 0.25 : 1.0; // -12dB dip for broadcast
-
-        // Professional fade (50ms) to avoid "pops" in the 15Mbps recording
-        gainNode.gain.setTargetAtTime(targetValue, now, 0.05);
-        console.log(isActive ? "CORE: BROADCAST_DUCKING_ON" : "CORE: BROADCAST_DUCKING_OFF");
-    }
-    if (typeof log === 'function') log(isActive ? 'DUCKING: ACTIVE [-12dB]' : 'DUCKING: RESTORED [0dB]');
-};
-// Expose globally so goLive/endLive/killCamera in the main script can call it
-window.applyAudioDuck = applyAudioDuck;
-
-// 1. FORCE INJECT COLORS
-const style = document.createElement('style');
-style.innerHTML = `
-  .tick-up { color: #00ff00 !important; font-weight: bold; text-shadow: 0 0 5px #00ff00; }
-  .tick-down { color: #ff0000 !important; font-weight: bold; text-shadow: 0 0 5px #ff0000; }
-`;
-document.head.appendChild(style);
-
-// 2. FORCE REFRESH TICKER WITH COLORS
-async function updateTickerLive() {
-    try {
-        const res = await fetch('https://api.binance.com/api/v3/ticker/24hr?symbol=BTCUSDT');
-        const data = await res.json();
-        const price = parseFloat(data.lastPrice).toFixed(2);
-        const change = parseFloat(data.priceChangePercent);
-        const colorClass = change >= 0 ? 'tick-up' : 'tick-down';
-        const arrow = change >= 0 ? '▲' : '▼';
-
-        const ticker = document.getElementById('ticker-text');
-        if (ticker) {
-            ticker.innerHTML = `BTC: $${price} <span class="${colorClass}">(${arrow}${change}%)</span> // [SIGNAL_STABLE]`;
-        }
-    } catch (e) {
-        console.error("Ticker update failed", e);
-    }
-}
-
-// Initial triggers
-updateTickerLive();
-setInterval(updateTickerLive, 600000); // 10 minute poll to save CPU
-
-// Ducking is called via window.applyAudioDuck() from goLive/endLive/killCamera in main script
-
-// --- TACTICAL FX GLOBAL BRIDGE ---
-// --- CANVAS FX FILTER MAP (mirrors CSS FX for captureStream baking) ---
-function _getBakedFXFilter() {
-    var cl = document.body.classList;
-    if (cl.contains('fx-scan'))  return 'invert(1) contrast(1.5)';
-    if (cl.contains('fx-nvg'))   return 'grayscale(1) brightness(0.7)';
-    if (cl.contains('fx-void'))  return 'grayscale(1) contrast(3) brightness(1.1)';
-    if (cl.contains('fx-lucy'))  return 'hue-rotate(180deg) saturate(2.5)';
-    if (cl.contains('fx-tear'))  return 'hue-rotate(90deg) contrast(1.2)';
-    if (cl.contains('fx-punch')) return 'contrast(1.4) brightness(1.2)';
-    if (cl.contains('vhs'))      return 'contrast(1.1) brightness(0.95) saturate(1.2)';
-    return '';
-}
-
-// --- TACTICAL FX MASTER BRIDGE (v4.1 VOID/LUCY) ---
-window.toggleFX = function(fxName) {
-    // Auto-disable during P2P: FX shaders stress the GPU and inflate WebRTC bandwidth
-    if (APP.peer && APP.peer.call) { log('FX_BLOCKED: P2P active'); return; }
-    const target = document.body;
-    const className = `fx-${fxName}`;
-    const allFX = ['fx-scan', 'fx-tear', 'fx-punch', 'fx-void', 'fx-lucy', 'fx-nvg'];
-
-    // One-shot durations (ms); 0 = persistent toggle
-    const autoOff = { void: 2500, lucy: 5000 };
-
-    // Find the specific button to "light it up" (by id first, then onclick attr)
-    const btn = document.getElementById('btn-' + fxName) ||
-        Array.from(document.querySelectorAll('.btn')).find(b =>
-            b.getAttribute('onclick')?.includes(`'${fxName}'`)
-        );
-
-    if (target.classList.contains(className)) {
-        // TURN OFF
-        target.classList.remove(className);
-        if (btn) btn.classList.remove('active-fx');
-        // NVG: restore button to base inline style so it doesn't look broken
-        if (fxName === 'nvg' && btn) { btn.style.background = ''; btn.style.filter = ''; btn.style.textShadow = '0 0 5px #00ff41'; }
-        log(`FX_OFF: ${fxName.toUpperCase()}`);
-    } else {
-        // TURN ON (Clears existing tactical FX first for a clean state)
-        target.classList.remove(...allFX);
-        document.querySelectorAll('.btn').forEach(b => { b.classList.remove('active-fx'); if (b.id === 'btn-nvg') { b.style.background = ''; b.style.filter = ''; } });
-
-        target.classList.add(className);
-        if (btn) btn.classList.add('active-fx');
-        // NVG: direct inline glow — belt-and-suspenders on top of CSS rule
-        if (fxName === 'nvg' && btn) { btn.style.background = 'rgba(0,255,65,0.30)'; btn.style.filter = 'drop-shadow(0 0 8px #00ff41) drop-shadow(0 0 18px rgba(0,255,65,0.5))'; btn.style.textShadow = '0 0 8px #00ff41, 0 0 18px #00ff41'; }
-        log(`FX_ON: ${fxName.toUpperCase()}`);
-
-        // Auto-off for one-shot effects
-        if (autoOff[fxName]) {
-            setTimeout(() => {
-                target.classList.remove(className);
-                if (btn) btn.classList.remove('active-fx');
-                log(`FX_AUTO_OFF: ${fxName.toUpperCase()}`);
-            }, autoOff[fxName]);
-        }
-    }
-};
-
-window.triggerHardReset = function() {
-    const target = document.body;
-
-    // 1. Kill every FX class — CSS tactical + animated
-    target.classList.remove(
-        'fx-scan', 'fx-tear', 'fx-punch', 'fx-void', 'fx-lucy', 'fx-nvg',
-        'fx-signal-loss', 'fx-thermal', 'fx-cyber-rot', 'fx-neural', 'fx-failure',
-        'vhs', 'crt', 'system-failure', 'seismic-active', 'punch-hit'
-    );
-
-    // 2. Wipe all button lit states (both naming conventions)
-    document.querySelectorAll('.btn').forEach(b => b.classList.remove('active-fx', 'on'));
-
-    // 3. Reset APP flags — IMPACT_RACK + VJ defaults + autonomous modes
-    if (typeof resetAllFX === 'function') resetAllFX();
-    APP.vj.rumbleEnabled = false;
-    APP.vj.uiReactivity = false;
-    window._punchCooldown = false;
-
-    // 4. Clear inline styles written by the engine (seismic + party mode)
-    target.style.transform = '';
-    target.style.boxShadow = '';
-
-    // 5. Smooth flash — bright spike → black → restore (no scale/split)
-    target.classList.remove('anim-hard-reset');
-    void target.offsetWidth;
-    target.classList.add('anim-hard-reset');
-    setTimeout(() => target.classList.remove('anim-hard-reset'), 600);
-
-    if (typeof ghostLog === 'function') ghostLog('SYSTEM_HARD_RESET_EXECUTED', 'crit');
-};</script>
-<script>
-// --- BASS REACTIVE VJ ENGINE ---
-// ── PHASE E Task 2: state lifted out of initAudioReactor so the tick runs via mainLoop ──
-var _arAnalyzer      = null;
-var _arData          = null;
-var _arLastPunchTime = 0;
-var _arCooldown      = 300;   // ms — minimum gap between punch triggers
-var _arBassThreshold = 210;   // 0-255 threshold for a kick hit
-
-// Pure tick — called from mainLoop every frame.
-// initAudioReactor() must have run first to populate _arAnalyzer/_arData.
-function updateAudioReactor() {
-    if (!window.audioReactorActive || !_arAnalyzer || !_arData) return;
-
-    _arAnalyzer.getByteFrequencyData(_arData);
-
-    // Average the lowest 8 bins (sub-bass / kick drum)
-    let bassSum = 0;
-    for (let i = 0; i < 8; i++) bassSum += _arData[i];
-    const bassAvg = bassSum / 8;
-
-    const now = Date.now();
-    if (bassAvg > _arBassThreshold && (now - _arLastPunchTime > _arCooldown)) {
-        const stage = document.getElementById('stage');
-        if (stage) {
-            stage.style.animation = 'none';
-            void stage.offsetWidth; // force reflow to restart animation
-            stage.style.animation = 'kinetic-punch 0.25s cubic-bezier(0.25, 1, 0.5, 1)';
-        }
-        _arLastPunchTime = now;
-    }
-}
-// Expose so mainLoop (in the main script block) can call it
-window._audioReactorTick = updateAudioReactor;
-
-window.initAudioReactor = function() {
-    if (window.audioReactorActive) {
-        console.log("[SYS] REACTOR: ALREADY RUNNING");
-        return;
-    }
-
-    // Ensure we have an active audio analyzer
-    if (!window.APP || !window.APP.audio || !window.APP.audio.analyzer) {
-        console.warn("[SYS] REACTOR: WAITING FOR AUDIO ENGINE...");
-        setTimeout(window.initAudioReactor, 2000);
-        return;
-    }
-
-    console.log("[SYS] REACTOR: BASS SYNC ONLINE");
-    window.audioReactorActive = true;
-
-    // Store references so updateAudioReactor() can reach them each frame
-    _arAnalyzer = window.APP.audio.analyzer;
-    _arData     = new Uint8Array(_arAnalyzer.frequencyBinCount);
-    // Tick is already registered as window._audioReactorTick — mainLoop drives it
-};
-
-// Auto-init the bass reactor engine when audio is ready
-setTimeout(() => { if (!window.audioReactorActive) window.initAudioReactor(); }, 3000);
-</script>
-
-<!-- 3D LOGO: offscreen WebGL canvas for Three.js rendering -->
-<canvas id="three-canvas" width="512" height="512" style="position:fixed;left:-9999px;top:-9999px;width:512px;height:512px;pointer-events:none;z-index:-1;"></canvas>
-<script type="module">
-// === 3D LOGO PIPELINE (rebuilt) ===
-let THREE = null;
-const _3D = { scene: null, camera: null, renderer: null, model: null, ready: false };
-const sysLog = (...a) => (window.log || console.log)(...a);
-
-async function ensure3D() {
-    if (_3D.ready) return;
-    THREE = window.THREE;
-    if (!THREE || !THREE.Scene) throw new Error('THREE_NOT_LOADED — check CDN script in <head>');
-
-    const canvas = document.getElementById('three-canvas');
-    if (!canvas) throw new Error('CANVAS_NOT_FOUND');
-
-    _3D.scene = new THREE.Scene();
-
-    _3D.camera = new THREE.PerspectiveCamera(45, 1, 0.01, 500);
-    _3D.camera.position.set(0, 0, 4);
-    _3D.camera.lookAt(0, 0, 0);
-    _3D.camera.updateProjectionMatrix();
-
-    _3D.renderer = new THREE.WebGLRenderer({ alpha: true, preserveDrawingBuffer: true, antialias: true });
-    // Renderer owns its own canvas (renderer.domElement); no DOM binding so
-    // drawImage compositing onto vj-canvas works correctly every frame.
-    _3D.renderer.setPixelRatio(1);
-    _3D.renderer.setSize(512, 512, false);
-    _3D.renderer.setClearColor(0x000000, 0);
-    _3D.renderer.outputEncoding = THREE.sRGBEncoding || 3001; // r128 uses outputEncoding
-
-    // Lighting — bright enough to see geometry clearly
-    _3D.scene.add(new THREE.AmbientLight(0xffffff, 0.6));
-    const key = new THREE.DirectionalLight(0x00ffcc, 1.5);
-    key.position.set(3, 4, 5); _3D.scene.add(key);
-    const fill = new THREE.DirectionalLight(0x0088ff, 0.8);
-    fill.position.set(-3, -1, 2); _3D.scene.add(fill);
-    const rim = new THREE.DirectionalLight(0xff3300, 0.4);
-    rim.position.set(0, -3, -3); _3D.scene.add(rim);
-
-    _3D.ready = true;
-    window._three = _3D;
-    sysLog('3D_INIT: WEBGL_OK');
-}
-
-function clearModel() {
-    if (!_3D.model || !THREE) return;
-    _3D.scene.remove(_3D.model);
-    _3D.model.traverse(function(obj) {
-        if (obj.geometry) obj.geometry.dispose();
-        if (obj.material) {
-            var mats = Array.isArray(obj.material) ? obj.material : [obj.material];
-            mats.forEach(function(m) { m.dispose(); });
-        }
-    });
-    _3D.model = null;
-}
-
-function centerAndScale(obj) {
-    // Reset transforms first
-    obj.position.set(0, 0, 0);
-    obj.rotation.set(0, 0, 0);
-    obj.scale.set(1, 1, 1);
-    obj.updateMatrixWorld(true);
-
-    const box = new THREE.Box3().setFromObject(obj);
-    if (box.isEmpty()) { sysLog('3D_WARN: EMPTY_BOUNDS'); return; }
-
-    const size = box.getSize(new THREE.Vector3());
-    const center = box.getCenter(new THREE.Vector3());
-    const maxDim = Math.max(size.x, size.y, size.z);
-    if (maxDim === 0 || !isFinite(maxDim)) { sysLog('3D_WARN: ZERO_SIZE'); return; }
-
-    const scaleFactor = 2.5 / maxDim;
-    obj.scale.setScalar(scaleFactor);
-    // Move object so its center is at origin (accounting for scale)
-    obj.position.set(-center.x * scaleFactor, -center.y * scaleFactor, -center.z * scaleFactor);
-    obj.updateMatrixWorld(true);
-
-    sysLog('3D_FIT: scale=' + scaleFactor.toFixed(3) + ' dim=' + maxDim.toFixed(2));
-}
-
-function countMeshes(obj) {
-    let count = 0;
-    obj.traverse(function(child) { if (child.isMesh || child.isLine || child.isPoints) count++; });
-    return count;
-}
-
-function applyHUDMaterial(obj) {
-    const mat = new THREE.MeshStandardMaterial({
-        color: 0x00ddaa, emissive: 0x004433, roughness: 0.4, metalness: 0.6,
-        transparent: true, opacity: 0.9, side: THREE.DoubleSide
-    });
-    obj.traverse(function(child) {
-        if (child.isMesh) {
-            if (child.geometry && !child.geometry.attributes.normal) {
-                child.geometry.computeVertexNormals();
-            }
-            // Always apply HUD material for uploaded models (they have no textures)
-            child.material = mat;
-            child.castShadow = false;
-            child.receiveShadow = false;
-        }
-    });
-}
-
-// --- FORMAT LOADERS — all use .parse() (no network fetch) ---
-
-async function loadOBJ(file) {
-    const OBJLoader = THREE.OBJLoader;
-    if (!OBJLoader) throw new Error('OBJ_LOADER_NOT_AVAILABLE');
-    const text = await file.text();
-    sysLog('3D_OBJ: parsing ' + text.length + ' chars');
-    const obj = new OBJLoader().parse(text);
-    const meshCount = countMeshes(obj);
-    sysLog('3D_OBJ: ' + meshCount + ' meshes found');
-    if (meshCount === 0) throw new Error('OBJ_NO_MESHES');
-    return obj;
-}
-
-async function loadFBX(file) {
-    const FBXLoader = THREE.FBXLoader;
-    if (!FBXLoader) throw new Error('FBX_LOADER_NOT_AVAILABLE — upload OBJ or STL instead');
-    const buf = await file.arrayBuffer();
-    const obj = new FBXLoader().parse(buf, '');
-    if (countMeshes(obj) === 0) throw new Error('FBX_NO_MESHES');
-    return obj;
-}
-
-async function loadSTL(file) {
-    const STLLoader = THREE.STLLoader;
-    if (!STLLoader) throw new Error('STL_LOADER_NOT_AVAILABLE');
-    const buf = await file.arrayBuffer();
-    const geom = new STLLoader().parse(buf);
-    if (!geom || !geom.attributes.position || geom.attributes.position.count === 0) throw new Error('STL_EMPTY');
-    geom.computeVertexNormals();
-    return new THREE.Mesh(geom);
-}
-
-async function loadAMF(file) {
-    const text = await file.text();
-    const xml = new DOMParser().parseFromString(text, 'application/xml');
-    const group = new THREE.Group();
-
-    xml.querySelectorAll('object').forEach(function(obj) {
-        const meshEl = obj.querySelector('mesh');
-        if (!meshEl) return;
-        const verts = [];
-        meshEl.querySelectorAll('vertices > vertex > coordinates').forEach(function(c) {
-            verts.push(
-                parseFloat(c.querySelector('x')?.textContent || 0),
-                parseFloat(c.querySelector('y')?.textContent || 0),
-                parseFloat(c.querySelector('z')?.textContent || 0)
-            );
-        });
-        meshEl.querySelectorAll('volume').forEach(function(vol) {
-            const idx = [];
-            vol.querySelectorAll('triangle').forEach(function(tri) {
-                idx.push(
-                    parseInt(tri.querySelector('v1')?.textContent || 0),
-                    parseInt(tri.querySelector('v2')?.textContent || 0),
-                    parseInt(tri.querySelector('v3')?.textContent || 0)
-                );
-            });
-            const g = new THREE.BufferGeometry();
-            g.setAttribute('position', new THREE.Float32BufferAttribute(verts, 3));
-            g.setIndex(idx);
-            g.computeVertexNormals();
-            group.add(new THREE.Mesh(g));
-        });
-    });
-
-    if (group.children.length === 0) throw new Error('NO_GEOMETRY_IN_AMF');
-    return group;
-}
-
-async function loadIGES(file) {
-    const text = await file.text();
-    const lines = text.split('\n');
-    const group = new THREE.Group();
-    const dirEntries = [];
-    const paramData = {};
-
-    for (const line of lines) {
-        if (line.length < 73) continue;
-        const section = line[72];
-        const seqNum = parseInt(line.substring(73).trim());
-
-        if (section === 'D' && seqNum % 2 === 1) {
-            dirEntries.push({ type: parseInt(line.substring(0, 8).trim()), seq: seqNum });
-        }
-        if (section === 'P') {
-            const dePtr = parseInt(line.substring(64, 72).trim());
-            if (!paramData[dePtr]) paramData[dePtr] = '';
-            paramData[dePtr] += line.substring(0, 64);
-        }
-    }
-
-    const pts = [];
-    for (const de of dirEntries) {
-        const raw = paramData[de.seq];
-        if (!raw) continue;
-        const vals = raw.replace(/;.*$/, '').trim().split(',').map(function(s) { return s.trim(); });
-
-        if (de.type === 110 && vals.length >= 7) {
-            const coords = vals.slice(1, 7).map(Number);
-            if (coords.every(function(n) { return !isNaN(n); })) {
-                const g = new THREE.BufferGeometry();
-                g.setAttribute('position', new THREE.Float32BufferAttribute(coords, 3));
-                group.add(new THREE.Line(g, new THREE.LineBasicMaterial({ color: 0x00ffcc })));
-            }
-        }
-        if (de.type === 116 && vals.length >= 4) {
-            const [, x, y, z] = vals.map(Number);
-            if (!isNaN(x)) pts.push(x, y, z);
-        }
-        if (de.type === 100 && vals.length >= 8) {
-            const [, zt, cx, cy, sx, sy, ex, ey] = vals.map(Number);
-            if (!isNaN(cx)) {
-                const r = Math.hypot(sx - cx, sy - cy);
-                const sa = Math.atan2(sy - cy, sx - cx);
-                const ea = Math.atan2(ey - cy, ex - cx);
-                const curve = new THREE.EllipseCurve(cx, cy, r, r, sa, ea, false);
-                const cPts = curve.getPoints(32).map(function(p) { return new THREE.Vector3(p.x, p.y, zt || 0); });
-                const g = new THREE.BufferGeometry().setFromPoints(cPts);
-                group.add(new THREE.Line(g, new THREE.LineBasicMaterial({ color: 0x00ffcc })));
-            }
-        }
-    }
-
-    if (pts.length > 0) {
-        const pGeom = new THREE.BufferGeometry();
-        pGeom.setAttribute('position', new THREE.Float32BufferAttribute(pts, 3));
-        group.add(new THREE.Points(pGeom, new THREE.PointsMaterial({ color: 0x00ffcc, size: 0.05 })));
-    }
-
-    if (group.children.length === 0) throw new Error('NO_PARSEABLE_ENTITIES_IN_IGES');
-    return group;
-}
-
-// --- FILE UPLOAD HANDLER ---
-const btn3d = document.getElementById('btn-upload-3d');
-const fileInput3d = document.getElementById('file-3d-logo');
-const btn3dX = document.getElementById('btn-3d-x');
-
-if (btn3d) btn3d.addEventListener('click', function() { if (fileInput3d) fileInput3d.click(); });
-
-if (fileInput3d) {
-    fileInput3d.addEventListener('change', async function(e) {
-        if (!e.target.files.length) return;
-
-        const file = e.target.files[0];
-        const ext = file.name.split('.').pop().toLowerCase();
-
-        sysLog('3D_LOAD: ' + file.name.toUpperCase() + ' (' + (file.size / 1024).toFixed(0) + 'KB)');
-
-        try {
-            await ensure3D();
-        } catch (initErr) {
-            sysLog('3D_INIT_FAIL: ' + (initErr.message || initErr));
-            console.error('3D INIT:', initErr);
-            return;
-        }
-
-        clearModel();
-
-        try {
-            let model;
-            switch (ext) {
-                case 'obj': model = await loadOBJ(file); break;
-                case 'fbx': model = await loadFBX(file); break;
-                case 'stl': model = await loadSTL(file); break;
-                case 'amf': model = await loadAMF(file); break;
-                case 'igs': case 'iges': model = await loadIGES(file); break;
-                default: throw new Error('UNSUPPORTED_FORMAT: ' + ext.toUpperCase());
-            }
-
-            // Validate geometry exists
-            const mc = countMeshes(model);
-            sysLog('3D_PARSED: ' + mc + ' objects');
-
-            // Compute normals for all meshes
-            model.traverse(function(child) {
-                if (child.isMesh && child.geometry) {
-                    if (!child.geometry.attributes.normal) child.geometry.computeVertexNormals();
-                }
-            });
-
-            centerAndScale(model);
-            if (ext !== 'igs' && ext !== 'iges') applyHUDMaterial(model);
-
-            _3D.model = model;
-            _3D.scene.add(model);
-
-            // Ensure camera is aimed at the model
-            _3D.camera.position.set(0, 0, 4);
-            _3D.camera.lookAt(0, 0, 0);
-            _3D.camera.updateProjectionMatrix();
-
-            // P2P Mix-Minus: only render locally when not in an active call
-            if (!(window.APP && window.APP.peer && window.APP.peer.call)) {
-                window.APP.trinity.logo3d.visible = true;
-            }
-
-            // Force immediate render + verify pixels
-            _3D.renderer.render(_3D.scene, _3D.camera);
-            const gl = _3D.renderer.getContext();
-            const pixel = new Uint8Array(4);
-            gl.readPixels(256, 256, 1, 1, gl.RGBA, gl.UNSIGNED_BYTE, pixel);
-            sysLog('3D_LOGO: OK (' + ext.toUpperCase() + ') center_px=[' + pixel[0] + ',' + pixel[1] + ',' + pixel[2] + ',' + pixel[3] + ']');
-
-            if (pixel[3] === 0) sysLog('3D_WARN: CENTER_TRANSPARENT — model may be off-center or too small');
-        } catch (err) {
-            sysLog('3D_ERR: ' + (err.message || err));
-            console.error('3D LOAD ERROR:', err);
-        }
-
-        fileInput3d.value = '';
-    });
-}
-
-if (btn3dX) {
-    btn3dX.addEventListener('click', function() {
-        if (window.APP && window.APP.trinity.logo3d.visible) {
-            window.APP.trinity.logo3d.visible = false;
-            sysLog('3D_LOGO: HIDDEN');
-        } else if (_3D.model) {
-            clearModel();
-            if (window.APP) window.APP.trinity.logo3d.visible = false;
-            sysLog('3D_LOGO: CLEARED');
-        }
-    });
-}
-// --- AUDIO HARDWARE SCAN ENGINE ---
-    // --- HARDWARE SCANNER: COPIED FROM TEST.HTML ---
-(function() {
-    const btnScan = document.getElementById('btn-scan-inputs');
-    const selInput = document.getElementById('audio-input-select');
-
-    if (btnScan) {
-        btnScan.onclick = async function() {
-            try {
-                // 1. PRIME: Request stream to unlock the real hardware names on the Mac
-                const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
-                
-                // 2. ENUMERATE: Now that labels are unlocked, get the real names
-                const devices = await navigator.mediaDevices.enumerateDevices();
-                const audioInputs = devices.filter(d => d.kind === 'audioinput');
-                
-                if (selInput) {
-                    selInput.innerHTML = '<option value="">SELECT_HARDWARE...</option>';
-                    audioInputs.forEach(d => {
-                        const opt = document.createElement('option');
-                        opt.value = d.deviceId;
-                        // This will now show "MacBook Pro Microphone" instead of "Input 1"
-                        opt.text = d.label || 'HARDWARE_INPUT_' + (selInput.length);
-                        selInput.appendChild(opt);
-                    });
-                    
-                    // Reveal the menu now that it has real names
-                    selInput.style.display = 'block'; 
-                    
-                    // 3. CLEANUP: Stop the temp stream so the red recording dot goes away
-                    stream.getTracks().forEach(t => t.stop());
-                    
-                    if (typeof ghostLog === 'function') ghostLog('AUDIO: HARDWARE_LABELS_UNLOCKED', 'ok');
-                }
-            } catch (e) { 
-                if (typeof ghostLog === 'function') ghostLog('SCAN_ERR: ' + e.message, 'crit'); 
-            }
-        };
-    }
-
-})();</script>
-
-    <!-- Sequencer overlay backdrop — must be at body level, NOT inside sidebar.
-         Sidebar has will-change:transform which creates a containing block and
-         traps position:fixed children, preventing true viewport overlay. -->
-
-    <!-- gif-host: DIRECT child of <body>, NOT inside #stage.
-         #stage has transform:translate3d(0,0,0) which creates a containing block for
-         position:fixed children, trapping them inside overflow:hidden.
-         At body level, position:fixed is relative to the viewport. -->
-    <div id="gif-host">
-        <img id="user-logo-layer" alt="Logo">
-    </div>
-
-    <!-- P2P FLOATING PANEL (draggable + minimizable) -->
-    <div id="p2p-modal" style="display:none;position:fixed;top:52px;right:210px;z-index:5000;width:240px;box-sizing:border-box;">
-        <!-- TITLE BAR -->
-        <div id="p2p-titlebar" style="display:flex;align-items:center;justify-content:space-between;padding:6px 10px;cursor:grab;user-select:none;">
-            <span style="font-size:9px;letter-spacing:2px;">&#9632; P2P // SIGNAL</span>
-            <span style="display:flex;gap:8px;align-items:center;">
-                <span id="p2p-dot" class="dot off" style="margin:0;"></span>
-                <button id="btn-min-p2p" style="background:none;border:none;color:rgba(0,243,255,0.45);cursor:pointer;font-size:13px;line-height:1;padding:0;" title="Minimize">&#9604;</button>
-                <button id="btn-close-p2p-modal" style="background:none;border:none;color:rgba(0,243,255,0.45);cursor:pointer;font-size:15px;line-height:1;padding:0;" title="Close">&times;</button>
-            </span>
-        </div>
-        <!-- BODY -->
-        <div id="p2p-body" style="position:relative;padding:10px 10px 12px;box-sizing:border-box;">
-
-            <!-- YOUR CALLSIGN ─────────────────── -->
-            <div class="lbl" style="font-size:7px;letter-spacing:2px;margin-bottom:3px;opacity:0.55;">YOUR_CALLSIGN</div>
-            <input type="text" class="inp" id="peer-id-display" placeholder="TYPE YOUR CALLSIGN..." style="display:block;width:100%;box-sizing:border-box;font-size:9px;text-align:center;color:#00ff88;padding:5px 8px;margin-bottom:4px;" title="Type your callsign then hit INIT">
-            <div style="display:flex;gap:4px;margin-bottom:10px;">
-                <button class="btn" id="btn-copy-id" style="flex:1;text-align:center;color:rgba(0,243,255,0.7);">COPY ID</button>
-                <button class="btn" id="btn-init-peer" style="flex:1;text-align:center;color:#00ff88;">INIT</button>
-            </div>
-
-            <!-- REMOTE ID ──────────────────────── -->
-            <div class="lbl" style="font-size:7px;letter-spacing:2px;margin-bottom:3px;opacity:0.55;">REMOTE_ID</div>
-            <div style="position:relative;margin-bottom:8px;">
-                <input type="text" class="inp" id="remote-peer-id" placeholder="PASTE OR SELECT CONTACT..." style="display:block;width:100%;box-sizing:border-box;font-size:9px;padding:5px 8px;">
-                <!-- Contacts dropdown -->
-                <div id="p2p-contacts-overlay">
-                    <div class="contacts-empty" id="p2p-contacts-empty">NO CONTACTS YET</div>
-                </div>
-            </div>
-
-            <!-- ACTION ROW ─────────────────────── -->
-            <div style="display:flex;gap:4px;margin-bottom:8px;">
-                <button class="btn" id="btn-contacts" style="flex:1;text-align:center;color:rgba(0,243,255,0.6);" title="Recent contacts">BOOK</button>
-                <button class="btn" id="btn-call-guest" style="flex:2;text-align:center;color:#00f3ff;">CALL</button>
-                <button class="btn" id="btn-hangup" style="flex:1;text-align:center;color:#ff4444;border-color:#ff4444;">END</button>
-            </div>
-
-            <div id="call-status" style="font-size:8px;color:rgba(0,243,255,0.4);text-align:center;letter-spacing:1.5px;padding:2px 0;">NOT_CONNECTED</div>
-            <span class="dot off" id="guest-dot" style="display:inline-block;margin-top:5px;"></span>
-
-            <!-- Resize handle -->
-            <div id="p2p-resize" style="position:absolute;bottom:2px;right:2px;width:14px;height:14px;cursor:nwse-resize;opacity:0.35;" title="Resize">
-                <svg width="14" height="14" viewBox="0 0 14 14"><path d="M12 2L2 12M12 6L6 12M12 10L10 12" stroke="#00f3ff" stroke-width="1" fill="none"/></svg>
-            </div>
-        </div>
-    </div>
-
-
-<script>
-/* ═══════════════════════════════════════════════════════════════════════
-   MCR // SIGNAL_CENTRAL  —  Native Speech Engine  v6  (4-Slot Modular)
-   -----------------------------------------------------------------------
-   Signal chain:
-     Browser SpeechRecognition (continuous + interimResults)
-       → EN transcript (primary ear)
-       → 4 configurable SLOTS: OFF / EN / NL / ES / FR / ZH / JA / AR / SCOUSE
-       → Active slots rendered as stacked lines in #vanguard-subtitles
-       → Final results synced to P2P peers via sendUISync
-
-   SCOUSE uses a local dictionary (zero latency, no fetch).
-   AR triggers direction:rtl on its subtitle line.
-   No WebSocket, no Python backend, no localhost dependency.
-   ═══════════════════════════════════════════════════════════════════════ */
-(function () {
-    'use strict';
-
-    var onAir          = false;
-    var recognition    = null;
-    var lastFinal      = '';
-    var _langSwitching = false;   // prevents onend auto-restart during language swap
-
-    /* ── Dialect translation engine — phrase-aware dictionary lookup ───── */
-    // Tries 3-word, then 2-word, then 1-word matches so multi-word idioms
-    // take precedence over individual word substitutions.
-    function translateWithDict(text, dict) {
-        if (!text) return '';
-        var words = text.split(/\s+/);
-        var result = [];
-        var i = 0;
-        while (i < words.length) {
-            var matched = false;
-            // Try 3-word phrase
-            if (i + 2 < words.length) {
-                var three = words[i] + ' ' + words[i+1] + ' ' + words[i+2];
-                if (dict[three]) { result.push(dict[three]); i += 3; matched = true; }
-            }
-            if (!matched && i + 1 < words.length) {
-                var two = words[i] + ' ' + words[i+1];
-                if (dict[two]) { result.push(dict[two]); i += 2; matched = true; }
-            }
-            if (!matched) {
-                result.push(dict[words[i]] || words[i]);
-                i++;
-            }
-        }
-        return result.join(' ');
-    }
-
-    /* ── Scouse dictionary ────────────────────────────────────────────── */
-    var SCOUSE_DICT = {
-        /* ── Multi-word phrases (matched first by translateWithDict) ── */
-        'HOW ARE YOU':'ALRIGHT THERE LA','HOW ARE YA':'ALRIGHT THERE LA',
-        'ARE YOU ALRIGHT':'YER SOUND MATE','YOU ALRIGHT':'YER SOUND MATE',
-        'I AM':'A AM','I AM NOT':'A AM NOT','AM I':'AM A',
-        'YOU ARE':'YER','YOU ARE NOT':'YER NOT','YOU HAVE':'YER HAVE',
-        'ARE YOU':'IS YER','DO YOU':'D YER','HAVE YOU':'AVE YER',
-        'I KNOW':'A KNOW LA','I THINK':'A RECKON','I WANT':'A WANT',
-        'I NEED':'A NEED','I LIKE':'A LIKE','I LOVE':'A LOVE',
-        'I HATE':'A CANT STAND','I SEE':'A SEE LA',
-        'NO PROBLEM':'NO WORRIES LA','OF COURSE':'DEAD CERT',
-        'COME ON':'COME ED','COME HERE':'GERROV ERE',
-        'SHUT UP':'SHUT YER GOB','BE QUIET':'PACK IT IN',
-        'GET OUT':'DO ONE','GET LOST':'DO ONE LA',
-        'WELL DONE':'NICE ONE LA','GOOD JOB':'NICE ONE',
-        'NO WAY':'AS IF LA','COME OFF IT':'YER AVIN A LAUGH',
-        'ARE YOU JOKING':'YER AVIN A LAUGH LA',
-        'ARE YOU SERIOUS':'YER NOT SERIOUS LA',
-        'I CANNOT':'A CANT','I CAN NOT':'A CANT',
-        'I DO NOT':'A DONT','I DON\'T':'A DONT',
-        'DO NOT':'DONT YER','DON\'T':'DONT',
-        'GOOD MORNING':'ALRIGHT LA HOW YER DOIN',
-        'GOOD NIGHT':'TARRAH LA SLEEP WELL',
-        'GOOD LUCK':'ALL THE BEST LA',
-        'TAKE CARE':'LOOK AFTER YERSELF',
-        'SEE YOU':'SEE YER LA','SEE YOU LATER':'SEE YER LATER LA',
-        'WHAT IS':'WHARRIS','WHAT ARE':'WHARRER',
-        'WHAT DO':'WHARRER YER','WHERE IS':'WHERRIZ',
-        'GOING TO':'GONNA','WANT TO':'WANNA','HAVE TO':'AVTA',
-        'NEED TO':'NEED TA','ABLE TO':'ABLE TA',
-        'SORT IT OUT':'SORT IT LA','CALM DOWN':'CALM DOWN WILL YER',
-        'LET ME':'LERRUS','LET US':'LERRUS',
-        'LISTEN TO ME':'AV A LISTEN LA','LOOK AT ME':'LOOK AT US LA',
-        'WHAT THE HELL':'WHARR THE ECK','WHAT THE HECK':'WHARR THE ECK',
-        'OH MY GOD':'OH ME GOD','OH MY GOODNESS':'OH HECK LA',
-        'I SWEAR':'A SWEAR DOWN','TO BE HONEST':'IF AM BEIN HONEST LA',
-        'TO BE FAIR':'T BE FAIR LIKE',
-        'AT THE END OF THE DAY':'AT THE END O THE DAY LIKE',
-        'WHAT A SHAME':'AW WHARR A SHAME','WHAT A PITY':'AW SHAME LA',
-        /* ── Greetings & responses ── */
-        'HELLO':'ALRIGHT LA','HI':'ALRIGHT LA','HEY':'ALRIGHT LA',
-        'GOODBYE':'TARRAH LA','BYE':'TARRAH','SEE YA':'TARRAH LA',
-        'CHEERS':'TA LA','THANKS':'TA VERY MUCH','THANK':'TA',
-        'PLEASE':'GO ON THEN','SORRY':'SORRY LA','APOLOGIES':'SORRY ABOUT THAT LA',
-        'YES':'YEAH LAD','NO':'NAH LAD','SURE':'GO ED','DEFINITELY':'DEAD CERT',
-        'OK':'BOSS LA','FINE':'SOUND','DEAL':'SORTED LA','DONE':'SORTED',
-        'RIGHT':'SOUND','CORRECT':'DEAD RIGHT','EXACTLY':'DEAD RIGHT LA',
-        'MAYBE':'MIGHT DO','PERHAPS':'MIGHT DO LA','POSSIBLY':'COULD DO',
-        'WHATEVER':'WHATEVER LA','OBVIOUSLY':'OBVIOUSLY LIKE',
-        'ANYWAY':'ANYWEH','ACTUALLY':'ACTUALLY LIKE',
-        'BASICALLY':'BASICALLY LIKE','LITERALLY':'LITERALLY DEAD',
-        /* ── People & relationships ── */
-        'FRIEND':'LAD','FRIENDS':'LADS','MATE':'LAD','BUDDY':'LAD','PAL':'LAD',
-        'LADS':'LADS','GUYS':'LADS','PEOPLE':'LADS','EVERYONE':'EVERYONE LA',
-        'MAN':'FELLA','GUY':'FELLA','BLOKE':'FELLA','GENTLEMAN':'FELLA',
-        'WOMAN':'BIRD','GIRL':'BIRD','LADY':'BIRD','LADIES':'BIRDS',
-        'BOYFRIEND':'ME FELLA','GIRLFRIEND':'ME BIRD',
-        'WIFE':'THE MISSUS','HUSBAND':'THE FELLA',
-        'PARTNER':'OTHER ALF','LOVER':'BIRD',
-        'MUM':'ME MAM','MOM':'ME MAM','MOTHER':'ME MAM','MAMA':'ME MAM',
-        'DAD':'ME DAD','FATHER':'ME DAD','PAPA':'ME DAD',
-        'BABY':'BABA','INFANT':'BABA','TODDLER':'BABA',
-        'CHILD':'KIDDA','KID':'KIDDA','CHILDREN':'KIDDAS','KIDS':'KIDDAS',
-        'BROTHER':'OUR KID','SISTER':'OUR KID','SIBLING':'OUR KID',
-        'GRANDMOTHER':'NANA','GRANDMA':'NANA','GRANNY':'NANA',
-        'GRANDFATHER':'GRANDAD','GRANDPA':'GRANDAD',
-        'UNCLE':'UNCLE LA','AUNT':'AUNTIE',
-        'COUSIN':'CUZZY','NEIGHBOUR':'NEXT DOOR',
-        'BOSS':'GAFFER','MANAGER':'GAFFER','TEACHER':'SIR','PROFESSOR':'PROF',
-        'POLICE':'BIZZIES','COP':'BIZZY','COPS':'BIZZIES','OFFICER':'BIZZY',
-        'DOCTOR':'DOC','NURSE':'NURSEY','STRANGER':'SOME FELLA',
-        'LIAR':'WOOL','COWARD':'WOOL','OUTSIDER':'WOOL',
-        /* ── Body parts ── */
-        'HEAD':'ED','FACE':'GRID','MOUTH':'GOB','NOSE':'CONK',
-        'EYES':'MINCERS','EYE':'MINCER','EARS':'LUGOLES','EAR':'LUGOLE',
-        'HANDS':'MITTS','HAND':'MITT','FEET':'PLATES','FOOT':'PLATE',
-        'STOMACH':'BELLY','BOTTOM':'BACKSIDE','HAIR':'BARNET',
-        'TEETH':'GNASHERS','TOOTH':'GNASHER',
-        /* ── Emotions & states ── */
-        'GOOD':'BOSS','GREAT':'BOSS','COOL':'SOUND','NICE':'SOUND',
-        'PERFECT':'BOSS','EXCELLENT':'BELTER','AMAZING':'BELTER',
-        'BRILLIANT':'BELTER','FANTASTIC':'CLASS','WONDERFUL':'CLASS',
-        'OUTSTANDING':'PROPER CLASS','IMPRESSIVE':'DEAD IMPRESSIVE',
-        'LOVELY':'GORGEOUS LA','GORGEOUS':'GORGEOUS LA',
-        'BEAUTIFUL':'GORGEOUS LA','HANDSOME':'BOSS LOOKING',
-        'ATTRACTIVE':'WELL FIT','FIT':'WELL FIT',
-        'HAPPY':'MADE UP','EXCITED':'BUZZING','PLEASED':'MADE UP',
-        'DELIGHTED':'MADE UP','THRILLED':'ABSOLUTELY BUZZING',
-        'SURPRISED':'MADE UP','SHOCKED':'GOBSMACKED','STUNNED':'GOBSMACKED',
-        'LUCKY':'JAMMY','FORTUNATE':'JAMMY',
-        'ANGRY':'FUMING','MAD':'FUMING','ANNOYED':'FUMING',
-        'FURIOUS':'PROPER FUMING','LIVID':'PURE FUMING',
-        'UPSET':'IN BITS','SAD':'IN BITS','DEPRESSED':'IN BITS LA',
-        'CRYING':'BLARTIN','CRY':'HAVE A BLART','WEEP':'HAVE A BLART',
-        'NERVOUS':'BRICKIN IT','SCARED':'BRICKIN IT','WORRIED':'BRICKIN IT',
-        'ANXIOUS':'BRICKIN IT','FRIGHTENED':'BRICKIN IT',
-        'EMBARRASSED':'SHOWING MESELF UP','ASHAMED':'SHOWING MESELF UP',
-        'TIRED':'KNACKERED','EXHAUSTED':'CREAM CRACKERED',
-        'SLEEPY':'DEAD TIRED','BORED':'DEAD BORED',
-        'DRUNK':'RATARSED','TIPSY':'HALF CUT','HUNGOVER':'HANGING',
-        'VERY':'DEAD','REALLY':'DEAD','ABSOLUTELY':'DEAD',
-        'EXTREMELY':'PROPER','INCREDIBLY':'DEAD','TOTALLY':'PROPER',
-        'QUITE':'PROPER','RATHER':'DEAD','FAIRLY':'DECENTISH',
-        'SICK':'MINGING','ILL':'PROPER ILL','POORLY':'PROPER ILL',
-        'UNWELL':'UNDER THE WEATHER','DISGUSTING':'MINGIN',
-        'BAD':'MINGING','AWFUL':'MINGING','TERRIBLE':'MINGING',
-        'RUBBISH':'GRIM','AWFUL':'MINGING','PATHETIC':'GRIM',
-        'UGLY':'MINGING','WRONG':'MINGING','HORRIBLE':'MINGING',
-        'CRAZY':'BARMEY','WEIRD':'BARMEY','STRANGE':'BARMEY',
-        'MENTAL':'BARMEY LA','INSANE':'PROPER BARMEY',
-        'BORING':'DEAD BORIN','FUNNY':'DEAD FUNNY',
-        'HILARIOUS':'DEAD FUNNY LA','INTERESTING':'QUALITY',
-        'CLEVER':'CLEVER CLOGS','SMART':'CLEVER CLOGS',
-        'STUPID':'DIVVY','IDIOT':'DIVVY','FOOL':'DIVVY',
-        'MORON':'DIVVY LA','NUMPTY':'DIVVY','DAFT':'DIVVY',
-        'HONEST':'STRAIGHT UP','GENUINE':'DEAD GENUINE',
-        'FAST':'PROPER QUICK','QUICK':'SWIFTY','SLOW':'DEAD SLOW',
-        'HOT':'BOILING LA','WARM':'ROASTIN','COLD':'FREEZING LA',
-        'FREEZING':'BALTIC','CHILLY':'BITTER OUT',
-        'BROKEN':'BRASSIC','POOR':'BRASSIC','SKINT':'SKINT AS',
-        'RICH':'LOADSAMONEY','WEALTHY':'WELL MINTED','MINTED':'WELL MINTED',
-        'LUCKY':'JAMMY','UNLUCKY':'PROPER UNLUCKY LA',
-        /* ── Actions ── */
-        'RUN':'LEG IT','RUNNING':'LEGGIN IT','SPRINT':'PROPER LEG IT',
-        'WALK':'MOSEY','WALKING':'MOSEYIN','STROLL':'BIMBLE',
-        'LEAVE':'DO ONE','ESCAPE':'DO ONE','FLEE':'LEG IT',
-        'GO':'GET GONE','COME':'GERRIN','ARRIVE':'FETCH UP',
-        'THROW':'LOB','TOSS':'LOB','HIT':'LAMP','PUNCH':'LAMP',
-        'KICK':'BOOT','PUSH':'SHOVE','PULL':'YANK',
-        'LAUGH':'AVE THE CRACK','SMILE':'GIVE US A GRIN',
-        'FIGHT':'SCRAP','FIGHTING':'SCRAPPING','BATTLE':'PROPER SCRAP',
-        'ARGUE':'AVE A BARNEY','ARGUING':'AVIN A BARNEY',
-        'STEAL':'BLAG','STOLE':'BLAGGED','ROB':'BLAG',
-        'TALK':'GOB OFF','TALKING':'GOBBIN OFF','SPEAK':'GOB OFF',
-        'SHOUT':'KICK OFF','SHOUTING':'KICKIN OFF',
-        'WHISPER':'GERRIN CLOSE LA','SING':'BELT IT OUT',
-        'EAT':'AVE SCRAN','EATING':'AVIN SCRAN',
-        'DRINK':'AVE A BEVVY','DRINKING':'AVIN A BEVVY',
-        'SMOKE':'AVE A CIGGY','WAIT':'HANG ON LA',
-        'HURRY':'GERRON','RUSH':'PROPER HURRY','STOP':'PACK IT IN',
-        'START':'GERRON WITH IT','BEGIN':'CRACK ON',
-        'LOOK':'AV A GANDER','LOOKING':'AVIN A GANDER','SEE':'CLOCK',
-        'WATCH':'KEEP AN EYE ON','LISTEN':'AVE A LISTEN',
-        'HEAR':'CLOCK THAT','FEEL':'GET A SENSE OF',
-        'THINK':'RECKON','BELIEVE':'RECKON','KNOW':'KNOW LIKE',
-        'UNDERSTAND':'GET ME','UNDERSTOOD':'GOT ME','LEARN':'GET THE HANG OF',
-        'REMEMBER':'KEEP IN MIND','FORGET':'FORGET ABOUT IT',
-        'WORK':'GRAFT','WORKING':'GRAFTIN','GRAFT':'GRAFT',
-        'SLEEP':'AVE A KIP','SLEEPING':'AVIN A KIP',
-        'WAKE':'WAKE YERSELF UP','PLAY':'AVE A GAME',
-        'WIN':'SMASH IT','LOSE':'GET DONE','TRY':'AVE A GO',
-        'HELP':'GIVE US A HAND','GIVE':'GERRIT','TAKE':'GRAB',
-        'BUY':'GERRIN','SELL':'SHIFT','PAY':'SORT','SPEND':'LAY OUT',
-        'CALL':'BELL','PHONE':'BLOWER','TEXT':'SEND A MESSAGE',
-        'VISIT':'POP ROUND','STAY':'STOP ROUND','LIVE':'STOP',
-        'MOVE':'DO ONE','CHANGE':'SWITCH UP','FIX':'SORT',
-        'BREAK':'SMASH','CLEAN':'DO A CLEAN UP','COOK':'DO A COOK UP',
-        'DRIVE':'BRUM','PARK':'STICK IT',
-        /* ── Things & places ── */
-        'FOOD':'SCRAN','MEAL':'SCRAN','DINNER':'TEA','LUNCH':'DINNER',
-        'BREAKFAST':'BRECKY','SNACK':'LITTLE SCRAN',
-        'COFFEE':'BREW','TEA':'BREW','CUP':'CUPPA','MUG':'MUGGA',
-        'BEER':'BEVVY','WINE':'VINO','ALCOHOL':'BEVVY',
-        'PUB':'BOOZER','BAR':'BOOZER','CLUB':'JOINT','PARTY':'DO',
-        'SANDWICH':'BUTTY','ROLL':'BUTTY','BAGUETTE':'BUTTY',
-        'CHIP':'CHIP','CHIPS':'CHIPS','CURRY':'CURRY LA',
-        'CHOCOLATE':'CHOCCY','SWEET':'SWEETIE','CAKE':'CAKE LA',
-        'MONEY':'DOSH','CASH':'DOSH','COINS':'COPPERS',
-        'POUND':'QUID','POUNDS':'QUID','PENNY':'COP','PENCE':'COPPERS',
-        'HOUSE':'GAFF','HOME':'GAFF','FLAT':'FLAT','APARTMENT':'FLAT',
-        'ROOM':'ROOM LA','KITCHEN':'THE BACK','GARDEN':'THE BACK',
-        'STREET':'THE STREET','ROAD':'JIGGER','ALLEY':'JIGGER',
-        'TOILET':'LAVVY','BATHROOM':'LAVVY','SHOWER':'SHOWER LA',
-        'TELEVISION':'TELLY','TV':'TELLY','RADIO':'WIRELESS',
-        'PHONE':'BLOWER','MOBILE':'MOBIE','COMPUTER':'PUTER',
-        'INTERNET':'THE WEB','MUSIC':'TUNES','SONG':'TUNE',
-        'CAR':'JAM JAR','VAN':'VAN LA','BIKE':'BICY',
-        'BUS':'BUSSY','TAXI':'HACKY','TRAIN':'RATTLER',
-        'AIRPORT':'AIRPORT LA','STATION':'STATION LA',
-        'SHOP':'THE SHOP','STORE':'THE SHOP',
-        'SUPERMARKET':'THE MESSAGES','SHOPPING':'THE MESSAGES',
-        'MARKET':'THE MARKET','CLOTHES':'CLOBBER',
-        'JACKET':'CLOBBER','COAT':'KECKS','SHIRT':'KECKS',
-        'TROUSERS':'KECKS','JEANS':'JEANS LA','SHORTS':'KEKS',
-        'SHOES':'TRABS','TRAINERS':'TRABS','BOOTS':'TRABS',
-        'SOCKS':'SOCKS LA','HAT':'BENNY',
-        'SCHOOL':'SCOOL','UNIVERSITY':'UNI','COLLEGE':'COLLEGE LA',
-        'WORK':'GRAFT','JOB':'GRAFT','CAREER':'GRAFT',
-        'HOSPITAL':'THE OZZY','DOCTOR':'THE DOC',
-        'CHURCH':'CHAPEL','PARK':'THE PARK LA',
-        'BEACH':'THE BEACH','RIVER':'THE RIVER',
-        'CITY':'THE CITY','TOWN':'TOWN','LIVERPOOL':'POOL',
-        'FOOTBALL':'FOOTY','GOAL':'GOAL LA','MATCH':'GAME',
-        'TEAM':'TEAM LA','PLAYER':'PLAYER LA',
-        'MUSIC':'TUNES','CONCERT':'GIG','FESTIVAL':'FESTIE',
-        /* ── Common Scouse expressions ── */
-        'WHAT':'WHA','NOTHING':'NOWT','SOMETHING':'SUMMAT','ANYTHING':'OWT',
-        'EVERYTHING':'EVERYTHIN','EVERYONE':'EVERYONE LA',
-        'SOMEWHERE':'SOMEWHERE LA','NOWHERE':'NOWHERE LA',
-        'LITTLE':'LITTL\'UN','BIG':'MASSIVE','LARGE':'MASSIVE',
-        'SMALL':'TITCHY','TINY':'TITCHY',
-        'OLD':'OLD LIKE','YOUNG':'YOUNG LIKE','NEW':'BRAND NEW',
-        'LONG':'WELL LONG','SHORT':'WELL SHORT',
-        'FULL':'STUFFED','EMPTY':'EMPTY LA',
-        'OPEN':'OPEN','SHUT':'SHUTTERED',
-        'HERE':'ERE','THERE':'OVER THERE','WHERE':'WHERE LA',
-        'NOW':'RIGHT NOW','THEN':'THEN LA','WHEN':'WHEN LA',
-        'TODAY':'TODAY LA','TOMORROW':'TOMORRER','YESTERDAY':'YESTY',
-        'MORNING':'MORNIN','AFTERNOON':'ARVO','EVENING':'EVENIN',
-        'NIGHT':'NIGH','WEEK':'WEEK LA','MONTH':'MONTH LA','YEAR':'YEAR LA',
-        'ALWAYS':'ALWAYS LA','NEVER':'NEVER EVER','SOMETIMES':'SOMETIMES LIKE',
-        'OFTEN':'LOADS','EVERY':'EVERY LA',
-        'WITH':'WID','WITHOUT':'WITHOUT LA','ABOUT':'ABOUT LA',
-        'BECAUSE':'COZZ','SINCE':'SINCE LIKE','ALTHOUGH':'EVEN THOUGH',
-        'BUT':'BUT LIKE','AND':'AND LA','OR':'OR LA',
-        'IF':'IF LIKE','WHILE':'WHILE LIKE',
-        'PROBLEM':'MARE','TROUBLE':'MARE','ISSUE':'MARE LA',
-        'MESS':'RIGHT MESS','DISASTER':'ABSOLUTE MARE',
-        'EASY':'SIMPLE AS','HARD':'PROPER ARD','DIFFICULT':'PROPER ARD',
-        'CHANCE':'SHOT','OPPORTUNITY':'CHANCE LA',
-        'IDEA':'IDEA LA','PLAN':'PLAN LA',
-        'TRUE':'REAL TALK','FALSE':'BALLS','LIE':'TELL A PORKY',
-        'SERIOUS':'STRAIGHT UP','IMPORTANT':'PROPER IMPORTANT',
-        'SPECIAL':'WELL SPECIAL','RARE':'WELL RARE',
-        'NORMAL':'NORMAL LIKE','COMMON':'DEAD COMMON',
-        'PRIVATE':'PRIVATE LIKE','SECRET':'BETWEEN YOU AND ME LA',
-        'FAMOUS':'WELL KNOWN','POPULAR':'DEAD POPULAR',
-        'POWER':'CLOUT','STRENGTH':'MUSCLE',
-        'LOVE':'LOVE YER LA','HATE':'CANT STAND',
-        'RESPECT':'PROPER RESPECT','TRUST':'TRUST LA',
-        /* ── Liverpool-specific expressions ── */
-        'LEGEND':'ABSOLUTE LEGEND LA','HERO':'PROPER HERO',
-        'BRILLIANT':'BELTER','CLASS':'CLASS LA','QUALITY':'QUALITY',
-        'MARVELLOUS':'PROPER BOSS','SUPERB':'BOSS THAT LA',
-        'TERRIBLE':'SHOCKIN','DREADFUL':'SHOCKIN LA',
-        'DISASTER':'MARE','CATASTROPHE':'ABSOLUTE MARE',
-        'NONSENSE':'GOBSHITE','RUBBISH':'GUFF',
-        'EXCUSE':'BLAG','BLUFF':'BLAG','LIE':'BLAG',
-        'COMPLAIN':'MOAN','MOANING':'MOANIN ON',
-        'GOSSIP':'SCUTTLE','RUMOUR':'SCUTTLE LA',
-        'LAUGH':'AVE THE CRACK','FUN':'THE CRACK','BANTER':'THE CRACK',
-        'JOKE':'HAVIN A LAUGH','PRANK':'WINDUP',
-        'CELEBRATE':'AVE A DO','PARTY':'DO',
-        'TOGETHER':'ALL TOGETHER LA','ALONE':'ON YER OWN',
-        'HOME':'GAFF','AWAY':'OVER THERE'
-    };
-
-    function toScouse(text) {
-        if (!text) return '';
-        return translateWithDict(text.toUpperCase(), SCOUSE_DICT);
-    }
-
-    /* ── Napoletano (Neapolitan dialect) dictionary ───────────────────── */
-    /* Neapolitan is a full Romance language spoken in Naples and Campania.
-       Key features: 'O/'A/'E as articles, dropped final vowels, ND→NN,
-       MB→MM, double consonants, unique vocabulary from Greek/Spanish/Arabic. */
-    var NAP_DICT = {
-        /* ── Multi-word phrases ── */
-        'HOW ARE YOU':'COMM\' STAJE','ARE YOU WELL':'STAJE BUONO',
-        'GOOD MORNING':'BUONGIORNO','GOOD AFTERNOON':'BUONPOMERIGGIO',
-        'GOOD EVENING':'BONASERA','GOOD NIGHT':'BUONANOTTE',
-        'THANK YOU':'GRAZIE ASSAJE','THANK YOU VERY MUCH':'GRAZIE MILLE',
-        'YOU ARE WELCOME':'PREGO','HOW BEAUTIFUL':'CHE BELLEZZA',
-        'MY LOVE':'AMMORE MIO','MY HEART':'CORE MIO',
-        'OH GOD':'MANNAGGIA','OH MY GOD':'MANNAGGIA A MAMMETA',
-        'COME HERE':'VIENI CCA','GET OUT':'LEVATE A MMIEZO',
-        'WHAT ARE YOU DOING':'CHE STAJE FACENNO',
-        'I DO NOT KNOW':'NON SACCIO','I KNOW':'SACCIO',
-        'I WANT':'VOGLIO','I NEED':'ME SERVE',
-        'I AM HUNGRY':'HO FAMME','I AM THIRSTY':'HO SETE',
-        'I AM TIRED':'SO\' STANCO MUORTO','I AM HAPPY':'SO\' CUNTENTO',
-        'I AM ANGRY':'SO\' ARRABIATO','I AM SCARED':'HO PAURA',
-        'I LOVE YOU':'TE VOGLIO BENE','I MISS YOU':'ME MANCHI',
-        'BE CAREFUL':'STATTE ATTIENTO','HURRY UP':'SBRIGATE',
-        'NO WAY':'MANCO PE\' NIENTE','OF COURSE':'CERTAMENTE',
-        'WHAT A MESS':'CHE CASINO','WHAT A PITY':'CHE PECCATO',
-        'SO MUCH':'ASSAJE ASSAJE','A LOT':'N\'SACCO',
-        'FOR REAL':'PE\' DAVERO','ARE YOU SERIOUS':'SUL SERIO',
-        'WELL DONE':'BRAVO','SHUT UP':'TAZZE T\' A BOCCA',
-        'GO AWAY':'LEVATE','LEAVE ME ALONE':'LASSAME STARE',
-        'HOW MUCH':'QUANTO COSTA','HOW MANY':'QUANTA NNE VVUO\'',
-        'WHAT IS YOUR NAME':'COMM\' TE CHIAME',
-        'WHERE ARE YOU FROM':'ADDÒ VIENE',
-        'WHERE IS IT':'ADDÒ STA','WHERE ARE YOU':'ADDÒ STAJE',
-        'WHAT TIME IS IT':'CHE ORE SONO',
-        /* ── Greetings ── */
-        'HELLO':'AJÒ','HI':'AJÒ','HEY':'AJÒ','YO':'AJÒ',
-        'BYE':'AJÒ','GOODBYE':'ARRIVEDERCI','FAREWELL':'ADDIÒ',
-        'SEE YOU':'A PRESTO','LATER':'DOPPO','SOON':'SUBETO',
-        'THANKS':'GRAZIE','THANK':'GRAZIE',
-        'PLEASE':'PE PIACERE','SORRY':'SCUSAME',
-        'EXCUSE ME':'PERMESSO','PARDON':'SCUSATE',
-        'YES':'SÌ','NO':'NÒ','MAYBE':'FORZE','SURE':'CERTAMENTE',
-        'OK':'VA BUONO','FINE':'TUTTO BENE','AGREED':'D\'ACCORDO',
-        'WELCOME':'BENVENUTO','CHEERS':'SALUTE',
-        /* ── People & family ── */
-        'BOY':'GUAGLIONE','GIRL':'GUAGLIUNCELLA',
-        'BOYS':'GUAGLIUNE','GIRLS':'GUAGLIUNCELLE',
-        'CHILD':'PICCERILLO','CHILDREN':'PICCERILLI','BABY':'BAMBINO',
-        'MAN':'OMO','WOMAN':'FEMMENA','MEN':'UOMMENE','WOMEN':'FEMMENE',
-        'PERSON':'PERSONA','PEOPLE':'GENTE',
-        'YOUNG':'GIOVANE','OLD MAN':'VECCHIO','OLD WOMAN':'VECCHIA',
-        'MOTHER':'MAMMETA','MUM':'MAMMA','MOM':'MAMMA',
-        'FATHER':'TATÀ','DAD':'PAPÀ','POP':'TATÀ',
-        'BROTHER':'FRATEMO','SISTER':'SIEREMA',
-        'GRANDMOTHER':'NONNA','GRANDFATHER':'NONNO',
-        'AUNT':'ZIA','UNCLE':'ZIO','COUSIN':'CUGINO',
-        'SON':'FIGLIO','DAUGHTER':'FIGLIA',
-        'HUSBAND':'MARITO','WIFE':'MOGLIERA',
-        'BOYFRIEND':'FIDANZATO','GIRLFRIEND':'FIDANZATA',
-        'FRIEND':'AMICO MIO','FRIENDS':'AMICI','PAL':'COMPAGNO',
-        'ENEMY':'NEMICO','NEIGHBOUR':'VICINO DI CASA',
-        'BOSS':'PADRONE','CHIEF':'CAPPO',
-        'KING':'RE','QUEEN':'REGINA','SAINT':'SANTO',
-        /* ── Body ── */
-        'HEAD':'CAPO','FACE':'FACCIA','EYES':'UOCCHIE','EYE':'UOCCHIO',
-        'MOUTH':'VOCCA','NOSE':'NASO','EAR':'RECCHIA','EARS':'RECCHIE',
-        'HAND':'MANO','HANDS':'MMANE','FOOT':'PIEDE','FEET':'PIEDE',
-        'HEART':'CORE','SOUL':'ANEMA','BODY':'CUORPO',
-        'HAIR':'CAPILLE','TEETH':'DIENTE','BLOOD':'SANGHE',
-        /* ── Emotions & qualities ── */
-        'GOOD':'BUONO','GREAT':'ASSAJE BUONO','EXCELLENT':'MAGNIFICO',
-        'WONDERFUL':'MERAVIGLIOSO','FANTASTIC':'FANTASTICO',
-        'BEAUTIFUL':'BELLISSIMO','UGLY':'BRUTTO',
-        'HANDSOME':'BELLO E BUONO','PRETTY':'CARINO',
-        'HAPPY':'CUNTENTO','JOY':'ALLEGRIA','LOVE':'AMMORE',
-        'SAD':'MALANCUNICO','MELANCHOLY':'MALINCONICO',
-        'ANGRY':'ARRABIATO','RAGE':'RABBIA','FURY':'FURORE',
-        'SCARED':'SPAVENTATO','FEAR':'PAURA',
-        'NERVOUS':'NERVOSO','WORRIED':'PREOCCUPATO',
-        'PROUD':'ORGOGLIOSO','SHAME':'VERGOGNA',
-        'JEALOUS':'GELOSO','ENVY':'MMIRIA',
-        'TIRED':'STANCO MUORTO','EXHAUSTED':'SFIANCATO',
-        'SICK':'MALATO','ILL':'MUORTO E AMMAZZATO',
-        'DRUNK':'MBRIACO','HUNGOVER':'APPESANTITO',
-        'CRAZY':'PAZZO','MAD':'PAZZARELLO','FOOLISH':'SCEMO',
-        'LAZY':'PIGRO','SERIOUS':'SERIO',
-        'STUPID':'CIUCCIO','IDIOT':'FESSO','FOOL':'CRETINO',
-        'SMART':'INTELLIGENTE','WISE':'SAGGIO',
-        'STRONG':'FORTE','WEAK':'DEBOLE',
-        'VERY':'ASSAJE','REALLY':'VERAMENTE','EXTREMELY':'TROPPO',
-        'TOO MUCH':'ASSAJE TROPPO','ENOUGH':'ABBASTANZA',
-        'LITTLE':'POCO','MUCH':'ASSAJE','MANY':'TANTE',
-        'ALL':'TUTTO','NOTHING':'NIENTE','SOME':'N\'PO\'',
-        /* ── Actions ── */
-        'EAT':'MAGNÀ','EATING':'STAJE MAGNANNE','ATE':'AVE MAGNATO',
-        'DRINK':'BEVÌ','DRINKING':'STAJE BEVENNO',
-        'COOK':'CUCENÀ','COOKING':'STAJE CUCENANNE',
-        'COME':'VENE','COMING':'STAJE VENNENNO','CAME':'SONGO VENUTO',
-        'GO':'JÀ','GOING':'STAJE JENNNO','WENT':'SO GHIUTO',
-        'RUN':'SCAPPA','RUNNING':'STAJE SCAPPENNO',
-        'WALK':'CAMMINA','WALKING':'STAJE CAMMINANNO',
-        'STOP':'FERMATE','WAIT':'ASPETTA','HURRY':'SBRIGATE',
-        'SPEAK':'PARLA','TALK':'PARRÀ','SHOUT':'ZUCA',
-        'LISTEN':'SENTE','HEAR':'ASCOLTA','UNDERSTAND':'CAPISCE',
-        'SEE':'VEDE','LOOK':'GUARDA','WATCH':'TENE UOCCHIO',
-        'KNOW':'SACCIO','THINK':'PENZO','BELIEVE':'CRERE',
-        'WANT':'VOGLIO','NEED':'ME SERVE','LIKE':'ME PIACE',
-        'LOVE':'AMO','HATE':'ODIO','MISS':'ME MANCHI',
-        'WORK':'FATICÀ','REST':'RIPOSA','SLEEP':'DORMI',
-        'WAKE':'SVEGLIETE','PLAY':'GIOCA','SING':'CANTA','DANCE':'VALLA',
-        'WRITE':'SCRIVE','READ':'LEGGE','STUDY':'STUDIA',
-        'BUY':'ACCATTA','SELL':'VENDE','PAY':'PAGA',
-        'GIVE':'DA','TAKE':'PIGGLIA','BRING':'PORTA',
-        'OPEN':'APRE','CLOSE':'CHIUDE','BREAK':'ROMPE',
-        'HELP':'AIUTA','FIGHT':'LITIGÀ','LAUGH':'RIDE',
-        'CRY':'CHIAGNE','SMILE':'SORRIRE','KISS':'VASA',
-        'HUG':'ABBRACCIA','PUSH':'SPIGNE','PULL':'TIRA',
-        'THROW':'LANZA','HIT':'BATTE','KICK':'CALCIA',
-        'WIN':'VINCE','LOSE':'PERDE','TRY':'PROVA',
-        'ARRIVE':'ARRIVA','LEAVE':'PARTE','RETURN':'TORNA',
-        'START':'INIZIA','FINISH':'FINISCE','CONTINUE':'CONTINUA',
-        /* ── Things & places ── */
-        'FOOD':'ROBA DA MAGNÀ','MEAL':'PASTO','BREAD':'PANE',
-        'PIZZA':'PIZZA A VERACE','PASTA':'PASTA','RICE':'RISO',
-        'FISH':'PESCE','MEAT':'CARNE','VEGETABLE':'VERDURA',
-        'FRUIT':'FRUTTA','TOMATO':'PUMMAROLA','GARLIC':'AGLIO',
-        'OIL':'UOGLIO','SALT':'SALE','CHEESE':'FORMAGGIO',
-        'MOZZARELLA':'MOZZARELLA','RAGÙ':'RAGÙ O\'NAPOLETANO',
-        'COFFEE':'CAFÈ','ESPRESSO':'CAFÈ ESPRESSO',
-        'WATER':'ACQUA','WINE':'VINO','BEER':'BIRRA','MILK':'LATTE',
-        'MONEY':'SOLDE','COIN':'MONETA','PRICE':'PREZZO',
-        'HOUSE':'CASA','HOME':'CASA MIA','APARTMENT':'APPARTAMENTO',
-        'ROOM':'CAMERA','KITCHEN':'CUCINA','BATHROOM':'BAGNO',
-        'STREET':'STRÀ','ROAD':'VIA','ALLEY':'VICO','SQUARE':'PIAZZA',
-        'MARKET':'MERCATO','SHOP':'NEGOZIO','BAR':'BARO',
-        'CHURCH':'CHIESA','MUSEUM':'MUSEO',
-        'PORT':'PORTO','SEA':'MARE','BEACH':'SPIAGGIA','ISLAND':'ISOLA',
-        'MOUNTAIN':'MUNTAGNA','VOLCANO':'VESUVIO','SUN':'SOLE',
-        'MOON':'LUNA','STAR':'STELLA','SKY':'CIELO',
-        'RAIN':'PIOGGIA','WIND':'VENTO','SNOW':'NEVE',
-        'DAY':'JUORNO','NIGHT':'NOTTE','MORNING':'MATINA',
-        'AFTERNOON':'POMERIGGIO','EVENING':'SERA',
-        'TODAY':'OGGI','TOMORROW':'DIMANE','YESTERDAY':'IERI',
-        'TIME':'TIEMPO','HOUR':'ORA','MINUTE':'MINUTO',
-        'WEEK':'SETTIMANA','MONTH':'MESE','YEAR':'ANNO',
-        'POLICE':'GUARDIE','CARABINIERI':'CARABINIERE',
-        'DOCTOR':'MEDICO','HOSPITAL':'OSPEDALE',
-        'SCHOOL':'SCOLA','UNIVERSITY':'UNIVERSITÀ',
-        'WORK':'FATIGA','JOB':'LAVORO',
-        'SONG':'CANZONE','MUSIC':'MUSICA','DANCE':'BALLO',
-        'FOOTBALL':'CALCIO','SPORT':'SPORT',
-        'CAR':'MACCHINA','BUS':'AUTOBUS','TRAIN':'TRENO',
-        'TELEPHONE':'TELEFONO','TELEVISION':'TELEVISIONE',
-        'MONEY':'SOLDE','BANK':'BANCA',
-        /* ── Strong Neapolitan expressions ── */
-        'WOW':'UAGLIÒ','DAMN':'MANNAGGIA','HELL':'MALEDIZIONE',
-        'PROBLEM':'GUAIO','TROUBLE':'CASINO','MESS':'CASINO',
-        'LUCK':'FORTUNA','UNLUCKY':'SFIGATO',
-        'FATE':'DESTINO','DESTINY':'FATO',
-        'BLOOD':'SANGHE','HONOUR':'ONORE','FAMILY':'FAMIGLIA',
-        'RESPECT':'RISPETTO','DIGNITY':'DIGNITÀ',
-        'LIFE':'VITA','DEATH':'MORTE','GOD':'DDIO',
-        'MADONNA':'MADONNA','SAINT':'SANTO',
-        'NAPLES':'NAPULE','NEAPOLITAN':'NAPOLETANO',
-        'BEAUTIFUL NAPLES':'NAPULE BELLA','THE CITY':'A CITÀ',
-        /* ── Italian-source keys (spoken Italian → Neapolitan) ── */
-        'CIAO':'AJÒ','SALVE':'AJÒ','ARRIVEDERCI':'ARRIVEDERCI',
-        'BUONGIORNO':'BUONGIORNO','BUONASERA':'BONASERA','BUONANOTTE':'BUONANOTTE',
-        'GRAZIE':'GRAZIE ASSAJE','PREGO':'PREGO','SCUSA':'SCUSAME',
-        'PER FAVORE':'PE PIACERE','PER PIACERE':'PE PIACERE',
-        'SÌ':'SÌ','NO':'NÒ','FORSE':'FORZE','CERTO':'CERTAMENTE',
-        'RAGAZZO':'GUAGLIONE','RAGAZZA':'GUAGLIUNCELLA',
-        'BAMBINO':'PICCERILLO','BAMBINA':'PICCERELLA',
-        'UOMO':'OMO','DONNA':'FEMMENA','PERSONA':'PERSONA',
-        'MADRE':'MAMMETA','MAMMA':'MAMMA','PADRE':'TATÀ','PAPÀ':'TATÀ',
-        'FRATELLO':'FRATEMO','SORELLA':'SIEREMA',
-        'NONNA':'NONNA','NONNO':'NONNO','ZIA':'ZIA','ZIO':'ZIO',
-        'MARITO':'MARITO','MOGLIE':'MOGLIERA',
-        'AMICO':'AMICO MIO','AMICI':'AMICI',
-        'TESTA':'CAPO','FACCIA':'FACCIA','OCCHIO':'UOCCHIO','OCCHI':'UOCCHIE',
-        'BOCCA':'VOCCA','NASO':'NASO','MANO':'MANO','MANI':'MMANE',
-        'CUORE':'CORE','ANIMA':'ANEMA',
-        'BUONO':'BUONO','BELLO':'BELLISSIMO','BRUTTO':'BRUTTO',
-        'FELICE':'CUNTENTO','TRISTE':'MALANCUNICO','ARRABBIATO':'ARRABIATO',
-        'STANCO':'STANCO MUORTO','UBRIACO':'MBRIACO','PAZZO':'PAZZO',
-        'MOLTO':'ASSAJE','TANTO':'N\'SACCO','POCO':'N\'PO\'',
-        'TUTTO':'TUTTO','NIENTE':'NIENTE','QUALCOSA':'QUACOSA',
-        'MANGIARE':'MAGNÀ','BERE':'BEVÌ','PARLARE':'PARLA',
-        'ANDARE':'JÀ','VENIRE':'VENE','CORRERE':'SCAPPA',
-        'ASPETTARE':'ASPETTA','LAVORARE':'FATICÀ','DORMIRE':'DORMI',
-        'SAPERE':'SACCIO','VOLERE':'VOGLIO','CAPIRE':'CAPISCE',
-        'GUARDARE':'GUARDA','SENTIRE':'SENTE',
-        'CIBO':'ROBA DA MAGNÀ','PANE':'PANE','PIZZA':'PIZZA A VERACE',
-        'PASTA':'PASTA','PESCE':'PESCE','CARNE':'CARNE',
-        'CAFFÈ':'CAFÈ','ACQUA':'ACQUA','VINO':'VINO','BIRRA':'BIRRA',
-        'SOLDI':'SOLDE','CASA':'CASA','STRADA':'STRÀ',
-        'MARE':'MARE','SOLE':'SOLE','GIORNO':'JUORNO','NOTTE':'NOTTE',
-        'OGGI':'OGGI','DOMANI':'DIMANE','IERI':'IERI',
-        'NAPOLI':'NAPULE','CHE BELLO':'CHE BELLEZZA',
-        'CHE COSA':'CHE COSA','COME STAI':'COMM\' STAJE',
-        'TI VOGLIO BENE':'TE VOGLIO BENE','MI MANCHI':'ME MANCHI',
-        'ANDIAMO':'JÀ','VAI':'JÀ','VIENI':'VENE',
-        'ASPETTA':'ASPETTA','FERMATI':'FERMATE',
-        'CHE CASINO':'CHE CASINO','CHE PECCATO':'CHE PECCATO',
-        'BRAVO':'BRAVO','DAI':'AJÒ','MANNAGGIA':'MANNAGGIA'
-    };
-
-    function toNapoletano(text) {
-        if (!text) return '';
-        return translateWithDict(text.toUpperCase(), NAP_DICT);
-    }
-
-    /* ── Genovese/Zeneize dialect dictionary ──────────────────────────── */
-    /* Zeneize is the Ligurian language of Genoa. Key features: mixed
-       Occitan/Old French influence, maritime vocabulary, famous BELIN
-       (universal emphatic), schèi for money (from "Scheidemünze"),
-       special chars â/ê/î/ô/û/æ, article 'u (masc) / 'a (fem).
-       Ciao itself derives from Genovese "s-ciau de vosignoría". */
-    var GEN_DICT = {
-        /* ── Multi-word phrases ── */
-        'HOW ARE YOU':'COMM\' STÆ','ARE YOU WELL':'STÆ BEN',
-        'GOOD MORNING':'BONGIORNO','GOOD AFTERNOON':'BONA SEUA',
-        'GOOD EVENING':'BONASEIA','GOOD NIGHT':'BONANÖTTE',
-        'THANK YOU':'GRÂSCIE MILLE','THANK YOU VERY MUCH':'GRÂSCIE ASSÆ',
-        'YOU ARE WELCOME':'PRE PIAXEI','EXCUSE ME':'SCÛSA',
-        'I DO NOT KNOW':'NON SÒ','I KNOW':'SÒ BEN',
-        'I WANT':'VÖGIO','I NEED':'ME SERVE','I LIKE':'ME PIAXE',
-        'I LOVE YOU':'TI VÖGIO BEN','I MISS YOU':'ME MANCHIE',
-        'HOW MUCH':'QUANT\' COSTA','HOW MANY':'QUANTI',
-        'WHERE IS':'DUVE L\'È','WHAT IS':'CHE L\'È',
-        'WHAT ARE YOU DOING':'CHE FÆ','ARE YOU SERIOUS':'SUL SERIO',
-        'COME HERE':'VEN CÂ','GO AWAY':'VA VIA','GET OUT':'LEVITE',
-        'BE CAREFUL':'STÆ ATTENTO','HURRY UP':'SBRIGITE',
-        'NO WAY':'GNANCA PE\' NINTE','OF COURSE':'CERTO CHE SÌ',
-        'WHAT A PITY':'CHE PECCÂ','WHAT A SHAME':'CHE VERGÖGNA',
-        'WELL DONE':'BRAVO','SHUT UP':'ZIETO','SHUT YOUR MOUTH':'SÊRA A BOCCA',
-        'I AM HUNGRY':'HO FAME','I AM THIRSTY':'HO SÊ',
-        'I AM TIRED':'SION STANCO','I AM HAPPY':'SION CONTENTO',
-        'I LOVE':'AMO','I HATE':'ODIO',
-        'OH MY GOD':'BELIN D\'UN DIO','WHAT THE HELL':'BELIN CHE COSA',
-        'FOR REAL':'PE DAVEO','SO MUCH':'ASSÆ TANTO',
-        'SEE YOU LATER':'A DOMAN','SEE YOU':'A REVEI',
-        'GOOD LUCK':'BONA FORTUNA','TAKE CARE':'STÆ ATENTO',
-        /* ── Greetings & responses ── */
-        'HELLO':'CIAU','HI':'CIAU','HEY':'CIAU','YO':'CIAU',
-        'BYE':'CIAU','GOODBYE':'ARVEI','FAREWELL':'ADDIÒ',
-        'SEE YOU':'A REVEI','LATER':'DÒPO',
-        'THANKS':'GRÂSCIE','THANK':'GRÂSCIE',
-        'PLEASE':'PER PIAXEI','SORRY':'SCÛSEME',
-        'PARDON':'SCÛSA','APOLOGIES':'SCÛSA BEN',
-        'YES':'SÌ','NO':'NÒ','MAYBE':'FORSE','PERHAPS':'FORSCI',
-        'SURE':'CERTO','DEFINITELY':'SICÛRO','ABSOLUTELY':'PROPPIO SÌ',
-        'OK':'VA BEN','FINE':'TUTTO BEN','AGREED':'D\'ACCORDO',
-        'EXACTLY':'PROPPIO GIUSTO','RIGHT':'GIUSTO',
-        'WELCOME':'BENVENÛO','CHEERS':'SALUTE',
-        'CONGRATULATIONS':'CONGRATÛLASCIOIN',
-        /* ── People & family ── */
-        'BOY':'TOSO','GIRL':'TOSA','BOYS':'TOSI','GIRLS':'TOSE',
-        'CHILD':'FIOLETTO','CHILDREN':'FIOLETTI','BABY':'BAMBIN',
-        'TODDLER':'PICCIN','INFANT':'NEONATO',
-        'MAN':'OMO','WOMAN':'DONNA','MEN':'OMMI','WOMEN':'DONNE',
-        'PERSON':'PERSONA','PEOPLE':'ZENTE','EVERYONE':'TUTTI',
-        'YOUNG MAN':'ZOVENO','YOUNG WOMAN':'ZOVENA',
-        'OLD MAN':'VEGIO','OLD WOMAN':'VEGIA',
-        'MOTHER':'MOÆ','MOM':'MÆMA','MUM':'MÆMA','MAMA':'MÆMA',
-        'FATHER':'PÂ','DAD':'PÂ','PAPA':'PÂ',
-        'BROTHER':'FRÆ','SISTER':'SÒRELLA',
-        'GRANDMOTHER':'NONNA','GRANDFATHER':'NÒNNO',
-        'AUNT':'ZIA','UNCLE':'ZIO','COUSIN':'CÛGGINO',
-        'SON':'FIOEU','DAUGHTER':'FIOUA','CHILD':'FIOEU',
-        'HUSBAND':'MÂRITO','WIFE':'MUGGÊ',
-        'BOYFRIEND':'FIDANSÂTO','GIRLFRIEND':'FIDANSÂTA',
-        'FRIEND':'AMIGO','FRIENDS':'AMIGHI','COMPANION':'COMPAGNO',
-        'ENEMY':'NEMIGO','NEIGHBOUR':'VESIN',
-        'BOSS':'PADRON','MASTER':'MÆSTRO',
-        'PRIEST':'PREVOSTO','SAILOR':'MARENÂ','FISHERMAN':'PESCÂ',
-        'MERCHANT':'MERSANTE','BANKER':'BANCHÊ',
-        /* ── Body ── */
-        'HEAD':'TESTA','FACE':'FACIA','EYES':'EUGGI','EYE':'EUGGIO',
-        'MOUTH':'BOCCA','NOSE':'NÂSO','EAR':'OREGGIA','EARS':'OREGGE',
-        'HAND':'MAN','HANDS':'MANI','FOOT':'PIÈ','FEET':'PIÈ',
-        'HEART':'CHEU','SOUL':'ANIMA','BODY':'CORPO',
-        'HAIR':'CAVILLU','TEETH':'DENTI','BLOOD':'SANGUE',
-        'ARM':'BRASC','LEG':'GAMBA','BACK':'SCHÊNA',
-        /* ── Emotions & qualities ── */
-        'GOOD':'BEN','GREAT':'ASSÆ BEN','EXCELLENT':'OTTIMO',
-        'PERFECT':'PERFETO','WONDERFUL':'MERAVIGLIOZO',
-        'FANTASTIC':'FANTASTICO','MAGNIFICENT':'MAGNIFICO',
-        'BEAUTIFUL':'BELL-A','UGLY':'BRUTTO',
-        'HANDSOME':'BELL-O','PRETTY':'CARINO',
-        'HAPPY':'CONTENTO','JOY':'GIOIA','PLEASURE':'PIAXEI',
-        'SAD':'TRIST','MELANCHOLY':'MALINCONICO',
-        'ANGRY':'ARRABIÂ','FURIOUS':'FURIBONDO',
-        'CALM':'CÂLMO','PEACEFUL':'PACIFICO',
-        'SCARED':'SPAVENTÂ','FEAR':'PAÛA',
-        'NERVOUS':'NERVÔZO','WORRIED':'PREOCÛPÂ',
-        'PROUD':'ORGOGLIOZO','SHAME':'VERGÖGNA',
-        'JEALOUS':'GELÔZO','ENVY':'INVIDIA',
-        'TIRED':'STANCO','EXHAUSTED':'SFINÎO',
-        'SICK':'AMÂLÂ','ILL':'MALÂTO',
-        'DRUNK':'BRILLO','TIPSY':'MEZZO BRILLO','HUNGOVER':'APPESANTÎO',
-        'CRAZY':'MATO','MAD':'MATTOIDE','FOOLISH':'MINCION',
-        'LAZY':'PIGRASSO','SERIOUS':'SERIO',
-        'STUPID':'BELIN','IDIOT':'BESTA','FOOL':'MINCION',
-        'SMART':'INTELLIGENTE','CLEVER':'FURBO','WISE':'SAGGIO',
-        'STRONG':'FORTE','WEAK':'DEBOLE','TOUGH':'DUR',
-        'KIND':'GENTILE','MEAN':'CATTIVO','GENEROUS':'GENERÔZO',
-        'HONEST':'ONESTO','LIAR':'BUGIARDO',
-        'LUCKY':'FORTUNÂ','UNLUCKY':'SFIGÂ',
-        'RICH':'RICCO','POOR':'PÔVERO','WEALTHY':'BENESTANTE',
-        'VERY':'ASSÆ','REALLY':'PROPPIO','EXTREMELY':'TROPPO',
-        'TOO MUCH':'TROPPO ASSÆ','ENOUGH':'ABBASTANSA',
-        'LITTLE':'POCO','MUCH':'ASSÆ','MANY':'TANTI',
-        'ALL':'TUTTO','NOTHING':'GNENTE','SOME':'UN PO\'',
-        'BIG':'GRANDO','LARGE':'GRANDE','SMALL':'PICCIN','TINY':'MINÛSCOLO',
-        'LONG':'LUNGO','SHORT':'CURTO','TALL':'AUTO','FAT':'GROSSO',
-        'FAST':'LESTO','QUICK':'SPICCIATIVO','SLOW':'LENTO',
-        'HOT':'CÀIDO','WARM':'TEPPIO','COLD':'FRIDO','FREEZING':'GELÄO',
-        'OLD':'VEGIO','YOUNG':'ZOVENO','NEW':'NEUVO','ANCIENT':'ANTICO',
-        'CLEAN':'NETO','DIRTY':'SPORCO','DARK':'SCÛRO','LIGHT':'CIARO',
-        'FULL':'PIEN','EMPTY':'VÒDO','OPEN':'AERTO','CLOSED':'SÊRÂO',
-        /* ── Actions ── */
-        'EAT':'MANGIÂ','EATING':'STÆ MANGIANDO','ATE':'HO MANGIÂ',
-        'DRINK':'BEVVE','DRINKING':'STÆ BEVENNO',
-        'COOK':'CUSCINÂ','COOKING':'STÆ CUSCINANDO',
-        'COME':'VEGNÎ','COMING':'VEGNINDO','CAME':'SÒ VEGNÛO',
-        'GO':'ANDÂ','GOING':'ANDANDO','WENT':'SÒ ANDÂO',
-        'RUN':'CÛRRE','RUNNING':'CÛRRENDO',
-        'WALK':'CAMMINÂ','WALKING':'CAMMINANDO',
-        'STOP':'FERMITE','WAIT':'ASPETÂ','HURRY':'SPICCIÂTI',
-        'SPEAK':'PARLÂ','TALK':'DISCÛRRE','CHAT':'CIÂCIARÂ',
-        'SHOUT':'BERCIÂ','WHISPER':'BISBIZIÂ',
-        'LISTEN':'SENTÎ','HEAR':'ASCOLTÂ','UNDERSTAND':'CAPÎ',
-        'SEE':'VEIÂ','LOOK':'GARDÂ','WATCH':'STÂ ATTENTO',
-        'KNOW':'SÒ','THINK':'PENSÂ','BELIEVE':'CREDDE',
-        'WANT':'VÖGIO','NEED':'ME SERVE','LIKE':'ME PIAXE',
-        'LOVE':'AMÂ','HATE':'ODIÂ','MISS':'ME MANCHIE',
-        'WORK':'TRAVAGGIÂ','REST':'RIPOZÂ','SLEEP':'DORMÎ',
-        'WAKE':'SVEGIÂSE','PLAY':'GIOCÂ','SING':'CANTÂ','DANCE':'BALLÂ',
-        'WRITE':'SCRIVE','READ':'LEGGE','STUDY':'STUDIÂ',
-        'BUY':'COMPRÂ','SELL':'VENDE','PAY':'PAGÂ',
-        'GIVE':'DÂ','TAKE':'PIJÂ','BRING':'PORTÂ',
-        'OPEN':'AVRÎ','CLOSE':'SÊRÂ','BREAK':'RÛPPE',
-        'HELP':'AIUTÂ','FIGHT':'LITIGÂ','LAUGH':'RIDDE',
-        'CRY':'PIANZE','SMILE':'SORRÎDE','KISS':'BASÂ',
-        'HUG':'ABBRACIÂ','PUSH':'SPIGNE','PULL':'TIRÂ',
-        'WIN':'VINCÎ','LOSE':'PERDE','TRY':'PROVÂ',
-        'ARRIVE':'RIVÂ','LEAVE':'PARTÎ','RETURN':'TORNÂ',
-        'START':'INIZIÂ','FINISH':'FINÎ','CONTINUE':'CONTINUÂ',
-        'SWIM':'NOTÂ','SAIL':'NAVIGÂ','FISH':'PESCÂ',
-        'CLIMB':'SCRAMPÂ','BUILD':'COSTRUÎ','CREATE':'CREÂ',
-        /* ── Things & food/drink ── */
-        'FOOD':'MANGIÂ','MEAL':'PASTO','BREAD':'PAN','PASTA':'PASTA',
-        'PESTO':'PESTO','FOCACCIA':'FUGASSA','FARINATA':'FAINÂ',
-        'FISH':'PEXE','ANCHOVIES':'ACCIUGHE','STOCKFISH':'STOCÂFISSO',
-        'MEAT':'CARNE','CHICKEN':'POLASTRO','RABBIT':'CUNGIO',
-        'CHEESE':'FROMAGGIO','PARMESAN':'PARMIGIAN',
-        'TOMATO':'PUMÂDAMÔ','GARLIC':'AGLIO','ONION':'SIFÛLA',
-        'OIL':'OUGIO','SALT':'SÂLE','PEPPER':'PEVERE',
-        'MUSHROOM':'FUNGO','BASIL':'BAXEICÒ',
-        'COFFEE':'CAFÈ','ESPRESSO':'CAFÈ','WATER':'ÆGUA',
-        'WINE':'VIÑN','WHITE WINE':'VIÑN BIANCHO',
-        'BEER':'BIRRA','MILK':'LATE',
-        /* ── Money (Genoa = birthplace of modern banking) ── */
-        'MONEY':'SCHÈI','CASH':'SCHÈI CONTANTI','COIN':'MOÉDA',
-        'PRICE':'PRESIO','COST':'COSTO','PAY':'PAGÂ',
-        'BANK':'BANCCA','LOAN':'PRESITO','DEBT':'DEBITO',
-        'RICH':'RICCO','POOR':'PÔVERO','PROFIT':'PROFITO',
-        'INVEST':'INVESTÎ','TRADE':'TRAFICO',
-        /* ── Places & maritime (Genoa = maritime republic) ── */
-        'HOUSE':'CAZA','HOME':'CAZA MIA','APARTMENT':'APPARTAMENTO',
-        'ROOM':'CAMERA','KITCHEN':'CÛXINA','BATHROOM':'BAGNO',
-        'STREET':'CARROGGIO','ROAD':'VIA','ALLEY':'VICO','SQUARE':'PIASSA',
-        'MARKET':'MERCAO','SHOP':'NEGOSSIO','PORT':'PORTO',
-        'CHURCH':'ÇEXA','PALACE':'PALÄZZO','TOWER':'TÛRRE',
-        'CASTLE':'CASTELO','CITY':'ÇITTÆ','TOWN':'PAIZE',
-        'LIGHTHOUSE':'LANTERNA','HARBOUR':'PORTO',
-        'SEA':'MÂ','OCEAN':'OSEANO','BEACH':'SPIAGGIA','COAST':'COSTA',
-        'WAVE':'ONDA','TIDE':'MAREA','CURRENT':'CURENTE',
-        'ISLAND':'IXUA','MOUNTAIN':'MONTAGNA','VALLEY':'VALE',
-        'RIVER':'FIUME','LAKE':'LAGO',
-        'SHIP':'NÂVE','BOAT':'BARCA','GALLEY':'GÄREA',
-        'SAILOR':'MARENÂ','CAPTAIN':'CAPITANO','NAVIGATOR':'NAVIGATÔ',
-        'COMPASS':'BUSSOLA','MAP':'MAPPA','ANCHOR':'ANÇORA',
-        'SAIL':'VEA','ROPE':'CORDA','NET':'RETE',
-        'MOON':'LUNA','STAR':'STEIA','SUN':'SOÔ','SKY':'ÇIELO',
-        'WIND':'VENTO','STORM':'TEMPESTA','RAIN':'PIOEUVA',
-        'CLOUD':'NÛVOLA','FOG':'NEBBIA','SNOW':'NEIVE',
-        'DAY':'GIORNO','NIGHT':'NÖTTE','MORNING':'MATTIN',
-        'AFTERNOON':'DÒPOPRANSO','EVENING':'SEIA',
-        'TODAY':'ANCHEU','TOMORROW':'DOMAN','YESTERDAY':'IERI',
-        'TIME':'TEMPO','HOUR':'OA','MINUTE':'MINÛTO',
-        'WEEK':'SETTIMANNA','MONTH':'MEZE','YEAR':'ANNO',
-        /* ── BELIN — the signature Genovese exclamation ── */
-        /* Used for surprise, emphasis, frustration, punctuation — everything */
-        'WOW':'BELIN','DAMN':'BELIN','REALLY':'BELIN',
-        'SERIOUSLY':'BELIN SERIO','INCREDIBLE':'BELIN CHE ROBA',
-        'AMAZING':'BELIN CHE BELLO','UNBELIEVABLE':'BELIN CHE COSA',
-        'WHAT':'BELIN CHE COZA','NONSENSE':'BELIN DE COSE',
-        /* ── Common expressions ── */
-        'PROBLEM':'PIÑA','TROUBLE':'PROBLEMA','MESS':'CASINO',
-        'DISASTER':'DISASTRO','CATASTROPHE':'CATASTROFE',
-        'EASY':'FÄSILE','HARD':'DIFFISSILE','DIFFICULT':'ARDU',
-        'IMPORTANT':'IMPORTANTE','SPECIAL':'SPESIÂLE',
-        'FUNNY':'DIVERTENTE','BORING':'NOIÔZO',
-        'INTERESTING':'INTERESSANTE','STRANGE':'STRÂÑO',
-        'NORMAL':'NORMALE','COMMON':'COMUNE',
-        'TRUE':'VERO','FALSE':'FALSO','LIE':'BUGIA',
-        'SECRET':'SEGRETO','PRIVATE':'PRIVATO',
-        'GENOA':'ZENOVA','GENOESE':'ZENEIZE','LIGURIAN':'LIGÛRE',
-        /* ── Italian-source keys (spoken Italian → Genovese/Zeneize) ── */
-        'CIAO':'CIAU','SALVE':'CIAU','ARRIVEDERCI':'ARVEI',
-        'BUONGIORNO':'BONGIORNO','BUONASERA':'BONASEIA','BUONANOTTE':'BONANÖTTE',
-        'GRAZIE':'GRÂSCIE','PREGO':'PRE PIAXEI','SCUSA':'SCÛSEME',
-        'PER FAVORE':'PER PIAXEI','PER PIACERE':'PER PIAXEI',
-        'SÌ':'SÌ','NO':'NÒ','FORSE':'FORSE','CERTO':'CERTO',
-        'RAGAZZO':'TOSO','RAGAZZA':'TOSA','BAMBINO':'FIOLETTO',
-        'UOMO':'OMO','DONNA':'DONNA','PERSONA':'PERSONA','GENTE':'ZENTE',
-        'MADRE':'MOÆ','MAMMA':'MÆMA','PADRE':'PÂ','PAPÀ':'PÂ',
-        'FRATELLO':'FRÆ','SORELLA':'SÒRELLA',
-        'NONNA':'NONNA','NONNO':'NÒNNO','ZIA':'ZIA','ZIO':'ZIO',
-        'MARITO':'MÂRITO','MOGLIE':'MUGGÊ',
-        'AMICO':'AMIGO','AMICI':'AMIGHI','VICINO':'VESIN',
-        'TESTA':'TESTA','FACCIA':'FACIA','OCCHIO':'EUGGIO','OCCHI':'EUGGI',
-        'BOCCA':'BOCCA','NASO':'NÂSO','MANO':'MAN','MANI':'MANI',
-        'CUORE':'CHEU','ANIMA':'ANIMA',
-        'BUONO':'BEN','BELLO':'BELL-O','BRUTTO':'BRUTTO',
-        'FELICE':'CONTENTO','TRISTE':'TRIST','ARRABBIATO':'ARRABIÂ',
-        'STANCO':'STANCO','UBRIACO':'BRILLO','PAZZO':'MATO',
-        'MOLTO':'ASSÆ','TANTO':'ASSÆ TANTO','POCO':'POCO',
-        'TUTTO':'TUTTO','NIENTE':'GNENTE','QUALCOSA':'QUARCÖSA',
-        'MANGIARE':'MANGIÂ','BERE':'BEVVE','PARLARE':'PARLÂ',
-        'ANDARE':'ANDÂ','VENIRE':'VEGNÎ','CORRERE':'CÛRRE',
-        'ASPETTARE':'ASPETÂ','LAVORARE':'TRAVAGGIÂ','DORMIRE':'DORMÎ',
-        'SAPERE':'SÒ','VOLERE':'VÖGIO','CAPIRE':'CAPÎ',
-        'GUARDARE':'GARDÂ','SENTIRE':'SENTÎ','CANTARE':'CANTÂ',
-        'CIBO':'MANGIÂ','PANE':'PAN','PESCE':'PEXE','CARNE':'CARNE',
-        'PESTO':'PESTO','FOCACCIA':'FUGASSA','FARINATA':'FAINÂ',
-        'CAFFÈ':'CAFÈ','ACQUA':'ÆGUA','VINO':'VIÑN','BIRRA':'BIRRA',
-        'SOLDI':'SCHÈI','DENARO':'SCHÈI','CASA':'CAZA','STRADA':'CARROGGIO',
-        'VICOLO':'VICO','PIAZZA':'PIASSA','PORTO':'PORTO','CHIESA':'ÇEXA',
-        'MARE':'MÂ','SOLE':'SOÔ','LUNA':'LUNA','CIELO':'ÇIELO',
-        'VENTO':'VENTO','PIOGGIA':'PIOEUVA','NEVE':'NEIVE',
-        'GIORNO':'GIORNO','NOTTE':'NÖTTE','MATTINA':'MATTIN',
-        'OGGI':'ANCHEU','DOMANI':'DOMAN','IERI':'IERI',
-        'GENOVA':'ZENOVA','CHE BELLO':'BELIN CHE BELLO',
-        'CHE COSA':'BELIN CHE COZA','COME STAI':'COMM\' STÆ',
-        'TI VOGLIO BENE':'TI VÖGIO BEN','MI MANCHI':'ME MANCHIE',
-        'ANDIAMO':'ANDÂ','DAI':'CIAU','VIENI':'VEN CÂ',
-        'ASPETTA':'ASPETÂ','FERMATI':'FERMITE',
-        'CHE CASINO':'BELIN CHE CASINO','CHE PECCATO':'CHE PECCÂ',
-        'BRAVO':'BRAVO','BELIN':'BELIN'
-    };
-
-    function toGenovese(text) {
-        if (!text) return '';
-        return translateWithDict(text.toUpperCase(), GEN_DICT);
-    }
-
-    /* ── Target language codes for MyMemory (source is dynamic) ─────────── */
-    // Keys match slot option values; values are the MyMemory target-side codes.
-    var LANG_TARGETS = {
-        EN: 'en', IT: 'it', NL: 'nl', ES: 'es', FR: 'fr',
-        DE: 'de', ZH: 'zh', JA: 'ja', AR: 'ar'
-    };
-
-    /* ── Get 2-char source language from #vngrd-input-lang ──────────────── */
-    function getSourceLangCode() {
-        var sel = document.getElementById('vngrd-input-lang');
-        if (!sel || !sel.value) return 'en';
-        return sel.value.split('-')[0].toLowerCase(); // 'it-IT' → 'it', 'zh-CN' → 'zh'
-    }
-
-    /* ── Update the live-transcription HUD label ─────────────────────────── */
-    function updateTranscriptionLabel() {
-        var sel = document.getElementById('vngrd-input-lang');
-        var lbl = document.getElementById('live-transcription-label');
-        if (!lbl || !sel) return;
-        var code = sel.value.split('-')[0].toUpperCase(); // 'it-IT' → 'IT'
-        lbl.textContent = code + ' // LIVE TRANSCRIPTION';
-    }
-
-    /* ── DOM refs ─────────────────────────────────────────────────────── */
-    var btnOnAir    = document.getElementById('btn-on-air');
-    var mcrStatus   = document.getElementById('mcr-status');
-    var mcrDot      = document.getElementById('mcr-on-air-dot');
-    var subOverlay  = document.getElementById('vanguard-subtitles');
-    var podcastTray = document.getElementById('podcast-tray');
-    var hud         = document.getElementById('transcription-hud');
-    var hudEN       = document.getElementById('hud-en-text');
-    var slots       = [
-        document.getElementById('slot-1'),
-        document.getElementById('slot-2'),
-        document.getElementById('slot-3'),
-        document.getElementById('slot-4')
-    ];
-    // Tray box refs (dedicated labeled boxes)
-    var traySlots    = [0,1,2,3].map(function(i) { return document.getElementById('tray-slot-' + i); });
-    var trayLabels   = [0,1,2,3].map(function(i) { return document.getElementById('tray-label-' + i); });
-    var trayTexts    = [0,1,2,3].map(function(i) { return document.getElementById('tray-text-' + i); });
-    var btnSubOpacity = document.getElementById('btn-sub-opacity');
-    var btnP2pStt     = document.getElementById('btn-p2p-stt');
-
-    /* ── Slot state: cached translated text per slot ─────────────────── */
-    var slotTexts = ['', '', '', ''];
-
-    /* ── Subtitle background opacity cycle ────────────────────────────── */
-    var subBgLevels = [0.67, 0.33, 0];
-    var subBgIdx = 0;
-    var subBgOpacity = subBgLevels[0];
-
-    /* ── P2P STT routing ──────────────────────────────────────────────── */
-    var p2pSTTMode = false;
-    var p2pSTTCtx  = null;
-
-    function getActiveSlots() {
-        var active = [];
-        slots.forEach(function(sel, i) {
-            if (sel && sel.value !== 'OFF') active.push({ idx: i, lang: sel.value });
-        });
-        return active;
-    }
-
-    /* ── Direct canvas bake (belt-and-suspenders for all recording paths) ── */
-    // Called whenever subtitle data changes so captureStream always gets a
-    // fresh frame with subtitle text, independent of the renderLoop cycle.
-    function _bakeSubtitlesToCanvas() {
-        if (!window.APP || !APP.render || !APP.render.ctx) return;
-        var ctx = APP.render.ctx;
-        var w   = APP.render.width;
-        var h   = APP.render.height;
-
-        // ── 1. Translation slots (multi-language subtitle rows) ───────────
-        var lines = window._vngrdSubtitleLines;
-        if (lines && lines.length) {
-            try {
-                ctx.save();
-                ctx.globalAlpha              = 1;
-                ctx.globalCompositeOperation = 'source-over';
-                ctx.filter                   = 'none';
-                ctx.shadowBlur               = 0;
-                ctx.textAlign                = 'center';
-                ctx.textBaseline             = 'middle';
-                var lineH    = Math.round(h * 0.058);
-                var fsPx     = Math.round(h * 0.032);
-                var padX     = 18;
-                var blockH   = lineH * lines.length;
-                var blockTop = Math.round(h * 0.78) - Math.round(blockH / 2);
-                ctx.font = '700 ' + fsPx + 'px "Courier New",monospace';
-                lines.forEach(function(sub, i) {
-                    var lineTop = blockTop + i * lineH;
-                    var cy      = lineTop + Math.round(lineH / 2);
-                    var label   = '[' + sub.lang + '] ' + sub.text;
-                    var tw      = ctx.measureText(label).width;
-                    var bgA     = (typeof sub.bgAlpha === 'number') ? sub.bgAlpha : 0.8;
-                    ctx.fillStyle = 'rgba(0,0,0,' + bgA + ')';
-                    ctx.fillRect((w - tw) / 2 - padX, lineTop, tw + padX * 2, lineH);
-                    ctx.fillStyle = '#00f3ff';
-                    ctx.fillText(label, w / 2, cy);
-                });
-                ctx.restore();
-            } catch (_) {}
-        }
-
-        // ── 2. Live transcription HUD (raw speech input line at bottom) ──
-        var hudText = (hudEN ? hudEN.textContent : '').trim();
-        if (hudText && onAir) {
-            try {
-                ctx.save();
-                ctx.globalAlpha              = 1;
-                ctx.globalCompositeOperation = 'source-over';
-                ctx.filter                   = 'none';
-                ctx.shadowBlur               = 0;
-                ctx.textAlign                = 'center';
-                ctx.textBaseline             = 'middle';
-                var hudFsPx  = Math.round(h * 0.022);
-                var hudLineH = Math.round(h * 0.038);
-                var hudY     = Math.round(h * 0.955);
-                var hudPadX  = 24;
-                ctx.font = '400 ' + hudFsPx + 'px "Courier New",monospace';
-                var srcCode  = getSourceLangCode().toUpperCase();
-                var hudLabel = srcCode + ' // ' + hudText;
-                var hudTw    = ctx.measureText(hudLabel).width;
-                ctx.fillStyle = 'rgba(0,0,0,0.82)';
-                ctx.fillRect((w - hudTw) / 2 - hudPadX, hudY - Math.round(hudLineH / 2), hudTw + hudPadX * 2, hudLineH);
-                ctx.fillStyle = 'rgba(255,255,255,0.9)';
-                ctx.fillText(hudLabel, w / 2, hudY);
-                ctx.restore();
-            } catch (_) {}
-        }
-    }
-
-    // Expose for renderLoop — called every frame to keep canvas always up-to-date
-    window._bakeSubtitlesToCanvas = _bakeSubtitlesToCanvas;
-
-    /* ── UI helpers ───────────────────────────────────────────────────── */
-
-    function setStatus(text, hot) {
-        if (!mcrStatus) return;
-        mcrStatus.textContent = text;
-        mcrStatus.classList.toggle('hot', !!hot);
-    }
-
-    function renderSubtitles() {
-        var active = getActiveSlots();
-
-        // 1. Update podcast-tray dedicated boxes
-        for (var i = 0; i < 4; i++) {
-            var found = null;
-            for (var j = 0; j < active.length; j++) {
-                if (active[j].idx === i) { found = active[j]; break; }
-            }
-            if (found && slotTexts[i]) {
-                if (traySlots[i])  traySlots[i].classList.remove('off');
-                if (trayLabels[i]) trayLabels[i].textContent = found.lang;
-                if (trayTexts[i]) {
-                    trayTexts[i].textContent = slotTexts[i];
-                    if (found.lang === 'AR') trayTexts[i].setAttribute('dir', 'rtl');
-                    else                     trayTexts[i].removeAttribute('dir');
-                }
-            } else {
-                if (traySlots[i])  traySlots[i].classList.add('off');
-                if (trayLabels[i]) trayLabels[i].textContent = '--';
-                if (trayTexts[i])  { trayTexts[i].textContent = ''; trayTexts[i].removeAttribute('dir'); }
-            }
-        }
-        // Show tray if any slot has text
-        var anyText = slotTexts.some(function(t) { return !!t; });
-        if (podcastTray) podcastTray.classList.toggle('visible', anyText && onAir);
-
-        // 2. Update broadcast overlay (#vanguard-subtitles)
-        if (subOverlay) {
-            subOverlay.innerHTML = '';
-            // Font scale: shrink as more slots fill the overlay
-            var fontSizes = [18, 16, 14, 12];
-            var fontSize = fontSizes[Math.min(active.length, 4) - 1] || 16;
-            // Compositor burn-in data
-            window._vngrdSubtitleLines = [];
-            active.forEach(function(s) {
-                var text = slotTexts[s.idx];
-                if (!text) return;
-                var line = document.createElement('div');
-                line.className = 'sub-line';
-                if (s.lang === 'AR') line.setAttribute('dir', 'rtl');
-                line.style.fontSize = fontSize + 'px';
-                // Apply current background opacity
-                var alpha = typeof subBgOpacity !== 'undefined' ? subBgOpacity : 0.67;
-                line.style.background = 'rgba(0,0,0,' + alpha + ')';
-                var langTag = document.createElement('span');
-                langTag.className = 'sub-lang';
-                langTag.textContent = s.lang;
-                var body = document.createElement('span');
-                body.className = 'sub-body';
-                body.textContent = text;
-                line.appendChild(langTag);
-                line.appendChild(body);
-                subOverlay.appendChild(line);
-                window._vngrdSubtitleLines.push({ lang: s.lang, text: text, bgAlpha: alpha });
-            });
-            if (active.length === 0) window._vngrdSubtitleLines = [];
-        }
-        // Belt-and-suspenders: bake immediately onto the broadcast canvas so
-        // captureStream captures a frame with subtitles on every text update.
-        _bakeSubtitlesToCanvas();
-    }
-
-    function clearSubtitles() {
-        slotTexts = ['', '', '', ''];
-        window._vngrdSubtitleLines = [];   // clear canvas burn-in data
-        if (subOverlay) subOverlay.innerHTML = '';
-        if (podcastTray) podcastTray.classList.remove('visible');
-        for (var i = 0; i < 4; i++) {
-            if (traySlots[i])  traySlots[i].classList.add('off');
-            if (trayLabels[i]) trayLabels[i].textContent = '--';
-            if (trayTexts[i])  { trayTexts[i].textContent = ''; trayTexts[i].removeAttribute('dir'); }
-        }
-        if (hudEN) hudEN.textContent = '';
-    }
-
-    function setOnAirUI(active) {
-        onAir = active;
-        if (!btnOnAir) return;
-        btnOnAir.textContent = active ? 'ON-AIR' : 'OFF-AIR';
-        btnOnAir.classList.toggle('active', active);
-        if (mcrDot) mcrDot.classList.toggle('hot', active);
-        if (subOverlay) subOverlay.classList.toggle('visible', active);
-        if (hud) hud.classList.toggle('hud-active', active);
-        if (!active) clearSubtitles();
-        setStatus(active ? 'STT: LIVE \u25B6' : 'STT: STANDBY', active);
-        if (typeof ghostLog === 'function') {
-            ghostLog(active ? 'GHOST> STT ENGINE ON-AIR (4-SLOT)' : 'GHOST> STT ENGINE OFFLINE', active ? 'ok' : 'ai');
-        }
-    }
-
-    /* ── THE UNLIMITED ENGINE: GTX Bypass translation with debounce + cache ── */
-    // Uses the Google Translate GTX endpoint (no API key required).
-    // 200ms debounce prevents UI lag from rapid speech recognition updates.
-    // window.transCache provides instant retrieval for repeated phrases.
-    var _translateTimers = {};
-    function translateText(text, src, target, slotIdx) {
-        if (!text || !src || !target) return;
-        var cacheKey = src + '|' + target + '|' + text;
-
-        // 1. Cache hit: instant retrieval, no network call
-        if (window.transCache && window.transCache[cacheKey]) {
-            slotTexts[slotIdx] = window.transCache[cacheKey];
-            renderSubtitles();
-            if (typeof sendUISync === 'function') {
-                var _p2p = {}; _p2p[target.toUpperCase()] = window.transCache[cacheKey];
-                sendUISync('POLYTRANSLATOR', _p2p);
-            }
-            return;
-        }
-
-        // 2. Debounce 200ms to prevent rapid-fire fetches
-        if (_translateTimers[slotIdx]) clearTimeout(_translateTimers[slotIdx]);
-        _translateTimers[slotIdx] = setTimeout(function() {
-            var url = 'https://translate.googleapis.com/translate_a/single?client=gtx&sl=' +
-                src + '&tl=' + target + '&dt=t&q=' + encodeURIComponent(text);
-            fetch(url)
-                .then(function(res) { return res.json(); })
-                .then(function(data) {
-                    // GTX response: [[["translated","original",...],...],...]
-                    var t = '';
-                    if (data && data[0]) {
-                        for (var i = 0; i < data[0].length; i++) {
-                            if (data[0][i] && data[0][i][0]) t += data[0][i][0];
-                        }
-                    }
-                    t = t.toUpperCase();
-                    if (t) {
-                        if (!window.transCache) window.transCache = {};
-                        window.transCache[cacheKey] = t;
-                        slotTexts[slotIdx] = t;
-                        renderSubtitles();
-                        // Push to P2P guests via dataChannel
-                        if (typeof sendUISync === 'function') {
-                            var _p2p = {}; _p2p[target.toUpperCase()] = t;
-                            sendUISync('POLYTRANSLATOR', _p2p);
-                        }
-                    }
-                })
-                .catch(function() {});
-        }, 200);
-    }
-
-    /* ── Process finalized text through all active slots ──────────────── */
-
-    function processSlots(rawText) {
-        if (!rawText) return;
-        var srcCode = getSourceLangCode();          // 'en', 'it', 'zh', etc.
-        var active  = getActiveSlots();
-        var p2pData = {};
-        p2pData[srcCode.toUpperCase()] = rawText;
-
-        active.forEach(function(s) {
-            // Dialect transforms — local dictionary, works from English or Italian source
-            if (s.lang === 'SCOUSE') {
-                slotTexts[s.idx] = (srcCode === 'en') ? toScouse(rawText) : rawText;
-                p2pData['SCOUSE'] = slotTexts[s.idx];
-                return;
-            }
-            if (s.lang === 'NAP') {
-                slotTexts[s.idx] = (srcCode === 'en' || srcCode === 'it') ? toNapoletano(rawText) : rawText;
-                p2pData['NAP'] = slotTexts[s.idx];
-                return;
-            }
-            if (s.lang === 'GEN') {
-                slotTexts[s.idx] = (srcCode === 'en' || srcCode === 'it') ? toGenovese(rawText) : rawText;
-                p2pData['GEN'] = slotTexts[s.idx];
-                return;
-            }
-
-            var tgtCode = LANG_TARGETS[s.lang];
-            if (!tgtCode) return;                   // unknown slot lang, skip
-
-            if (srcCode === tgtCode) {
-                // Source and target are the same language — echo directly
-                slotTexts[s.idx] = rawText;
-                p2pData[s.lang]   = rawText;
-            } else {
-                // Different language — send via GTX Bypass with debounce + cache
-                translateText(rawText, srcCode, tgtCode, s.idx);
-                p2pData[s.lang] = '...';
-            }
-        });
-
-        renderSubtitles();
-
-        if (typeof sendUISync === 'function') {
-            sendUISync('POLYTRANSLATOR', p2pData);
-        }
-    }
-
-    /* ── Process interim text (real-time, no API calls) ──────────────── */
-
-    function processInterim(text) {
-        if (!text) return;
-        var srcCode = getSourceLangCode();
-        var active  = getActiveSlots();
-        active.forEach(function(s) {
-            if (s.lang === 'SCOUSE') {
-                if (srcCode === 'en') slotTexts[s.idx] = toScouse(text);
-                return;
-            }
-            if (s.lang === 'NAP') {
-                if (srcCode === 'en' || srcCode === 'it') slotTexts[s.idx] = toNapoletano(text);
-                return;
-            }
-            if (s.lang === 'GEN') {
-                if (srcCode === 'en' || srcCode === 'it') slotTexts[s.idx] = toGenovese(text);
-                return;
-            }
-            var tgtCode = LANG_TARGETS[s.lang];
-            if (!tgtCode) return;
-            // Only update slots whose language matches the source (no API on interim)
-            if (srcCode === tgtCode) slotTexts[s.idx] = text;
-            // Other langs: keep the last fully-translated text — no fetch on interim
-        });
-        renderSubtitles();
-    }
-
-    /* ── Speech Recognition Engine ────────────────────────────────────── */
-
-    function buildRecognition() {
-        var SpeechAPI = window.SpeechRecognition || window.webkitSpeechRecognition;
-        if (!SpeechAPI) {
-            setStatus('STT: UNSUPPORTED');
-            if (typeof ghostLog === 'function') ghostLog('STT: webkitSpeechRecognition not available in this browser', 'crit');
-            return null;
-        }
-        var r = new SpeechAPI();
-        r.continuous      = true;
-        r.interimResults  = true;
-        r.lang            = (document.getElementById('vngrd-input-lang') || {value: 'en-US'}).value;
-        r.maxAlternatives = 1;
-
-        r.onstart = function () {
-            setStatus('STT: LIVE \u25B6', true);
-            if (typeof ghostLog === 'function') ghostLog('GHOST> STT listening\u2026', 'ok');
-        };
-
-        r.onresult = function (e) {
-            var interim = '';
-            var finalText = '';
-            for (var i = e.resultIndex; i < e.results.length; i++) {
-                var transcript = e.results[i][0].transcript.trim().toUpperCase();
-                if (e.results[i].isFinal) { finalText += transcript + ' '; }
-                else                       { interim   += transcript;       }
-            }
-            // HUD always shows English live text
-            var display = (finalText || interim).trim();
-            if (hudEN) hudEN.textContent = display;
-
-            if (finalText.trim()) {
-                lastFinal = finalText.trim();
-                processSlots(lastFinal);
-            } else if (interim) {
-                processInterim(interim);
-            }
-        };
-
-        r.onerror = function (e) {
-            if (e.error === 'no-speech') return;
-            if (e.error === 'aborted') return;
-            setStatus('STT_ERR: ' + e.error.toUpperCase());
-            if (typeof ghostLog === 'function') ghostLog('STT ERR: ' + e.error, 'crit');
-        };
-
-        r.onend = function () {
-            // _langSwitching = true means the change listener is rebuilding a fresh
-            // instance — do NOT attempt to restart this dead one.
-            if (onAir && !_langSwitching) {
-                setTimeout(function() {
-                    if (onAir && !_langSwitching) { try { r.start(); } catch(ex) {} }
-                }, 250);
-            } else if (!onAir) {
-                setStatus('STT: STANDBY');
-            }
-            // else: _langSwitching is true — stay silent, let the change listener handle it
-        };
-
-        return r;
-    }
-
-    /* ── ON-AIR toggle ────────────────────────────────────────────────── */
-    if (btnOnAir) {
-        btnOnAir.addEventListener('click', function () {
-            if (!onAir) {
-                recognition = buildRecognition();
-                if (!recognition) return;
-                try {
-                    recognition.start();
-                    setOnAirUI(true);
-                } catch (e) {
-                    setStatus('STT_ERR: START_FAIL');
-                    if (typeof ghostLog === 'function') ghostLog('STT START ERR: ' + e.message, 'crit');
-                }
-            } else {
-                setOnAirUI(false);
-                if (recognition) { try { recognition.stop(); } catch(ex) {} recognition = null; }
-            }
-        });
-    }
-
-    /* ── Input language live switching ───────────────────────────────── */
-    var _inputLangSel = document.getElementById('vngrd-input-lang');
-    if (_inputLangSel) {
-        _inputLangSel.addEventListener('change', function () {
-            // Always update the HUD label, even when not live
-            updateTranscriptionLabel();
-
-            if (!onAir) return;
-
-            // 1. Raise the flag BEFORE calling stop() so that r.onend will not
-            //    attempt to auto-restart the old (dying) instance.
-            _langSwitching = true;
-
-            if (recognition) {
-                try { recognition.stop(); } catch(ex) {}
-                recognition = null;
-            }
-
-            // 2. Give the browser ~350 ms to fully tear down the old audio session,
-            //    then spawn a completely fresh instance.
-            setTimeout(function () {
-                _langSwitching = false;
-
-                if (!onAir) return;   // user toggled OFF during the wait — do nothing
-
-                recognition = buildRecognition();
-                if (!recognition) { setOnAirUI(false); return; }
-
-                try {
-                    recognition.start();
-                    updateTranscriptionLabel();
-                    var newVal = (document.getElementById('vngrd-input-lang') || {}).value || '?';
-                    setStatus('STT: LIVE \u25B6 [' + newVal + ']');
-                    if (typeof ghostLog === 'function') ghostLog('STT LANG SWITCH \u2192 ' + newVal, 'ok');
-                } catch (e) {
-                    setOnAirUI(false);
-                    recognition = null;
-                    setStatus('STT_ERR: RESTART_FAIL');
-                    if (typeof ghostLog === 'function') ghostLog('STT RESTART ERR: ' + e.message, 'crit');
-                }
-            }, 350);
-        });
-    }
-
-    /* ── SUB_BG opacity cycle ─────────────────────────────────────────── */
-    var _subOpacitySmall = document.querySelector('#btn-sub-opacity small');
-    if (btnSubOpacity) {
-        btnSubOpacity.addEventListener('click', function () {
-            subBgIdx = (subBgIdx + 1) % subBgLevels.length;
-            subBgOpacity = subBgLevels[subBgIdx];
-            var pct = Math.round(subBgOpacity * 100);
-            if (_subOpacitySmall) _subOpacitySmall.textContent = pct + '%';
-            btnSubOpacity.classList.toggle('active-mode', subBgOpacity > 0);
-            renderSubtitles(); // re-apply to live lines
-        });
-    }
-
-    /* ── P2P STT source toggle ────────────────────────────────────────── */
-    var _p2pSttSmall = document.getElementById('p2p-stt-sub');
-    if (btnP2pStt) {
-        btnP2pStt.addEventListener('click', function () {
-            p2pSTTMode = !p2pSTTMode;
-            if (_p2pSttSmall) _p2pSttSmall.textContent = p2pSTTMode ? 'P2P' : 'MIC';
-            btnP2pStt.classList.toggle('active-mode', p2pSTTMode);
-
-            if (p2pSTTMode && window._p2pAudioStream) {
-                // Route P2P remote audio through its own AudioContext path
-                // and expose the destination stream for STT consumption.
-                try {
-                    if (p2pSTTCtx) { p2pSTTCtx.close().catch(function(){}); }
-                    p2pSTTCtx = new AudioContext();
-                    var src  = p2pSTTCtx.createMediaStreamSource(window._p2pAudioStream);
-                    var dest = p2pSTTCtx.createMediaStreamDestination();
-                    src.connect(dest);
-                    window._p2pSTTStream = dest.stream;
-                    if (typeof ghostLog === 'function') {
-                        ghostLog('GHOST> P2P AUDIO \u2192 STT PIPELINE ACTIVE', 'ok');
-                    }
-                } catch (e) {
-                    if (typeof ghostLog === 'function') {
-                        ghostLog('GHOST> P2P STT ROUTE ERR: ' + e.message, 'crit');
-                    }
-                }
-            } else {
-                // Tear down P2P audio context
-                if (p2pSTTCtx) { p2pSTTCtx.close().catch(function(){}); p2pSTTCtx = null; }
-                window._p2pSTTStream = null;
-                if (typeof ghostLog === 'function') {
-                    ghostLog('GHOST> STT SOURCE \u2192 LOCAL MIC', 'ai');
-                }
-            }
-        });
-    }
-
-    /* ── HARDWARE SCANNER ────────────────────────────────────────────── */
-    var scanBtn    = document.getElementById('btn-scan-inputs');
-    var inputSelect = document.getElementById('audio-input-select');
-
-    if (scanBtn) {
-        scanBtn.onclick = async function() {
-            try {
-                var tempStream = await navigator.mediaDevices.getUserMedia({ audio: true });
-                await new Promise(function(r) { setTimeout(r, 600); });
-                var devices    = await navigator.mediaDevices.enumerateDevices();
-                var audioInputs = devices.filter(function(d) { return d.kind === 'audioinput'; });
-                if (inputSelect) {
-                    inputSelect.innerHTML = '<option value="">SELECT_HARDWARE...</option>';
-                    audioInputs.forEach(function(d) {
-                        var opt = document.createElement('option');
-                        opt.value = d.deviceId;
-                        opt.text  = d.label || 'EXTERNAL_INPUT_' + inputSelect.length;
-                        inputSelect.appendChild(opt);
-                    });
-                    inputSelect.style.display = 'block';
-                    tempStream.getTracks().forEach(function(t) { t.stop(); });
-                }
-            } catch (e) { if (typeof ghostLog === 'function') ghostLog('SCAN_ERR: ' + e.message, 'crit'); }
-        };
-    }
-
-    /* ── Boot ─────────────────────────────────────────────────────────── */
-    window.addEventListener('resize', function() { if (window.APP && APP.render) APP.render._cachedRect = null; });
-    setStatus('STT: STANDBY');
-
-}());
-</script>
-
-<!-- ═══════════════════════════════════════════════════════════════════
-     VANGUARD_B FX ENGINE — WebGL2 post-process shader bank
-     6 elite GLSL 3.00 ES shaders running on #vb-canvas
-     Single-click: 3s reactive burst  |  Double-click: persistent lock
-     ═══════════════════════════════════════════════════════════════════ -->
-<script>
-(function() {
-'use strict';
-
-// ── State ─────────────────────────────────────────────────────────────
-var _vbActive    = false;   // Bank B currently selected
-var _vbShader    = null;    // Currently active shader name
-var _vbLocked    = {};      // { shaderName: true } — persistent/locked
-var _vbBurstTimer= null;    // One-shot timer handle
-var _dblTapTimer = {};      // Per-button double-tap detection
-var _vbTime      = 0;       // Shader uniform time
-var _vbRAF       = null;    // requestAnimationFrame handle
-var _vbGl        = null;    // WebGL2 context
-var _vbProgs     = {};      // Compiled shader programs
-var _vbTex       = null;    // Input texture (from vj-canvas)
-var _vbPrevTex   = null;    // Previous-frame texture for GHOST_ECHO feedback
-var _vbPrevCvs   = null;    // Off-screen 2D canvas storing last rendered frame
-var _vbPrevCtx2d = null;    // 2D context for _vbPrevCvs
-var _vbInited    = false;
-// ── PHASE E Task 3: cached canvas dimensions — avoids offsetWidth/offsetHeight inside the loop ──
-var _vbW         = 0;
-var _vbH         = 0;
-
-// ── GLSL Shaders (GLSL ES 3.00) ───────────────────────────────────────
-var VS = '#version 300 es\nin vec2 a;out vec2 v;void main(){v=a*0.5+0.5;v.y=1.0-v.y;gl_Position=vec4(a,0,1);}';
-
-var FS = {
-    SLIT_SCAN: [
-        '#version 300 es',
-        'precision mediump float;',
-        'in vec2 v; uniform sampler2D t; uniform float time; out vec4 o;',
-        'void main(){',
-        '  float a=sin(v.y*20.0+time*3.0)*0.045+sin(v.y*7.0+time*1.2)*0.018;',
-        '  vec4 r=texture(t,vec2(clamp(v.x+a,0.0,1.0),v.y));',
-        '  vec4 g=texture(t,vec2(clamp(v.x+a*0.8,0.0,1.0),v.y));',
-        '  vec4 b=texture(t,vec2(clamp(v.x+a*1.2,0.0,1.0),v.y));',
-        '  o=vec4(r.r,g.g,b.b,1.0);',
-        '}'
-    ].join('\n'),
-
-    LUMA_BLOOM: [
-        '#version 300 es',
-        'precision mediump float;',
-        'in vec2 v; uniform sampler2D t; uniform vec2 res; out vec4 o;',
-        'void main(){',
-        '  vec4 c=texture(t,v);',
-        '  float luma=dot(c.rgb,vec3(0.2126,0.7152,0.0722));',
-        '  vec3 bloom=vec3(0.0);',
-        '  if(luma>0.55){',
-        '    vec2 px=2.2/res;',
-        '    for(int x=-3;x<=3;x++)for(int y=-3;y<=3;y++)',
-        '      bloom+=texture(t,v+vec2(float(x),float(y))*px).rgb;',
-        '    bloom/=49.0; bloom*=luma*2.0;',
-        '  }',
-        '  o=vec4(min(c.rgb+bloom,1.0),1.0);',
-        '}'
-    ].join('\n'),
-
-    DITHER_LUXE: [
-        '#version 300 es',
-        'precision mediump float;',
-        'in vec2 v; uniform sampler2D t; uniform vec2 res; out vec4 o;',
-        'float bayer(ivec2 p){',
-        '  int x=p.x&3,y=p.y&3,i=y*4+x;',
-        '  if(i==0)return 0.0/16.0; if(i==1)return 8.0/16.0;',
-        '  if(i==2)return 2.0/16.0; if(i==3)return 10.0/16.0;',
-        '  if(i==4)return 12.0/16.0;if(i==5)return 4.0/16.0;',
-        '  if(i==6)return 14.0/16.0;if(i==7)return 6.0/16.0;',
-        '  if(i==8)return 3.0/16.0; if(i==9)return 11.0/16.0;',
-        '  if(i==10)return 1.0/16.0;if(i==11)return 9.0/16.0;',
-        '  if(i==12)return 15.0/16.0;if(i==13)return 7.0/16.0;',
-        '  if(i==14)return 13.0/16.0;return 5.0/16.0;',
-        '}',
-        'void main(){',
-        '  vec4 c=texture(t,v);',
-        '  float luma=dot(c.rgb,vec3(0.2126,0.7152,0.0722));',
-        '  float thr=bayer(ivec2(v*res));',
-        '  float d=step(thr,luma);',
-        '  o=vec4(mix(vec3(0.02),c.rgb,d),1.0);',
-        '}'
-    ].join('\n'),
-
-    CAUSTICS: [
-        '#version 300 es',
-        'precision mediump float;',
-        'in vec2 v; uniform sampler2D t; uniform float time; out vec4 o;',
-        'float h(vec2 p){return fract(sin(dot(p,vec2(127.1,311.7)))*43758.5453);}',
-        'float n(vec2 p){',
-        '  vec2 i=floor(p),f=fract(p);',
-        '  float a=h(i),b=h(i+vec2(1,0)),c=h(i+vec2(0,1)),d=h(i+vec2(1,1));',
-        '  vec2 u=f*f*(3.0-2.0*f);',
-        '  return mix(a,b,u.x)+(c-a)*u.y*(1.0-u.x)+(d-b)*u.x*u.y;',
-        '}',
-        'void main(){',
-        '  float n1=n(v*5.0+time*0.4);',
-        '  float n2=n(v*11.0-time*0.25);',
-        '  float n3=n(v*17.0+time*0.15);',
-        '  vec2 off=vec2(n1-0.5,n2-0.5)*0.03+vec2(n3-0.5)*0.01;',
-        '  o=texture(t,clamp(v+off,0.0,1.0));',
-        '}'
-    ].join('\n'),
-
-    GHOST_ECHO: [
-        '#version 300 es',
-        'precision highp float;',
-        'in vec2 v;',
-        'uniform sampler2D t;',
-        'uniform sampler2D tPrev;',
-        'uniform float time;',
-        'uniform float uAudio;',
-        'out vec4 o;',
-        'void main(){',
-        '  vec4 cur=texture(t,v);',
-        // Subtle UV drift so ghost trails shift rather than stack perfectly
-        '  vec2 drift=vec2(sin(time*0.31+v.y*3.8)*0.0009,cos(time*0.19+v.x*2.7)*0.0006);',
-        '  vec4 ghost=texture(tPrev,clamp(v+drift,0.0,1.0));',
-        // decay: 0.80 at silence → 0.95 at full bass — longer trails on kicks
-        '  float decay=0.80+uAudio*0.15;',
-        '  o=vec4(cur.rgb+ghost.rgb*decay,1.0);',
-        '}'
-    ].join('\n'),
-
-    SPECTRAL_MOSH: [
-        '#version 300 es',
-        'precision highp float;',
-        'in vec2 v;',
-        'uniform sampler2D t;',
-        'uniform float time;',
-        'uniform float uAudio;',
-        'uniform vec2 res;',
-        'out vec4 o;',
-        'void main(){',
-        '  vec2 px=1.0/max(res,vec2(1.0));',
-        // Luminance gradient → per-pixel velocity estimate
-        '  vec3 c0=texture(t,v).rgb;',
-        '  float lumC=dot(c0,vec3(0.299,0.587,0.114));',
-        '  float lumR=dot(texture(t,v+vec2(px.x,0.0)).rgb,vec3(0.299,0.587,0.114));',
-        '  float lumU=dot(texture(t,v+vec2(0.0,px.y)).rgb,vec3(0.299,0.587,0.114));',
-        // Displacement magnitude grows with bass
-        '  float mag=(0.006+uAudio*0.022)*26.0;',
-        '  vec2 shift=vec2(lumR-lumC,lumU-lumC)*mag;',
-        // Time-modulated channel separation — each channel bleeds differently
-        '  float tmod=time*0.38;',
-        '  float r=texture(t,clamp(v+shift*1.9,0.0,1.0)).r;',
-        '  float g=texture(t,clamp(v+shift*0.55+vec2(sin(tmod)*0.0025,0.0),0.0,1.0)).g;',
-        '  float b=texture(t,clamp(v-shift*1.4+vec2(0.0,cos(tmod)*0.002),0.0,1.0)).b;',
-        // Blend: only apply mosh where gradient is strong enough
-        '  float edge=clamp(length(shift)*35.0,0.0,1.0);',
-        '  o=vec4(mix(c0,vec3(r,g,b),edge),1.0);',
-        '}'
-    ].join('\n')
-};
-
-// ── WebGL init ────────────────────────────────────────────────────────
-function _initVB() {
-    if (_vbInited) return;
-    var canvas = document.getElementById('vb-canvas');
-    if (!canvas) return;
-    var gl = canvas.getContext('webgl2', { alpha: false, antialias: false, premultipliedAlpha: false });
-    if (!gl) { console.warn('[VB] WebGL2 not supported'); return; }
-    _vbGl = gl;
-
-    function compileShader(type, src) {
-        var s = gl.createShader(type);
-        gl.shaderSource(s, src); gl.compileShader(s);
-        if (!gl.getShaderParameter(s, gl.COMPILE_STATUS))
-            console.error('[VB] Shader compile error:', gl.getShaderInfoLog(s));
-        return s;
-    }
-    function makeProgram(fs) {
-        var prog = gl.createProgram();
-        gl.attachShader(prog, compileShader(gl.VERTEX_SHADER, VS));
-        gl.attachShader(prog, compileShader(gl.FRAGMENT_SHADER, fs));
-        gl.linkProgram(prog);
-        if (!gl.getProgramParameter(prog, gl.LINK_STATUS))
-            console.error('[VB] Program link error:', gl.getProgramInfoLog(prog));
-        return prog;
-    }
-
-    Object.keys(FS).forEach(function(name) {
-        var prog = makeProgram(FS[name]);
-        _vbProgs[name] = {
-            prog:      prog,
-            aLoc:      gl.getAttribLocation(prog, 'a'),
-            tLoc:      gl.getUniformLocation(prog, 't'),
-            timeLoc:   gl.getUniformLocation(prog, 'time'),
-            resLoc:    gl.getUniformLocation(prog, 'res'),
-            dirLoc:    gl.getUniformLocation(prog, 'dir'),
-            audioLoc:  gl.getUniformLocation(prog, 'uAudio'),  // bass 0-1
-            prevLoc:   gl.getUniformLocation(prog, 'tPrev')    // feedback frame
-        };
-    });
-
-    // Off-screen canvas for GHOST_ECHO frame feedback
-    _vbPrevCvs = document.createElement('canvas');
-    _vbPrevCvs.width = 2; _vbPrevCvs.height = 2;
-    _vbPrevCtx2d = _vbPrevCvs.getContext('2d');
-    _vbPrevTex = gl.createTexture();
-    gl.bindTexture(gl.TEXTURE_2D, _vbPrevTex);
-    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE);
-    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE);
-    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.LINEAR);
-    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.LINEAR);
-    // Seed with opaque black
-    gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, 1, 1, 0, gl.RGBA, gl.UNSIGNED_BYTE, new Uint8Array([0,0,0,255]));
-
-    // Fullscreen quad
-    var buf = gl.createBuffer();
-    gl.bindBuffer(gl.ARRAY_BUFFER, buf);
-    gl.bufferData(gl.ARRAY_BUFFER, new Float32Array([-1,-1, 1,-1, -1,1, 1,1]), gl.STATIC_DRAW);
-    _vbGl._quadBuf = buf;
-
-    // Input texture
-    _vbTex = gl.createTexture();
-    gl.bindTexture(gl.TEXTURE_2D, _vbTex);
-    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE);
-    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE);
-    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.LINEAR);
-    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.LINEAR);
-
-    _vbInited = true;
-}
-
-// ── Render tick — PHASE F Task 1: own rAF removed, called from mainLoop every frame ──
-function _vbRender() {
-    var shader = _vbShader;
-    if (!shader || !_vbInited) return;
-
-    var vjCanvas = document.getElementById('vj-canvas');
-    var vbCanvas = document.getElementById('vb-canvas');
-    var gl = _vbGl;
-    if (!vjCanvas || !vbCanvas || !gl) return;
-
-    // ── PHASE E Task 3: use cached dimensions; offsetWidth/offsetHeight only as first-run fallback ──
-    var w = _vbW, h = _vbH;
-    if (w === 0 || h === 0) { w = vbCanvas.offsetWidth; h = vbCanvas.offsetHeight; _vbW = w; _vbH = h; }
-    if (vbCanvas.width !== w || vbCanvas.height !== h) {
-        vbCanvas.width = w; vbCanvas.height = h;
-        gl.viewport(0, 0, w, h);
-    }
-
-    _vbTime += 0.016;
-    var p = _vbProgs[shader];
-    if (!p) return;
-
-    // Upload VJ canvas as texture
-    gl.bindTexture(gl.TEXTURE_2D, _vbTex);
-    try { gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, gl.RGBA, gl.UNSIGNED_BYTE, vjCanvas); }
-    catch(e) { return; }
-
-    gl.useProgram(p.prog);
-    gl.bindBuffer(gl.ARRAY_BUFFER, gl._quadBuf);
-    gl.enableVertexAttribArray(p.aLoc);
-    gl.vertexAttribPointer(p.aLoc, 2, gl.FLOAT, false, 0, 0);
-
-    // Texture unit 0 — current frame from vj-canvas
-    gl.activeTexture(gl.TEXTURE0);
-    gl.bindTexture(gl.TEXTURE_2D, _vbTex);
-    gl.uniform1i(p.tLoc, 0);
-
-    // Texture unit 1 — previous frame (GHOST_ECHO feedback)
-    if (p.prevLoc && _vbPrevTex) {
-        gl.activeTexture(gl.TEXTURE1);
-        gl.bindTexture(gl.TEXTURE_2D, _vbPrevTex);
-        if (_vbPrevCvs && _vbPrevCvs.width > 2) {
-            try { gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, gl.RGBA, gl.UNSIGNED_BYTE, _vbPrevCvs); } catch(e) {}
-        }
-        gl.uniform1i(p.prevLoc, 1);
-        gl.activeTexture(gl.TEXTURE0);
-    }
-
-    // Audio uniform — bass level normalised 0-1
-    var _audio = (typeof APP !== 'undefined' && APP.audio && APP.audio.bassLevel) ? APP.audio.bassLevel / 255 : 0;
-    if (p.audioLoc) gl.uniform1f(p.audioLoc, _audio);
-    if (p.timeLoc)  gl.uniform1f(p.timeLoc, _vbTime);
-    if (p.resLoc)   gl.uniform2f(p.resLoc, w, h);
-    if (p.dirLoc)   gl.uniform2f(p.dirLoc, 1.0, 0.5);
-    gl.drawArrays(gl.TRIANGLE_STRIP, 0, 4);
-
-    // Save rendered output as previous frame for GHOST_ECHO feedback
-    if (shader === 'GHOST_ECHO' && _vbPrevCvs && _vbPrevCtx2d) {
-        if (_vbPrevCvs.width !== w || _vbPrevCvs.height !== h) {
-            _vbPrevCvs.width = w; _vbPrevCvs.height = h;
-        }
-        try { _vbPrevCtx2d.drawImage(vbCanvas, 0, 0, w, h); } catch(e) {}
-    }
-
-    // ── UNIFIED RECORDER BLIT ─────────────────────────────────────────
-    // Composite Bank B output onto vj-canvas so captureStream captures it.
-    // renderLoop always runs before _vbRender (registered first), so this
-    // blit lands after the full 2D frame is drawn — clean composition.
-    try {
-        var _mainCtx = vjCanvas.getContext('2d');
-        if (_mainCtx) _mainCtx.drawImage(vbCanvas, 0, 0, vjCanvas.width, vjCanvas.height);
-    } catch(e) {}
-}
-
-// ── Activate / deactivate shader ──────────────────────────────────────
-function _vbActivate(shaderName, persistent) {
-    if (!_vbInited) _initVB();
-    var vbCanvas = document.getElementById('vb-canvas');
-    _vbShader = shaderName;
-    if (vbCanvas) vbCanvas.style.display = 'block';
-    // ── PHASE F: rAF boot removed — mainLoop drives _vbRender via window._vbRenderTick ──
-    if (persistent) {
-        _vbLocked[shaderName] = true;
-    }
-    _vbUpdateUI(shaderName, persistent);
-    var hasLocked = Object.keys(_vbLocked).length > 0;
-    var statusEl = document.getElementById('vb-sys-status');
-    if (statusEl) statusEl.textContent = hasLocked ? 'SYSTEM_STATUS: GPU_FX_ACTIVE' : 'SYSTEM_STATUS: STANDBY';
-    var dot = document.getElementById('vb-status-dot');
-    if (dot) dot.classList.toggle('on', hasLocked);
-}
-
-function _vbDeactivate(shaderName) {
-    delete _vbLocked[shaderName];
-    var hasLocked = Object.keys(_vbLocked).length > 0;
-    if (!hasLocked) {
-        _vbShader = null;
-        var vbCanvas = document.getElementById('vb-canvas');
-        if (vbCanvas) vbCanvas.style.display = 'none';
-    } else {
-        // Switch to another locked shader
-        _vbShader = Object.keys(_vbLocked)[0];
-    }
-    _vbUpdateUI(shaderName, false);
-    var statusEl = document.getElementById('vb-sys-status');
-    if (statusEl) statusEl.textContent = hasLocked ? 'SYSTEM_STATUS: GPU_FX_ACTIVE' : 'SYSTEM_STATUS: STANDBY';
-    var dot = document.getElementById('vb-status-dot');
-    if (dot) dot.classList.toggle('on', hasLocked);
-}
-
-function _vbUpdateUI(shaderName, locked) {
-    var btn = document.getElementById('vb-' + shaderName);
-    if (!btn) return;
-    // CSS handles all color/glow via .va-btn.active-fx + --va-color
-    btn.classList.toggle('active-fx', locked);
-    btn.style.borderColor = '';
-    btn.style.boxShadow = '';
-    btn.style.color = '';
-}
-
-// Expose internals for coupling and ghost voice commands
-window._vbActivate   = function(sn, p) { _vbActivate(sn, p); };
-window._vbDeactivate = function(sn)    { _vbDeactivate(sn); };
-// ── PHASE F Task 1: expose tick so mainLoop (outside this IIFE) can drive rendering ──
-window._vbRenderTick = _vbRender;
-
-window._setFXBank = function(bank) {
-    _vbActive = (bank === 'B');
-    var panA = document.getElementById('fx-bank-a-panel');
-    var panB = document.getElementById('fx-bank-b-panel');
-    var bA   = document.getElementById('fx-bank-a-btn');
-    var bB   = document.getElementById('fx-bank-b-btn');
-    if (panA) panA.style.display = _vbActive ? 'none' : '';
-    if (panB) panB.style.display = _vbActive ? '' : 'none';
-    if (bA)  bA.classList.toggle('bank-active', !_vbActive);
-    if (bB)  bB.classList.toggle('bank-active', _vbActive);
-    if (_vbActive && !_vbInited) _initVB();
-};
-
-window._vbClearAll = function() {
-    Object.keys(_vbLocked).forEach(_vbDeactivate);
-    _vbShader = null;
-    var vbCanvas = document.getElementById('vb-canvas');
-    if (vbCanvas) vbCanvas.style.display = 'none';
-    document.querySelectorAll('.vb-btn').forEach(function(b) {
-        b.classList.remove('active-fx');
-        b.style.borderColor = '';
-        b.style.boxShadow = '';
-        b.style.color = '';
-    });
-    var statusEl = document.getElementById('vb-sys-status');
-    if (statusEl) statusEl.textContent = 'SYSTEM_STATUS: STANDBY';
-    var dot = document.getElementById('vb-status-dot');
-    if (dot) dot.classList.remove('on');
-};
-
-// ── Single/double-click handler for VB buttons ────────────────────────
-function _vbHandleClick(btn) {
-    var shaderName = btn.dataset.shader;
-    if (!shaderName) return;
-
-    var now = Date.now();
-    var lastTap = _dblTapTimer[shaderName] || 0;
-    var isDouble = (now - lastTap) < 350;
-    _dblTapTimer[shaderName] = now;
-
-    if (_vbLocked[shaderName]) {
-        // Already locked — deactivate
-        _vbDeactivate(shaderName);
-        return;
-    }
-
-    if (isDouble) {
-        // Double-click: PERSISTENT LOCK
-        if (_vbBurstTimer) { clearTimeout(_vbBurstTimer); _vbBurstTimer = null; }
-        _vbActivate(shaderName, true);
-        log('VB_LOCK: ' + shaderName);
-    } else {
-        // Single-click: 3-second burst — show active-fx while running
-        if (_vbBurstTimer) clearTimeout(_vbBurstTimer);
-        _vbActivate(shaderName, false);
-        var burstBtn = document.getElementById('vb-' + shaderName);
-        if (burstBtn) burstBtn.classList.add('active-fx');
-        _vbBurstTimer = setTimeout(function() {
-            if (!_vbLocked[shaderName]) {
-                _vbDeactivate(shaderName);
-                if (burstBtn) burstBtn.classList.remove('active-fx');
-            }
-            _vbBurstTimer = null;
-        }, 3000);
-        log('VB_BURST: ' + shaderName);
-    }
-}
-
-// ── Wire up VB buttons + init Bank A active state ─────────────────────
-function _vbWireButtons() {
-    document.querySelectorAll('.vb-btn').forEach(function(btn) {
-        btn.addEventListener('click', function() { _vbHandleClick(btn); });
-    });
-    // Set Bank A as active on load
-    window._setFXBank('A');
-}
-document.addEventListener('DOMContentLoaded', _vbWireButtons);
-if (document.readyState !== 'loading') { _vbWireButtons(); }
-
-// ── PHASE E Task 3: update cached dimensions whenever the window resizes ──
-window.addEventListener('resize', function() {
-    var vbCanvas = document.getElementById('vb-canvas');
-    if (vbCanvas) { _vbW = vbCanvas.offsetWidth; _vbH = vbCanvas.offsetHeight; }
-});
-
-})();
-</script>
-
-
-<script>
-// Gesture values written by _handTrackFeed, consumed by KineticRack._loop().
-window._gestureState = {
-    pitch: 0.5, macro: 0.5, fm: 0, lfoRate: 0, lfoDepth: 0,
-    vol: 0, preset: null, pluck: false, pluckX: 0.5, pluckVel: 0.8,
-    handPresent: false,
-};
-
-// ── _handTrackFeed — X/Y Synth Pad Engine ─────────────────────────────────────
-// Called by the main-thread MediaPipe Hands tracker (_startHandTracker above)
-// with live 21-point hand landmarks.
-// Right Hand lm[8] (index fingertip): X → Pitch 100-1200Hz, Y → Filter 200-8000Hz.
-// Performance gate: vol=0.7 when hand detected, vol=0 when lost.
-(function(){
-    // Per-finger neon palette (thumb, index, middle, ring, pinky)
-    var FINGER_COLORS = ['#FF4FD8','#00F3FF','#7CFF4F','#FFD24F','#C77DFF'];
-    // Landmark index → finger group (0=palm,1=thumb,2=index,3=middle,4=ring,5=pinky)
-    var LM_FINGER = [0, 1,1,1,1, 2,2,2,2, 3,3,3,3, 4,4,4,4, 5,5,5,5];
-    var BONES = [
-        [0,1],[1,2],[2,3],[3,4],           // thumb
-        [0,5],[5,6],[6,7],[7,8],           // index
-        [5,9],[9,10],[10,11],[11,12],      // middle
-        [9,13],[13,14],[14,15],[15,16],    // ring
-        [13,17],[17,18],[18,19],[19,20],   // pinky
-        [0,17]                             // palm close
-    ];
-
-    // MediaPipe lm.z is negative (closer to camera) / positive (farther).
-    // Map it to a 0.55–1.35 depth scalar: near joints bigger + brighter.
-    function _depthScale(z) {
-        if (z == null) return 1;
-        // Typical range ≈ -0.12 … 0.08 in practice
-        var t = Math.max(-0.15, Math.min(0.15, z));
-        return 1 - t * 2.7; // near → ~1.4, far → ~0.6
-    }
-
-    function _drawHand(ctx, lms, W, H, isPrimary) {
-        var dimmer   = isPrimary ? 1 : 0.55;
-        var tNow     = performance.now() * 0.004;
-        var pulse    = 0.5 + 0.5 * Math.sin(tNow);
-
-        // Pass 1 — outer glow strokes (additive), depth-weighted line width
-        ctx.globalCompositeOperation = 'lighter';
-        ctx.lineCap  = 'round';
-        ctx.lineJoin = 'round';
-        for (var c = 0; c < BONES.length; c++) {
-            var ia = BONES[c][0], ib = BONES[c][1];
-            var a = lms[ia], b = lms[ib];
-            if (!a || !b) continue;
-            var fgrp = LM_FINGER[ib] || LM_FINGER[ia] || 0;
-            var color = FINGER_COLORS[Math.max(0, fgrp - 1)] || '#00F3FF';
-            var ds    = (_depthScale(a.z) + _depthScale(b.z)) * 0.5;
-            ctx.strokeStyle = color;
-            ctx.globalAlpha = 0.22 * dimmer * ds;
-            ctx.lineWidth   = 11 * ds;
-            ctx.shadowColor = color;
-            ctx.shadowBlur  = 22 * ds;
-            ctx.beginPath();
-            ctx.moveTo((1 - a.x) * W, a.y * H);
-            ctx.lineTo((1 - b.x) * W, b.y * H);
-            ctx.stroke();
-        }
-
-        // Pass 2 — crisp core strokes
-        ctx.shadowBlur = 0;
-        for (var c2 = 0; c2 < BONES.length; c2++) {
-            var ia2 = BONES[c2][0], ib2 = BONES[c2][1];
-            var a2 = lms[ia2], b2 = lms[ib2];
-            if (!a2 || !b2) continue;
-            var fgrp2 = LM_FINGER[ib2] || LM_FINGER[ia2] || 0;
-            var color2 = FINGER_COLORS[Math.max(0, fgrp2 - 1)] || '#00F3FF';
-            var ds2    = (_depthScale(a2.z) + _depthScale(b2.z)) * 0.5;
-            ctx.strokeStyle = color2;
-            ctx.globalAlpha = 0.95 * dimmer;
-            ctx.lineWidth   = 2.6 * ds2;
-            ctx.beginPath();
-            ctx.moveTo((1 - a2.x) * W, a2.y * H);
-            ctx.lineTo((1 - b2.x) * W, b2.y * H);
-            ctx.stroke();
-        }
-
-        // Pass 3 — joints, depth-scaled
-        for (var i = 0; i < 21; i++) {
-            var lm = lms[i];
-            if (!lm) continue;
-            var fg = LM_FINGER[i];
-            var col = fg === 0 ? '#FFFFFF' : FINGER_COLORS[fg - 1];
-            var isTip = (i === 4 || i === 8 || i === 12 || i === 16 || i === 20);
-            var isTarget = isPrimary && i === 8;
-            var dsJ = _depthScale(lm.z);
-            var r = isTarget ? (9 + pulse * 5) * dsJ
-                             : (isTip ? 5 : 2.8) * dsJ;
-            ctx.globalAlpha = (isTarget ? 1 : 0.9) * dimmer;
-            ctx.fillStyle   = col;
-            ctx.shadowColor = col;
-            ctx.shadowBlur  = (isTarget ? 28 : (isTip ? 12 : 5)) * dsJ;
-            ctx.beginPath();
-            ctx.arc((1 - lm.x) * W, lm.y * H, r, 0, Math.PI * 2);
-            ctx.fill();
-        }
-
-        // Pass 4 — target reticle on index fingertip (primary hand only)
-        if (isPrimary && lms[8]) {
-            var tx = (1 - lms[8].x) * W, ty = lms[8].y * H;
-            var rr = 16 + pulse * 6;
-            ctx.globalAlpha = 0.85;
-            ctx.strokeStyle = '#00FFCC';
-            ctx.shadowColor = '#00FFCC';
-            ctx.shadowBlur  = 14;
-            ctx.lineWidth   = 1.5;
-            ctx.beginPath();
-            ctx.arc(tx, ty, rr, 0, Math.PI * 2);
-            ctx.stroke();
-            // crosshair ticks
-            ctx.beginPath();
-            ctx.moveTo(tx - rr - 4, ty); ctx.lineTo(tx - rr + 2, ty);
-            ctx.moveTo(tx + rr - 2, ty); ctx.lineTo(tx + rr + 4, ty);
-            ctx.moveTo(tx, ty - rr - 4); ctx.lineTo(tx, ty - rr + 2);
-            ctx.moveTo(tx, ty + rr - 2); ctx.lineTo(tx, ty + rr + 4);
-            ctx.stroke();
-        }
-    }
-
-    // ── ONE-EURO FILTER per landmark/axis ────────────────────────────────
-    // Industry-standard adaptive smoother for gesture input: heavy smoothing
-    // when the hand is still (kills MediaPipe jitter), light smoothing when
-    // it moves fast (preserves intent). Cuts visible lag AND the stray-wrist
-    // spikes in one shot. Tuned for MP Hands at ~25 Hz.
-    var OE_MIN_CUTOFF = 1.2;  // base smoothing — lower = smoother still-hand
-    var OE_BETA       = 0.06; // how quickly cutoff follows velocity
-    var OE_DCUTOFF    = 1.0;  // smoothing on the derivative itself
-
-    function _oeMakeHand() {
-        var h = new Array(21);
-        for (var i = 0; i < 21; i++) {
-            h[i] = { x: null, y: null, z: null,
-                     dx: 0, dy: 0, dz: 0, t: 0 };
-        }
-        return h;
-    }
-    var _oeR = _oeMakeHand();
-    var _oeL = _oeMakeHand();
-
-    function _oeAlpha(cutoff, dt) {
-        var r = 2 * Math.PI * cutoff * dt;
-        return r / (r + 1);
-    }
-
-    function _oeAxis(st, axis, dAxis, raw, t) {
-        var prev = st[axis];
-        if (prev === null) { st[axis] = raw; st.t = t; return raw; }
-        var dt = Math.max(0.001, (t - st.t) / 1000);
-        var aD = _oeAlpha(OE_DCUTOFF, dt);
-        var dRaw = (raw - prev) / dt;
-        st[dAxis] = st[dAxis] + aD * (dRaw - st[dAxis]);
-        var cutoff = OE_MIN_CUTOFF + OE_BETA * Math.abs(st[dAxis]);
-        var a = _oeAlpha(cutoff, dt);
-        st[axis] = prev + a * (raw - prev);
-        return st[axis];
-    }
-
-    function _oeFilter(hand, lm, t) {
-        if (!lm) return null;
-        var out = new Array(21);
-        for (var i = 0; i < 21; i++) {
-            var a = lm[i]; if (!a) { out[i] = null; continue; }
-            var s = hand[i];
-            s.t = s.t || t;
-            out[i] = {
-                x: _oeAxis(s, 'x', 'dx', a.x, t),
-                y: _oeAxis(s, 'y', 'dy', a.y, t),
-                z: _oeAxis(s, 'z', 'dz', a.z || 0, t)
-            };
-            s.t = t;
-        }
-        return out;
-    }
-
-    function _dist3(a, b) {
-        if (!a || !b) return 0;
-        var dx = a.x - b.x, dy = a.y - b.y, dz = (a.z || 0) - (b.z || 0);
-        return Math.sqrt(dx * dx + dy * dy + dz * dz);
-    }
-
-    // Pinch rising-edge latch (with hysteresis) → triggers a pluck note.
-    var _prevPinchHigh = false;
-    var NOTE_LABELS = ['A1','C2','D2','E2','G2','A2','C3','D3','E3','G3'];
-    // Hold-over: keep handPresent=true for 250ms after a dropout to absorb
-    // single missed camera frames without silencing the arp.
-    var _lastHandSeen = 0;
-    var _HAND_HOLD_MS = 250;
-
-    window._handTrackFeed = function(rightLm, leftLm) {
-        var rack = window.KineticRack;
-        if (!rack || !rack.active) return;
-
-        var canvas = document.getElementById('kr-skeleton-canvas');
-        var ctx    = canvas ? canvas.getContext('2d') : null;
-
-        // ── 1. RESIZE + CLEAR HUD ────────────────────────────────────────────
-        if (canvas && ctx) {
-            var rect = canvas.getBoundingClientRect();
-            if (canvas.width !== rect.width || canvas.height !== rect.height) {
-                canvas.width  = rect.width;
-                canvas.height = rect.height;
-            }
-            ctx.clearRect(0, 0, canvas.width, canvas.height);
-        }
-
-        // ── 2. ONE-EURO SMOOTH ──────────────────────────────────────────────
-        var tNow  = performance.now();
-        var rDraw = _oeFilter(_oeR, rightLm, tNow);
-        var lDraw = _oeFilter(_oeL, leftLm,  tNow);
-
-        // ── 3. PERFORMANCE GATE (no right hand = silence) ───────────────────
-        if (!rDraw) {
-            // Hold for 250ms before actually silencing — absorbs single missed
-            // camera frames so the arp and voice don't stutter on brief dropouts.
-            if (tNow - _lastHandSeen < _HAND_HOLD_MS) {
-                if (lDraw && ctx) {
-                    ctx.save();
-                    _drawHand(ctx, lDraw, canvas.width, canvas.height, false);
-                    ctx.restore();
-                }
-                return;
-            }
-            window._gestureState.handPresent = false;
-            window._gestureState.vol         = 0;
-            window._gestureState.fm          = 0;
-            window._gestureState.lfoDepth    = 0;
-            _prevPinchHigh = false;
-            var vs = document.querySelector('[data-ctrl="vol"]');
-            if (vs) vs.value = 0;
-            if (lDraw && ctx) {
-                ctx.save();
-                _drawHand(ctx, lDraw, canvas.width, canvas.height, false);
-                ctx.restore();
-            }
-            return;
-        }
-        _lastHandSeen = tNow;
-        window._gestureState.handPresent = true;
-        window._gestureState.vol         = 0.6;
-
-        var lm8 = rDraw[8];
-
-        // ── 4. X → PITCH, Y → MACRO (opens filter + body + sub together) ───
-        var xNorm = Math.max(0, Math.min(1, 1 - lm8.x));
-        var yNorm = Math.max(0, Math.min(1, 1 - lm8.y));
-        window._gestureState.pitch = xNorm;
-        window._gestureState.macro = yNorm;
-
-        // ── 4b. LEFT HAND Y → preset bank (ambient / techno / dubstep) ─────
-        var presetName = null;
-        if (lDraw && lDraw[0]) {
-            var lY = lDraw[0].y;
-            if (lY < 0.33)      presetName = 'dubstep';
-            else if (lY < 0.66) presetName = 'techno';
-            else                presetName = 'ambient';
-            window._gestureState.preset = presetName;
-        }
-
-        // ── 5. GESTURES ─────────────────────────────────────────────────────
-        var handSize = Math.max(0.03, _dist3(rDraw[0], rDraw[9]));
-        var pinchRaw = _dist3(rDraw[4], rDraw[8]) / handSize;
-        var pinch    = Math.max(0, Math.min(1, 1 - (pinchRaw - 0.35) / 1.25));
-        var tips = [4, 8, 12, 16, 20];
-        var sum  = 0;
-        for (var t = 0; t < 5; t++) sum += _dist3(rDraw[0], rDraw[tips[t]]);
-        var spreadRaw = (sum / 5) / handSize;
-        var spread    = Math.max(0, Math.min(1, (spreadRaw - 1.8) / 1.6));
-
-        window._gestureState.fm       = pinch;
-        window._gestureState.lfoRate  = spread;
-        window._gestureState.lfoDepth = spread * 0.9;
-
-        // Pinch rising edge — store as one-shot; _loop() fires with cooldown.
-        var isPinchHigh = _prevPinchHigh ? (pinch > 0.45) : (pinch > 0.7);
-        if (isPinchHigh && !_prevPinchHigh) {
-            window._gestureState.pluck    = true;
-            window._gestureState.pluckX   = xNorm;
-            window._gestureState.pluckVel = Math.min(1, 0.6 + pinch * 0.5);
-        }
-        _prevPinchHigh = isPinchHigh;
-
-        // ── 6. GATE ON (vol + handPresent set at top of function) ───────────
-
-        // Slider sync
-        var volSlider  = document.querySelector('[data-ctrl="vol"]');
-        var filtSlider = document.querySelector('[data-ctrl="filter"]');
-        if (volSlider)  volSlider.value  = 0.6;
-        if (filtSlider) filtSlider.value = yNorm.toFixed(3);
-
-        // ── 7. DRAW SKELETON + MODULATOR HUD ────────────────────────────────
-        if (!ctx) return;
-        var W = canvas.width, H = canvas.height;
-        ctx.save();
-        if (lDraw) _drawHand(ctx, lDraw, W, H, false);
-        _drawHand(ctx, rDraw, W, H, true);
-
-        // Pinch glow line — thumb ↔ index, magenta, scales with pinch amount
-        if (pinch > 0.15) {
-            var ax = (1 - rDraw[4].x) * W, ay = rDraw[4].y * H;
-            var bx = (1 - rDraw[8].x) * W, by = rDraw[8].y * H;
-            ctx.globalCompositeOperation = 'lighter';
-            ctx.strokeStyle = '#FF4FD8';
-            ctx.shadowColor = '#FF4FD8';
-            ctx.shadowBlur  = 18 * pinch;
-            ctx.lineWidth   = 2 + pinch * 5;
-            ctx.globalAlpha = 0.35 + pinch * 0.6;
-            ctx.beginPath();
-            ctx.moveTo(ax, ay); ctx.lineTo(bx, by);
-            ctx.stroke();
-        }
-
-        // LFO wobble ring around the index-fingertip target reticle — its
-        // radius pulses at the current LFO rate * spread depth.
-        var tx = (1 - lm8.x) * W, ty = lm8.y * H;
-        if (spread > 0.05) {
-            var lfoPhase = (tNow * 0.001) * (0.3 + spread * 11) * 2 * Math.PI;
-            var ringR = 26 + Math.sin(lfoPhase) * (8 + spread * 22);
-            ctx.globalCompositeOperation = 'lighter';
-            ctx.strokeStyle = '#7CFF4F';
-            ctx.shadowColor = '#7CFF4F';
-            ctx.shadowBlur  = 12;
-            ctx.lineWidth   = 2;
-            ctx.globalAlpha = 0.4 + spread * 0.4;
-            ctx.beginPath();
-            ctx.arc(tx, ty, ringR, 0, Math.PI * 2);
-            ctx.stroke();
-        }
-
-        // Current note label — shows which scale note the arp/pluck will hit
-        var noteIdx = Math.max(0, Math.min(9, Math.floor(xNorm * 10)));
-        ctx.globalCompositeOperation = 'source-over';
-        ctx.globalAlpha = 0.95;
-        ctx.shadowBlur  = 0;
-        ctx.font        = '600 14px "JetBrains Mono", monospace';
-        ctx.fillStyle   = '#00F3FF';
-        ctx.fillText(NOTE_LABELS[noteIdx], tx + 22, ty - 22);
-
-        // Pinch meter — thin bar top-left
-        ctx.globalAlpha  = 0.8;
-        ctx.fillStyle    = 'rgba(255,79,216,0.15)';
-        ctx.fillRect(16, 16, 160, 6);
-        ctx.fillStyle    = '#FF4FD8';
-        ctx.shadowColor  = '#FF4FD8';
-        ctx.shadowBlur   = 8;
-        ctx.fillRect(16, 16, 160 * pinch, 6);
-        ctx.shadowBlur   = 0;
-        ctx.font         = '500 10px "JetBrains Mono", monospace';
-        ctx.fillStyle    = 'rgba(255,79,216,0.9)';
-        ctx.fillText('PINCH', 16, 12);
-
-        // Macro meter — below pinch
-        ctx.fillStyle    = 'rgba(124,255,79,0.15)';
-        ctx.fillRect(16, 38, 160, 6);
-        ctx.fillStyle    = '#7CFF4F';
-        ctx.shadowColor  = '#7CFF4F';
-        ctx.shadowBlur   = 8;
-        ctx.fillRect(16, 38, 160 * yNorm, 6);
-        ctx.shadowBlur   = 0;
-        ctx.fillStyle    = 'rgba(124,255,79,0.9)';
-        ctx.fillText('MACRO', 16, 34);
-
-        // Spread meter
-        ctx.fillStyle    = 'rgba(0,243,255,0.15)';
-        ctx.fillRect(16, 60, 160, 6);
-        ctx.fillStyle    = '#00F3FF';
-        ctx.shadowColor  = '#00F3FF';
-        ctx.shadowBlur   = 8;
-        ctx.fillRect(16, 60, 160 * spread, 6);
-        ctx.shadowBlur   = 0;
-        ctx.fillStyle    = 'rgba(0,243,255,0.9)';
-        ctx.fillText('SPREAD / WOBBLE', 16, 56);
-
-        // Preset badge — mirrors the active bank. Colour-coded per preset so
-        // the player gets instant feedback on which mode the left hand set.
-        var activeName = presetName || (rack._presetName || 'techno');
-        var PRESET_COLOR = { ambient: '#7CFF4F', techno: '#00F3FF', dubstep: '#FF4FD8' };
-        var badgeCol = PRESET_COLOR[activeName] || '#00F3FF';
-        ctx.font          = '700 12px "JetBrains Mono", monospace';
-        ctx.globalAlpha   = 0.95;
-        ctx.strokeStyle   = badgeCol;
-        ctx.shadowColor   = badgeCol;
-        ctx.shadowBlur    = 10;
-        ctx.lineWidth     = 1.5;
-        var bw = ctx.measureText(activeName.toUpperCase()).width + 20;
-        ctx.strokeRect(16, 82, bw, 22);
-        ctx.fillStyle     = badgeCol;
-        ctx.fillText(activeName.toUpperCase(), 26, 98);
-        ctx.shadowBlur    = 0;
-
-        ctx.restore();
-    };
-})();
-</script>
-
-<div id="fs-hint">
-    <span style="font-size:7px;color:rgba(0,243,255,0.7);font-family:'JetBrains Mono',monospace;letter-spacing:1px;">H</span>
-    <span style="font-size:7px;color:rgba(255,255,255,0.4);font-family:'JetBrains Mono',monospace;letter-spacing:1px;">FULL</span>
-</div>
-
-<div id="esc-warn">⚠ ESC ARMED — PRESS AGAIN TO PANIC RESET</div>
-
-<canvas id="kinetic-canvas"></canvas>
-<video id="kinetic-cam-video" autoplay muted playsinline></video>
-<canvas id="kr-skeleton-canvas"></canvas>
-
-<video id="kr-ai-video" width="256" height="256" autoplay muted playsinline
-    style="position:fixed;left:-9999px;top:-9999px;width:256px;height:256px;pointer-events:none;"></video>
-
-<div id="kr-help-modal">
-    <div id="kr-help-header">
-        <span>HOW TO PLAY</span>
-        <button onclick="window.KineticRack && KineticRack.toggleHelp()">✕</button>
-    </div>
-    <div id="kr-help-body"></div>
-</div>
-
-<script src="./src/synesthesia-voice-engine.js"></script>
-
-<!-- ══ MediaPipe Tasks HandLandmarker — GPU-accelerated, rVFC-driven ═══════ -->
-<!-- vision_bundle.mjs is imported dynamically from inside hand-tracker.js,  -->
-<!-- so no separate <script> tag for the Tasks CDN is needed here.           -->
-<script src="./src/hand-tracker.js?v=3"></script>
-
-<script src="./src/kinetic-rack/KineticRack.js?v=20"></script>
-
-<!-- NLE seam controls are fully canvas-drawn (no DOM panel) -->
-
-<!-- ═══════════════════════════════════════════════════════════
-     VNGRD SONIC SUITE — STUDIO SHELL
-     Master bar + card workspace. Cards are injected by stage 3+.
-     ═══════════════════════════════════════════════════════════ -->
-<div id="ss-backdrop" aria-hidden="true">
-    <div id="ss-master-bar">
-        <span class="ss-mb-label">BPM</span>
-        <input type="number" class="ss-mb-bpm" id="ss-bpm" value="120" min="40" max="300">
-        <button class="ss-mb-btn" id="ss-play">▶ PLAY ALL</button>
-        <button class="ss-mb-btn stop" id="ss-stop">■ STOP</button>
-        <div class="ss-mb-metro" id="ss-metro">
-            <span class="ss-mb-dot downbeat"></span>
-            <span class="ss-mb-dot"></span>
-            <span class="ss-mb-dot"></span>
-            <span class="ss-mb-dot"></span>
-        </div>
-        <div class="ss-mb-clock" id="ss-clock">
-            <span class="ss-mb-clock-bar"  id="ss-clock-bar">001.1.01</span>
-            <span class="ss-mb-clock-time" id="ss-clock-time">00:00.00</span>
-        </div>
-        <div class="ss-mb-cardtoggles" id="ss-cardtoggles"></div>
-        <button class="ss-mb-btn" id="ss-canvas-btn" title="Toggle canvas visibility (see DRIS//CORE behind the suite)">◈ CANVAS</button>
-        <button class="ss-mb-btn" id="ss-rec" style="border-color:rgba(255,60,60,.45);color:rgba(255,120,120,.85);">● REC</button>
-        <a href="https://andreamerella.github.io/DrisLab/" target="_blank" rel="noopener noreferrer"
-           id="ss-drislab"
-           class="ss-mb-btn"
-           style="text-decoration:none;letter-spacing:1px;color:rgba(0,243,255,.75);"
-           onclick="event.preventDefault();event.stopPropagation();window.open('https://andreamerella.github.io/DrisLab/','_blank','noopener,noreferrer');return false;">◈ DRISLAB ↗</a>
-        <button class="ss-mb-btn ss-mb-hide" id="ss-hide">HIDE</button>
-    </div>
-    <div id="ss-workspace"></div>
-</div>
-
-<!-- ═══════════════════════════════════════════════════════════════
-<!-- ── VANGUARD_B WIRING — _setFXBank / _vbActivate / _vbDeactivate / _vbClearAll ── -->
-<script src="./src/js/vb-timers.js"></script>
-
-
-</body>
-</html>

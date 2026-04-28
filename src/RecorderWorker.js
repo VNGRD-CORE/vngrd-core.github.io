@@ -10,7 +10,8 @@ const state = {
     maxDuration: 30000,
     totalBytes: 0,
     startTime: 0,
-    isRecording: false
+    isRecording: false,
+    lastStatusTime: 0
 };
 
 self.onmessage = function (e) {
@@ -49,16 +50,21 @@ self.onmessage = function (e) {
             state.chunks = pruned;
             state.totalBytes = prunedBytes;
 
-            self.postMessage({
-                type: 'BUFFER_STATUS',
-                payload: {
-                    chunkCount: state.chunks.length,
-                    totalBytes: state.totalBytes,
-                    durationMs: state.chunks.length > 0
-                        ? Date.now() - state.chunks[0].time
-                        : 0
-                }
-            });
+            // Throttle status updates to ~2/sec to avoid IPC overhead
+            const now = Date.now();
+            if (now - state.lastStatusTime >= 500) {
+                state.lastStatusTime = now;
+                self.postMessage({
+                    type: 'BUFFER_STATUS',
+                    payload: {
+                        chunkCount: state.chunks.length,
+                        totalBytes: state.totalBytes,
+                        durationMs: state.chunks.length > 0
+                            ? now - state.chunks[0].time
+                            : 0
+                    }
+                });
+            }
             break;
         }
 
@@ -78,7 +84,7 @@ self.onmessage = function (e) {
                     durationMs: duration,
                     chunkCount: state.chunks.length
                 }
-            }, blobs.map(b => b));
+            });
 
             break;
         }

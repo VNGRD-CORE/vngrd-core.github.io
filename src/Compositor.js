@@ -307,7 +307,7 @@ class Compositor {
     // ─────────────────────────────────────────────────────────────
     // RECORDING CONTROLS
     // ─────────────────────────────────────────────────────────────
-    startRecording(timesliceMs = 1000) {
+    startRecording(timesliceMs = 100) {
         if (!this.recorder) return false;
         if (this.recorder.state === 'recording') return true;
 
