@@ -1,0 +1,13207 @@
+const $ = id => document.getElementById(id);
+
+function takeScreenshot() {
+    if (!APP.render || !APP.render.canvas) {
+        typeof ghostLog === 'function' && ghostLog('SNAP_ERR: canvas not ready', 'crit');
+        return;
+    }
+    try {
+        var dataUrl = APP.render.canvas.toDataURL('image/png');
+        APP.nft.dnaSnapshot = dataUrl;
+        var a = document.createElement('a');
+        a.href = dataUrl;
+        a.download = 'VNGRD_SNAP_' + Date.now() + '.png';
+        a.click();
+        var snapBtn = document.getElementById('btn-snapshot');
+        if (snapBtn) { snapBtn.classList.add('snap-flash'); setTimeout(() => snapBtn.classList.remove('snap-flash'), 600); }
+        typeof ghostLog === 'function' && ghostLog('SNAPSHOT_SAVED // ' + (dataUrl.length / 1024).toFixed(0) + 'KB PNG', 'success');
+    } catch (err) {
+        typeof ghostLog === 'function' && ghostLog('SNAPSHOT_ERROR: ' + err.message, 'crit');
+    }
+}
+
+// --- BROADCAST SAFE DRAG MODULE ---
+function makeLogSafeDraggable(el) {
+    // Legacy no-op — handle-based drag is wired in _sysLogInit()
+}
+// --- KILL SWITCH ---
+document.addEventListener('keydown', e => {
+    if ((e.ctrlKey || e.metaKey) && (e.key === 's' || e.key === 'S')) {
+        e.preventDefault();
+        if (e.shiftKey) { takeScreenshot(); } else { console.log('SYS: SAVE_DISABLED'); }
+    }
+});
+document.ondragstart = function() { return false; };
+
+// ══════════════════════════════════════════════════
+// CACHE BUSTER — forces browser to load new logic
+// ══════════════════════════════════════════════════
+window.VANGUARD_VERSION = '1.0.1';
+window.VANGUARD_BUILD = '2026-02-09T' + Date.now();
+console.log('[VNGRD] Version ' + window.VANGUARD_VERSION + ' build ' + window.VANGUARD_BUILD);
+
+const APP = {
+    state: { isLive: false, isRecording: false, isFullscreen: false, isCycle: false, cycleTimer: null, isMobile: false, theme: 'cyan', startTime: Date.now(), psychosis: false, showMediaStrips: true, activeSource: 'local' },
+    vj: { 
+        brightness: 1.0, contrast: 1.0, saturation: 1.0, hue: 0, trailsEnabled: false, trailAlpha: 0.92, rgbEnabled: false, rgbIntensity: 0, rgbBassLink: false, pixelateEnabled: false, pixelSize: 1, rumbleEnabled: false, invert: false, uiReactivity: false, shakeIntensity: 0, shockwave: 0, lastBassLevel: 0, avgVol: 0, maskMode: false, glitchSnap: 0,
+        seismicVelocity: 0, seismicPosition: 0, springConstant: 0.8, damping: 0.9
+    },
+    media: { queue: [], currentIndex: -1, currentElement: null, _tx: null, audioSync: false, _activeSeam: -1, _seamOpen: false, _seamExpandH: 0, _seamGlitchT: 0, _durDragging: false, _durDragZone: null },
+    fx: { stutter: false, crush: false, invert: false, echo: false, rgbSplit: 0, freezeFrame: null },
+    audio: { ctx: null, analyzer: null, source: null, element: null, playlist: [], currentTrack: -1, currentTrackName: '', bassLevel: 0, vuData: new Uint8Array(32), isPlaying: false, isConnected: false, videoSource: null, videoMuted: false, videoGain: null, spatialMode: 'stereo', panner: null, compressor: null, masterGain: null, lowShelf: null, highShelf: null, spatialInterval: null, recorderDest: null },
+
+    nft: { recorder: null, chunks: [], isRecording: false, startTime: 0, duration: 30000, dnaSnapshot: null, audioDest: null },
+    broadcast: { recorder: null, chunks: [], isRecording: false },
+    loop: { recorder: null, chunks: [], activeUrl: null, timer: null, counter: 10 },
+    guest: { peer: null, connection: null, stream: null, videoElement: null, audioSource: null, isActive: false, peerId: null },
+    peer: { peer: null, call: null, localStream: null, isSyncing: false },
+    wallet: { connected: false, address: null, chainId: null, nfts: [] },
+    user: { assets: [] },
+    nftVault: { thumbnails: [], scrollOffset: 0 },
+    camera: { stream: null, recorder: null, chunks: [], mode: 'off', isRecording: false, videoEl: null, previewEl: null, micStream: null },
+    render: { canvas: null, ctx: null, width: 3840, height: 2160, fps: 0, frameCount: 0, lastTime: 0, lastFpsUpdate: 0, rafId: null, scale: 1.0, pixelCanvas: null, pixelCtx: null, rgbActive: false, source: null },
+    bug: { visible: true, text: 'VNGRD', style: 'plain', color: '#ffffff', mode: 'solid', image: null, textMode: 0, textVisible: true, imageVisible: false, p2pText: '', p2pVisible: false },
+    layers: { logoScale: 1.0, logoSrc: null, bugScale: 1.0 },
+    // IDENTITY TRINITY — three independent broadcast actors
+    trinity: {
+        bug:  { x: 0.015, y: 0.015, scale: 1.5, visible: true },
+        logo: { x: 0.85,  y: 0.015, scale: 1.0, visible: false },
+        logo3d: { x: 0.40, y: 0.015, scale: 2.0, visible: false },
+    },
+    lowerThird: { visible: false, preset: 'guest', mode: 'guest', ltStyle: 'default', ltColor: null, _showTime: 0, _hiding: false, _hideStart: 0 },
+    ui: { logoMorph: 0, morphs: ['m1','m2','m3','m4','m5','m6'] },
+    ghost: { seismicEnergy: 0, nodesSecured: 0, directoryHandle: null },
+    crypto: { ids: 'bitcoin,ethereum,solana,dogecoin' },
+    // WEAPON_STATE_ISOLATION + STRUCTURAL_INTEGRITY
+    shooting: { 
+        active: false, bullets: [], audioCtx: null, 
+        machineGunInterval: null, fractures: [], dents: [],
+        lastX: 0, lastY: 0, tinkBuffer: null,
+        lastFireTime: 0, fireThrottle: 100,
+        repairTimer: null
+    },
+    glassIntegrity: 100,
+    lensShattered: false,
+    // MIDI_HOST + LEARN MODE + INSTRUMENT PASSTHROUGH
+    midi: {
+        access: null, inputs: [], outputs: [],
+        learnMode: false, learnTarget: null,
+        bindings: {}, // { noteOrCC: { element, target, type } }
+        passthrough: false,
+        synthCtx: null, synthOsc: null, synthGain: null
+    },
+    // Phase 1: Compositor (Iron-Clad Recorder Engine)
+    compositor: null,
+    // Phase 3: Web3 Sovereign DNA
+    web3: { provider: null, signer: null, address: null, isConnected: false, mode: 'guest' },
+    // Phase 5: Layer Saver
+    layerSaver: { textureReady: false, fontReady: false, audioReady: false, allReady: false },
+    vr: null,
+    // PRO-AUDIO: 48kHz RAW
+    inputDevices: { 
+        list: [], selectedId: null, stream: null, analyzer: null,
+        sampleRate: 48000, echoCancellation: false, noiseSuppression: false, autoGainControl: false
+    },
+    // TRANSUDATE_ATMOSPHERE_ENGINE
+    atmosphere: { 
+        voiceReact: false, intensity: 50, heatIntensity: 0,
+        rainDrops: [], rainInterval: null,
+        canvas: null, ctx: null, temperature: null,
+        latitude: null, longitude: null, city: 'UNKNOWN', country: '',
+        weatherCode: null, metar: '', isRaining: false,
+        refractionCanvas: null, refractionCtx: null,
+        midiOverride: false
+    },
+
+
+    // LEXICA_NANO
+
+    // JIT STATE TRACKER — prevents double-boot of subsystems
+    status: { is3DActive: false, isMidiActive: false, isAudioActive: false, booted: false }
+};
+
+// ═══════════════════════════════════════════════════════════════════
+// JIT BOOT SEQUENCE — cascading sysLog on load
+// ═══════════════════════════════════════════════════════════════════
+function bootSequence() {
+    if (APP.status.booted) return;
+    APP.status.booted = true;
+    var msgs = [
+        'SYS: CORE ONLINE',
+        'SYS: CANVAS COMPOSITOR [STANDBY]',
+        'SYS: 3D ENGINE [STANDBY]',
+        'SYS: MIDI INTERFACE [STANDBY]',
+        'SYS: AI GENERATOR [STANDBY]',
+        'SYS: P2P NETWORK [STANDBY]'
+    ];
+    msgs.forEach(function(m, i) { setTimeout(function() { log(m); }, i * 180); });
+}
+
+// ── igniteMIDI: lazy MIDI activation (user-gesture gated) ──
+async function igniteMIDI() {
+    if (APP.status.isMidiActive) return APP.midi.access;
+    if (!navigator.requestMIDIAccess) {
+        log('MIDI: NOT_SUPPORTED');
+        return null;
+    }
+    try {
+        var access = await navigator.requestMIDIAccess({ sysex: false });
+        APP.midi.access = access;
+        APP.status.isMidiActive = true;
+        log('MIDI: HARDWARE CONNECTED');
+        return access;
+    } catch (err) {
+        log('MIDI: ACCESS_DENIED (' + err.message + ')');
+        return null;
+    }
+}
+
+// ── igniteAudio: lazy AudioContext creation (user-gesture gated) ──
+function igniteAudio() {
+    if (APP.status.isAudioActive && APP.audio.ctx) return APP.audio.ctx;
+    try {
+        APP.audio.ctx = new (window.AudioContext || window.webkitAudioContext)({ sampleRate: 48000 });
+        APP.status.isAudioActive = true;
+        log('AUDIO: CONTEXT ACTIVE [' + APP.audio.ctx.sampleRate + 'Hz]');
+        return APP.audio.ctx;
+    } catch (err) {
+        log('AUDIO: CONTEXT_FAIL');
+        return null;
+    }
+}
+
+// GHOST TERMINAL — Sentient AI Companion v5
+var _ghostLastMsg = '';
+var _ghostSysLastAt = 0;
+function ghostLog(msg, type = 'cmd') {
+    // Suppress duplicate consecutive messages
+    var dedupKey = type + '|' + msg;
+    if (dedupKey === _ghostLastMsg && type !== 'user') return;
+    _ghostLastMsg = dedupKey;
+    // Throttle system-generated alerts (non-user) to max 1 per 5s
+    if (type !== 'user' && type !== 'success') {
+        var now = Date.now();
+        if (now - _ghostSysLastAt < 5000 && type === 'cmd') return;
+        _ghostSysLastAt = now;
+    }
+    const term = $('ghost-terminal');
+    const body = $('ghost-terminal-body');
+    // Expand to show message, then auto-collapse if input stays empty
+    if (term && term.classList.contains('active')) {
+        clearTimeout(window._ghostCollapseTimer);
+        term.classList.add('expanded');
+        window._ghostCollapseTimer = setTimeout(function() {
+            var inp = $('ghost-input');
+            if (inp && !inp.value.trim() && document.activeElement !== inp) {
+                term.classList.remove('expanded');
+            }
+        }, type === 'ai' ? 9000 : 5000);
+    }
+    const ts = new Date().toTimeString().split(' ')[0].substring(0, 5);
+    const line = document.createElement('div');
+    line.className = 'ghost-log';
+    line.innerHTML = '<span class="ts">' + ts + '</span><span class="' + type + '">' + msg + '</span>';
+    body.appendChild(line);
+    body.scrollTop = body.scrollHeight;
+    if (body.children.length > 80) body.firstChild.remove();
+}
+
+function ghostInit() {
+    let dragging = false, startX, startY, elX, elY;
+    const header = $('ghost-terminal-header');
+    const terminal = $('ghost-terminal');
+    header.addEventListener('mousedown', e => {
+        dragging = true; startX = e.clientX; startY = e.clientY;
+        elX = terminal.offsetLeft; elY = terminal.offsetTop;
+    });
+    document.addEventListener('mousemove', e => {
+        if (!dragging) return;
+        terminal.style.left = (elX + e.clientX - startX) + 'px';
+        terminal.style.top = (elY + e.clientY - startY) + 'px';
+        terminal.style.right = 'auto'; terminal.style.bottom = 'auto';
+    });
+    document.addEventListener('mouseup', () => { dragging = false; });
+}
+
+function toggleGhost() {
+    const term = $('ghost-terminal');
+    const isActive = term.classList.contains('active');
+    if (isActive) {
+        term.classList.remove('active', 'expanded');
+        term.style.display = '';
+        clearTimeout(window._ghostCollapseTimer);
+    } else {
+        term.style.display = 'flex';
+        term.classList.add('active');
+        $('ghost-input').focus();
+    }
+}
+
+$('ghost-input').addEventListener('keydown', e => {
+    if (e.key === 'Escape') { e.preventDefault(); toggleGhost(); return; }
+    if ((e.key === 'g' || e.key === 'G') && e.target.value === '') { e.preventDefault(); toggleGhost(); return; }
+    if (e.key === 'Enter') { const val = e.target.value.trim(); if (val) processGhostCommand(val); e.target.value = ''; }
+});
+
+// ── Ghost HUD expand/collapse on typing ──
+window._ghostCollapseTimer = null;
+function _ghostScheduleCollapse(delay) {
+    clearTimeout(window._ghostCollapseTimer);
+    window._ghostCollapseTimer = setTimeout(function() {
+        var inp = $('ghost-input');
+        if (inp && !inp.value.trim() && document.activeElement !== inp) {
+            $('ghost-terminal').classList.remove('expanded');
+        }
+    }, delay || 6000);
+}
+$('ghost-input').addEventListener('input', function() {
+    var term = $('ghost-terminal');
+    clearTimeout(window._ghostCollapseTimer);
+    if (this.value.trim()) {
+        term.classList.add('expanded');
+    } else {
+        _ghostScheduleCollapse(3000);
+    }
+});
+$('ghost-input').addEventListener('focus', function() {
+    clearTimeout(window._ghostCollapseTimer);
+});
+$('ghost-input').addEventListener('blur', function() {
+    if (!this.value.trim()) _ghostScheduleCollapse(4000);
+});
+
+// ═══════════════════════════════════════════════════════════════
+// GHOST AI — CONTEXTUAL KNOWLEDGE BASE
+// The AI knows everything about this console and gives real advice.
+// ═══════════════════════════════════════════════════════════════
+
+var GHOST = {
+    // Current state awareness
+    getContext: function() {
+        return {
+            hasMedia: APP.media.queue.length > 0,
+            mediaCount: APP.media.queue.length,
+            hasAudio: APP.audio.isPlaying,
+            hasCamera: !!APP.camera.stream,
+            isLive: APP.state.isLive,
+            isRecording: APP.state.isRecording,
+            hasMidi: APP.status.isMidiActive,
+            hasWallet: !!(APP.wallet && APP.wallet.address),
+            hasGuest: !!(APP.guest && APP.guest.isActive),
+            theme: APP.state.theme || 'cyan',
+            fps: APP.render.fps,
+            seismic: APP.vj.rumbleEnabled,
+            party: APP.vj.uiReactivity,
+            isShooting: !!(APP.shooting && APP.shooting.active),
+            glassIntegrity: typeof APP.glassIntegrity !== 'undefined' ? APP.glassIntegrity : 100,
+            uptime: $('uptime') ? $('uptime').textContent : '00:00:00',
+            hour: new Date().getHours(),
+            isCycling: APP.state.isCycle
+        };
+    },
+
+    // Smart tips based on what the user is currently doing (or not doing)
+    tips: [
+        // Getting started — nothing loaded
+        { condition: function(ctx) { return !ctx.hasMedia && !ctx.hasAudio && !ctx.hasCamera; },
+          msgs: [
+            'Your canvas is empty. Load some visuals! Click LOAD_MEDIA in the sidebar or type "load" to scan a folder.',
+            'Tip: Drag & drop images or videos onto the screen to add them to your media deck.',
+            'Try loading some music first — click the audio button in MEDIA_DECK, then arm SEISMIC to feel the bass shake your screen.',
+            'New here? Start by loading media (images/videos) into the deck, then add music. The magic happens when they combine.',
+            'Pro tip: Type "load" to scan a whole folder of visuals at once. Way faster than loading one by one.'
+          ]
+        },
+        // Has media but no audio
+        { condition: function(ctx) { return ctx.hasMedia && !ctx.hasAudio; },
+          msgs: [
+            'Visuals loaded, but no audio yet. Load a track and watch the reactivity come alive!',
+            'Try adding music — then type "seismic" to make the whole screen shake with the bass.',
+            'Your deck has ' + 0 + ' items. Add audio and type "party" for autonomous visual morphing on every beat.',
+            'Tip: With music playing, the VU meter lights up, bass analysis kicks in, and FX become audio-reactive.'
+          ],
+          dynamic: function(ctx) { return 'Your deck has ' + ctx.mediaCount + ' items. Load audio and the console comes alive.'; }
+        },
+        // Has audio playing
+        { condition: function(ctx) { return ctx.hasAudio && !ctx.seismic; },
+          msgs: [
+            'Music detected! Type "seismic" to arm bass-reactive screen shake. Every kick drum shakes the viewport.',
+            'Audio is playing. Try "party" to enable autonomous mode — logos morph, themes shift, FX trigger on beats.',
+            'Tip: The REACTIVITY section has wild FX. Try X-RAY, VOID, or LUCY for real-time visual processing.',
+            'Your audio feeds the FFT analyzer. Arm SEISMIC + load some visuals for a full VJ experience.'
+          ]
+        },
+        // Seismic armed but no party
+        { condition: function(ctx) { return ctx.seismic && !ctx.party && ctx.hasAudio; },
+          msgs: [
+            'Seismic is rumbling. Now type "party" for full autonomous mode — the console becomes self-aware.',
+            'Bass is shaking. Try the REACTIVITY FX: X-RAY scans, VOID crushes to grayscale, LUCY is full hallucination.',
+            'Type "crush" for an instant RGB explosion, "stutter" for a trails burst, or "invert" for color flip.'
+          ]
+        },
+        // Camera is on but not live
+        { condition: function(ctx) { return ctx.hasCamera && !ctx.isLive; },
+          msgs: [
+            'Camera is hot. Hit GO_LIVE for a cinematic 3-2-1 countdown. Audio ducks automatically.',
+            'Your camera feed is ready. Go live, then your stream becomes the canvas source. Record it with REC.',
+            'Tip: Going live overrides the media deck on the canvas. Your camera becomes the broadcast source.'
+          ]
+        },
+        // Is live
+        { condition: function(ctx) { return ctx.isLive && !ctx.isRecording; },
+          msgs: [
+            'You\'re LIVE! Hit REC to capture your broadcast. Everything on the canvas gets recorded.',
+            'Live broadcast active. Try the Lower Third — click GUEST, TRACK, or BREAKING for overlay graphics.',
+            'Tip: While live, you can still trigger FX. Try "crush" or "shatter" for dramatic transitions.'
+          ]
+        },
+        // Recording
+        { condition: function(ctx) { return ctx.isRecording; },
+          msgs: [
+            'Recording in progress. Everything on canvas is being captured. Use FX for dramatic moments.',
+            'REC is hot. Trigger "shatter" for glass fractures or "crush" for an RGB explosion during the recording.'
+          ]
+        },
+        // MIDI connected
+        { condition: function(ctx) { return ctx.hasMidi; },
+          msgs: [
+            'MIDI controller detected. Notes 36-39 trigger FX impacts. Notes 40-47 switch themes. CC1 controls brightness.',
+            'MIDI is live. Use MIDI LEARN to map any knob/fader to any control. Click a button, then move a MIDI control.',
+            'Pro tip: Map your drum pads to FX triggers. Pad 1=Stutter, Pad 2=Invert, Pad 3=Crush, Pad 4=Seismic.'
+          ]
+        },
+        // P2P guest connected
+        { condition: function(ctx) { return ctx.hasGuest; },
+          msgs: [
+            'Guest connected via P2P! Their stream appears in your canvas priority chain. Use Lower Third to label them.',
+            'P2P call active. UI sync sends your lower thirds and logos to the guest in real-time.'
+          ]
+        },
+        // Wallet connected
+        { condition: function(ctx) { return ctx.hasWallet; },
+          msgs: [
+            'Wallet connected. Click SCAN_WALLET_ASSETS to browse and summon assets onto the canvas.',
+            'Assets appear in the vault at the bottom — click any thumbnail to bring it onto the canvas.'
+          ]
+        },
+        // General pro tips (always available as fallback)
+        { condition: function() { return true; },
+          msgs: [
+            'Press SPACE to rotate through your media deck. Hold it down for rapid-fire switching.',
+            'Press H for instant fullscreen. Press G to toggle this terminal. ESC is panic reset.',
+            'Connect a MIDI controller and this whole console becomes a performance instrument.',
+            'Every element on canvas is draggable. Drag your station bug, 2D logo, or 3D logo to reposition them.',
+            'Two-finger pinch on the canvas (or Ctrl+scroll) resizes logos and bugs in real-time.',
+            'Type "theme purple" or "theme gold" to change the entire UI color scheme. 6 themes available.',
+            'The AI_INJECTION section generates images from text. Type a prompt and hit GENERATE to inject AI art onto your canvas.',
+            'Lower Thirds sync to P2P guests. Change text on your side, it appears on theirs instantly.',
+            'VHS mode adds analog scan lines and color bleeding. Toggle it in the sidebar for that retro look.',
+            'Type "shatter" for a glass-fracture explosion across the screen. Pure cinema.',
+            'Connect a MIDI controller and this whole console becomes a performance instrument.',
+            'The IDENTITY section lets you set a station name, upload a 2D logo, or load a 3D model that spins on canvas.',
+            'Session Lab lets you save/load entire sessions. Export as .vgd file to share your complete setup.',
+            'Type "crypto" to fetch live BTC/ETH/SOL prices into the news ticker.',
+            'Audio modes: STEREO is flat, 3D_SPATIAL uses HRTF for immersive positioning, DOLBY adds compression + EQ.',
+            'The SYSTEM_FAILURE button triggers 5 seconds of pure chaos — inverts, flashes, color shifts. Use wisely.',
+            'You can load audio AND video. Video audio feeds the FFT analyzer just like music tracks.',
+            'Type "stutter" for a motion-trails burst, "invert" for instant color flip, "crush" for maximum RGB split.',
+            'The canvas captures at native resolution. Record at 4K for production-quality output.',
+            'Night theme (type "theme night") is perfect for low-light environments. Minimal UI glow.',
+            'SHOOT mode: click the SHOOT button in Reactivity to arm a machine gun crosshair. Each click fractures the glass.',
+            'Glass Integrity drains as you shoot. Deplete it completely to trigger TERMINAL SHATTER — full screen explosion.',
+            'The SFX pads in the lower panel are fully customisable. Click the gear icon on any pad to change sound + linked FX.',
+            'PUNCH FX now oscillates like a tweeter — the canvas punches toward you then snaps back on every kick drum hit.',
+            'Arm PUNCH, load some music, and watch the canvas physically push and pull with the bass. Zero latency.'
+          ]
+        }
+    ],
+
+    // Get a contextual tip
+    getTip: function() {
+        var ctx = this.getContext();
+        // Find the most specific matching tip category
+        for (var i = 0; i < this.tips.length - 1; i++) {
+            if (this.tips[i].condition(ctx)) {
+                if (this.tips[i].dynamic) return this.tips[i].dynamic(ctx);
+                var msgs = this.tips[i].msgs;
+                return msgs[Math.floor(Math.random() * msgs.length)];
+            }
+        }
+        // Fallback to general tips
+        var gen = this.tips[this.tips.length - 1].msgs;
+        return gen[Math.floor(Math.random() * gen.length)];
+    },
+
+    // Natural language understanding — fuzzy match user intent
+    understand: function(input) {
+        var c = input.toLowerCase().trim();
+
+        // Bank B GPU shaders — resolved first to prevent collision with media 'scan'/'ghost' etc.
+        if (c.match(/slit.?scan\s+(off|stop|disable)|slitscan\s+(off|stop|disable)/)) return 'vb_b_off';
+        if (c.match(/(luma.?bloom|bloom)\s+(off|stop|disable)/)) return 'vb_b_off';
+        if (c.match(/(dither.?luxe?|dither)\s+(off|stop|disable)/)) return 'vb_b_off';
+        if (c.match(/caustics?\s+(off|stop|disable)/)) return 'vb_b_off';
+        if (c.match(/(ghost.?echo|ghostecho)\s+(off|stop|disable)/)) return 'vb_b_off';
+        if (c.match(/(spectral.?mosh|mosh|spectral)\s+(off|stop|disable)/)) return 'vb_b_off';
+        if (c.match(/slit.?scan|slitscan/)) return 'vb_slit_scan';
+        if (c.match(/luma.?bloom/)) return 'vb_luma_bloom';
+        if (c.match(/dither|dither.?luxe/)) return 'vb_dither_luxe';
+        if (c.match(/caustic/)) return 'vb_caustics';
+        if (c.match(/ghost.?echo|ghostecho|ghost echo/)) return 'vb_ghost_echo';
+        if (c.match(/spectral.?mosh|mosh/)) return 'vb_spectral_mosh';
+        if (c.match(/bank.?b|gpu.?fx|shader|bank b fx/)) return 'vb_help';
+
+        // Map natural language to intents
+        if (c.match(/^(hi|hello|hey|yo|sup|ciao|hola|bonjour|salut|oi|what'?s up|howdy|greetings?)$/)) return 'greet';
+        if (c.match(/help|what can|how do|commands?|guide|tutorial|show me|teach/)) return 'help';
+        if (c.match(/status|sys|system|stats?|info|diagnostics?/)) return 'status';
+        if (c.match(/^(tip|advice|suggest|idea|what should|bored|nothing|idk|hmm|now what)/)) return 'tip';
+
+        // Media & Audio
+        if (c.match(/load|open|import|folder|browse|add media|add visual/)) return 'load';
+        if (c.match(/music|audio|song|track|sound|playlist|beat/)) return 'audio_help';
+        if (c.match(/play|pause|resume|stop playing/)) return 'play';
+        if (c.match(/next|skip|forward/)) return 'next';
+        if (c.match(/prev|back|rewind/)) return 'prev';
+        if (c.match(/rotate|cycle|shuffle|auto.?play/)) return 'cycle';
+        if (c.match(/eject|remove|delete|clear deck/)) return 'eject';
+        if (c.match(/queue|deck|media list|what.?s loaded|how many/)) return 'queue';
+
+        // Camera & Live
+        if (c.match(/camera|cam|webcam|init cam/)) return 'camera_help';
+        if (c.match(/go live|start live|broadcast|stream|countdown/)) return 'golive_help';
+        if (c.match(/^(record|rec|start rec(ording)?|stop rec(ording)?)$/)) return 'record_toggle';
+        if (c.match(/record|rec|capture/)) return 'record_help';
+        if (c.match(/kill|shutdown|stop cam|end cam/)) return 'kill_help';
+
+        // FX & Visuals — OFF variants must come before toggle variants
+        if (c.match(/^(void|grayscale|grey|gray|desaturate)\s+(off|stop|disable)$/)) return 'fx_off';
+        if (c.match(/^(lucy|hallucin|psychedelic|trippy|acid)\s+(off|stop|disable)$/)) return 'fx_off';
+        if (c.match(/^(xray|x-ray|scan|skeleton)\s+(off|stop|disable)$/)) return 'fx_off';
+        if (c.match(/^(tear|rip|displace)\s+(off|stop|disable)$/)) return 'fx_off';
+        if (c.match(/^(punch|hit|impact)\s+(off|stop|disable)$/)) return 'fx_off';
+        if (c.match(/^(nvg|night.?vision|thermal)\s+(off|stop|disable)$/)) return 'fx_off';
+        if (c.match(/^(vhs|retro|analog|tape)\s+(off|stop|disable)$/)) return 'fx_off';
+        if (c.match(/^(shatter|break|glass|fracture|smash)$/)) return 'shatter';
+        if (c.match(/^(crush|rgb|split|glitch)$/)) return 'crush';
+        if (c.match(/^(stutter|trails?|echo)$/)) return 'stutter';
+        if (c.match(/^(invert|negative|flip color)$/)) return 'invert';
+        if (c.match(/^(void|grayscale|grey|gray|desaturate)$/)) return 'void';
+        if (c.match(/^(lucy|hallucin|psychedelic|trippy|acid)$/)) return 'lucy';
+        if (c.match(/^(xray|x-ray|scan|skeleton)$/)) return 'xray';
+        if (c.match(/^(tear|rip|displace)$/)) return 'tear';
+        if (c.match(/^(punch|hit|impact)$/)) return 'punch';
+        if (c.match(/^(nvg|night.?vision|thermal)$/)) return 'nvg';
+        if (c.match(/^(vhs|retro|analog|tape)$/)) return 'vhs';
+        if (c.match(/^(shoot|gun|weapon|fire|bullet|machine.?gun|crosshair)$/)) return 'shoot_help';
+        if (c.match(/fx|effect|filter|what fx|visual/)) return 'fx_help';
+        if (c.match(/^(party|rave|auto.?mode|autonomous)$/)) return 'party';
+        if (c.match(/^(seismic|shake|rumble|bass|vibrate)$/)) return 'seismic';
+        if (c.match(/integrity|glass|shatter|fracture|dent|repair/)) return 'integrity_help';
+        if (c.match(/sampler|sfx.?pad|pad.*fx|soundboard|boom|horn|crowd/)) return 'sampler_help';
+        if (c.match(/failure|psychosis|chaos|destroy|meltdown/)) return 'failure';
+        if (c.match(/reset|panic|emergency|esc|clear fx|stop fx|normal/)) return 'reset';
+
+        // Theme
+        if (c.match(/^theme\s+\w+/)) return 'theme_set';
+        if (c.match(/theme|color|palette|skin|style/)) return 'theme_help';
+
+        // Identity & Logos
+        if (c.match(/logo|identity|watermark|bug|station|brand/)) return 'identity_help';
+        if (c.match(/lower.?third|overlay|caption|subtitle|name tag|l3/)) return 'lt_help';
+
+        // P2P & Network
+        if (c.match(/p2p|peer|call|video.?call|connect|guest/)) return 'p2p_help';
+
+        // MIDI
+        if (c.match(/midi|controller|pad|knob|fader|keyboard|instrument/)) return 'midi_help';
+
+        // Wallet & NFT
+        if (c.match(/mint|nft|snapshot|capture art/)) return 'mint';
+        if (c.match(/wallet|metamask|eth|crypto|bitcoin|btc|sol|connect wallet/)) return 'wallet_help';
+
+        // VR / Output
+        if (c.match(/vr|virtual reality|headset|immersive/)) return 'vr_help';
+
+        // Session
+        if (c.match(/save|session|export|backup/)) return 'session_help';
+
+        // Utility
+        if (c.match(/time|clock|date/)) return 'time';
+        if (c.match(/crypto|price|bitcoin|btc|eth|sol/)) return 'crypto';
+        if (c.match(/joke|funny|laugh|humor|lol/)) return 'joke';
+        if (c.match(/about|who|what is|version/)) return 'about';
+        if (c.match(/clear|cls|wipe/)) return 'clear';
+        if (c.match(/fullscreen|fs|maximize|expand/)) return 'fullscreen';
+        if (c.match(/slide|panels|hide panels|show panels|focus|cinema/)) return 'slide';
+        if (c.match(/ai|generate|image|dall|prompt|txt2img/)) return 'ai_help';
+        if (c.match(/resolution|4k|1080|canvas size/)) return 'resolution';
+        if (c.match(/spatial|stereo|dolby|surround|3d audio/)) return 'audio_mode';
+        if (c.match(/shortcut|hotkey|keyboard|key bind/)) return 'shortcuts';
+
+        // Direct action: go live / inject loop
+        if (c.match(/^(go.?live|start.?live|start.?broadcast|broadcast|3.?2.?1)/)) return 'golive_exec';
+        if (c.match(/^(inject|inject.?loop|record.?loop|loop|10.?sec)/)) return 'inject_exec';
+
+        // Voice toggle
+        if (c.match(/voice.?cmd|voice.?command|listen|mic.?cmd|stop.?listen/)) return 'voice_toggle';
+
+        return 'unknown';
+    }
+};
+
+function processGhostCommand(cmd, voiceMode) {
+    var c = cmd.toLowerCase().trim();
+    var intent = GHOST.understand(cmd);
+    var ctx = GHOST.getContext();
+    var hour = ctx.hour;
+    // Voice mode: show compact [VOICE] prefix; text mode: show full typed command
+    if (voiceMode) ghostLog('🎤 ' + cmd.toUpperCase(), 'cmd');
+    else ghostLog(cmd.toUpperCase(), 'user');
+
+    // Execute immediately — no fake AI typing delay
+    switch(intent) {
+            // ── GREETINGS ──
+            case 'greet':
+                var greets = [
+                    'Hey operator. Systems nominal. What are we building?',
+                    hour < 12 ? 'Morning shift. Coffee protocols engaged. What\'s the plan?' : hour < 18 ? 'Afternoon, commander. All systems green.' : 'Night mode active. Let\'s make something wild.',
+                    'Yo. ' + (ctx.hasMedia ? ctx.mediaCount + ' visuals loaded. ' : 'Canvas is empty. ') + (ctx.hasAudio ? 'Audio is pumping.' : 'No audio yet.') + ' What\'s next?'
+                ];
+                ghostLog(greets[Math.floor(Math.random() * greets.length)], 'ai');
+                break;
+
+            // ── STATUS ──
+            case 'status':
+                ghostLog('FPS:' + ctx.fps + ' | MEDIA:' + ctx.mediaCount + ' | AUDIO:' + (ctx.hasAudio ? 'PLAYING' : 'IDLE') + ' | CAM:' + (ctx.hasCamera ? (ctx.isLive ? 'LIVE' : 'STANDBY') : 'OFF'), 'ai');
+                ghostLog('THEME:' + ctx.theme.toUpperCase() + ' | SEISMIC:' + (ctx.seismic ? 'ARMED' : 'OFF') + ' | PARTY:' + (ctx.party ? 'ON' : 'OFF') + ' | REC:' + (ctx.isRecording ? 'HOT' : 'OFF'), 'ai');
+                ghostLog('MIDI:' + (ctx.hasMidi ? 'CONNECTED' : 'OFF') + ' | WALLET:' + (ctx.hasWallet ? 'LINKED' : 'OFF') + ' | P2P:' + (ctx.hasGuest ? 'ACTIVE' : 'OFF') + ' | UP:' + ctx.uptime, 'ai');
+                ghostLog('SHOOT:' + (ctx.isShooting ? 'ARMED' : 'OFF') + ' | GLASS:' + ctx.glassIntegrity + '%', 'ai');
+                break;
+
+            // ── HELP ──
+            case 'help':
+                ghostLog('── MEDIA ──  load · eject · queue · cycle · next · prev', 'ai');
+                ghostLog('── FX TOGGLE ──  void · lucy · xray · tear · punch · nvg · vhs', 'ai');
+                ghostLog('── FX BURST ──  crush · stutter · invert · shatter · failure', 'ai');
+                ghostLog('── TACTICAL ──  shoot (machine gun mode, drains glass integrity)', 'ai');
+                ghostLog('── AUDIO ──  sampler (SFX pads) · seismic · party', 'ai');
+                ghostLog('── LIVE ──  reset · fullscreen · slide', 'ai');
+                ghostLog('── THEME ──  theme cyan / magenta / green / purple / gold / night', 'ai');
+                ghostLog('── TOOLS ──  status · crypto · time · shortcuts · about · clear', 'ai');
+                ghostLog('Or just ask naturally — "how do I shoot?" · "what are SFX pads?"', 'ai');
+                break;
+
+            // ── CONTEXTUAL TIPS ──
+            case 'tip':
+                ghostLog(GHOST.getTip(), 'ai');
+                break;
+
+            // ── MEDIA & AUDIO GUIDANCE ──
+            case 'load':
+                ghostLog('Opening file picker — select images, videos, or audio...', 'ai');
+                (function() {
+                    var inp = document.createElement('input');
+                    inp.type = 'file'; inp.multiple = true;
+                    inp.accept = 'image/*,video/*,audio/*,audio/mpeg,audio/wav,audio/ogg';
+                    inp.onchange = function(e) {
+                        var files = Array.from(e.target.files || []);
+                        if (!files.length) { ghostLog('LOAD_ABORTED: no files selected.', 'crit'); return; }
+                        var mediaArr = [], audioArr = [];
+                        files.forEach(function(f) {
+                            if (f.type.startsWith('audio/') || /\.(mp3|wav|ogg|aac|flac)$/i.test(f.name)) audioArr.push(f);
+                            else mediaArr.push(f);
+                        });
+                        if (mediaArr.length) {
+                            if (typeof loadMediaFiles === 'function') loadMediaFiles({ files: mediaArr });
+                            ghostLog('LOADED: ' + mediaArr.length + ' VISUAL' + (mediaArr.length > 1 ? 'S' : ''), 'success');
+                            ghostLog('SPACE rotates media · type "cycle" for auto-rotation', 'ai');
+                        }
+                        if (audioArr.length) {
+                            if (typeof loadAudioFiles === 'function') loadAudioFiles({ files: audioArr });
+                            ghostLog('LOADED: ' + audioArr.length + ' AUDIO_FILE' + (audioArr.length > 1 ? 'S' : ''), 'success');
+                        }
+                    };
+                    inp.click();
+                })();
+                break;
+
+            case 'audio_help':
+                ghostLog('Load MP3/WAV via LOAD AUDIO. Audio drives beat-reactive FX. Modes: STEREO / 3D_SPATIAL / DOLBY.', 'ai');
+                if (!ctx.hasAudio) ghostLog('No audio loaded yet.', 'cmd');
+                break;
+
+            case 'play':
+                if (typeof togglePlayPause === 'function') togglePlayPause();
+                ghostLog('Playback toggled.', 'success');
+                break;
+
+            case 'next':
+                if (typeof nextTrack === 'function') nextTrack();
+                ghostLog('Next track.', 'success');
+                break;
+
+            case 'prev':
+                if (typeof prevTrack === 'function') prevTrack();
+                ghostLog('Previous track.', 'success');
+                break;
+
+            case 'cycle':
+                if ($('btn-cycle-toggle')) $('btn-cycle-toggle').click();
+                ghostLog(APP.state.isCycle ? 'CYCLE MODE: ON — media auto-rotates.' : 'CYCLE MODE: OFF', APP.state.isCycle ? 'success' : 'ai');
+                break;
+
+            case 'eject':
+                if (typeof ejectCurrent === 'function') ejectCurrent();
+                ghostLog('Current media ejected from deck.', 'success');
+                break;
+
+            case 'queue':
+                ghostLog('MEDIA_DECK: ' + ctx.mediaCount + ' items loaded.', 'ai');
+                if (ctx.mediaCount > 0) ghostLog('Press SPACE to rotate. EJECT removes current. CLEAR wipes all.', 'ai');
+                else ghostLog('Deck is empty. Type "load" or click LOAD_MEDIA to add visuals.', 'ai');
+                break;
+
+            // ── CAMERA & LIVE ──
+            case 'camera_help':
+                ghostLog('INIT_CAM → GO_LIVE (3-2-1 countdown). MIC toggles mic. KILL shuts down completely.', 'ai');
+                if (ctx.hasCamera) ghostLog('Camera: ' + (ctx.isLive ? 'LIVE' : 'STANDBY'), ctx.isLive ? 'success' : 'cmd');
+                break;
+
+            case 'golive_help':
+                if (!ctx.hasCamera) { ghostLog('INIT_CAM first, then say "go live" or click GO_LIVE.', 'crit'); }
+                else if (ctx.isLive) { ghostLog('ALREADY LIVE. Say "end" to stop broadcast or "kill" to shut down.', 'ai'); }
+                else { ghostLog('CAM READY. Say "go live" or click GO_LIVE for 3-2-1 countdown.', 'ai'); }
+                break;
+
+            case 'record_help':
+                ghostLog('REC header button records the full canvas output. INJECT = 10s camera loop. CAPTURE_VNGRD_CLIP = signed 30s VGD.', 'ai');
+                break;
+
+            case 'kill_help':
+                ghostLog('KILL shuts down camera + stops recording + clears the live feed.', 'ai');
+                ghostLog('END stops just the live broadcast but keeps camera running.', 'ai');
+                break;
+
+            // ── FX SYSTEM ──
+            case 'shatter':
+                ghostLog('SHATTER_PROTOCOL: INITIATING...', 'success');
+                var stage = $('stage'); var rect = stage.getBoundingClientRect();
+                for (var i = 0; i < 6; i++) { (function(j) { setTimeout(function() { var x = rect.left + Math.random() * rect.width; var y = rect.top + Math.random() * rect.height; if (typeof createGlassFracture === 'function') createGlassFracture(x, y); }, j * 80); })(i); }
+                ghostLog('GLASS_MATRIX: SHATTERED', 'success');
+                break;
+
+            case 'crush':
+                if (typeof impactCrush === 'function') impactCrush();
+                ghostLog('CRUSH FX — maximum RGB split + pixelation. 500ms burst.', 'success');
+                break;
+
+            case 'stutter':
+                if (typeof impactStutter === 'function') impactStutter();
+                ghostLog('STUTTER FX — motion trails + chromatic aberration. 500ms burst.', 'success');
+                break;
+
+            case 'invert':
+                if (typeof impactInvert === 'function') impactInvert();
+                ghostLog('INVERT FX — color negative + aberration. 500ms burst.', 'success');
+                break;
+
+            case 'void':
+                if (typeof toggleFX === 'function') toggleFX('void');
+                ghostLog('VOID: ' + (document.body.classList.contains('fx-void') ? 'ON' : 'OFF'), 'success');
+                break;
+
+            case 'lucy':
+                if (typeof toggleFX === 'function') toggleFX('lucy');
+                ghostLog('LUCY: ' + (document.body.classList.contains('fx-lucy') ? 'ON' : 'OFF'), 'success');
+                break;
+
+            case 'xray':
+                if (typeof toggleFX === 'function') toggleFX('scan');
+                ghostLog('X-RAY: ' + (document.body.classList.contains('fx-scan') ? 'ON' : 'OFF'), 'success');
+                break;
+
+            case 'tear':
+                if (typeof toggleFX === 'function') toggleFX('tear');
+                ghostLog('TEAR: ' + (document.body.classList.contains('fx-tear') ? 'ON' : 'OFF'), 'success');
+                break;
+
+            case 'punch':
+                if (typeof toggleFX === 'function') toggleFX('punch');
+                ghostLog('PUNCH: ' + (document.body.classList.contains('fx-punch') ? 'ON' : 'OFF'), 'success');
+                break;
+
+            case 'nvg':
+                if (typeof toggleFX === 'function') toggleFX('nvg');
+                ghostLog('NVG: ' + (document.body.classList.contains('fx-nvg') ? 'ON' : 'OFF'), 'success');
+                break;
+
+            case 'vhs':
+                if (typeof toggleVHS === 'function') toggleVHS();
+                ghostLog('VHS: TOGGLED', 'success');
+                break;
+
+            case 'fx_help':
+                ghostLog('BANK A: void · lucy · xray · tear · punch · nvg · vhs · shoot | seismic · party · reset', 'ai');
+                ghostLog('BANK B (GPU): slit_scan · luma_bloom · dither_luxe · caustics · ghost_echo · spectral_mosh', 'ai');
+                ghostLog('BURST: crush · stutter · invert · shatter', 'ai');
+                break;
+
+            case 'shoot_help':
+                ghostLog('SHOOT MODE — click SHOOT in the Reactivity panel (or the SFX pad) to arm.', 'ai');
+                ghostLog('Canvas becomes a crosshair target. Click to fire: glass fractures on canvas, metal dents on UI.', 'ai');
+                ghostLog('Each shot drains the GLASS INTEGRITY bar. Deplete it fully to trigger TERMINAL SHATTER.', 'ai');
+                ghostLog('Integrity auto-repairs over time. Shoot fast for maximum chaos.', 'ai');
+                break;
+
+            case 'integrity_help':
+                ghostLog('GLASS INTEGRITY: tracks cumulative damage from SHOOT mode. Shown in the header bar.', 'ai');
+                ghostLog('When integrity hits 0, TERMINAL SHATTER fires — full screen glass explosion.', 'ai');
+                ghostLog('Auto-repairs over ~30 seconds when you stop shooting.', 'ai');
+                break;
+
+            case 'sampler_help':
+                ghostLog('SFX PADS: click a pad → BOOM, HORN, CROWD, etc. Right-click to arm mic recording.', 'ai');
+                ghostLog('Gear icon on each pad → load sample file + couple an FX:', 'ai');
+                ghostLog('  BANK A: punch · seismic · void · lucy · nvg · vhs · failure · shoot · party', 'ai');
+                ghostLog('  BANK B: slit_scan · luma_bloom · dither_luxe · caustics · ghost_echo · spectral_mosh', 'ai');
+                ghostLog('Coupled FX fires on pad hit + sample audio drives audio-reactive engines.', 'ai');
+                ghostLog('MIDI-mappable: assign any pad to a MIDI note for live triggering.', 'ai');
+                break;
+
+            case 'party':
+                if ($('btn-ui-react')) $('btn-ui-react').click();
+                ghostLog('PARTY MODE: ' + (APP.vj.uiReactivity ? 'ON' : 'OFF'), APP.vj.uiReactivity ? 'success' : 'ai');
+                break;
+
+            case 'seismic':
+                if ($('btn-rumble')) $('btn-rumble').click();
+                ghostLog('SEISMIC: ' + (APP.vj.rumbleEnabled ? 'ARMED' : 'OFF'), APP.vj.rumbleEnabled ? 'success' : 'ai');
+                break;
+
+            case 'record_toggle': {
+                var _lc = $('live-ctrls');
+                if (!_lc || _lc.style.display === 'none') {
+                    ghostLog('REC: go live first to enable recording', 'crit');
+                } else {
+                    var _wasRec = APP.broadcast.isRecording;
+                    $('btn-rec').click();
+                    ghostLog(_wasRec ? 'REC: STOPPED — saving clip' : 'REC: RECORDING STARTED', _wasRec ? 'ai' : 'success');
+                }
+                break;
+            }
+
+            case 'fx_off': {
+                // Parse FX keyword (first word of "nvg off", "tear off", etc.)
+                var _fxWord = c.split(/\s+/)[0];
+                var _fxMap = { void:'void', grayscale:'void', grey:'void', gray:'void', lucy:'lucy',
+                               xray:'scan', scan:'scan', skeleton:'scan', tear:'tear', rip:'tear',
+                               punch:'punch', hit:'punch', nvg:'nvg', vhs:'vhs', retro:'vhs', tape:'vhs' };
+                var _fxId = _fxMap[_fxWord];
+                if (_fxId) {
+                    var _cls = 'fx-' + _fxId;
+                    if (document.body.classList.contains(_cls)) {
+                        if (_fxId === 'vhs') { if (typeof toggleVHS === 'function') toggleVHS(); }
+                        else { if (typeof toggleFX === 'function') toggleFX(_fxId); }
+                        ghostLog(_fxWord.toUpperCase() + ': OFF', 'ai');
+                    } else {
+                        ghostLog(_fxWord.toUpperCase() + ': already off', 'ai');
+                    }
+                }
+                break;
+            }
+
+            case 'failure':
+                if ($('btn-psychosis')) $('btn-psychosis').click();
+                ghostLog('SYSTEM_FAILURE TRIGGERED — 5 seconds of pure chaos.', 'crit');
+                break;
+
+            case 'reset':
+                if (typeof resetAllFX === 'function') resetAllFX();
+                else if (typeof panicReset === 'function') panicReset();
+                ghostLog('ALL FX CLEARED. Systems nominal.', 'success');
+                break;
+
+            // ── THEMES ──
+            case 'theme_set':
+                var t = c.split(/\s+/)[1];
+                if (['cyan','magenta','green','purple','gold','night'].includes(t)) {
+                    setTheme(t);
+                    ghostLog('Theme: ' + t.toUpperCase(), 'success');
+                } else { ghostLog('Available: cyan, magenta, green, purple, gold, night', 'ai'); }
+                break;
+
+            case 'theme_help':
+                ghostLog('Themes: cyan / magenta / green / purple / gold / night. Current: ' + ctx.theme.toUpperCase() + '. Type "theme [name]" to switch.', 'ai');
+                break;
+
+            // ── IDENTITY & OVERLAY ──
+            case 'identity_help':
+                ghostLog('STATION BUG: text watermark (draggable). 2D LOGO: PNG/GIF upload. 3D LOGO: OBJ/FBX. All pinch-to-resize on canvas.', 'ai');
+                break;
+
+            case 'lt_help':
+                ghostLog('Lower thirds: GUEST (name/role), TRACK (auto-fill from audio), B.NEWS (red alert). Edit fields live. [X] hides.', 'ai');
+                break;
+
+            // ── P2P ──
+            case 'p2p_help':
+                ghostLog('P2P CALL: open header panel → INIT_PEER → share ID → CALL. Guest stream appears on canvas with full UI sync.', 'ai');
+                break;
+
+            // ── MIDI ──
+            case 'midi_help':
+                ghostLog('INIT WEBMIDI in sidebar. Notes 36-39: burst FX. 40-47: themes. CC1: brightness, CC7: volume. Use LEARN mode to map any control.', 'ai');
+                break;
+
+            // ── WALLET & NFT ──
+            case 'mint':
+                takeScreenshot();
+                break;
+
+            case 'wallet_help':
+                ghostLog('Connect wallet via header badge. SCAN_WALLET_ASSETS loads assets into vault — click thumbnail to summon to canvas.', 'ai');
+                break;
+
+
+            case 'vr_help':
+                ghostLog('ENTER_VR in Session Lab launches WebXR immersive mode. Requires a WebXR-capable browser + headset.', 'ai');
+                break;
+
+            // ── SESSION ──
+            case 'session_help':
+                ghostLog('SESSION MANAGEMENT:', 'success');
+                ghostLog('SAVE: Stores your entire setup to localStorage.', 'ai');
+                ghostLog('EXPORT: Downloads a .vgd JSON file you can share.', 'ai');
+                ghostLog('IMPORT: Load a .vgd file to restore a complete session.', 'ai');
+                ghostLog('Sessions save: theme, positions, lower third, audio mode, FX state.', 'ai');
+                break;
+
+            // ── AI GENERATOR ──
+            case 'ai_help':
+                ghostLog('AI_INJECTION sidebar: pick a Pollinations model (FLUX / TURBO / 3D / ANIME), type a prompt, hit GENERATE. Free, unlimited, no API key.', 'ai');
+                break;
+
+            // ── UTILITY ──
+            case 'time':
+                ghostLog(new Date().toLocaleTimeString() + ' | UP:' + ctx.uptime, 'ai');
+                break;
+
+            case 'crypto':
+                if (typeof fetchCrypto === 'function') fetchCrypto();
+                ghostLog('Fetching live prices... Check the ticker bar.', 'ai');
+                break;
+
+            case 'joke':
+                var jokes = [
+                    'Why do DJs make great coders? They know how to drop the beat and the bugs.',
+                    'I told my GPU a joke. It rendered me speechless.',
+                    '404: Humor module temporarily unavailable.',
+                    'What\'s a VJ\'s favorite key? The space bar.',
+                    'My render loop walks into a bar. The bar walks into my render loop. Stack overflow.',
+                    'I asked the AI to generate art. It generated an invoice instead.',
+                    'WebGL broke again. Must be a shader day.',
+                    'Why did the WebRTC call fail? Because it couldn\'t find a common ICE breaker.'
+                ];
+                ghostLog(jokes[Math.floor(Math.random() * jokes.length)], 'ai');
+                break;
+
+            case 'about':
+                ghostLog('GHOST://AI v5 — DRIS//CORE companion. Every command, every FX, every shortcut. Just ask.', 'ai');
+                break;
+
+            case 'clear':
+                $('ghost-terminal-body').innerHTML = '';
+                ghostLog('Terminal cleared.', 'ai');
+                break;
+
+            case 'fullscreen':
+                if (typeof toggleFullscreen === 'function') toggleFullscreen();
+                ghostLog('Fullscreen toggled. (Shortcut: press H)', 'success');
+                break;
+
+            case 'slide':
+                if (typeof toggleSystemSlide === 'function') toggleSystemSlide();
+                ghostLog('System slide toggled. Panels slide out, canvas takes over. (Shortcut: Tab)', 'success');
+                break;
+
+            case 'resolution':
+                ghostLog('Canvas: ' + APP.render.width + 'x' + APP.render.height, 'ai');
+                ghostLog('The render pipeline outputs at this resolution. Records at native res.', 'ai');
+                break;
+
+            case 'audio_mode':
+                ghostLog('AUDIO MODES:', 'success');
+                ghostLog('STEREO: Standard left/right. Clean and flat.', 'ai');
+                ghostLog('3D SPATIAL: HRTF panning + distance model. Immersive.', 'ai');
+                ghostLog('DOLBY: Dynamic range compression + EQ processing. Punchy.', 'ai');
+                ghostLog('Switch via buttons in the AUDIO section of sidebar.', 'ai');
+                break;
+
+            case 'shortcuts':
+                ghostLog('G: terminal | H: fullscreen | TAB: slide panels | SPACE: next media | ESC: panic reset', 'ai');
+                break;
+
+            // ── DIRECT ACTIONS ──
+            case 'golive_exec':
+                var glBtn = document.getElementById('btn-go-live');
+                if (glBtn) { glBtn.click(); ghostLog('GO_LIVE: COUNTDOWN INITIATED', 'success'); }
+                else ghostLog('GO_LIVE: INIT_CAM FIRST', 'crit');
+                break;
+
+            case 'inject_exec':
+                var inBtn = document.getElementById('btn-inject');
+                if (inBtn) { inBtn.click(); ghostLog('INJECT_LOOP: RECORDING 10s', 'success'); }
+                else ghostLog('INJECT_LOOP: CAM NOT READY', 'crit');
+                break;
+
+            // ── BANK B GPU SHADERS ──
+            case 'vb_b_off': {
+                // "SLITSCAN off", "BLOOM off", "MOSH off" etc.
+                var _vbOffWord = c.split(/\s+/)[0];
+                var _vbOffMap = {
+                    'slit':'SLIT_SCAN','slitscan':'SLIT_SCAN',
+                    'luma':'LUMA_BLOOM','bloom':'LUMA_BLOOM',
+                    'dither':'DITHER_LUXE',
+                    'caustics':'CAUSTICS','caustic':'CAUSTICS',
+                    'ghost':'GHOST_ECHO','ghostecho':'GHOST_ECHO',
+                    'mosh':'SPECTRAL_MOSH','spectral':'SPECTRAL_MOSH'
+                };
+                var _vbOffSN = _vbOffMap[_vbOffWord];
+                if (_vbOffSN && typeof _vbDeactivate === 'function') {
+                    _vbDeactivate(_vbOffSN);
+                    ghostLog('BANK_B: ' + _vbOffSN + ' OFF', 'ai');
+                }
+                break;
+            }
+
+            case 'vb_slit_scan':
+            case 'vb_luma_bloom':
+            case 'vb_dither_luxe':
+            case 'vb_caustics':
+            case 'vb_ghost_echo':
+            case 'vb_spectral_mosh': {
+                var _vbMap = {
+                    'vb_slit_scan':'SLIT_SCAN','vb_luma_bloom':'LUMA_BLOOM',
+                    'vb_dither_luxe':'DITHER_LUXE','vb_caustics':'CAUSTICS',
+                    'vb_ghost_echo':'GHOST_ECHO','vb_spectral_mosh':'SPECTRAL_MOSH'
+                };
+                var _vbSN = _vbMap[intent];
+                if (typeof _setFXBank === 'function') _setFXBank('B');
+                if (typeof window._vbActivate === 'function') window._vbActivate(_vbSN, false);
+                ghostLog('BANK_B: ' + _vbSN + ' BURST', 'success');
+                break;
+            }
+
+            case 'vb_help':
+                ghostLog('BANK B — GPU SHADERS: slitscan · bloom · dither · caustics · ghostecho · mosh', 'ai');
+                ghostLog('Say any name to burst 3s, name + "off" to stop. Double-tap button = persistent lock.', 'ai');
+                break;
+
+            // ── VOICE CMD TOGGLE ──
+            case 'voice_toggle':
+                if (typeof _ghostVoiceToggle === 'function') _ghostVoiceToggle();
+                break;
+
+            // ── UNKNOWN — silent, single line ──
+            case 'unknown':
+                if (!voiceMode) {
+                    ghostLog('Unknown. Try: void · lucy · seismic · party · go live · inject · slit scan · status · help', 'crit');
+                }
+                break;
+        }
+}
+
+// ═══════════════════════════════════════════════════════════════
+// GHOST VOICE COMMAND ENGINE
+// Always-on speech recognition → processGhostCommand(cmd, true)
+// Separate from subtitle STT. Works in fullscreen + slide mode.
+// Toggle: 🎤 button in ghost header, or type "voice cmd"
+// ═══════════════════════════════════════════════════════════════
+(function() {
+    var _gvRec = null;
+    var _gvOn  = false;
+
+    function _gvFire(text) {
+        var t = text.trim();
+        if (!t || t.length < 2) return;
+        if (typeof processGhostCommand === 'function') processGhostCommand(t, true);
+    }
+
+    function _buildGVRec() {
+        var SpeechAPI = window.SpeechRecognition || window.webkitSpeechRecognition;
+        if (!SpeechAPI) return null;
+        var r = new SpeechAPI();
+        r.continuous      = true;
+        r.interimResults  = false;
+        r.lang            = 'en-US';
+        r.maxAlternatives = 1;
+        r.onresult = function(e) {
+            for (var i = e.resultIndex; i < e.results.length; i++) {
+                if (e.results[i].isFinal) _gvFire(e.results[i][0].transcript);
+            }
+        };
+        r.onend = function() {
+            if (_gvOn) setTimeout(function() { try { r.start(); } catch(x) {} }, 400);
+        };
+        r.onerror = function(e) {
+            if (e.error === 'no-speech' || e.error === 'aborted') return;
+            if (typeof ghostLog === 'function') ghostLog('VOICE_ERR: ' + e.error, 'crit');
+        };
+        return r;
+    }
+
+    window._ghostVoiceToggle = function() {
+        _gvOn = !_gvOn;
+        var btn = document.getElementById('btn-ghost-mic');
+        if (_gvOn) {
+            if (!_gvRec) _gvRec = _buildGVRec();
+            if (_gvRec) {
+                try { _gvRec.start(); } catch(x) {}
+                if (btn) btn.classList.add('on');
+                if (typeof ghostLog === 'function') ghostLog('VOICE_CMD: ARMED — speak any command', 'success');
+            } else {
+                _gvOn = false;
+                if (typeof ghostLog === 'function') ghostLog('VOICE_CMD: UNSUPPORTED IN THIS BROWSER', 'crit');
+            }
+        } else {
+            if (_gvRec) { try { _gvRec.abort(); } catch(x) {} _gvRec = null; }
+            if (btn) btn.classList.remove('on');
+            if (typeof ghostLog === 'function') ghostLog('VOICE_CMD: OFF', 'ai');
+        }
+        return _gvOn;
+    };
+})();
+
+// ═══ GHOST AUTO-TIPS — pops up if idle, gives contextual advice on startup ═══
+var _ghostIdleTimer = null;
+var _ghostTipIndex = 0;
+var _ghostStartupDone = false;
+
+function ghostStartupSequence() {
+    if (_ghostStartupDone) return;
+    _ghostStartupDone = true;
+    var term = $('ghost-terminal');
+    if (!term) return;
+
+    // Show terminal in compact mode (input bar only — no forced expand)
+    term.style.display = 'flex';
+    term.classList.add('active');
+
+    var ctx = GHOST.getContext();
+    var hour = ctx.hour;
+    var greeting = hour < 12 ? 'Good morning' : hour < 18 ? 'Good afternoon' : 'Good evening';
+
+    // Log silently to body; ghostLog will expand briefly, then auto-collapse
+    setTimeout(function() { ghostLog(greeting + ' — GHOST online.', 'ai'); }, 800);
+
+    // Start idle tip cycle
+    resetGhostIdleTimer();
+}
+
+function resetGhostIdleTimer() {
+    if (_ghostIdleTimer) clearTimeout(_ghostIdleTimer);
+    _ghostIdleTimer = setTimeout(ghostIdleTip, 45000); // 45 seconds of inactivity
+}
+
+function ghostIdleTip() {
+    var term = $('ghost-terminal');
+    if (!term || term.style.display === 'none') {
+        // If terminal is hidden, still reset timer
+        _ghostIdleTimer = setTimeout(ghostIdleTip, 45000);
+        return;
+    }
+    ghostLog(GHOST.getTip(), 'ai');
+    _ghostIdleTimer = setTimeout(ghostIdleTip, 60000); // Then every 60 seconds
+}
+
+// Reset idle timer on any user interaction
+document.addEventListener('click', resetGhostIdleTimer, { passive: true });
+document.addEventListener('keydown', resetGhostIdleTimer, { passive: true });
+document.addEventListener('touchstart', resetGhostIdleTimer, { passive: true });
+
+// Fire startup sequence 3 seconds after page load
+setTimeout(ghostStartupSequence, 3000);
+
+// CRYPTO — Binance API (reliable browser-side fetch)
+async function fetchCrypto() {
+    try {
+        const symbols = ['BTCUSDT', 'ETHUSDT', 'SOLUSDT', 'DOGEUSDT'];
+        const labels = { BTCUSDT: 'BTC', ETHUSDT: 'ETH', SOLUSDT: 'SOL', DOGEUSDT: 'DOGE' };
+        
+        const prices = await Promise.all(symbols.map(s =>
+            fetch('https://api.binance.com/api/v3/ticker/price?symbol=' + s).then(r => r.json())
+        ));
+
+        APP.crypto.tickerHTML = prices.map(p => {
+            const sym = labels[p.symbol] || p.symbol;
+            const price = parseFloat(p.price);
+            return `<span>${sym}: $${price < 1 ? price.toFixed(6) : price.toFixed(2)}</span>`;
+        }).join('&nbsp;&nbsp;//&nbsp;&nbsp;');
+
+        updateTickerCycle();
+        
+        // DELETED: log('CRYPTO_FEED: BINANCE_LOCKED'); 
+        // This removes the minute-by-minute text from your system log box.
+
+    } catch(e) {
+        APP.crypto.tickerHTML = '<span style="color:var(--r)">CRYPTO_FEED_OFFLINE</span>';
+        updateTickerCycle();
+        // Console warning only - keeps the visible terminal clean for the "TV Station" look
+        console.warn("Binance data sync paused."); 
+    }
+}
+// TICKER CYCLE ENGINE — [WEATHER] > [CRYPTO] > [IDENTITY]
+// NOTE: Cyber/default theme only — Broadcast theme has its own engine below.
+APP.crypto.tickerHTML = '';
+APP.ticker = { phase: 0, interval: null };
+
+function updateTickerCycle() {
+    // ── Each structural theme has its own dedicated ticker engine ─────────
+    if (document.body.classList.contains('theme-broadcast')) { updateBroadcastTicker(); return; }
+    if (document.body.classList.contains('theme-ethereal'))  { updateEtherealTicker();  return; }
+    // ── Cyber (default): original weather + crypto + identity cycle ───────
+    const ticker = $('ticker-text');
+    if (!ticker) return;
+    const weatherBlock = APP.atmosphere.city !== 'UNKNOWN'
+        ? `<span style="color:var(--accent)">[LOC: ${APP.atmosphere.city}]</span>&nbsp;//&nbsp;<span>[TEMP: ${APP.atmosphere.temperature || '—'}°C]</span>&nbsp;//&nbsp;<span>[${APP.atmosphere.isRaining ? 'PRECIPITATION_DETECTED' : 'ATMOS_STABLE'}]</span>`
+        : '<span style="color:var(--text-dim)">WEATHER: ACQUIRING...</span>';
+    const cryptoBlock = APP.crypto.tickerHTML || '<span style="color:var(--text-dim)">CRYPTO: LOADING...</span>';
+    const identityBlock = '<span style="color:var(--accent)">WHAT HAPPENS IN THE NODES STAYS IN THE NODES</span>&nbsp;&nbsp;//&nbsp;&nbsp;<span style="color:var(--v)">SIGNAL_RESTORED</span>';
+    const full = weatherBlock + '&nbsp;&nbsp;//&nbsp;&nbsp;' + cryptoBlock + '&nbsp;&nbsp;//&nbsp;&nbsp;' + identityBlock;
+    ticker.innerHTML = full + '&nbsp;&nbsp;//&nbsp;&nbsp;' + full;
+}
+
+// ─── BROADCAST TICKER ENGINE ─────────────────────────────────────────────────
+// Global clocks helper — returns [ LOCAL: HH:MM ] [ NY: HH:MM ] ...
+function getGlobalClocks() {
+    function fmt(tz) {
+        return new Intl.DateTimeFormat('en-GB', {
+            hour: '2-digit', minute: '2-digit', hour12: false, timeZone: tz
+        }).format(new Date());
+    }
+    var localTz = Intl.DateTimeFormat().resolvedOptions().timeZone;
+    return '[ LOCAL: ' + fmt(localTz) + ' ] [ NY: ' + fmt('America/New_York') +
+           ' ] [ LDN: ' + fmt('Europe/London') + ' ] [ TYO: ' + fmt('Asia/Tokyo') + ' ]';
+}
+
+APP.broadcast = APP.broadcast || {};
+APP.broadcast.newsCache  = [];
+APP.broadcast.lastFetch  = 0;
+APP.broadcast.newsCity   = '';
+
+// Fetch top-3 geo-targeted headlines; falls back to Hacker News on failure
+function fetchBroadcastNews() {
+    var city = APP.atmosphere.city;
+    var now  = Date.now();
+    // 5-minute cache — don't hammer the proxy
+    if (APP.broadcast.newsCache.length && now - APP.broadcast.lastFetch < 300000) {
+        return Promise.resolve(APP.broadcast.newsCache);
+    }
+    if (city && city !== 'UNKNOWN') {
+        var rssUrl = 'https://news.google.com/rss/headlines/section/geo/' + encodeURIComponent(city);
+        var apiUrl = 'https://api.rss2json.com/v1/api.json?rss_url=' + encodeURIComponent(rssUrl);
+        return fetch(apiUrl)
+            .then(function(r) { return r.json(); })
+            .then(function(data) {
+                if (data.status === 'ok' && data.items && data.items.length) {
+                    APP.broadcast.newsCache = data.items.slice(0, 3).map(function(i) {
+                        return i.title.replace(/\s+/g, ' ').trim().toUpperCase();
+                    });
+                    APP.broadcast.lastFetch = now;
+                    APP.broadcast.newsCity  = city;
+                    return APP.broadcast.newsCache;
+                }
+                throw new Error('RSS_EMPTY');
+            })
+            .catch(function() { return _broadcastHNFallback(now); });
+    }
+    return _broadcastHNFallback(now);
+}
+
+function _broadcastHNFallback(now) {
+    return fetch('https://hacker-news.firebaseio.com/v0/topstories.json')
+        .then(function(r) { return r.json(); })
+        .then(function(ids) {
+            return Promise.all(ids.slice(0, 3).map(function(id) {
+                return fetch('https://hacker-news.firebaseio.com/v0/item/' + id + '.json')
+                    .then(function(r) { return r.json(); })
+                    .then(function(d) { return (d.title || 'INTEL UNAVAILABLE').toUpperCase(); });
+            }));
+        })
+        .then(function(titles) {
+            APP.broadcast.newsCache = titles;
+            APP.broadcast.lastFetch = now;
+            APP.broadcast.newsCity  = 'GLOBAL';
+            return titles;
+        })
+        .catch(function() {
+            return ['SIGNAL ACQUIRING\u2026', 'FEED STANDBY\u2026', 'INTEL PENDING\u2026'];
+        });
+}
+
+function updateBroadcastTicker() {
+    var ticker = $('ticker-text');
+    if (!ticker) return;
+    var clocks = getGlobalClocks();
+    fetchBroadcastNews().then(function(headlines) {
+        var city = (APP.broadcast.newsCity && APP.broadcast.newsCity !== 'UNKNOWN')
+                   ? APP.broadcast.newsCity : 'GLOBAL';
+        var bullets = headlines.map(function(h) { return '\u25CF ' + h; }).join('&nbsp;&nbsp;&nbsp;');
+        var content = clocks
+                    + '&nbsp;&nbsp;//&nbsp;&nbsp;'
+                    + '[ ' + city + ' LOCAL INTEL ]'
+                    + '&nbsp;&nbsp;' + bullets;
+        // Obsidian broadcast palette: sharp dark text on ticker bar, Space Mono
+        // Uses !important inline to beat the stylesheet span color override
+        var full = '<span style="font-family:\'Space Mono\',monospace!important;font-size:9px!important;'
+                 + 'letter-spacing:0.05em!important;color:#1a2030!important;font-weight:600!important;">'
+                 + content + '</span>';
+        ticker.innerHTML = full + '&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;' + full;
+    });
+}
+
+// Refresh clocks every 60 s while Broadcast is active (news stays cached 5 min)
+setInterval(function() {
+    if (document.body.classList.contains('theme-broadcast')) updateBroadcastTicker();
+}, 60000);
+// ─── END BROADCAST TICKER ENGINE ─────────────────────────────────────────────
+
+// ─── ETHEREAL TICKER ENGINE — Global Culture + Local Art ─────────────────────
+APP.ethereal = APP.ethereal || {};
+APP.ethereal.newsCache = null;  // { global:[], local:[], city:'' }
+APP.ethereal.lastFetch = 0;
+
+// Strip " - Publisher Name" suffix that Google News appends to every headline
+function _stripPublisher(title) {
+    return title.replace(/\s+[-\u2013]\s+[^-\u2013]{2,60}$/, '').trim();
+}
+
+function fetchEtherealNews() {
+    var city = APP.atmosphere && APP.atmosphere.city;
+    var now  = Date.now();
+    if (APP.ethereal.newsCache && now - APP.ethereal.lastFetch < 300000) {
+        return Promise.resolve(APP.ethereal.newsCache);
+    }
+    var proxy      = 'https://api.rss2json.com/v1/api.json?rss_url=';
+    var globalRss  = 'https://news.google.com/rss/search?q=%22Art+News%22+OR+%22Contemporary+Art%22+OR+%22Design+Culture%22';
+    var localQ     = (city && city !== 'UNKNOWN')
+                   ? '%22Art+Exhibition%22+OR+%22Gallery%22+location%3A' + encodeURIComponent(city)
+                   : '%22Art+Exhibition%22+OR+%22Contemporary+Gallery%22';
+    var localRss   = 'https://news.google.com/rss/search?q=' + localQ;
+
+    function fetchFeed(url, count) {
+        return fetch(proxy + encodeURIComponent(url))
+            .then(function(r) { return r.json(); })
+            .then(function(d) {
+                if (d.status === 'ok' && d.items && d.items.length) {
+                    return d.items.slice(0, count).map(function(i) {
+                        return _stripPublisher(i.title).toUpperCase();
+                    });
+                }
+                return [];
+            })
+            .catch(function() { return []; });
+    }
+
+    return Promise.all([fetchFeed(globalRss, 2), fetchFeed(localRss, 2)])
+        .then(function(res) {
+            var cache = {
+                global: res[0].length ? res[0] : ['\u2014 ACQUIRING \u2014', '\u2014'],
+                local:  res[1].length ? res[1] : ['\u2014 ACQUIRING \u2014', '\u2014'],
+                city:   (city && city !== 'UNKNOWN') ? city : 'GLOBAL'
+            };
+            APP.ethereal.newsCache = cache;
+            APP.ethereal.lastFetch = now;
+            return cache;
+        });
+}
+
+function updateEtherealTicker() {
+    var ticker = $('ticker-text');
+    if (!ticker) return;
+    fetchEtherealNews().then(function(data) {
+        var accent  = '#a78bfa';  // Ethereal violet accent
+        var gbullets = data.global.map(function(h) { return '\u25CF \u201C' + h + '\u201D'; }).join('&nbsp;&nbsp;');
+        var lbullets = data.local.map(function(h)  { return '\u25CF \u201C' + h + '\u201D'; }).join('&nbsp;&nbsp;');
+        var gBlock  = '<span style="color:' + accent + '!important;font-weight:700;">[ GLOBAL CULTURE ]</span>&nbsp;&nbsp;' + gbullets;
+        var lBlock  = '<span style="color:' + accent + '!important;font-weight:700;">[ ' + data.city + ' // LOCAL ART ]</span>&nbsp;&nbsp;' + lbullets;
+        var content = gBlock + '&nbsp;&nbsp;//&nbsp;&nbsp;' + lBlock;
+        // Obsidian hardware frame: black ticker bar, near-white body text, Inter font
+        var full = '<span style="font-family:\'Inter\',sans-serif!important;font-size:9px!important;'
+                 + 'letter-spacing:0.04em!important;color:#e5e5ea!important;">' + content + '</span>';
+        ticker.innerHTML = full + '&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;' + full;
+    });
+}
+
+// Refresh every 60 s while Ethereal is active (news cached 5 min)
+setInterval(function() {
+    if (document.body.classList.contains('theme-ethereal')) updateEtherealTicker();
+}, 60000);
+// ─── END ETHEREAL TICKER ENGINE ──────────────────────────────────────────────
+
+// UTILS
+function log(msg) {
+    var body = document.getElementById('sys-log-body');
+    if (!body) { console.log('[SYS]', msg); return; }
+    var ts = new Date().toTimeString().split(' ')[0];
+    var el = document.createElement('div');
+    el.className = 'log-line';
+    el.innerHTML = '<span class="ts">' + ts + '</span>' + msg;
+    body.appendChild(el);
+    if (body.children.length > 30) body.removeChild(body.firstChild);
+    body.scrollTop = body.scrollHeight;
+    // Determine alert level from message content
+    var m = msg.toUpperCase();
+    var level = 'info';
+    if (/ERR|FAIL|DENIED|BLOCKED|FATAL|CRASH/.test(m))      level = 'err';
+    else if (/WARN|MISS|TIMEOUT|RETRY|ABORT/.test(m))        level = 'warn';
+    else if (/DONE|READY|ACTIVE|INJECTED|LOADED|OK/.test(m)) level = 'ok';
+    if (typeof window._sysLogWake === 'function') window._sysLogWake(level);
+}
+function checkMobile() { APP.state.isMobile = /Android|iPhone|iPad|iPod|webOS|BlackBerry/i.test(navigator.userAgent); if (APP.state.isMobile) { APP.render.width = 1920; APP.render.height = 1080; log('MOBILE_MODE'); } }
+
+// RENDER
+function initCanvas() {
+    APP.render.canvas = $('vj-canvas');
+    APP.render.ctx = APP.render.canvas.getContext('2d', { alpha: false });
+    // ── RESOLUTION CAP: 1080p max — 4K canvas chokes the render loop ──
+    APP.render.width  = Math.min(APP.render.width,  1920);
+    APP.render.height = Math.min(APP.render.height, 1080);
+    resizeCanvas();
+    window.addEventListener('resize', () => { resizeCanvas(); checkMobile(); });
+    // Off-screen canvas for proper pixelation
+    APP.render.pixelCanvas = document.createElement('canvas');
+    APP.render.pixelCanvas.width = 384; APP.render.pixelCanvas.height = 216; // Start small
+    APP.render.pixelCtx = APP.render.pixelCanvas.getContext('2d', { alpha: false });
+    APP.render.pixelCtx.imageSmoothingEnabled = false;
+}
+function resizeCanvas() { APP.render.canvas.width = APP.render.width; APP.render.canvas.height = APP.render.height; $('res').textContent = `${APP.render.width}x${APP.render.height}`; }
+
+// ═══════════════════════════════════════════════════════════════════════════
+// MEDIA STRIP TOGGLE TAB — always-visible collapse handle at canvas bottom
+// ═══════════════════════════════════════════════════════════════════════════
+function drawMediaStripToggle(ctx, w, h) {
+    var hasContent = (APP.media.queue.length > 0 || (APP.user.assets && APP.user.assets.length > 0));
+    if (!hasContent) return 0;
+
+    var tabH = Math.max(22, Math.round(h * 0.016));
+    var tabW = Math.max(80, Math.round(h * 0.075));
+    var tabX = (w - tabW) / 2;
+    var tabY = h - tabH;
+
+    // Always store hit zone so click interaction works even during recording
+    if (!APP.state.mediaStripToggleZone) APP.state.mediaStripToggleZone = {};
+    APP.state.mediaStripToggleZone.x = tabX;
+    APP.state.mediaStripToggleZone.y = tabY;
+    APP.state.mediaStripToggleZone.w = tabW;
+    APP.state.mediaStripToggleZone.h = tabH;
+
+    // During recording: skip drawing the arrow so it doesn't appear in the output
+    if (APP.broadcast && APP.broadcast.isRecording) return tabH;
+
+    ctx.save();
+    ctx.globalCompositeOperation = 'source-over';
+
+    // Background pill — slightly more opaque
+    ctx.fillStyle = 'rgba(4,4,10,0.94)';
+    ctx.fillRect(tabX, tabY, tabW, tabH);
+
+    // Top accent line — cyan, fully visible
+    ctx.fillStyle = 'rgba(0,243,255,0.7)';
+    ctx.fillRect(tabX, tabY, tabW, 2);
+
+    // Glow behind the tab
+    ctx.shadowColor = 'rgba(0,243,255,0.55)';
+    ctx.shadowBlur = 10;
+    ctx.fillStyle = 'rgba(0,243,255,0.0)';
+    ctx.fillRect(tabX, tabY, tabW, tabH);
+    ctx.shadowBlur = 0;
+
+    // Arrow — bright cyan, larger
+    var fs = Math.max(11, Math.round(tabH * 0.62));
+    ctx.font = '700 ' + fs + 'px monospace';
+    ctx.fillStyle = 'rgba(0,243,255,0.92)';
+    ctx.shadowColor = 'rgba(0,243,255,0.8)';
+    ctx.shadowBlur = 8;
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'middle';
+    var arrow = APP.state.showMediaStrips ? '▼' : '▲';
+    ctx.fillText(arrow, tabX + tabW / 2, tabY + tabH / 2);
+    ctx.shadowBlur = 0;
+
+    ctx.restore();
+
+    return tabH;
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
+// NFT_VAULT — Horizontal Gallery (burned into canvas bottom)
+// ═══════════════════════════════════════════════════════════════════════════
+function drawNFTVault(ctx, w, h, bottomY) {
+    var assets = APP.user.assets;
+    if (!assets || assets.length === 0) return 0;
+    if (!APP.state.showMediaStrips) return 0;
+
+    var thumbSize = Math.round(h * 0.08);
+    var padding = Math.round(thumbSize * 0.15);
+    var barH = thumbSize + padding * 2;
+    var barY = (bottomY != null ? bottomY : h) - barH;
+
+    // Gallery bar background — dark glass
+    ctx.save();
+    ctx.globalCompositeOperation = 'source-over';
+    ctx.fillStyle = 'rgba(4, 4, 8, 0.85)';
+    ctx.fillRect(0, barY, w, barH);
+
+    // Top accent line
+    ctx.fillStyle = 'rgba(0, 243, 255, 0.4)';
+    ctx.fillRect(0, barY, w, 1);
+
+    // Clear thumbnail hit areas for this frame
+    APP.nftVault.thumbnails = [];
+    APP.nftVault.durationZones = [];
+
+    // Calculate total gallery width for centering
+    var totalW = assets.length * (thumbSize + padding) - padding;
+    var startX = Math.max(padding, (w - totalW) / 2);
+
+    for (var i = 0; i < assets.length; i++) {
+        var asset = assets[i];
+        if (!asset.image || !asset.image.complete || asset.image.naturalWidth === 0) continue;
+
+        var tx = startX + i * (thumbSize + padding);
+        var ty = barY + padding;
+
+        // Draw thumbnail with border
+        ctx.drawImage(asset.image, tx, ty, thumbSize, thumbSize);
+
+        // Accent border
+        var isActive = (APP.media.currentElement === asset.image);
+        ctx.strokeStyle = isActive ? '#ff3333' : 'rgba(0, 243, 255, 0.6)';
+        ctx.lineWidth = isActive ? 2 : 1;
+        ctx.strokeRect(tx, ty, thumbSize, thumbSize);
+
+        // Label
+        var labelFS = Math.max(8, Math.round(thumbSize * 0.14));
+        ctx.font = '700 ' + labelFS + 'px Orbitron, sans-serif';
+        ctx.fillStyle = 'rgba(255,255,255,0.8)';
+        ctx.textAlign = 'center';
+        ctx.textBaseline = 'top';
+        var label = (asset.name || 'NFT').substring(0, 10);
+        ctx.fillText(label, tx + thumbSize / 2, ty + thumbSize + 2);
+
+        // Store hit area for click detection
+        APP.nftVault.thumbnails.push({
+            x: tx, y: ty, w: thumbSize, h: thumbSize,
+            index: i
+        });
+
+        // Duration badge — images only (videos play their full length)
+        if (!asset.isVideo) {
+            var dur = asset.duration != null ? asset.duration : 8;
+            var badgeFS = Math.max(9, Math.round(thumbSize * 0.13));
+            var badgeW = Math.max(22, Math.round(thumbSize * 0.3));
+            var badgeH = Math.round(thumbSize * 0.19);
+            var badgeX = tx + thumbSize - badgeW - 2;
+            var badgeY = ty + 2;
+            // Dark pill
+            ctx.fillStyle = 'rgba(0,0,0,0.78)';
+            ctx.fillRect(badgeX, badgeY, badgeW, badgeH);
+            // Cyan text
+            ctx.fillStyle = 'rgba(0,243,255,0.95)';
+            ctx.font = '600 ' + badgeFS + 'px monospace';
+            ctx.textAlign = 'center';
+            ctx.textBaseline = 'middle';
+            ctx.fillText(dur + 's', badgeX + badgeW / 2, badgeY + badgeH / 2);
+            // Store hit zone — click cycles duration
+            APP.nftVault.durationZones.push({ x: badgeX, y: badgeY, w: badgeW, h: badgeH, index: i });
+        }
+    }
+
+    ctx.restore();
+    return barH;
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
+// MEDIA_QUEUE STRIP — Uploaded files carousel (violet accent, above vault)
+// ═══════════════════════════════════════════════════════════════════════════
+function drawMediaQueue(ctx, w, h, bottomY) {
+    var queue = APP.media.queue;
+    if (!queue || queue.length === 0) return;
+    if (!APP.state.showMediaStrips) return;
+
+    var thumbSize = Math.round(h * 0.065);
+    var padding   = Math.round(thumbSize * 0.15);
+    var barH      = thumbSize + padding * 2;
+
+    // ── Animated expansion (spring toward target) ──
+    var _TARGET_H  = 58;
+    var _targetExp = (APP.media._activeSeam >= 0) ? _TARGET_H : 0;
+    APP.media._seamExpandH += (_targetExp - APP.media._seamExpandH) * 0.2;
+    if (Math.abs(APP.media._seamExpandH - _targetExp) < 0.4) APP.media._seamExpandH = _targetExp;
+    var _eH = Math.round(APP.media._seamExpandH); // current expansion px
+
+    // Thumbnail bar sits above the expansion track
+    var barY  = bottomY - barH - _eH;
+    var thumbY = barY + padding; // top of thumbnails
+
+    ctx.save();
+    ctx.globalCompositeOperation = 'source-over';
+
+    // ── Bar background (thumbnails region) ──
+    ctx.fillStyle = 'rgba(4,4,8,0.82)';
+    ctx.fillRect(0, barY, w, barH);
+    ctx.fillStyle = 'rgba(160,80,255,0.45)';
+    ctx.fillRect(0, barY, w, 1); // top accent
+
+    // ── Expansion track background ──
+    if (_eH > 0) {
+        var _tY = barY + barH; // top of expansion track
+        ctx.fillStyle = 'rgba(3,3,14,0.97)';
+        ctx.fillRect(0, _tY, w, _eH);
+        // Top border of expansion track
+        ctx.fillStyle = 'rgba(130,55,255,0.35)';
+        ctx.fillRect(0, _tY, w, 1);
+        // Violet left rail (NLE track marker)
+        ctx.fillStyle = 'rgba(140,60,255,0.7)';
+        ctx.fillRect(0, _tY, 3, _eH);
+    }
+
+    // Init hit areas
+    if (!APP.media.queueStrip) APP.media.queueStrip = {};
+    APP.media.queueStrip.thumbnails = [];
+    APP.media.queueStrip.seams      = [];
+    APP.media.queueStrip.ctrlZones  = [];
+    APP.media.queueStrip.audioSyncZone = null;
+
+    var totalW = queue.length * (thumbSize + padding) - padding;
+    var startX = Math.max(padding, (w - totalW) / 2);
+
+    for (var i = 0; i < queue.length; i++) {
+        var item = queue[i];
+        var el   = item.element;
+        if (!el) continue;
+        var isVid = el.tagName === 'VIDEO';
+        if (el.tagName === 'IMG' && (!el.complete || el.naturalWidth === 0)) continue;
+        if (isVid && el.readyState < 2) continue;
+
+        var tx = startX + i * (thumbSize + padding);
+        var ty = thumbY;
+
+        try { ctx.drawImage(el, tx, ty, thumbSize, thumbSize); } catch(e) { continue; }
+
+        // Border
+        var isActive = (APP.media.currentIndex === i);
+        ctx.strokeStyle = isActive ? '#ff3333' : 'rgba(160,80,255,0.6)';
+        ctx.lineWidth = isActive ? 2 : 1;
+        ctx.strokeRect(tx, ty, thumbSize, thumbSize);
+
+        // Name label (below thumb)
+        var labelFS = Math.max(7, Math.round(thumbSize * 0.13));
+        ctx.font = '600 ' + labelFS + 'px "Orbitron", monospace';
+        ctx.fillStyle = 'rgba(255,255,255,0.55)';
+        ctx.textAlign = 'center';
+        ctx.textBaseline = 'top';
+        ctx.fillText((item.name || 'FILE').substring(0, 10), tx + thumbSize / 2, ty + thumbSize + 2);
+
+        // Duration label — bottom-left corner of thumbnail (clean, no badge)
+        if (!isVid) {
+            var durTxt = item.duration === null ? '\u221e' : (item.duration || 8) + 's';
+            var durFS  = Math.max(7, Math.round(thumbSize * 0.135));
+            ctx.font = '700 ' + durFS + 'px monospace';
+            ctx.textAlign    = 'left';
+            ctx.textBaseline = 'bottom';
+            ctx.fillStyle    = 'rgba(160,80,255,0.82)';
+            ctx.fillText(durTxt, tx + 3, ty + thumbSize - 2);
+        }
+
+        // Beat-sync micro-dot (bottom-right, gold, only when active)
+        if (item.beatSync) {
+            var _bsR = Math.max(3, Math.round(thumbSize * 0.07));
+            ctx.beginPath();
+            ctx.arc(tx + thumbSize - _bsR - 2, ty + thumbSize - _bsR - 2, _bsR, 0, Math.PI * 2);
+            ctx.fillStyle = 'rgba(255,200,0,0.82)';
+            ctx.fill();
+        }
+
+        // Thumbnail hit zone
+        APP.media.queueStrip.thumbnails.push({ x: tx, y: ty, w: thumbSize, h: thumbSize, index: i });
+
+        // ── Seam between this clip and next ──
+        if (i < queue.length - 1) {
+            var _scx      = tx + thumbSize + Math.round(padding / 2);
+            var _sIdx     = APP.media.queueStrip.seams.length;
+            var _sHovered = (APP.media._hoveredSeam === _sIdx);
+            var _sActive  = (APP.media._activeSeam  === _sIdx);
+
+            ctx.save();
+            if (_sActive) {
+                ctx.strokeStyle = 'rgba(200,140,255,1.0)';
+                ctx.lineWidth   = 2;
+                ctx.shadowColor = 'rgba(180,100,255,0.9)';
+                ctx.shadowBlur  = 10;
+            } else if (_sHovered) {
+                ctx.strokeStyle = 'rgba(180,110,255,0.9)';
+                ctx.lineWidth   = 2;
+                ctx.shadowColor = 'rgba(160,80,255,0.7)';
+                ctx.shadowBlur  = 6;
+            } else {
+                ctx.strokeStyle = 'rgba(120,50,220,0.25)';
+                ctx.lineWidth   = 1;
+            }
+            ctx.beginPath();
+            ctx.moveTo(_scx, barY + 4);
+            ctx.lineTo(_scx, barY + barH - 4);
+            ctx.stroke();
+
+            // Active seam: small downward-pointing node marker at bottom of seam line
+            if (_sActive && _eH > 2) {
+                ctx.fillStyle = 'rgba(200,140,255,1.0)';
+                ctx.beginPath();
+                ctx.moveTo(_scx,     barY + barH - 4);
+                ctx.lineTo(_scx - 5, barY + barH + 4);
+                ctx.lineTo(_scx + 5, barY + barH + 4);
+                ctx.closePath();
+                ctx.fill();
+            }
+            ctx.restore();
+
+            var _sHitW = Math.max(10, padding);
+            APP.media.queueStrip.seams.push({
+                cx: _scx, barY: barY,
+                hitX: tx + thumbSize, hitY: barY,
+                hitW: _sHitW, hitH: barH,
+                fromIndex: i, toIndex: i + 1
+            });
+        }
+    }
+
+    // ── AUDIO_SYNC pill — right edge of thumbnail bar ──
+    var asPW = Math.max(46, Math.round(thumbSize * 0.62));
+    var asPH = Math.round(thumbSize * 0.27);
+    var asPX = w - asPW - Math.round(padding * 1.5);
+    var asPY = barY + Math.round((barH - asPH) / 2);
+    var asOn = !!APP.media.audioSync;
+    ctx.fillStyle   = asOn ? 'rgba(255,180,0,0.9)'  : 'rgba(28,28,40,0.85)';
+    ctx.strokeStyle = asOn ? 'rgba(255,220,0,0.85)' : 'rgba(120,80,200,0.5)';
+    ctx.lineWidth   = 1;
+    var _aR = Math.round(asPH / 2);
+    ctx.beginPath();
+    ctx.moveTo(asPX + _aR, asPY);
+    ctx.lineTo(asPX + asPW - _aR, asPY);
+    ctx.arcTo(asPX + asPW, asPY, asPX + asPW, asPY + asPH, _aR);
+    ctx.lineTo(asPX + asPW, asPY + asPH - _aR);
+    ctx.arcTo(asPX + asPW, asPY + asPH, asPX + asPW - _aR, asPY + asPH, _aR);
+    ctx.lineTo(asPX + _aR, asPY + asPH);
+    ctx.arcTo(asPX, asPY + asPH, asPX, asPY + asPH - _aR, _aR);
+    ctx.lineTo(asPX, asPY + _aR);
+    ctx.arcTo(asPX, asPY, asPX + _aR, asPY, _aR);
+    ctx.closePath();
+    ctx.fill(); ctx.stroke();
+    var aPFS = Math.max(7, Math.round(asPH * 0.54));
+    ctx.fillStyle    = asOn ? '#000' : 'rgba(180,140,255,0.85)';
+    ctx.font         = '700 ' + aPFS + 'px monospace';
+    ctx.textAlign    = 'center';
+    ctx.textBaseline = 'middle';
+    ctx.fillText('\u266b SYNC', asPX + asPW / 2, asPY + asPH / 2);
+    APP.media.queueStrip.audioSyncZone = { x: asPX, y: asPY, w: asPW, h: asPH };
+
+    // ── EXPANSION TRACK CONTROLS ──
+    if (_eH >= 8 && APP.media._activeSeam >= 0) {
+        var _seam = APP.media.queueStrip.seams[APP.media._activeSeam];
+        var _toItem = _seam ? APP.media.queue[_seam.toIndex] : null;
+        if (_toItem) {
+            var _tY   = barY + barH; // top of expansion track
+            var _fade = Math.min(1, (_eH - 8) / 18);
+            ctx.globalAlpha = _fade;
+
+            var _lpad = 18, _rpad = 18 + asPW + 10;
+            var _midY = _tY + _eH / 2;
+            var _fs9  = Math.max(9,  Math.round(h * 0.0085));  // main control font
+            var _fs8  = Math.max(8,  Math.round(_fs9 * 0.88)); // label font
+
+            // ── SEAM label ──
+            ctx.font = '600 ' + _fs8 + 'px monospace';
+            ctx.textAlign = 'left'; ctx.textBaseline = 'middle';
+            ctx.fillStyle = 'rgba(160,100,255,0.72)';
+            ctx.fillText('S' + APP.media._activeSeam, _lpad + 3, _midY);
+            var _seamLblW = ctx.measureText('S' + APP.media._activeSeam).width;
+
+            // section divider helper
+            var _div = function(x) {
+                ctx.save();
+                ctx.strokeStyle = 'rgba(130,55,255,0.22)';
+                ctx.lineWidth   = 1;
+                ctx.beginPath(); ctx.moveTo(x, _tY + 10); ctx.lineTo(x, _tY + _eH - 10); ctx.stroke();
+                ctx.restore();
+            };
+
+            // ── TYPE section ──
+            var _types = [
+                { id: 'optical-fade', label: 'FADE'    },
+                { id: 'glitch',       label: 'GLITCH'  },
+                { id: 'dip-black',    label: 'DIP BLK' },
+                { id: 'snap',         label: 'SNAP'    }
+            ];
+            var _typeW = 70, _typeGap = 14;
+            var _typeSectW = _types.length * _typeW + (_types.length - 1) * _typeGap;
+            var _typeX0 = _lpad + _seamLblW + 18;
+
+            _div(_typeX0 - 9);
+
+            for (var _ti = 0; _ti < _types.length; _ti++) {
+                var _t      = _types[_ti];
+                var _tX     = _typeX0 + _ti * (_typeW + _typeGap);
+                var _tActive = (_toItem.transitionType === _t.id);
+                ctx.font         = '700 ' + _fs9 + 'px monospace';
+                ctx.textAlign    = 'left';
+                ctx.textBaseline = 'middle';
+                // Active: bright white with a subtle bg; inactive: dim violet
+                if (_tActive) {
+                    var _tlW = ctx.measureText(_t.label).width;
+                    ctx.fillStyle = 'rgba(160,80,255,0.18)';
+                    ctx.fillRect(_tX - 4, _midY - _fs9 * 0.72, _tlW + 8, _fs9 * 1.44);
+                    ctx.fillStyle = 'rgba(230,200,255,1.0)';
+                } else {
+                    ctx.fillStyle = 'rgba(185,155,220,0.5)';
+                }
+                ctx.fillText(_t.label, _tX, _midY);
+                APP.media.queueStrip.ctrlZones.push({
+                    type: 'tx-type', value: _t.id,
+                    x: _tX - 4, y: _tY, w: _typeW, h: _eH
+                });
+            }
+
+            _div(_typeX0 + _typeSectW + 9);
+
+            // ── DURATION scrubber (center) ──
+            var _durLblX = _typeX0 + _typeSectW + 18;
+            var _durMin = 0.1, _durMax = 3.0;
+            var _durVal = _toItem.transitionDuration != null ? _toItem.transitionDuration : 0.8;
+            var _durPct = (_durVal - _durMin) / (_durMax - _durMin);
+
+            // ── DUR label ──
+            ctx.font         = '600 ' + _fs8 + 'px monospace';
+            ctx.textAlign    = 'left';
+            ctx.textBaseline = 'middle';
+            ctx.fillStyle    = 'rgba(160,100,255,0.72)';
+            ctx.fillText('DUR', _durLblX, _midY);
+            var _durLblW2 = ctx.measureText('DUR').width;
+
+            // Scrubber
+            var _scrX = _durLblX + _durLblW2 + 9;
+            var _scrW = Math.round(w * 0.17);
+            var _scrY = _midY;
+            ctx.fillStyle = 'rgba(60,35,100,0.8)';
+            ctx.fillRect(_scrX, _scrY - 1, _scrW, 2);
+            ctx.fillStyle = 'rgba(150,80,255,0.75)';
+            ctx.fillRect(_scrX, _scrY - 1, Math.round(_durPct * _scrW), 2);
+            var _hX = _scrX + Math.round(_durPct * _scrW);
+            ctx.beginPath(); ctx.arc(_hX, _scrY, 5, 0, Math.PI * 2);
+            ctx.fillStyle = 'rgba(200,145,255,0.97)';
+            ctx.shadowColor = 'rgba(160,80,255,0.6)'; ctx.shadowBlur = 7;
+            ctx.fill(); ctx.shadowBlur = 0;
+
+            // Value label
+            var _durValStr = _durVal.toFixed(1) + 's';
+            ctx.font         = '700 ' + _fs9 + 'px monospace';
+            ctx.textAlign    = 'left';
+            ctx.textBaseline = 'middle';
+            ctx.fillStyle    = 'rgba(210,185,255,0.85)';
+            ctx.fillText(_durValStr, _scrX + _scrW + 9, _midY);
+
+            APP.media.queueStrip.ctrlZones.push({
+                type: 'dur-track', min: _durMin, max: _durMax,
+                x: _scrX - 4, y: _tY, w: _scrW + 8, h: _eH
+            });
+
+            // ── EASING selector ──
+            var _easeX0 = _scrX + _scrW + 9 + ctx.measureText(_durValStr).width + 18;
+            _div(_easeX0 - 9);
+            var _easings = [
+                { id: 'linear',   label: 'LINEAR'   },
+                { id: 'ease-in',  label: 'EASE IN'  },
+                { id: 'ease-out', label: 'EASE OUT' }
+            ];
+            for (var _ei = 0; _ei < _easings.length; _ei++) {
+                var _ea     = _easings[_ei];
+                var _eX     = _easeX0 + _ei * 72;
+                var _eActive = (_toItem.easing === _ea.id);
+                ctx.font         = '700 ' + _fs9 + 'px monospace';
+                ctx.textAlign    = 'left';
+                ctx.textBaseline = 'middle';
+                if (_eActive) {
+                    var _eW2 = ctx.measureText(_ea.label).width;
+                    ctx.fillStyle = 'rgba(160,80,255,0.18)';
+                    ctx.fillRect(_eX - 4, _midY - _fs9 * 0.72, _eW2 + 8, _fs9 * 1.44);
+                    ctx.fillStyle = 'rgba(230,200,255,1.0)';
+                } else {
+                    ctx.fillStyle = 'rgba(185,155,220,0.5)';
+                }
+                ctx.fillText(_ea.label, _eX, _midY);
+                APP.media.queueStrip.ctrlZones.push({
+                    type: 'easing', value: _ea.id,
+                    x: _eX - 4, y: _tY, w: 70, h: _eH
+                });
+            }
+
+            // ── Glitch effect during open/close animation ──
+            var _glitchAge = performance.now() - (APP.media._seamGlitchT || 0);
+            if (_glitchAge < 320 && APP.media._seamGlitchT > 0) {
+                var _gi2 = Math.max(0, 1 - _glitchAge / 320);
+                ctx.save();
+                ctx.globalAlpha = _gi2 * 0.85;
+                for (var _gk = 0; _gk < 5; _gk++) {
+                    if (Math.random() > _gi2 * 0.8) continue;
+                    var _gy2 = _tY + Math.random() * _eH;
+                    var _gw2 = w * (0.2 + Math.random() * 0.6);
+                    var _gx2 = Math.random() * (w - _gw2);
+                    ctx.fillStyle = Math.random() > 0.5 ? 'rgba(0,0,0,0.7)' : 'rgba(140,60,255,0.3)';
+                    ctx.fillRect(_gx2, _gy2, _gw2, 1 + Math.random() * 2);
+                }
+                // Bright violet sweep line
+                if (Math.random() < _gi2 * 0.5) {
+                    ctx.fillStyle = 'rgba(160,80,255,0.4)';
+                    ctx.fillRect(0, _tY + Math.random() * _eH, w * (0.5 + Math.random() * 0.5), 1);
+                }
+                ctx.restore();
+            }
+
+            ctx.globalAlpha = 1;
+        }
+    }
+
+    ctx.restore();
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
+// SUMMONER LOGIC — NFT click triggers source swap + System Summoning glitch
+// ═══════════════════════════════════════════════════════════════════════════
+function initSummonerLogic() {
+    // Canvas has pointer-events:none so clicks pass through to UI.
+    // Listen on #stage (the canvas parent) which DOES receive clicks,
+    // then translate clientX/Y to canvas pixel coordinates.
+    var stage = $('stage');
+    var canvas = APP.render.canvas;
+    if (!stage || !canvas) return;
+
+    stage.addEventListener('click', function(e) {
+        var rect = canvas.getBoundingClientRect();
+        var scaleX = APP.render.width / rect.width;
+        var scaleY = APP.render.height / rect.height;
+        var cx = (e.clientX - rect.left) * scaleX;
+        var cy = (e.clientY - rect.top) * scaleY;
+
+        // ── TOGGLE TAB — collapse / expand both strips ──
+        var tz = APP.state.mediaStripToggleZone;
+        if (tz && cx >= tz.x && cx <= tz.x + tz.w && cy >= tz.y && cy <= tz.y + tz.h) {
+            APP.state.showMediaStrips = !APP.state.showMediaStrips;
+            return;
+        }
+
+        // ── AUDIO SYNC PILL ──
+        var asZone = APP.media.queueStrip && APP.media.queueStrip.audioSyncZone;
+        if (asZone && cx >= asZone.x && cx <= asZone.x + asZone.w && cy >= asZone.y && cy <= asZone.y + asZone.h) {
+            APP.media.audioSync = !APP.media.audioSync;
+            return;
+        }
+
+        // ── MEDIA QUEUE STRIP — thumbnail click (navigate to item) ──
+        var mqTh = (APP.media.queueStrip && APP.media.queueStrip.thumbnails) || [];
+        for (var mt = 0; mt < mqTh.length; mt++) {
+            var mthumb = mqTh[mt];
+            if (cx >= mthumb.x && cx <= mthumb.x + mthumb.w && cy >= mthumb.y && cy <= mthumb.y + mthumb.h) {
+                var qi = APP.media.queue[mthumb.index];
+                if (qi) {
+                    if (APP.media.currentElement && APP.media.currentElement.tagName === 'VIDEO') APP.media.currentElement.pause();
+                    APP.media.currentIndex = mthumb.index;
+                    APP.media.currentElement = qi.element;
+                    if (qi.element && qi.element.tagName === 'VIDEO') {
+                        qi.element.currentTime = 0;
+                        qi.element.play().catch(function(){});
+                    }
+                }
+                return;
+            }
+        }
+
+        // ── NFT VAULT STRIP — duration badge (cyan, bottom) ──
+        if (APP.user.assets && APP.user.assets.length > 0) {
+            var dz = APP.nftVault.durationZones || [];
+            for (var d = 0; d < dz.length; d++) {
+                var zone = dz[d];
+                if (cx >= zone.x && cx <= zone.x + zone.w && cy >= zone.y && cy <= zone.y + zone.h) {
+                    var asset = APP.user.assets[zone.index];
+                    if (asset && !asset.isVideo) {
+                        var cur = _durSteps.indexOf(asset.duration);
+                        asset.duration = _durSteps[(cur + 1) % _durSteps.length];
+                        for (var q = 0; q < APP.media.queue.length; q++) {
+                            if (APP.media.queue[q].element === asset.image) {
+                                APP.media.queue[q].duration = asset.duration;
+                            }
+                        }
+                    }
+                    return;
+                }
+            }
+
+            // ── NFT VAULT STRIP — thumbnail click (summon) ──
+            for (var i = 0; i < APP.nftVault.thumbnails.length; i++) {
+                var t = APP.nftVault.thumbnails[i];
+                if (cx >= t.x && cx <= t.x + t.w && cy >= t.y && cy <= t.y + t.h) {
+                    summonNFTByIndex(t.index);
+                    return;
+                }
+            }
+        }
+    });
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
+// SEAM CONTROLS — NLE-style floating panel on hover/click between clips
+// ═══════════════════════════════════════════════════════════════════════════
+function initSeamControls() {
+    var stage  = $('stage');
+    var canvas = APP.render.canvas;
+    if (!stage || !canvas) return;
+
+    function _cc(e) { // canvas coords
+        var r = canvas.getBoundingClientRect();
+        return { x: (e.clientX - r.left) * (APP.render.width / r.width),
+                 y: (e.clientY - r.top)  * (APP.render.height / r.height) };
+    }
+
+    function _hitSeam(cx, cy) {
+        var seams = (APP.media.queueStrip && APP.media.queueStrip.seams) || [];
+        for (var i = 0; i < seams.length; i++) {
+            var s = seams[i];
+            if (cx >= s.hitX && cx <= s.hitX + s.hitW && cy >= s.hitY && cy <= s.hitY + s.hitH) return i;
+        }
+        return -1;
+    }
+
+    function _hitCtrl(cx, cy) {
+        var zones = (APP.media.queueStrip && APP.media.queueStrip.ctrlZones) || [];
+        for (var i = 0; i < zones.length; i++) {
+            var z = zones[i];
+            if (cx >= z.x && cx <= z.x + z.w && cy >= z.y && cy <= z.y + z.h) return z;
+        }
+        return null;
+    }
+
+    function _openSeam(idx) {
+        APP.media._activeSeam  = idx;
+        APP.media._seamOpen    = true;
+        APP.media._seamGlitchT = performance.now();
+    }
+
+    function _closeSeam() {
+        APP.media._activeSeam  = -1;
+        APP.media._seamOpen    = false;
+        APP.media._seamGlitchT = performance.now();
+    }
+
+    function _applyDur(cx) {
+        var zones = (APP.media.queueStrip && APP.media.queueStrip.ctrlZones) || [];
+        var dz    = APP.media._durDragZone;
+        if (!dz) return;
+        var seams = APP.media.queueStrip && APP.media.queueStrip.seams;
+        if (!seams || APP.media._activeSeam < 0) return;
+        var toItem = APP.media.queue[seams[APP.media._activeSeam].toIndex];
+        if (!toItem) return;
+        var pct = Math.max(0, Math.min(1, (cx - dz.x) / dz.w));
+        toItem.transitionDuration = Math.round((dz.min + pct * (dz.max - dz.min)) * 10) / 10;
+    }
+
+    // ── mousemove: hover + drag ──
+    stage.addEventListener('mousemove', function(e) {
+        var c   = _cc(e);
+        var idx = _hitSeam(c.x, c.y);
+        APP.media._hoveredSeam = idx;
+
+        // Update cursor
+        var onCtrl = APP.media._activeSeam >= 0 && _hitCtrl(c.x, c.y);
+        if (idx >= 0) {
+            canvas.style.cursor = 'col-resize';
+        } else if (onCtrl && onCtrl.type === 'dur-track') {
+            canvas.style.cursor = 'ew-resize';
+        } else if (onCtrl) {
+            canvas.style.cursor = 'pointer';
+        } else {
+            canvas.style.cursor = '';
+        }
+
+        // Drag duration
+        if (APP.media._durDragging) _applyDur(c.x);
+    });
+
+    stage.addEventListener('mouseleave', function() {
+        APP.media._hoveredSeam = -1;
+        if (!APP.media._durDragging) canvas.style.cursor = '';
+    });
+
+    // ── mousedown: start duration drag ──
+    stage.addEventListener('mousedown', function(e) {
+        if (APP.media._activeSeam < 0) return;
+        var c  = _cc(e);
+        var hz = _hitCtrl(c.x, c.y);
+        if (hz && hz.type === 'dur-track') {
+            APP.media._durDragging = true;
+            APP.media._durDragZone = hz;
+            _applyDur(c.x);
+            e.preventDefault();
+        }
+    });
+
+    document.addEventListener('mouseup', function() {
+        APP.media._durDragging = false;
+        APP.media._durDragZone = null;
+    });
+
+    // ── click: seam toggle + ctrl zone dispatch ──
+    stage.addEventListener('click', function(e) {
+        var c   = _cc(e);
+        var sIdx = _hitSeam(c.x, c.y);
+        if (sIdx >= 0) {
+            if (APP.media._activeSeam === sIdx) _closeSeam();
+            else _openSeam(sIdx);
+            return;
+        }
+        // Control zones (only when expansion is visible)
+        if (APP.media._activeSeam >= 0 && APP.media._seamExpandH > 20) {
+            var hz = _hitCtrl(c.x, c.y);
+            if (hz) {
+                var seams  = APP.media.queueStrip && APP.media.queueStrip.seams;
+                var toItem = seams ? APP.media.queue[seams[APP.media._activeSeam].toIndex] : null;
+                if (toItem) {
+                    if (hz.type === 'tx-type') { toItem.transitionType = hz.value; return; }
+                    if (hz.type === 'easing')  { toItem.easing = hz.value; return; }
+                    if (hz.type === 'dur-track') { _applyDur(c.x); return; }
+                }
+                return;
+            }
+        }
+        // Click outside track area: close
+        var qs = APP.media.queueStrip;
+        var inBar = qs && qs.seams && qs.seams.length > 0 && qs.seams[0] &&
+                    c.y >= qs.seams[0].hitY && c.y <= qs.seams[0].hitY + qs.seams[0].hitH + APP.media._seamExpandH;
+        if (!inBar) _closeSeam();
+    });
+}
+
+// Shared summoner — injects NFT into media queue (eject/cycle compatible)
+function summonNFTByIndex(index) {
+    var asset = APP.user.assets[index];
+    if (!asset || !asset.image) return;
+
+    // Clear any lingering render.source override so media queue takes priority
+    APP.render.source = null;
+
+    // Check if this NFT is already in the queue — if so, just switch to it
+    for (var q = 0; q < APP.media.queue.length; q++) {
+        if (APP.media.queue[q].element === asset.image) {
+            if (APP.media.currentElement?.tagName === 'VIDEO') APP.media.currentElement.pause();
+            
+            APP.media.currentIndex = q;
+            APP.media.currentElement = asset.image;
+
+            // --- THE AUDIO & PLAYBACK INJECTION ---
+            if (asset.isVideo && asset.image.tagName === 'VIDEO') {
+                var vid = asset.image;
+                
+                // User interacted, so we can safely unmute and play!
+                vid.muted = false;
+                vid.currentTime = 0;
+                vid.play().catch(e => console.warn('NFT Autoplay blocked:', e));
+
+                // Plug into the Workstation Mixer
+                if (!vid.audioRouted && APP.audio && APP.audio.ctx) {
+                    try {
+                        if (APP.audio.ctx.state === 'suspended') APP.audio.ctx.resume();
+                        var trackSource = APP.audio.ctx.createMediaElementSource(vid);
+                        var destination = APP.audio.masterGain || APP.audio.ctx.destination;
+                        trackSource.connect(destination);
+                        vid.audioRouted = true;
+                        console.log('NFT_AUDIO: ROUTED TO MASTER MIX');
+                    } catch (e) {
+                        console.warn('NFT_AUDIO: ROUTING FAILED', e);
+                    }
+                }
+            }
+            // --------------------------------------
+
+            log('SUMMONER: ' + (asset.name || 'NFT_' + index) + ' FOCUSED');
+            _summonGlitch();
+            return;
+        }
+    }
+
+    // ... (The rest of your code that adds a NEW NFT to the queue goes here) ...
+
+    // Inject into media queue as a new item
+    var item = { type: 'image', url: asset.imageUrl || '', element: asset.image, name: 'NFT_' + (asset.name || index), duration: asset.duration != null ? asset.duration : 8 };
+    // Append to gif-host at natural size (off-screen) for GIF animation
+    var host = $('gif-host');
+    if (host && !asset.image.parentNode) host.appendChild(asset.image);
+
+    APP.media.queue.push(item);
+    if (APP.media.currentElement?.tagName === 'VIDEO') APP.media.currentElement.pause();
+    APP.media.currentIndex = APP.media.queue.length - 1;
+    APP.media.currentElement = asset.image;
+    updateQueueDisplay();
+    if ($('media-dot')) $('media-dot').classList.remove('off');
+
+    log('SUMMONER: ' + (asset.name || 'NFT_' + index) + ' → MEDIA_DECK');
+    _summonGlitch();
+}
+
+function _summonGlitch() {
+    var prevGlitch = APP.vj.glitchSnap;
+    var prevRGB = APP.vj.rgbIntensity;
+    var prevRGBEnabled = APP.vj.rgbEnabled;
+    APP.vj.glitchSnap = 5;
+    APP.vj.rgbIntensity = 30;
+    APP.vj.rgbEnabled = true;
+    triggerChromaticAberration();
+    triggerImpact();
+    setTimeout(function() {
+        APP.vj.glitchSnap = prevGlitch;
+        APP.vj.rgbIntensity = prevRGB;
+        APP.vj.rgbEnabled = prevRGBEnabled;
+    }, 500);
+}
+
+// ═══ INLINE GIF DECODER — extracts every frame as a canvas for captureStream recording ═══
+// Parses GIF89a binary: LZW decode → composite frames → store canvases with delays
+function _gifLzwDecode(data, mcs, count) {
+    var cc=1<<mcs,eof=cc+1,cs=mcs+1,nc=eof+1,bp=0;
+    var tbl=[],i; for(i=0;i<cc;i++)tbl[i]=[i]; tbl[cc]=[]; tbl[eof]=[];
+    function rc(){var v=0;for(var b=0;b<cs;b++){var B=bp>>3,bi=bp&7;if(B<data.length)v|=((data[B]>>bi)&1)<<b;bp++;}return v;}
+    var out=[],code=rc(),prev;
+    if(code===cc){tbl=[];for(i=0;i<cc;i++)tbl[i]=[i];tbl[cc]=[];tbl[eof]=[];cs=mcs+1;nc=eof+1;code=rc();}
+    prev=code; if(tbl[code])out.push.apply(out,tbl[code]);
+    while(out.length<count){
+        code=rc(); if(code===eof)break;
+        if(code===cc){tbl=[];for(i=0;i<cc;i++)tbl[i]=[i];tbl[cc]=[];tbl[eof]=[];cs=mcs+1;nc=eof+1;code=rc();prev=code;if(tbl[code])out.push.apply(out,tbl[code]);continue;}
+        var e=tbl[code]!=null?tbl[code]:(tbl[prev]?[...tbl[prev],tbl[prev][0]]:[0]);
+        out.push.apply(out,e);
+        if(tbl[prev]&&e.length)tbl[nc++]=[...tbl[prev],e[0]];
+        if(nc>=(1<<cs)&&cs<12)cs++; prev=code;
+    }
+    return out;
+}
+function _decodeGIF(buf) {
+    var u=new Uint8Array(buf),p=6;
+    var sw=u[p]|u[p+1]<<8,sh=u[p+2]|u[p+3]<<8,fl=u[p+4];
+    var hasGCT=(fl>>7)&1,gctSz=3*(2<<(fl&7)); p+=7;
+    var gct=hasGCT?u.slice(p,p+gctSz):null; if(hasGCT)p+=gctSz;
+    var frames=[],delay=100,transIdx=-1,disposal=0;
+    var cc=document.createElement('canvas'); cc.width=sw; cc.height=sh;
+    var cctx=cc.getContext('2d');
+    var prevSnap=null;
+    while(p<u.length){
+        var b=u[p++];
+        if(b===0x21){
+            var lbl=u[p++];
+            if(lbl===0xF9&&u[p]===4){
+                p++; var gf=u[p++]; disposal=(gf>>2)&7;
+                delay=(u[p]|u[p+1]<<8)*10; p+=2;
+                transIdx=(gf&1)?u[p++]:-1; if(!(gf&1))p++; p++;
+            } else { var sz2; while((sz2=u[p++])>0)p+=sz2; }
+        } else if(b===0x2C){
+            var ix=u[p]|u[p+1]<<8,iy=u[p+2]|u[p+3]<<8,iw=u[p+4]|u[p+5]<<8,ih=u[p+6]|u[p+7]<<8;
+            var ilf=u[p+8],hasLCT=(ilf>>7)&1,interlace=(ilf>>6)&1,lctSz=3*(2<<(ilf&7)); p+=9;
+            var ct=gct; if(hasLCT){ct=u.slice(p,p+lctSz);p+=lctSz;}
+            var mcs2=u[p++],lzw=[],sz3; while((sz3=u[p++])>0){for(var j=0;j<sz3;j++)lzw.push(u[p++]);}
+            var pxl=_gifLzwDecode(new Uint8Array(lzw),mcs2,iw*ih);
+            if(disposal===3&&prevSnap)cctx.putImageData(prevSnap,0,0);
+            var snap=null; if(disposal===3)snap=cctx.getImageData(0,0,sw,sh);
+            var imgd=cctx.getImageData(ix,iy,iw,ih),d=imgd.data;
+            // Build interlace row map
+            var rowMap=new Uint16Array(ih);
+            if(interlace){var ri2=0,ps=[[0,8],[4,8],[2,4],[1,2]];ps.forEach(function(ps){for(var r=ps[0];r<ih;r+=ps[1])rowMap[r]=ri2++;});}
+            else{for(var ri3=0;ri3<ih;ri3++)rowMap[ri3]=ri3;}
+            for(var row=0;row<ih;row++){var srcRow=interlace?rowMap[row]:row;for(var col=0;col<iw;col++){var pi2=(row*iw+col)*4,cidx=pxl[srcRow*iw+col];if(cidx===transIdx){d[pi2+3]=0;continue;}var ci3=cidx*3;d[pi2]=ct[ci3];d[pi2+1]=ct[ci3+1];d[pi2+2]=ct[ci3+2];d[pi2+3]=255;}}
+            cctx.putImageData(imgd,ix,iy);
+            var fc=document.createElement('canvas');fc.width=sw;fc.height=sh;fc.getContext('2d').drawImage(cc,0,0);
+            frames.push({canvas:fc,delay:delay||100});
+            prevSnap=snap;
+            if(disposal===2)cctx.clearRect(ix,iy,iw,ih);
+            delay=100;transIdx=-1;disposal=0;
+        } else if(b===0x3B){break;}
+        else{var sz4;while(p<u.length&&(sz4=u[p++])>0)p+=sz4;}
+    }
+    return{frames:frames,width:sw,height:sh};
+}
+
+let _lastFrameTime = 0;
+function renderLoop(timestamp) {
+    APP.render.rafId = requestAnimationFrame(renderLoop);
+    // ── 60 FPS TARGET: skip only if <16ms since last frame ──
+    if (timestamp - _lastFrameTime < 16) return;
+    _lastFrameTime = timestamp;
+    // ── VISIBILITY GATE: skip render if canvas container is hidden/collapsed ──
+    var _cvs = APP.render && APP.render.canvas;
+    if (_cvs && _cvs.parentElement) {
+        var _pEl = _cvs.parentElement;
+        var _pDisp = _pEl.style.display;
+        var _pMH = _pEl.style.maxHeight;
+        if (_pDisp === 'none' || _pMH === '0' || _pMH === '0px') return;
+    }
+    APP.render.frameCount++;
+    if (timestamp - APP.render.lastFpsUpdate >= 1000) { APP.render.fps = APP.render.frameCount; APP.render.frameCount = 0; APP.render.lastFpsUpdate = timestamp; $('fps-val').textContent = APP.render.fps; }
+
+    const ctx = APP.render.ctx; const w = APP.render.width; const h = APP.render.height;
+    ctx.imageSmoothingEnabled = false;
+    
+    // --- SEISMIC ENGINE (Random shake on bass - OFF by default) ---
+    // _fxActive gates expensive ops (RGB shift) — seismic runs independently
+    const _fxActive = window.audioReactorActive ||
+        document.body.classList.contains('fx-void') ||
+        document.body.classList.contains('fx-lucy');
+
+    // --- SEISMIC: canvas-level translate (captured by captureStream) ---
+    // Velocity accumulator gives organic build-up & natural decay instead of hard on/off.
+    // Threshold 130 (was 140): responds earlier — feels like the room vibrates at first bass hit.
+    // Max amplitude 12px (was 14px): keeps all content safely on-screen even at 4K.
+    let finalShakeX = 0, finalShakeY = 0;
+    var _seismicDemoActive = performance.now() < (APP.vj._seismicDemoUntil || 0);
+    if ((APP.vj.rumbleEnabled && (APP.audio.isPlaying || APP.audio.videoSource)) || _seismicDemoActive) {
+        var _rawBassForSei = APP.audio.bassLevel;
+        // Smooth velocity: builds with bass, decays naturally when bass drops
+        if (typeof APP.vj._seismicVel === 'undefined') APP.vj._seismicVel = 0;
+        var _seismicTarget = Math.max(0, (_rawBassForSei - 130) / 125); // 0-1 normalised
+        // During one-shot demo: inject sustained shake velocity
+        if (_seismicDemoActive) {
+            var _demoProgress = 1 - (APP.vj._seismicDemoUntil - performance.now()) / 3000;
+            _seismicTarget = Math.max(_seismicTarget, 0.7 * (1 - _demoProgress * _demoProgress));
+        }
+        APP.vj._seismicVel = APP.vj._seismicVel * 0.82 + _seismicTarget * 0.18;
+        if (APP.vj._seismicVel > 0.005) {
+            var _sei = APP.vj._seismicVel * 12; // max 12px
+            finalShakeX = (Math.random() - 0.5) * _sei;
+            finalShakeY = (Math.random() - 0.5) * _sei * 0.5; // Y is half X — feels more realistic
+        }
+    } else {
+        APP.vj._seismicVel = 0;
+    }
+    APP.vj._canvasShakeX = finalShakeX;
+    APP.vj._canvasShakeY = finalShakeY;
+    // Console shake: only if console mode is enabled
+    if (APP.vj.rumbleEnabled && APP.vj.seismicConsoleMode && (Math.abs(finalShakeX) > 0.5 || Math.abs(finalShakeY) > 0.5)) {
+        document.body.style.transform = 'translate3d(' + finalShakeX.toFixed(1) + 'px,' + finalShakeY.toFixed(1) + 'px,0)';
+    } else {
+        if (document.body.style.transform) document.body.style.transform = '';
+    }
+
+    // --- PUNCH: BPM-linked beat pulser — TWEETER SPRING PHYSICS ---
+    // Underdamped spring oscillator: canvas punches FORWARD then snaps BACK past rest
+    // like a speaker tweeter cone — scale > 1 on push, < 1 on pull-back, decays to rest.
+    if (typeof APP.vj._punchSpring === 'undefined')    APP.vj._punchSpring = 0;
+    if (typeof APP.vj._punchVel === 'undefined')       APP.vj._punchVel = 0;
+    if (typeof APP.vj._punchPrevBass === 'undefined')  APP.vj._punchPrevBass = 0;
+    if (typeof APP.vj._bpm === 'undefined')            APP.vj._bpm = { interval: 0, lastBeat: 0, nextBeat: 0, history: [] };
+    var _bassNow  = APP.audio.bassLevel;
+    var _bassRise = _bassNow - APP.vj._punchPrevBass;
+    APP.vj._punchPrevBass = _bassNow;
+    var _nowMs = performance.now();
+    var _bpmModel = APP.vj._bpm;
+    var _punchIsOn = document.body.classList.contains('fx-punch');
+
+    // Bass multiplier: drives punch intensity — zero when silent, violent on kick drop
+    var _bassMultiplier = APP.audio.bassLevel / 255;
+
+    // Beat-sync auto-edit: rotate media on kick if current item has beatSync enabled
+    if (_bassRise > 12 && _bassNow > 40 && !window._beatSyncCooldown && APP.media.audioSync) {
+        var _bsCurrent = APP.media.queue[APP.media.currentIndex];
+        if (_bsCurrent && _bsCurrent.beatSync && !APP.media._tx) {
+            window._beatSyncCooldown = true;
+            setTimeout(function() { window._beatSyncCooldown = false; }, 500);
+            rotateMedia();
+        }
+    }
+
+    // Kick onset: update BPM model on every rising-edge detection
+    if (_bassRise > 12 && _bassNow > 40 && !window._punchCooldown) {
+        window._punchCooldown = true;
+        setTimeout(function() { window._punchCooldown = false; }, 100);
+        if (_bpmModel.lastBeat > 0) {
+            var _dt = _nowMs - _bpmModel.lastBeat;
+            if (_dt > 230 && _dt < 2000) {          // valid: 30–260 BPM
+                _bpmModel.history.push(_dt);
+                if (_bpmModel.history.length > 8) _bpmModel.history.shift();
+                var _s = 0; for (var _bi = 0; _bi < _bpmModel.history.length; _bi++) _s += _bpmModel.history[_bi];
+                _bpmModel.interval = _s / _bpmModel.history.length;
+            }
+        }
+        _bpmModel.lastBeat = _nowMs;
+        _bpmModel.nextBeat = _nowMs + (_bpmModel.interval > 0 ? _bpmModel.interval : 500);
+        // Impulse: scaled by (bassLevel/255) — screen punches violently on kick, stays still in silence
+        if (_punchIsOn) APP.vj._punchVel += Math.min(0.85, _bassRise / 22) * _bassMultiplier;
+    }
+
+    // BPM-scheduled pulse — locked to tempo; magnitude driven by current bass level
+    if (_punchIsOn && _bpmModel.interval > 230 && _nowMs >= _bpmModel.nextBeat) {
+        _bpmModel.nextBeat += _bpmModel.interval;
+        if (APP.vj._punchSpring < 0.18) APP.vj._punchVel += 0.55 * _bassMultiplier;
+    }
+
+    // Punch demo: inject rhythmic spring impulses every 400ms when one-shot active
+    if (_nowMs < (APP.vj._punchDemoUntil || 0)) {
+        if (!APP.vj._punchDemoBeat || _nowMs >= APP.vj._punchDemoBeat) {
+            APP.vj._punchVel += 0.72;
+            APP.vj._punchDemoBeat = _nowMs + 400;
+        }
+    }
+
+    // Underdamped spring: stiffness=0.28 (oscil ~4Hz), damping=0.16 (bounces ~3x)
+    // This makes the canvas push forward on kick, then snap back past rest (< 1.0 scale),
+    // then oscillate to a stop — exactly like a tweeter cone.
+    var _pk = 0.28, _pc = 0.16;
+    var _pf = -_pk * APP.vj._punchSpring - _pc * APP.vj._punchVel;
+    APP.vj._punchVel += _pf;
+    APP.vj._punchSpring += APP.vj._punchVel;
+    // Settle to exact zero when nearly at rest (prevents FP drift)
+    if (Math.abs(APP.vj._punchSpring) < 0.0008 && Math.abs(APP.vj._punchVel) < 0.0008) {
+        APP.vj._punchSpring = 0; APP.vj._punchVel = 0;
+    }
+
+    // Trigger body-level punch-hit flash on the POSITIVE peak (visible without canvas media)
+    if (APP.vj._punchSpring > 0.35 && APP.vj._punchVel < 0 && !window._punchHitFired) {
+        window._punchHitFired = true;
+        document.body.classList.add('punch-hit');
+        setTimeout(function() { document.body.classList.remove('punch-hit'); window._punchHitFired = false; }, 220);
+    }
+
+    // --- AUTONOMOUS PARTY MODE (audio-reactive via analyser) ---
+    if (APP.vj.uiReactivity && APP.audio.bassLevel > 220 && Math.random() > 0.9) {
+        if (typeof morphLogo === 'function') morphLogo();
+    }
+
+    // --- CLEAR FRAME (kill ghosting on logos) ---
+    ctx.clearRect(0, 0, w, h);
+    ctx.fillStyle = '#000';
+    ctx.fillRect(0, 0, w, h);
+
+    // --- PUNCH / SEISMIC: frame-level transform — wraps ALL drawing (canvas only) ---
+    var _punch = APP.vj._punchSpring || 0;
+    var _sX = APP.vj._canvasShakeX || 0, _sY = APP.vj._canvasShakeY || 0;
+    var _hasFX = Math.abs(_punch) > 0.003 || Math.abs(_sX) > 0.1 || Math.abs(_sY) > 0.1;
+    if (_hasFX) {
+        ctx.save();
+        var _ps = 1 + _punch * 0.14; // tweeter: +14% push on kick, -14% pull-back on snap
+        ctx.translate(w * 0.5 + _sX, h * 0.5 + _sY);
+        ctx.scale(_ps, _ps);
+        ctx.translate(-w * 0.5, -h * 0.5);
+    }
+    
+    // FILTER STACK — user corrections + active FX equivalent, applied at draw time.
+    // Drawing the source WITH the FX filter writes filtered pixels directly into the canvas,
+    // which captureStream() then captures correctly in recordings.
+    // The previous approach used ctx.filter on an off-screen bake context which silently
+    // fails in some browser/GPU environments, leaving canvas pixels unfiltered.
+    // Draw-time application on the main ctx is the primary intended use of ctx.filter.
+    var _fxCls = document.body.classList;
+    var _fxDrawFilter = '';
+    var _voidTiltAngle = 0, _voidTiltScale = 1;
+    if      (_fxCls.contains('fx-scan'))  _fxDrawFilter = 'invert(1) contrast(1.5) grayscale(0.2) sepia(1) hue-rotate(135deg) saturate(2)';
+    else if (_fxCls.contains('fx-void'))  {
+        // Replicate console-warp CSS animation: ±1.5° rotation + 1.03↔0.97 scale at 600ms period
+        var _voidT = performance.now() / 600 * Math.PI;
+        _voidTiltAngle = Math.sin(_voidT) * 1.5 * (Math.PI / 180);
+        _voidTiltScale = 1.0 - Math.sin(_voidT) * 0.03;
+        _fxDrawFilter = 'grayscale(1) contrast(3) brightness(1.1)';
+    }
+    else if (_fxCls.contains('fx-lucy'))  {
+        // Replicate lucy-full-hue CSS animation: 360° hue cycle over 3 seconds
+        var _lucyHue = Math.round((performance.now() / 3000 * 360) % 360);
+        _fxDrawFilter = 'hue-rotate(' + _lucyHue + 'deg) saturate(4) brightness(1.1)';
+    }
+    else if (_fxCls.contains('fx-nvg'))   _fxDrawFilter = 'grayscale(1) brightness(1.6) contrast(2.2) sepia(0.9) hue-rotate(78deg) saturate(5)';
+    else if (_fxCls.contains('fx-tear'))  _fxDrawFilter = 'hue-rotate(90deg) contrast(1.2)';
+    else if (_fxCls.contains('vhs'))      _fxDrawFilter = 'contrast(1.4) brightness(0.88) saturate(0.72) sepia(0.28)';
+    var _punchBright = (_punch > 0.05) ? (1 + _punch * 0.9) : 1.0;
+    const filterStr = 'brightness(' + (APP.vj.brightness * _punchBright) + ') contrast(' + APP.vj.contrast + ') saturate(' + APP.vj.saturation + ') hue-rotate(' + APP.vj.hue + 'deg)' + (APP.vj.invert ? ' invert(1)' : '') + (_fxDrawFilter ? ' ' + _fxDrawFilter : '');
+    const isIdentityFilter = _punchBright <= 1.001 && !_fxDrawFilter && APP.vj.brightness === 1.0 && APP.vj.contrast === 1.0 && APP.vj.saturation === 1.0 && APP.vj.hue === 0 && !APP.vj.invert;
+    ctx.filter = isIdentityFilter ? 'none' : filterStr;
+    
+    let source = null;
+    if (APP.render.source) source = APP.render.source;
+    else if (APP.guest && APP.guest.isActive && APP.guest.videoElement) source = APP.guest.videoElement;
+    else if (APP.state.isLive && APP.camera.stream && APP.camera.videoEl) source = APP.camera.videoEl;
+    else if (APP.media.currentElement) source = APP.media.currentElement;
+
+    // --- A/B TRANSITION ENGINE ---
+    try {
+        var _mediaTx = APP.media._tx;
+        if (_mediaTx && _mediaTx.active) {
+            var _txNow = performance.now();
+            var _txProgRaw = Math.min(1.0, (_txNow - _mediaTx.start) / _mediaTx.dur);
+            var _ease = _mediaTx.easing || 'linear';
+            var _txProg = _ease === 'ease-in'  ? _txProgRaw * _txProgRaw :
+                          _ease === 'ease-out' ? 1 - Math.pow(1 - _txProgRaw, 2) :
+                          _txProgRaw; // linear
+            var _txCoverRect = function(el) {
+                var sw = el.videoWidth || el._effectiveWidth || el.naturalWidth || w;
+                var sh = el.videoHeight || el._effectiveHeight || el.naturalHeight || h;
+                var ar = sw / sh, car = w / h;
+                if (ar > car) return { x: (w - h*ar)/2, y: 0, w: h*ar, h: h };
+                return { x: 0, y: (h - w/ar)/2, w: w, h: w/ar };
+            };
+            var _txElReady = function(el) {
+                return el && (el.tagName === 'VIDEO' ? el.readyState >= 2 : (el.complete && el.naturalWidth > 0));
+            };
+            var _ro = _txElReady(_mediaTx.out) ? _txCoverRect(_mediaTx.out) : null;
+            var _ri = _txElReady(_mediaTx.in)  ? _txCoverRect(_mediaTx.in)  : null;
+            var _txType = _mediaTx.type || 'optical-fade';
+
+            if (_txType === 'dip-black') {
+                // Fade outgoing to black (0→0.5), fade incoming from black (0.5→1)
+                if (_txProg < 0.5) {
+                    if (_ro) { ctx.globalAlpha = 1 - _txProg * 2; ctx.drawImage(_mediaTx.out, _ro.x, _ro.y, _ro.w, _ro.h); ctx.globalAlpha = 1; }
+                } else {
+                    if (_ri) { ctx.globalAlpha = (_txProg - 0.5) * 2; ctx.drawImage(_mediaTx.in, _ri.x, _ri.y, _ri.w, _ri.h); ctx.globalAlpha = 1; }
+                }
+            } else {
+                // optical-fade (default) + snap both render as cross-dissolve here
+                // (snap never reaches this code because _tx is null for snap)
+                if (_ro) { ctx.globalAlpha = 1; ctx.drawImage(_mediaTx.out, _ro.x, _ro.y, _ro.w, _ro.h); }
+                if (_ri) {
+                    ctx.globalAlpha = _txProg;
+                    ctx.drawImage(_mediaTx.in, _ri.x, _ri.y, _ri.w, _ri.h);
+                    ctx.globalAlpha = 1;
+                }
+            }
+            if (_txProg >= 1.0) APP.media._tx = null;
+            source = null; // skip normal source draw during transition
+        }
+    } catch(_txErr) {}
+
+    if (source) {
+        const ready = source.tagName === 'VIDEO' ? source.readyState >= 2 : (source.complete && source.naturalWidth > 0);
+        if (ready) {
+
+            // --- VIEWPORT-FIT: object-fit:cover for canvas ---
+            // Fills the canvas completely — crops edges to maintain aspect ratio.
+            // No letterbox, no pillarbox. Standard for live VJ performance.
+            // _effectiveWidth/_effectiveHeight = EXIF-corrected (mobile photo orientation)
+            var srcW = source.videoWidth || source._effectiveWidth || source.naturalWidth || w;
+            var srcH = source.videoHeight || source._effectiveHeight || source.naturalHeight || h;
+            var srcAR = srcW / srcH;
+            var canvasAR = w / h;
+            var drawW, drawH, drawX, drawY;
+            if (srcAR > canvasAR) {
+                // Source is wider than canvas — fit height, crop left/right equally
+                drawH = h; drawW = h * srcAR;
+                drawX = (w - drawW) / 2; drawY = 0;
+            } else {
+                // Source is taller than canvas — fit width, crop top/bottom equally
+                drawW = w; drawH = w / srcAR;
+                drawX = 0; drawY = (h - drawH) / 2;
+            }
+
+            if (_voidTiltAngle !== 0) {
+                ctx.save();
+                ctx.translate(w / 2, h / 2);
+                ctx.rotate(_voidTiltAngle);
+                ctx.scale(_voidTiltScale, _voidTiltScale);
+                ctx.translate(-w / 2, -h / 2);
+            }
+            if (APP.vj.pixelateEnabled && APP.vj.pixelSize > 1) {
+                // OFF-SCREEN BUFFER RENDER
+                const size = APP.vj.pixelSize;
+                const sw = Math.ceil(drawW / size);
+                const sh = Math.ceil(drawH / size);
+
+                if(APP.render.pixelCanvas.width !== sw) { APP.render.pixelCanvas.width = sw; APP.render.pixelCanvas.height = sh; }
+
+                APP.render.pixelCtx.drawImage(source, 0, 0, sw, sh);
+                ctx.drawImage(APP.render.pixelCanvas, 0, 0, sw, sh, drawX, drawY, drawW, drawH);
+            } else {
+                ctx.drawImage(source, drawX, drawY, drawW, drawH);
+            }
+            if (_voidTiltAngle !== 0) { ctx.restore(); }
+
+            if (APP.vj.maskMode) {
+                const pulse = 1 + (APP.audio.bassLevel / 255) * 0.5;
+                ctx.globalCompositeOperation = 'destination-in';
+                ctx.beginPath(); ctx.arc(w/2, h/2, (h/3) * pulse, 0, Math.PI * 2); ctx.fill();
+                ctx.globalCompositeOperation = 'source-over';
+            }
+        }
+    }
+
+    // --- RGB SHIFT (only when reactor/FX active — expensive canvas read-back) ---
+    if (_fxActive && APP.vj.rgbEnabled && APP.vj.rgbIntensity > 0) {
+        const shift = APP.vj.rgbIntensity;
+        ctx.save();
+        ctx.globalCompositeOperation = 'screen';
+        ctx.drawImage(APP.render.canvas, shift, 0);
+        ctx.drawImage(APP.render.canvas, -shift, 0);
+        ctx.restore();
+    }
+    
+    // ═══ IDENTITY TRINITY — three independent actors burned into canvas ═══
+    // Punch/seismic transform MUST be closed here so logos, bug, and lower thirds
+    // are always drawn at identity scale — they must never zoom or shift with the beat.
+    if (_hasFX) { ctx.filter = 'none'; ctx.restore(); }
+    ctx.filter = 'none';
+    ctx.globalAlpha = 1;
+    ctx.globalCompositeOperation = 'source-over';
+    var T = APP.trinity;
+    
+    // ACTOR 1: STATION BUG (text or uploaded image)
+    // P2P: when a call is active, show the REMOTE peer's identity bug (received via
+    // data-channel) on the main canvas — which is showing the remote's video stream.
+    // Local identity is shown in the cam-preview-float overlay instead.
+    var _bugDrawText = (APP.guest && APP.guest.isActive && APP.bug.p2pText && APP.bug.p2pVisible !== false)
+        ? APP.bug.p2pText : APP.bug.text;
+    if (T.bug.visible) {
+        var bugEl = $('station-bug');
+        var bx = T.bug.x * w, by = T.bug.y * h, bScale = T.bug.scale;
+        if (bugEl) {
+            var bugImg = bugEl.querySelector('img');
+            if (bugImg && bugImg.complete && bugImg.naturalWidth > 0) {
+                ctx.save();
+                var bw = bugImg.naturalWidth * bScale * (w / 1920);
+                var bh = bugImg.naturalHeight * bScale * (h / 1080);
+                ctx.drawImage(bugImg, bx, by, bw, bh);
+                ctx.restore();
+            } else if (_bugDrawText) {
+                // Canvas is sole renderer for all styles — keep DOM element invisible
+                if (!bugEl.classList.contains('hidden')) bugEl.style.opacity = '0';
+                ctx.save();
+                var bugFS = Math.max(14, 28 * bScale * (h / 1080));
+                ctx.font = '800 ' + bugFS + 'px Orbitron, sans-serif';
+                ctx.textAlign = 'left'; ctx.textBaseline = 'top';
+                var _bc = APP.bug.color || '#ffffff';
+                var _bugMode = APP.bug.mode || 'solid';
+                // ── RENDER MODE ──────────────────────────────────────────────────
+                if (_bugMode === 'knockout') {
+                    ctx.strokeStyle = _bc;
+                    ctx.lineWidth = Math.max(1, bugFS * 0.06);
+                    ctx.shadowColor = _bc; ctx.shadowBlur = 8;
+                    var _kp = (Math.sin(timestamp * 0.0018) + 1) / 2;
+                    ctx.lineWidth = Math.max(1, bugFS * (0.04 + 0.04 * _kp));
+                    ctx.strokeText(_bugDrawText, bx, by);
+                } else if (_bugMode === 'inverted') {
+                    ctx.globalCompositeOperation = 'difference';
+                    ctx.fillStyle = '#ffffff';
+                    ctx.shadowColor = 'transparent'; ctx.shadowBlur = 0;
+                    var _ip = (Math.sin(timestamp * 0.0012) + 1) / 2;
+                    ctx.globalAlpha = 0.88 + 0.12 * _ip;
+                    ctx.fillText(_bugDrawText, bx, by);
+                } else {
+                    // SOLID — standard fill with style variants
+                    if (APP.bug.style === 'pulse') {
+                        var _p = (Math.sin(timestamp * 0.002) + 1) / 2;
+                        var _pr = parseInt(_bc.slice(1,3),16), _pg = parseInt(_bc.slice(3,5),16), _pb = parseInt(_bc.slice(5,7),16);
+                        ctx.fillStyle = 'rgba('+_pr+','+_pg+','+_pb+','+(0.65+0.35*_p)+')';
+                        ctx.shadowColor = _bc; ctx.shadowBlur = 4 + 20 * _p;
+                        ctx.fillText(_bugDrawText, bx, by);
+                    } else if (APP.bug.style === 'glitch') {
+                        var _gt = timestamp % 200;
+                        var _gx = _gt < 66 ? -3 : _gt < 133 ? 3 : 0;
+                        var _gy = _gt < 100 ? 1 : -1;
+                        ctx.globalAlpha = 0.8;
+                        ctx.fillStyle = '#ff0055'; ctx.fillText(_bugDrawText, bx + 3, by + _gy);
+                        ctx.fillStyle = '#00f3ff'; ctx.fillText(_bugDrawText, bx - 3, by - _gy);
+                        ctx.globalAlpha = 1;
+                        ctx.fillStyle = _bc; ctx.fillText(_bugDrawText, bx + _gx, by);
+                    } else {
+                        ctx.fillStyle = _bc;
+                        ctx.shadowColor = 'rgba(0,0,0,0.5)'; ctx.shadowBlur = 4;
+                        ctx.shadowOffsetX = 2; ctx.shadowOffsetY = 2;
+                        ctx.fillText(_bugDrawText, bx, by);
+                    }
+                }
+                ctx.restore();
+            }
+        }
+    }
+    
+   // --- OPTIMIZED ACTOR 2: 2D LOGO (NO THRASHING) ---
+if (T.logo.visible) {
+    var logoImg = $('user-logo-layer');
+    var gifOvEl = $('logo-gif-overlay');
+
+    if (APP.layers.logo2dIsGif) {
+        var _lsc2 = T.logo.scale || 1;
+        if (gifOvEl && logoImg && logoImg.naturalWidth > 0) {
+            // Only calculate layout once to prevent lag
+            if (!APP.render._cachedRect) {
+                var _cnv = APP.render.canvas;
+                APP.render._cachedRect = _cnv ? _cnv.getBoundingClientRect() : null;
+            }
+            
+            var _cr = APP.render._cachedRect;
+            if (_cr) {
+                var _sx = _cr.width / w, _sy = _cr.height / h;
+                var _lw = logoImg.naturalWidth * _lsc2 * (w / 1920) * _sx;
+                var _lh = logoImg.naturalHeight * _lsc2 * (h / 1080) * _sy;
+                
+                // Use transform for hardware acceleration
+                gifOvEl.style.transform = `translate(${((T.logo.x || 0) * _cr.width)}px, ${((T.logo.y || 0) * _cr.height)}px)`;
+                gifOvEl.style.width  = _lw + 'px';
+                gifOvEl.style.height = _lh + 'px';
+                // DOM overlay kept hidden — canvas drawImage is the sole visual source
+            }
+            
+            // Draw to canvas for recording
+            ctx.save();
+            var _clw = logoImg.naturalWidth * _lsc2 * (w / 1920);
+            var _clh = logoImg.naturalHeight * _lsc2 * (h / 1080);
+            if (APP.layers._gifFrames && APP.layers._gifFrames.length > 0) {
+                var _tot = APP.layers._gifTotalDelay || 1000;
+                var _el = (performance.now() - APP.layers._gifFrameStart) % _tot;
+                var _cum = 0, _fi = 0;
+                for (; _fi < APP.layers._gifFrames.length - 1; _fi++) { 
+                    _cum += APP.layers._gifFrames[_fi].delay; 
+                    if (_el < _cum) break; 
+                }
+                ctx.drawImage(APP.layers._gifFrames[_fi].canvas, (T.logo.x||0)*w, (T.logo.y||0)*h, _clw, _clh);
+            } else {
+                ctx.drawImage(logoImg, (T.logo.x || 0) * w, (T.logo.y || 0) * h, _clw, _clh);
+            }
+            ctx.restore();
+        }
+    } else {
+        if (gifOvEl) gifOvEl.style.display = 'none';
+        if (logoImg && logoImg.naturalWidth > 0) {
+            ctx.save();
+            var lw = logoImg.naturalWidth * (T.logo.scale || 1) * (w / 1920);
+            var lh = logoImg.naturalHeight * (T.logo.scale || 1) * (h / 1080);
+            ctx.drawImage(logoImg, (T.logo.x || 0) * w, (T.logo.y || 0) * h, lw, lh);
+            ctx.restore();
+        }
+    }
+} else {
+    var _go = $('logo-gif-overlay');
+    if (_go) _go.style.display = 'none';
+}
+
+    // ACTOR 3: 3D LOGO (offscreen WebGL canvas → drawImage composite)
+    if (T.logo3d && T.logo3d.visible && window._three && window._three.ready && window._three.model) {
+        var _t = window._three;
+        try {
+            _t.model.rotation.y += 0.008;
+            _t.model.rotation.x = Math.sin(timestamp * 0.0005) * 0.1;
+            _t.camera.lookAt(0, 0, 0);
+            _t.renderer.render(_t.scene, _t.camera);
+            // Composite the full WebGL canvas onto vj-canvas so captureStream() sees it
+            ctx.drawImage(_t.renderer.domElement, 0, 0, w, h);
+            // Also draw the scaled/positioned logo overlay on top
+            var tc = _t.renderer.domElement;
+            if (tc && tc.width > 0 && tc.height > 0) {
+                ctx.save();
+                var s3d = T.logo3d.scale;
+                var tw = 200 * s3d * (w / 1920);
+                var th = 200 * s3d * (h / 1080);
+                var tx = T.logo3d.x * w, ty = T.logo3d.y * h;
+                ctx.drawImage(tc, 0, 0, tc.width, tc.height, tx, ty, tw, th);
+                ctx.restore();
+            }
+        } catch(e3d) {}
+    }
+
+
+
+    // ══════════════════════════════════════════════════
+    // BURN-IN LOWER THIRD — Premium Broadcast Canvas Render
+    // Draws directly to captureStream canvas = ALWAYS in recording
+    // ══════════════════════════════════════════════════
+    if (APP.lowerThird && (APP.lowerThird.visible || APP.lowerThird._hiding)) {
+        ctx.save();
+        ctx.globalCompositeOperation = 'source-over';
+        ctx.filter = 'none';
+
+        // ── Entrance / Exit animation ──────────────────────────────────────
+        var _ltEnterDur = 420, _ltExitDur = 420;
+        var _ltAge = timestamp - (APP.lowerThird._showTime || timestamp);
+        var _ltEnterT = Math.min(1, _ltAge / _ltEnterDur);
+        // easeOutQuart
+        var _ltEnter = 1 - Math.pow(1 - _ltEnterT, 4);
+        var _ltExitT = APP.lowerThird._hiding
+            ? Math.min(1, (timestamp - APP.lowerThird._hideStart) / _ltExitDur)
+            : 0;
+        // easeInQuart
+        var _ltExit = _ltExitT * _ltExitT * _ltExitT * _ltExitT;
+        var _ltAlpha = _ltEnter * (1 - _ltExit);
+        var _ltDX = (1 - _ltEnter) * -28 + _ltExit * 22;
+        ctx.globalAlpha = Math.max(0, _ltAlpha);
+        ctx.translate(_ltDX, 0);
+
+        // A. Preset accent color per style
+        var ltPreset = APP.lowerThird.preset || 'guest';
+        var ltAccent = '#00f3ff';
+        var ltGlow = 'rgba(0,243,255,';
+        if (ltPreset === 'track')   { ltAccent = '#00ff88'; ltGlow = 'rgba(0,255,136,'; }
+        else if (ltPreset === 'breaking') { ltAccent = '#ff3333'; ltGlow = 'rgba(255,51,51,'; }
+        else if (ltPreset === 'neon')    { ltAccent = '#ff00cc'; ltGlow = 'rgba(255,0,204,'; }
+        else if (ltPreset === 'split')   { ltAccent = '#ffaa00'; ltGlow = 'rgba(255,170,0,'; }
+        else if (ltPreset === 'glitch')  { ltAccent = '#bf00ff'; ltGlow = 'rgba(191,0,255,'; }
+        // User colour override
+        if (APP.lowerThird.ltColor) { ltAccent = APP.lowerThird.ltColor; var _lcr=parseInt(ltAccent.slice(1,3),16),_lcg=parseInt(ltAccent.slice(3,5),16),_lcb=parseInt(ltAccent.slice(5,7),16); ltGlow='rgba('+_lcr+','+_lcg+','+_lcb+','; }
+
+        // B. Read text
+        var ltTitle = document.getElementById('lt-title-text');
+        var ltSub = document.getElementById('lt-subtitle-text');
+        var titleText = (ltTitle && ltTitle.textContent && ltTitle.textContent.trim()) ? ltTitle.textContent.trim() : 'LIVE BROADCAST';
+        var subText = (ltSub && ltSub.textContent && ltSub.textContent.trim()) ? ltSub.textContent.trim() : '';
+
+        // C. Responsive sizing
+        var ltMargin = Math.round(w * 0.025);
+        var ltBottom = Math.round(h * 0.065);
+        var ltPad = Math.round(h * 0.015);
+        var titleFS = Math.max(20, Math.round(h * 0.03));
+        var subFS = Math.max(12, Math.round(h * 0.016));
+        var accentW = Math.max(4, Math.round(h * 0.004));
+
+        // D. Measure text
+        ctx.font = '800 ' + titleFS + 'px Orbitron, sans-serif';
+        var titleW = ctx.measureText(titleText).width;
+        ctx.font = '500 ' + subFS + 'px "JetBrains Mono", monospace';
+        var subW = subText ? ctx.measureText(subText.toUpperCase()).width : 0;
+        var contentW = Math.max(titleW, subW);
+        var boxW = contentW + ltPad * 4 + accentW;
+        var minW = w * 0.25;
+        if (boxW < minW) boxW = minW;
+        var boxH = ltPad + titleFS + (subText ? 6 + subFS : 0) + ltPad;
+        var boxX = ltMargin;
+        var boxY = h - ltBottom - boxH;
+
+        // ─── SHIMMER every ~10 seconds ─────────────────────────────
+        if (!APP.lowerThird._lastShimmer) APP.lowerThird._lastShimmer = timestamp;
+        var shimmerPeriod = 10000;
+        var shimmerDur   = 1200;
+        if (timestamp - APP.lowerThird._lastShimmer > shimmerPeriod) {
+            APP.lowerThird._lastShimmer = timestamp;
+        }
+        var shimmerT = (timestamp - APP.lowerThird._lastShimmer) / shimmerDur; // 0→1 during anim, >1 idle
+        var doShimmer = shimmerT < 1;
+
+        // ─── STYLE: SPLIT ──────────────────────────────────────────
+        if (ltPreset === 'split') {
+            var splitW = Math.max(w * 0.50, contentW * 2 + ltPad * 8);
+            var splitH = ltPad + titleFS + ltPad;
+            var splitX = ltMargin;
+            var splitY = h - ltBottom - splitH;
+            var midX   = splitX + splitW * 0.5;
+
+            // Dark background
+            var spBg = ctx.createLinearGradient(splitX, 0, splitX + splitW, 0);
+            spBg.addColorStop(0, 'rgba(18,10,0,0.95)');
+            spBg.addColorStop(1, 'rgba(12,8,0,0.80)');
+            ctx.fillStyle = spBg;
+            ctx.fillRect(splitX, splitY, splitW, splitH);
+
+            // Bottom accent line
+            ctx.fillStyle = ltAccent;
+            ctx.shadowColor = ltAccent; ctx.shadowBlur = 8;
+            ctx.fillRect(splitX, splitY + splitH, splitW, 2);
+            ctx.shadowBlur = 0;
+
+            // Left stripe
+            ctx.fillStyle = ltAccent;
+            ctx.fillRect(splitX, splitY, accentW, splitH);
+
+            // Vertical divider
+            ctx.globalAlpha = 0.45;
+            ctx.fillStyle = ltAccent;
+            ctx.fillRect(midX - 1, splitY + ltPad * 0.5, 2, splitH - ltPad);
+            ctx.globalAlpha = 1;
+
+            // Title (left half)
+            ctx.font = '800 ' + titleFS + 'px Orbitron, sans-serif';
+            ctx.fillStyle = '#ffffff';
+            ctx.textAlign = 'left';
+            ctx.textBaseline = 'middle';
+            ctx.shadowColor = 'rgba(0,0,0,0.8)'; ctx.shadowBlur = 4;
+            ctx.fillText(titleText, splitX + accentW + ltPad, splitY + splitH * 0.5);
+            ctx.shadowBlur = 0;
+
+            // Subtitle (right half)
+            if (subText) {
+                ctx.font = '500 ' + subFS + 'px "JetBrains Mono", monospace';
+                ctx.fillStyle = ltAccent;
+                ctx.globalAlpha = 0.9;
+                ctx.textAlign = 'left';
+                ctx.fillText(subText.toUpperCase(), midX + ltPad, splitY + splitH * 0.5);
+                ctx.globalAlpha = 1;
+                ctx.textAlign = 'left';
+            }
+
+            // Shimmer scan over whole bar
+            if (doShimmer) {
+                var scanPos = splitX + shimmerT * (splitW + 80) - 80;
+                var shimGrad = ctx.createLinearGradient(scanPos, 0, scanPos + 80, 0);
+                shimGrad.addColorStop(0, 'rgba(255,255,255,0)');
+                shimGrad.addColorStop(0.5, 'rgba(255,255,255,0.22)');
+                shimGrad.addColorStop(1, 'rgba(255,255,255,0)');
+                ctx.fillStyle = shimGrad;
+                ctx.fillRect(splitX, splitY, splitW, splitH);
+            }
+
+            ctx.restore();
+        }
+        // ─── STYLE: NEON ───────────────────────────────────────────
+        else if (ltPreset === 'neon') {
+            var neonPulse = 0.5 + 0.5 * Math.sin(timestamp * 0.003);
+            var neonGlowA = 0.35 + neonPulse * 0.25;
+
+            // Dark background with neon tint
+            ctx.fillStyle = 'rgba(14,0,14,0.92)';
+            ctx.fillRect(boxX, boxY, boxW, boxH);
+
+            // Four-sided neon border
+            ctx.strokeStyle = ltAccent;
+            ctx.lineWidth = 2;
+            ctx.shadowColor = ltAccent;
+            ctx.shadowBlur = 12 + neonPulse * 10;
+            ctx.strokeRect(boxX + 1, boxY + 1, boxW - 2, boxH - 2);
+            ctx.shadowBlur = 0;
+
+            // Inner glow fill
+            ctx.globalAlpha = neonGlowA * 0.12;
+            ctx.fillStyle = ltAccent;
+            ctx.fillRect(boxX + 2, boxY + 2, boxW - 4, boxH - 4);
+            ctx.globalAlpha = 1;
+
+            // Title — magenta glow
+            ctx.font = '800 ' + titleFS + 'px Orbitron, sans-serif';
+            ctx.fillStyle = '#ffffff';
+            ctx.textAlign = 'left';
+            ctx.textBaseline = 'top';
+            ctx.shadowColor = ltAccent;
+            ctx.shadowBlur = 8 + neonPulse * 6;
+            ctx.fillText(titleText, boxX + ltPad, boxY + ltPad);
+            ctx.shadowBlur = 0;
+
+            // Subtitle
+            if (subText) {
+                ctx.font = '500 ' + subFS + 'px "JetBrains Mono", monospace';
+                ctx.fillStyle = ltAccent;
+                ctx.globalAlpha = 0.9;
+                ctx.fillText(subText.toUpperCase(), boxX + ltPad, boxY + ltPad + titleFS + 6);
+                ctx.globalAlpha = 1;
+            }
+
+            // Corner accent squares
+            var cSz = 6;
+            ctx.fillStyle = ltAccent;
+            ctx.shadowColor = ltAccent; ctx.shadowBlur = 6;
+            [[boxX, boxY], [boxX+boxW-cSz, boxY], [boxX, boxY+boxH-cSz], [boxX+boxW-cSz, boxY+boxH-cSz]].forEach(function(c) {
+                ctx.fillRect(c[0], c[1], cSz, cSz);
+            });
+            ctx.shadowBlur = 0;
+
+            // Shimmer: brief bright flash on the border
+            if (doShimmer) {
+                ctx.globalAlpha = (1 - shimmerT) * 0.5;
+                ctx.strokeStyle = '#ffffff';
+                ctx.lineWidth = 2;
+                ctx.strokeRect(boxX + 1, boxY + 1, boxW - 2, boxH - 2);
+                ctx.globalAlpha = 1;
+            }
+
+            ctx.restore();
+        }
+        // ─── STYLE: GLITCH — rounded pill, electric violet, chromatic aberration ──
+        else if (ltPreset === 'glitch') {
+            var glRadius = Math.round(boxH * 0.42);
+            var gPulse   = 0.5 + 0.5 * Math.sin(timestamp * 0.004);
+
+            // Rounded pill background
+            ctx.beginPath();
+            ctx.roundRect(boxX, boxY, boxW, boxH, glRadius);
+            ctx.fillStyle = 'rgba(10,0,18,0.93)';
+            ctx.fill();
+
+            // Electric border with breathing glow
+            ctx.strokeStyle = ltAccent;
+            ctx.lineWidth = 2;
+            ctx.shadowColor = ltAccent;
+            ctx.shadowBlur = 12 + gPulse * 14;
+            ctx.beginPath();
+            ctx.roundRect(boxX + 1, boxY + 1, boxW - 2, boxH - 2, glRadius - 1);
+            ctx.stroke();
+            ctx.shadowBlur = 0;
+
+            // Inner glow tint
+            ctx.beginPath();
+            ctx.roundRect(boxX + 2, boxY + 2, boxW - 4, boxH - 4, glRadius - 2);
+            ctx.fillStyle = ltGlow + (0.04 + gPulse * 0.05) + ')';
+            ctx.fill();
+
+            // Glitch bars — seed changes every 80ms, sparse random triggers
+            var glSeed = Math.floor(timestamp / 80);
+            ctx.save();
+            ctx.beginPath();
+            ctx.roundRect(boxX, boxY, boxW, boxH, glRadius);
+            ctx.clip();
+            for (var gi = 0; gi < 4; gi++) {
+                var grng = Math.abs(Math.sin(glSeed * 127.3 + gi * 43.7));
+                if (grng > 0.62) {
+                    var gbarFrac = Math.abs(Math.sin(glSeed * 91.1 + gi * 17.3));
+                    var gbarY2   = boxY + gbarFrac * boxH;
+                    var gbarH2   = 1.5 + Math.abs(Math.sin(glSeed * 61 + gi)) * 3.5;
+                    var gbarOff  = (Math.sin(glSeed * 173 + gi * 31) * 0.5 + 0.5) * boxW * 0.35;
+                    ctx.globalAlpha = 0.22 * _ltAlpha;
+                    ctx.fillStyle = gi % 2 === 0 ? '#ff0040' : ltAccent;
+                    ctx.fillRect(boxX + gbarOff, gbarY2, boxW - gbarOff, gbarH2);
+                }
+            }
+            ctx.globalAlpha = _ltAlpha;
+            ctx.restore();
+
+            // Chromatic aberration on title — magnitude reduces once settled
+            var glTextX = boxX + glRadius * 0.55 + ltPad;
+            var glTextY = boxY + ltPad + (subText ? 0 : (boxH - ltPad * 2 - titleFS) * 0.5);
+            var chrMax = Math.max(2, titleFS * 0.055);
+            // Extra chroma during entrance, then settles to a persistent subtle split
+            var chrOff2 = chrMax * (1 + 2.5 * Math.max(0, 1 - _ltEnterT * 2.5));
+            var chrPersist = 1.5 + Math.sin(timestamp * 0.0025) * 0.5; // subtle living offset
+
+            ctx.font = '800 ' + titleFS + 'px Orbitron, sans-serif';
+            ctx.textAlign = 'left'; ctx.textBaseline = 'top';
+
+            // Red channel — offset right
+            ctx.globalAlpha = 0.50 * _ltAlpha;
+            ctx.fillStyle = '#ff0040';
+            ctx.fillText(titleText, glTextX + chrOff2, glTextY);
+            // Cyan channel — offset left
+            ctx.fillStyle = '#00f3ff';
+            ctx.fillText(titleText, glTextX - chrOff2, glTextY);
+            // White base — sharp, with faint violet glow
+            ctx.globalAlpha = _ltAlpha;
+            ctx.fillStyle = '#ffffff';
+            ctx.shadowColor = ltAccent; ctx.shadowBlur = 5 + gPulse * 4;
+            // Persistent micro chroma even when settled
+            ctx.globalAlpha = 0.35 * _ltAlpha;
+            ctx.fillStyle = '#ff0040'; ctx.fillText(titleText, glTextX + chrPersist, glTextY);
+            ctx.fillStyle = '#00f3ff'; ctx.fillText(titleText, glTextX - chrPersist, glTextY);
+            ctx.globalAlpha = _ltAlpha;
+            ctx.fillStyle = '#ffffff'; ctx.shadowBlur = 5 + gPulse * 4;
+            ctx.fillText(titleText, glTextX, glTextY);
+            ctx.shadowBlur = 0;
+
+            // Subtitle — violet, spaced, JetBrains Mono
+            if (subText) {
+                ctx.font = '500 ' + subFS + 'px "JetBrains Mono", monospace';
+                ctx.fillStyle = ltAccent;
+                ctx.globalAlpha = 0.82 * _ltAlpha;
+                ctx.shadowColor = ltAccent; ctx.shadowBlur = 4 + gPulse * 3;
+                ctx.fillText(subText.toUpperCase(), glTextX, glTextY + titleFS + 6);
+                ctx.shadowBlur = 0;
+                ctx.globalAlpha = _ltAlpha;
+            }
+
+            ctx.restore();
+        }
+        // ─── STYLE: CLASSIC (guest / track / breaking) ─────────────
+        else {
+            // E. Background — dark glass panel
+            var bgGrad = ctx.createLinearGradient(boxX, 0, boxX + boxW, 0);
+            bgGrad.addColorStop(0, 'rgba(8,8,12,0.95)');
+            bgGrad.addColorStop(0.7, 'rgba(8,8,12,0.85)');
+            bgGrad.addColorStop(1, 'rgba(8,8,12,0)');
+            ctx.fillStyle = bgGrad;
+            ctx.fillRect(boxX, boxY, boxW, boxH);
+
+            // F. Bottom accent line
+            ctx.fillStyle = ltAccent;
+            ctx.fillRect(boxX, boxY + boxH, boxW * 0.6, 2);
+            var tailGrad = ctx.createLinearGradient(boxX + boxW * 0.6, 0, boxX + boxW, 0);
+            tailGrad.addColorStop(0, ltAccent);
+            tailGrad.addColorStop(1, 'rgba(0,0,0,0)');
+            ctx.fillStyle = tailGrad;
+            ctx.fillRect(boxX + boxW * 0.6, boxY + boxH, boxW * 0.4, 2);
+
+            // G. Left accent stripe
+            ctx.shadowColor = ltAccent;
+            ctx.shadowBlur = 16;
+            ctx.fillStyle = ltAccent;
+            ctx.fillRect(boxX, boxY, accentW, boxH);
+            ctx.shadowBlur = 0;
+
+            // H. Top hairline
+            ctx.fillStyle = 'rgba(255,255,255,0.06)';
+            ctx.fillRect(boxX + accentW, boxY, boxW - accentW, 1);
+
+            // I. Title
+            ctx.font = '800 ' + titleFS + 'px Orbitron, sans-serif';
+            ctx.fillStyle = '#ffffff';
+            ctx.textAlign = 'left';
+            ctx.textBaseline = 'top';
+            ctx.shadowColor = 'rgba(0,0,0,0.8)';
+            ctx.shadowBlur = 6;
+            ctx.shadowOffsetX = 1;
+            ctx.shadowOffsetY = 1;
+            ctx.fillText(titleText, boxX + accentW + ltPad, boxY + ltPad);
+            ctx.shadowBlur = 0;
+            ctx.shadowOffsetX = 0;
+            ctx.shadowOffsetY = 0;
+
+            // J. Subtitle
+            if (subText) {
+                ctx.font = '500 ' + subFS + 'px "JetBrains Mono", monospace';
+                ctx.fillStyle = ltAccent;
+                ctx.globalAlpha = 0.9;
+                ctx.fillText(subText.toUpperCase(), boxX + accentW + ltPad, boxY + ltPad + titleFS + 6);
+                ctx.globalAlpha = 1;
+            }
+
+            // K. Live dot (breaking only)
+            if (ltPreset === 'breaking') {
+                var dotR = Math.max(4, titleFS * 0.18);
+                var dotX = boxX + accentW + ltPad + contentW + ltPad;
+                var dotY = boxY + ltPad + titleFS * 0.5;
+                var pulse = 0.5 + 0.5 * Math.sin(timestamp * 0.005);
+                ctx.beginPath();
+                ctx.arc(dotX, dotY, dotR, 0, Math.PI * 2);
+                ctx.fillStyle = ltGlow + (0.6 + pulse * 0.4) + ')';
+                ctx.fill();
+                ctx.shadowColor = ltAccent;
+                ctx.shadowBlur = 8 + pulse * 8;
+                ctx.fill();
+                ctx.shadowBlur = 0;
+            }
+
+            // Shimmer: scan line sweeps across the box
+            if (doShimmer) {
+                var shimX = boxX + shimmerT * (boxW + 60) - 60;
+                var shimG = ctx.createLinearGradient(shimX, 0, shimX + 60, 0);
+                shimG.addColorStop(0, 'rgba(255,255,255,0)');
+                shimG.addColorStop(0.5, 'rgba(255,255,255,0.20)');
+                shimG.addColorStop(1, 'rgba(255,255,255,0)');
+                ctx.fillStyle = shimG;
+                ctx.fillRect(boxX, boxY, boxW, boxH);
+            }
+
+            ctx.restore();
+        }
+    }
+
+    // ═══ STRIP TOGGLE TAB — always visible, collapses/expands both strips ═══
+    var _tabH = drawMediaStripToggle(ctx, w, h) || 0;
+    // ═══ NFT_VAULT — Gallery at bottom (above toggle tab) ═══
+    var _vaultH = drawNFTVault(ctx, w, h, h - _tabH) || 0;
+    // ═══ MEDIA_QUEUE — Uploaded files strip (above vault) ═══
+    drawMediaQueue(ctx, w, h, h - _tabH - _vaultH);
+
+    // ═══ PERMANENT SIGNATURE — untouchable, not part of Trinity ═══
+    ctx.save();
+    var sigFS = Math.max(14, h * 0.012);
+    ctx.font = '900 ' + sigFS + 'px Orbitron';
+    ctx.fillStyle = 'rgba(255,255,255,0.3)';
+    ctx.textAlign = 'right'; ctx.textBaseline = 'bottom';
+    ctx.shadowColor = 'rgba(0,0,0,0.6)'; ctx.shadowBlur = sigFS / 8;
+    ctx.fillText('VNGRD', w - (w * 0.01), h - (h * 0.01));
+    ctx.restore();
+
+    // --- PARTY MODE: canvas beat flash (captured by captureStream) ---
+    // Screen-blend rainbow overlay that pulses proportionally to bassLevel.
+    // This is the LED strobe effect — completely canvas-native so it appears in recordings.
+    if (APP.vj.uiReactivity) {
+        // Sustained beat glow: kicks in at bass 155, maxes at 250 (α 0 → 0.45)
+        var _pBass = APP.audio.bassLevel;
+        if (_pBass > 155) {
+            var _pAlpha = Math.min(0.45, (_pBass - 155) / 95 * 0.45);
+            var _pHue   = (timestamp * 0.14) % 360; // slow rainbow cycle
+            ctx.save();
+            ctx.globalCompositeOperation = 'screen';
+            ctx.globalAlpha = _pAlpha;
+            ctx.fillStyle = 'hsl(' + _pHue + ', 100%, 68%)';
+            ctx.fillRect(0, 0, w, h);
+            ctx.restore();
+        }
+        // Activation strobe: 8-frame RGB flash fired when party is turned ON
+        if (APP.vj._partyFlash > 0) {
+            APP.vj._partyFlash--;
+            var _pf = APP.vj._partyFlash;
+            ctx.save();
+            ctx.globalCompositeOperation = 'screen';
+            ctx.globalAlpha = (_pf / 8) * 0.75;
+            ctx.fillStyle = ['#ff0088','#00ffff','#ffff00','#ff00ff','#00ff88','#ff4400','#00aaff','#aaff00'][_pf % 8];
+            ctx.fillRect(0, 0, w, h);
+            ctx.restore();
+        }
+    }
+
+    // --- CANVAS-NATIVE FX OVERLAYS (geometric primitives, captureStream-visible in all browsers) ---
+    // The FX colour-grade (invert, grayscale, hue-rotate etc.) is applied at draw time above via
+    // _fxDrawFilter incorporated into filterStr. These overlays add the animated geometry that
+    // can't be expressed as a CSS filter: NVG vignette + scan lines, VHS roll, SCAN sweep bar, TEAR bands.
+    // Drawn at identity transform (after punch restore) so they sit on top of all content.
+    if (!(APP.peer && APP.peer.call)) {
+        var _ow = APP.render.canvas.width, _oh = APP.render.canvas.height;
+        // NVG: circular tube vignette + fine scan lines (green tint already baked via filter above)
+        if (_fxCls.contains('fx-nvg')) {
+            ctx.save();
+            ctx.setTransform(1, 0, 0, 1, 0, 0); ctx.filter = 'none'; ctx.globalAlpha = 1; ctx.globalCompositeOperation = 'source-over';
+            var _nvgV = ctx.createRadialGradient(_ow/2, _oh/2, _oh*0.22, _ow/2, _oh/2, _oh*0.75);
+            _nvgV.addColorStop(0, 'rgba(0,0,0,0)'); _nvgV.addColorStop(1, 'rgba(0,0,0,0.92)');
+            ctx.fillStyle = _nvgV; ctx.fillRect(0, 0, _ow, _oh);
+            ctx.fillStyle = 'rgba(0,0,0,0.18)';
+            for (var _nl = 0; _nl < _oh; _nl += 3) ctx.fillRect(0, _nl, _ow, 1);
+            ctx.restore();
+        }
+        // VHS: horizontal scan lines + slow rolling glitch band
+        if (_fxCls.contains('vhs')) {
+            ctx.save();
+            ctx.setTransform(1, 0, 0, 1, 0, 0); ctx.filter = 'none'; ctx.globalAlpha = 1; ctx.globalCompositeOperation = 'source-over';
+            // ── Chromatic aberration: snapshot canvas, draw red channel +4px right, cyan -4px left ──
+            if (!window._vhsSnap) window._vhsSnap = document.createElement('canvas');
+            if (window._vhsSnap.width !== _ow || window._vhsSnap.height !== _oh) { window._vhsSnap.width = _ow; window._vhsSnap.height = _oh; }
+            window._vhsSnap.getContext('2d').drawImage(APP.render.canvas, 0, 0, _ow, _oh);
+            ctx.globalCompositeOperation = 'screen';
+            ctx.globalAlpha = 0.28;
+            ctx.filter = 'sepia(1) saturate(10) hue-rotate(315deg)'; // red channel
+            ctx.drawImage(window._vhsSnap, 4, 0, _ow, _oh);
+            ctx.filter = 'sepia(1) saturate(10) hue-rotate(158deg)'; // cyan channel
+            ctx.drawImage(window._vhsSnap, -4, 0, _ow, _oh);
+            ctx.filter = 'none'; ctx.globalCompositeOperation = 'source-over'; ctx.globalAlpha = 1;
+            // ── Scanlines ──
+            ctx.fillStyle = 'rgba(0,0,0,0.22)';
+            for (var _vl = 0; _vl < _oh; _vl += 2) ctx.fillRect(0, _vl, _ow, 1);
+            // ── Rolling tracking bar ──
+            var _ry = (timestamp * 0.04) % _oh;
+            var _vb = ctx.createLinearGradient(0, _ry - 12, 0, _ry + 12);
+            _vb.addColorStop(0, 'rgba(255,255,255,0)'); _vb.addColorStop(0.5, 'rgba(255,255,255,0.16)'); _vb.addColorStop(1, 'rgba(255,255,255,0)');
+            ctx.fillStyle = _vb; ctx.fillRect(0, Math.max(0, _ry - 12), _ow, 24);
+            ctx.restore();
+        }
+        // SCAN / X-RAY: animated cyan laser sweep bar
+        if (_fxCls.contains('fx-scan')) {
+            ctx.save();
+            ctx.setTransform(1, 0, 0, 1, 0, 0); ctx.filter = 'none'; ctx.globalAlpha = 1; ctx.globalCompositeOperation = 'source-over';
+            var _sx = ((timestamp * 0.00035) % 1) * _ow;
+            var _sg = ctx.createLinearGradient(_sx - 50, 0, _sx + 50, 0);
+            _sg.addColorStop(0, 'rgba(0,255,255,0)'); _sg.addColorStop(0.5, 'rgba(0,255,255,0.30)'); _sg.addColorStop(1, 'rgba(0,255,255,0)');
+            ctx.fillStyle = _sg; ctx.fillRect(0, 0, _ow, _oh);
+            ctx.restore();
+        }
+        // TEAR / Glitch: geometric horizontal slice displacement (baked into canvas pixels)
+        if (_fxCls.contains('fx-tear')) {
+            // Snapshot current canvas into off-screen buffer
+            if (!window._tearSnap || window._tearSnap.width !== _ow || window._tearSnap.height !== _oh) {
+                window._tearSnap = document.createElement('canvas');
+                window._tearSnap.width = _ow; window._tearSnap.height = _oh;
+                window._tearSnapCtx = window._tearSnap.getContext('2d');
+            }
+            window._tearSnapCtx.drawImage(ctx.canvas, 0, 0);
+            // Draw displaced slices from snapshot back onto main canvas
+            var _sliceCount = 14;
+            var _sliceH = Math.ceil(_oh / _sliceCount);
+            var _tPhase = timestamp * 0.0014;
+            ctx.save();
+            ctx.setTransform(1, 0, 0, 1, 0, 0); ctx.filter = 'none'; ctx.globalAlpha = 1; ctx.globalCompositeOperation = 'source-over';
+            for (var _si = 0; _si < _sliceCount; _si++) {
+                var _sy = _si * _sliceH;
+                var _sAmt = Math.sin(_tPhase + _si * 1.17) * 22;
+                // Every ~3rd slice gets a larger glitch jolt
+                if ((_si + Math.floor(_tPhase * 0.5)) % 3 === 0) _sAmt *= 2.4;
+                if (Math.abs(_sAmt) < 1) continue; // skip slices with negligible offset
+                ctx.drawImage(window._tearSnap, 0, _sy, _ow, _sliceH, _sAmt, _sy, _ow, _sliceH);
+            }
+            ctx.restore();
+        }
+    }
+
+    // ── SUBTITLE BURN-IN: disabled — pending redesign ──
+}
+
+function triggerImpact() { document.body.classList.remove('impact-flash'); void document.body.offsetWidth; document.body.classList.add('impact-flash'); setTimeout(() => document.body.classList.remove('impact-flash'), 200); }
+function triggerChromaticAberration() { const c = APP.render.canvas; c.style.filter = 'url(#chromatic-ghost)'; setTimeout(() => { c.style.filter = 'none'; }, 200); }
+function impactStutter() { const oT = APP.vj.trailsEnabled, oA = APP.vj.trailAlpha; APP.vj.trailsEnabled = true; APP.vj.trailAlpha = 0.98; triggerChromaticAberration(); setTimeout(() => { APP.vj.trailsEnabled = oT; APP.vj.trailAlpha = oA; }, 500); }
+function impactInvert() { APP.vj.invert = true; triggerChromaticAberration(); setTimeout(() => { APP.vj.invert = false; }, 500); }
+function impactCrush() { const oRGB = APP.vj.rgbIntensity, oPix = APP.vj.pixelSize, oRE = APP.vj.rgbEnabled, oPE = APP.vj.pixelateEnabled; APP.vj.rgbEnabled = true; APP.vj.pixelateEnabled = true; APP.vj.rgbIntensity = 25; APP.vj.pixelSize = 16; setTimeout(() => { APP.vj.rgbEnabled = oRE; APP.vj.pixelateEnabled = oPE; APP.vj.rgbIntensity = oRGB; APP.vj.pixelSize = oPix; }, 500); }
+
+// SIMPLE DRAGGABLE - DIRECT LEFT/TOP POSITIONING (for non-Trinity DOM elements)
+function makeDraggable(el) {
+    let isDown = false, iX, iY, cX = 0, cY = 0;
+    el.addEventListener('mousedown', e => {
+        isDown = true; iX = e.clientX - cX; iY = e.clientY - cY;
+        el.style.cursor = 'grabbing'; e.stopPropagation();
+    });
+    document.addEventListener('mousemove', e => {
+        if (!isDown) return; e.preventDefault();
+        cX = e.clientX - iX; cY = e.clientY - iY;
+        el.style.transform = 'translate3d(' + cX + 'px, ' + cY + 'px, 0)';
+    });
+    document.addEventListener('mouseup', () => { isDown = false; el.style.cursor = 'grab'; });
+}
+
+// ═══ TOUCH-BRIDGE — Unified Mouse + Touch for Trinity ═══
+// One-finger drag + two-finger pinch (mobile) / mouse drag + ctrl+wheel pinch (desktop)
+(function initTouchBridge() {
+    var activeActor = null, offsetX = 0, offsetY = 0;
+    var pinchActor = null, lastPinchDist = 0;
+
+    // --- Shared utilities ---
+    function getCanvas() { return APP.render.canvas || null; }
+
+    function canvasNorm(clientX, clientY) {
+        var c = getCanvas(); if (!c) return null;
+        var r = c.getBoundingClientRect();
+        return { x: (clientX - r.left) / r.width, y: (clientY - r.top) / r.height };
+    }
+
+    function hitTest(pos) {
+        var T = APP.trinity, w = APP.render.width, h = APP.render.height;
+        if (T.logo3d && T.logo3d.visible) {
+            var tw3 = (200 * T.logo3d.scale * (1 / 1920));
+            var th3 = (200 * T.logo3d.scale * (1 / 1080));
+            if (pos.x >= T.logo3d.x && pos.x <= T.logo3d.x + tw3 && pos.y >= T.logo3d.y && pos.y <= T.logo3d.y + th3) return 'logo3d';
+        }
+        if (T.logo.visible) {
+            var li = $('user-logo-layer');
+            if (li && li.naturalWidth > 0) {
+                var lw = (li.naturalWidth * T.logo.scale * (w / 1920)) / w;
+                var lh = (li.naturalHeight * T.logo.scale * (h / 1080)) / h;
+                if (pos.x >= T.logo.x && pos.x <= T.logo.x + lw && pos.y >= T.logo.y && pos.y <= T.logo.y + lh) return 'logo';
+            }
+        }
+        if (T.bug.visible) {
+            var bw = Math.max(0.08, 0.08 * T.bug.scale);
+            var bh = Math.max(0.03, 0.03 * T.bug.scale);
+            if (pos.x >= T.bug.x && pos.x <= T.bug.x + bw && pos.y >= T.bug.y && pos.y <= T.bug.y + bh) return 'bug';
+        }
+        return null;
+    }
+
+    function isUIElement(target) {
+        return target.closest && (target.closest('.sidebar') || target.closest('#ghost-bar') || target.closest('button') || target.closest('input') || target.closest('#portrait-lock'));
+    }
+
+    function clampPos(v) { return Math.max(0, Math.min(0.95, v)); }
+
+    function applyScale(actor, delta) {
+        APP.trinity[actor].scale = Math.max(0.1, Math.min(10, APP.trinity[actor].scale + delta));
+    }
+
+    // ─── MOUSE: drag ───
+    document.addEventListener('mousedown', function(e) {
+        if (isUIElement(e.target)) return;
+        var pos = canvasNorm(e.clientX, e.clientY);
+        if (!pos) return;
+        var actor = hitTest(pos);
+        if (!actor) return;
+        activeActor = actor;
+        offsetX = pos.x - APP.trinity[actor].x;
+        offsetY = pos.y - APP.trinity[actor].y;
+        e.preventDefault();
+    });
+    document.addEventListener('mousemove', function(e) {
+        if (!activeActor) return;
+        var pos = canvasNorm(e.clientX, e.clientY);
+        if (!pos) return;
+        APP.trinity[activeActor].x = clampPos(pos.x - offsetX);
+        APP.trinity[activeActor].y = clampPos(pos.y - offsetY);
+        e.preventDefault();
+    });
+    document.addEventListener('mouseup', function() { activeActor = null; });
+
+    // ─── MOUSE: ctrl+wheel pinch (Mac trackpad) ───
+    document.addEventListener('wheel', function(e) {
+        if (!e.ctrlKey) return;
+        var pos = canvasNorm(e.clientX, e.clientY);
+        if (!pos) return;
+        var actor = hitTest(pos);
+        if (!actor) return;
+        e.preventDefault();
+        applyScale(actor, e.deltaY > 0 ? -0.05 : 0.05);
+    }, { passive: false });
+
+    // ─── TOUCH: one-finger drag + two-finger pinch ───
+    var touchDragActor = null, touchOffX = 0, touchOffY = 0;
+
+    document.addEventListener('touchstart', function(e) {
+        if (isUIElement(e.target)) return;
+
+        if (e.touches.length === 1) {
+            // ONE FINGER — drag
+            var t = e.touches[0];
+            var pos = canvasNorm(t.clientX, t.clientY);
+            if (!pos) return;
+            var actor = hitTest(pos);
+            if (!actor) return;
+            touchDragActor = actor;
+            touchOffX = pos.x - APP.trinity[actor].x;
+            touchOffY = pos.y - APP.trinity[actor].y;
+            e.preventDefault();
+        } else if (e.touches.length === 2) {
+            // TWO FINGERS — pinch-to-zoom
+            touchDragActor = null;
+            var dx = e.touches[0].clientX - e.touches[1].clientX;
+            var dy = e.touches[0].clientY - e.touches[1].clientY;
+            lastPinchDist = Math.sqrt(dx * dx + dy * dy);
+            var mx = (e.touches[0].clientX + e.touches[1].clientX) / 2;
+            var my = (e.touches[0].clientY + e.touches[1].clientY) / 2;
+            var pos = canvasNorm(mx, my);
+            if (pos) pinchActor = hitTest(pos);
+        }
+    }, { passive: false });
+
+    document.addEventListener('touchmove', function(e) {
+        if (e.touches.length === 1 && touchDragActor) {
+            // ONE FINGER — drag
+            var t = e.touches[0];
+            var pos = canvasNorm(t.clientX, t.clientY);
+            if (!pos) return;
+            APP.trinity[touchDragActor].x = clampPos(pos.x - touchOffX);
+            APP.trinity[touchDragActor].y = clampPos(pos.y - touchOffY);
+            e.preventDefault();
+        } else if (e.touches.length === 2 && pinchActor) {
+            // TWO FINGERS — pinch-to-zoom
+            var dx = e.touches[0].clientX - e.touches[1].clientX;
+            var dy = e.touches[0].clientY - e.touches[1].clientY;
+            var dist = Math.sqrt(dx * dx + dy * dy);
+            var delta = (dist - lastPinchDist) * 0.005;
+            applyScale(pinchActor, delta);
+            lastPinchDist = dist;
+            e.preventDefault();
+        }
+    }, { passive: false });
+
+    document.addEventListener('touchend', function(e) {
+        if (e.touches.length === 0) {
+            touchDragActor = null; pinchActor = null; activeActor = null;
+            lastPinchDist = 0;
+        } else if (e.touches.length === 1) {
+            pinchActor = null; lastPinchDist = 0;
+            var t = e.touches[0];
+            var pos = canvasNorm(t.clientX, t.clientY);
+            if (pos) {
+                var actor = hitTest(pos);
+                if (actor) {
+                    touchDragActor = actor;
+                    touchOffX = pos.x - APP.trinity[actor].x;
+                    touchOffY = pos.y - APP.trinity[actor].y;
+                }
+            }
+        }
+    });
+
+    document.addEventListener('touchcancel', function() {
+        touchDragActor = null; pinchActor = null; activeActor = null; lastPinchDist = 0;
+    });
+})();
+
+
+// ========================================
+// V34 IDENTITY HANDLERS
+// ========================================
+
+// STATION BUG - Set text
+if ($('btn-set-station')) {
+    $('btn-set-station').onclick = () => {
+        const text = $('bug-text').value || 'VNGRD';
+        APP.bug.text = text;
+        // Update preview overlay so host sees their own identity during a call
+        var _pov2 = $('p2p-bug-overlay');
+        if (_pov2) _pov2.textContent = text;
+        if (APP.peer && APP.peer.call) {
+            // P2P active: send to remote peer; local canvas handled by render loop
+            sendUISync('STATION_LOGO', { text: text });
+        } else {
+            const bug = $('station-bug');
+            if (bug) { bug.textContent = text; bug.style.display = 'block'; bug.style.background = 'transparent'; }
+            sendUISync('STATION_LOGO', { text: text });
+        }
+        log('STATION: ' + text.toUpperCase());
+    };
+}
+
+// Station Bug text — update local identity and sync to remote peer in real-time
+if ($('bug-text')) {
+    $('bug-text').oninput = function() {
+        var val = this.value.trim() || 'VNGRD';
+        APP.bug.text = val;
+        // Always keep preview overlay current (visible during P2P calls)
+        var _pov3 = $('p2p-bug-overlay');
+        if (_pov3) _pov3.textContent = val;
+        sendUISync('STATION_LOGO', { text: val });
+        if (!APP.peer || !APP.peer.call) {
+            var _bug = $('station-bug');
+            if (_bug && APP.trinity.bug.visible) { _bug.textContent = val; }
+        }
+    };
+}
+
+// STATION BUG - Toggle [X] (visible -> hidden via Trinity state)
+if ($('btn-bug-toggle')) {
+    $('btn-bug-toggle').onclick = () => {
+        APP.trinity.bug.visible = !APP.trinity.bug.visible;
+        var bug = $('station-bug');
+        if (bug) bug.classList.toggle('hidden', !APP.trinity.bug.visible);
+        // Update preview overlay visibility
+        var _pov4 = $('p2p-bug-overlay');
+        if (_pov4) _pov4.style.opacity = APP.trinity.bug.visible ? '1' : '0.2';
+        sendUISync('STATION_LOGO', { text: APP.bug.text || 'VNGRD', visible: APP.trinity.bug.visible });
+        log(APP.trinity.bug.visible ? 'BUG: VISIBLE' : 'BUG: HIDDEN');
+    };
+}
+
+// STATION BUG - style + colour
+if ($('bug-style-select')) $('bug-style-select').onchange = function() { APP.bug.style = this.value; };
+if ($('bug-mode-select'))  $('bug-mode-select').onchange  = function() { APP.bug.mode  = this.value; log('BUG_MODE: ' + this.value.toUpperCase()); };
+
+// 2D LOGO - Upload
+if ($('btn-upload-2d')) {
+    $('btn-upload-2d').onclick = () => $('file-2d-logo').click();
+}
+
+APP.layers.logo2dIsGif = false;
+if ($('file-2d-logo')) {
+    $('file-2d-logo').onchange = e => {
+        if (e.target.files.length) {
+            const file = e.target.files[0];
+            const url = URL.createObjectURL(file);
+            const isGif = file.type === 'image/gif' || file.name.toLowerCase().endsWith('.gif');
+            APP.layers.logo2dIsGif = isGif;
+            const logoLayer = $('user-logo-layer');
+            const gifOverlay = $('logo-gif-overlay');
+
+            // P2P Mix-Minus: during a call only send to guest, don't render locally.
+            // Compress the image to fit within WebRTC data-channel limits (~64KB/msg).
+            if (APP.peer && APP.peer.call) {
+                const _r = new FileReader();
+                _r.onload = function(ev) {
+                    var _img = new Image();
+                    _img.onload = function() {
+                        // Scale to max 200px on longest side → JPEG ~15-25KB as base64
+                        var _maxDim = 200;
+                        var _s = Math.min(1, _maxDim / Math.max(_img.width || 1, _img.height || 1));
+                        var _c = document.createElement('canvas');
+                        _c.width  = Math.max(1, Math.round(_img.width  * _s));
+                        _c.height = Math.max(1, Math.round(_img.height * _s));
+                        _c.getContext('2d').drawImage(_img, 0, 0, _c.width, _c.height);
+                        var _uri = _c.toDataURL('image/jpeg', 0.82);
+                        sendUISync('2D_LOGO', { action: 'show', dataURI: _uri });
+                        log('2D_LOGO: P2P_SEND ' + Math.round(_uri.length / 1024) + 'KB');
+                    };
+                    _img.src = ev.target.result;
+                };
+                _r.readAsDataURL(file);
+                return;
+            }
+
+            if (isGif && gifOverlay) {
+                // GIF: render as DOM element to keep Chrome's GIF decoder alive
+                gifOverlay.onload = () => {
+                    if (typeof APP.trinity.logo.scale === 'undefined') APP.trinity.logo.scale = 1.0;
+                    if (typeof APP.trinity.logo.x === 'undefined') APP.trinity.logo.x = 0.05;
+                    if (typeof APP.trinity.logo.y === 'undefined') APP.trinity.logo.y = 0.05;
+                    APP.trinity.logo.visible = true;
+                    // DOM overlay stays hidden — render loop canvas drawImage handles display
+                    log('2D_LOGO_GIF_READY: ' + file.name.toUpperCase());
+                };
+                gifOverlay.src = url;
+                // Also load into logoLayer so naturalWidth is available for position math
+                if (logoLayer) { logoLayer.removeAttribute('crossOrigin'); logoLayer.src = url; }
+                // Decode all GIF frames for canvas recording (captureStream-compatible)
+                APP.layers._gifFrames = null; APP.layers._gifBitmap = null;
+                APP.layers._gifFrameStart = performance.now();
+                const gifReader = new FileReader();
+                gifReader.onload = function(ev) {
+                    try {
+                        const dec = _decodeGIF(ev.target.result);
+                        if (dec.frames.length > 0) {
+                            APP.layers._gifFrames = dec.frames;
+                            APP.layers._gifTotalDelay = dec.frames.reduce((s,f)=>s+f.delay, 0);
+                            APP.layers._gifFrameStart = performance.now();
+                            log('GIF_DECODED: ' + dec.frames.length + ' frames');
+                        }
+                    } catch(e) { log('GIF_DECODE_ERR: ' + e.message); }
+                };
+                gifReader.readAsArrayBuffer(file);
+            } else if (logoLayer) {
+                // Static image: canvas drawImage path
+                gifOverlay.style.display = 'none';
+                logoLayer.removeAttribute('crossOrigin');
+                logoLayer.removeAttribute('crossorigin');
+                logoLayer.style.display = 'block';
+                logoLayer.style.filter = 'none';
+                logoLayer.style.willChange = 'auto';
+                logoLayer.onload = () => {
+                    if (typeof APP.trinity.logo.scale === 'undefined') APP.trinity.logo.scale = 1.0;
+                    if (typeof APP.trinity.logo.x === 'undefined') APP.trinity.logo.x = 0.05;
+                    if (typeof APP.trinity.logo.y === 'undefined') APP.trinity.logo.y = 0.05;
+                    APP.trinity.logo.visible = true;
+                    log('2D_LOGO_READY: ' + file.name.toUpperCase());
+                };
+                logoLayer.src = url;
+            }
+
+            // Send logo to peer via data channel as base64
+            const reader = new FileReader();
+            reader.onload = () => { sendUISync('2D_LOGO', { action: 'show', dataURI: reader.result }); };
+            reader.readAsDataURL(file);
+        }
+    };
+}
+
+// 2D LOGO - Toggle [X] (visible -> hidden -> cleared)
+APP.layers.logo2dState = 'empty';
+
+if ($('btn-2d-x')) {
+    $('btn-2d-x').onclick = () => {
+        const logoLayer = $('user-logo-layer');
+        if (!logoLayer) return;
+
+        const gifOvEl = $('logo-gif-overlay');
+        if (APP.trinity.logo.visible) {
+            APP.trinity.logo.visible = false;
+            if (gifOvEl) gifOvEl.style.display = 'none';
+            sendUISync('2D_LOGO', { action: 'hide' });
+            log('2D_LOGO: HIDDEN');
+        } else if (logoLayer.src && logoLayer.src !== window.location.href) {
+            APP.trinity.logo.visible = false;
+            APP.layers.logo2dIsGif = false;
+            if (gifOvEl) { gifOvEl.style.display = 'none'; if (gifOvEl.src && gifOvEl.src.startsWith('blob:')) URL.revokeObjectURL(gifOvEl.src); gifOvEl.removeAttribute('src'); }
+            if (logoLayer.src.startsWith('blob:')) URL.revokeObjectURL(logoLayer.src);
+            logoLayer.removeAttribute('src');
+            sendUISync('2D_LOGO', { action: 'clear' });
+            log('2D_LOGO: CLEARED');
+        }
+    };
+}
+
+// 3D LOGO handled by module script at end of file (Three.js r128 global + lazy loaders)
+
+// MEDIA & CYCLE LOGIC
+function loadMediaFiles(input) {
+    const isFirstLoad = APP.media.currentIndex === -1;
+    Array.from(input.files).forEach((file, idx) => {
+        const url = URL.createObjectURL(file);
+        const type = file.type.startsWith('video') ? 'video' : (file.type === 'image/gif' ? 'gif' : 'image');
+        const item = { type, url, element: null, name: file.name, duration: type === 'video' ? null : 8, transitionType: 'optical-fade', transitionDuration: 0.8, easing: 'linear', beatSync: false };
+        if (type === 'video') {
+            const vid = document.createElement('video'); vid.src = url; vid.muted = true; vid.loop = !APP.state.isCycle; vid.playsInline = true; vid.preload = 'auto'; item.element = vid; $('media-container').appendChild(vid);
+        } else if (type === 'image') {
+            // createObjectURL = native blob ref for GIF animation.
+            // gif-host is a direct child of <body> (position:fixed, opacity:0.01).
+            // Browser compositor keeps it alive → GIF frames advance each tick.
+            const img = document.createElement('img');
+            // SCRUB Chrome GIF-freeze attributes BEFORE setting src
+            img.removeAttribute('crossOrigin');
+            img.style.display = 'block';
+            img.style.filter = 'none';
+            img.src = url;
+            item.element = img;
+            var host = $('gif-host');
+            if (host) host.appendChild(img);
+            // Detect EXIF-correct dimensions (mobile photo orientation)
+            img.onload = function() {
+                if (typeof createImageBitmap === 'function') {
+                    createImageBitmap(img).then(function(bmp) {
+                        img._effectiveWidth = bmp.width;
+                        img._effectiveHeight = bmp.height;
+                        bmp.close();
+                    }).catch(function() {});
+                }
+                if (isFirstLoad && idx === 0) {
+                    log('MEDIA: READY [' + file.name + '] ' + img.naturalWidth + 'x' + img.naturalHeight);
+                    rotateMedia();
+                }
+            };
+        }
+        // gif: element created lazily in rotateMedia/previousMedia; no DOM setup needed here
+        APP.media.queue.push(item);
+        // Videos and GIFs trigger rotate immediately; images wait for onload callback
+        if (isFirstLoad && idx === 0 && (type === 'video' || type === 'gif')) rotateMedia();
+    });
+    updateQueueDisplay(); $('media-dot').classList.remove('off'); log(`MEDIA: +${input.files.length}`);
+}
+
+
+function ensureAudioChain() {
+    if (APP.audio.analyzer) return;
+    _padBusNode = null; // force reconnect to new duckingGain
+    if (!APP.audio.ctx) APP.audio.ctx = new (window.AudioContext || window.webkitAudioContext)();
+    var ctx = APP.audio.ctx;
+    APP.audio.analyzer = ctx.createAnalyser();
+    APP.audio.analyzer.fftSize = 64;
+    APP.audio.analyzer.smoothingTimeConstant = 0.6; // snappy enough for kick detection
+    APP.audio.panner = ctx.createPanner();
+    APP.audio.panner.panningModel = 'HRTF';
+    APP.audio.panner.distanceModel = 'inverse';
+    APP.audio.masterGain = ctx.createGain();
+    APP.audio.masterGain.gain.value = 0.9;
+    APP.audio.lowShelf = ctx.createBiquadFilter();
+    APP.audio.lowShelf.type = 'lowshelf'; APP.audio.lowShelf.frequency.value = 60; APP.audio.lowShelf.gain.value = 0;
+    APP.audio.highShelf = ctx.createBiquadFilter();
+    APP.audio.highShelf.type = 'highshelf'; APP.audio.highShelf.frequency.value = 12000; APP.audio.highShelf.gain.value = 0;
+    APP.audio.compressor = ctx.createDynamicsCompressor();
+    APP.audio.compressor.threshold.value = -24; APP.audio.compressor.knee.value = 30; APP.audio.compressor.ratio.value = 1;
+    APP.audio.outputLimiter = ctx.createDynamicsCompressor();
+    APP.audio.outputLimiter.threshold.setValueAtTime(-12, ctx.currentTime);
+    APP.audio.outputLimiter.knee.setValueAtTime(30, ctx.currentTime);
+    APP.audio.outputLimiter.ratio.setValueAtTime(2.5, ctx.currentTime);
+    APP.audio.outputLimiter.attack.setValueAtTime(0.005, ctx.currentTime);
+    APP.audio.outputLimiter.release.setValueAtTime(0.15, ctx.currentTime);
+    APP.audio.duckingGain = ctx.createGain();
+    APP.audio.duckingGain.gain.setValueAtTime(1.0, ctx.currentTime);
+    APP.audio.stereoGain = ctx.createGain();
+    APP.audio.stereoGain.gain.setValueAtTime(1.0, ctx.currentTime);
+    APP.audio.dolbyPanner = ctx.createPanner();
+    APP.audio.dolbyPanner.panningModel = 'HRTF'; APP.audio.dolbyPanner.distanceModel = 'inverse'; APP.audio.dolbyPanner.refDistance = 1;
+    if (APP.audio.dolbyPanner.positionX) { APP.audio.dolbyPanner.positionX.setValueAtTime(0, ctx.currentTime); APP.audio.dolbyPanner.positionY.setValueAtTime(5, ctx.currentTime); APP.audio.dolbyPanner.positionZ.setValueAtTime(-2, ctx.currentTime); }
+    try { APP.audio.surroundSplitter = ctx.createChannelSplitter(6); APP.audio.surroundMerger = ctx.createChannelMerger(6); } catch(e) {}
+    APP.audio.micAnalyzer = ctx.createAnalyser(); APP.audio.micAnalyzer.fftSize = 256;
+    // Dedicated gain node for video audio — allows independent mute without touching vid.muted
+    APP.audio.videoGain = ctx.createGain();
+    APP.audio.videoGain.gain.setValueAtTime(1.0, ctx.currentTime);
+    APP.audio.panner.connect(APP.audio.lowShelf).connect(APP.audio.highShelf).connect(APP.audio.compressor).connect(APP.audio.duckingGain).connect(APP.audio.analyzer).connect(APP.audio.masterGain).connect(APP.audio.outputLimiter).connect(ctx.destination);
+    APP.audio.masterGain.connect(APP.audio.stereoGain);
+    APP.audio.recorderDest = ctx.createMediaStreamDestination();
+    APP.audio.masterGain.connect(APP.audio.recorderDest);
+    APP.audio.dolbyPanner.connect(APP.audio.outputLimiter);
+    // videoGain feeds both panner paths
+    APP.audio.videoGain.connect(APP.audio.panner);
+    APP.audio.videoGain.connect(APP.audio.dolbyPanner);
+    APP.audio.vuData = new Uint8Array(APP.audio.analyzer.frequencyBinCount);
+    updateVU();
+    log('DAW_CHAIN_READY');
+}
+
+// ═══════════════════════════════════════════════════════════════════
+// VNGRD_VST — AUDIO_STUDIO: Virtual Drum / Bass Synthesizer
+// Kits: 808, 909  |  Routes → APP.audio.masterGain (rec + monitor)
+// ═══════════════════════════════════════════════════════════════════
+const VNGRD_VST = (() => {
+    function _ctx() {
+        if (!APP.audio.ctx) igniteAudio();
+        if (!APP.audio.masterGain) ensureAudioChain();
+        return APP.audio.ctx;
+    }
+    function _dest() {
+        return APP.audio.masterGain || (APP.audio.ctx && APP.audio.ctx.destination);
+    }
+
+    // Instruments / kits dictionary (808 + 909)
+    const kits = {
+        '808': {
+            kick:         { freq: 55,  pitchMult: 3,   pitchDrop: 0.05, decay: 0.80, vol: 1.2 },
+            snare:        { freq: 200, noiseDecay: 0.15, bodyDecay: 0.08, vol: 0.9 },
+            hihat_closed: { freq: 8000, decay: 0.04, vol: 0.6 },
+            hihat_open:   { freq: 7000, decay: 0.30, vol: 0.7 },
+            clap:         { freq: 1200, decay: 0.12, vol: 0.8 }
+        },
+        '909': {
+            kick:         { freq: 60,  pitchMult: 3,   pitchDrop: 0.04, decay: 0.50, vol: 1.0 },
+            snare:        { freq: 250, noiseDecay: 0.10, bodyDecay: 0.06, vol: 0.85 },
+            hihat_closed: { freq: 9000, decay: 0.03, vol: 0.55 },
+            hihat_open:   { freq: 8500, decay: 0.25, vol: 0.65 },
+            clap:         { freq: 1400, decay: 0.10, vol: 0.75 }
+        }
+    };
+
+    function playDrumSound(kit, type, velocity) {
+        kit = kit || '808';
+        const velNorm = (velocity !== undefined) ? velocity / 127 : 1.0;
+        const ctx = _ctx(); if (!ctx) return;
+        const dest = _dest(); if (!dest) return;
+        if (ctx.state === 'suspended') ctx.resume();
+        const p = (kits[kit] || kits['808'])[type];
+        if (!p) return;
+        const now = ctx.currentTime;
+        const v = p.vol * velNorm;
+
+        if (type === 'kick') {
+            // Sub-bass sine with exponential pitch envelope
+            const osc = ctx.createOscillator(), g = ctx.createGain();
+            osc.type = 'sine';
+            osc.frequency.setValueAtTime(p.freq * p.pitchMult, now);
+            osc.frequency.exponentialRampToValueAtTime(p.freq, now + p.pitchDrop);
+            g.gain.setValueAtTime(v, now + 0.001);
+            g.gain.exponentialRampToValueAtTime(0.001, now + p.decay);
+            osc.connect(g); g.connect(dest);
+            osc.start(now); osc.stop(now + p.decay + 0.05);
+
+        } else if (type === 'snare') {
+            // Noise burst
+            const bufN = ctx.createBuffer(1, ctx.sampleRate * 0.1, ctx.sampleRate);
+            const dN = bufN.getChannelData(0);
+            for (let i = 0; i < dN.length; i++) dN[i] = Math.random() * 2 - 1;
+            const nSrc = ctx.createBufferSource(); nSrc.buffer = bufN;
+            const nFilt = ctx.createBiquadFilter(); nFilt.type = 'highpass'; nFilt.frequency.value = 2000;
+            const nGain = ctx.createGain();
+            nGain.gain.setValueAtTime(v * 0.8, now);
+            nGain.gain.exponentialRampToValueAtTime(0.001, now + p.noiseDecay);
+            nSrc.connect(nFilt); nFilt.connect(nGain); nGain.connect(dest);
+            nSrc.start(now);
+            // Body tone
+            const body = ctx.createOscillator(), bGain = ctx.createGain();
+            body.type = 'triangle'; body.frequency.value = p.freq;
+            bGain.gain.setValueAtTime(v * 0.5, now);
+            bGain.gain.exponentialRampToValueAtTime(0.001, now + p.bodyDecay);
+            body.connect(bGain); bGain.connect(dest);
+            body.start(now); body.stop(now + p.bodyDecay + 0.02);
+
+        } else if (type === 'hihat_closed' || type === 'hihat_open') {
+            const bufH = ctx.createBuffer(1, ctx.sampleRate * 0.05, ctx.sampleRate);
+            const dH = bufH.getChannelData(0);
+            for (let i = 0; i < dH.length; i++) dH[i] = Math.random() * 2 - 1;
+            const hSrc = ctx.createBufferSource(); hSrc.buffer = bufH;
+            const hFilt = ctx.createBiquadFilter(); hFilt.type = 'bandpass'; hFilt.frequency.value = p.freq; hFilt.Q.value = 0.8;
+            const hGain = ctx.createGain();
+            hGain.gain.setValueAtTime(v * 0.6, now);
+            hGain.gain.exponentialRampToValueAtTime(0.001, now + p.decay);
+            hSrc.connect(hFilt); hFilt.connect(hGain); hGain.connect(dest);
+            hSrc.start(now);
+
+        } else if (type === 'clap') {
+            for (let c = 0; c < 3; c++) {
+                const off = c * 0.012;
+                const bufC = ctx.createBuffer(1, ctx.sampleRate * 0.05, ctx.sampleRate);
+                const dC = bufC.getChannelData(0);
+                for (let i = 0; i < dC.length; i++) dC[i] = Math.random() * 2 - 1;
+                const cSrc = ctx.createBufferSource(); cSrc.buffer = bufC;
+                const cFilt = ctx.createBiquadFilter(); cFilt.type = 'bandpass'; cFilt.frequency.value = p.freq; cFilt.Q.value = 1.2;
+                const cGain = ctx.createGain();
+                cGain.gain.setValueAtTime(v * 0.7, now + off);
+                cGain.gain.exponentialRampToValueAtTime(0.001, now + off + p.decay);
+                cSrc.connect(cFilt); cFilt.connect(cGain); cGain.connect(dest);
+                cSrc.start(now + off);
+            }
+        }
+    }
+
+    function playBassNote(midiNote, velocity) {
+        const velNorm = (velocity !== undefined) ? velocity / 127 : 1.0;
+        const ctx = _ctx(); if (!ctx) return;
+        const dest = _dest(); if (!dest) return;
+        if (ctx.state === 'suspended') ctx.resume();
+        const freq = 440 * Math.pow(2, (midiNote - 69) / 12);
+        const now = ctx.currentTime;
+        const osc = ctx.createOscillator(), filt = ctx.createBiquadFilter(), g = ctx.createGain();
+        osc.type = 'sawtooth'; osc.frequency.value = freq;
+        filt.type = 'lowpass'; filt.frequency.value = 800; filt.Q.value = 2;
+        g.gain.setValueAtTime(velNorm * 0.9, now + 0.001);
+        g.gain.exponentialRampToValueAtTime(0.001, now + 0.6);
+        osc.connect(filt); filt.connect(g); g.connect(dest);
+        osc.start(now); osc.stop(now + 0.65);
+    }
+
+    // play('808_kick', velocity) or play('909_snare', velocity)
+    function play(target, velocity) {
+        const parts = target.split('_');
+        const kit = parts[0];
+        const type = parts.slice(1).join('_');
+        if (type) playDrumSound(kit, type, velocity || 100);
+        else playBassNote(parseInt(kit) || 60, velocity || 100);
+    }
+
+    return { play, playDrumSound, playBassNote, kits };
+})();
+
+// ═══════════════════════════════════════════════════════════════════
+// SFX_ENGINE — 8-Pad Hybrid Sampler (Broadcast-ready)
+// Signature Bank (1-4): pre-fetched local files
+// Custom Bank (5-8):    user-uploaded via FileReader + decodeAudioData
+// All pads route → duckingGain → analyzer → masterGain (u_audioImpact reactive)
+// ═══════════════════════════════════════════════════════════════════
+const SFX_ENGINE = (() => {
+    const URLS = {
+        applause: './108512__buginthesys__applause_3.wav',
+        cheer:    './67182__robinhood76__00897-massive-800-men-laugh.wav',
+        horn:     './577697__cmudd14__airhorn.mp3',
+        boom:     './BOOM.wav'
+    };
+    const _raw = {};     // pre-fetched ArrayBuffer per name (signature bank)
+    const buffers = {};  // decoded AudioBuffer per name (both banks)
+    const GAIN = 0.6;    // broadcast volume (60%)
+    const GAINS = { horn: 0.92, boom: 0.92 }; // per-sample volume overrides
+
+    // Pre-fetch raw bytes at startup — no AudioContext needed
+    function init() {
+        Object.entries(URLS).forEach(([name, url]) => {
+            console.log('LOADING LOCAL SFX:', name);
+            fetch(url)
+                .then(r => { if (!r.ok) throw new Error(r.status); return r.arrayBuffer(); })
+                .then(ab => { _raw[name] = ab; log('SFX_ENGINE: FETCHED ' + name.toUpperCase()); })
+                .catch(e => log('SFX_ENGINE: FETCH_FAIL ' + name.toUpperCase() + ' — ' + e.message));
+        });
+    }
+
+    // Decode raw bytes via AudioContext (lazy, called on first play)
+    function _decode(name, ctx) {
+        if (buffers[name]) return Promise.resolve(buffers[name]);
+        if (!_raw[name])   return Promise.reject(new Error('not fetched yet'));
+        return ctx.decodeAudioData(_raw[name].slice(0)).then(buf => {
+            buffers[name] = buf;
+            log('SFX_ENGINE: DECODED ' + name.toUpperCase());
+            return buf;
+        });
+    }
+
+    // Load a custom pad slot from a File object (FileReader → decodeAudioData)
+    function loadCustom(slot, file) {
+        if (!file) return;
+        const name = 'custom' + slot;
+        if (!APP.audio.ctx) igniteAudio();
+        if (!APP.audio.masterGain) ensureAudioChain();
+        const ctx = APP.audio.ctx;
+        if (!ctx) return;
+        if (ctx.state === 'suspended') ctx.resume();
+        const reader = new FileReader();
+        reader.onload = function(e) {
+            ctx.decodeAudioData(e.target.result).then(buf => {
+                buffers[name] = buf;
+                const btn = document.getElementById('sfx-' + name);
+                if (btn) {
+                    const short = file.name.replace(/\.[^.]+$/, '').toUpperCase().substring(0, 6);
+                    const nm = btn.querySelector('.pad-name');
+                    const hint = btn.querySelector('.pad-hint');
+                    if (nm) nm.textContent = short;
+                    if (hint) hint.textContent = 'PLAY';
+                    btn.classList.add('loaded');
+                }
+                log('SFX_ENGINE: CUSTOM_LOADED ' + name.toUpperCase() + ' — ' + file.name);
+            }).catch(e => log('SFX_ENGINE: DECODE_FAIL ' + name + ' — ' + e.message));
+        };
+        reader.readAsArrayBuffer(file);
+    }
+
+    function play(name) {
+        // Liquid pads are handled by the groovebox engine
+        if (name && name.startsWith('liq')) {
+            if (typeof _fireLiqPad === 'function') _fireLiqPad(parseInt(name.replace('liq',''),10) - 1, null, name);
+            return;
+        }
+        if (!APP.audio.ctx) igniteAudio();
+        if (!APP.audio.masterGain) ensureAudioChain();
+        const ctx = APP.audio.ctx;
+        if (!ctx) return;
+        if (ctx.state === 'suspended') ctx.resume();
+
+        _decode(name, ctx).then(buf => {
+            const src  = ctx.createBufferSource();
+            src.buffer = buf;
+            const gain = ctx.createGain();
+            gain.gain.value = GAINS[name] !== undefined ? GAINS[name] : GAIN;
+            src.connect(gain);
+            // Route through padBus (lowshelf 180Hz +10dB) → duckingGain → analyser
+            var bus = (typeof _getPadBus === 'function') ? _getPadBus(ctx) : null;
+            gain.connect(bus || APP.audio.duckingGain);
+            // Lit the pad button while playing
+            const padBtn = document.getElementById('sfx-' + name);
+            if (padBtn) padBtn.classList.add('sfx-playing');
+            src.start();
+            // Signal updateVU to keep running during SFX playback
+            APP.audio.sfxPlaying = true;
+            // Mute mic recording feed while pad plays — prevents phase-doubled capture
+            if (APP.audio.micRecGain) {
+                APP.audio.micRecGain.gain.setTargetAtTime(0, ctx.currentTime, 0.01);
+            }
+            src.onended = function() {
+                APP.audio.sfxPlaying = false;
+                if (padBtn) padBtn.classList.remove('sfx-playing');
+                // Restore mic recording feed after pad finishes
+                if (APP.audio.micRecGain) {
+                    APP.audio.micRecGain.gain.setTargetAtTime(1.0, ctx.currentTime, 0.05);
+                }
+            };
+            log('SFX_ENGINE: PLAY ' + name.toUpperCase());
+        }).catch(() => log('SFX_ENGINE: NOT_READY — ' + name.toUpperCase()));
+    }
+
+    function _buffers() { return buffers; }
+    return { init, play, loadCustom, _buffers };
+})();
+
+// ═══════════════════════════════════════════════════════════════
+// ═══════════════════════════════════════════════════════════════
+//  INTERNAL SYNTH v3 — Cinematic Multi-Layer Oscillator Engine
+//  SUB / NOISE / SWEEP / METAL / AM / BOOM
+//  Breakcore · IDM · Ambient · Aphex Twin · Squarepusher aesthetic
+//  All modes: gain → panner → masterGain · seismic + kinetic on trigger
+// ═══════════════════════════════════════════════════════════════
+const InternalSynth = (() => {
+    function _ctx() {
+        if (!APP.audio.ctx) igniteAudio();
+        if (!APP.audio.masterGain) ensureAudioChain();
+        var c = APP.audio.ctx;
+        if (c && c.state === 'suspended') c.resume();
+        return c;
+    }
+    function _outNode() { return APP.audio.panner || APP.audio.duckingGain || APP.audio.masterGain; }
+
+    function _applyPan(gainNode, panVal, ctx) {
+        if (panVal === undefined || panVal === null) return gainNode;
+        var pan = (panVal / 127.5) - 1.0;
+        try {
+            var panNode = ctx.createStereoPanner();
+            panNode.pan.setValueAtTime(Math.max(-1,Math.min(1,pan)), ctx.currentTime);
+            gainNode.connect(panNode);
+            panNode.connect(_outNode());
+            return null;
+        } catch(e) { return gainNode; }
+    }
+
+    function _seismicKick(vol, freq) {
+        if (typeof APP === 'undefined') return;
+        if (!window.audioReactiveData) window.audioReactiveData = {};
+        window.audioReactiveData.lastSynthFreq  = freq;
+        window.audioReactiveData.lastSynthVol   = vol;
+        window.audioReactiveData.lastTriggerTs  = performance.now();
+        var isBass = freq < 200;
+        var isLoud  = vol > 0.65;
+        if (APP.vj && (isBass || isLoud)) {
+            var scale = vol * (isBass ? 1.4 : 0.8);
+            APP.vj._seismicVel      = (APP.vj._seismicVel || 0) + scale * 0.7;
+            APP.vj._seismicDemoUntil = performance.now() + (isBass ? 1200 : 600);
+            APP.vj._punchSpring    = Math.min(1.0, (APP.vj._punchSpring || 0) + scale * 0.5);
+            APP.vj._punchDemoUntil = performance.now() + 700;
+            APP.vj._punchDemoBeat  = performance.now();
+        }
+        if (APP.audio) APP.audio.bassLevel = Math.max(APP.audio.bassLevel || 0, Math.floor(vol * 240));
+    }
+
+    // Waveshaper soft-clip saturation curve
+    function _satCurve(ctx, drive) {
+        var ws = ctx.createWaveShaper();
+        var n = 256, curve = new Float32Array(n);
+        drive = drive || 2.0;
+        for (var i = 0; i < n; i++) {
+            var x = (i * 2) / n - 1;
+            curve[i] = (Math.PI + drive) * x / (Math.PI + drive * Math.abs(x));
+        }
+        ws.curve = curve; ws.oversample = '2x';
+        return ws;
+    }
+
+    // Noise buffer helper
+    function _noiseBuf(ctx, dur) {
+        var frames = Math.ceil(ctx.sampleRate * dur);
+        var buf = ctx.createBuffer(1, frames, ctx.sampleRate);
+        var d = buf.getChannelData(0);
+        for (var i = 0; i < frames; i++) d[i] = Math.random() * 2 - 1;
+        return buf;
+    }
+
+    // ── SUB: Heavy 808-style kick — sub octave + transient click + saturation ─
+    function triggerSub(freq, vol, panVal) {
+        var ctx = _ctx(); if (!ctx) return;
+        freq = Math.max(20, parseFloat(freq) || 80);
+        vol  = Math.min(0.6, parseFloat(vol) || 0.48); // −40% tracker gain-staging
+        var now = ctx.currentTime, dur = 1.5;
+
+        var master = ctx.createGain();
+        master.gain.setValueAtTime(0, now);
+        master.gain.linearRampToValueAtTime(vol, now + 0.003);
+        master.gain.exponentialRampToValueAtTime(0.0001, now + dur);
+
+        // Main sine with deep pitch drop
+        var osc = ctx.createOscillator(); osc.type = 'sine';
+        osc.frequency.setValueAtTime(freq * 3.5, now);
+        osc.frequency.exponentialRampToValueAtTime(Math.max(16, freq * 0.22), now + dur * 0.8);
+        var sat = _satCurve(ctx, 4.0);
+        osc.connect(sat); sat.connect(master);
+
+        // Sub octave layer
+        var sub = ctx.createOscillator(); sub.type = 'sine';
+        sub.frequency.setValueAtTime(freq * 0.5, now);
+        var subG = ctx.createGain(); subG.gain.value = 0.55;
+        sub.connect(subG); subG.connect(master);
+
+        // Transient click (short HP noise burst)
+        var clickBuf = _noiseBuf(ctx, 0.015);
+        var clickSrc = ctx.createBufferSource(); clickSrc.buffer = clickBuf;
+        var clickHP = ctx.createBiquadFilter(); clickHP.type = 'highpass';
+        clickHP.frequency.value = 1200;
+        var clickG = ctx.createGain();
+        clickG.gain.setValueAtTime(vol * 0.6, now);
+        clickG.gain.exponentialRampToValueAtTime(0.0001, now + 0.012);
+        clickSrc.connect(clickHP); clickHP.connect(clickG); clickG.connect(master);
+
+        var out = _applyPan(master, panVal, ctx);
+        if (out) out.connect(_outNode());
+        osc.start(now); sub.start(now); clickSrc.start(now);
+        osc.stop(now + dur + 0.05); sub.stop(now + dur + 0.05);
+        _seismicKick(vol, freq);
+    }
+
+    // ── NOISE: Cinematic textured impact — layered HP+LP noise bands ──────────
+    function triggerNoise(cutoff, vol, resonance, panVal) {
+        var ctx = _ctx(); if (!ctx) return;
+        cutoff    = Math.max(80, parseFloat(cutoff) || 600);
+        vol       = Math.min(0.6, parseFloat(vol) || 0.42); // −40% tracker gain-staging
+        resonance = parseFloat(resonance) || 6;
+        var now = ctx.currentTime, dur = 2.0;
+
+        var master = ctx.createGain();
+        master.gain.setValueAtTime(vol, now);
+        master.gain.setTargetAtTime(0.0001, now + 0.04, 0.28);
+
+        // Body: LP-filtered noise with resonant sweep
+        var bodyBuf = _noiseBuf(ctx, dur + 0.1);
+        var bodySrc = ctx.createBufferSource(); bodySrc.buffer = bodyBuf;
+        var bodyLP = ctx.createBiquadFilter(); bodyLP.type = 'lowpass';
+        bodyLP.frequency.setValueAtTime(cutoff * 1.8, now);
+        bodyLP.frequency.exponentialRampToValueAtTime(Math.max(60, cutoff * 0.15), now + dur * 0.7);
+        bodyLP.Q.value = resonance;
+        var bodyG = ctx.createGain(); bodyG.gain.value = 0.7;
+        bodySrc.connect(bodyLP); bodyLP.connect(bodyG); bodyG.connect(master);
+
+        // Air: HP-filtered noise (transient crack)
+        var airBuf = _noiseBuf(ctx, 0.12);
+        var airSrc = ctx.createBufferSource(); airSrc.buffer = airBuf;
+        var airHP = ctx.createBiquadFilter(); airHP.type = 'highpass';
+        airHP.frequency.value = cutoff * 3;
+        var airG = ctx.createGain();
+        airG.gain.setValueAtTime(vol * 0.5, now);
+        airG.gain.exponentialRampToValueAtTime(0.0001, now + 0.1);
+        airSrc.connect(airHP); airHP.connect(airG); airG.connect(master);
+
+        var out = _applyPan(master, panVal, ctx);
+        if (out) out.connect(_outNode());
+        bodySrc.start(now); airSrc.start(now);
+        bodySrc.stop(now + dur + 0.1);
+        _seismicKick(vol, cutoff);
+    }
+
+    // ── SWEEP: Atmospheric deep sweep — resonant LP noise + tuned sine tail ──
+    function triggerSweep(freq, vol, panVal) {
+        var ctx = _ctx(); if (!ctx) return;
+        freq = Math.max(20, parseFloat(freq) || 120);
+        vol  = Math.min(0.6, parseFloat(vol) || 0.39); // −40% tracker gain-staging
+        var now = ctx.currentTime, dur = 2.5;
+
+        var master = ctx.createGain();
+        master.gain.setValueAtTime(vol * 0.9, now);
+        master.gain.setTargetAtTime(0.0001, now + 0.08, 0.5);
+
+        // Swept LP noise whoosh
+        var nBuf = _noiseBuf(ctx, dur + 0.1);
+        var nSrc = ctx.createBufferSource(); nSrc.buffer = nBuf;
+        var nLP = ctx.createBiquadFilter(); nLP.type = 'lowpass';
+        nLP.frequency.setValueAtTime(freq * 12, now);
+        nLP.frequency.exponentialRampToValueAtTime(Math.max(40, freq * 0.4), now + dur * 0.6);
+        nLP.Q.value = 14; // high resonance = tonal swoosh
+        nSrc.connect(nLP); nLP.connect(master);
+
+        // Sine tail at bottom frequency
+        var sine = ctx.createOscillator(); sine.type = 'sine';
+        sine.frequency.setValueAtTime(freq * 2.0, now + dur * 0.3);
+        sine.frequency.exponentialRampToValueAtTime(Math.max(16, freq * 0.5), now + dur * 0.9);
+        var sineG = ctx.createGain();
+        sineG.gain.setValueAtTime(0, now + dur * 0.2);
+        sineG.gain.linearRampToValueAtTime(vol * 0.4, now + dur * 0.5);
+        sineG.gain.exponentialRampToValueAtTime(0.0001, now + dur);
+        sine.connect(sineG); sineG.connect(master);
+
+        var out = _applyPan(master, panVal, ctx);
+        if (out) out.connect(_outNode());
+        nSrc.start(now); sine.start(now); nSrc.stop(now + dur + 0.1); sine.stop(now + dur + 0.1);
+        _seismicKick(vol, freq);
+    }
+
+    // ── METAL: Industrial resonant — inharmonic sine partials + HP click ─────
+    function triggerMetal(freq, vol, ringFreq, panVal) {
+        var ctx = _ctx(); if (!ctx) return;
+        freq    = Math.max(40, parseFloat(freq) || 220);
+        vol     = Math.min(0.6, parseFloat(vol) || 0.33); // −40% tracker gain-staging
+        var now = ctx.currentTime, dur = 1.8;
+
+        var master = ctx.createGain();
+        master.gain.setValueAtTime(vol, now);
+        master.gain.exponentialRampToValueAtTime(0.0001, now + dur);
+
+        // Inharmonic partials for metallic ring
+        var ratios = [1.0, 2.756, 5.404, 8.933, 13.42, 18.01];
+        ratios.forEach(function(r, idx) {
+            var o = ctx.createOscillator(); o.type = 'sine';
+            o.frequency.value = freq * r;
+            var g = ctx.createGain();
+            var amp = vol * Math.pow(0.55, idx);
+            g.gain.setValueAtTime(amp, now);
+            g.gain.exponentialRampToValueAtTime(0.0001, now + dur * (0.3 + idx * 0.12));
+            o.connect(g); g.connect(master);
+            o.start(now); o.stop(now + dur + 0.05);
+        });
+
+        // HP noise transient
+        var clkBuf = _noiseBuf(ctx, 0.025);
+        var clkSrc = ctx.createBufferSource(); clkSrc.buffer = clkBuf;
+        var clkHP = ctx.createBiquadFilter(); clkHP.type = 'highpass';
+        clkHP.frequency.value = freq * 3;
+        var clkG = ctx.createGain();
+        clkG.gain.setValueAtTime(vol * 0.45, now);
+        clkG.gain.exponentialRampToValueAtTime(0.0001, now + 0.02);
+        clkSrc.connect(clkHP); clkHP.connect(clkG); clkG.connect(master);
+
+        var out = _applyPan(master, panVal, ctx);
+        if (out) out.connect(_outNode());
+        clkSrc.start(now);
+        _seismicKick(vol * 0.7, freq);
+    }
+
+    // ── AM: Evolving atmospheric pad — slow AM + warm detuned sines ───────────
+    function triggerAM(freq, vol, lfoRate, panVal) {
+        var ctx = _ctx(); if (!ctx) return;
+        freq    = Math.max(20, parseFloat(freq) || 110);
+        vol     = Math.min(0.6, parseFloat(vol) || 0.30); // −40% tracker gain-staging
+        lfoRate = parseFloat(lfoRate) || 0.8;
+        var now = ctx.currentTime, dur = 3.5;
+
+        var master = ctx.createGain();
+        master.gain.setValueAtTime(0, now);
+        master.gain.linearRampToValueAtTime(vol, now + 0.35); // slow attack
+        master.gain.setTargetAtTime(0.0001, now + 0.6, 0.7);
+
+        // Three detuned carriers for warmth
+        [-7, 0, 7].forEach(function(detCents) {
+            var carr = ctx.createOscillator(); carr.type = 'sine';
+            carr.frequency.value = freq;
+            carr.detune.value = detCents;
+            var cg = ctx.createGain(); cg.gain.value = 0.35;
+            carr.connect(cg); cg.connect(master);
+            carr.start(now); carr.stop(now + dur + 0.1);
+        });
+
+        // AM LFO
+        var lfo = ctx.createOscillator(); lfo.type = 'sine';
+        lfo.frequency.value = lfoRate;
+        var lfoG = ctx.createGain(); lfoG.gain.value = 0.4;
+        lfo.connect(lfoG); lfoG.connect(master.gain);
+        lfo.start(now); lfo.stop(now + dur + 0.1);
+
+        // Sub sine
+        var subO = ctx.createOscillator(); subO.type = 'sine';
+        subO.frequency.value = freq * 0.5;
+        var subG = ctx.createGain(); subG.gain.value = 0.25;
+        subO.connect(subG); subG.connect(master);
+        subO.start(now); subO.stop(now + dur + 0.1);
+
+        var out = _applyPan(master, panVal, ctx);
+        if (out) out.connect(_outNode());
+        _seismicKick(vol * 0.5, freq);
+    }
+
+    // ── BOOM: Seismic cinematic — multi-layer sine + noise burst + sub tail ───
+    function triggerBoom(freq, vol, panVal) {
+        var ctx = _ctx(); if (!ctx) return;
+        freq = Math.max(15, parseFloat(freq) || 45);
+        vol  = Math.min(0.6, parseFloat(vol) || 0.54); // −40% tracker gain-staging
+        var now = ctx.currentTime, dur = 3.0;
+
+        var master = ctx.createGain();
+        master.gain.setValueAtTime(vol, now);
+        master.gain.setTargetAtTime(0.0001, now + 0.06, 0.55);
+
+        // Three sub layers (root + 5th + octave)
+        [[1.0, 0.85], [1.5, 0.5], [2.0, 0.35]].forEach(function(p) {
+            var o = ctx.createOscillator(); o.type = 'sine';
+            o.frequency.setValueAtTime(freq * p[0] * 2.8, now);
+            o.frequency.exponentialRampToValueAtTime(Math.max(10, freq * p[0] * 0.18), now + dur * 0.75);
+            var g = ctx.createGain(); g.gain.value = p[1];
+            o.connect(g); g.connect(master);
+            o.start(now); o.stop(now + dur + 0.1);
+        });
+
+        // Attack noise burst
+        var nBuf = _noiseBuf(ctx, 0.08);
+        var nSrc = ctx.createBufferSource(); nSrc.buffer = nBuf;
+        var nLP = ctx.createBiquadFilter(); nLP.type = 'lowpass';
+        nLP.frequency.value = freq * 8;
+        var nG = ctx.createGain();
+        nG.gain.setValueAtTime(vol * 0.7, now);
+        nG.gain.exponentialRampToValueAtTime(0.0001, now + 0.07);
+        nSrc.connect(nLP); nLP.connect(nG); nG.connect(master);
+        nSrc.start(now);
+
+        var out = _applyPan(master, panVal, ctx);
+        if (out) out.connect(_outNode());
+        _seismicKick(vol, freq);
+    }
+
+    // ── Unified trigger — padNum nibble selects mode ──────────────────────────
+    function trigger(padNum, freq, vol, panVal, rtg) {
+        padNum = parseInt(padNum) || 0;
+        var mode;
+        if      (padNum <= 0x01) mode = 'SUB';
+        else if (padNum <= 0x03) mode = 'NOISE';
+        else if (padNum <= 0x05) mode = 'SWEEP';
+        else if (padNum <= 0x07) mode = 'METAL';
+        else if (padNum <= 0x09) mode = 'AM';
+        else                     mode = 'BOOM';
+        var count = Math.max(1, Math.min(16, parseInt(rtg) || 1));
+        var ctx   = _ctx(); if (!ctx) return;
+        for (var n = 0; n < count; n++) {
+            (function(offset){
+                setTimeout(function() {
+                    switch(mode) {
+                        case 'SUB':   triggerSub(freq, vol, panVal);   break;
+                        case 'NOISE': triggerNoise(freq, vol, 8, panVal); break;
+                        case 'SWEEP': triggerSweep(freq, vol, panVal);  break;
+                        case 'METAL': triggerMetal(freq, vol, null, panVal); break;
+                        case 'AM':    triggerAM(freq, vol, null, panVal); break;
+                        case 'BOOM':  triggerBoom(freq, vol, panVal);  break;
+                    }
+                }, offset);
+            })(n * (60000 / ((window.currentBPM || 120) * 4) / count));
+        }
+    }
+
+    function getWaveShape(mode, samples) {
+        samples = samples || 64;
+        var out = new Float32Array(samples);
+        if (mode === 'SUB' || mode === 'BOOM') {
+            for (var i = 0; i < samples; i++) out[i] = Math.sin(i / samples * Math.PI * 2) * Math.exp(-i / samples * 3);
+        } else if (mode === 'NOISE') {
+            for (var i = 0; i < samples; i++) out[i] = (Math.random() * 2 - 1) * Math.exp(-i / samples * 4);
+        } else if (mode === 'SWEEP') {
+            for (var i = 0; i < samples; i++) out[i] = Math.sin(i / samples * Math.PI * 3) * (1 - i/samples);
+        } else if (mode === 'METAL') {
+            for (var i = 0; i < samples; i++) out[i] = Math.sin(i / samples * Math.PI * 2) * Math.sin(i / samples * Math.PI * 5.5) * Math.exp(-i / samples * 2);
+        } else {
+            for (var i = 0; i < samples; i++) out[i] = Math.sin(i / samples * Math.PI * 4) * 0.5;
+        }
+        return out;
+    }
+
+    return { triggerSub, triggerNoise, triggerSweep, triggerMetal, triggerAM, triggerBoom, trigger, getWaveShape };
+})();
+
+
+
+// ═══════════════════════════════════════════════════════════════
+//  SAMPLER — Unified trigger handshake + PURGE
+//  Sampler.trigger() plays SFX + fires pad's gear-coupled VJ FX.
+// ═══════════════════════════════════════════════════════════════
+const Sampler = (() => {
+    function trigger(sfxName, vol, offset) {
+        // Route through SFX_ENGINE with optional volume scaling
+        if (!sfxName) return;
+        // Temporarily patch the gain for this trigger if vol differs
+        SFX_ENGINE.play(sfxName);
+        // Fire coupled VJ FX (circle matching / gear assignments)
+        if (typeof _fireCoupledFX === 'function') _fireCoupledFX(sfxName);
+        // Pulse the pad button
+        var id = 'sfx-' + sfxName;
+        var btn = document.getElementById(id);
+        if (btn && typeof _pulsePad === 'function') _pulsePad(btn);
+    }
+
+    function purgePad(name) {
+        if (!name) return;
+        var bufs = SFX_ENGINE._buffers();
+        if (bufs[name]) {
+            delete bufs[name];
+            var btn = document.getElementById('sfx-' + name);
+            if (btn) {
+                var nm   = btn.querySelector('.pad-name');
+                var hint = btn.querySelector('.pad-hint');
+                if (nm)   nm.textContent   = name.replace('custom','C-0').replace('liq','L-0');
+                if (hint) hint.textContent  = 'LOAD';
+                btn.classList.remove('loaded','sfx-playing');
+            }
+        }
+        log('SAMPLER: PURGE:' + name.toUpperCase());
+    }
+
+    function purge() {
+        ['custom1','custom2','custom3','custom4'].forEach(purgePad);
+        log('SAMPLER: PURGE_COMPLETE');
+    }
+
+    return { trigger, purgePad, purge };
+})();
+
+// ═══════════════════════════════════════════════════════════════
+// ═══════════════════════════════════════════════════════════════
+//  KIT MANAGER v2 — 5 Fully Synthetic Atmospheric/Cinematic Kits
+//  No CDN dependencies. Pure InternalSynth — breakcore·IDM·ambient.
+//  DARK_MATTER / CINEMATIC / BREAKCORE / IDM_ACID / ETHER_VOID
+//  Each pad: {label, synth, freq, vol, p} — p={} extra params
+// ═══════════════════════════════════════════════════════════════
+const KitManager = (() => {
+    // p = optional extra params passed to InternalSynth trigger functions
+    const KITS = [
+        { name: 'DARK_MATTER', pads: [
+            { label: 'SUB KICK',   synth:'SUB',   freq:55,   vol:0.92 },
+            { label: 'HVY IMPACT', synth:'NOISE', freq:280,  vol:0.8,  p:{res:10} },
+            { label: 'METAL SCR',  synth:'METAL', freq:180,  vol:0.65 },
+            { label: 'CRUNCH',     synth:'NOISE', freq:900,  vol:0.7,  p:{res:4} }
+        ]},
+        { name: 'CINEMATIC', pads: [
+            { label: 'SEISMIC',    synth:'BOOM',  freq:38,   vol:0.95 },
+            { label: 'ATMOS SWP',  synth:'SWEEP', freq:90,   vol:0.75 },
+            { label: 'BIG IMPACT', synth:'NOISE', freq:180,  vol:0.85, p:{res:8} },
+            { label: 'DEEP STING', synth:'AM',    freq:65,   vol:0.6,  p:{lfo:0.4} }
+        ]},
+        { name: 'BREAKCORE', pads: [
+            { label: 'TIGHT KICK', synth:'SUB',   freq:65,   vol:0.88 },
+            { label: 'SNARE CRCK', synth:'NOISE', freq:500,  vol:0.82, p:{res:12} },
+            { label: 'GLITCH HIT', synth:'METAL', freq:440,  vol:0.6 },
+            { label: 'BLAST',      synth:'BOOM',  freq:60,   vol:0.78 }
+        ]},
+        { name: 'IDM_ACID', pads: [
+            { label: 'ACID BASS',  synth:'SWEEP', freq:55,   vol:0.8 },
+            { label: 'TB ZAPP',    synth:'METAL', freq:110,  vol:0.65 },
+            { label: 'CLATTER',    synth:'NOISE', freq:2200, vol:0.55, p:{res:6} },
+            { label: 'D-ZAP',      synth:'AM',    freq:220,  vol:0.6,  p:{lfo:7.5} }
+        ]},
+        { name: 'ETHER_VOID', pads: [
+            { label: 'DEEP DRONE', synth:'AM',    freq:41,   vol:0.7,  p:{lfo:0.25} },
+            { label: 'PAD SWIRL',  synth:'SWEEP', freq:65,   vol:0.65 },
+            { label: 'TEXTURE',    synth:'NOISE', freq:120,  vol:0.55, p:{res:3} },
+            { label: 'DEEP BELL',  synth:'METAL', freq:82,   vol:0.5 }
+        ]}
+    ];
+
+    var _activeKit = 0;
+
+    // Pure synthetic playback via InternalSynth
+    function playBuffer(kitIdx, padIdx, schedTime, vol) {
+        var kit = KITS[kitIdx]; if (!kit) return;
+        var pad = kit.pads[padIdx]; if (!pad) return;
+        var v = (typeof vol === 'number') ? vol : pad.vol;
+        var f = pad.freq;
+        var p = pad.p || {};
+        var delay = schedTime && APP.audio && APP.audio.ctx
+            ? Math.max(0, (schedTime - APP.audio.ctx.currentTime) * 1000) : 0;
+        setTimeout(function() {
+            switch (pad.synth) {
+                case 'SUB':   InternalSynth.triggerSub(f, v); break;
+                case 'NOISE': InternalSynth.triggerNoise(f, v, p.res || 6); break;
+                case 'SWEEP': InternalSynth.triggerSweep(f, v); break;
+                case 'METAL': InternalSynth.triggerMetal(f, v); break;
+                case 'AM':    InternalSynth.triggerAM(f, v, p.lfo || 0.8); break;
+                case 'BOOM':  InternalSynth.triggerBoom(f, v); break;
+            }
+        }, delay);
+
+        // audioReactiveData handshake
+        if (!window.audioReactiveData) window.audioReactiveData = {};
+        window.audioReactiveData.padName       = kit.name + ':' + pad.label;
+        window.audioReactiveData.padVol        = v;
+        window.audioReactiveData.lastTriggerTs = performance.now();
+    }
+
+    function preload(kitIdx) { /* No-op: pure synthesis, nothing to preload */ }
+
+    function setKit(idx) {
+        _activeKit = Math.max(0, Math.min(KITS.length - 1, idx | 0));
+        log('KITMAN: active=' + KITS[_activeKit].name);
+    }
+
+    function getActiveKit()        { return _activeKit; }
+    function getKitName(idx)       { return KITS[idx != null ? idx : _activeKit].name; }
+    function getPadLabel(kit, pad) { return (KITS[kit] && KITS[kit].pads[pad]) ? KITS[kit].pads[pad].label : '---'; }
+    function getKitCount()         { return KITS.length; }
+
+    return { preload, playBuffer, setKit, getActiveKit, getKitName, getPadLabel, getKitCount, KITS };
+})();
+
+
+
+// ═══════════════════════════════════════════════════════════════
+//  VNGRD GLOBAL AUDIO API
+//  window.play(n, vol)    — Sampler pad by name or index; seismic on bass
+//  window.synth(t, n, v)  — InternalSynth; Luma_Bloom on high-end
+//  window.currentBPM      — live BPM
+// ═══════════════════════════════════════════════════════════════
+
+// ── Shared precision clock globals ───────────────────────────────────
+window.nextNoteTime   = 0;
+window.currentBPM     = 120;
+
+// ═══════════════════════════════════════════════════════════════
+//  GlobalClock — single AudioContext-anchored master clock
+//  ───────────────────────────────────────────────────────────────
+//  All SONIC SUITE modules read time from here, so every card's
+//  scheduler shares the SAME beat boundaries. No setInterval drift,
+//  no double scheduler conflicts.
+// ═══════════════════════════════════════════════════════════════
+window.GlobalClock = (function() {
+    var _origin = 0;            // audioCtx time at last bpm/start change
+    var _beatsAtOrigin = 0;     // beat count at _origin
+    var _running = true;        // free-running by default
+
+    function _ctx() { return (typeof APP !== 'undefined' && APP.audio && APP.audio.ctx) ? APP.audio.ctx : null; }
+
+    function bpm()  { return Math.max(20, Math.min(400, window.currentBPM || 120)); }
+    function spb()  { return 60 / bpm(); } // seconds per beat
+
+    function now() {
+        var c = _ctx();
+        return c ? c.currentTime : (performance.now() / 1000);
+    }
+
+    // Re-anchor on bpm change so the beat counter stays continuous
+    function rebase() {
+        _beatsAtOrigin = elapsedBeats();
+        _origin = now();
+    }
+
+    function elapsedBeats() {
+        return _beatsAtOrigin + (now() - _origin) / spb();
+    }
+
+    // Time at which beat N occurs (in audioCtx seconds)
+    function timeAtBeat(beatN) {
+        return _origin + (beatN - _beatsAtOrigin) * spb();
+    }
+
+    // Reset clock to 0 — called by Tracker.play() so step 0 lines up
+    function reset() {
+        _beatsAtOrigin = 0;
+        _origin = now();
+        window.nextNoteTime = _origin;
+    }
+
+    return {
+        bpm: bpm,
+        spb: spb,
+        now: now,
+        rebase: rebase,
+        elapsedBeats: elapsedBeats,
+        timeAtBeat: timeAtBeat,
+        reset: reset,
+        setRunning: function(v) { _running = !!v; }
+    };
+})();
+
+// ── window.synth(type, noteOrMidi, vol) ──────────────────────────────
+// type: 'sub' 'noise' 'sweep' 'metal' 'am' 'boom' 'pluck'
+// noteOrMidi: note string ('C-3','C#3') OR MIDI note number (60 = C4)
+// Updates audioReactiveData; high-end (>800 Hz) fires Luma_Bloom burst.
+window.synth = function(type, noteOrMidi, vol) {
+    if (!APP.audio.ctx) igniteAudio();
+    if (APP.audio.ctx && APP.audio.ctx.state === 'suspended') APP.audio.ctx.resume();
+    var freq;
+    if (typeof noteOrMidi === 'number') {
+        // MIDI note → Hz  (69 = A4 = 440 Hz)
+        freq = 440 * Math.pow(2, (noteOrMidi - 69) / 12);
+    } else {
+        // Note string: normalise 'C#3' → 'C#-3', then look up
+        var n = String(noteOrMidi || 'C-3').replace(/^([A-G]#?)(\d)$/, '$1-$2');
+        // Inline freq table for global scope
+        var NF = {'C-2':65.4,'C#-2':69.3,'D-2':73.4,'D#-2':77.8,'E-2':82.4,'F-2':87.3,
+            'F#-2':92.5,'G-2':98,'G#-2':103.8,'A-2':110,'A#-2':116.5,'B-2':123.5,
+            'C-3':130.8,'C#-3':138.6,'D-3':146.8,'D#-3':155.6,'E-3':164.8,'F-3':174.6,
+            'F#-3':185,'G-3':196,'G#-3':207.7,'A-3':220,'A#-3':233.1,'B-3':246.9,
+            'C-4':261.6,'C#-4':277.2,'D-4':293.7,'D#-4':311.1,'E-4':329.6,'F-4':349.2,
+            'F#-4':370,'G-4':392,'G#-4':415.3,'A-4':440,'A#-4':466.2,'B-4':493.9,
+            'C-5':523.3,'C#-5':554.4,'D-5':587.3,'D#-5':622.3,'E-5':659.3,'F-5':698.5,
+            'F#-5':740,'G-5':784,'G#-5':830.6,'A-5':880,'A#-5':932.3,'B-5':987.8,
+            'C-6':1046.5,'D-6':1174.7,'E-6':1318.5};
+        freq = NF[n] || 220;
+    }
+    var v = typeof vol === 'number' ? vol : 0.8;
+    var t = (type || 'sub').toLowerCase();
+    // 'pluck' → short swept tone (SWEEP with tight decay)
+    if      (t === 'pluck' || t === 'sweep') InternalSynth.triggerSweep(freq, v, 0x80);
+    else if (t === 'sub')                    InternalSynth.triggerSub(freq, v, 0x80);
+    else if (t === 'noise')                  InternalSynth.triggerNoise(freq, v, 8, 0x80);
+    else if (t === 'metal')                  InternalSynth.triggerMetal(freq, v, freq * 3.1, 0x80);
+    else if (t === 'am')                     InternalSynth.triggerAM(freq, v, 8, 0x80);
+    else if (t === 'boom')                   InternalSynth.triggerBoom(freq, v, 0x80);
+    else                                     InternalSynth.triggerSub(freq, v, 0x80);
+    // audioReactiveData handshake
+    if (!window.audioReactiveData) window.audioReactiveData = {};
+    window.audioReactiveData.synthFreq    = freq;
+    window.audioReactiveData.synthType    = t;
+    window.audioReactiveData.synthVol     = v;
+    window.audioReactiveData.lastTriggerTs = performance.now();
+    // Low-end (<200 Hz) → seismic; high-end (>800 Hz) → Luma_Bloom
+    if (freq < 200) {
+        if (APP && APP.vj) {
+            APP.vj._seismicVel = (APP.vj._seismicVel || 0) + v * 1.2;
+            APP.vj._seismicDemoUntil = performance.now() + 1500;
+        }
+    } else if (freq > 800 && typeof _vbActivate === 'function') {
+        if (typeof _setFXBank === 'function') _setFXBank('B');
+        _vbActivate('LUMA_BLOOM', false);
+    }
+};
+
+// ── window.play(sample, vol) ──────────────────────────────────────────
+// sample: pad name string OR index (0=liq1 … 7=liq8, 8=custom1 …)
+// Low-frequency samples (kick/bass pads) fire screenShake + seismic.
+window.play = function(sample, vol) {
+    if (!APP.audio.ctx) igniteAudio();
+    if (APP.audio.ctx && APP.audio.ctx.state === 'suspended') APP.audio.ctx.resume();
+    var _PADS = ['liq1','liq2','liq3','liq4','liq5','liq6','liq7','liq8',
+                 'custom1','custom2','custom3','custom4',
+                 'applause','cheer','horn','boom'];
+    var name = typeof sample === 'number' ? (_PADS[sample] || null) : String(sample);
+    if (!name) return;
+    var v = typeof vol === 'number' ? vol : 0.8;
+    Sampler.trigger(name, v);
+    // audioReactiveData handshake
+    if (!window.audioReactiveData) window.audioReactiveData = {};
+    window.audioReactiveData.padName      = name;
+    window.audioReactiveData.padVol       = v;
+    window.audioReactiveData.lastTriggerTs = performance.now();
+    // Kick/bass pads (liq1, liq3, liq5 = kick/rumble/deep) → seismic
+    var isKick = /liq[135]|boom/i.test(name);
+    if (isKick && APP && APP.vj) {
+        APP.vj._seismicVel = (APP.vj._seismicVel || 0) + v * 1.4;
+        APP.vj._seismicDemoUntil = performance.now() + 1800;
+        APP.vj._punchSpring = Math.min(1, (APP.vj._punchSpring || 0) + 0.7 * v);
+        APP.vj._punchDemoUntil = performance.now() + 1800;
+    } else {
+        _vjHeavySync();
+    }
+};
+
+// ═══════════════════════════════════════════════════════════════
+//  PAD BUS — BiquadFilter lowshelf 180 Hz +10 dB
+//  Inserted between pad gains and APP.audio.duckingGain so every
+//  sampler hit punches sub-bass into the analyser chain.
+// ═══════════════════════════════════════════════════════════════
+var _padBusNode = null;
+function _getPadBus(ctx) {
+    if (!ctx) return null;
+    if (_padBusNode && _padBusNode.context === ctx && _padBusNode.context.state !== 'closed') return _padBusNode;
+    try {
+        var f = ctx.createBiquadFilter();
+        f.type = 'lowshelf';
+        f.frequency.value = 180;
+        f.gain.value = 10;
+        f.connect(APP.audio.duckingGain);
+        _padBusNode = f;
+        return f;
+    } catch(e) { return null; }
+}
+
+// ═══════════════════════════════════════════════════════════════
+//  VJ HEAVY SYNC — seismic + elastic punch on every pad trigger
+//  Scaled by live bassLevel so louder hits = more shake.
+// ═══════════════════════════════════════════════════════════════
+function _vjHeavySync() {
+    if (typeof APP === 'undefined' || !APP.vj) return;
+    var scale = (APP.audio && APP.audio.bassLevel) ? APP.audio.bassLevel / 255 : 0.65;
+    var vel = 0.45 + scale * 0.9;
+    APP.vj._seismicVel = (APP.vj._seismicVel || 0) + vel;
+    APP.vj._seismicDemoUntil = performance.now() + 1800;
+    APP.vj._punchSpring = Math.min(1.0, (APP.vj._punchSpring || 0) + 0.55 * scale);
+    APP.vj._punchDemoUntil = performance.now() + 1800;
+    APP.vj._punchDemoBeat = performance.now();
+}
+
+// ═══════════════════════════════════════════════════════════════
+//  VANGUARD LIQUID LIBRARY — 4 cinematic kits × 4 pads
+//  Heavy, dissonant, cinematic FX. All synthesized client-side.
+// ═══════════════════════════════════════════════════════════════
+var VANGUARD_LIQUID_LIB = [
+    // Kit 0: VOID DRIFT — long ethereal drones, deep slow evolving textures
+    { name: 'VOID DRIFT', rate: 1.0, pads: [
+        { label: 'ABYSS',    p: { mode:'noise',   filter:'lowpass',   filterFreq:85,   filterQ:6.5,            atk:2.50,  dec:9.0,  sus:0.42,  dur:15.0 } },
+        { label: 'PULSE',    p: { mode:'am',      freq:28,  lfoRate:0.18,                                      atk:1.80,  dec:8.0,  sus:0.38,  dur:13.0 } },
+        { label: 'RIFT',     p: { mode:'resonant',freq:52,  freqEnd:18, res:26,                                atk:1.20,  dec:9.5,  sus:0.22,  dur:14.0 } },
+        { label: 'SIGNAL',   p: { mode:'sweep',   oscType:'sine',     freq:48, freqEnd:38, sub:32,             atk:1.50,  dec:7.0,  sus:0.28,  dur:12.0 } }
+    ]},
+    // Kit 1: DARK ETHER — cinematic tension drones, weighted with sub pressure
+    { name: 'DARK ETHER', rate: 1.0, pads: [
+        { label: 'IMPACT',   p: { mode:'boom',    sub:38,  filter:'lowpass', filterFreq:190, filterQ:0.9,      atk:0.005, dec:4.0,  sus:0.10,  dur: 7.0 } },
+        { label: 'TENSION',  p: { mode:'noise',   filter:'lowpass',   filterFreq:240,  filterQ:8.5,            atk:2.20,  dec:7.0,  sus:0.28,  dur:11.0 } },
+        { label: 'PRESSURE', p: { mode:'resonant',freq:58,  freqEnd:26, res:20,                                atk:0.20,  dec:5.5,  sus:0.20,  dur: 9.0 } },
+        { label: 'DRONE',    p: { mode:'chord',   oscType:'sawtooth', freqs:[38,57,76], det:14,                atk:1.20,  dec:6.0,  sus:0.32,  dur:10.0 } }
+    ]},
+    // Kit 2: SPECTRAL — crystalline shimmer, bright atmospheric pads
+    { name: 'SPECTRAL', rate: 1.0, pads: [
+        { label: 'CRYSTAL',  p: { mode:'resonant',freq:290, freqEnd:185, res:48,                               atk:0.60,  dec:6.0,  sus:0.18,  dur: 9.0 } },
+        { label: 'SHIMMER',  p: { mode:'chord',   oscType:'sine',     freqs:[220,277,330,440], det:8,          atk:1.40,  dec:6.5,  sus:0.22,  dur:10.0 } },
+        { label: 'PRISM',    p: { mode:'am',      freq:185, lfoRate:3.8,                                       atk:0.80,  dec:5.0,  sus:0.26,  dur: 8.0 } },
+        { label: 'GHOST',    p: { mode:'noise',   filter:'bandpass',  filterFreq:2900, filterQ:14,             atk:1.20,  dec:5.5,  sus:0.12,  dur: 9.0 } }
+    ]},
+    // Kit 3: GLITCH OPS — modern glitch with sustained digital texture
+    { name: 'GLITCH OPS', rate: 1.0, pads: [
+        { label: 'STUTTER',  p: { mode:'noise',   filter:'bandpass',  filterFreq:3600, filterQ:9,  dist:0.28,  atk:0.001, dec:0.55, sus:0.06,  dur: 1.80 } },
+        { label: 'DATABEND', p: { mode:'sweep',   oscType:'sawtooth', freq:1400, freqEnd:55, dist:0.38,        atk:0.001, dec:1.20, sus:0.008, dur: 2.20 } },
+        { label: 'BYTE',     p: { mode:'chord',   oscType:'square',   freqs:[880,1100,1320], det:25, dist:0.30, atk:0.002, dec:1.00, sus:0.02, dur: 2.00 } },
+        { label: 'REWIND',   p: { mode:'sweep',   oscType:'sawtooth', freq:40,  freqEnd:1200, dist:0.22,       atk:0.001, dec:0.80, sus:0.003, dur: 1.60 } }
+    ]},
+    // Kit 4: CASSETTE NOIR — lo-fi warped atmospheric pads, tape-saturated
+    { name: 'CASSETTE NOIR', rate: 1.0, pads: [
+        { label: 'DRIFT',    p: { mode:'am',      freq:62,  lfoRate:0.22, dist:0.04,                           atk:2.20,  dec:7.0,  sus:0.30,  dur:11.0 } },
+        { label: 'GHOST',    p: { mode:'noise',   filter:'lowpass',   filterFreq:420,  filterQ:3.5, dist:0.07, atk:1.80,  dec:6.0,  sus:0.26,  dur: 9.5 } },
+        { label: 'WARP',     p: { mode:'chord',   oscType:'sine',     freqs:[55,82,110], det:20,               atk:1.00,  dec:5.5,  sus:0.24,  dur: 8.5 } },
+        { label: 'TAPE',     p: { mode:'resonant',freq:80,  freqEnd:52, res:14, dist:0.04,                     atk:1.20,  dec:6.0,  sus:0.22,  dur: 9.0 } }
+    ]},
+    // Kit 5: NEURAL STATIC — evolving digital ambience, long textural tails
+    { name: 'NEURAL STATIC', rate: 1.0, pads: [
+        { label: 'CORRUPT',  p: { mode:'noise',   filter:'lowpass',   filterFreq:680,  filterQ:4.5, dist:0.08, atk:1.20,  dec:6.0,  sus:0.28,  dur:10.0 } },
+        { label: 'ENCODE',   p: { mode:'resonant',freq:220, freqEnd:95, res:22,                                atk:0.80,  dec:6.5,  sus:0.20,  dur: 9.5 } },
+        { label: 'PHASE',    p: { mode:'am',      freq:110, lfoRate:1.4, dist:0.04,                            atk:1.50,  dec:6.0,  sus:0.25,  dur:10.0 } },
+        { label: 'MASK',     p: { mode:'chord',   oscType:'sine',     freqs:[110,165,220], det:18, dist:0.05,  atk:1.80,  dec:7.0,  sus:0.28,  dur:11.0 } }
+    ]},
+    // Kit 6: DEEP FIELD — sub-bass cosmic, massive low-end evolving pressure
+    { name: 'DEEP FIELD', rate: 1.0, pads: [
+        { label: 'EVENT',    p: { mode:'boom',    sub:32,  filter:'lowpass', filterFreq:80,  filterQ:0.6,      atk:0.008, dec:5.0,  sus:0.14,  dur: 9.0 } },
+        { label: 'HORIZON',  p: { mode:'resonant',freq:55,  freqEnd:22, res:28,                                atk:0.50,  dec:6.5,  sus:0.18,  dur:10.0 } },
+        { label: 'GRAVITY',  p: { mode:'sweep',   oscType:'sine',     freq:42, freqEnd:22, sub:28,             atk:0.80,  dec:6.0,  sus:0.22,  dur:10.0 } },
+        { label: 'MATTER',   p: { mode:'am',      freq:38,  lfoRate:0.12,                                      atk:2.20,  dec:7.5,  sus:0.32,  dur:11.0 } }
+    ]}
+];
+
+// ── CINEMATIC SYNTHESIS ENGINE ─────────────────────────────────
+function _synthCinematicBuf(p) {
+    var sr = 44100;
+    var dur = Math.max(p.dur || 1.0, 0.05);
+    var frames = Math.ceil(sr * dur);
+    try {
+        var oct = new OfflineAudioContext(1, frames, sr);
+        var atk = p.atk || 0.005;
+        var dec = p.dec || 0.3;
+        var sus = Math.max(p.sus || 0.0001, 0.0001);
+
+        // Master amplitude envelope
+        var master = oct.createGain();
+        master.gain.setValueAtTime(0.0001, 0);
+        master.gain.linearRampToValueAtTime(1.0, atk);
+        master.gain.exponentialRampToValueAtTime(sus, atk + dec);
+        master.gain.exponentialRampToValueAtTime(0.0001, Math.max(dur - 0.025, atk + dec + 0.01));
+        master.connect(oct.destination);
+
+        // Optional waveshaper distortion (inserted between source and master)
+        var out = master;
+        if (p.dist && p.dist > 0) {
+            var ws = oct.createWaveShaper();
+            var n = 512; var k = p.dist * 280;
+            var cv = new Float32Array(n);
+            for (var i = 0; i < n; i++) {
+                var x = (i * 2 / (n - 1)) - 1;
+                cv[i] = (Math.PI + k) * x / (Math.PI + k * Math.abs(x));
+            }
+            ws.curve = cv; ws.oversample = '2x';
+            ws.connect(master); out = ws;
+        }
+
+        var mode = p.mode || 'sweep';
+
+        // ── SWEEP / KICK: pitch-drop oscillator ──────────────────
+        if (mode === 'sweep') {
+            var osc = oct.createOscillator();
+            osc.type = p.oscType || 'sine';
+            osc.frequency.setValueAtTime(p.freq || 100, 0);
+            osc.frequency.exponentialRampToValueAtTime(Math.max(p.freqEnd || 30, 0.5), atk + dec * 0.85);
+            osc.connect(out); osc.start(0); osc.stop(dur);
+            if (p.sub) { // optional sub layer
+                var sO = oct.createOscillator(); sO.type = 'sine'; sO.frequency.value = p.sub;
+                var sG = oct.createGain();
+                sG.gain.setValueAtTime(0.0001,0); sG.gain.linearRampToValueAtTime(0.72, 0.003);
+                sG.gain.exponentialRampToValueAtTime(0.0001, dur * 0.72);
+                sO.connect(sG); sG.connect(master); sO.start(0); sO.stop(dur);
+            }
+        }
+
+        // ── NOISE: filtered white noise ──────────────────────────
+        if (mode === 'noise') {
+            var nBuf = oct.createBuffer(1, frames, sr);
+            var nd = nBuf.getChannelData(0);
+            for (var i = 0; i < frames; i++) nd[i] = Math.random() * 2 - 1;
+            var nSrc = oct.createBufferSource(); nSrc.buffer = nBuf;
+            if (p.filter) {
+                var flt = oct.createBiquadFilter();
+                flt.type = p.filter; flt.frequency.value = p.filterFreq || 800; flt.Q.value = p.filterQ || 1;
+                nSrc.connect(flt); flt.connect(out);
+            } else { nSrc.connect(out); }
+            nSrc.start(0); nSrc.stop(dur);
+        }
+
+        // ── BOOM: sub oscillator + noise explosion ───────────────
+        if (mode === 'boom') {
+            var bBuf = oct.createBuffer(1, frames, sr);
+            var bd = bBuf.getChannelData(0);
+            for (var i = 0; i < frames; i++) bd[i] = Math.random() * 2 - 1;
+            var bSrc = oct.createBufferSource(); bSrc.buffer = bBuf;
+            if (p.filter) {
+                var bFlt = oct.createBiquadFilter();
+                bFlt.type = p.filter; bFlt.frequency.value = p.filterFreq || 300; bFlt.Q.value = p.filterQ || 0.7;
+                bSrc.connect(bFlt); bFlt.connect(out);
+            } else { bSrc.connect(out); }
+            bSrc.start(0); bSrc.stop(dur);
+            if (p.sub) {
+                var bSubO = oct.createOscillator(); bSubO.type = 'sine';
+                bSubO.frequency.setValueAtTime(p.sub * 2.2, 0);
+                bSubO.frequency.exponentialRampToValueAtTime(p.sub, 0.08);
+                var bSubG = oct.createGain();
+                bSubG.gain.setValueAtTime(0.0001,0); bSubG.gain.linearRampToValueAtTime(0.85, 0.003);
+                bSubG.gain.exponentialRampToValueAtTime(0.0001, dur * 0.78);
+                bSubO.connect(bSubG); bSubG.connect(master); bSubO.start(0); bSubO.stop(dur);
+            }
+        }
+
+        // ── CLUSTER: dissonant multi-oscillator ──────────────────
+        if (mode === 'cluster') {
+            var freqs = p.freqs || [p.freq || 60];
+            freqs.forEach(function(f, fi) {
+                var cO = oct.createOscillator(); cO.type = p.oscType || 'sawtooth'; cO.frequency.value = f;
+                if (p.det) cO.detune.value = (fi % 2 === 0 ? 1 : -1) * p.det * 0.4;
+                var cG = oct.createGain(); cG.gain.value = 0.9 / freqs.length;
+                cO.connect(cG); cG.connect(out); cO.start(0); cO.stop(dur);
+            });
+        }
+
+        // ── CHORD: 3-voice detuned pad for lush harmonic textures ─
+        if (mode === 'chord') {
+            var chFreqs = p.freqs || [p.freq || 80];
+            var chDet = p.det || 8;
+            chFreqs.forEach(function(f) {
+                [-1, 0, 1].forEach(function(d) {
+                    var chO = oct.createOscillator();
+                    chO.type = p.oscType || 'sine';
+                    chO.frequency.value = f;
+                    chO.detune.value = d * chDet;
+                    var chG = oct.createGain();
+                    chG.gain.value = 0.28 / chFreqs.length;
+                    chO.connect(chG); chG.connect(out);
+                    chO.start(0); chO.stop(dur);
+                });
+            });
+        }
+
+        // ── METAL: thud + metallic ring + noise burst ────────────
+        if (mode === 'metal') {
+            var mO = oct.createOscillator(); mO.type = 'triangle';
+            mO.frequency.setValueAtTime(p.freq || 200, 0);
+            mO.frequency.exponentialRampToValueAtTime(Math.max(p.freqEnd || 50, 1), 0.18);
+            mO.connect(out); mO.start(0); mO.stop(dur);
+            if (p.ring) {
+                var rO = oct.createOscillator(); rO.type = 'sine'; rO.frequency.value = p.ring;
+                var rG = oct.createGain();
+                rG.gain.setValueAtTime(0.0001,0); rG.gain.linearRampToValueAtTime(0.38, 0.001);
+                rG.gain.exponentialRampToValueAtTime(0.0001, dur * 0.55);
+                rO.connect(rG); rG.connect(master); rO.start(0); rO.stop(dur);
+            }
+            // Transient noise burst
+            var tFrames = Math.ceil(sr * 0.08);
+            var tBuf = oct.createBuffer(1, tFrames, sr); var tD = tBuf.getChannelData(0);
+            for (var i = 0; i < tFrames; i++) tD[i] = Math.random() * 2 - 1;
+            var tSrc = oct.createBufferSource(); tSrc.buffer = tBuf;
+            var tFlt = oct.createBiquadFilter(); tFlt.type = 'highpass'; tFlt.frequency.value = 2200;
+            var tG = oct.createGain(); tG.gain.value = 0.5;
+            tSrc.connect(tFlt); tFlt.connect(tG); tG.connect(master); tSrc.start(0);
+        }
+
+        // ── RESONANT: very high-Q bandpass sweep on noise ────────
+        if (mode === 'resonant') {
+            var rBuf = oct.createBuffer(1, frames, sr); var rDat = rBuf.getChannelData(0);
+            for (var i = 0; i < frames; i++) rDat[i] = Math.random() * 2 - 1;
+            var rSrc = oct.createBufferSource(); rSrc.buffer = rBuf;
+            var rF = oct.createBiquadFilter(); rF.type = 'bandpass';
+            rF.frequency.setValueAtTime(p.freq || 80, 0);
+            rF.frequency.exponentialRampToValueAtTime(Math.max(p.freqEnd || 18, 1), dur * 0.88);
+            rF.Q.value = p.res || 14;
+            rSrc.connect(rF); rF.connect(out); rSrc.start(0); rSrc.stop(dur);
+        }
+
+        // ── AM: amplitude-modulated sub pulse ────────────────────
+        if (mode === 'am') {
+            var amCar = oct.createOscillator(); amCar.type = 'sine'; amCar.frequency.value = p.freq || 35;
+            var amGain = oct.createGain(); amGain.gain.value = 0.5;
+            var amLfo = oct.createOscillator(); amLfo.type = 'sine'; amLfo.frequency.value = p.lfoRate || 6;
+            var amMod = oct.createGain(); amMod.gain.value = 0.5;
+            amLfo.connect(amMod); amMod.connect(amGain.gain);
+            amCar.connect(amGain); amGain.connect(out);
+            amCar.start(0); amCar.stop(dur); amLfo.start(0); amLfo.stop(dur);
+        }
+
+        return oct.startRendering();
+    } catch(e) { return Promise.reject(e); }
+}
+
+// Buffer cache: 'packIdx_padIdx' → AudioBuffer
+var _liqBufCache = {};
+var _liqCurrentPack = 0;
+
+function _getLiqBuf(packIdx, padIdx) {
+    var key = packIdx + '_' + padIdx;
+    if (_liqBufCache[key]) return Promise.resolve(_liqBufCache[key]);
+    var pack = VANGUARD_LIQUID_LIB[packIdx];
+    if (!pack || !pack.pads[padIdx]) return Promise.reject('no-pack');
+    return _synthCinematicBuf(pack.pads[padIdx].p).then(function(buf) {
+        _liqBufCache[key] = buf; return buf;
+    });
+}
+
+// Fire a liquid pad (padIdx 0-3, schedTime = audioCtx time or null for immediate)
+function _fireLiqPad(padIdx, schedTime, sfxName) {
+    if (!APP.audio.ctx) igniteAudio();
+    if (!APP.audio.masterGain) ensureAudioChain();
+    var ctx = APP.audio.ctx;
+    if (!ctx) return;
+    if (ctx.state === 'suspended') ctx.resume();
+    var packIdx = _liqCurrentPack;
+    _getLiqBuf(packIdx, padIdx).then(function(buf) {
+        var src = ctx.createBufferSource();
+        src.buffer = buf;
+        src.playbackRate.value = (VANGUARD_LIQUID_LIB[packIdx] && VANGUARD_LIQUID_LIB[packIdx].rate) || 1.0;
+        var gain = ctx.createGain();
+        gain.gain.value = 0.88;
+        src.connect(gain);
+        var bus = _getPadBus(ctx);
+        gain.connect(bus || APP.audio.duckingGain);
+        var when = (schedTime != null) ? schedTime : ctx.currentTime;
+        src.start(when);
+        APP.audio.sfxPlaying = true;
+        src.onended = function() { APP.audio.sfxPlaying = false; };
+        // Visual pulse
+        var padEl = document.getElementById('sfx-liq' + (padIdx + 1));
+        if (padEl) {
+            padEl.classList.add('sfx-pulse', 'sfx-playing');
+            setTimeout(function() { padEl.classList.remove('sfx-pulse', 'sfx-playing'); }, 320);
+        }
+        // Coupled FX
+        var nm = sfxName || ('liq' + (padIdx + 1));
+        if (typeof _padCoupling !== 'undefined' && _padCoupling[nm] && typeof _fireCoupledFX === 'function') {
+            _fireCoupledFX(nm);
+        }
+    }).catch(function() {});
+}
+
+// Update liquid pad labels when pack changes
+function _updateLiqPadLabels(packIdx) {
+    var pack = VANGUARD_LIQUID_LIB[packIdx];
+    if (!pack) return;
+    pack.pads.forEach(function(pad, i) {
+        var el = document.getElementById('sfx-liq' + (i + 1));
+        if (el) {
+            var nameEl = el.querySelector('.pad-name');
+            if (nameEl) nameEl.textContent = pad.label;
+        }
+    });
+}
+
+// ═══════════════════════════════════════════════════════════════
+//  VFX LAYER — TouchDesigner-style GLSL Webcam Displacement
+//
+//  Canvas:   #vfx-layer (z-index 1002, pointer-events:none)
+//  Shader:   Chromatic aberration + displacement noise field
+//  Webcam:   Texture updated every rAF frame when CAM is online
+//  Trigger:  VFXLayer.pulse(delaySec) — called by playSample()
+//            every time a ratchet > 1 event fires.
+//  u_pulse:  Drives chromatic aberration magnitude in the shader.
+//            Accumulated on ratchet fire, decays exponentially.
+// ═══════════════════════════════════════════════════════════════
+var VFXLayer = (function() {
+    var _canvas, _gl;
+    var _prog;
+    var _unifTime, _unifRes, _unifPulse, _unifCam, _unifHasCam;
+    var _camTexture = null;
+    var _camSource  = null;  // live <video> element (webcam feed)
+    var _pulse      = 0.0;   // accumulated pulse value [0..1]
+    var _ready      = false;
+    var _frameT0    = 0;     // ── PHASE F Task 2: start time for u_time uniform ──
+
+    /* ── Vertex shader: full-screen clip-space quad ── */
+    var VS = [
+        'attribute vec2 a_pos;',
+        'void main(){gl_Position=vec4(a_pos,0.0,1.0);}'
+    ].join('\n');
+
+    /* ── Fragment shader ──
+       u_pulse drives chromatic aberration split on the webcam feed.
+       Without webcam: renders a cyan noise/pulse procedural field.
+    ── */
+    var FS = [
+        'precision mediump float;',
+        'uniform float u_time;',
+        'uniform vec2  u_res;',
+        'uniform float u_pulse;',       // ratchet energy accumulator
+        'uniform sampler2D u_cam;',
+        'uniform int   u_hasCam;',
+
+        // Pseudo-random hash (fast, no texture needed)
+        'float hash(vec2 p){return fract(sin(dot(p,vec2(127.1,311.7)))*43758.5453);}',
+        // 2D value noise
+        'float noise(vec2 p){',
+        '  vec2 i=floor(p),f=fract(p);',
+        '  f=f*f*(3.0-2.0*f);',
+        '  return mix(mix(hash(i),hash(i+vec2(1,0)),f.x),',
+        '             mix(hash(i+vec2(0,1)),hash(i+vec2(1,1)),f.x),f.y);',
+        '}',
+
+        'void main(){',
+        '  vec2 uv=gl_FragCoord.xy/u_res;',
+        '  // Chromatic aberration split magnitude scales with u_pulse',
+        '  float abr=u_pulse*0.024+0.001;',
+
+        '  if(u_hasCam==1){',
+        '    // Displacement noise jitter (amplitude driven by pulse)',
+        '    float n=noise(uv*7.0+u_time*0.5)*u_pulse;',
+        '    vec2 disp=vec2(n*0.009,-n*0.005)*u_pulse;',
+        '    // RGB channel split — chromatic aberration on webcam',
+        '    float r=texture2D(u_cam,uv+disp+vec2( abr,0.0)).r;',
+        '    float g=texture2D(u_cam,uv+disp            ).g;',
+        '    float b=texture2D(u_cam,uv+disp-vec2( abr,0.0)).b;',
+        '    gl_FragColor=vec4(r,g,b,0.55+u_pulse*0.3);',
+        '  } else {',
+        '    // Procedural fallback: pulsing noise rings (cyan tint)',
+        '    float n=noise(uv*5.5+u_time*0.3);',
+        '    float ring=abs(sin(n*14.0+u_time*2.2))*u_pulse;',
+        '    gl_FragColor=vec4(0.0,ring*0.85,ring*1.0,ring*0.65);',
+        '  }',
+        '}'
+    ].join('\n');
+
+    function _compileShader(gl, type, src) {
+        var sh = gl.createShader(type);
+        gl.shaderSource(sh, src);
+        gl.compileShader(sh);
+        if (!gl.getShaderParameter(sh, gl.COMPILE_STATUS)) {
+            console.warn('[VFXLayer] Shader:', gl.getShaderInfoLog(sh));
+            gl.deleteShader(sh); return null;
+        }
+        return sh;
+    }
+
+    function _init() {
+        _canvas = document.getElementById('vfx-layer');
+        if (!_canvas) return false;
+        _gl = _canvas.getContext('webgl', { alpha: true, premultipliedAlpha: false });
+        if (!_gl) return false;
+        var gl = _gl;
+
+        var vs = _compileShader(gl, gl.VERTEX_SHADER,   VS);
+        var fs = _compileShader(gl, gl.FRAGMENT_SHADER, FS);
+        if (!vs || !fs) return false;
+        _prog = gl.createProgram();
+        gl.attachShader(_prog, vs); gl.attachShader(_prog, fs);
+        gl.linkProgram(_prog);
+        if (!gl.getProgramParameter(_prog, gl.LINK_STATUS)) return false;
+
+        // Full-screen triangle strip
+        var quad = gl.createBuffer();
+        gl.bindBuffer(gl.ARRAY_BUFFER, quad);
+        gl.bufferData(gl.ARRAY_BUFFER,
+            new Float32Array([-1,-1, 1,-1, -1,1, 1,1]), gl.STATIC_DRAW);
+
+        gl.useProgram(_prog);
+        var posAttr = gl.getAttribLocation(_prog, 'a_pos');
+        gl.enableVertexAttribArray(posAttr);
+        gl.vertexAttribPointer(posAttr, 2, gl.FLOAT, false, 0, 0);
+
+        _unifTime   = gl.getUniformLocation(_prog, 'u_time');
+        _unifRes    = gl.getUniformLocation(_prog, 'u_res');
+        _unifPulse  = gl.getUniformLocation(_prog, 'u_pulse');
+        _unifCam    = gl.getUniformLocation(_prog, 'u_cam');
+        _unifHasCam = gl.getUniformLocation(_prog, 'u_hasCam');
+
+        // Webcam texture slot (starts with 1×1 black placeholder)
+        _camTexture = gl.createTexture();
+        gl.activeTexture(gl.TEXTURE0);
+        gl.bindTexture(gl.TEXTURE_2D, _camTexture);
+        gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE);
+        gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE);
+        gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.LINEAR);
+        gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.LINEAR);
+        gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, 1, 1, 0,
+            gl.RGBA, gl.UNSIGNED_BYTE, new Uint8Array([0,0,0,255]));
+
+        gl.enable(gl.BLEND);
+        gl.blendFunc(gl.SRC_ALPHA, gl.ONE_MINUS_SRC_ALPHA);
+
+        _ready = true;
+        _startLoop();
+        return true;
+    }
+
+    // ── PHASE F Task 2: pure tick — called from mainLoop with rAF timestamp ──
+    function _frameTick(now) {
+        if (!_ready || !_gl) return;
+        var gl = _gl;
+
+        // Resize to CSS display size
+        var w = _canvas.clientWidth  | 0;
+        var h = _canvas.clientHeight | 0;
+        if (_canvas.width !== w || _canvas.height !== h) {
+            _canvas.width = w; _canvas.height = h;
+            gl.viewport(0, 0, w, h);
+        }
+
+        // Exponential pulse decay (~8 frames at 60fps)
+        _pulse *= 0.88;
+        if (_pulse < 0.001) _pulse = 0.0;
+
+        // Show layer opacity proportional to pulse
+        _canvas.style.opacity = _pulse > 0.01
+            ? String(Math.min(0.78, _pulse * 1.3)) : '0';
+
+        // Upload live webcam frame
+        var hasCam = 0;
+        if (_camSource && _camSource.readyState >= 2) {
+            gl.activeTexture(gl.TEXTURE0);
+            gl.bindTexture(gl.TEXTURE_2D, _camTexture);
+            try {
+                gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA,
+                    gl.RGBA, gl.UNSIGNED_BYTE, _camSource);
+                hasCam = 1;
+            } catch(e) {}
+        }
+
+        gl.useProgram(_prog);
+        gl.uniform1f(_unifTime,   (now - _frameT0) * 0.001);
+        gl.uniform2f(_unifRes,    w, h);
+        gl.uniform1f(_unifPulse,  _pulse);
+        gl.uniform1i(_unifCam,    0);
+        gl.uniform1i(_unifHasCam, hasCam);
+
+        gl.clearColor(0, 0, 0, 0);
+        gl.clear(gl.COLOR_BUFFER_BIT);
+        gl.drawArrays(gl.TRIANGLE_STRIP, 0, 4);
+    }
+
+    function _startLoop() {
+        _frameT0 = performance.now();
+        // Expose tick to mainLoop (which lives outside this IIFE)
+        window._vfxFrameTick = _frameTick;
+    }
+
+    // ── Public API ────────────────────────────────────────────
+    // pulse(delaySec): add energy after delay (called on ratchet fire)
+    function pulse(delaySec) {
+        setTimeout(function() {
+            _pulse = Math.min(1.0, _pulse + 0.38);
+        }, Math.max(0, (delaySec || 0) * 1000));
+    }
+
+    // attachCam(videoEl): set the live <video> source for the shader
+    function attachCam(videoEl) { _camSource = videoEl || null; }
+
+    // init(): boot once on DOMContentLoaded
+    function init() {
+        if (!_init()) return;
+        // Auto-grab webcam video when CAM_CAPTURE goes online
+        setTimeout(function() {
+            var vid = document.getElementById('preview-vid-float');
+            if (vid && vid.srcObject) attachCam(vid);
+        }, 2000);
+    }
+
+    return { init: init, pulse: pulse, attachCam: attachCam };
+})();
+
+document.addEventListener('DOMContentLoaded', function() { VFXLayer.init(); });
+
+
+// ═══════════════════════════════════════════════════════════════
+//  VNGRD SONIC SUITE — studio shell, master clock, card registry
+//  ───────────────────────────────────────────────────────────────
+//  SonicSuite.registerCard(id, { label, tag, mount(body, ctx), onTick(time, step), defaults })
+//    • body     — DOM node cards render into
+//    • ctx.bus  — per-card GainNode (→ master)
+//    • ctx.audioCtx / ctx.master / ctx.reverbSend
+//    • onTick(time, step16)  — called just-in-time for each 16th note
+//  Single lookahead scheduler anchored to audioCtx.currentTime,
+//  25 ms tick, 120 ms lookahead. Cards share a mute matrix driven
+//  by the master bar's [D][B][C][M] toggles and a focus flag.
+// ═══════════════════════════════════════════════════════════════
+window.SonicSuite = (function() {
+    const LS_KEY = 'vngrd.sonicsuite.v2';
+    const LOOK  = 0.12;   // 120 ms lookahead
+    const TICK  = 25;     // 25 ms scheduler interval
+
+    const state = {
+        open:     false,
+        playing:  false,
+        bpm:      120,
+        step:     0,         // 16th-note counter since start
+        barLen:   16,        // steps per bar (4/4)
+        startT:   0,         // audioCtx time when transport started
+        nextTime: 0,
+        mutes:    {},      // id → bool
+        focused:  null,    // id of focused card, or null
+        cards:    {},      // id → { spec, dom, bus }
+        order:    [],
+    };
+    let _schedId = null;
+    let _audio   = null;  // { ctx, master, reverb, reverbSend }
+
+    function _ensureAudio() {
+        if (_audio) return _audio;
+        if (typeof igniteAudio === 'function' && !APP.audio.ctx) igniteAudio();
+        const ctx = APP.audio.ctx;
+        if (!ctx) return null;
+        const masterOut = APP.audio.masterGain || ctx.destination;
+
+        // Master bus — cards sum here, then glue-compression, then a soft
+        // limiter, then straight out. No post-limiter makeup (it would only
+        // drive the next stage back into clipping). Slightly lower master
+        // gain leaves headroom for three or four cards playing at once.
+        const master = ctx.createGain();
+        master.gain.value = 0.72;
+
+        const glue = ctx.createDynamicsCompressor();
+        glue.threshold.value = -14;
+        glue.knee.value      = 18;
+        glue.ratio.value     = 3.2;
+        glue.attack.value    = 0.005;
+        glue.release.value   = 0.12;
+
+        const limiter = ctx.createDynamicsCompressor();
+        limiter.threshold.value = -3;
+        limiter.knee.value      = 0;
+        limiter.ratio.value     = 20;
+        limiter.attack.value    = 0.001;
+        limiter.release.value   = 0.05;
+
+        master.connect(glue).connect(limiter).connect(masterOut);
+
+        // Shared reverb send (short plate IR). reverbSend is the input bus;
+        // reverbReturn controls how much wet signal the master hears.
+        const reverb = ctx.createConvolver();
+        reverb.buffer = _buildIR(ctx, 1.0, 2.4);
+        const reverbSend   = ctx.createGain();
+        const reverbReturn = ctx.createGain();
+        reverbSend.gain.value   = 1.0;
+        reverbReturn.gain.value = 0.22;
+        reverbSend.connect(reverb).connect(reverbReturn).connect(master);
+
+        // Master analyser for VU meter (taps the post-limiter signal)
+        const analyser = ctx.createAnalyser();
+        analyser.fftSize = 512;
+        limiter.connect(analyser);
+
+        // Public handles for the mixer card
+        window._ssAnalyser     = analyser;
+        window._ssReverbReturn = reverbReturn;
+
+        _audio = { ctx, master, reverb, reverbSend, reverbReturn, analyser, glue, limiter };
+        return _audio;
+    }
+
+    function _buildIR(ctx, seconds, decay) {
+        // Short plate-style IR: zero-padded pre-delay, per-channel decorrelated noise,
+        // exponential decay, gentle low-pass colouring so the tail sits behind the dry mix.
+        const rate    = ctx.sampleRate;
+        const len     = Math.floor(rate * seconds);
+        const pre     = Math.floor(rate * 0.012);
+        const ir      = ctx.createBuffer(2, len, rate);
+        for (let c = 0; c < 2; c++) {
+            const d = ir.getChannelData(c);
+            let lp = 0;
+            for (let i = 0; i < len; i++) {
+                if (i < pre) { d[i] = 0; continue; }
+                const env = Math.pow(1 - (i - pre) / (len - pre), decay);
+                const n   = (Math.random() * 2 - 1) * env;
+                lp += (n - lp) * 0.35; // one-pole LP for warmth
+                d[i] = lp;
+            }
+        }
+        return ir;
+    }
+
+    function _stepDur() { return 60 / state.bpm / 4; }   // 16th note
+
+    function _scheduler() {
+        if (!_audio) return;
+        const now = _audio.ctx.currentTime;
+        while (state.nextTime < now + LOOK) {
+            const t    = state.nextTime;
+            const s    = state.step;
+            const s16  = s % 16;
+            // Fire each registered card if not muted / masked by focus
+            state.order.forEach(function(id) {
+                if (state.mutes[id]) return;
+                if (state.focused && state.focused !== id) return;
+                const card = state.cards[id];
+                if (card && typeof card.spec.onTick === 'function') {
+                    try { card.spec.onTick(t, s16, s); }
+                    catch (e) { console.warn('[SS] onTick ' + id, e); }
+                }
+            });
+            state.nextTime += _stepDur();
+            state.step = s + 1;
+        }
+        _paintTransport(now);
+    }
+
+    function _paintTransport(now) {
+        if (!state.playing) return;
+        const elapsed = Math.max(0, now - state.startT);
+        const spb     = 60 / state.bpm;
+        const beatF   = elapsed / spb;                // fractional beats since start
+        const bar     = Math.floor(beatF / 4) + 1;
+        const beat    = Math.floor(beatF) % 4 + 1;
+        const sixt    = Math.floor(beatF * 4) % 4 + 1;
+        // Metronome dots — dot `beat-1` lit for the duration of that beat.
+        const dots = document.querySelectorAll('#ss-metro .ss-mb-dot');
+        const bi = beat - 1;
+        dots.forEach(function(d, i) { d.classList.toggle('on', i === bi); });
+        // BAR.BEAT.16TH readout
+        const barEl  = document.getElementById('ss-clock-bar');
+        const timeEl = document.getElementById('ss-clock-time');
+        if (barEl)  barEl.textContent = String(bar).padStart(3,'0') + '.' + beat + '.' + String(sixt).padStart(2,'0');
+        if (timeEl) {
+            const m  = Math.floor(elapsed / 60);
+            const sS = elapsed - m * 60;
+            const s  = Math.floor(sS);
+            const cs = Math.floor((sS - s) * 100);
+            timeEl.textContent = String(m).padStart(2,'0') + ':' + String(s).padStart(2,'0') + '.' + String(cs).padStart(2,'0');
+        }
+    }
+
+    function start() {
+        const a = _ensureAudio();
+        if (!a) return;
+        if (a.ctx.state === 'suspended') a.ctx.resume();
+        if (state.playing) return;
+        state.playing  = true;
+        state.step     = 0;
+        state.startT   = a.ctx.currentTime + 0.05;
+        state.nextTime = state.startT;
+        _schedId = setInterval(_scheduler, TICK);
+        const btn = document.getElementById('ss-play');
+        if (btn) { btn.textContent = '▶ PLAYING'; btn.classList.add('playing'); }
+        state.order.forEach(_paintCardPlay);
+    }
+
+    function stop() {
+        state.playing = false;
+        if (_schedId) { clearInterval(_schedId); _schedId = null; }
+        const btn = document.getElementById('ss-play');
+        if (btn) { btn.textContent = '▶ PLAY ALL'; btn.classList.remove('playing'); }
+        document.querySelectorAll('#ss-metro .ss-mb-dot').forEach(function(d) { d.classList.remove('on'); });
+        const barEl  = document.getElementById('ss-clock-bar');
+        const timeEl = document.getElementById('ss-clock-time');
+        if (barEl)  barEl.textContent  = '001.1.01';
+        if (timeEl) timeEl.textContent = '00:00.00';
+        // Let cards release their tails
+        state.order.forEach(function(id) {
+            const c = state.cards[id];
+            if (c && typeof c.spec.onStop === 'function') { try { c.spec.onStop(); } catch (e) {} }
+        });
+        state.order.forEach(_paintCardPlay);
+    }
+
+    function setBPM(v) {
+        v = Math.max(40, Math.min(300, +v || 120));
+        state.bpm = v;
+        const inp = document.getElementById('ss-bpm');
+        if (inp && +inp.value !== v) inp.value = v;
+        window.currentBPM = v;
+    }
+
+    function registerCard(id, spec) {
+        if (state.cards[id]) return state.cards[id];
+        const a = _ensureAudio();
+        const bus = a ? a.ctx.createGain() : null;
+        const reverbTap = a ? a.ctx.createGain() : null;
+        if (bus && a) {
+            bus.gain.value = 0.62;        // per-card headroom so summed mix doesn't slam the limiter
+            bus.connect(a.master);
+            reverbTap.gain.value = 0.0;
+            bus.connect(reverbTap).connect(a.reverbSend);
+        }
+        const ctx = a ? { audioCtx: a.ctx, master: a.master, bus, reverbSend: a.reverbSend, reverbTap } : null;
+
+        const dom = _buildCardDom(id, spec);
+        document.getElementById('ss-workspace').appendChild(dom.root);
+        _restoreCardPos(id, dom.root);
+
+        const card = { spec, dom, bus, ctx };
+        state.cards[id] = card;
+        state.order.push(id);
+        _addMbToggle(id, spec);
+
+        try { spec.mount && spec.mount(dom.body, ctx); }
+        catch (e) { console.warn('[SS] mount ' + id, e); }
+        return card;
+    }
+
+    function _buildCardDom(id, spec) {
+        const root = document.createElement('div');
+        root.className = 'ss-card';
+        root.dataset.cardId = id;
+        root.innerHTML =
+            '<div class="ss-card-head">' +
+              '<span class="ss-card-tag">' + (spec.tag || '') + '</span>' +
+              '<span class="ss-card-title">' + (spec.label || id) + '</span>' +
+              '<button class="ss-card-btn ss-card-play" data-act="play" title="Play / Pause">▶</button>' +
+              '<button class="ss-card-btn" data-act="min" title="Minimise">_</button>' +
+              '<button class="ss-card-btn" data-act="focus" title="Solo focus">◉</button>' +
+            '</div>' +
+            '<div class="ss-card-body"></div>';
+        const body = root.querySelector('.ss-card-body');
+
+        // Drag
+        const head = root.querySelector('.ss-card-head');
+        head.addEventListener('mousedown', function(e) {
+            if (e.target.classList.contains('ss-card-btn')) return;
+            _startDrag(root, id, e);
+        });
+        // Per-card play/stop
+        const playBtn = root.querySelector('[data-act=play]');
+        playBtn.addEventListener('click', function() {
+            const card = state.cards[id];
+            if (card && typeof card.spec.onCardPlay === 'function') {
+                // Card handles its own transport (e.g. CODE)
+                card.spec.onCardPlay(playBtn);
+                return;
+            }
+            // Default: master transport + mute toggle for this card
+            const muted = !!state.mutes[id];
+            if (!state.playing) start();
+            if (muted) setMute(id, false);
+            else if (state.playing) setMute(id, true);
+            _paintCardPlay(id);
+        });
+        // Minimise + focus
+        root.querySelector('[data-act=min]').addEventListener('click', function() {
+            root.classList.toggle('minimised');
+            _saveCardPos(id, root);
+        });
+        root.querySelector('[data-act=focus]').addEventListener('click', function() {
+            setFocus(state.focused === id ? null : id);
+        });
+        return { root, head, body };
+    }
+
+    function _paintCardPlay(id) {
+        const root = state.cards[id] && state.cards[id].dom.root;
+        if (!root) return;
+        const btn = root.querySelector('.ss-card-play');
+        if (!btn) return;
+        const active = state.playing && !state.mutes[id];
+        btn.textContent = active ? '■' : '▶';
+        btn.classList.toggle('playing', active);
+    }
+
+    function _startDrag(el, id, e) {
+        const r = el.getBoundingClientRect();
+        const ox = e.clientX - r.left, oy = e.clientY - r.top;
+        function mv(ev) {
+            el.style.left = Math.max(0, ev.clientX - ox) + 'px';
+            el.style.top  = Math.max(60, ev.clientY - oy) + 'px';
+        }
+        function up() {
+            window.removeEventListener('mousemove', mv);
+            window.removeEventListener('mouseup', up);
+            _saveCardPos(id, el);
+        }
+        window.addEventListener('mousemove', mv);
+        window.addEventListener('mouseup', up);
+    }
+
+    function _addMbToggle(id, spec) {
+        const wrap = document.getElementById('ss-cardtoggles');
+        if (!wrap) return;
+        const btn = document.createElement('button');
+        btn.className = 'ss-mb-ct';
+        btn.dataset.cardId = id;
+        btn.textContent = (spec.tag || id[0] || '?').slice(0, 1).toUpperCase();
+        btn.title = spec.label || id;
+        btn.addEventListener('click', function(e) {
+            if (e.shiftKey) { setFocus(state.focused === id ? null : id); return; }
+            setMute(id, !state.mutes[id]);
+        });
+        wrap.appendChild(btn);
+    }
+
+    function setMute(id, muted) {
+        state.mutes[id] = !!muted;
+        const c = state.cards[id];
+        if (c && c.bus) c.bus.gain.setTargetAtTime(muted ? 0 : 1, _audio.ctx.currentTime, 0.01);
+        const btn = document.querySelector('.ss-mb-ct[data-card-id="' + id + '"]');
+        if (btn) btn.classList.toggle('muted', !!muted);
+        if (c) c.dom.root.classList.toggle('muted', !!muted);
+        _paintCardPlay(id);
+    }
+
+    function setFocus(id) {
+        state.focused = id;
+        state.order.forEach(function(cid) {
+            const c = state.cards[cid];
+            if (!c) return;
+            c.dom.root.classList.toggle('focused', cid === id);
+        });
+        document.querySelectorAll('.ss-mb-ct').forEach(function(b) {
+            b.classList.toggle('focused', b.dataset.cardId === id);
+        });
+    }
+
+    function _loadState() {
+        try { return JSON.parse(localStorage.getItem(LS_KEY) || '{}') || {}; }
+        catch (e) { return {}; }
+    }
+    function _saveState(s) {
+        try { localStorage.setItem(LS_KEY, JSON.stringify(s)); } catch (e) {}
+    }
+    function _saveCardPos(id, el) {
+        const s = _loadState();
+        s.cards = s.cards || {};
+        s.cards[id] = {
+            left: parseInt(el.style.left, 10) || null,
+            top:  parseInt(el.style.top, 10)  || null,
+            min:  el.classList.contains('minimised')
+        };
+        _saveState(s);
+    }
+    function _restoreCardPos(id, el) {
+        const s = _loadState();
+        const cp = (s.cards || {})[id];
+        if (cp) {
+            if (cp.left != null) el.style.left = cp.left + 'px';
+            if (cp.top  != null) el.style.top  = cp.top  + 'px';
+            if (cp.min) el.classList.add('minimised');
+        } else {
+            // Default dock: cards land along the bottom edge so the centre
+            // canvas (images / video / VJ rig) stays visible while playing.
+            const n  = state.order.length;
+            const W  = 600, GAP = 16;
+            const vw = window.innerWidth  || 1920;
+            const vh = window.innerHeight || 1080;
+            const totalRow = 3 * W + 2 * GAP;
+            const startX   = Math.max(20, (vw - totalRow) / 2);
+            el.style.left = (startX + n * (W + GAP)) + 'px';
+            el.style.top  = (vh - 440) + 'px';
+        }
+    }
+
+    function open() {
+        const bd = document.getElementById('ss-backdrop');
+        if (!bd) return;
+        bd.classList.add('visible');
+        // Default to stealth (canvas visible) unless user explicitly turned it off
+        const pref = localStorage.getItem('vngrd.sonicsuite.stealth');
+        if (pref !== '0') bd.classList.add('stealth');
+        _syncCanvasBtn();
+        state.open = true;
+        const btn = document.getElementById('vt-sonic-launch-btn');
+        if (btn) btn.classList.add('active');
+        const status = document.getElementById('vt-sonic-status');
+        if (status) { status.textContent = 'STUDIO LIVE'; status.classList.add('live'); }
+        _ensureAudio();
+    }
+    function _syncCanvasBtn() {
+        const bd = document.getElementById('ss-backdrop');
+        const b  = document.getElementById('ss-canvas-btn');
+        if (!bd || !b) return;
+        const on = bd.classList.contains('stealth');
+        b.style.borderColor = on ? '#00f3ff' : '';
+        b.style.color       = on ? '#00f3ff' : '';
+        b.style.background  = on ? 'rgba(0,243,255,.14)' : '';
+        b.textContent       = on ? '◈ CANVAS ON' : '◈ CANVAS';
+    }
+    function close() {
+        stop();
+        const bd = document.getElementById('ss-backdrop');
+        if (bd) bd.classList.remove('visible');
+        state.open = false;
+        const btn = document.getElementById('vt-sonic-launch-btn');
+        if (btn) btn.classList.remove('active');
+        const status = document.getElementById('vt-sonic-status');
+        if (status) { status.textContent = 'DRUMS · BASS · CODE · MIXER'; status.classList.remove('live'); }
+    }
+    function toggle() { state.open ? close() : open(); }
+
+    document.addEventListener('DOMContentLoaded', function() {
+        const bpm = document.getElementById('ss-bpm');
+        if (bpm) bpm.addEventListener('input', function() { setBPM(bpm.value); });
+        const play = document.getElementById('ss-play');
+        if (play) play.addEventListener('click', start);
+        const stopB = document.getElementById('ss-stop');
+        if (stopB) stopB.addEventListener('click', stop);
+        const hide = document.getElementById('ss-hide');
+        if (hide) hide.addEventListener('click', close);
+        const canvasBtn = document.getElementById('ss-canvas-btn');
+        if (canvasBtn) canvasBtn.addEventListener('click', function() {
+            const bd = document.getElementById('ss-backdrop');
+            if (!bd) return;
+            bd.classList.toggle('stealth');
+            localStorage.setItem('vngrd.sonicsuite.stealth', bd.classList.contains('stealth') ? '1' : '0');
+            _syncCanvasBtn();
+        });
+
+        // ── REC: MediaRecorder tap off the limiter, downloads .webm on stop ──
+        const recBtn = document.getElementById('ss-rec');
+        let _rec = null, _recChunks = [], _recDest = null;
+        if (recBtn) recBtn.addEventListener('click', function() {
+            const a = _ensureAudio(); if (!a) return;
+            if (_rec && _rec.state === 'recording') {
+                _rec.stop();
+                recBtn.textContent = '● REC';
+                recBtn.style.background = '';
+                recBtn.classList.remove('playing');
+                return;
+            }
+            if (!_recDest) {
+                _recDest = a.ctx.createMediaStreamDestination();
+                a.limiter.connect(_recDest);
+            }
+            _recChunks = [];
+            try {
+                _rec = new MediaRecorder(_recDest.stream, { mimeType: 'audio/webm;codecs=opus' });
+            } catch (e) { _rec = new MediaRecorder(_recDest.stream); }
+            _rec.ondataavailable = e => { if (e.data && e.data.size) _recChunks.push(e.data); };
+            _rec.onstop = () => {
+                const blob = new Blob(_recChunks, { type: _rec.mimeType || 'audio/webm' });
+                const url  = URL.createObjectURL(blob);
+                const ts   = new Date().toISOString().replace(/[:.]/g, '-').slice(0, 19);
+                const link = document.createElement('a');
+                link.href = url; link.download = 'vngrd-' + ts + '.webm';
+                document.body.appendChild(link); link.click();
+                setTimeout(() => { URL.revokeObjectURL(url); link.remove(); }, 400);
+            };
+            _rec.start();
+            recBtn.textContent = '■ STOP REC';
+            recBtn.style.background = 'rgba(255,60,60,.25)';
+            recBtn.classList.add('playing');
+        });
+
+        // Esc closes
+        document.addEventListener('keydown', function(e) {
+            if (e.key === 'Escape' && state.open) close();
+        });
+    });
+
+    return {
+        open, close, toggle,
+        start, stop, setBPM,
+        registerCard, setMute, setFocus,
+        _state: state,
+    };
+})();
+
+
+// ═══════════════════════════════════════════════════════════════
+//  VNGRD CODE CARD — live-coding DSL
+//  Exposed in the sandbox: bpm, beat, play, synth, loop, tone
+//    bpm(v)          — set master BPM
+//    await beat(v)   — wait v beats anchored to the master clock
+//    play(n, vol?)   — fire Sampler pad (window.play passthrough)
+//    synth(t, n, v)  — InternalSynth voice (window.synth passthrough)
+//    tone(hz, dur, env?) — quick sine lead through the card bus
+//    loop(fn)        — re-run fn forever until STOP
+//  Program executes as an async function; STOP sets cancel=true and
+//  the next beat()/loop iteration rejects.
+// ═══════════════════════════════════════════════════════════════
+(function() {
+    const DEFAULT_CODE =
+        "// VNGRD live-coder. Press ▶ RUN or ◎ LOOP.\n" +
+        "bpm(128);\n" +
+        "const notes = [55, 110, 73.4, 82.4];\n" +
+        "await loop(async () => {\n" +
+        "  for (const n of notes) {\n" +
+        "    tone(n,      0.22, { wave:'sawtooth', peak:0.28, filter:900 });\n" +
+        "    tone(n * 2,  0.18, { wave:'triangle', peak:0.18 });\n" +
+        "    await beat(0.5);\n" +
+        "  }\n" +
+        "});\n";
+
+    function _makeApi(ctx, cancelRef) {
+        const state = SonicSuite._state;
+        function _waitBeats(v) {
+            return new Promise(function(resolve, reject) {
+                const a = ctx.audioCtx;
+                const spb = 60 / state.bpm;
+                const target = a.currentTime + v * spb;
+                function poll() {
+                    if (cancelRef.cancel) return reject(new Error('cancel'));
+                    if (a.currentTime >= target) return resolve();
+                    setTimeout(poll, 8);
+                }
+                poll();
+            });
+        }
+        // Richer tone: dual detuned oscs + optional LPF, ADSR-ish envelope.
+        // env = { wave, peak, attack, release, filter (cutoff Hz), q, detune }
+        function _tone(hz, dur, env) {
+            const a = ctx.audioCtx;
+            const t = a.currentTime;
+            env = env || {};
+            const wave    = env.wave    || 'sine';
+            const peak    = env.peak    != null ? env.peak    : 0.32;
+            const attack  = env.attack  != null ? env.attack  : 0.005;
+            const release = env.release != null ? env.release : Math.min(0.3, dur * 0.5);
+            const dt      = env.detune  != null ? env.detune  : (wave === 'sine' ? 0 : 9);
+            const g = a.createGain();
+            g.gain.setValueAtTime(0, t);
+            g.gain.linearRampToValueAtTime(peak, t + attack);
+            g.gain.setValueAtTime(peak, t + Math.max(attack, dur - release));
+            g.gain.exponentialRampToValueAtTime(0.0001, t + dur);
+            let tail = g;
+            if (env.filter) {
+                const f = a.createBiquadFilter();
+                f.type = 'lowpass';
+                f.frequency.value = env.filter;
+                f.Q.value = env.q != null ? env.q : 1.2;
+                g.connect(f); tail = f;
+            }
+            function _osc(detCents, level) {
+                const o = a.createOscillator();
+                o.type = wave;
+                o.frequency.setValueAtTime(hz, t);
+                if (detCents) o.detune.value = detCents;
+                const og = a.createGain(); og.gain.value = level;
+                o.connect(og).connect(g);
+                o.start(t); o.stop(t + dur + 0.2);
+            }
+            _osc(0, dt ? 0.55 : 0.8);
+            if (dt) _osc(+dt, 0.45);
+            tail.connect(ctx.bus);
+        }
+        // Awaitable loop: blocks until cancelled. Inside: run fn forever.
+        // Guarded so a second loop() call with the same cancelRef returns
+        // the existing promise instead of stacking a parallel loop — this
+        // makes LOOP mode safe even if the user forgets `await`.
+        function _loop(fn) {
+            if (cancelRef._loopActive) return cancelRef._loopActive;
+            const p = (async function run() {
+                while (!cancelRef.cancel) {
+                    try { await fn(); }
+                    catch (e) {
+                        if (cancelRef.cancel || (e && e.message === 'cancel')) return;
+                        throw e;
+                    }
+                    await new Promise(r => setTimeout(r, 0));
+                }
+            })();
+            cancelRef._loopActive = p;
+            return p;
+        }
+        return {
+            bpm:   v => SonicSuite.setBPM(v),
+            beat:  _waitBeats,
+            play:  (n, v) => (typeof window.play === 'function' ? window.play(n, v) : null),
+            synth: (...args) => (typeof window.synth === 'function' ? window.synth.apply(null, args) : null),
+            tone:  _tone,
+            loop:  _loop
+        };
+    }
+
+    function init() {
+        SonicSuite.registerCard('code', {
+            tag: 'C',
+            label: '◈ CODE',
+            mount(body, ctx) {
+                const state = { cancelRef: { cancel: false }, running: false };
+
+                const ta = document.createElement('textarea');
+                ta.className = 'ss-code-ta';
+                ta.value = DEFAULT_CODE;
+                ta.spellcheck = false;
+                ta.style.cssText =
+                    'width:100%;min-height:150px;padding:8px;' +
+                    'background:#00060a;color:#9ff;border:1px solid rgba(0,243,255,.3);' +
+                    'font-family:\'JetBrains Mono\',monospace;font-size:10px;line-height:1.4;' +
+                    'resize:vertical;outline:none;border-radius:2px;';
+                body.appendChild(ta);
+
+                const row = document.createElement('div');
+                row.style.cssText = 'display:flex;gap:6px;align-items:center;';
+                row.innerHTML =
+                    '<button class="ss-card-btn ss-code-run"  style="width:auto;padding:0 10px;">▶ RUN</button>' +
+                    '<button class="ss-card-btn ss-code-loop" style="width:auto;padding:0 10px;">◎ LOOP</button>' +
+                    '<button class="ss-card-btn ss-code-stop" style="width:auto;padding:0 10px;color:rgba(255,120,0,.85);border-color:rgba(255,120,0,.4);">■ STOP</button>' +
+                    '<span class="ss-code-status" style="flex:1;text-align:right;font-family:\'JetBrains Mono\',monospace;font-size:9px;color:rgba(0,243,255,.45);">IDLE</span>';
+                body.appendChild(row);
+
+                const status = row.querySelector('.ss-code-status');
+                function _run(looped) {
+                    if (state.running) _stop();
+                    const cancel = { cancel: false };
+                    state.cancelRef = cancel;
+                    state.running = true;
+                    status.textContent = looped ? 'LOOPING' : 'RUNNING';
+                    status.style.color = '#00f3ff';
+                    const api = _makeApi(ctx, cancel);
+                    const src = ta.value;
+                    const wrapped = looped
+                        ? 'return (async function(){ while(!__cancel.cancel){ await (async function(){\n' + src + '\n}).call(null); } })();'
+                        : 'return (async function(){\n' + src + '\n})();';
+                    try {
+                        const fn = new Function('bpm','beat','play','synth','loop','tone','__cancel', wrapped);
+                        const p = fn(api.bpm, api.beat, api.play, api.synth, api.loop, api.tone, cancel);
+                        Promise.resolve(p).then(
+                            () => {
+                                if (state.cancelRef !== cancel) return;
+                                state.running = false;
+                                status.textContent = cancel.cancel ? 'STOPPED' : 'DONE';
+                                status.style.color = cancel.cancel ? 'rgba(255,120,0,.85)' : 'rgba(0,243,255,.5)';
+                            },
+                            err => {
+                                if (state.cancelRef !== cancel) return;
+                                state.running = false;
+                                const msg = (err && err.message) || String(err);
+                                if (msg === 'cancel') {
+                                    status.textContent = 'STOPPED';
+                                    status.style.color = 'rgba(255,120,0,.85)';
+                                } else {
+                                    status.textContent = 'ERR: ' + msg.slice(0, 40);
+                                    status.style.color = '#ff4444';
+                                }
+                            }
+                        );
+                    } catch (e) {
+                        state.running = false;
+                        status.textContent = 'PARSE: ' + e.message.slice(0, 40);
+                        status.style.color = '#ff4444';
+                    }
+                }
+                function _stop() {
+                    if (state.cancelRef) state.cancelRef.cancel = true;
+                    state.running = false;
+                    status.textContent = 'STOPPED';
+                    status.style.color = 'rgba(255,120,0,.85)';
+                }
+
+                row.querySelector('.ss-code-run').addEventListener('click',  () => _run(false));
+                row.querySelector('.ss-code-loop').addEventListener('click', () => _run(true));
+                row.querySelector('.ss-code-stop').addEventListener('click', _stop);
+
+                this._stop = _stop;
+                this._runLoop = () => _run(true);
+                this._isRunning = () => state.running;
+            },
+            onStop() { if (this._stop) this._stop(); },
+            onCardPlay(btn) {
+                if (this._isRunning && this._isRunning()) {
+                    if (this._stop) this._stop();
+                    btn.textContent = '▶';
+                    btn.classList.remove('playing');
+                } else if (this._runLoop) {
+                    this._runLoop();
+                    btn.textContent = '■';
+                    btn.classList.add('playing');
+                }
+            }
+        });
+    }
+
+    document.addEventListener('DOMContentLoaded', function() {
+        const btn = document.getElementById('vt-sonic-launch-btn');
+        function _once() {
+            btn && btn.removeEventListener('click', _once);
+            setTimeout(init, 90);
+        }
+        btn && btn.addEventListener('click', _once);
+    });
+})();
+
+
+// ═══════════════════════════════════════════════════════════════
+//  VNGRD SLICER / SAMPLER CARD
+//  File upload OR live SNAP from master output → 16 pads + sequencer.
+//  Sound engine: anti-click exponential envelope, optional LP/HP filter,
+//  global TUNE transpose, per-pad loop mode (hold pad), peak normalize.
+//  Rolling 10-s circular buffer records master continuously; SNAP freezes
+//  it into slices instantly while the live track keeps playing.
+// ═══════════════════════════════════════════════════════════════
+(function() {
+    const MAX_SLICES = 16;
+    const STEPS      = 16;
+    const VEL_LEVELS = [1.0, 0.66, 0.33];
+    const DIR_NAMES  = ['FWD', 'REV', 'PP', 'RND'];
+
+    // ── Equal-division fallback (always works, immediately musical) ──
+    function _equalOnsets(buffer, count) {
+        const onsets = [];
+        for (let i = 0; i < count; i++)
+            onsets.push(Math.floor(i * buffer.length / count));
+        return onsets;
+    }
+
+    // ── Spectral-flux onset detection — sens > 1 = more sensitive ──
+    function _detectOnsets(buffer, sens) {
+        const ch     = buffer.getChannelData(0);
+        const hop    = 512;
+        const win    = 2048;
+        const minGap = Math.floor(buffer.sampleRate * 0.07);
+        const thresh = 0.018 / Math.max(0.1, sens || 1.0);
+        const onsets = [0];
+        let prevRMS  = 0;
+        for (let i = 0; i + win < ch.length; i += hop) {
+            let s = 0;
+            for (let j = 0; j < win; j++) s += ch[i + j] * ch[i + j];
+            const rms  = Math.sqrt(s / win);
+            const flux = Math.max(0, rms - prevRMS);
+            prevRMS = rms;
+            if (flux > thresh && (i - onsets[onsets.length - 1]) >= minGap)
+                onsets.push(i);
+        }
+        return onsets.slice(0, MAX_SLICES);
+    }
+
+    // ── Build slice AudioBuffers from onset sample positions ─────────
+    function _buildSlices(actx, buffer, onsets) {
+        const sr = buffer.sampleRate;
+        const ch = buffer.numberOfChannels;
+        return onsets.map((start, idx) => {
+            const end  = onsets[idx + 1] || buffer.length;
+            const size = Math.max(1, end - start);
+            const sb   = actx.createBuffer(ch, size, sr);
+            for (let c = 0; c < ch; c++) {
+                const src = buffer.getChannelData(c);
+                const dst = sb.getChannelData(c);
+                for (let j = 0; j < size; j++) dst[j] = src[start + j] || 0;
+            }
+            return sb;
+        });
+    }
+
+    // ── Pre-compute reversed copies so reverse is free at play-time ──
+    function _buildRevSlices(actx, slices) {
+        return slices.map(sb => {
+            const rb = actx.createBuffer(sb.numberOfChannels, sb.length, sb.sampleRate);
+            for (let c = 0; c < sb.numberOfChannels; c++) {
+                rb.copyToChannel(sb.getChannelData(c).slice().reverse(), c);
+            }
+            return rb;
+        });
+    }
+
+    // ── In-place peak normalization — each slice → –1.5 dBFS ────────
+    function _normalizeSlices(slices) {
+        slices.forEach(sb => {
+            let peak = 0;
+            for (let c = 0; c < sb.numberOfChannels; c++) {
+                const d = sb.getChannelData(c);
+                for (let i = 0; i < d.length; i++)
+                    if (Math.abs(d[i]) > peak) peak = Math.abs(d[i]);
+            }
+            if (peak < 0.002) return;
+            const gain = 0.84 / peak;
+            for (let c = 0; c < sb.numberOfChannels; c++) {
+                const d = sb.getChannelData(c);
+                for (let i = 0; i < d.length; i++) d[i] *= gain;
+            }
+        });
+    }
+
+    // ── Professional fire: exponential envelope + optional biquad ───
+    //    totalSemi = (chromatic offset) + (global tune)
+    function _fire(actx, dest, buf, t, pitch, gate, vel, totalSemi, atk, rel, filt, ftype) {
+        if (!buf) return;
+        const bsn  = actx.createBufferSource();
+        bsn.buffer = buf;
+        const rate    = pitch * Math.pow(2, (totalSemi || 0) / 12);
+        bsn.playbackRate.value = rate;
+        const dur     = Math.max(0.015, (buf.duration / rate) * (gate || 0.92));
+        const atkTime = Math.min(atk || 0.004, dur * 0.4);
+        const relTime = Math.min(rel || 0.08,  dur - atkTime);
+        // Exponential velocity curve — more musical under fingers
+        const peak    = 0.88 * Math.pow(vel == null ? 1 : Math.max(0.001, vel), 1.4);
+
+        const g = actx.createGain();
+        g.gain.setValueAtTime(0.0001, t);
+        g.gain.exponentialRampToValueAtTime(peak, t + atkTime);
+        if (dur - atkTime - relTime > 0.001)
+            g.gain.setValueAtTime(peak, t + dur - relTime);
+        g.gain.exponentialRampToValueAtTime(0.0001, t + dur);
+
+        bsn.connect(g);
+        if (ftype && ftype !== 'off' && filt < 0.999) {
+            const fnode = actx.createBiquadFilter();
+            fnode.type  = ftype;
+            // Exponential Hz map: 200 Hz at filt=0, 20 kHz at filt=1
+            fnode.frequency.value = Math.min(20000, 200 * Math.pow(100, filt));
+            fnode.Q.value = 1.2;
+            g.connect(fnode);
+            fnode.connect(dest);
+        } else {
+            g.connect(dest);
+        }
+        bsn.start(t);
+        bsn.stop(t + dur + 0.05);
+    }
+
+    // ── Loop fire — caller stops via returned {bsn, g} handle ───────
+    function _fireLoop(actx, dest, buf, t, pitch, vel, totalSemi) {
+        if (!buf) return null;
+        const bsn  = actx.createBufferSource();
+        bsn.buffer = buf;
+        bsn.loop   = true;
+        const rate = pitch * Math.pow(2, (totalSemi || 0) / 12);
+        bsn.playbackRate.value = rate;
+        const g = actx.createGain();
+        g.gain.setValueAtTime(0.0001, t);
+        g.gain.exponentialRampToValueAtTime(0.88 * Math.max(0.001, vel || 1), t + 0.012);
+        bsn.connect(g).connect(dest);
+        bsn.start(t);
+        return { bsn, g };
+    }
+
+    // ── Resolve pattern index for current tick / direction ──────────
+    function _resolveIdx(tick, len, dir, ppRef) {
+        if (len <= 1) return 0;
+        switch (dir) {
+            case 1: return (len - 1 - (tick % len));          // REV
+            case 2: {                                         // PP
+                const period = 2 * (len - 1);
+                const phase  = tick % period;
+                return phase < len ? phase : period - phase;
+            }
+            case 3: return Math.floor(Math.random() * len);   // RND
+            default: return tick % len;                       // FWD
+        }
+    }
+
+    // ── Waveform: RMS energy envelope (amber) + min/max (cyan) ─────
+    function _drawWave(canvas, buffer, onsets) {
+        const W   = canvas.width, H = canvas.height;
+        const c2  = canvas.getContext('2d');
+        const ch  = buffer.getChannelData(0);
+        const mid = H * 0.5;
+        c2.clearRect(0, 0, W, H);
+        c2.fillStyle = '#000c14';
+        c2.fillRect(0, 0, W, H);
+        const step = Math.max(1, Math.floor(ch.length / W));
+
+        // RMS envelope — amber layer, gives energy shape at a glance
+        c2.beginPath();
+        c2.strokeStyle = 'rgba(255,170,0,.38)';
+        c2.lineWidth   = 1.5;
+        for (let x = 0; x < W; x++) {
+            let sum = 0;
+            for (let j = 0; j < step; j++) { const v = ch[x * step + j] || 0; sum += v * v; }
+            const y = mid - Math.sqrt(sum / step) * mid * 0.94;
+            x === 0 ? c2.moveTo(0, y) : c2.lineTo(x, y);
+        }
+        c2.stroke();
+
+        // Min/max waveform — cyan
+        c2.beginPath();
+        c2.strokeStyle = 'rgba(0,243,255,.7)';
+        c2.lineWidth   = 1;
+        for (let x = 0; x < W; x++) {
+            let lo = 1, hi = -1;
+            for (let j = 0; j < step; j++) {
+                const v = ch[x * step + j] || 0;
+                if (v < lo) lo = v; if (v > hi) hi = v;
+            }
+            const y0 = (0.5 - hi * 0.47) * H;
+            const y1 = (0.5 - lo * 0.47) * H;
+            x === 0 ? c2.moveTo(0, y0) : c2.lineTo(x, y0);
+            c2.lineTo(x, y1);
+        }
+        c2.stroke();
+
+        // Slice boundary markers
+        onsets.forEach((s, i) => {
+            const x = Math.floor(s / buffer.length * W);
+            c2.strokeStyle = i === 0 ? 'rgba(255,200,0,.82)' : 'rgba(255,80,80,.65)';
+            c2.lineWidth   = 1;
+            c2.beginPath(); c2.moveTo(x, 0); c2.lineTo(x, H); c2.stroke();
+            c2.fillStyle = i === 0 ? 'rgba(255,200,0,.9)' : 'rgba(255,80,80,.85)';
+            c2.font = '6.5px monospace';
+            c2.fillText(i + 1, x + 2, 9);
+        });
+    }
+
+    function init() {
+        SonicSuite.registerCard('slicer', {
+            tag:   'S',
+            label: '◈ SLICER',
+            mount(body, ctx) {
+                const st = {
+                    slices:     [],
+                    revSlices:  [],
+                    onsets:     [],
+                    sequence:   new Array(STEPS).fill(-1),
+                    velocity:   new Array(STEPS).fill(0),
+                    pitch:      1.0,
+                    gate:       0.92,
+                    tune:       0,      // global semitone transpose −12..+12
+                    atk:        0.004,  // per-voice attack  (seconds)
+                    rel:        0.08,   // per-voice release (seconds)
+                    filt:       1.0,    // filter cutoff 0..1 (exp Hz map)
+                    ftype:      'off',  // 'off' | 'lowpass' | 'highpass'
+                    sens:       1.0,    // onset detection sensitivity
+                    reverse:    false,
+                    chromatic:  false,
+                    record:     false,
+                    swing:      0.0,
+                    len:        16,
+                    dir:        0,
+                    tick:       0,
+                    activeStep: -1,
+                };
+
+                // ── Scoped CSS (injected once) ─────────────────────
+                if (!document.getElementById('sl-style')) {
+                    const sEl = document.createElement('style'); sEl.id = 'sl-style';
+                    sEl.textContent =
+                        '.ss-slicer-step .sl-vb{position:absolute;left:0;right:0;bottom:0;' +
+                        'background:linear-gradient(to top,rgba(0,243,255,.35),rgba(0,243,255,.05));' +
+                        'pointer-events:none;transition:height .08s;height:0;}' +
+                        '.ss-slicer-step .sl-sl{position:relative;z-index:1;}' +
+                        '.sl-lbl{font-size:6.5px;color:rgba(0,243,255,.38);letter-spacing:1.5px;}' +
+                        '.sl-val{font:8px/1 \'JetBrains Mono\',monospace;color:#00f3ff;min-width:26px;display:inline-block;}' +
+                        '.ss-slicer-pad{transition:background .06s,box-shadow .06s;}' +
+                        '.ss-slicer-pad.hit{background:rgba(0,243,255,.25)!important;box-shadow:0 0 8px rgba(0,243,255,.55);}' +
+                        '.ss-slicer-pad.looping{background:rgba(255,200,0,.15)!important;box-shadow:0 0 10px 2px rgba(255,200,0,.55);}' +
+                        '@keyframes sl-pulse{0%,100%{box-shadow:0 0 0 0 rgba(255,200,0,0)}50%{box-shadow:0 0 7px 2px rgba(255,200,0,.55)}}' +
+                        '.sl-snap-armed{animation:sl-pulse 1.4s ease-in-out infinite;}';
+                    document.head.appendChild(sEl);
+                }
+
+                // ── SNAP recording indicator (fills over 10 s) ────
+                const snapBar = document.createElement('div');
+                snapBar.style.cssText = 'height:2px;background:rgba(0,243,255,.08);margin-bottom:3px;border-radius:1px;overflow:hidden;';
+                snapBar.innerHTML = '<div style="height:100%;width:0%;background:rgba(255,200,0,.7);transition:width 10s linear;"></div>';
+                body.appendChild(snapBar);
+
+                // ── Drop zone ─────────────────────────────────────
+                const drop = document.createElement('div');
+                drop.style.cssText =
+                    'border:2px dashed rgba(0,243,255,.28);border-radius:3px;' +
+                    'padding:8px;text-align:center;cursor:pointer;' +
+                    'font-size:8px;letter-spacing:2px;color:rgba(0,243,255,.4);' +
+                    'margin-bottom:5px;transition:all .15s;';
+                drop.textContent = '▼ DROP AUDIO  OR  CLICK TO BROWSE';
+                body.appendChild(drop);
+
+                const fileIn = document.createElement('input');
+                fileIn.type = 'file'; fileIn.accept = 'audio/*';
+                fileIn.style.display = 'none';
+                body.appendChild(fileIn);
+
+                // ── Waveform (canvas + flash overlay in relative wrapper) ──
+                const waveWrap = document.createElement('div');
+                waveWrap.style.cssText = 'position:relative;margin-bottom:5px;';
+                body.appendChild(waveWrap);
+
+                const waveCanvas = document.createElement('canvas');
+                waveCanvas.width = 336; waveCanvas.height = 48;
+                waveCanvas.style.cssText =
+                    'width:100%;height:48px;display:block;border-radius:2px;' +
+                    'border:1px solid rgba(0,243,255,.15);';
+                waveWrap.appendChild(waveCanvas);
+
+                // Translucent overlay highlights the active slice on each trigger
+                const waveFlash = document.createElement('div');
+                waveFlash.style.cssText =
+                    'position:absolute;top:0;bottom:0;left:0;width:0;' +
+                    'background:rgba(255,200,0,.28);pointer-events:none;' +
+                    'border-radius:2px;opacity:0;transition:opacity .1s;';
+                waveWrap.appendChild(waveFlash);
+
+                // ── 16 pads — click fires, hold ≥200 ms loops, SHIFT = chromatic ──
+                const padGrid = document.createElement('div');
+                padGrid.style.cssText = 'display:grid;grid-template-columns:repeat(16,1fr);gap:2px;margin-bottom:4px;';
+                let activeLoop = null; // { bsn, g, padEl }
+                const padEls = Array.from({ length: MAX_SLICES }, (_, i) => {
+                    const b = document.createElement('button');
+                    b.className = 'ss-slicer-pad';
+                    b.textContent = String(i + 1).padStart(2, '0');
+                    b.style.cssText =
+                        'opacity:.22;border:1px solid rgba(0,243,255,.12);background:transparent;' +
+                        'color:rgba(0,243,255,.3);border-radius:2px;cursor:pointer;' +
+                        'font-size:7px;padding:2px 0;line-height:1.4;';
+
+                    let holdTimer = null;
+
+                    b.addEventListener('pointerdown', ev => {
+                        if (!st.slices.length) return;
+                        b.setPointerCapture(ev.pointerId);
+                        const chroma    = st.chromatic || ev.shiftKey;
+                        const idx       = chroma ? 0 : i;
+                        const semiOff   = chroma ? (i - 8) : 0;
+                        const totalSemi = semiOff + st.tune;
+                        if (!st.slices[idx]) return;
+                        const buf = st.reverse ? st.revSlices[idx] : st.slices[idx];
+
+                        // Immediate one-shot
+                        _fire(ctx.audioCtx, ctx.bus, buf, ctx.audioCtx.currentTime,
+                              st.pitch, st.gate, 1.0, totalSemi, st.atk, st.rel, st.filt, st.ftype);
+                        _flashSlice(idx);
+
+                        if (st.record && st.activeStep >= 0) {
+                            st.sequence[st.activeStep] = idx;
+                            st.velocity[st.activeStep] = 0;
+                            _paintSeq();
+                        }
+                        b.classList.add('hit');
+                        setTimeout(() => b.classList.remove('hit'), 140);
+
+                        // Hold ≥ 200 ms → engage loop mode
+                        holdTimer = setTimeout(() => {
+                            holdTimer = null;
+                            if (activeLoop) {
+                                activeLoop.g.gain.setTargetAtTime(0, ctx.audioCtx.currentTime, 0.05);
+                                activeLoop.bsn.stop(ctx.audioCtx.currentTime + 0.3);
+                                activeLoop.padEl && activeLoop.padEl.classList.remove('looping');
+                            }
+                            activeLoop = _fireLoop(ctx.audioCtx, ctx.bus, buf,
+                                ctx.audioCtx.currentTime, st.pitch, 1.0, totalSemi);
+                            if (activeLoop) { activeLoop.padEl = b; b.classList.add('looping'); }
+                        }, 200);
+                    });
+
+                    b.addEventListener('pointerup', () => {
+                        if (holdTimer) { clearTimeout(holdTimer); holdTimer = null; }
+                        if (activeLoop && activeLoop.padEl === b) {
+                            activeLoop.g.gain.setTargetAtTime(0, ctx.audioCtx.currentTime, 0.06);
+                            activeLoop.bsn.stop(ctx.audioCtx.currentTime + 0.35);
+                            b.classList.remove('looping');
+                            activeLoop = null;
+                        }
+                    });
+
+                    padGrid.appendChild(b);
+                    return b;
+                });
+                body.appendChild(padGrid);
+
+                // ── Step sequencer (click cycles slice, ALT cycles velocity, right = clear) ─
+                const seqGrid = document.createElement('div');
+                seqGrid.style.cssText = 'display:grid;grid-template-columns:repeat(16,1fr);gap:2px;margin-bottom:7px;';
+                const seqEls = Array.from({ length: STEPS }, (_, i) => {
+                    const b = document.createElement('button');
+                    b.className = 'ss-slicer-step';
+                    b.dataset.idx = i;
+                    b.innerHTML = '<span class="sl-vb"></span><span class="sl-sl">—</span>';
+                    b.style.cssText = 'position:relative;overflow:hidden;background:transparent;' +
+                        'border:1px solid rgba(0,243,255,' + (i % 4 === 0 ? '.28' : '.12') + ');' +
+                        'color:rgba(0,243,255,.28);border-radius:1px;cursor:pointer;padding:0;';
+                    b.addEventListener('click', e => {
+                        if (!st.slices.length) return;
+                        if (e.altKey) {
+                            // cycle velocity
+                            if (st.sequence[i] < 0) return;
+                            st.velocity[i] = (st.velocity[i] + 1) % VEL_LEVELS.length;
+                        } else {
+                            // cycle slice idx
+                            const cur = st.sequence[i];
+                            st.sequence[i] = (cur < st.slices.length - 1) ? cur + 1 : -1;
+                            if (st.sequence[i] === 0) st.velocity[i] = 0; // reset vel on fresh assignment
+                        }
+                        _paintSeq();
+                    });
+                    b.addEventListener('contextmenu', e => {
+                        e.preventDefault();
+                        st.sequence[i] = -1;
+                        st.velocity[i] = 0;
+                        _paintSeq();
+                    });
+                    seqGrid.appendChild(b);
+                    return b;
+                });
+                body.appendChild(seqGrid);
+
+                // ── Row 1: PITCH / GATE / TUNE / [REV] [DETECT] [NORM] [CLR] ──
+                const ctrl = document.createElement('div');
+                ctrl.style.cssText = 'display:flex;gap:5px;align-items:center;flex-wrap:wrap;margin-bottom:4px;';
+                ctrl.innerHTML =
+                    '<span class="sl-lbl">PITCH</span>' +
+                    '<input type="range" class="sl-pitch" min="0.25" max="4" step="0.01" value="1" style="width:44px;">' +
+                    '<span class="sl-pv sl-val">×1.00</span>' +
+                    '<span class="sl-lbl">GATE</span>' +
+                    '<input type="range" class="sl-gate" min="0.05" max="1" step="0.01" value="0.92" style="width:44px;">' +
+                    '<span class="sl-gv sl-val">0.92</span>' +
+                    '<span class="sl-lbl">TUNE</span>' +
+                    '<input type="range" class="sl-tune" min="-12" max="12" step="1" value="0" style="width:40px;">' +
+                    '<span class="sl-tv sl-val" style="min-width:24px;">0st</span>' +
+                    '<button class="ss-card-btn sl-rev"  style="width:auto;padding:0 5px;font-size:7px;">REV</button>' +
+                    '<button class="ss-card-btn sl-det"  style="width:auto;padding:0 5px;font-size:7px;">DETECT</button>' +
+                    '<button class="ss-card-btn sl-norm" style="width:auto;padding:0 5px;font-size:7px;" title="Peak-normalize all slices to -1.5 dBFS">NORM</button>' +
+                    '<button class="ss-card-btn sl-clr"  style="width:auto;padding:0 5px;font-size:7px;">CLR</button>';
+                body.appendChild(ctrl);
+
+                // ── Row 2: SWG / LEN / SENS / [DIR] [CHR] [REC] [[SNAP]] ──
+                const ctrl2 = document.createElement('div');
+                ctrl2.style.cssText = 'display:flex;gap:5px;align-items:center;flex-wrap:wrap;margin-bottom:4px;';
+                ctrl2.innerHTML =
+                    '<span class="sl-lbl">SWG</span>' +
+                    '<input type="range" class="sl-swing" min="0" max="0.7" step="0.01" value="0" style="width:36px;">' +
+                    '<span class="sl-sv sl-val">0%</span>' +
+                    '<span class="sl-lbl">LEN</span>' +
+                    '<input type="range" class="sl-len" min="1" max="16" step="1" value="16" style="width:36px;">' +
+                    '<span class="sl-lv sl-val">16</span>' +
+                    '<span class="sl-lbl">SENS</span>' +
+                    '<input type="range" class="sl-sens" min="0.3" max="3" step="0.1" value="1" style="width:34px;">' +
+                    '<span class="sl-snv sl-val">×1.0</span>' +
+                    '<button class="ss-card-btn sl-dir"  style="width:auto;padding:0 5px;font-size:7px;">FWD</button>' +
+                    '<button class="ss-card-btn sl-chr"  style="width:auto;padding:0 5px;font-size:7px;" title="Chromatic: 16 pads = ±8 semitones around root">CHR</button>' +
+                    '<button class="ss-card-btn sl-rec"  style="width:auto;padding:0 5px;font-size:7px;" title="Record pad hits into sequencer">REC</button>' +
+                    '<button class="ss-card-btn sl-snap" style="width:auto;padding:0 5px;font-size:7px;color:#ffc800;border-color:rgba(255,200,0,.5);" title="Freeze 10s of master output into pads">[ SNAP ]</button>';
+                body.appendChild(ctrl2);
+
+                // ── Row 3: ATK / REL / FILT / [FTYPE] ─────────────
+                const ctrl3 = document.createElement('div');
+                ctrl3.style.cssText = 'display:flex;gap:5px;align-items:center;flex-wrap:wrap;';
+                ctrl3.innerHTML =
+                    '<span class="sl-lbl">ATK</span>' +
+                    '<input type="range" class="sl-atk" min="0.001" max="0.12" step="0.001" value="0.004" style="width:38px;">' +
+                    '<span class="sl-av sl-val" style="min-width:28px;">4ms</span>' +
+                    '<span class="sl-lbl">REL</span>' +
+                    '<input type="range" class="sl-rel" min="0.01" max="0.5" step="0.005" value="0.08" style="width:38px;">' +
+                    '<span class="sl-rv sl-val" style="min-width:32px;">80ms</span>' +
+                    '<span class="sl-lbl">FILT</span>' +
+                    '<input type="range" class="sl-filt" min="0" max="1" step="0.01" value="1" style="width:44px;">' +
+                    '<span class="sl-fv sl-val" style="min-width:32px;">OPEN</span>' +
+                    '<button class="ss-card-btn sl-ftype" style="width:auto;padding:0 5px;font-size:7px;" title="Filter type">OFF</button>';
+                body.appendChild(ctrl3);
+
+                // ── Paint helpers ─────────────────────────────────
+                function _paintPads() {
+                    padEls.forEach((b, i) => {
+                        const has = !!st.slices[i];
+                        b.style.opacity     = has ? '1'   : '.22';
+                        b.style.color       = has ? '#00f3ff' : 'rgba(0,243,255,.3)';
+                        b.style.borderColor = has ? 'rgba(0,243,255,.45)' : 'rgba(0,243,255,.12)';
+                        // Chromatic mode: show semitone offset from root; else slice number
+                        if (has && st.chromatic) {
+                            const dispSemi = (i - 8) + st.tune;
+                            b.textContent = (dispSemi >= 0 ? '+' : '') + dispSemi;
+                        } else {
+                            b.textContent = String(i + 1).padStart(2, '0');
+                        }
+                    });
+                }
+
+                // Flash the slice region on the waveform overlay (single CSS transition)
+                function _flashSlice(idx) {
+                    if (!waveCanvas._rawBuf || st.onsets[idx] == null) return;
+                    const bufLen = waveCanvas._rawBuf.length;
+                    const x0 = (st.onsets[idx] / bufLen * 100).toFixed(2);
+                    const x1 = ((st.onsets[idx + 1] || bufLen) / bufLen * 100).toFixed(2);
+                    waveFlash.style.left    = x0 + '%';
+                    waveFlash.style.width   = (x1 - x0) + '%';
+                    waveFlash.style.opacity = '1';
+                    clearTimeout(waveFlash._t);
+                    waveFlash._t = setTimeout(() => { waveFlash.style.opacity = '0'; }, 70);
+                }
+
+                function _paintSeq() {
+                    seqEls.forEach((b, i) => {
+                        const v    = st.sequence[i];
+                        const vv   = VEL_LEVELS[st.velocity[i] || 0];
+                        const cur  = i === st.activeStep;
+                        const past = i >= st.len;
+                        const lbl  = b.firstElementChild.nextElementSibling;
+                        const bar  = b.firstElementChild;
+                        lbl.textContent      = v >= 0 ? String(v + 1).padStart(2, '0') : '—';
+                        bar.style.height     = v >= 0 ? Math.round(vv * 100) + '%' : '0';
+                        b.style.background   = cur ? 'rgba(0,243,255,.22)' : '';
+                        b.style.opacity      = past ? '.35' : '1';
+                        b.style.color        = cur ? '#eafeff' : (v >= 0 ? '#00f3ff' : 'rgba(0,243,255,.28)');
+                        b.style.borderColor  = cur ? '#00f3ff' :
+                            (v >= 0 ? 'rgba(0,243,255,.4)' :
+                             'rgba(0,243,255,' + (i % 4 === 0 ? '.28' : '.12') + ')');
+                        b.style.boxShadow    = cur ? '0 0 6px rgba(0,243,255,.35)' : '';
+                    });
+                }
+
+                // ── Shared buffer processor (file upload + snap share this path) ─
+                function _processNewBuffer(buf) {
+                    waveCanvas._rawBuf  = buf;
+                    st.onsets    = _equalOnsets(buf, MAX_SLICES);
+                    st.slices    = _buildSlices(ctx.audioCtx, buf, st.onsets);
+                    st.revSlices = _buildRevSlices(ctx.audioCtx, st.slices);
+                    for (let i = 0; i < STEPS; i++)
+                        st.sequence[i] = i < st.slices.length ? i : -1;
+                    _drawWave(waveCanvas, buf, st.onsets);
+                    _paintPads();
+                    _paintSeq();
+                }
+
+                // ── Rolling 10-second circular buffer (pre-allocated, never reallocated) ──
+                const _snapSR   = ctx.audioCtx.sampleRate;
+                const _snapLen  = Math.floor(_snapSR * 10);
+                const _snapCirc = new Float32Array(_snapLen); // mono, pre-alloc'd
+                let   _snapWP   = 0;   // circular write pointer (samples)
+                let   _snapSpn  = null;
+
+                function _startRollingCapture() {
+                    if (_snapSpn || !window._ssAnalyser) return;
+                    // ScriptProcessorNode records into pre-allocated _snapCirc.
+                    // No object allocation inside onaudioprocess — zero GC pressure.
+                    const spn = ctx.audioCtx.createScriptProcessor(4096, 1, 1);
+                    spn.onaudioprocess = function(e) {
+                        const inp   = e.inputBuffer.getChannelData(0);
+                        const circ  = _snapCirc;
+                        const total = _snapLen;
+                        let   wp    = _snapWP;
+                        for (let i = 0, n = inp.length; i < n; i++) {
+                            circ[wp] = inp[i];
+                            if (++wp === total) wp = 0;
+                        }
+                        _snapWP = wp;
+                        // Output buffer starts zeroed — no signal added to mix.
+                    };
+                    window._ssAnalyser.connect(spn);
+                    // Must connect SPN output to keep the node alive in Chrome.
+                    // Gain=0 so nothing audible reaches destination.
+                    const sink = ctx.audioCtx.createGain();
+                    sink.gain.value = 0;
+                    spn.connect(sink);
+                    sink.connect(ctx.audioCtx.destination);
+                    _snapSpn = spn;
+                    // Visual: pulse the SNAP button + animate fill bar (10 s warmup)
+                    const _sb = ctrl2.querySelector('.sl-snap');
+                    if (_sb) _sb.classList.add('sl-snap-armed');
+                    const fillEl = snapBar.firstElementChild;
+                    fillEl.style.transition = 'width 10s linear';
+                    fillEl.style.width = '100%';
+                }
+                // _ssAnalyser is set by _ensureAudio() which runs before mount(),
+                // but audio context may not be started yet — poll until available.
+                if (window._ssAnalyser) {
+                    _startRollingCapture();
+                } else {
+                    const _snapPoll = setInterval(function() {
+                        if (window._ssAnalyser) { clearInterval(_snapPoll); _startRollingCapture(); }
+                    }, 500);
+                }
+
+                // ── SNAP: freeze current 10-s window → slicer pads (instantaneous) ──
+                function snapToSlicer() {
+                    const wp  = _snapWP; // capture write-head before any further writes
+                    const cap = ctx.audioCtx.createBuffer(1, _snapLen, _snapSR);
+                    const dst = cap.getChannelData(0);
+                    // Unroll circular buffer into chronological order.
+                    dst.set(_snapCirc.subarray(wp), 0);
+                    dst.set(_snapCirc.subarray(0, wp), _snapLen - wp);
+                    _processNewBuffer(cap);
+                    drop.textContent       = '✓ SNAPPED — ' + st.slices.length + ' SLICES';
+                    drop.style.color       = 'rgba(0,243,255,.7)';
+                    drop.style.borderColor = 'rgba(0,243,255,.5)';
+                }
+
+                // ── Load & process (file upload path) ────────────────────────────
+                function _loadBuffer(arrayBuf) {
+                    drop.textContent = '⟳ DECODING…';
+                    ctx.audioCtx.decodeAudioData(arrayBuf,
+                        buf => {
+                            _processNewBuffer(buf);
+                            drop.textContent       = '✓ ' + st.slices.length + ' SLICES  —  DROP TO REPLACE';
+                            drop.style.color       = 'rgba(0,243,255,.7)';
+                            drop.style.borderColor = 'rgba(0,243,255,.5)';
+                        },
+                        () => {
+                            drop.textContent       = '✗ DECODE FAILED — try another file';
+                            drop.style.color       = '#ff4444';
+                            drop.style.borderColor = '#ff4444';
+                        }
+                    );
+                }
+
+                // ── File input ────────────────────────────────────
+                drop.addEventListener('click', () => fileIn.click());
+                fileIn.addEventListener('change', e => {
+                    const f = e.target.files[0];
+                    if (f) { const r = new FileReader(); r.onload = ev => _loadBuffer(ev.target.result); r.readAsArrayBuffer(f); }
+                    fileIn.value = '';
+                });
+                ['dragover','dragenter'].forEach(ev =>
+                    drop.addEventListener(ev, e => { e.preventDefault(); drop.style.borderColor = '#00f3ff'; drop.style.color = '#00f3ff'; })
+                );
+                drop.addEventListener('dragleave', () => {
+                    drop.style.borderColor = 'rgba(0,243,255,.28)';
+                    drop.style.color = 'rgba(0,243,255,.4)';
+                });
+                drop.addEventListener('drop', e => {
+                    e.preventDefault();
+                    const f = e.dataTransfer.files[0];
+                    if (f && f.type.startsWith('audio/')) {
+                        const r = new FileReader(); r.onload = ev => _loadBuffer(ev.target.result); r.readAsArrayBuffer(f);
+                    }
+                });
+
+                // ── Row 1 wiring ──────────────────────────────────
+                ctrl.querySelector('.sl-pitch').addEventListener('input', e => {
+                    st.pitch = +e.target.value;
+                    ctrl.querySelector('.sl-pv').textContent = '×' + st.pitch.toFixed(2);
+                });
+                ctrl.querySelector('.sl-gate').addEventListener('input', e => {
+                    st.gate = +e.target.value;
+                    ctrl.querySelector('.sl-gv').textContent = st.gate.toFixed(2);
+                });
+                ctrl.querySelector('.sl-tune').addEventListener('input', e => {
+                    st.tune = +e.target.value;
+                    ctrl.querySelector('.sl-tv').textContent = (st.tune >= 0 ? '+' : '') + st.tune + 'st';
+                    _paintPads();
+                });
+                ctrl.querySelector('.sl-rev').addEventListener('click', e => {
+                    st.reverse = !st.reverse;
+                    e.target.style.color       = st.reverse ? '#ff4444' : '';
+                    e.target.style.borderColor = st.reverse ? '#ff4444' : '';
+                });
+                ctrl.querySelector('.sl-det').addEventListener('click', () => {
+                    if (!waveCanvas._rawBuf) return;
+                    const raw    = waveCanvas._rawBuf;
+                    st.onsets    = _detectOnsets(raw, st.sens);
+                    st.slices    = _buildSlices(ctx.audioCtx, raw, st.onsets);
+                    st.revSlices = _buildRevSlices(ctx.audioCtx, st.slices);
+                    _drawWave(waveCanvas, raw, st.onsets);
+                    _paintPads(); _paintSeq();
+                });
+                ctrl.querySelector('.sl-norm').addEventListener('click', e => {
+                    if (!st.slices.length) return;
+                    _normalizeSlices(st.slices);
+                    st.revSlices = _buildRevSlices(ctx.audioCtx, st.slices);
+                    e.target.style.color       = '#00f3ff';
+                    e.target.style.borderColor = '#00f3ff';
+                    setTimeout(() => { e.target.style.color = ''; e.target.style.borderColor = ''; }, 500);
+                });
+                ctrl.querySelector('.sl-clr').addEventListener('click', () => {
+                    st.sequence.fill(-1); st.velocity.fill(0); _paintSeq();
+                });
+
+                // ── Row 2 wiring ──────────────────────────────────
+                ctrl2.querySelector('.sl-swing').addEventListener('input', e => {
+                    st.swing = +e.target.value;
+                    ctrl2.querySelector('.sl-sv').textContent = Math.round(st.swing * 100) + '%';
+                });
+                ctrl2.querySelector('.sl-len').addEventListener('input', e => {
+                    st.len = Math.max(1, Math.min(16, +e.target.value));
+                    ctrl2.querySelector('.sl-lv').textContent = st.len;
+                    _paintSeq();
+                });
+                ctrl2.querySelector('.sl-sens').addEventListener('input', e => {
+                    st.sens = +e.target.value;
+                    ctrl2.querySelector('.sl-snv').textContent = '×' + st.sens.toFixed(1);
+                });
+                const dirBtn = ctrl2.querySelector('.sl-dir');
+                dirBtn.addEventListener('click', () => {
+                    st.dir = (st.dir + 1) % 4;
+                    dirBtn.textContent       = DIR_NAMES[st.dir];
+                    dirBtn.style.color       = st.dir ? '#ffc800' : '';
+                    dirBtn.style.borderColor = st.dir ? '#ffc800' : '';
+                    st.tick = 0;
+                });
+                const chrBtn = ctrl2.querySelector('.sl-chr');
+                chrBtn.addEventListener('click', () => {
+                    st.chromatic = !st.chromatic;
+                    chrBtn.style.color       = st.chromatic ? '#ffc800' : '';
+                    chrBtn.style.borderColor = st.chromatic ? '#ffc800' : '';
+                    _paintPads();
+                });
+                const recBtn = ctrl2.querySelector('.sl-rec');
+                recBtn.addEventListener('click', () => {
+                    st.record = !st.record;
+                    recBtn.style.color       = st.record ? '#ff4444' : '';
+                    recBtn.style.borderColor = st.record ? '#ff4444' : '';
+                });
+                const snapBtn = ctrl2.querySelector('.sl-snap');
+                snapBtn.addEventListener('click', () => {
+                    _startRollingCapture();
+                    snapToSlicer();
+                    snapBtn.style.background = 'rgba(255,200,0,.18)';
+                    setTimeout(() => { snapBtn.style.background = ''; }, 300);
+                });
+
+                // ── Row 3 wiring ──────────────────────────────────
+                ctrl3.querySelector('.sl-atk').addEventListener('input', e => {
+                    st.atk = +e.target.value;
+                    ctrl3.querySelector('.sl-av').textContent = Math.round(st.atk * 1000) + 'ms';
+                });
+                ctrl3.querySelector('.sl-rel').addEventListener('input', e => {
+                    st.rel = +e.target.value;
+                    ctrl3.querySelector('.sl-rv').textContent = Math.round(st.rel * 1000) + 'ms';
+                });
+                ctrl3.querySelector('.sl-filt').addEventListener('input', e => {
+                    st.filt = +e.target.value;
+                    const fv = ctrl3.querySelector('.sl-fv');
+                    if (st.filt >= 0.999) {
+                        fv.textContent = 'OPEN';
+                    } else {
+                        const hz = 200 * Math.pow(100, st.filt);
+                        fv.textContent = hz >= 1000 ? (hz / 1000).toFixed(1) + 'k' : Math.round(hz) + 'Hz';
+                    }
+                });
+                const FTYPES = ['off', 'lowpass', 'highpass'];
+                const ftypeBtn = ctrl3.querySelector('.sl-ftype');
+                ftypeBtn.addEventListener('click', () => {
+                    st.ftype = FTYPES[(FTYPES.indexOf(st.ftype) + 1) % FTYPES.length];
+                    const labels = { off: 'OFF', lowpass: 'LP ▼', highpass: 'HP ▲' };
+                    ftypeBtn.textContent       = labels[st.ftype];
+                    ftypeBtn.style.color       = st.ftype !== 'off' ? '#ff88ff' : '';
+                    ftypeBtn.style.borderColor = st.ftype !== 'off' ? '#ff88ff' : '';
+                });
+
+                // ── Store refs for onTick / onStop ────────────────
+                this._st        = st;
+                this._ctx       = ctx;
+                this._seqEls    = seqEls;
+                this._flashSlice = _flashSlice;
+            },
+
+            onTick(t, _step16) {
+                const st = this._st;
+                if (!st || !st.slices.length) return;
+
+                const patIdx = _resolveIdx(st.tick, st.len, st.dir);
+                st.tick++;
+                st.activeStep = patIdx;
+
+                const slot = st.sequence[patIdx];
+                if (slot >= 0 && st.slices[slot]) {
+                    const bpm     = Math.max(20, Math.min(400, window.currentBPM || 120));
+                    const stepDur = 60 / bpm / 4;
+                    const swing   = patIdx % 2 === 1 ? st.swing * stepDur * 0.5 : 0;
+                    const vel     = VEL_LEVELS[st.velocity[patIdx] || 0];
+                    const buf     = st.reverse ? st.revSlices[slot] : st.slices[slot];
+                    _fire(this._ctx.audioCtx, this._ctx.bus, buf, t + swing,
+                          st.pitch, st.gate, vel, st.tune, st.atk, st.rel, st.filt, st.ftype);
+                    // Waveform flash — off the audio scheduling hot path
+                    const flash = this._flashSlice;
+                    if (flash) setTimeout(() => flash(slot), 0);
+                }
+
+                // Sequencer highlight
+                const seqEls = this._seqEls;
+                if (seqEls) setTimeout(() => {
+                    seqEls.forEach((b, i) => {
+                        const cur  = i === patIdx;
+                        const v    = st.sequence[i];
+                        const past = i >= st.len;
+                        b.style.background  = cur ? 'rgba(0,243,255,.22)' : '';
+                        b.style.opacity     = past ? '.35' : '1';
+                        b.style.color       = cur ? '#eafeff' : (v >= 0 ? '#00f3ff' : 'rgba(0,243,255,.28)');
+                        b.style.borderColor = cur ? '#00f3ff' : (v >= 0 ? 'rgba(0,243,255,.4)' : 'rgba(0,243,255,' + (i % 4 === 0 ? '.28' : '.12') + ')');
+                        b.style.boxShadow   = cur ? '0 0 6px rgba(0,243,255,.35)' : '';
+                    });
+                }, 0);
+            },
+
+            onStop() {
+                if (this._st) { this._st.activeStep = -1; this._st.tick = 0; }
+                if (this._seqEls) this._seqEls.forEach(b => {
+                    b.style.background = b.style.boxShadow = '';
+                });
+            }
+        });
+    }
+
+    document.addEventListener('DOMContentLoaded', function() {
+        const btn = document.getElementById('vt-sonic-launch-btn');
+        function _once() {
+            btn && btn.removeEventListener('click', _once);
+            setTimeout(init, 110);
+        }
+        btn && btn.addEventListener('click', _once);
+    });
+})();
+
+
+// ═══════════════════════════════════════════════════════════════
+//  VNGRD MIXER CARD — per-card fader/mute/solo + master meter + reverb
+// ═══════════════════════════════════════════════════════════════
+(function() {
+    const TRACK_IDS = ['slicer', 'code'];
+    const LS_KEY = 'vngrd.sonicsuite.mixer.v1';
+
+    function _load() {
+        try { return JSON.parse(localStorage.getItem(LS_KEY) || '{}'); } catch (e) { return {}; }
+    }
+    function _save(s) {
+        try { localStorage.setItem(LS_KEY, JSON.stringify(s)); } catch (e) {}
+    }
+
+    function init() {
+        SonicSuite.registerCard('mixer', {
+            tag: 'M',
+            label: '◈ MIXER',
+            mount(body, ctx) {
+                const persisted = _load();
+
+                // Strips row
+                const strips = document.createElement('div');
+                strips.style.cssText = 'display:flex;gap:8px;justify-content:space-around;';
+                body.appendChild(strips);
+
+                const strip = (id, name) => {
+                    const wrap = document.createElement('div');
+                    wrap.dataset.stripId = id;
+                    wrap.style.cssText = 'display:flex;flex-direction:column;align-items:center;gap:5px;width:52px;';
+                    wrap.innerHTML =
+                        '<div style="font-size:7px;color:rgba(0,243,255,.7);letter-spacing:2px;">' + name + '</div>' +
+                        '<input type="range" class="ss-mx-fade" min="0" max="120" value="100" ' +
+                        'style="-webkit-appearance:slider-vertical;appearance:slider-vertical;writing-mode:vertical-lr;' +
+                        'width:18px;height:86px;accent-color:#00f3ff;">' +
+                        '<input type="range" class="ss-mx-rev" min="0" max="100" value="0" ' +
+                        'style="width:44px;accent-color:#ff88ff;" title="Reverb send">' +
+                        '<div style="display:flex;gap:3px;">' +
+                          '<button class="ss-card-btn ss-mx-m" title="Mute">M</button>' +
+                          '<button class="ss-card-btn ss-mx-s" title="Solo">S</button>' +
+                        '</div>';
+                    strips.appendChild(wrap);
+                    return wrap;
+                };
+
+                TRACK_IDS.forEach(id => strip(id, id.toUpperCase()));
+
+                // Master strip
+                const master = document.createElement('div');
+                master.style.cssText = 'display:flex;flex-direction:column;align-items:center;gap:5px;width:64px;border-left:1px solid rgba(0,243,255,.2);padding-left:8px;';
+                master.innerHTML =
+                    '<div style="font-size:7px;color:#00f3ff;letter-spacing:2px;">MASTER</div>' +
+                    '<canvas class="ss-mx-vu" width="12" height="86" style="background:rgba(0,0,0,.6);border:1px solid rgba(0,243,255,.25);"></canvas>' +
+                    '<input type="range" class="ss-mx-revret" min="0" max="100" value="35" style="width:54px;accent-color:#ff88ff;" title="Reverb return">' +
+                    '<div style="font-size:6px;color:rgba(0,243,255,.45);letter-spacing:1px;">REV RET</div>';
+                strips.appendChild(master);
+
+                // Wire up strips
+                TRACK_IDS.forEach(id => {
+                    const w = strips.querySelector('[data-strip-id="' + id + '"]');
+                    const fade = w.querySelector('.ss-mx-fade');
+                    const rev  = w.querySelector('.ss-mx-rev');
+                    const mB   = w.querySelector('.ss-mx-m');
+                    const sB   = w.querySelector('.ss-mx-s');
+
+                    // Restore
+                    const ps = persisted[id] || {};
+                    if (ps.fade != null) fade.value = ps.fade;
+                    if (ps.rev  != null) rev.value  = ps.rev;
+                    if (ps.mute) mB.classList.add('muted');
+
+                    function applyFade() {
+                        const card = SonicSuite._state.cards[id];
+                        if (!card || !card.bus) return;
+                        const v = (+fade.value / 100) * (mB.classList.contains('muted') ? 0 : 1);
+                        card.bus.gain.setTargetAtTime(v, ctx.audioCtx.currentTime, 0.01);
+                    }
+                    function applyRev() {
+                        const card = SonicSuite._state.cards[id];
+                        if (!card || !card.ctx || !card.ctx.reverbTap) return;
+                        card.ctx.reverbTap.gain.setTargetAtTime(+rev.value / 100, ctx.audioCtx.currentTime, 0.02);
+                    }
+
+                    fade.addEventListener('input', () => { applyFade(); _persist(); });
+                    rev.addEventListener('input',  () => { applyRev();  _persist(); });
+                    mB.addEventListener('click', () => {
+                        const on = !mB.classList.contains('muted');
+                        mB.classList.toggle('muted', on);
+                        SonicSuite.setMute(id, on);
+                        applyFade(); _persist();
+                    });
+                    sB.addEventListener('click', () => {
+                        const solo = !sB.classList.contains('focused');
+                        // Clear other solos
+                        strips.querySelectorAll('.ss-mx-s').forEach(b => b.classList.remove('focused'));
+                        if (solo) sB.classList.add('focused');
+                        SonicSuite.setFocus(solo ? id : null);
+                    });
+
+                    // Apply on next tick so cards are registered
+                    setTimeout(() => { applyFade(); applyRev(); }, 50);
+                });
+
+                // Master reverb return
+                const revret = master.querySelector('.ss-mx-revret');
+                if (persisted.__master && persisted.__master.revret != null) revret.value = persisted.__master.revret;
+                revret.addEventListener('input', () => {
+                    _setReverbReturn(+revret.value / 100);
+                    _persist();
+                });
+                _setReverbReturn(+revret.value / 100);
+
+                function _persist() {
+                    const s = {};
+                    strips.querySelectorAll('[data-strip-id]').forEach(w => {
+                        s[w.dataset.stripId] = {
+                            fade: +w.querySelector('.ss-mx-fade').value,
+                            rev:  +w.querySelector('.ss-mx-rev').value,
+                            mute: w.querySelector('.ss-mx-m').classList.contains('muted')
+                        };
+                    });
+                    s.__master = { revret: +revret.value };
+                    _save(s);
+                }
+
+                // VU meter
+                const vu = master.querySelector('.ss-mx-vu');
+                const vg = vu.getContext('2d');
+                const buf = new Uint8Array(256);
+                (function draw() {
+                    const an = _getAnalyser();
+                    if (an) {
+                        an.getByteTimeDomainData(buf);
+                        let peak = 0;
+                        for (let i = 0; i < buf.length; i++) {
+                            const v = Math.abs(buf[i] - 128) / 128;
+                            if (v > peak) peak = v;
+                        }
+                        vg.fillStyle = 'rgba(0,0,0,.5)';
+                        vg.fillRect(0, 0, vu.width, vu.height);
+                        const h = Math.min(vu.height, peak * vu.height * 1.4);
+                        const grad = vg.createLinearGradient(0, vu.height, 0, 0);
+                        grad.addColorStop(0, '#00f3ff');
+                        grad.addColorStop(0.7, '#ffcc00');
+                        grad.addColorStop(1, '#ff4444');
+                        vg.fillStyle = grad;
+                        vg.fillRect(0, vu.height - h, vu.width, h);
+                    }
+                    requestAnimationFrame(draw);
+                })();
+
+                this._persist = _persist;
+            }
+        });
+    }
+
+    function _getAnalyser() {
+        return window._ssAnalyser || null;
+    }
+
+    function _setReverbReturn(v) {
+        if (window._ssReverbReturn) {
+            window._ssReverbReturn.gain.setTargetAtTime(v, window._ssReverbReturn.context.currentTime, 0.02);
+        }
+    }
+
+    document.addEventListener('DOMContentLoaded', function() {
+        const btn = document.getElementById('vt-sonic-launch-btn');
+        function _once() {
+            btn && btn.removeEventListener('click', _once);
+            setTimeout(init, 120);
+        }
+        btn && btn.addEventListener('click', _once);
+    });
+})();
+
+
+function connectVideoAudio(vid) {
+    if (!vid || vid.tagName !== 'VIDEO') return;
+    try {
+        if (!APP.audio.ctx) APP.audio.ctx = new (window.AudioContext || window.webkitAudioContext)();
+        if (APP.audio.ctx.state === 'suspended') APP.audio.ctx.resume();
+        ensureAudioChain();
+        disconnectVideoAudio();
+        if (!vid._audioSrc) vid._audioSrc = APP.audio.ctx.createMediaElementSource(vid);
+        // Ensure videoGain exists — may be null if setupAudioChain() rebuilt nodes
+        if (!APP.audio.videoGain) {
+            APP.audio.videoGain = APP.audio.ctx.createGain();
+            APP.audio.videoGain.gain.value = APP.audio.videoMuted ? 0 : 1;
+            if (APP.audio.panner) APP.audio.videoGain.connect(APP.audio.panner);
+            if (APP.audio.dolbyPanner) APP.audio.videoGain.connect(APP.audio.dolbyPanner);
+        }
+        // vid.muted must be FALSE — Chrome silences MediaElementAudioSourceNode when muted=true
+        // Volume is controlled exclusively via videoGain (0=muted, 1=on), not via .muted
+        vid.muted = false;
+        vid._audioSrc.connect(APP.audio.videoGain);
+        // Apply current mute state via gain (0 = muted, 1 = audible)
+        APP.audio.videoGain.gain.setValueAtTime(APP.audio.videoMuted ? 0 : 1, APP.audio.ctx.currentTime);
+        APP.audio.videoSource = vid;
+        const muteBtn = $('btn-mute-vid');
+        if (muteBtn) {
+            muteBtn.textContent = APP.audio.videoMuted ? '\u{1F507}' : '\u{1F50A}';
+            muteBtn.classList.toggle('on', APP.audio.videoMuted);
+        }
+        log('VIDEO_AUDIO: ' + (APP.audio.videoMuted ? 'MUTED' : 'ON'));
+    } catch (e) { log('VIDEO_AUDIO_ERR: ' + e.message); }
+}
+
+function disconnectVideoAudio() {
+    var vid = APP.audio.videoSource;
+    if (!vid) return;
+    try {
+        if (vid._audioSrc) vid._audioSrc.disconnect();
+        vid.muted = true; // silence native output while not connected to Web Audio
+    } catch(e) {}
+    APP.audio.videoSource = null;
+}
+
+
+function rotateMedia() {
+    if (APP.media.queue.length === 0) return;
+    APP.render.source = null; // Clear override so queue takes priority
+    APP.vj.glitchSnap = 3;
+    // Capture outgoing element before advancing index
+    var _outgoingEl = APP.media.currentElement;
+    if (APP.media.currentElement?.tagName === 'VIDEO') APP.media.currentElement.pause(); disconnectVideoAudio();
+    APP.media.currentIndex = (APP.media.currentIndex + 1) % APP.media.queue.length;
+    const item = APP.media.queue[APP.media.currentIndex];
+    const gifOverlay = document.getElementById('gif-overlay');
+    // GIF: bypass canvas entirely — render as DOM overlay so animation plays
+    if (item.type === 'gif') {
+        if (gifOverlay) gifOverlay.innerHTML = '';
+        const img = document.createElement('img');
+        img.src = item.url;
+        img.style.cssText = 'width:100%;height:100%;object-fit:cover;';
+        if (gifOverlay) gifOverlay.appendChild(img);
+        item.element = img;
+        APP.media.currentElement = null; // GIFs do not render to vj-canvas
+        APP.media._tx = null;
+        console.warn('[VNGRD] GIF asset "' + item.name + '" is rendered as a DOM element and will NOT be captured by vj-canvas.captureStream(). Convert animated assets to .webm for full recording compatibility.');
+        updateMediaControls();
+        checkCycleLogic();
+        return;
+    }
+    // Non-GIF: clear any previous GIF overlay
+    if (gifOverlay) gifOverlay.innerHTML = '';
+    // Guard: skip items still loading (async FileReader not done yet)
+    if (!item.element) { APP.media.currentElement = null; return; }
+    APP.media.currentElement = item.element;
+    if (item.type === 'video') { item.element.loop = !APP.state.isCycle; item.element.currentTime = 0; item.element.play().catch(() => {});  connectVideoAudio(item.element); }
+    // Set up A/B transition — snap/glitch = instant cut (glitch fires system FX), no A/B animation
+    var _txDurSec = item.transitionDuration != null ? item.transitionDuration : 0.8;
+    if (item.transitionType === 'glitch' && _outgoingEl && _outgoingEl !== item.element) {
+        // Chromatic aberration CSS filter + impact flash — same as NFT carousel launcher
+        // but WITHOUT rgbIntensity canvas rendering which destroys the thumbnail strip
+        try { triggerChromaticAberration(); triggerImpact(); APP.vj.glitchSnap = 5; setTimeout(function(){ APP.vj.glitchSnap = 0; }, 300); } catch(e) {}
+    }
+    if (_outgoingEl && _outgoingEl !== item.element && item.transitionType !== 'snap' && item.transitionType !== 'glitch') {
+        APP.media._tx = {
+            active: true,
+            type:   item.transitionType   || 'optical-fade',
+            easing: item.easing           || 'linear',
+            out:    _outgoingEl,
+            in:     item.element,
+            start:  performance.now(),
+            dur:    _txDurSec * 1000
+        };
+    } else {
+        APP.media._tx = null;
+    }
+    updateMediaControls();
+    checkCycleLogic();
+}
+
+function previousMedia() {
+    if (APP.media.queue.length === 0) return;
+    APP.vj.glitchSnap = 3;
+    if (APP.media.currentElement?.tagName === 'VIDEO') APP.media.currentElement.pause(); disconnectVideoAudio();
+    APP.media.currentIndex = (APP.media.currentIndex - 1 + APP.media.queue.length) % APP.media.queue.length;
+    const item = APP.media.queue[APP.media.currentIndex];
+    const gifOverlay = document.getElementById('gif-overlay');
+    if (item.type === 'gif') {
+        if (gifOverlay) gifOverlay.innerHTML = '';
+        const img = document.createElement('img');
+        img.src = item.url;
+        img.style.cssText = 'width:100%;height:100%;object-fit:cover;';
+        if (gifOverlay) gifOverlay.appendChild(img);
+        item.element = img;
+        APP.media.currentElement = null;
+        console.warn('[VNGRD] GIF asset "' + item.name + '" is rendered as a DOM element and will NOT be captured by vj-canvas.captureStream(). Convert animated assets to .webm for full recording compatibility.');
+        updateMediaControls();
+        checkCycleLogic();
+        return;
+    }
+    if (gifOverlay) gifOverlay.innerHTML = '';
+    if (!item.element) { APP.media.currentElement = null; return; }
+    APP.media.currentElement = item.element;
+    if (item.type === 'video') { item.element.loop = !APP.state.isCycle; item.element.currentTime = 0; item.element.play().catch(() => {});  connectVideoAudio(item.element); }
+    updateMediaControls();
+    checkCycleLogic();
+}
+
+function ejectCurrent() {
+    if (APP.media.queue.length === 0) return;
+    APP.render.source = null; // Clear any override
+    const current = APP.media.queue[APP.media.currentIndex];
+    if (current.element?.tagName === 'VIDEO') { disconnectVideoAudio(); current.element.pause(); current.element.src = ''; current.element.remove(); }
+    if (current.element?.tagName === 'IMG' && current.element.parentNode) { current.element.remove(); }
+    if (current.url) URL.revokeObjectURL(current.url);
+    APP.media.queue.splice(APP.media.currentIndex, 1);
+    if (APP.media.queue.length === 0) { APP.media.currentIndex = -1; APP.media.currentElement = null; $('media-dot').classList.add('off'); APP.render.ctx.fillStyle = '#000'; APP.render.ctx.fillRect(0, 0, APP.render.width, APP.render.height); }
+    else { if (APP.media.currentIndex >= APP.media.queue.length) APP.media.currentIndex = 0; const next = APP.media.queue[APP.media.currentIndex]; APP.media.currentElement = next.element; if (next.type === 'video') { next.element.currentTime = 0; next.element.play().catch(() => {}); } }
+    updateQueueDisplay();
+}
+
+function clearDeck() {
+    if(APP.state.isCycle) toggleCycle();
+    APP.render.source = null; // Clear any override
+    APP.media.queue.forEach(item => {
+        if (item.element?.tagName === 'VIDEO') { item.element.pause(); item.element.src = ''; item.element.remove(); }
+        if (item.element?.tagName === 'IMG' && item.element.parentNode) { item.element.remove(); }
+        if (item.url) URL.revokeObjectURL(item.url);
+    });
+    APP.media.queue = []; APP.media.currentIndex = -1; APP.media.currentElement = null; $('media-dot').classList.add('off');
+    updateQueueDisplay();
+    log('DECK_CLEARED');
+}
+
+function panicReset() {
+    location.reload(); // Hard Reset for Panic
+}
+
+function toggleCycle() {
+    if (APP.media.queue.length === 0) return; 
+
+    APP.state.isCycle = !APP.state.isCycle;
+    const btn = $('btn-cycle-toggle');
+    const header = $('media-header');
+    
+    if (APP.state.isCycle) {
+        btn.innerHTML = 'CYCLE: ON';
+        btn.classList.add('cycle-active'); 
+        header.classList.add('scanning');
+        $('cycle-badge').classList.add('on');
+        checkCycleLogic();
+    } else {
+        btn.innerHTML = 'CYCLE: OFF';
+        btn.classList.remove('cycle-active');
+        header.classList.remove('scanning');
+        $('cycle-badge').classList.remove('on');
+        clearTimeout(APP.state.cycleTimer);
+        if (APP.media.currentElement?.tagName === 'VIDEO') APP.media.currentElement.loop = true;
+    }
+}
+
+function checkCycleLogic() {
+    clearTimeout(APP.state.cycleTimer);
+    if (!APP.state.isCycle || APP.media.currentIndex === -1) return;
+    const current = APP.media.queue[APP.media.currentIndex];
+    if (!current) return;
+    if (current.type === 'video') { if (current.element) { current.element.loop = false; current.element.onended = () => { if (APP.state.isCycle) rotateMedia(); }; } }
+    else {
+        var _qi = APP.media.queue[APP.media.currentIndex];
+        if (_qi && _qi.duration === null) return; // null = infinite hold, no timer
+        var secs = (_qi && _qi.duration != null) ? _qi.duration : (parseInt($('sl-cycle').value) || 8);
+        APP.state.cycleTimer = setTimeout(function() { if (APP.state.isCycle) rotateMedia(); }, secs * 1000);
+    }
+}
+
+function updateQueueDisplay() {
+    const count = APP.media.queue.length;
+    if($('q-info')) $('q-info').textContent = count;
+    const btn = $('btn-load-media');
+    if (count > 0) {
+        btn.innerHTML = `MEDIA LOADED [ ${count} ]`;
+        btn.classList.add('active-mode');
+        $('media-dot').classList.remove('off');
+    } else {
+        btn.innerHTML = 'LOAD MEDIA';
+        btn.classList.remove('active-mode');
+        $('media-dot').classList.add('off');
+    }
+    updateMediaControls();
+}
+
+function updateMediaControls() {
+    const zoomBtn = $('btn-zoom-img');
+    if (!zoomBtn) return;
+    const item = APP.media.queue[APP.media.currentIndex];
+    zoomBtn.style.display = (item && (item.type === 'image' || item.type === 'gif')) ? 'block' : 'none';
+}
+
+function openLightbox() {
+    const item = APP.media.queue[APP.media.currentIndex];
+    if (!item || (item.type !== 'image' && item.type !== 'gif')) return;
+    const lb = $('img-lightbox');
+    const lbImg = $('img-lightbox-src');
+    lbImg.src = item.url;
+    lb.style.display = 'flex';
+}
+
+function closeLightbox() {
+    var lb = $('img-lightbox');
+    if (lb) lb.style.display = 'none';
+}
+
+// CAMERA
+async function initCamera() {
+    try {
+        // iOS Safari rejects 4K/60fps — use adaptive constraints with fallback
+        var constraints = { video: { width: { ideal: 1920 }, height: { ideal: 1080 }, frameRate: { ideal: 30 }, facingMode: 'user' }, audio: false };
+        try {
+            APP.camera.stream = await navigator.mediaDevices.getUserMedia(constraints);
+        } catch (_) {
+            // Fallback for strict mobile browsers
+            APP.camera.stream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: 'user' }, audio: false });
+        }
+        APP.camera.videoEl = document.createElement('video');
+        APP.camera.videoEl.srcObject = APP.camera.stream;
+        APP.camera.videoEl.setAttribute('playsinline', '');
+        APP.camera.videoEl.muted = true; APP.camera.videoEl.playsInline = true; APP.camera.videoEl.play().catch(() => {});
+        APP.camera.mode = 'preview';
+        APP.camera.facingMode = 'user';
+        $('btn-init-cam').style.display = 'none';
+        $('cam-ctrls').style.display = 'block';
+        $('btn-kill').style.display = 'block';
+        $('cam-dot').classList.remove('off');
+        var _fco = $('btn-flip-cam-overlay'); if (_fco) _fco.style.display = 'block';
+        log('CAM_ONLINE');
+        if (!APP.audio.ctx) { APP.audio.ctx = new (window.AudioContext || window.webkitAudioContext)(); }
+
+        // Activate floating camera preview box
+        const preview = $('cam-preview-float');
+        const previewVid = $('preview-vid-float');
+        if (preview && previewVid) {
+            previewVid.srcObject = APP.camera.stream;
+            previewVid.muted = true;
+            preview.classList.add('active');
+            APP.camera.previewEl = previewVid;
+        }
+    } catch (e) { log('CAM_DENIED'); }
+}
+
+async function flipCamera() {
+    if (!APP.camera.stream) return;
+    var overlayBtn = $('btn-flip-cam-overlay');
+    if (overlayBtn) { overlayBtn.disabled = true; overlayBtn.textContent = '⟳'; }
+    var next = (APP.camera.facingMode === 'user') ? 'environment' : 'user';
+    APP.camera.stream.getTracks().forEach(t => t.stop());
+    try {
+        try {
+            APP.camera.stream = await navigator.mediaDevices.getUserMedia({
+                video: { width: { ideal: 1920 }, height: { ideal: 1080 }, frameRate: { ideal: 30 }, facingMode: next },
+                audio: false
+            });
+        } catch (_) {
+            APP.camera.stream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: next }, audio: false });
+        }
+        APP.camera.facingMode = next;
+        var previewVid = $('preview-vid-float');
+        if (previewVid) { previewVid.srcObject = APP.camera.stream; APP.camera.previewEl = previewVid; }
+        if (APP.camera.videoEl) APP.camera.videoEl.srcObject = APP.camera.stream;
+        if (overlayBtn) { overlayBtn.textContent = '↻'; overlayBtn.disabled = false; }
+        log('CAM_FLIP_' + next.toUpperCase());
+    } catch (e) {
+        // Revert if flip fails (device may not have that camera)
+        try {
+            APP.camera.stream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: APP.camera.facingMode }, audio: false });
+            var pv = $('preview-vid-float'); if (pv) { pv.srcObject = APP.camera.stream; APP.camera.previewEl = pv; }
+        } catch (_) {}
+        if (overlayBtn) { overlayBtn.textContent = '↻'; overlayBtn.disabled = false; }
+        log('CAM_FLIP_FAIL');
+    }
+}
+
+$('btn-inject').onclick = () => {
+    if(!APP.camera.stream) return;
+    const btn = $('btn-inject');
+    if (APP.loop.recorder && APP.loop.recorder.state === 'recording') { APP.loop.recorder.stop(); return; }
+    APP.loop.chunks = [];
+    // iOS Safari doesn't support video/webm — detect supported mimeType
+    var loopMime = 'video/webm';
+    if (typeof MediaRecorder !== 'undefined') {
+        if (MediaRecorder.isTypeSupported('video/webm;codecs=vp9')) loopMime = 'video/webm;codecs=vp9';
+        else if (MediaRecorder.isTypeSupported('video/webm')) loopMime = 'video/webm';
+        else if (MediaRecorder.isTypeSupported('video/mp4')) loopMime = 'video/mp4';
+    }
+    // Record raw camera stream — lightweight, instant decode, no bake needed.
+    // The render loop applies FX on top during playback so they still appear on screen.
+    // Canvas-baked recording is the job of CAPTURE_VNGRD / REC_BROADCAST, not the inject loop.
+    APP.loop.recorder = new MediaRecorder(APP.camera.stream, { mimeType: loopMime });
+    APP.loop.recorder.ondataavailable = e => APP.loop.chunks.push(e.data);
+    APP.loop.recorder.onstop = () => {
+        clearInterval(APP.loop.timer);
+        const blob = new Blob(APP.loop.chunks, { type: loopMime });
+        if(APP.loop.activeUrl) URL.revokeObjectURL(APP.loop.activeUrl);
+        APP.loop.activeUrl = URL.createObjectURL(blob);
+        const vid = document.createElement('video');
+        vid.src = APP.loop.activeUrl;
+        vid.setAttribute('playsinline', '');
+        vid.muted = true; vid.loop = true; vid.playsInline = true;
+        vid.play().catch(function() {});
+        const item = { type: 'video', url: APP.loop.activeUrl, element: vid, name: 'LOOP_SAMPLE' };
+        APP.media.queue.push(item);
+        APP.media.currentIndex = APP.media.queue.length - 1;
+        APP.media.currentElement = vid;
+        APP.state.isLive = false; 
+        btn.innerText = 'INJECT LOOP (10s)'; btn.classList.remove('on'); updateQueueDisplay(); log('LOOP_INJECTED');
+    };
+    APP.loop.recorder.start(); btn.classList.add('on'); APP.loop.counter = 10; btn.innerText = `SAMPLING... ${APP.loop.counter}`;
+    APP.loop.timer = setInterval(() => { APP.loop.counter--; btn.innerText = `SAMPLING... ${APP.loop.counter}`; if(APP.loop.counter <= 0) APP.loop.recorder.stop(); }, 1000);
+};
+
+function goLive() {
+    if (!APP.camera.stream) return;
+    const overlay = $('countdown'); const num = $('countdown-num'); const btn = $('btn-go-live');
+    overlay.style.display = 'flex'; let count = 3; num.textContent = count; btn.textContent = `LIVE IN ${count}...`;
+
+    // Duck audio at countdown START
+    if (window.applyAudioDuck) window.applyAudioDuck(true);
+
+    const interval = setInterval(() => {
+        count--;
+        if (count > 0) { num.textContent = count; btn.textContent = `LIVE IN ${count}...`; }
+        else {
+            clearInterval(interval); overlay.style.display = 'none';
+
+            // Force camera as render source — clear any media/AI override
+            APP.render.source = null;
+            APP.state.isLive = true;
+            APP.camera.mode = 'live';
+
+            // Ensure camera videoEl is playing (iOS Safari can pause background videos)
+            if (APP.camera.videoEl && APP.camera.videoEl.paused) {
+                APP.camera.videoEl.play().catch(function() {});
+            }
+
+            var _pf = $('cam-preview-float'); if (_pf) { _pf.classList.remove('active'); _pf.style.display = 'none'; }
+            $('cam-ctrls').style.display = 'none'; $('live-ctrls').style.display = 'block'; $('tally').style.display = 'block'; $('status-text').textContent = 'LIVE'; $('main-dot').classList.add('live');
+            document.querySelector('.preview-label').textContent = 'LIVE'; log('LIVE_PODCAST_MODE');
+        }
+    }, 1000);
+}
+
+$('btn-rec').onclick = () => {
+    const btn = $('btn-rec');
+    if (APP.broadcast.isRecording) {
+        APP.broadcast.recorder.stop();
+        APP.broadcast.isRecording = false;
+        btn.innerText = 'SAVING...';
+        btn.classList.remove('active');
+        $('rec-status').style.display = 'none';
+    } else {
+        try {
+            ensureAudioChain();
+            if (APP.audio.ctx && APP.audio.ctx.state === 'suspended') APP.audio.ctx.resume();
+
+            // Always build a fresh audio destination to avoid stale/dead tracks
+            // Tap outputLimiter (final mix node) so music + video audio are both captured
+            // Use recordCanvas (render + subtitle burn-in) for video tracks.
+            var _bcastCanvas = (APP.render && APP.render.recordCanvas) ? APP.render.recordCanvas : APP.render.canvas;
+            var bcastStream = new MediaStream(_bcastCanvas.captureStream(30).getVideoTracks());
+            if (APP.audio.ctx && APP.audio.outputLimiter) {
+                var bcastDest = APP.audio.ctx.createMediaStreamDestination();
+                APP.audio.outputLimiter.connect(bcastDest);
+                // Include live mic directly (it goes to recording only, not to speakers)
+                if (APP.audio.micGainNode) {
+                    try { APP.audio.micGainNode.connect(bcastDest); } catch(e) {}
+                }
+                bcastDest.stream.getAudioTracks().forEach(t => bcastStream.addTrack(t));
+            }
+
+            APP.broadcast.chunks = [];
+            var bcastOpts = { mimeType: 'video/webm;codecs=vp9,opus', videoBitsPerSecond: 50000000, audioBitsPerSecond: 128000 };
+            try { APP.broadcast.recorder = new MediaRecorder(bcastStream, bcastOpts); }
+            catch(e) {
+                try { APP.broadcast.recorder = new MediaRecorder(bcastStream, { mimeType: 'video/webm;codecs=vp8,opus' }); }
+                catch(e2) { APP.broadcast.recorder = new MediaRecorder(bcastStream, { mimeType: 'video/webm' }); }
+            }
+            APP.broadcast.recorder.ondataavailable = e => { if (e.data && e.data.size > 0) APP.broadcast.chunks.push(e.data); };
+            APP.broadcast.recorder.onstop = () => {
+                const blob = new Blob(APP.broadcast.chunks, { type: 'video/webm' });
+                const url = URL.createObjectURL(blob);
+                const a = document.createElement('a');
+                a.href = url; a.download = `VNGRD_BROADCAST_${Date.now()}.webm`; a.click();
+                btn.innerText = 'REC_BROADCAST'; log('BROADCAST_SAVED');
+            };
+            APP.broadcast.recorder.start(1000);
+            APP.broadcast.isRecording = true;
+            btn.innerText = '■ STOP & SAVE';
+            btn.classList.add('active');
+            $('rec-status').style.display = 'block';
+            log('BROADCAST_REC_START');
+        } catch(e) { log('BROADCAST_ERR: ' + e.message); }
+    }
+};
+
+function endLive() {
+    APP.state.isLive = false; APP.camera.mode = 'preview';
+    if (window.applyAudioDuck) window.applyAudioDuck(false);
+    $('live-ctrls').style.display = 'none'; $('cam-ctrls').style.display = 'block'; $('tally').style.display = 'none'; $('status-text').textContent = 'STANDBY'; $('main-dot').classList.remove('live'); $('btn-go-live').textContent = 'GO LIVE [3-2-1]'; var _pf3 = $('cam-preview-float'); if (_pf3 && APP.camera.stream) { _pf3.style.display = ''; _pf3.classList.add('active'); }
+    log('END_LIVE');
+    $('rec-status').style.display = 'none';
+}
+
+function killCamera() {
+    if (window.applyAudioDuck) window.applyAudioDuck(false);
+    // Stop all camera tracks
+    if (APP.camera.stream) { try { APP.camera.stream.getTracks().forEach(t => t.stop()); } catch(e){} }
+    APP.camera.stream = null;
+    if (APP.camera.videoEl) { APP.camera.videoEl.srcObject = null; APP.camera.videoEl = null; }
+    // Reset all state
+    APP.camera.mode = 'off';
+    APP.state.isLive = false;
+    APP.render.source = null;
+    // Reset UI
+    $('live-ctrls').style.display = 'none';
+    $('cam-ctrls').style.display = 'none';
+    $('btn-init-cam').style.display = 'block';
+    $('btn-kill').style.display = 'none';
+    $('cam-dot').classList.add('off');
+    var _fco2 = $('btn-flip-cam-overlay'); if (_fco2) { _fco2.style.display = 'none'; _fco2.textContent = '↻'; _fco2.disabled = false; }
+    $('tally').style.display = 'none';
+    $('status-text').textContent = 'STANDBY';
+    $('main-dot').classList.remove('live');
+    var _pf2 = $('cam-preview-float');
+    if (_pf2) { _pf2.classList.remove('active'); _pf2.style.display = 'none'; }
+    if (APP.camera.previewEl) { APP.camera.previewEl.srcObject = null; APP.camera.previewEl = null; }
+    $('rec-status').style.display = 'none';
+    // Stop recording if active
+    if (APP.broadcast && APP.broadcast.isRecording && APP.broadcast.recorder) {
+        try { APP.broadcast.recorder.stop(); } catch(e){}
+        APP.broadcast.isRecording = false;
+    }
+    log('CAM_OFF');
+}
+
+function showLowerThird(preset) {
+    const lt = $('lower-third'); const container = lt.querySelector('.lt-container');
+    const modePresets = ['guest', 'track', 'breaking'];
+    // Update content mode when a mode button triggers this
+    if (modePresets.includes(preset)) APP.lowerThird.mode = preset;
+    // Update style if a legacy style name was passed (P2P sync compat)
+    if (['neon','split','glitch'].includes(preset)) {
+        APP.lowerThird.ltStyle = preset;
+        if ($('lt-style-select')) $('lt-style-select').value = preset;
+    }
+    const mode  = APP.lowerThird.mode  || 'guest';
+    const style = ($('lt-style-select') ? $('lt-style-select').value : null) || APP.lowerThird.ltStyle || 'default';
+    const visualPreset = (style !== 'default') ? style : mode;
+    container.classList.remove('lt-guest','lt-track','lt-breaking','lt-neon','lt-split','lt-glitch');
+    container.classList.add(`lt-${visualPreset}`);
+    APP.lowerThird.preset = visualPreset; APP.lowerThird.visible = true; APP.lowerThird._lastShimmer = null;
+    APP.lowerThird._showTime = performance.now(); APP.lowerThird._hiding = false;
+    // Fill text from content mode (track always pulls live track name)
+    if (mode === 'track') { $('lt-title-text').textContent = APP.audio.currentTrackName || $('lt-title').value || 'TRACK TITLE'; $('lt-subtitle-text').textContent = 'NOW PLAYING'; }
+    else if (mode === 'breaking') { $('lt-title-text').textContent = $('lt-title').value || 'BREAKING NEWS'; $('lt-subtitle-text').textContent = $('lt-sub').value || 'LIVE UPDATE'; }
+    else { $('lt-title-text').textContent = $('lt-title').value || 'GUEST NAME'; $('lt-subtitle-text').textContent = $('lt-sub').value || 'TITLE / ROLE'; }
+    // Canvas is the sole visual renderer — do NOT add 'visible' to the DOM element here.
+    // The DOM #lower-third div is a text data store only; adding .visible would
+    // produce a second (DOM) overlay on top of the canvas-burned lower third.
+    // P2P receiver path (handleUISync) intentionally uses the DOM overlay directly
+    // because it keeps APP.lowerThird.visible=false to avoid sync loops — that path is untouched.
+    ['guest','track','breaking'].forEach(m => { const el = $(`btn-lt-${m}`); if (el) el.classList.toggle('active-mode', m === mode); });
+}
+function hideLowerThird() {
+    if (APP.lowerThird.visible && !APP.lowerThird._hiding) {
+        APP.lowerThird._hiding = true;
+        APP.lowerThird._hideStart = performance.now();
+        setTimeout(function() {
+            $('lower-third').classList.remove('visible');
+            APP.lowerThird.visible = false;
+            APP.lowerThird._hiding = false;
+        }, 420);
+    } else if (!APP.lowerThird.visible) {
+        $('lower-third').classList.remove('visible');
+    }
+    ['guest','track','breaking'].forEach(m => { const el = $(`btn-lt-${m}`); if (el) el.classList.remove('active-mode'); });
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// P2P MIX-MINUS LOCAL PREVIEW
+// Draws a miniature LT graphic to #lt-preview-canvas inside #cam-preview-float
+// so the SENDER can see exactly what's being broadcast to the guest,
+// without rendering it on the main broadcast canvas (#vj-canvas / #stage).
+// Called only when APP.peer.dataConn.open is true.
+// ─────────────────────────────────────────────────────────────────────────────
+function drawLTToPreview(preset, title, subtitle) {
+    var canvas = $('lt-preview-canvas');
+    if (!canvas) return;
+    var pf = $('cam-preview-float');
+    var pw = pf ? pf.offsetWidth : 200;
+    canvas.width = pw;
+    canvas.height = Math.round(pw * 0.16); // ~16% height = proportional LT bar
+    var c = canvas.getContext('2d');
+    if (!c) return;
+
+    // Accent colour matches main LT presets
+    var accent = '#00f3ff';
+    if (preset === 'track')    accent = '#00ff88';
+    if (preset === 'breaking') accent = '#ff3333';
+
+    var W = canvas.width, H = canvas.height;
+    var pad = Math.round(H * 0.12);
+    var bar = 3;
+
+    // Background
+    c.fillStyle = 'rgba(8,10,18,0.94)';
+    c.fillRect(0, 0, W, H);
+    // Left accent stripe
+    c.fillStyle = accent;
+    c.fillRect(0, 0, bar, H);
+    // Bottom rule
+    c.fillRect(0, H - 1, W, 1);
+
+    // Title
+    var titleFS = Math.max(7, Math.round(H * 0.36));
+    c.font = '800 ' + titleFS + 'px Orbitron, sans-serif';
+    c.fillStyle = '#ffffff';
+    c.textAlign = 'left';
+    c.textBaseline = 'top';
+    c.fillText(title || 'GUEST NAME', bar + pad, pad);
+
+    // Subtitle
+    if (subtitle) {
+        var subFS = Math.max(5, Math.round(H * 0.24));
+        c.font = '500 ' + subFS + 'px "JetBrains Mono", monospace';
+        c.fillStyle = accent;
+        c.fillText(subtitle, bar + pad, pad + titleFS + 2);
+    }
+
+    // "SENDING" badge top-right
+    var badgeFS = Math.max(5, Math.round(H * 0.2));
+    c.font = '700 ' + badgeFS + 'px Orbitron, sans-serif';
+    c.fillStyle = accent;
+    c.textAlign = 'right';
+    c.fillText('\u25ba P2P', W - pad, pad);
+
+    // Preview persists until btn-lt-off explicitly clears it.
+    // (Auto-clear removed — host must see their own LT in the float continuously.)
+    if (canvas._ltClear) clearTimeout(canvas._ltClear);
+}
+
+// AUDIO ENGINEER IMPLEMENTATION
+APP.audio.element = $('audio-el');
+function loadAudioFiles(input) { Array.from(input.files).forEach(file => { APP.audio.playlist.push({ url: URL.createObjectURL(file), name: file.name.replace(/\.[^.]+$/, '') }); }); $('audio-dot').classList.remove('off'); if (APP.audio.element.paused && APP.audio.playlist.length) { playTrack(APP.audio.currentTrack >= 0 ? APP.audio.currentTrack : 0); } log(`AUDIO: +${input.files.length}`); }
+
+function playTrack(idx) {
+    if (!APP.audio.playlist.length) return;
+    if (idx !== undefined) APP.audio.currentTrack = idx;
+    else if (APP.audio.currentTrack === -1) APP.audio.currentTrack = 0;
+    const track = APP.audio.playlist[APP.audio.currentTrack];
+    APP.audio.currentTrackName = track.name;
+    APP.audio.element.src = track.url;
+    
+    // Ensure Context
+    if (!APP.audio.ctx) APP.audio.ctx = new (window.AudioContext || window.webkitAudioContext)();
+    
+    APP.audio.element.play().then(() => { 
+        APP.audio.isPlaying = true; 
+        $('track-info').textContent = track.name.toUpperCase(); 
+        if (APP.lowerThird.visible && APP.lowerThird.mode === 'track') $('lt-title-text').textContent = track.name;
+        log(`PLAY: ${track.name}`); 
+        updatePlayIcon();
+    });
+    if (!APP.audio.isConnected) setupAudioChain();
+}
+
+function nextTrack() {
+    if (!APP.audio.playlist.length) return;
+    APP.audio.currentTrack = (APP.audio.currentTrack + 1) % APP.audio.playlist.length;
+    playTrack(APP.audio.currentTrack);
+}
+
+function prevTrack() {
+    if (!APP.audio.playlist.length) return;
+    APP.audio.currentTrack = (APP.audio.currentTrack - 1 + APP.audio.playlist.length) % APP.audio.playlist.length;
+    playTrack(APP.audio.currentTrack);
+}
+
+function togglePlayPause() {
+    if (!APP.audio.playlist.length) return;
+    if (APP.audio.element.paused) {
+        if (APP.audio.element.src) APP.audio.element.play();
+        else playTrack();
+    } else {
+        APP.audio.element.pause();
+    }
+    APP.audio.isPlaying = !APP.audio.element.paused;
+    updatePlayIcon();
+}
+
+function updatePlayIcon() {
+    const icon = $('icon-play-state');
+    if(APP.audio.isPlaying) {
+        icon.innerHTML = '<path fill="currentColor" d="M3 2h2v8H3zm4 0h2v8H7z"/>';
+    } else {
+        icon.innerHTML = '<path fill="currentColor" d="M3 2v8l7-4z"/>';
+    }
+}
+
+function setupAudioChain() {
+    const ctx = APP.audio.ctx;
+    // Tear down any chain left by ensureAudioChain() so only one chain feeds ctx.destination.
+    if (APP.audio.outputLimiter) {
+        try { APP.audio.outputLimiter.disconnect(); } catch(_) {}
+    }
+    if (APP.audio.source) APP.audio.source.disconnect();
+    APP.audio.source = ctx.createMediaElementSource(APP.audio.element);
+    APP.audio.analyzer = ctx.createAnalyser();
+    APP.audio.analyzer.fftSize = 64;
+    APP.audio.analyzer.smoothingTimeConstant = 0.6; // snappy enough for kick detection
+    APP.audio.masterGain = ctx.createGain();
+    APP.audio.masterGain.gain.value = 0.9;
+    
+    // 3D Spatial
+    APP.audio.panner = ctx.createPanner();
+    APP.audio.panner.panningModel = 'HRTF';
+    APP.audio.panner.distanceModel = 'inverse';
+    
+    // Dolby Emulation (EQ + Comp)
+    APP.audio.lowShelf = ctx.createBiquadFilter();
+    APP.audio.lowShelf.type = "lowshelf";
+    APP.audio.lowShelf.frequency.value = 60; 
+    APP.audio.lowShelf.gain.value = 0; 
+    APP.audio.highShelf = ctx.createBiquadFilter();
+    APP.audio.highShelf.type = "highshelf";
+    APP.audio.highShelf.frequency.value = 12000;
+    APP.audio.highShelf.gain.value = 0; 
+    APP.audio.compressor = ctx.createDynamicsCompressor();
+    APP.audio.compressor.threshold.value = -24; 
+    APP.audio.compressor.knee.value = 30;
+    APP.audio.compressor.ratio.value = 1; 
+
+    // ═══ Phase 2: OUTPUT LIMITER (Glue compression — transparent, no pumping) ═══
+    APP.audio.outputLimiter = ctx.createDynamicsCompressor();
+    APP.audio.outputLimiter.threshold.setValueAtTime(-12, ctx.currentTime);
+    APP.audio.outputLimiter.knee.setValueAtTime(30, ctx.currentTime);
+    APP.audio.outputLimiter.ratio.setValueAtTime(2.5, ctx.currentTime);
+    APP.audio.outputLimiter.attack.setValueAtTime(0.005, ctx.currentTime);
+    APP.audio.outputLimiter.release.setValueAtTime(0.15, ctx.currentTime);
+
+    // ═══ Phase 2: SIDE-CHAIN DUCKING GAIN ═══
+    APP.audio.duckingGain = ctx.createGain();
+    APP.audio.duckingGain.gain.setValueAtTime(1.0, ctx.currentTime);
+
+    // ═══ Phase 2: TRIPLE-PATH STEREO TAP ═══
+    APP.audio.stereoGain = ctx.createGain();
+    APP.audio.stereoGain.gain.setValueAtTime(1.0, ctx.currentTime);
+
+    // ═══ Phase 2: DOLBY HRTF PATH ═══
+    APP.audio.dolbyPanner = ctx.createPanner();
+    APP.audio.dolbyPanner.panningModel = 'HRTF';
+    APP.audio.dolbyPanner.distanceModel = 'inverse';
+    APP.audio.dolbyPanner.refDistance = 1;
+    if (APP.audio.dolbyPanner.positionX) {
+        APP.audio.dolbyPanner.positionX.setValueAtTime(0, ctx.currentTime);
+        APP.audio.dolbyPanner.positionY.setValueAtTime(5, ctx.currentTime);
+        APP.audio.dolbyPanner.positionZ.setValueAtTime(-2, ctx.currentTime);
+    }
+
+    // ═══ Phase 2: SURROUND 5.1 SPLITTER ═══
+    try {
+        APP.audio.surroundSplitter = ctx.createChannelSplitter(6);
+        APP.audio.surroundMerger = ctx.createChannelMerger(6);
+    } catch(e) { /* 5.1 not supported */ }
+
+    // ═══ Phase 2: Mic analyzer for ducking ═══
+    APP.audio.micAnalyzer = ctx.createAnalyser();
+    APP.audio.micAnalyzer.fftSize = 256;
+
+    // Invalidate cached padBusNode — it was connected to the old duckingGain
+    // which is now replaced; _getPadBus will reconnect to the new node on next SFX play
+    _padBusNode = null;
+
+    // Upgraded routing: Source -> Panner -> EQ -> Comp -> Ducking -> Analyzer -> MasterGain -> Limiter -> Destination
+    APP.audio.source
+        .connect(APP.audio.panner)
+        .connect(APP.audio.lowShelf)
+        .connect(APP.audio.highShelf)
+        .connect(APP.audio.compressor)
+        .connect(APP.audio.duckingGain)
+        .connect(APP.audio.analyzer)
+        .connect(APP.audio.masterGain)
+        .connect(APP.audio.outputLimiter)
+        .connect(ctx.destination);
+
+    // Stereo monitoring tap
+    APP.audio.masterGain.connect(APP.audio.stereoGain);
+
+    // Dolby HRTF parallel path
+    APP.audio.source.connect(APP.audio.dolbyPanner);
+    APP.audio.dolbyPanner.connect(APP.audio.outputLimiter);
+
+    // Video audio gain node — independent mute without touching vid.muted
+    // Rebuilding here because setupAudioChain replaces all nodes
+    APP.audio.videoGain = ctx.createGain();
+    APP.audio.videoGain.gain.value = APP.audio.videoMuted ? 0 : 1;
+    APP.audio.videoGain.connect(APP.audio.panner);
+    APP.audio.videoGain.connect(APP.audio.dolbyPanner);
+
+    // Recorder destination for broadcast/NFT recording
+    APP.audio.recorderDest = ctx.createMediaStreamDestination();
+    APP.audio.masterGain.connect(APP.audio.recorderDest);
+
+    // Reconnect mic if it was active before chain was rebuilt
+    if (APP.audio.micGainNode) {
+        try { APP.audio.micGainNode.connect(APP.audio.recorderDest); } catch(e) {}
+    }
+
+    APP.audio.vuData = new Uint8Array(APP.audio.analyzer.frequencyBinCount);
+    APP.audio.isConnected = true;
+
+    // If the turntable input was wired before this chain was built, rewire it to the new nodes
+    // so it routes through the correct outputLimiter (NFT/broadcast recording taps this).
+    if (APP.audio.livePreAmp) {
+        try { APP.audio.livePreAmp.disconnect(); } catch(_) {}
+        APP.audio.livePreAmp.connect(APP.audio.panner);
+        if (APP.inputDevices && APP.inputDevices.analyzer) {
+            APP.audio.livePreAmp.connect(APP.inputDevices.analyzer);
+        }
+    }
+
+    log('DAW_ENGINE: TRIPLE_PATH + LIMITER + DUCKING');
+    updateVU();
+}
+
+function setAudioMode(mode) {
+    if(!APP.audio.ctx) return;
+    const now = APP.audio.ctx.currentTime;
+    clearInterval(APP.audio.spatialInterval);
+    
+    APP.audio.panner.positionX.value = 0;
+    APP.audio.panner.positionZ.value = 0;
+    APP.audio.lowShelf.gain.setTargetAtTime(0, now, 0.1);
+    APP.audio.highShelf.gain.setTargetAtTime(0, now, 0.1);
+    APP.audio.compressor.ratio.setTargetAtTime(1, now, 0.1); 
+    
+    if (mode === 'stereo') { log('AUDIO: PURE STEREO'); }
+    else if (mode === 'spatial') {
+        log('AUDIO: 3D ROTATION');
+        let angle = 0;
+        APP.audio.spatialInterval = setInterval(() => {
+            angle += 0.02;
+            APP.audio.panner.positionX.value = Math.sin(angle);
+            APP.audio.panner.positionZ.value = Math.cos(angle);
+        }, 16);
+    }
+    else if (mode === 'dolby') {
+        log('AUDIO: DOLBY CINEMA DSP');
+        APP.audio.lowShelf.gain.setTargetAtTime(4, now, 0.1);
+        APP.audio.highShelf.gain.setTargetAtTime(4, now, 0.1);
+        APP.audio.compressor.ratio.setTargetAtTime(12, now, 0.1);
+        APP.audio.compressor.threshold.setTargetAtTime(-30, now, 0.1);
+        APP.audio.compressor.attack.setTargetAtTime(0.003, now, 0.1);
+    }
+    
+    APP.audio.spatialMode = mode;
+    ['stereo', 'spatial', 'dolby'].forEach(m => {
+        const btn = $(`btn-${m}`);
+        if(m === mode) btn.classList.add('active-mode');
+        else btn.classList.remove('active-mode');
+    });
+}
+
+// ── PHASE E Task 1: own rAF removed — called from mainLoop every frame ──
+function updateVU() {
+    if (!APP.audio.analyzer || (!APP.audio.isPlaying && !APP.audio.videoSource && !APP.audio.sfxPlaying)) return;
+    APP.audio.analyzer.getByteFrequencyData(APP.audio.vuData);
+    const bars = $('vu').children;
+    if(bars.length === 0) { const vu = $('vu'); for (let i = 0; i < 16; i++) { const bar = document.createElement('div'); bar.className = 'vu-bar'; vu.appendChild(bar); } }
+    for (let i = 0; i < bars.length; i++) bars[i].style.height = Math.max(2, (APP.audio.vuData[i * 2] / 255) * 28) + 'px';
+
+    const bass = (APP.audio.vuData[0] + APP.audio.vuData[1]) / 2;
+    APP.audio.bassLevel = bass;
+
+    // LIGHT PLAY (PARTY MODE)
+    if(APP.vj.uiReactivity && bass > 200) {
+        document.body.style.boxShadow = `inset 0 0 ${bass/2}px var(--accent)`;
+    } else if (APP.vj.uiReactivity) {
+        document.body.style.boxShadow = 'none';
+    }
+}
+
+
+// ═══════════════════════════════════════════════════════════════════════════
+// LOCAL CLOUD SYNC — Wallet-authenticated session storage via localStorage
+// Puter.js removed. Sessions are wallet-signed and stored in localStorage.
+// Web3 wallet logic (ethers.js, APP.wallet, signatures) fully preserved.
+// ═══════════════════════════════════════════════════════════════════════════
+
+// Internal: build the same session snapshot that SAVE_SESSION uses
+function _buildSessionSnapshot() {
+    var logo64 = null;
+    var logoEl = $('user-logo-layer');
+    if (logoEl && logoEl.src && logoEl.src !== window.location.href && logoEl.naturalWidth > 0) {
+        try {
+            var tmpC = document.createElement('canvas');
+            tmpC.width = logoEl.naturalWidth; tmpC.height = logoEl.naturalHeight;
+            tmpC.getContext('2d').drawImage(logoEl, 0, 0);
+            logo64 = tmpC.toDataURL('image/png');
+        } catch(e) {}
+    }
+    var ltTitleEl = $('lt-title-text'), ltSubEl = $('lt-subtitle-text');
+    return {
+        vj: APP.vj,
+        theme: APP.state.theme,
+        bug: APP.bug.text,
+        layers: APP.layers,
+        logo2d: logo64,
+        lowerThird: {
+            title:   (ltTitleEl && ltTitleEl.textContent) || '',
+            subtitle:(ltSubEl   && ltSubEl.textContent)   || '',
+            preset:  APP.lowerThird.preset,
+            visible: APP.lowerThird.visible
+        },
+        timestamp: Date.now()
+    };
+}
+
+// Internal: apply a session snapshot (shared with VGD import logic)
+function _applySessionSnapshot(s) {
+    if (s.theme)  setTheme(s.theme);
+    if (s.bug)    { APP.bug.text = s.bug; $('bug-text').value = s.bug; $('station-bug').textContent = s.bug; }
+    if (s.vj)     { APP.vj = { ...APP.vj, ...s.vj }; }
+    if (s.layers) {
+        APP.layers = { ...APP.layers, ...s.layers };
+        APP.trinity.logo.scale = APP.layers.logoScale || 1.0;
+        APP.trinity.bug.scale  = APP.layers.bugScale  || 1.5;
+    }
+    if (s.logo2d) {
+        var logoLayer = $('user-logo-layer');
+        if (logoLayer) { logoLayer.src = s.logo2d; logoLayer.style.display = 'block'; APP.trinity.logo.visible = true; }
+    }
+    if (s.lowerThird) {
+        if (s.lowerThird.title    && $('lt-title-text')) $('lt-title-text').textContent = s.lowerThird.title;
+        if (s.lowerThird.subtitle && $('lt-subtitle-text')) $('lt-subtitle-text').textContent = s.lowerThird.subtitle;
+        if (s.lowerThird.title    && $('lt-title'))     $('lt-title').value    = s.lowerThird.title;
+        if (s.lowerThird.subtitle && $('lt-sub'))       $('lt-sub').value      = s.lowerThird.subtitle;
+        if (s.lowerThird.preset)  APP.lowerThird.preset  = s.lowerThird.preset;
+        APP.lowerThird.visible = !!s.lowerThird.visible;
+    }
+    if ($('sl-b')) $('sl-b').value = Math.round(APP.vj.brightness * 100);
+    if ($('sl-c')) $('sl-c').value = Math.round(APP.vj.contrast  * 100);
+    if ($('sl-s')) $('sl-s').value = Math.round(APP.vj.saturation * 100);
+    if ($('sl-h')) $('sl-h').value = APP.vj.hue;
+}
+
+// localStorage key scoped to wallet address (Web3 identity preserved)
+function _localKey(address) {
+    return 'VNGRD_SESSION_' + address.toLowerCase();
+}
+
+// Convert a data URL to a Blob without fetch() — works in all browsers including Safari
+function _dataURLtoBlob(dataURL) {
+    var parts = dataURL.split(',');
+    var mime  = parts[0].match(/:(.*?);/)[1];
+    var bstr  = atob(parts[1]);
+    var n     = bstr.length;
+    var u8    = new Uint8Array(n);
+    while (n--) u8[n] = bstr.charCodeAt(n);
+    return new Blob([u8], { type: mime });
+}
+
+// ── WALLET SYNC HUD helpers ──
+function _showIpfsSyncIndicator(syncing, success) {
+    var hud   = document.getElementById('wallet-sync-hud');
+    var label = document.getElementById('ipfs-sync-label');
+    if (!hud) return;
+    hud.classList.remove('syncing', 'synced', 'error', 'visible');
+    if (syncing) {
+        hud.classList.add('visible', 'syncing');
+        if (label) label.textContent = 'IPFS SYNC…';
+    } else if (success === true) {
+        hud.classList.add('visible', 'synced');
+        if (label) label.textContent = 'IPFS SYNCED';
+    } else {
+        hud.classList.add('visible', 'error');
+        if (label) label.textContent = 'SYNC FAILED';
+    }
+}
+
+function _showWalletSaveThumbnail(dataURL, cid) {
+    var thumb = document.getElementById('wallet-sync-thumbnail');
+    var img   = document.getElementById('wallet-sync-snapshot');
+    var cidEl = document.getElementById('wallet-sync-cid');
+    if (thumb && img && dataURL) {
+        img.src = dataURL;
+        thumb.classList.add('visible');
+    }
+    if (cidEl && cid) {
+        cidEl.textContent = 'CID: ' + cid;
+        cidEl.classList.add('visible');
+    }
+}
+
+// ── SAVE session to IPFS via Pinata (directory-wrapped) + bind to wallet via puter.kv ──
+window.saveSessionToCloud = async function() {
+    if (!APP.wallet.connected || !APP.wallet.address) {
+        log('WALLET_SAVE: WALLET_NOT_CONNECTED'); alert('Connect your wallet first.'); return;
+    }
+
+    var address = APP.wallet.address;
+    var jwt = localStorage.getItem('pinata_jwt');
+    if (!jwt) {
+        var raw = prompt('PINATA JWT TOKEN (stored locally):');
+        if (!raw) { log('WALLET_SAVE: NO_JWT'); return; }
+        jwt = raw.trim();
+        localStorage.setItem('pinata_jwt', jwt);
+    }
+
+    // Step 1 — Capture WebGL canvas snapshot SYNCHRONOUSLY before any async work
+    var vjCanvas = document.getElementById('vj-canvas');
+    var snapshotDataURL = null;
+    try {
+        if (vjCanvas) snapshotDataURL = vjCanvas.toDataURL('image/jpeg', 0.85);
+    } catch(e) { log('WALLET_SAVE: SNAPSHOT_WARN ' + e.message); }
+
+    // Show IPFS SYNC indicator immediately — upload runs detached, never blocks 60fps loop
+    _showIpfsSyncIndicator(true);
+    log('WALLET_SAVE: ASYNC_UPLOAD_STARTED for ' + address.slice(0, 6) + '...');
+
+    // Detach from call stack via Promise.resolve() so the render loop is never stalled
+    Promise.resolve().then(async function() {
+        var _step = 'INIT';
+        try {
+            // Step 2 — Build FormData with all blobs (no client-side zip = no OOM crash)
+            // IMPORTANT: Pinata wrapWithDirectory requires ALL files to share ONE root folder.
+            // Files at mixed levels (root + subdirs) trigger 400 "More than one file/directory".
+            // Solution: prefix every path with 'VNGRD/' so there is exactly one top-level entry.
+            _step = 'BUILD_FORM';
+            var form = new FormData();
+            var DIR  = 'VNGRD/'; // single root — Pinata wraps this in an outer directory CID
+
+            // 2a. Session state JSON manifest
+            var snap = _buildSessionSnapshot();
+            snap._type    = 'VNGRD_WALLET_PAYLOAD';
+            snap._version = 'V35_WALLET';
+            snap._wallet  = address;
+            form.append('file', new Blob([JSON.stringify(snap, null, 2)], { type: 'application/json' }), DIR + 'session.json');
+
+            // 2b. WebGL snapshot — use atob() conversion, NOT fetch(dataURL) which fails in Safari
+            _step = 'SNAPSHOT_ENCODE';
+            if (snapshotDataURL) {
+                form.append('file', _dataURLtoBlob(snapshotDataURL), DIR + 'snapshot.jpg');
+            }
+
+            // 2c. Media queue blobs — images re-encoded, video fetched from object URL
+            if (APP.media && APP.media.queue && APP.media.queue.length) {
+                for (var i = 0; i < APP.media.queue.length; i++) {
+                    var item = APP.media.queue[i];
+                    try {
+                        var mblob;
+                        if (item.type === 'image' && item.element && item.element.naturalWidth) {
+                            var mc = document.createElement('canvas');
+                            mc.width = item.element.naturalWidth; mc.height = item.element.naturalHeight;
+                            mc.getContext('2d').drawImage(item.element, 0, 0);
+                            mblob = await new Promise(function(r) { mc.toBlob(r, 'image/jpeg', 0.9); });
+                        } else if (item.url) {
+                            mblob = await fetch(item.url).then(function(r) { return r.blob(); });
+                        }
+                        if (mblob) {
+                            form.append('file', mblob, DIR + 'media/media_' + i + (item.name ? '_' + item.name : ''));
+                            log('WALLET_SAVE: QUEUED_MEDIA ' + (item.name || i));
+                        }
+                    } catch(e) { log('WALLET_SAVE: MEDIA_SKIP ' + (item.name || i) + ' — ' + e.message); }
+                }
+            }
+
+            // 2d. Audio playlist blobs
+            if (APP.audio && APP.audio.playlist && APP.audio.playlist.length) {
+                for (var i = 0; i < APP.audio.playlist.length; i++) {
+                    var track = APP.audio.playlist[i];
+                    try {
+                        var ablob = await fetch(track.url).then(function(r) { return r.blob(); });
+                        form.append('file', ablob, DIR + 'audio/audio_' + i + (track.name ? '_' + track.name : ''));
+                        log('WALLET_SAVE: QUEUED_AUDIO ' + (track.name || i));
+                    } catch(e) { log('WALLET_SAVE: AUDIO_SKIP ' + (track.name || i) + ' — ' + e.message); }
+                }
+            }
+
+            // 2e. Time machine video recording chunks — concatenated into one webm blob, never zipped
+            if (APP.timeMachine && APP.timeMachine.chunks && APP.timeMachine.chunks.length) {
+                try {
+                    var tmBlob = new Blob(APP.timeMachine.chunks, { type: 'video/webm' });
+                    form.append('file', tmBlob, DIR + 'video/timemachine.webm');
+                    log('WALLET_SAVE: QUEUED_TIMEMACHINE ' + (tmBlob.size / 1e6).toFixed(1) + 'MB');
+                } catch(e) { log('WALLET_SAVE: TIMEMACHINE_SKIP — ' + e.message); }
+            }
+
+            // Pinata directory wrapping — all blobs land in one IPFS directory CID
+            form.append('pinataOptions',  JSON.stringify({ wrapWithDirectory: true }));
+            form.append('pinataMetadata', JSON.stringify({
+                name: 'VNGRD_WALLET_' + address.slice(0, 8) + '_' + Date.now()
+            }));
+
+            // Step 3 — Upload to Pinata, await master directory CID
+            _step = 'PINATA_UPLOAD';
+            log('WALLET_SAVE: UPLOADING_DIRECTORY_TO_PINATA…');
+            var res  = await fetch('https://api.pinata.cloud/pinning/pinFileToIPFS', {
+                method:  'POST',
+                headers: { 'Authorization': 'Bearer ' + jwt },
+                body:    form
+            });
+            var data = await res.json();
+            if (!res.ok || !data.IpfsHash) throw new Error('PIN_FAIL ' + res.status + ': ' + (data.error ? JSON.stringify(data.error) : 'no IpfsHash'));
+
+            var cid = data.IpfsHash;
+            log('WALLET_SAVE: DIRECTORY_PINNED CID=' + cid);
+
+            // Step 4 — Bind the master CID to the user's wallet address via localStorage
+            try {
+                localStorage.setItem('vngrd_cid_' + address.toLowerCase(), JSON.stringify({
+                    payloadCID: cid,
+                    address:    address,
+                    timestamp:  Date.now()
+                }));
+                log('WALLET_SAVE: CID_BOUND ' + address.slice(0, 6) + ' → ' + cid.slice(0, 10) + '…');
+            } catch(e) { log('WALLET_SAVE: CID_BIND_WARN ' + e.message); }
+
+            // Step 5 — Show snapshot thumbnail + success state; never blocked render loop
+            _showWalletSaveThumbnail(snapshotDataURL, cid);
+            _showIpfsSyncIndicator(false, true);
+            if (typeof ghostLog === 'function') ghostLog('GHOST> WALLET PAYLOAD BOUND → IPFS CID=' + cid, 'ok');
+
+        } catch(e) {
+            log('WALLET_SAVE: ERR [' + _step + '] ' + e.message);
+            _showIpfsSyncIndicator(false, false);
+            alert('IPFS Wallet Save failed [' + _step + ']: ' + e.message);
+        }
+    });
+};
+
+// ── LOAD session from localStorage for the connected wallet ──
+window.loadSessionFromCloud = async function(silent) {
+    if (!APP.wallet.connected || !APP.wallet.address) {
+        log('LOCAL_LOAD: WALLET_NOT_CONNECTED');
+        if (!silent) alert('Connect your wallet first.');
+        return;
+    }
+
+    var address = APP.wallet.address;
+    log('LOCAL_LOAD: CHECKING_LOCALSTORAGE for ' + address.slice(0, 6) + '...');
+
+    var raw = localStorage.getItem(_localKey(address));
+
+    if (!raw) {
+        log('LOCAL_LOAD: NO_SESSION_FOUND');
+        if (!silent) alert('No saved session found for this wallet.');
+        return;
+    }
+
+    var s;
+    try { s = JSON.parse(raw); } catch(e) { log('LOCAL_LOAD: PARSE_ERR'); return; }
+
+    var savedDate = s.timestamp ? new Date(s.timestamp).toLocaleString() : 'unknown date';
+    var prompt = silent
+        ? ('Previous session found for this wallet (' + address.slice(0,6) + '...' + address.slice(-4) + ')\nSaved: ' + savedDate + '\n\nRestore it?')
+        : ('Local session for ' + address.slice(0,6) + '...' + address.slice(-4) + '\nSaved: ' + savedDate + '\n\nLoad this session?');
+
+    if (!confirm(prompt)) { log('LOCAL_LOAD: USER_DECLINED'); return; }
+
+    try {
+        _applySessionSnapshot(s);
+        log('LOCAL_LOAD: SESSION_RESTORED from ' + savedDate);
+        alert('Session restored!\nSaved: ' + savedDate);
+    } catch(e) {
+        log('LOCAL_LOAD: APPLY_ERR ' + e.message);
+        alert('Failed to apply session: ' + e.message);
+    }
+};
+
+// ══════════════════════════════════════════════════════════════════════════
+// AUTO-SAVE — writes to localStorage['vngrd_state'] every 60 seconds
+// ══════════════════════════════════════════════════════════════════════════
+function vngrdAutoSave() {
+    try {
+        localStorage.setItem('vngrd_state', JSON.stringify(_buildSessionSnapshot()));
+    } catch(e) { return; }
+    // 1s cyan pulse — CSS animation handles timing, no setTimeout needed
+    var led = $('sync-led');
+    if (led) {
+        led.classList.remove('blink');
+        void led.offsetWidth; // force reflow to restart animation
+        led.classList.add('blink');
+    }
+}
+APP.autoSaveInterval = setInterval(vngrdAutoSave, 60000);
+
+// ══════════════════════════════════════════════════════════════════════════
+// DEPLOY SYSTEM — SNAPSHOT + GENERATE_QR / IPFS via Pinata
+// ══════════════════════════════════════════════════════════════════════════
+
+// SNAPSHOT: compile state and trigger JSON download
+function downloadWorkspaceSnapshot() {
+    var snap = _buildSessionSnapshot();
+    snap._type = 'VNGRD_WORKSPACE';
+    var blob = new Blob([JSON.stringify(snap, null, 2)], { type: 'application/json' });
+    var url = URL.createObjectURL(blob);
+    var a = document.createElement('a');
+    a.href = url;
+    a.download = 'VNGRD_WORKSPACE_' + Date.now() + '.json';
+    a.click();
+    URL.revokeObjectURL(url);
+    log('SNAPSHOT: DOWNLOADED');
+}
+
+// Upload a single binary file to Pinata, return its IPFS CID
+async function _pinFile(blob, name, jwt) {
+    var form = new FormData();
+    form.append('file', blob, name);
+    form.append('pinataMetadata', JSON.stringify({ name: 'VNGRD_' + name }));
+    var res = await fetch('https://api.pinata.cloud/pinning/pinFileToIPFS', {
+        method: 'POST',
+        headers: { 'Authorization': 'Bearer ' + jwt },
+        body: form
+    });
+    var data = await res.json();
+    if (!res.ok || !data.IpfsHash) throw new Error('PIN_FAIL: ' + (data.error ? JSON.stringify(data.error) : res.status));
+    return data.IpfsHash;
+}
+
+// SHARE_QR: build portfolio (settings + media + audio) → pin to IPFS → QR code
+async function executeWorkspaceExport() {
+    var jwt = localStorage.getItem('pinata_jwt');
+    if (!jwt) {
+        var raw = prompt('PINATA JWT TOKEN (stored locally):');
+        if (!raw) { log('IPFS_EXPORT: NO_JWT'); return; }
+        jwt = raw.trim();
+        localStorage.setItem('pinata_jwt', jwt);
+    }
+
+    log('IPFS: BUILDING_PORTFOLIO\u2026');
+    if (typeof ghostLog === 'function') ghostLog('GHOST> PORTFOLIO EXPORT STARTED', 'ai');
+
+    var snap = _buildSessionSnapshot();
+    snap._type    = 'VNGRD_WORKSPACE';
+    snap._version = 'V35_PORTFOLIO';
+    snap.media       = [];
+    snap.audioTracks = [];
+
+    var total = (APP.media && APP.media.queue ? APP.media.queue.length : 0)
+              + (APP.audio && APP.audio.playlist ? APP.audio.playlist.length : 0);
+    var done = 0;
+
+    // ── Upload media files (images + videos) ────────────────────────
+    if (APP.media && APP.media.queue && APP.media.queue.length) {
+        for (var i = 0; i < APP.media.queue.length; i++) {
+            var item = APP.media.queue[i];
+            try {
+                var blob;
+                if (item.type === 'image' && item.element && item.element.naturalWidth) {
+                    var c = document.createElement('canvas');
+                    c.width = item.element.naturalWidth;
+                    c.height = item.element.naturalHeight;
+                    c.getContext('2d').drawImage(item.element, 0, 0);
+                    blob = await new Promise(function(r) { c.toBlob(r, 'image/jpeg', 0.9); });
+                } else if (item.url) {
+                    var resp = await fetch(item.url);
+                    blob = await resp.blob();
+                }
+                if (blob) {
+                    var cid = await _pinFile(blob, item.name || ('media_' + i), jwt);
+                    snap.media.push({ type: item.type, name: item.name, cid: cid });
+                    log('IPFS: PINNED_MEDIA ' + (++done) + '/' + total + ' ' + (item.name || ''));
+                }
+            } catch(e) {
+                log('IPFS: MEDIA_SKIP ' + (item.name || i) + ' \u2014 ' + e.message);
+            }
+        }
+    }
+
+    // ── Upload audio tracks ─────────────────────────────────────────
+    if (APP.audio && APP.audio.playlist && APP.audio.playlist.length) {
+        for (var i = 0; i < APP.audio.playlist.length; i++) {
+            var track = APP.audio.playlist[i];
+            try {
+                var resp = await fetch(track.url);
+                var blob = await resp.blob();
+                var cid  = await _pinFile(blob, (track.name || 'track_' + i), jwt);
+                snap.audioTracks.push({ name: track.name, cid: cid });
+                log('IPFS: PINNED_AUDIO ' + (++done) + '/' + total + ' ' + (track.name || ''));
+            } catch(e) {
+                log('IPFS: AUDIO_SKIP ' + (track.name || i) + ' \u2014 ' + e.message);
+            }
+        }
+    }
+
+    // ── Pin the manifest JSON ───────────────────────────────────────
+    log('IPFS: PINNING_MANIFEST (' + snap.media.length + ' media, ' + snap.audioTracks.length + ' tracks)');
+    var res, data;
+    try {
+        res = await fetch('https://api.pinata.cloud/pinning/pinJSONToIPFS', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'Authorization': 'Bearer ' + jwt
+            },
+            body: JSON.stringify({
+                pinataContent: snap,
+                pinataMetadata: { name: 'VNGRD_PORTFOLIO_' + Date.now() }
+            })
+        });
+        data = await res.json();
+    } catch(e) {
+        log('IPFS: FETCH_ERR ' + e.message);
+        alert('IPFS export failed: ' + e.message);
+        return;
+    }
+
+    if (!res.ok || !data.IpfsHash) {
+        log('IPFS: PIN_FAILED ' + JSON.stringify(data));
+        alert('Pinata error: ' + (data.error && data.error.details ? data.error.details : JSON.stringify(data)));
+        return;
+    }
+
+    var cid = data.IpfsHash;
+    log('IPFS: PORTFOLIO_PINNED CID=' + cid);
+    if (typeof ghostLog === 'function') ghostLog('GHOST> PORTFOLIO EXPORTED \u2192 IPFS CID=' + cid, 'ok');
+    showQRModal(cid);
+}
+
+// QR MODAL
+function buildWorkspaceURL(cid) {
+    // On localhost, try to substitute the local network IP so mobile devices can reach the server
+    var origin = window.location.origin;
+    if (/^https?:\/\/localhost|^https?:\/\/127\.0\.0\.1/.test(origin)) {
+        // RTCPeerConnection trick: gather a local IP via ICE candidates
+        // Falls back to localhost if WebRTC is unavailable
+        return new Promise(function(resolve) {
+            var resolved = false;
+            function done(ip) {
+                if (resolved) return;
+                resolved = true;
+                var port = window.location.port ? ':' + window.location.port : '';
+                resolve(window.location.protocol + '//' + ip + port + '/?workspace=' + cid);
+            }
+            try {
+                var pc = new RTCPeerConnection({ iceServers: [] });
+                pc.createDataChannel('');
+                pc.createOffer().then(function(offer) { pc.setLocalDescription(offer); });
+                pc.onicecandidate = function(e) {
+                    if (!e || !e.candidate) return;
+                    var m = e.candidate.candidate.match(/(\d+\.\d+\.\d+\.\d+)/);
+                    if (m && !/^(127\.|169\.254\.)/.test(m[1])) {
+                        pc.close();
+                        done(m[1]);
+                    }
+                };
+                setTimeout(function() { done('localhost'); }, 2000);
+            } catch(e) {
+                done('localhost');
+            }
+        });
+    }
+    return Promise.resolve(origin + '/?workspace=' + cid);
+}
+
+function showQRModal(cid) {
+    buildWorkspaceURL(cid).then(function(url) { _renderQRModal(cid, url); });
+}
+
+function _renderQRModal(cid, url) {
+    var modal = $('qr-modal');
+    var container = $('qr-code-container');
+    var cidLabel = $('qr-modal-cid-label');
+    var urlDisplay = $('qr-url-display');
+
+    cidLabel.textContent = 'CID: ' + cid;
+    urlDisplay.textContent = url;
+    container.innerHTML = '';
+
+    ghostLog('SYSTEM: DYNAMIC_LINK_GENERATED_AT_' + window.location.origin, 'success');
+
+    if (typeof QRCode !== 'undefined') {
+        new QRCode(container, {
+            text: url,
+            width: 200,
+            height: 200,
+            colorDark: '#000000',
+            colorLight: '#ffffff',
+            correctLevel: QRCode.CorrectLevel.M
+        });
+    } else {
+        container.textContent = url;
+        container.style.wordBreak = 'break-all';
+        container.style.color = '#000';
+        container.style.fontSize = '8px';
+    }
+
+    modal.style.display = 'flex';
+
+    $('btn-qr-copy').onclick = function() {
+        navigator.clipboard.writeText(url).then(function() {
+            log('QR: URL_COPIED');
+            $('btn-qr-copy').textContent = 'COPIED!';
+            setTimeout(function() { $('btn-qr-copy').textContent = 'COPY_URL'; }, 1500);
+        }).catch(function() {
+            prompt('Copy this URL:', url);
+        });
+    };
+
+    $('btn-qr-close').onclick = function() {
+        modal.style.display = 'none';
+    };
+}
+
+// ── IPFS PORTFOLIO IMPORT ────────────────────────────────────────────
+// Fetch a VNGRD portfolio manifest from IPFS and restore everything:
+// settings, VJ state, layers, logo, lower third, media queue, audio playlist
+async function importFromIPFS(cid) {
+    var gateways = [
+        'https://gateway.pinata.cloud/ipfs/',
+        'https://ipfs.io/ipfs/',
+        'https://cloudflare-ipfs.com/ipfs/'
+    ];
+    log('IPFS: IMPORTING_PORTFOLIO CID=' + cid);
+    if (typeof ghostLog === 'function') ghostLog('GHOST> LOADING PORTFOLIO FROM IPFS\u2026', 'ai');
+
+    // Try gateways in order until one works
+    var snap = null;
+    for (var g = 0; g < gateways.length; g++) {
+        try {
+            var res = await fetch(gateways[g] + cid);
+            if (res.ok) { snap = await res.json(); break; }
+        } catch(e) { continue; }
+    }
+    if (!snap) { log('IPFS: ALL_GATEWAYS_FAILED'); return; }
+    if (snap._type !== 'VNGRD_WORKSPACE') { log('IPFS: INVALID_WORKSPACE_TYPE'); return; }
+
+    // 1. Restore base session (theme, VJ, layers, logo, lower third)
+    _applySessionSnapshot(snap);
+    log('IPFS: SESSION_RESTORED');
+
+    // 2. Determine working gateway for file fetches
+    var gateway = gateways[0]; // default
+    for (var g = 0; g < gateways.length; g++) {
+        try {
+            if (snap.media && snap.media[0] && snap.media[0].cid) {
+                var test = await fetch(gateways[g] + snap.media[0].cid, { method: 'HEAD' });
+                if (test.ok) { gateway = gateways[g]; break; }
+            } else if (snap.audioTracks && snap.audioTracks[0] && snap.audioTracks[0].cid) {
+                var test = await fetch(gateways[g] + snap.audioTracks[0].cid, { method: 'HEAD' });
+                if (test.ok) { gateway = gateways[g]; break; }
+            } else { break; }
+        } catch(e) { continue; }
+    }
+
+    // 3. Load media files from IPFS → APP.media.queue
+    if (snap.media && snap.media.length) {
+        for (var i = 0; i < snap.media.length; i++) {
+            var m = snap.media[i];
+            if (!m.cid) continue;
+            try {
+                var resp = await fetch(gateway + m.cid);
+                var blob = await resp.blob();
+                var url  = URL.createObjectURL(blob);
+                var item = { type: m.type, url: url, element: null, name: m.name };
+
+                if (m.type === 'video') {
+                    var vid = document.createElement('video');
+                    vid.src = url; vid.muted = true; vid.loop = true; vid.playsInline = true; vid.preload = 'auto';
+                    item.element = vid;
+                    if ($('media-container')) $('media-container').appendChild(vid);
+                } else {
+                    var img = new Image();
+                    img.src = url;
+                    item.element = img;
+                }
+                APP.media.queue.push(item);
+                log('IPFS: LOADED_MEDIA ' + (i + 1) + '/' + snap.media.length + ' ' + m.name);
+            } catch(e) {
+                log('IPFS: MEDIA_ERR ' + m.name + ' \u2014 ' + e.message);
+            }
+        }
+        // Show first media item
+        if (APP.media.queue.length && APP.media.currentIndex === -1) {
+            if (typeof rotateMedia === 'function') rotateMedia();
+        }
+        if (typeof updateQueueDisplay === 'function') updateQueueDisplay();
+        var mediaDot = $('media-dot');
+        if (mediaDot) mediaDot.classList.remove('off');
+    }
+
+    // 4. Load audio tracks from IPFS → APP.audio.playlist
+    if (snap.audioTracks && snap.audioTracks.length) {
+        for (var i = 0; i < snap.audioTracks.length; i++) {
+            var t = snap.audioTracks[i];
+            if (!t.cid) continue;
+            try {
+                var resp = await fetch(gateway + t.cid);
+                var blob = await resp.blob();
+                APP.audio.playlist.push({ url: URL.createObjectURL(blob), name: t.name });
+                log('IPFS: LOADED_AUDIO ' + (i + 1) + '/' + snap.audioTracks.length + ' ' + t.name);
+            } catch(e) {
+                log('IPFS: AUDIO_ERR ' + t.name + ' \u2014 ' + e.message);
+            }
+        }
+        var audioDot = $('audio-dot');
+        if (audioDot) audioDot.classList.remove('off');
+        // Start playing the first track
+        if (APP.audio.playlist.length && !APP.audio.isPlaying) {
+            if (typeof playTrack === 'function') playTrack();
+        }
+    }
+
+    var mCount = snap.media ? snap.media.length : 0;
+    var aCount = snap.audioTracks ? snap.audioTracks.length : 0;
+    log('PORTFOLIO_IMPORTED: ' + mCount + ' media, ' + aCount + ' tracks');
+    if (typeof ghostLog === 'function') ghostLog('GHOST> PORTFOLIO LOADED \u2014 ' + mCount + ' MEDIA, ' + aCount + ' TRACKS', 'ok');
+}
+
+function isValidDataURI(str) {
+    // Reject null, empty, or corrupt data URIs
+    if (!str || typeof str !== 'string') return false;
+    // Must start with data:image/ — reject data:; or data:application/ etc
+    if (!str.startsWith('data:image/')) return false;
+    // Must have ;base64, marker
+    if (str.indexOf(';base64,') === -1) return false;
+    // Must have actual base64 data after the comma (at least 100 chars for a real image)
+    var commaIdx = str.indexOf(',');
+    if (commaIdx === -1 || str.length - commaIdx < 100) return false;
+    return true;
+}
+function loadFromMemory() {
+    const data = localStorage.getItem('VNGRD_SESSION');
+    if(!data) return;
+    try {
+        const s = JSON.parse(data);
+        if(s.theme) setTheme(s.theme);
+        if(s.bug) { APP.bug.text = s.bug; if ($('bug-text')) $('bug-text').value = s.bug; var _bugEl = $('station-bug'); if (_bugEl) _bugEl.textContent = s.bug; }
+        if(s.vj) { APP.vj = { ...APP.vj, ...s.vj }; }
+        if(s.layers) { APP.layers = { ...APP.layers, ...s.layers }; APP.trinity.logo.scale = APP.layers.logoScale || 1.0; APP.trinity.bug.scale = APP.layers.bugScale || 1.5; }
+        // Restore 2D Logo from Base64 — strict validation to prevent net::ERR_INVALID_URL
+        if (s.logo2d) {
+            if (isValidDataURI(s.logo2d)) {
+                var _ll = $('user-logo-layer');
+                if (_ll) { _ll.src = s.logo2d; _ll.style.display = 'block'; APP.trinity.logo.visible = true; }
+            } else {
+                // Corrupt logo data — purge it from the saved session
+                log('MEMORY: CORRUPT_LOGO_PURGED');
+                s.logo2d = null;
+                localStorage.setItem('VNGRD_SESSION', JSON.stringify(s));
+            }
+        }
+        // Restore Lower Third
+        if (s.lowerThird) {
+            if (s.lowerThird.title && $('lt-title-text')) $('lt-title-text').textContent = s.lowerThird.title;
+            if (s.lowerThird.subtitle && $('lt-subtitle-text')) $('lt-subtitle-text').textContent = s.lowerThird.subtitle;
+            if (s.lowerThird.preset) APP.lowerThird.preset = s.lowerThird.preset;
+            APP.lowerThird.visible = !!s.lowerThird.visible;
+        }
+        log('MEMORY_RESTORED');
+    } catch(e) { log('MEMORY_CORRUPT'); }
+}
+
+async function startNFTRecording() {
+    if (APP.nft.isRecording) { stopNFTRecording(); return; }
+
+    // Force-enable button in case layer check left it disabled
+    var btn = $('btn-nft-30');
+    btn.disabled = false; btn.style.opacity = '1';
+
+    try {
+        // 1. Boot audio — ensure context exists (user gesture is active since button was clicked)
+        if (!APP.audio.ctx) APP.audio.ctx = new (window.AudioContext || window.webkitAudioContext)();
+        ensureAudioChain();
+
+        // 2. Resume context if suspended (browser autoplay policy)
+        if (APP.audio.ctx && APP.audio.ctx.state === 'suspended') {
+            await APP.audio.ctx.resume();
+        }
+
+        // 3. Grab video from the composited VJ canvas (all FX are on this canvas)
+        var canvasStream = APP.render.canvas.captureStream(30);
+        var combinedStream = new MediaStream(canvasStream.getVideoTracks());
+
+        // 4. Always build a FRESH audio destination — taps masterGain so music +
+        //    video audio (via videoGain→panner→masterGain) are all captured
+        //    Mic is added separately so it doesn't feed through speakers
+        if (APP.audio.ctx) {
+            var freshDest = APP.audio.ctx.createMediaStreamDestination();
+            var tapNode = APP.audio.outputLimiter || APP.audio.masterGain;
+            if (tapNode) tapNode.connect(freshDest);
+            if (APP.audio.micRecGain) {
+                try { APP.audio.micRecGain.connect(freshDest); } catch(e) {}
+            }
+            freshDest.stream.getAudioTracks().forEach(function(t) { combinedStream.addTrack(t); });
+        }
+
+        // 5. Create MediaRecorder — codec cascade for broad compatibility
+        try { APP.nft.recorder = new MediaRecorder(combinedStream, { mimeType: 'video/webm;codecs=vp9,opus', videoBitsPerSecond: 50000000, audioBitsPerSecond: 128000 }); }
+        catch(e) {
+            try { APP.nft.recorder = new MediaRecorder(combinedStream, { mimeType: 'video/webm;codecs=vp8,opus' }); }
+            catch(e2) { APP.nft.recorder = new MediaRecorder(combinedStream, { mimeType: 'video/webm' }); }
+        }
+
+        APP.nft.chunks = [];
+        APP.nft.recorder.ondataavailable = function(e) { if (e.data && e.data.size > 0) APP.nft.chunks.push(e.data); };
+        APP.nft.recorder.onstop = finalizeNFT;
+
+        // 6. Start — no time limit, user stops manually
+        APP.nft.recorder.start(1000);
+        APP.nft.isRecording = true;
+        APP.nft.startTime = Date.now();
+
+        btn.textContent = '[ STOP_RECORDING ]';
+        btn.classList.add('on');
+        btn.style.color = '#ff3333';
+        $('nft-hud').classList.add('active');
+        updateNFTTimer();
+
+        log('CAPTURE_VNGRD: START (' + combinedStream.getAudioTracks().length + ' audio_trk)');
+    } catch (e) { log('CAPTURE_VNGRD_ERR: ' + e.message); btn.textContent = 'CAPTURE_VNGRD_CLIP'; }
+}
+
+function stopNFTRecording() {
+    if (!APP.nft.isRecording) return;
+    APP.nft.recorder.stop();
+    APP.nft.isRecording = false;
+
+    // Reset button to default state
+    var btn = $('btn-nft-30');
+    btn.textContent = 'CAPTURE_VNGRD_CLIP';
+    btn.classList.remove('on');
+    btn.style.color = '';
+    $('nft-hud').classList.remove('active');
+
+    log('VGD_REC_STOP');
+}
+
+// ── PHASE B: own rAF removed — called from mainLoop every frame ──
+function updateNFTTimer() {
+    if (!APP.nft.isRecording) return;
+
+    const elapsed = Date.now() - APP.nft.startTime;
+    const totalSeconds = Math.floor(elapsed / 1000);
+    const mins = Math.floor(totalSeconds / 60);
+    const secs = totalSeconds % 60;
+
+    // Dynamic timer that handles 30s, 30m, or 3 hours
+    $('nft-timer').textContent = `${String(mins).padStart(2,'0')}:${String(secs).padStart(2,'0')}`;
+
+    // Progress bar stays full/active instead of stopping at 30s
+    $('nft-fill').style.width = `100%`;
+}
+
+// ── NFT HUD: draggable + dimmable ────────────────────────────────────
+(function() {
+    var hud, isDragging = false, ox = 0, oy = 0, pinned = false;
+    var _dims = [1, 0.55, 0.25, 0.08]; var _dimIdx = 0;
+
+    function _init() {
+        hud = document.getElementById('nft-hud');
+        if (!hud) return;
+        // Drag on mousedown anywhere on HUD (except dim button)
+        hud.addEventListener('mousedown', function(e) {
+            if (e.target.id === 'nft-dim-btn') return;
+            isDragging = true;
+            var r = hud.getBoundingClientRect();
+            ox = e.clientX - r.left; oy = e.clientY - r.top;
+            hud.classList.add('dragging');
+        });
+        document.addEventListener('mousemove', function(e) {
+            if (!isDragging) return;
+            pinned = true;
+            hud.style.left   = (e.clientX - ox) + 'px';
+            hud.style.top    = (e.clientY - oy) + 'px';
+            hud.style.bottom = 'auto';
+            hud.style.transform = 'none';
+        });
+        document.addEventListener('mouseup', function() {
+            isDragging = false;
+            hud.classList.remove('dragging');
+        });
+        // Touch drag
+        hud.addEventListener('touchstart', function(e) {
+            if (e.target.id === 'nft-dim-btn') return;
+            var t = e.touches[0]; var r = hud.getBoundingClientRect();
+            ox = t.clientX - r.left; oy = t.clientY - r.top; isDragging = true;
+        }, { passive: true });
+        document.addEventListener('touchmove', function(e) {
+            if (!isDragging) return;
+            var t = e.touches[0]; pinned = true;
+            hud.style.left = (t.clientX - ox) + 'px';
+            hud.style.top  = (t.clientY - oy) + 'px';
+            hud.style.bottom = 'auto'; hud.style.transform = 'none';
+        }, { passive: true });
+        document.addEventListener('touchend', function() { isDragging = false; });
+    }
+
+    window._nftHudDim = function() {
+        _dimIdx = (_dimIdx + 1) % _dims.length;
+        if (!hud) hud = document.getElementById('nft-hud');
+        if (hud) hud.style.opacity = _dims[_dimIdx];
+    };
+    // Reset position/opacity when recording starts
+    var _origShow = null;
+    document.addEventListener('DOMContentLoaded', function() {
+        _init();
+        // Patch: reset HUD position when a new recording starts
+        var origAdd = DOMTokenList.prototype.add;
+        if (!hud) hud = document.getElementById('nft-hud');
+        if (hud) {
+            var observer = new MutationObserver(function(muts) {
+                muts.forEach(function(m) {
+                    if (m.attributeName === 'class' && hud.classList.contains('active') && !pinned) {
+                        hud.style.opacity = '1'; _dimIdx = 0;
+                    }
+                });
+            });
+            observer.observe(hud, { attributes: true });
+        }
+    });
+})();
+
+function finalizeNFT() {
+    const blob = new Blob(APP.nft.chunks, { type: 'video/webm' });
+    const url = URL.createObjectURL(blob); 
+    const a = document.createElement('a'); 
+    a.href = url; 
+    
+    // THE FIX: Save as VGD, not NFT
+    a.download = `CAPTURE_VNGRD_${Date.now()}.webm`;
+    
+    a.click(); 
+    APP.nft.chunks = []; 
+    log('VGD_EXPORTED'); 
+}
+
+// --- KINETIC SNAP ENGINE ---
+function triggerIndustrialSnap(nextImageUrl) {
+    const stage = document.getElementById('main-stage-img'); 
+    if (!stage) return;
+
+    stage.classList.remove('kinetic-shutter');
+    void stage.offsetWidth; // Force CSS restart
+    stage.classList.add('kinetic-shutter');
+
+    setTimeout(() => {
+        stage.src = nextImageUrl;
+        log('SYSTEM: FRAME_CAPTURED');
+    }, 200); 
+}
+
+// UI
+function setTheme(theme) { const structClass = ['theme-broadcast','theme-ethereal'].find(c => document.body.classList.contains(c)) || null; document.body.className = document.body.className.replace(/theme-\w+/g, '').replace('system-failure', ''); if (theme !== 'cyan') document.body.classList.add(`theme-${theme}`); if (structClass) document.body.classList.add(structClass); APP.state.theme = theme; document.querySelectorAll('.pal').forEach(p => p.classList.toggle('on', p.dataset.t === theme)); log(`THEME: ${theme}`); }
+
+(function() {
+  const STRUCT_THEMES = ['', 'theme-broadcast', 'theme-ethereal'];
+  let _structIdx = 0;
+  window.cycleStructuralTheme = function() {
+    // Remove old structural theme classes without disturbing others
+    document.body.classList.remove('theme-broadcast', 'theme-ethereal');
+    _structIdx = (_structIdx + 1) % STRUCT_THEMES.length;
+    if (STRUCT_THEMES[_structIdx]) {
+      document.body.classList.add(STRUCT_THEMES[_structIdx]);
+    }
+    const names = ['CYBER_CORE', 'BROADCAST_PRO', 'ETHEREAL_MINIMAL'];
+    // Log to ghost terminal if available
+    if (window.ghostLog) window.ghostLog('THEME > ' + names[_structIdx], 'ai');
+    // Immediately refresh ticker for the new structural theme
+    if (typeof updateTickerCycle === 'function') updateTickerCycle();
+  };
+})();
+
+
+function toggleVHS() { if (APP.peer && APP.peer.call) { log('FX_BLOCKED: P2P active'); return; } document.body.classList.toggle('vhs'); $('btn-vhs').classList.toggle('on'); log('VHS'); }
+function toggleCRT() { document.body.classList.toggle('crt'); $('btn-crt').classList.toggle('on'); log('CRT'); }
+function toggleFullscreen() {
+    APP.state.isFullscreen = !APP.state.isFullscreen;
+    document.body.classList.toggle('fullscreen', APP.state.isFullscreen);
+    // Re-trigger H-hint fade-in each time we enter fullscreen
+    var hint = document.getElementById('fs-hint');
+    if (hint && APP.state.isFullscreen) {
+        hint.style.opacity = '0.55';
+    }
+    log('FULLSCREEN');
+}
+
+function toggleSystemSlide() {
+    var isSlid = document.body.classList.toggle('system-slide');
+    APP.state.systemSlide = isSlid;
+    // Pulse the TAB hint so user knows how to return
+    var tabHint = document.querySelector('.kb-hint');
+    if (tabHint) { tabHint.style.opacity = '0.85'; setTimeout(() => { tabHint.style.opacity = '0.38'; }, 1800); }
+    if (typeof resizeCanvas === 'function') {
+        setTimeout(function() {
+            APP.render.width = APP.render.canvas.parentElement.clientWidth;
+            APP.render.height = APP.render.canvas.parentElement.clientHeight;
+            resizeCanvas();
+        }, 520);
+    }
+    log(isSlid ? 'SYSTEM_SLIDE: PANELS_OUT' : 'SYSTEM_SLIDE: PANELS_IN');
+}
+
+function morphLogo() {
+    const logo = $('main-logo'); APP.ui.morphs.forEach(m => logo.classList.remove(m)); APP.ui.logoMorph = (APP.ui.logoMorph + 1) % APP.ui.morphs.length; logo.classList.add(APP.ui.morphs[APP.ui.logoMorph]);
+}
+
+function updateClock() { $('clock').textContent = new Date().toTimeString().split(' ')[0]; const s = Math.floor((Date.now() - APP.state.startTime) / 1000); $('uptime').textContent = `${String(Math.floor(s/3600)).padStart(2,'0')}:${String(Math.floor((s%3600)/60)).padStart(2,'0')}:${String(s%60).padStart(2,'0')}`; }
+
+// EMERGENCY
+$('btn-panic').onclick = panicReset;
+$('btn-clear-deck').onclick = clearDeck;
+$('btn-eject').onclick = ejectCurrent;
+
+// SYSTEM FAILURE MODE - Timed chaos sequence that auto-stops (5 seconds)
+$('btn-psychosis').onclick = () => {
+    if (APP.state.psychosis) return; // Prevent double-triggering
+    
+    APP.state.psychosis = true;
+    document.body.classList.add('system-failure');
+    $('btn-psychosis').classList.add('active-mode');
+    log('CRITICAL: SYSTEM FAILURE DETECTED');
+    
+    // Store original states
+    const origRGB = APP.vj.rgbEnabled;
+    const origRGBIntensity = APP.vj.rgbIntensity;
+    const origPixelate = APP.vj.pixelateEnabled;
+    const origPixelSize = APP.vj.pixelSize;
+    const origHue = APP.vj.hue;
+    const origTrails = APP.vj.trailsEnabled;
+    const origTrailAlpha = APP.vj.trailAlpha;
+    
+    let tick = 0;
+    const totalTicks = 100; // 5 seconds at 50ms
+    
+    const chaos = setInterval(() => {
+        tick++;
+        
+        // Phase 1: Hue rotation + RGB (0-35)
+        if (tick <= 35) {
+            APP.vj.hue = (tick * 10) % 360;
+            APP.vj.rgbEnabled = true;
+            APP.vj.rgbIntensity = 5 + Math.floor(Math.random() * 12);
+        }
+        // Phase 2: Pixelate + trails + wobble (35-70)
+        else if (tick <= 70) {
+            APP.vj.pixelateEnabled = tick % 3 !== 0;
+            APP.vj.pixelSize = 2 + Math.floor(Math.random() * 8);
+            APP.vj.trailsEnabled = true;
+            APP.vj.trailAlpha = 0.65 + Math.random() * 0.25;
+            // Wobble effect
+            const wobbleX = Math.sin(tick * 0.4) * 10;
+            const wobbleY = Math.cos(tick * 0.5) * 8;
+            document.body.style.transform = `translate(${wobbleX}px, ${wobbleY}px)`;
+        }
+        // Phase 3: Recovery + invert flashes (70-100)
+        else {
+            APP.vj.rgbIntensity = Math.max(0, APP.vj.rgbIntensity - 0.8);
+            APP.vj.pixelSize = Math.max(1, APP.vj.pixelSize - 0.3);
+            if (tick % 5 === 0) APP.vj.invert = !APP.vj.invert;
+            if (tick > 85) document.body.style.transform = '';
+        }
+        
+        // End sequence
+        if (tick >= totalTicks) {
+            clearInterval(chaos);
+            
+            // Restore everything
+            APP.vj.rgbEnabled = origRGB;
+            APP.vj.rgbIntensity = origRGBIntensity;
+            APP.vj.pixelateEnabled = origPixelate;
+            APP.vj.pixelSize = origPixelSize;
+            APP.vj.hue = origHue;
+            APP.vj.trailsEnabled = origTrails;
+            APP.vj.trailAlpha = origTrailAlpha;
+            APP.vj.invert = false;
+            document.body.style.transform = '';
+            
+            APP.state.psychosis = false;
+            document.body.classList.remove('system-failure');
+            $('btn-psychosis').classList.remove('active-mode');
+            log('SYSTEM RESTORED');
+        }
+    }, 50);
+};
+
+// RESET ALL FX — clears IMPACT_RACK flags + restores VJ defaults
+function resetAllFX() {
+    APP.fx.stutter = false; APP.fx.crush = false; APP.fx.invert = false;
+    APP.fx.echo = false; APP.fx.rgbSplit = 0; APP.fx.freezeFrame = null;
+    APP.vj.brightness = 1.0; APP.vj.contrast = 1.0; APP.vj.saturation = 1.0; APP.vj.hue = 0;
+    APP.vj.trailsEnabled = false; APP.vj.trailAlpha = 0.92;
+    APP.vj.rgbEnabled = false; APP.vj.rgbIntensity = 0;
+    APP.vj.pixelateEnabled = false; APP.vj.pixelSize = 1;
+    APP.vj.invert = false; APP.vj.maskMode = false;
+    document.querySelectorAll('.btn.on').forEach(el => el.classList.remove('on'));
+    document.body.classList.remove('vhs', 'crt', 'system-failure');
+    log('FX_RESET: ALL_CLEAR');
+}
+
+// PRO_FX: btn-reset delegates to resetAllFX (safe — no slider refs)
+if ($('btn-reset')) $('btn-reset').onclick = resetAllFX;
+
+
+// ═══════════════════════════════════════════════════════════════════════════
+// Phase 2: SIDE-CHAIN DUCKING ENGINE
+// ═══════════════════════════════════════════════════════════════════════════
+function initMicDucking(micStream) {
+    if (!APP.audio.ctx || !micStream) return;
+    try {
+        APP.audio.micSource = APP.audio.ctx.createMediaStreamSource(micStream);
+        APP.audio.micSource.connect(APP.audio.micAnalyzer);
+        APP.audio.duckingActive = true;
+        // ── PHASE F: mainLoop drives updateDucking() — no explicit boot needed ──
+        log('DUCKING: ARMED_-20dB');
+    } catch (e) { log('DUCKING_ERR: ' + e.message); }
+}
+
+// ── PHASE F Task 3: own rAF removed — called from mainLoop every frame ──
+var _duckingBuf = null;
+
+function updateDucking() {
+    if (!APP.audio.duckingActive || !APP.audio.micAnalyzer) return;
+    // Reallocate only if analyzer size changed (e.g. after mic reinit); normally reuses same buffer
+    var _needed = APP.audio.micAnalyzer.frequencyBinCount;
+    if (!_duckingBuf || _duckingBuf.length !== _needed) _duckingBuf = new Float32Array(_needed);
+    APP.audio.micAnalyzer.getFloatTimeDomainData(_duckingBuf);
+    let sum = 0;
+    for (let i = 0; i < _duckingBuf.length; i++) sum += _duckingBuf[i] * _duckingBuf[i];
+    const db = 20 * Math.log10(Math.max(Math.sqrt(sum / _duckingBuf.length), 1e-10));
+    const now = APP.audio.ctx.currentTime;
+    // setTargetAtTime: exponential approach = zero pops/clicks in 15Mbps recording
+    if (db > -20) {
+        // APP.audio.duckingGain.gain.setTargetAtTime(0.25, now, 0.05);
+    } else {
+        // APP.audio.duckingGain.gain.setTargetAtTime(1.0, now, 0.15);
+    }
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
+// Phase 3: WEB3 SOVEREIGN DNA
+// ═══════════════════════════════════════════════════════════════════════════
+// ═══ SHARED WALLET HELPERS ═══
+var _walletChainNames = {
+    '0x1': 'ETH', '0x89': 'MATIC', '0xa86a': 'AVAX', '0x38': 'BSC',
+    '0xa4b1': 'ARB', '0xa': 'OP', '0x2105': 'BASE', '0xaa36a7': 'SEP'
+};
+
+function walletNetworkName(chainId) {
+    return _walletChainNames[chainId] || 'NET:' + parseInt(chainId, 16);
+}
+
+function connectWalletUI(address, chainId) {
+    var network = walletNetworkName(chainId);
+    var short = address.slice(0, 6) + '...' + address.slice(-4);
+    // Sync both state objects
+    APP.wallet = { connected: true, address: address, chainId: chainId, nfts: APP.wallet.nfts || [] };
+    APP.web3.address = address;
+    APP.web3.isConnected = true;
+    APP.web3.mode = 'sovereign';
+    APP.layerSaver.allReady = true;
+    enableRecordButtons(true);
+    // Update badge
+    $('wallet-badge').style.borderColor = 'var(--g)';
+    $('wallet-badge').style.color = 'var(--g)';
+    $('wallet-badge').innerHTML = '<span class="dot" style="background:var(--g);box-shadow:0 0 6px var(--g)"></span>' + network + ':' + short;
+    return { network: network, short: short };
+}
+
+async function disconnectWalletUI() {
+    // Close the provider transport first — this terminates WalletConnect/WalletLink sessions
+    if (APP.web3.provider && APP.web3.provider.close) {
+        try { await APP.web3.provider.close(); } catch(_) {}
+    }
+
+    APP.wallet = { connected: false, address: null, chainId: null, nfts: [] };
+    APP.web3.address = null;
+    APP.web3.isConnected = false;
+    APP.web3.mode = 'guest';
+    APP.web3.provider = null;
+    APP.web3.signer = null;
+    APP.user.assets = [];
+    APP.nftVault.thumbnails = [];
+
+    // Purge all known wallet provider caches so the picker shows fresh on next connect
+    var _providerKeys = [
+        'WEB3_CONNECT_CACHED_PROVIDER',
+        'walletconnect',
+        'WALLETCONNECT_DEEPLINK_CHOICE',
+        'wc@2:core:0.3//session',
+        'wc@2:ethereum_provider:/chainId'
+    ];
+    _providerKeys.forEach(function(k) { try { localStorage.removeItem(k); } catch(_) {} });
+
+    // Sweep any remaining prefixed fragments (-walletlink, walletconnect*, loglevel*)
+    Object.keys(localStorage).forEach(function(k) {
+        if (k.startsWith('-walletlink') || k.startsWith('walletconnect') || k.startsWith('loglevel')) {
+            try { localStorage.removeItem(k); } catch(_) {}
+        }
+    });
+
+    $('wallet-badge').style.borderColor = 'var(--o)';
+    $('wallet-badge').style.color = 'var(--o)';
+    $('wallet-badge').innerHTML = '<span class="dot off"></span>WALLET';
+    $('vault-dot').classList.add('off');
+    $('nft-vault-list').innerHTML = 'CONNECT_WALLET_FIRST';
+    $('nft-count').textContent = 'ASSETS: 0';
+    checkLayerReadiness();
+    log('WALLET: DISCONNECTED + CACHE_CLEARED');
+}
+
+function autoScanNFTs() {
+    var btn = $('btn-scan-nfts');
+    if (btn) setTimeout(function() { btn.click(); }, 300);
+}
+
+// ── WALLET: MANUAL CONNECT ONLY ──
+// requestManualConnect() is the SINGLE entry point for all wallet access.
+// It is ONLY ever called by an explicit user gesture (wallet-badge click).
+// No auto-listeners. No passive reconnect. Every page refresh = clean state.
+window.requestManualConnect = async function() {
+    if (typeof window.ethereum === 'undefined') {
+        log('WALLET: NO_METAMASK_DETECTED');
+        alert('MetaMask not detected. Please install the MetaMask browser extension from metamask.io');
+        window.open('https://metamask.io/download/', '_blank');
+        return;
+    }
+    try {
+        // eth_requestAccounts always triggers MetaMask popup — no silent access
+        const accounts = await window.ethereum.request({ method: 'eth_requestAccounts' });
+        if (!accounts || accounts.length === 0) { log('WALLET: NO_ACCOUNTS'); return; }
+        // Derive address from the live signer — never trust accounts[] which can be stale
+        const _provider = new ethers.providers.Web3Provider(window.ethereum);
+        const _signer = _provider.getSigner();
+        const freshAddress = await _signer.getAddress();   // awaited, not cached
+        APP.web3.provider = _provider;
+        APP.web3.signer = _signer;
+        const chainId = await window.ethereum.request({ method: 'eth_chainId' });
+        // connectWalletUI sets APP.wallet.address = freshAddress before anything downstream runs
+        const info = connectWalletUI(freshAddress, chainId);
+        log('WALLET: ' + info.network + ' ' + info.short);
+        // Balance fetch — non-blocking, does not affect connect state
+        try {
+            const bal = await window.ethereum.request({ method: 'eth_getBalance', params: [freshAddress, 'latest'] });
+            log('BALANCE: ' + (parseInt(bal, 16) / 1e18).toFixed(4) + ' ETH');
+        } catch (_) { /* optional */ }
+        autoScanNFTs();
+    } catch (e) {
+        log(e.code === 4001 ? 'WALLET: USER_REJECTED' : 'WALLET_ERR: ' + e.message);
+    }
+};
+
+async function signVideoDNA(videoBlob) {
+    const result = { hash: null, signature: null, timestamp: Date.now(), address: APP.web3.address || 'guest', mode: APP.web3.mode };
+    try {
+        const ab = await videoBlob.arrayBuffer();
+        const hashBuf = await window.crypto.subtle.digest('SHA-256', ab);
+        result.hash = Array.from(new Uint8Array(hashBuf)).map(b => b.toString(16).padStart(2, '0')).join('');
+        
+        // FIX: Ensure provider exists before calling request
+        if (APP.web3.mode === 'sovereign' && APP.web3.isConnected && window.ethereum) {
+            const msg = 'VNGRD_DNA_SEAL:' + result.hash + ':' + result.timestamp;
+            // Use window.ethereum directly if APP.web3.provider is flaky
+            result.signature = await window.ethereum.request({ method: 'personal_sign', params: [msg, APP.web3.address] });
+            log('DNA: SEALED + ETH_SIG');
+        } else {
+            localStorage.setItem('vngrd_last_hash', result.hash);
+            log('DNA: SEALED_SHA256 (GUEST)');
+        }
+    } catch (e) { 
+        console.error(e);
+        log('DNA_SEAL_ERR: ' + e.message); 
+    }
+    return result;
+}
+
+function injectDNAHeader(dna, seal) {
+    if (!dna || !seal) return dna;
+    dna.sovereign = {
+        hash: seal.hash, signature: seal.signature, timestamp: seal.timestamp,
+        address: seal.address, mode: seal.mode,
+        traits: { resolution: APP.render.width + 'x' + APP.render.height, codec: 'vp9+opus', bitrate: '15Mbps', spatialMode: APP.audio.spatialMode, theme: APP.state.theme, version: 'VNGRD_23.5_SERVERLESS' }
+    };
+    return dna;
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
+// Phase 4: PODCASTER PORTAL UI + MIDI Visual/Audio Mapping
+// ═══════════════════════════════════════════════════════════════════════════
+function portalCamPreview() {
+    // Preview is now inline in the CAMERA_4K sidebar section — no repositioning needed
+    const cam = $('cam-preview-float');
+    if (!cam) return;
+}
+
+function triggerVisualEffect(note, velocity) {
+    const i = velocity / 127;
+    if (note >= 36 && note <= 39) { [impactStutter, impactInvert, impactCrush, triggerSeismic][(note - 36)]?.(); }
+    else if (note >= 40 && note <= 47) { setTheme(['cyan','magenta','gold','purple','green'][(note - 40) % 5]); }
+    else if (note >= 48 && note <= 59) { APP.vj.rgbIntensity = Math.round(i * 30); APP.vj.rgbEnabled = i > 0.1; }
+    else if (note >= 60 && i > 0.5) { rotateMedia(); }
+}
+
+function setMidiAudioFilter(cc, value) {
+    const n = value / 127;
+    if (cc === 1) APP.vj.brightness = 0.2 + n * 1.8;
+    else if (cc === 7 && APP.audio.masterGain) APP.audio.masterGain.gain.setValueAtTime(n, APP.audio.ctx.currentTime);
+    else if (cc === 71) APP.vj.contrast = 0.2 + n * 1.8;
+    else if (cc === 74) APP.vj.hue = Math.round(n * 360);
+    else if (cc === 91) { APP.vj.trailAlpha = 0.8 + n * 0.19; APP.vj.trailsEnabled = n > 0.05; }
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
+// Phase 5: LAYER SAVER (yPodcaster Protection)
+// ═══════════════════════════════════════════════════════════════════════════
+async function checkLayerReadiness() {
+    try {
+        const [tex, font] = await Promise.all([
+            Promise.resolve(!!(APP.render.canvas && APP.render.ctx)),
+            document.fonts ? document.fonts.ready.then(() => true).catch(() => true) : Promise.resolve(true)
+        ]);
+        // Audio check: pass if ctx exists OR if wallet is connected (studio unlocked)
+        const audio = !!(APP.audio.ctx && APP.audio.ctx.state !== 'closed') || (APP.wallet && APP.wallet.connected);
+        APP.layerSaver.textureReady = tex;
+        APP.layerSaver.fontReady = font;
+        APP.layerSaver.audioReady = audio;
+        APP.layerSaver.allReady = tex && font;
+        if (APP.layerSaver.allReady) {
+            enableRecordButtons(true);
+        } else {
+            const missing = [];
+            if (!tex) missing.push('TEXTURE');
+            if (!font) missing.push('FONT');
+            log('LAYER_SAVER: MISSING [' + missing.join(', ') + ']');
+            enableRecordButtons(false);
+        }
+        return APP.layerSaver.allReady;
+    } catch (e) { enableRecordButtons(false); return false; }
+}
+
+function enableRecordButtons(enabled) {
+    ['btn-nft-30', 'btn-broadcast'].forEach(id => {
+        const btn = $(id);
+        if (btn) { btn.disabled = !enabled; btn.style.opacity = enabled ? '1' : '0.3'; }
+    });
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
+// Phase 1: COMPOSITOR INTEGRATION
+// ═══════════════════════════════════════════════════════════════════════════
+function initCompositor() {
+    if (!window.Compositor) { log('COMPOSITOR: NOT_LOADED'); return; }
+    APP.compositor = new Compositor({
+        width: APP.render.width,
+        height: APP.render.height,
+        fps: 60,
+        bitrate: 15000000,
+        audioBitrate: 128000
+    });
+    APP.compositor.setLayer('overlay', APP.render.canvas);
+    if (APP.camera.stream) {
+        const vid = $('preview-vid') || APP.camera.videoEl;
+        if (vid) APP.compositor.setLayer('camera', vid);
+    }
+    APP.compositor.initRecorder(APP.audio.ctx, APP.audio.outputLimiter || APP.audio.masterGain, APP.audio.micRecGain || APP.audio.micGainNode);
+    APP.compositor.onWorkerMessage((type, payload) => {
+        if (type === 'STATUS') log('COMPOSITOR: ' + payload);
+    });
+    APP.compositor.startRecording(1000);
+}
+
+document.addEventListener('DOMContentLoaded', () => {
+    // ── FX CLEANUP: purge stale effect classes from prior session ──
+    document.body.classList.remove('fx-void', 'fx-lucy', 'fx-scan', 'fx-tear', 'fx-punch');
+
+    // Pre-fetch SFX audio files so they decode instantly on first play
+    SFX_ENGINE.init();
+
+    bootSequence();
+
+    // ── PHASE 0: CRITICAL — UI frame must render immediately ──
+    checkMobile(); initCanvas(); ghostInit(); loadFromMemory();
+
+    // ── IPFS PORTFOLIO IMPORT: auto-load if ?workspace=CID is in URL ──
+    var _urlParams = new URLSearchParams(window.location.search);
+    var _workspaceCID = _urlParams.get('workspace');
+    if (_workspaceCID && _workspaceCID.length > 10) {
+        log('BOOT: WORKSPACE_CID_DETECTED \u2192 ' + _workspaceCID);
+        // Delay import until compositor + audio chain are ready
+        setTimeout(function() { importFromIPFS(_workspaceCID); }, 2500);
+    }
+    // ── CRYPTO: one-shot chain — next poll only after current fetch resolves ──
+    (function scheduleCrypto() { fetchCrypto().finally(() => setTimeout(scheduleCrypto, 600000)); })();
+
+    // Hide DOM overlays — Trinity actors are drawn directly on canvas
+    var _sb = $('station-bug'); if (_sb) _sb.style.opacity = '0';
+    // user-logo-layer lives in #gif-host (direct child of body, position:fixed, opacity:0.01)
+    // No extra styling needed — gif-host CSS handles compositing.
+
+    // ═══════════════════════════════════════════════════════════════════
+    // ═══════════════════════════════════════════════════════════════════
+// ═══════════════════════════════════════════════════════════════════
+    // CINEMA_ENGINE — ElevenLabs Voiceover Director
+    // API key stored in localStorage as 'elevenlabs_api_key'
+    // Ducks APP.audio.duckingGain during playback; restores on end.
+    // ═══════════════════════════════════════════════════════════════════
+    APP.ui = APP.ui || {};
+    APP.ui.sveSync = false;
+    APP.ui.svePlaying = false;
+
+    window._toggleSveSync = function(btn) {
+        APP.ui.sveSync = !APP.ui.sveSync;
+        if (btn) {
+            btn.textContent = 'SYNC_CAROUSEL: ' + (APP.ui.sveSync ? 'ON' : 'OFF');
+            btn.style.color = APP.ui.sveSync ? 'var(--accent)' : 'var(--text-dim)';
+            btn.style.borderColor = APP.ui.sveSync ? 'var(--accent)' : 'var(--border-light)';
+        }
+    };
+
+    window._runSVE = async function() {
+        var scriptEl = document.getElementById('sve-script');
+        var statusEl = document.getElementById('sve-status');
+        var btn = document.getElementById('sve-voiceover-btn');
+        var script = scriptEl ? scriptEl.value.trim() : '';
+
+        if (!script) { if (statusEl) statusEl.textContent = 'ERR: EMPTY_SCRIPT'; return; }
+        if (APP.ui.svePlaying) { if (statusEl) statusEl.textContent = 'BUSY: PLAYBACK_ACTIVE'; return; }
+
+        // THE 401 FIX: Trim spaces off the key
+        var rawKey = localStorage.getItem('elevenlabs_api_key') || localStorage.getItem('ELEVENLABS_API_KEY') || '';
+        var apiKey = rawKey.trim();
+
+        if (!apiKey) {
+            if (statusEl) statusEl.textContent = 'ERR: SET elevenlabs_api_key IN localStorage';
+            return;
+        }
+
+        APP.ui.svePlaying = true;
+        if (btn) btn.textContent = '[ TRANSMITTING... ]';
+        if (statusEl) statusEl.textContent = 'ELEVENLABS: REQUESTING...';
+
+        try {
+            ensureAudioChain();
+            var _ctx = APP.audio.ctx;
+            if (_ctx.state === 'suspended') await _ctx.resume();
+
+            var voiceId = '21m00Tcm4TlvDq8ikWAM'; // Rachel
+            
+            // THE SMART FIX: Multilingual V2 model
+            var res = await fetch('https://api.elevenlabs.io/v1/text-to-speech/' + voiceId, {
+                method: 'POST',
+                headers: {
+                    'xi-api-key': apiKey,
+                    'Content-Type': 'application/json',
+                    'Accept': 'audio/mpeg'
+                },
+                body: JSON.stringify({
+                    text: script,
+                    model_id: 'eleven_multilingual_v2',
+                    voice_settings: { stability: 0.5, similarity_boost: 0.75 }
+                })
+            });
+
+            if (!res.ok) throw new Error('API_ERR: HTTP_' + res.status);
+
+            var arrayBuf = await res.arrayBuffer();
+            var audioBuf = await _ctx.decodeAudioData(arrayBuf);
+
+            // DUCKING: ramp ambient down before playback
+            if (APP.audio.duckingGain) {
+                var _dg = APP.audio.duckingGain.gain;
+                _dg.cancelScheduledValues(_ctx.currentTime);
+                _dg.setValueAtTime(_dg.value, _ctx.currentTime);
+                _dg.linearRampToValueAtTime(0.15, _ctx.currentTime + 0.3);
+            }
+
+            var voSrc = _ctx.createBufferSource();
+            voSrc.buffer = audioBuf;
+            voSrc.connect(APP.audio.masterGain || _ctx.destination);
+
+            if (statusEl) statusEl.textContent = 'PLAYING: ' + audioBuf.duration.toFixed(1) + 's';
+            if (btn) btn.textContent = '[ PLAYING... ]';
+
+            voSrc.onended = function() {
+                APP.ui.svePlaying = false;
+                // Ramp ambient back up
+                if (APP.audio.duckingGain) {
+                    var _dg2 = APP.audio.duckingGain.gain;
+                    _dg2.cancelScheduledValues(_ctx.currentTime);
+                    _dg2.setValueAtTime(_dg2.value, _ctx.currentTime);
+                    _dg2.linearRampToValueAtTime(1.0, _ctx.currentTime + 0.5);
+                }
+                // SYNC_CAROUSEL: advance media on voice end
+                if (APP.ui.sveSync && typeof carouselNext === 'function') carouselNext();
+                if (statusEl) statusEl.textContent = 'COMPLETE';
+                if (btn) btn.textContent = '[ VOICEOVER ]';
+            };
+
+            voSrc.start();
+
+        } catch(e) {
+            // THE FALLBACK FIX: Native English/Smart voice if API fails
+            console.warn('ElevenLabs Failed, switching to Native:', e.message);
+            if (statusEl) statusEl.textContent = 'FALLBACK: NATIVE_VOICE';
+            
+            var msg = new SpeechSynthesisUtterance(script);
+            var voices = window.speechSynthesis.getVoices();
+            var englishVoice = voices.find(v => v.name.includes('Google US English') || v.name.includes('Daniel') || v.lang === 'en-US');
+            var intlVoice = voices.find(v => v.lang.startsWith('it') || v.lang.startsWith('en'));
+            
+            msg.voice = englishVoice || intlVoice || voices[0];
+            msg.pitch = 0.85; 
+            msg.rate = 0.95;
+
+            msg.onstart = function() {
+                if (APP.audio.duckingGain && APP.audio.ctx) {
+                    var _dg3 = APP.audio.duckingGain.gain;
+                    _dg3.cancelScheduledValues(APP.audio.ctx.currentTime);
+                    _dg3.setValueAtTime(_dg3.value, APP.audio.ctx.currentTime);
+                    _dg3.linearRampToValueAtTime(0.15, APP.audio.ctx.currentTime + 0.3);
+                }
+            };
+            
+            msg.onend = function() {
+                APP.ui.svePlaying = false;
+                if (APP.audio.duckingGain && APP.audio.ctx) {
+                    var _dg4 = APP.audio.duckingGain.gain;
+                    _dg4.cancelScheduledValues(APP.audio.ctx.currentTime);
+                    _dg4.setValueAtTime(_dg4.value, APP.audio.ctx.currentTime);
+                    _dg4.linearRampToValueAtTime(1.0, APP.audio.ctx.currentTime + 0.5);
+                }
+                if (APP.ui.sveSync && typeof carouselNext === 'function') carouselNext();
+                if (statusEl) statusEl.textContent = 'COMPLETE (NATIVE)';
+                if (btn) btn.textContent = '[ VOICEOVER ]';
+            };
+            
+            window.speechSynthesis.speak(msg);
+        }
+    };
+
+    requestAnimationFrame(renderLoop);
+    startMainLoop(); // ── PHASE A: boot central loop once
+    updateClock(); setInterval(updateClock, 1000); morphLogo(); setTimeout(morphLogo, 4000);
+    // ── PHASE 1 (1s): COMPOSITOR + LAYERS — let UI settle first ──
+    setTimeout(() => {
+        log('BOOT: COMPOSITOR');
+        initCompositor();
+        portalCamPreview();
+        checkLayerReadiness();
+        initSummonerLogic();
+        initSeamControls();
+    }, 1000);
+
+    // ── PHASE 2: MIDI/AUDIO deferred to user gesture (JIT) ──
+    
+    // Wire UI
+    $('btn-init-cam').onclick = initCamera; $('btn-go-live').onclick = goLive; $('btn-end').onclick = endLive; $('btn-kill').onclick = killCamera;
+    
+    // MIC TOGGLE — routes mic into recording chain + ducking (NOT to speakers = no feedback)
+    async function toggleMic() {
+        const btnCam = $('btn-mic');
+        const btnEng = $('btn-mic-engine');
+        if (APP.camera.micStream) {
+            // Turn OFF mic
+            APP.camera.micStream.getTracks().forEach(t => t.stop());
+            APP.camera.micStream = null;
+            APP.audio.duckingActive = false;
+            if (APP.audio.micRecGain) { APP.audio.micRecGain.disconnect(); APP.audio.micRecGain = null; }
+            if (APP.audio.micGainNode) { APP.audio.micGainNode.disconnect(); APP.audio.micGainNode = null; }
+            btnCam.classList.remove('on'); btnCam.textContent = 'MIC';
+            btnEng.classList.remove('on'); btnEng.title = 'Mic on/off';
+            log('MIC: OFF');
+            return;
+        }
+        try {
+            ensureAudioChain();
+            APP.camera.micStream = await navigator.mediaDevices.getUserMedia({ audio: { echoCancellation: false, noiseSuppression: false, autoGainControl: false, channelCount: 2, sampleRate: 48000 } });
+            const micSource = APP.audio.ctx.createMediaStreamSource(APP.camera.micStream);
+            APP.audio.micGainNode = APP.audio.ctx.createGain();
+            APP.audio.micGainNode.gain.value = 1.0;
+            micSource.connect(APP.audio.micGainNode);
+            // Gate node: muted during sampler playback to prevent phase-doubled recordings
+            APP.audio.micRecGain = APP.audio.ctx.createGain();
+            APP.audio.micRecGain.gain.setValueAtTime(1.0, APP.audio.ctx.currentTime);
+            APP.audio.micGainNode.connect(APP.audio.micRecGain);
+            // Route mic → micRecGain → recorderDest (recording) — NOT ctx.destination (prevents feedback)
+            if (APP.audio.recorderDest) APP.audio.micRecGain.connect(APP.audio.recorderDest);
+            // Arm ducking (connects micSource → micAnalyzer for side-chain detection)
+            initMicDucking(APP.camera.micStream);
+            btnCam.classList.add('on'); btnCam.textContent = 'MIC [ON]';
+            btnEng.classList.add('on'); btnEng.title = 'Mic ON — click to mute';
+            log('MIC: ARMED_48kHz (REC_ONLY)');
+            checkLayerReadiness();
+        } catch(e) { log('MIC_ERR: ' + e.message); }
+    }
+    $('btn-mic').onclick = toggleMic;
+    $('btn-mic-engine').onclick = toggleMic;
+    
+    // --- COMPACT MEDIA DECK WIRING ---
+    $('btn-load-media').onclick = () => $('file-media').click();
+    $('btn-cycle-toggle').onclick = toggleCycle;
+
+    // Image zoom/lightbox
+    $('btn-zoom-img').onclick = openLightbox;
+
+    // Keep Navigation
+    $('btn-rotate').onclick = rotateMedia;
+    $('btn-prev').onclick = previousMedia;
+    $('file-media').onchange = e => loadMediaFiles(e.target);
+    
+    // Live Time Update
+    // Cycle slider handler
+    $('sl-cycle').oninput = e => {
+        $('val-cycle').textContent = e.target.value + 's';
+        if(APP.state.isCycle) {
+            checkCycleLogic();
+        }
+    };
+    
+    // Show slider when cycle is on
+    const origToggleCycle = toggleCycle;
+    toggleCycle = function() {
+        origToggleCycle();
+        $('cycle-slider-wrap').style.display = APP.state.isCycle ? 'block' : 'none';
+    };
+
+    ['guest','track','breaking'].forEach(function(m) {
+        var el = $('btn-lt-' + m); if (!el) return;
+        el.onclick = function() {
+            // Mix-Minus: guard on APP.peer.call (media call active), NOT dataConn.open.
+            // dataConn may not be open yet at the moment the LT button is pressed —
+            // sendUISync queues the message and flushes it when the channel opens.
+            if (APP.peer && APP.peer.call) {
+                var _ltTitle = $('lt-title').value || 'GUEST NAME';
+                var _ltSub   = $('lt-sub').value   || 'TITLE / ROLE';
+                sendUISync('LOWER_THIRD', { action:'show', preset: m, title: _ltTitle, subtitle: _ltSub });
+                drawLTToPreview(m, _ltTitle, _ltSub);
+            } else {
+                showLowerThird(m);
+                sendUISync('LOWER_THIRD', { action:'show', preset: APP.lowerThird.preset, title: $('lt-title-text').textContent, subtitle: $('lt-subtitle-text').textContent });
+            }
+        };
+    });
+    $('btn-lt-off').onclick = () => {
+        hideLowerThird();
+        sendUISync('LOWER_THIRD', { action: 'hide' });
+        // Clear the 4K preview canvas so host's float goes dark too
+        var _ltPrev = $('lt-preview-canvas');
+        if (_ltPrev) { if (_ltPrev._ltClear) clearTimeout(_ltPrev._ltClear); var _lpc = _ltPrev.getContext('2d'); if (_lpc) _lpc.clearRect(0, 0, _ltPrev.width, _ltPrev.height); }
+    };
+    if ($('lt-style-select')) $('lt-style-select').onchange = function() {
+        APP.lowerThird.ltStyle = this.value;
+        if (APP.lowerThird.visible) {
+            // Mix-Minus intercept for style changes during P2P call
+            if (APP.peer && APP.peer.call) {
+                sendUISync('LOWER_THIRD', { action:'show', preset: this.value, title: $('lt-title').value || '', subtitle: $('lt-sub').value || '' });
+            } else {
+                showLowerThird(APP.lowerThird.mode || 'guest');
+                sendUISync('LOWER_THIRD', { action:'show', preset: APP.lowerThird.preset, title: $('lt-title-text').textContent, subtitle: $('lt-subtitle-text').textContent });
+            }
+        }
+    };
+    if ($('lt-color')) $('lt-color').oninput = function() { APP.lowerThird.ltColor = this.value; var d=$('lt-color-dot'); if(d){d.style.background=this.value;d.style.boxShadow='0 0 5px '+this.value;} };
+    if ($('bug-color')) $('bug-color').oninput = function() { APP.bug.color=this.value; var d=$('bug-color-dot'); if(d){d.style.background=this.value;d.style.boxShadow='0 0 5px '+this.value;} };
+    $('lt-title').oninput = e => { if (APP.lowerThird.visible) { $('lt-title-text').textContent = e.target.value; sendUISync('LOWER_THIRD', { action: 'show', preset: APP.lowerThird.preset, title: $('lt-title-text').textContent, subtitle: $('lt-subtitle-text').textContent }); } };
+    $('lt-sub').oninput = e => { if (APP.lowerThird.visible) { $('lt-subtitle-text').textContent = e.target.value; sendUISync('LOWER_THIRD', { action: 'show', preset: APP.lowerThird.preset, title: $('lt-title-text').textContent, subtitle: $('lt-subtitle-text').textContent }); } };
+    $('btn-audio').onclick = () => { igniteAudio(); $('file-audio').click(); }; $('file-audio').onchange = e => loadAudioFiles(e.target);
+
+    $('btn-mute-vid').onclick = () => {
+        APP.audio.videoMuted = !APP.audio.videoMuted;
+        // Control volume via gain node — vid.muted stays true to prevent native double-output
+        if (APP.audio.videoGain && APP.audio.ctx) {
+            APP.audio.videoGain.gain.setValueAtTime(APP.audio.videoMuted ? 0 : 1, APP.audio.ctx.currentTime);
+        }
+        $('btn-mute-vid').textContent = APP.audio.videoMuted ? '\u{1F507}' : '\u{1F50A}';
+        $('btn-mute-vid').classList.toggle('on', APP.audio.videoMuted);
+        log('VIDEO_MUTE: ' + (APP.audio.videoMuted ? 'ON' : 'OFF'));
+    };
+    
+    // NEW COMPACT AUDIO
+    $('btn-next-track').onclick = nextTrack; 
+    $('btn-prev-track').onclick = prevTrack;
+    $('btn-play-pause').onclick = togglePlayPause;
+    
+    // PRO_FX wiring (faders removed — buttons only)
+    if ($('btn-stutter')) $('btn-stutter').onclick = impactStutter;
+    if ($('btn-invert')) $('btn-invert').onclick = impactInvert;
+    if ($('btn-crush')) $('btn-crush').onclick = impactCrush;
+    if ($('btn-trails')) $('btn-trails').onclick = () => { APP.vj.trailsEnabled = !APP.vj.trailsEnabled; $('btn-trails').classList.toggle('on'); };
+    if ($('btn-rgb')) $('btn-rgb').onclick = () => { APP.vj.rgbEnabled = !APP.vj.rgbEnabled; APP.vj.rgbIntensity = APP.vj.rgbEnabled ? 12 : 0; $('btn-rgb').classList.toggle('on'); };
+    if ($('btn-pixelate')) $('btn-pixelate').onclick = () => { APP.vj.pixelateEnabled = !APP.vj.pixelateEnabled; APP.vj.pixelSize = APP.vj.pixelateEnabled ? 8 : 1; $('btn-pixelate').classList.toggle('on'); };
+    if ($('btn-vhs')) $('btn-vhs').onclick = toggleVHS;
+    if ($('btn-crt')) $('btn-crt').onclick = toggleCRT;
+    document.querySelectorAll('.pal').forEach(p => p.onclick = () => setTheme(p.dataset.t));
+
+    
+    // PARTY MODE TRIGGER - Rapid morphs + light effects
+    $('btn-ui-react').onclick = () => {
+        APP.vj.uiReactivity = !APP.vj.uiReactivity;
+        $('btn-ui-react').classList.toggle('on');
+        document.body.classList.toggle('party-active', APP.vj.uiReactivity);
+
+        if (APP.vj.uiReactivity) {
+            log('PARTY_MODE: ACTIVATED');
+
+            // Canvas strobe: 8-frame RGB flash (captured by captureStream)
+            APP.vj._partyFlash = 8;
+            // DOM flash: bright white spike on the UI shell
+            document.body.style.filter = 'brightness(2.5) contrast(1.3)';
+            document.querySelectorAll('.sidebar').forEach(s => s.style.boxShadow = '0 0 40px var(--accent)');
+            setTimeout(() => {
+                document.body.style.filter = '';
+                document.querySelectorAll('.sidebar').forEach(s => s.style.boxShadow = '');
+            }, 80);
+
+            // Rapid logo morph cycle
+            let count = 0;
+            const rapidMorph = setInterval(() => {
+                morphLogo();
+                count++;
+                if (count >= 15) clearInterval(rapidMorph);
+            }, 60);
+
+            // Continuous light play: fires every 300ms but only flashes when bass is hitting
+            APP.partyInterval = setInterval(() => {
+                if (!APP.vj.uiReactivity) {
+                    clearInterval(APP.partyInterval);
+                    return;
+                }
+                // Only act when music is actually beating
+                var _pb = APP.audio.bassLevel || 0;
+                // Theme flash on strong beat
+                if (_pb > 185 && Math.random() > 0.55) {
+                    const themes = ['cyan', 'magenta', 'green', 'purple', 'gold'];
+                    setTheme(themes[Math.floor(Math.random() * themes.length)]);
+                }
+                // Logo morph on beat
+                if (_pb > 170 && Math.random() > 0.45) morphLogo();
+                // Canvas strobe on strong beat (1-2 frame flash via _partyFlash)
+                if (_pb > 195 && Math.random() > 0.4) APP.vj._partyFlash = Math.max(APP.vj._partyFlash || 0, 3);
+                // DOM brightness pulse — subtler than before
+                if (_pb > 175 && Math.random() > 0.6) {
+                    document.body.style.filter = 'brightness(1.4)';
+                    setTimeout(() => { document.body.style.filter = ''; }, 40);
+                }
+            }, 300);
+        } else {
+            log('PARTY_MODE: DEACTIVATED');
+            if (APP.partyInterval) clearInterval(APP.partyInterval);
+            APP.vj._partyFlash = 0;
+            document.body.style.filter = '';
+        }
+    };
+
+    // SEISMIC TOGGLE — single-click = 3s one-shot demo, double-click = toggle persistent mode
+    APP.vj.seismicConsoleMode = false;
+    (function() {
+        var btn = $('btn-rumble');
+        var _dct = 0;
+        var _seismicDemoTimer = null;
+        btn.addEventListener('click', function() {
+            var now = Date.now();
+            if (now - _dct < 320) {
+                // Double-click: toggle persistent canvas + console shake
+                _dct = 0;
+                APP.vj.rumbleEnabled = !APP.vj.rumbleEnabled;
+                APP.vj.seismicConsoleMode = APP.vj.rumbleEnabled;
+                btn.classList.toggle('on', APP.vj.rumbleEnabled);
+                btn.classList.toggle('console-mode', APP.vj.rumbleEnabled);
+                if (!APP.vj.rumbleEnabled) document.body.style.transform = '';
+                btn.title = APP.vj.rumbleEnabled ? 'SEISMIC: PERSISTENT\nClick: one-shot' : 'SEISMIC';
+                log(APP.vj.rumbleEnabled ? 'SEISMIC: PERSISTENT [CONSOLE+CANVAS]' : 'SEISMIC: OFF');
+                return;
+            }
+            _dct = now;
+            // Single click: 3-second one-shot demo (canvas shake)
+            if (_seismicDemoTimer) clearTimeout(_seismicDemoTimer);
+            APP.vj._seismicDemoUntil = performance.now() + 3000;
+            APP.vj._seismicVel = 1.0;
+            document.body.classList.add('seismic-active');
+            btn.classList.add('on');
+            log('SEISMIC: ONE-SHOT_3S');
+            _seismicDemoTimer = setTimeout(function() {
+                APP.vj._seismicDemoUntil = 0;
+                APP.vj._seismicVel = 0;
+                document.body.classList.remove('seismic-active');
+                if (!APP.vj.rumbleEnabled) btn.classList.remove('on');
+                _seismicDemoTimer = null;
+            }, 3000);
+        });
+    })();
+
+    // PUNCH TOGGLE — single-click = 3s one-shot elastic, double-click = toggle punchLocked
+    APP.vj.punchLocked = false;
+    APP.vj.punchConsoleMode = false;
+    (function() {
+        var btn = $('btn-punch');
+        var _dct = 0;
+        var _punchDemoTimer = null;
+        btn.addEventListener('click', function() {
+            var now = Date.now();
+            if (now - _dct < 320) {
+                // Double-click: toggle punchLocked — persistent bass-synced elastic mode
+                _dct = 0;
+                APP.vj.punchLocked = !APP.vj.punchLocked;
+                if (_punchDemoTimer) { clearTimeout(_punchDemoTimer); _punchDemoTimer = null; }
+                APP.vj._punchDemoUntil = 0;
+                if (APP.vj.punchLocked) {
+                    document.body.classList.add('fx-punch');
+                    btn.classList.add('on', 'punch-locked');
+                    btn.classList.remove('console-mode');
+                    btn.title = 'PUNCH: LOCKED\nDouble-click: release';
+                    log('PUNCH: LOCKED [BASS-SYNCED ELASTIC]');
+                } else {
+                    document.body.classList.remove('fx-punch');
+                    btn.classList.remove('on', 'punch-locked', 'console-mode');
+                    btn.title = 'Click: arm PUNCH\nDouble-click: toggle LOCK';
+                    log('PUNCH: UNLOCKED');
+                }
+                return;
+            }
+            _dct = now;
+            // Single click: 3-second one-shot elastic punch
+            if (APP.vj.punchLocked) return; // locked mode ignores single-click
+            if (_punchDemoTimer) clearTimeout(_punchDemoTimer);
+            APP.vj.punchConsoleMode = false;
+            APP.vj._punchDemoUntil = performance.now() + 3000;
+            document.body.classList.add('fx-punch');
+            btn.classList.add('on');
+            log('PUNCH: ONE-SHOT_3S');
+            _punchDemoTimer = setTimeout(function() {
+                APP.vj._punchDemoUntil = 0;
+                if (!APP.vj.punchLocked) {
+                    document.body.classList.remove('fx-punch');
+                    btn.classList.remove('on');
+                }
+                btn.classList.remove('console-mode');
+                _punchDemoTimer = null;
+            }, 3000);
+        });
+    })();
+
+    // WALLET — badge delegates entirely to requestManualConnect()
+    $('wallet-badge').onclick = async () => {
+        if (APP.wallet && APP.wallet.connected) {
+            if (confirm('Disconnect wallet?')) disconnectWalletUI();
+            return;
+        }
+        await requestManualConnect();
+        // requestManualConnect() fully resolves before this line — APP.wallet.address
+        // is the signer-derived freshAddress set by connectWalletUI(freshAddress, ...).
+        // The cloud KV key is derived from this address, never a stale cached value.
+        if (APP.wallet && APP.wallet.connected) {
+            setTimeout(() => loadSessionFromCloud(true), 500);
+        }
+    };
+
+
+    $('btn-stereo').onclick = () => setAudioMode('stereo');
+    $('btn-spatial').onclick = () => setAudioMode('spatial');
+    $('btn-dolby').onclick = () => setAudioMode('dolby');
+
+    // LOGO CLICK INTERACTION - Light flash + morph (like reference site)
+    $('main-logo').onmousedown = () => {
+        // Light flash effect
+        document.body.style.filter = 'brightness(2) contrast(1.2)';
+        document.querySelectorAll('.sidebar').forEach(s => s.style.boxShadow = '0 0 30px var(--accent)');
+        setTimeout(() => {
+            document.body.style.filter = '';
+            document.querySelectorAll('.sidebar').forEach(s => s.style.boxShadow = '');
+        }, 100);
+        
+        // Morph logo
+        morphLogo();
+    };
+
+    // Final UI and Input Handlers
+    document.addEventListener('keydown', e => {
+        if (e.target.tagName === 'INPUT') return;
+        if (e.key === 'g' || e.key === 'G') toggleGhost();
+        if (e.key === 'h' || e.key === 'H') toggleFullscreen();
+        if (e.key === 'Tab') { e.preventDefault(); toggleSystemSlide(); }
+        if (e.key === 'Escape') {
+            if ($('img-lightbox').style.display !== 'none') {
+                closeLightbox();
+            } else {
+                // ESC WARNING — require double-tap within 2s before panic reset
+                const warn = $('esc-warn');
+                if (window._escPrimed) {
+                    window._escPrimed = false;
+                    clearTimeout(window._escTimer);
+                    if (warn) { warn.classList.remove('visible'); }
+                    $('btn-panic').click();
+                } else {
+                    window._escPrimed = true;
+                    if (warn) { warn.classList.add('visible'); }
+                    window._escTimer = setTimeout(function() {
+                        window._escPrimed = false;
+                        if (warn) { warn.classList.remove('visible'); }
+                    }, 2000);
+                    if (typeof ghostLog === 'function') ghostLog('⚠ ESC ARMED — press again within 2s to PANIC RESET', 'warn');
+                    if (typeof log === 'function') log('ESC_PRIMED');
+                }
+            }
+        }
+        if (e.key === ' ' && !['TEXTAREA','INPUT','SELECT'].includes(document.activeElement.tagName)) { e.preventDefault(); rotateMedia(); }
+        // S key — toggle Compositor source between local camera and P2P guest feed
+        if (e.key === 's' || e.key === 'S') {
+            APP.state.activeSource = APP.state.activeSource === 'guest' ? 'local' : 'guest';
+            log('SOURCE_SWITCH: ' + APP.state.activeSource.toUpperCase());
+        }
+    });
+
+    // ── TRIPLE-ALPHA HUD — single global toggle (footer button) ──
+    // Same pattern as Tracker ghost mode: cycles SOLID → GLASS → GHOST → SOLID
+    (function() {
+        var HUD_STATES = [
+            { name: 'SOLID', cls: null },
+            { name: 'GLASS', cls: 'hud-glass' },
+            { name: 'GHOST', cls: 'hud-ghost' }
+        ];
+        var _idx = 0;
+        window.toggleHudAlpha = function() {
+            var lp  = document.getElementById('left-panel');
+            var rp  = document.getElementById('right-panel');
+            var lbl = document.getElementById('hud-alpha-label');
+            var btn = document.getElementById('btn-hud-alpha');
+            HUD_STATES.forEach(function(s) {
+                if (s.cls) {
+                    if (lp) lp.classList.remove(s.cls);
+                    if (rp) rp.classList.remove(s.cls);
+                }
+            });
+            _idx = (_idx + 1) % HUD_STATES.length;
+            var st = HUD_STATES[_idx];
+            if (st.cls) {
+                if (lp) lp.classList.add(st.cls);
+                if (rp) rp.classList.add(st.cls);
+            }
+            if (lbl) lbl.textContent = st.name;
+            // Dim the button itself when panels are ghosted so it fits the aesthetic
+            if (btn) btn.style.opacity = st.name === 'GHOST' ? '0.55' : '1';
+        };
+    })();
+
+    // Ensure uploaded logos are interactable
+    $('file-layer-logo').onchange = e => {
+        if (e.target.files.length) {
+            const url = URL.createObjectURL(e.target.files[0]);
+            const img = $('user-logo-layer');
+            img.src = url;
+            img.style.display = 'block'; // gif-host CSS handles size + compositing
+            APP.trinity.logo.visible = true;
+            log('IDENTITY_LAYER_LOADED');
+        }
+    };
+
+    // ========================================
+    // MIDI_HOST WITH LEARN MODE & PASSTHROUGH
+    // ========================================
+
+    // Shared MIDI message handler — used by both btn-midi init and auto-init
+    function handleMidiMessage(msg) {
+        const [status, note, velocity] = msg.data;
+        const cmd = status >> 4;
+
+        // MIDI LEARN — capture next input for armed target
+        if (APP.midi.learnMode && APP.midi.learnTarget && velocity > 0) {
+            const key = (cmd === 11) ? 'cc' + note : 'note' + note;
+            APP.midi.bindings[key] = {
+                element: APP.midi.learnTarget.element,
+                target: APP.midi.learnTarget.target,
+                type: (cmd === 11) ? 'cc' : 'note'
+            };
+            APP.midi.learnTarget.element.classList.add('midi-bound');
+            APP.midi.learnTarget.element.style.outline = '';
+            updateMidiBindingsDisplay();
+            log('MIDI_BOUND: ' + key + ' \u2192 ' + APP.midi.learnTarget.target.toUpperCase());
+            APP.midi.learnTarget = null;
+            $('sfx-midi-arm') && ($('sfx-midi-arm').textContent = 'BOUND \u2014 ARM NEXT OR EXIT LEARN');
+            return;
+        }
+
+        // Note On (cmd 9) with velocity > 0
+        if (cmd === 9 && velocity > 0) {
+            if (APP.midi.passthrough) playSynthNote(note, velocity);
+            const binding = APP.midi.bindings['note' + note];
+            if (binding) triggerMidiBinding(binding, velocity);
+            const intensity = velocity / 127;
+            if (note < 48) {
+                if (APP.shooting.active && typeof fireWeaponAt === 'function') {
+                    fireWeaponAt(Math.random() * window.innerWidth, Math.random() * window.innerHeight, intensity);
+                }
+                const shake = intensity * 30;
+                document.body.style.transform = `translate(${(Math.random()-0.5)*shake}px, ${(Math.random()-0.5)*shake}px)`;
+                setTimeout(() => document.body.style.transform = '', 50);
+            }
+            if (velocity > 80) {
+                if (note >= 60 && note < 64) impactStutter();
+                else if (note >= 64 && note < 68) impactInvert();
+                else if (note >= 68 && note < 72) impactCrush();
+                else if (note >= 72) { rotateMedia(); triggerImpact(); }
+            }
+            if (note === 36) setTheme('cyan');
+            if (note === 37) setTheme('magenta');
+            if (note === 38) setTheme('green');
+            if (note === 39) setTheme('purple');
+            if (note === 40) setTheme('gold');
+        }
+
+        // Note Off — stop synth if needed
+        if (cmd === 8 || (cmd === 9 && velocity === 0)) { /* reserved */ }
+
+        // Control Change (cmd 11) — sliders/knobs
+        if (cmd === 11) {
+            const val = velocity / 127;
+            const binding = APP.midi.bindings['cc' + note];
+            if (binding) triggerMidiCCBinding(binding, val);
+            if (note === 1 || note === 74) { APP.vj.brightness = 0.5 + val; if ($('sl-b')) $('sl-b').value = APP.vj.brightness * 100; }
+            if (note === 2 || note === 71) { APP.vj.contrast = 0.5 + val; if ($('sl-c')) $('sl-c').value = APP.vj.contrast * 100; }
+            if (note === 3 || note === 76) { APP.vj.saturation = val * 2; if ($('sl-s')) $('sl-s').value = APP.vj.saturation * 100; }
+            if (note === 4 || note === 77) { APP.vj.hue = val * 360; if ($('sl-h')) $('sl-h').value = APP.vj.hue; }
+        }
+
+        // Pitch Bend — control hue
+        if (cmd === 14) {
+            const bend = ((velocity << 7) | note) - 8192;
+            APP.vj.hue = (bend / 8192) * 180 + 180;
+        }
+    }
+
+    // Attach message handlers to all current inputs + listen for hot-plug
+    function setupMidiHandlers(midiAccess) {
+        APP.midi.inputs = [];
+        APP.midi.outputs = [];
+        const inputs = Array.from(midiAccess.inputs.values());
+        const outputs = Array.from(midiAccess.outputs.values());
+
+        if (inputs.length === 0) {
+            log('MIDI: NO_DEVICES_FOUND');
+            $('midi-status').textContent = 'NO DEVICE';
+            $('midi-status').style.color = 'var(--r)';
+            return false;
+        }
+
+        inputs.forEach(input => {
+            APP.midi.inputs.push(input);
+            input.onmidimessage = handleMidiMessage;
+        });
+        outputs.forEach(o => APP.midi.outputs.push(o));
+
+        $('btn-midi').classList.add('on');
+        $('btn-midi').textContent = 'MIDI ACTIVE';
+        $('midi-status').textContent = inputs[0].name;
+        $('midi-status').style.color = 'var(--g)';
+        if ($('midi-dot')) $('midi-dot').classList.remove('off');
+        log('MIDI: ' + inputs.length + ' INPUT(S) \u2014 ' + inputs[0].name);
+
+        // Hot-plug: re-scan when devices connect/disconnect
+        midiAccess.onstatechange = (e) => {
+            log('MIDI_STATE: ' + e.port.name + ' ' + e.port.state.toUpperCase());
+            setupMidiHandlers(midiAccess);
+        };
+        return true;
+    }
+
+    // MIDI LEARN MODE - Click element + hit MIDI to bind
+    if ($('btn-midi-learn')) {
+        $('btn-midi-learn').onclick = async () => {
+            // Auto-init MIDI when activating learn mode for the first time
+            if (!APP.midi.learnMode && !APP.status.isMidiActive) {
+                log('MIDI_LEARN: AUTO_INIT_MIDI...');
+                const midiAccess = await igniteMIDI();
+                if (midiAccess) {
+                    setupMidiHandlers(midiAccess);
+                } else {
+                    log('MIDI_LEARN: INIT_FAILED — connect a MIDI device first');
+                    return;
+                }
+            }
+
+            APP.midi.learnMode = !APP.midi.learnMode;
+            document.body.classList.toggle('midi-learn-active', APP.midi.learnMode);
+            $('btn-midi-learn').textContent = APP.midi.learnMode ? 'LEARN: ON' : 'LEARN: OFF';
+            $('btn-midi-learn').classList.toggle('on', APP.midi.learnMode);
+            log('MIDI_LEARN: ' + (APP.midi.learnMode ? 'ACTIVE \u2014 SELECT A TARGET' : 'OFF'));
+
+            const sfxArmEl = $('sfx-midi-arm');
+            if (APP.midi.learnMode) {
+                if (sfxArmEl) sfxArmEl.textContent = 'ARM: CLICK A BUTTON BELOW';
+                document.querySelectorAll('[data-midi-target]').forEach(el => {
+                    el.addEventListener('click', midiLearnClick, true); // capture phase
+                });
+            } else {
+                if (sfxArmEl) sfxArmEl.textContent = '';
+                document.querySelectorAll('[data-midi-target]').forEach(el => {
+                    el.removeEventListener('click', midiLearnClick, true);
+                });
+                APP.midi.learnTarget = null;
+                // Clear arm outlines
+                document.querySelectorAll('[data-midi-target]').forEach(el => el.style.outline = '');
+            }
+        };
+    }
+
+    function midiLearnClick(e) {
+        if (!APP.midi.learnMode) return;
+        e.preventDefault();
+        e.stopPropagation();
+        e.stopImmediatePropagation(); // prevent SFX from firing while arming
+
+        // Clear previous arm highlight
+        document.querySelectorAll('[data-midi-target]').forEach(el => el.style.outline = '');
+
+        const target = e.currentTarget.dataset.midiTarget;
+        APP.midi.learnTarget = { element: e.currentTarget, target: target };
+        log('MIDI_LEARN: ARMED \u2014 press a MIDI key/pad for ' + target.toUpperCase());
+        e.currentTarget.style.outline = '2px solid var(--v)';
+        const sfxArmEl = $('sfx-midi-arm');
+        if (sfxArmEl) sfxArmEl.textContent = '\u25CF ARMED: ' + target.toUpperCase() + ' \u2014 hit MIDI';
+    }
+    
+    // INSTRUMENT PASSTHROUGH - Synthesizer
+    if ($('btn-midi-passthru')) {
+        $('btn-midi-passthru').onclick = () => {
+            APP.midi.passthrough = !APP.midi.passthrough;
+            $('btn-midi-passthru').textContent = APP.midi.passthrough ? 'INSTRUMENT: ON' : 'INSTRUMENT: OFF';
+            $('btn-midi-passthru').classList.toggle('on', APP.midi.passthrough);
+            log('MIDI_INSTRUMENT: ' + (APP.midi.passthrough ? 'ACTIVE' : 'OFF'));
+            
+            // Initialize synth context
+            if (APP.midi.passthrough && !APP.midi.synthCtx) {
+                APP.midi.synthCtx = new (window.AudioContext || window.webkitAudioContext)({ sampleRate: 48000 });
+                APP.midi.synthGain = APP.midi.synthCtx.createGain();
+                APP.midi.synthGain.connect(APP.midi.synthCtx.destination);
+            }
+        };
+    }
+    
+    // Play synthesized note
+    function playSynthNote(note, velocity) {
+        if (!APP.midi.passthrough || !APP.midi.synthCtx) return;
+        
+        const freq = 440 * Math.pow(2, (note - 69) / 12); // MIDI to frequency
+        const osc = APP.midi.synthCtx.createOscillator();
+        const gain = APP.midi.synthCtx.createGain();
+        
+        osc.type = 'sawtooth';
+        osc.frequency.value = freq;
+        
+        const vol = (velocity / 127) * 0.3;
+        gain.gain.setValueAtTime(vol, APP.midi.synthCtx.currentTime);
+        gain.gain.exponentialRampToValueAtTime(0.001, APP.midi.synthCtx.currentTime + 0.5);
+        
+        osc.connect(gain);
+        gain.connect(APP.midi.synthGain);
+        osc.start();
+        osc.stop(APP.midi.synthCtx.currentTime + 0.5);
+    }
+    
+    // --- 8-PAD HYBRID SAMPLER BUTTONS ---
+    // Signature pads (1-4): play immediately on click.
+    // Custom pads (5-8):
+    //   • Left-click (empty)  → open file picker
+    //   • Left-click (loaded) → play
+    //   • Left-click (armed)  → start recording
+    //   • Right-click         → toggle record-arm
+    //   • Recording           → click to stop early (max 10s)
+    // MIDI Learn: arm button individually via data-midi-target.
+    (function() {
+        var _recState = {}; // slot → { recorder, chunks, timerInterval, stream }
+
+        function _pulsePad(btn) {
+            btn.classList.remove('sfx-pulse');
+            void btn.offsetWidth;
+            btn.classList.add('sfx-pulse');
+            setTimeout(() => btn.classList.remove('sfx-pulse'), 350);
+        }
+
+        function _setHint(btn, text) {
+            var hint = btn.querySelector('.pad-hint');
+            if (hint) hint.textContent = text;
+        }
+
+        function _setName(btn, text) {
+            var nm = btn.querySelector('.pad-name');
+            if (nm) nm.textContent = text;
+        }
+
+        function _setTimer(btn, secs) {
+            var t = btn.querySelector('.pad-timer');
+            if (t) t.textContent = secs;
+        }
+
+        function _stopRecording(slot) {
+            var st = _recState[slot];
+            if (!st) return;
+            clearInterval(st.timerInterval);
+            if (st.recorder && st.recorder.state !== 'inactive') st.recorder.stop();
+        }
+
+        function _startRecording(slot, btn) {
+            if (_recState[slot] && _recState[slot].recorder) return; // already recording
+            navigator.mediaDevices.getUserMedia({ audio: true }).then(function(stream) {
+                var chunks = [];
+                var recorder = new MediaRecorder(stream);
+                var elapsed = 0;
+                var MAX_SECS = 10;
+
+                recorder.ondataavailable = function(e) {
+                    if (e.data.size > 0) chunks.push(e.data);
+                };
+                recorder.onstop = function() {
+                    stream.getTracks().forEach(t => t.stop());
+                    btn.classList.remove('recording');
+                    btn.classList.remove('armed');
+                    clearInterval(_recState[slot] && _recState[slot].timerInterval);
+                    _recState[slot] = null;
+
+                    if (!chunks.length) {
+                        _setName(btn, 'C-0' + slot);
+                        _setHint(btn, 'EMPTY');
+                        log('SFX_REC: CANCELLED — custom' + slot);
+                        return;
+                    }
+                    var blob = new Blob(chunks, { type: recorder.mimeType });
+                    var reader = new FileReader();
+                    reader.onload = function(ev) {
+                        if (!APP.audio.ctx) igniteAudio();
+                        if (!APP.audio.masterGain) ensureAudioChain();
+                        var ctx = APP.audio.ctx;
+                        if (!ctx) return;
+                        ctx.decodeAudioData(ev.target.result).then(function(buf) {
+                            SFX_ENGINE._buffers()['custom' + slot] = buf;
+                            btn.classList.add('loaded');
+                            _setName(btn, 'REC-0' + slot);
+                            _setHint(btn, 'LIVE');
+                            var lcd = btn.querySelector('.pad-lcd');
+                            if (lcd) lcd.textContent = 'rec-0' + slot + '.live (' + elapsed + 's)';
+                            log('SFX_REC: CAPTURED — custom' + slot + ' (' + elapsed + 's)');
+                        }).catch(function(e) {
+                            _setName(btn, 'C-0' + slot);
+                            _setHint(btn, 'ERR');
+                            log('SFX_REC: DECODE_FAIL — ' + e.message);
+                        });
+                    };
+                    reader.readAsArrayBuffer(blob);
+                };
+
+                _recState[slot] = {
+                    recorder: recorder,
+                    chunks: chunks,
+                    stream: stream,
+                    timerInterval: setInterval(function() {
+                        elapsed++;
+                        _setTimer(btn, MAX_SECS - elapsed);
+                        if (elapsed >= MAX_SECS) _stopRecording(slot);
+                    }, 1000)
+                };
+
+                btn.classList.remove('armed');
+                btn.classList.add('recording');
+                _setTimer(btn, MAX_SECS);
+                recorder.start();
+                log('SFX_REC: START — custom' + slot + ' (max 10s)');
+            }).catch(function(e) {
+                btn.classList.remove('armed');
+                _setHint(btn, 'NO MIC');
+                log('SFX_REC: MIC_DENIED — ' + e.message);
+                setTimeout(() => _setHint(btn, btn.classList.contains('loaded') ? 'PLAY' : 'EMPTY'), 2000);
+            });
+        }
+
+        // Wire up custom file inputs
+        [1, 2, 3, 4].forEach(function(slot) {
+            var fileInput = document.getElementById('sfx-file-' + slot);
+            if (!fileInput) return;
+            fileInput.addEventListener('change', function() {
+                var file = fileInput.files && fileInput.files[0];
+                if (file) {
+                    SFX_ENGINE.loadCustom(slot, file);
+                    var btn = document.getElementById('sfx-custom' + slot);
+                    if (btn) {
+                        var short = file.name.replace(/\.[^.]+$/, '').toUpperCase().substring(0, 6);
+                        _setName(btn, short);
+                        _setHint(btn, 'PLAY');
+                        // Update LCD filename strip
+                        var lcd = btn.querySelector('.pad-lcd');
+                        if (lcd) lcd.textContent = file.name.substring(0, 20);
+                    }
+                }
+                fileInput.value = '';
+            });
+        });
+
+        document.querySelectorAll('.sfx-btn').forEach(btn => {
+            // Right-click → toggle arm for custom pads
+            btn.addEventListener('contextmenu', function(e) {
+                e.preventDefault();
+                if (APP.midi.learnMode) return;
+                const sfxName = btn.dataset.sfx;
+                if (!sfxName || !sfxName.startsWith('custom')) return;
+                const slot = parseInt(sfxName.replace('custom', ''), 10);
+                if (_recState[slot] && _recState[slot].recorder) {
+                    // already recording — stop
+                    _stopRecording(slot);
+                    return;
+                }
+                const isArmed = btn.classList.contains('armed');
+                if (isArmed) {
+                    btn.classList.remove('armed');
+                    _setHint(btn, btn.classList.contains('loaded') ? 'PLAY' : 'EMPTY');
+                    log('SFX_REC: DISARMED — custom' + slot);
+                } else {
+                    // Disarm any other armed pad first
+                    document.querySelectorAll('.sfx-cust.armed').forEach(b => {
+                        b.classList.remove('armed');
+                        var s = parseInt(b.dataset.sfx.replace('custom',''), 10);
+                        _setHint(b, b.classList.contains('loaded') ? 'PLAY' : 'EMPTY');
+                    });
+                    btn.classList.add('armed');
+                    _setHint(btn, '● ARM');
+                    log('SFX_REC: ARMED — custom' + slot);
+                }
+            });
+
+            // Left-click
+            btn.addEventListener('click', () => {
+                if (APP.midi.learnMode) return;
+                const sfxName = btn.dataset.sfx;
+                const isCustom = sfxName && sfxName.startsWith('custom');
+
+                if (isCustom) {
+                    const slot = parseInt(sfxName.replace('custom', ''), 10);
+                    const fileInput = document.getElementById('sfx-file-' + slot);
+
+                    // If currently recording → stop early
+                    if (btn.classList.contains('recording')) {
+                        _stopRecording(slot);
+                        return;
+                    }
+                    // If armed → start recording
+                    if (btn.classList.contains('armed')) {
+                        _startRecording(slot, btn);
+                        return;
+                    }
+                    // If not loaded → open file picker
+                    if (!btn.classList.contains('loaded')) {
+                        if (fileInput) fileInput.click();
+                        return;
+                    }
+                }
+
+                if (!btn.classList.contains('pad-muted')) SFX_ENGINE.play(sfxName);
+                _pulsePad(btn);
+                // liq pads fire coupling inside _fireLiqPad — avoid double-trigger
+                if (typeof _fireCoupledFX === 'function' && !sfxName.startsWith('liq')) _fireCoupledFX(sfxName);
+                log('SFX: ' + sfxName.toUpperCase() + (btn.classList.contains('pad-muted') ? ' [MUTED]' : ''));
+            });
+        });
+
+        // Also trigger pulse on MIDI-driven pads
+        window._sfxMidiPulse = function(sfxName) {
+            var id = 'sfx-' + sfxName;
+            var btn = document.getElementById(id);
+            if (btn) _pulsePad(btn);
+            _fireCoupledFX(sfxName);
+        };
+
+        // ── LIQUID LIBRARY / KIT SELECTOR ────────────────────
+        (function() {
+            function _switchKit(packIdx) {
+                _liqCurrentPack = packIdx;
+                // Invalidate buffer cache for old kit so new synth fires fresh
+                Object.keys(_liqBufCache).forEach(function(k) {
+                    if (k.startsWith(packIdx + '_')) delete _liqBufCache[k];
+                });
+                _updateLiqPadLabels(packIdx);
+                var ls = document.getElementById('liq-lib-select');
+                if (ls) ls.value = packIdx;
+                log('KIT: ' + (VANGUARD_LIQUID_LIB[packIdx] ? VANGUARD_LIQUID_LIB[packIdx].name : packIdx));
+            }
+            var liqSel = document.getElementById('liq-lib-select');
+            if (liqSel) liqSel.addEventListener('change', function() { _switchKit(parseInt(this.value, 10) || 0); });
+            if (typeof _updateLiqPadLabels === 'function') _updateLiqPadLabels(0);
+        })();
+
+        // ── COUPLING ENGINE ─────────────────────────────────────────────
+        // Gear dropdown per pad: NONE → NVG / SHOOT / RESET / VOID / FAILURE / LUCY / SEISMIC / PUNCH / PARTY
+        // When coupled, hitting the pad also pulses the linked visual FX for 1s.
+        var _padCoupling = {};
+        var ALL_COUPLING_CLASSES = [
+            'coupled-nvg','coupled-shoot','coupled-reset',
+            'coupled-void','coupled-failure','coupled-lucy',
+            'coupled-seismic','coupled-punch','coupled-party','coupled-glitch',
+            // Bank B GPU shaders
+            'coupled-vb-slit-scan','coupled-vb-luma-bloom','coupled-vb-dither-luxe',
+            'coupled-vb-caustics','coupled-vb-ghost-echo','coupled-vb-spectral-mosh'
+        ];
+        var COUPLING_LABELS = {
+            none:'', nvg:'NVG', shoot:'SHOOT', reset:'RESET',
+            void:'VOID', failure:'FAILURE', lucy:'LUCY',
+            seismic:'SEISMIC', punch:'PUNCH', party:'PARTY', glitch:'GLITCH',
+            'vb-slit-scan':'SLIT_SCN', 'vb-luma-bloom':'LUM_BLM',
+            'vb-dither-luxe':'DITHER', 'vb-caustics':'CAUSTIC',
+            'vb-ghost-echo':'GHO_ECH', 'vb-spectral-mosh':'SPEC_MSH'
+        };
+
+        function _setCouplingByName(btn, sfxName, fx) {
+            fx = fx || 'none';
+            _padCoupling[sfxName] = fx;
+            btn.classList.remove('coupled', ...ALL_COUPLING_CLASSES);
+            var fxLabel = btn.querySelector('.pad-fx-label');
+            // Update active state in gear menu — works even when menu is portaled to <body>
+            var _gearMenu = btn.querySelector('.pad-gear-menu') ||
+                (btn.id ? document.querySelector('.pad-gear-menu[data-gear-home="#' + btn.id + ' > .pad-gear"]') : null);
+            if (_gearMenu) {
+                _gearMenu.querySelectorAll('[data-fx]').forEach(function(o) {
+                    o.classList.toggle('active-fx-opt', o.dataset.fx === fx);
+                });
+            }
+            if (fx !== 'none') {
+                btn.classList.add('coupled', 'coupled-' + fx);
+                if (fxLabel) fxLabel.textContent = COUPLING_LABELS[fx] || fx.toUpperCase();
+                log('PAD_COUPLE: ' + sfxName.toUpperCase() + ' → ' + fx.toUpperCase());
+            } else {
+                if (fxLabel) fxLabel.textContent = '';
+                log('PAD_COUPLE: ' + sfxName.toUpperCase() + ' → SOUND_ONLY');
+            }
+        }
+
+        // Flash an FX button with active-fx for a given duration
+        function _flashFXBtn(btnId, durationMs) {
+            var b = document.getElementById(btnId);
+            if (!b) return;
+            b.classList.add('active-fx');
+            setTimeout(function() { b.classList.remove('active-fx'); }, durationMs || 3000);
+        }
+
+        function _fireCoupledFX(sfxName) {
+            var fx = _padCoupling[sfxName];
+            if (!fx || fx === 'none') return;
+
+            // SEISMIC — velocity burst
+            if (fx === 'seismic') {
+                if (typeof APP !== 'undefined' && APP.vj) {
+                    APP.vj._seismicVel = (APP.vj._seismicVel || 0) + 0.85;
+                    APP.vj._seismicDemoUntil = performance.now() + 3000;
+                    document.body.classList.add('seismic-active');
+                    setTimeout(function() { APP.vj._seismicVel = 0; APP.vj._seismicDemoUntil = 0; document.body.classList.remove('seismic-active'); }, 3000);
+                }
+                _flashFXBtn('btn-rumble', 3000);
+                return;
+            }
+            // GLITCH — canvas glitch burst (legacy compat)
+            if (fx === 'glitch') {
+                if (typeof APP !== 'undefined' && APP.vj) {
+                    var prevSnap = APP.vj.glitchSnap || 0;
+                    APP.vj.glitchSnap = 10;
+                    setTimeout(function() { if (APP.vj.glitchSnap === 10) APP.vj.glitchSnap = prevSnap; }, 1000);
+                }
+                return;
+            }
+            // PUNCH — direct spring injection + 3s demo (bypass click() to avoid double-click conflicts)
+            if (fx === 'punch') {
+                if (typeof APP !== 'undefined' && APP.vj) {
+                    APP.vj._punchSpring = 1.0;
+                    APP.vj._punchDemoUntil = performance.now() + 3000;
+                    APP.vj._punchDemoBeat = performance.now(); // fire first beat immediately
+                }
+                document.body.classList.add('fx-punch');
+                _flashFXBtn('btn-punch', 3000);
+                setTimeout(function() {
+                    APP.vj._punchDemoUntil = 0;
+                    APP.vj._punchDemoBeat = 0;
+                    // Only remove fx-punch if not in persistent console mode
+                    if (!APP.vj.punchConsoleMode) {
+                        document.body.classList.remove('fx-punch');
+                        var pb = document.getElementById('btn-punch');
+                        if (pb && !pb.classList.contains('console-mode')) pb.classList.remove('on');
+                    }
+                }, 3000);
+                return;
+            }
+            // PARTY — toggle on for 3s
+            if (fx === 'party') {
+                var partyBtn = document.getElementById('btn-ui-react');
+                if (partyBtn && !partyBtn.classList.contains('on')) {
+                    partyBtn.click();
+                    setTimeout(function() { if (partyBtn.classList.contains('on')) partyBtn.click(); }, 3000);
+                } else {
+                    _flashFXBtn('btn-ui-react', 3000);
+                }
+                return;
+            }
+            // FAILURE — trigger chaos sequence (self-timed 5s)
+            if (fx === 'failure') {
+                var failBtn = document.getElementById('btn-psychosis');
+                if (failBtn) failBtn.click();
+                _flashFXBtn('btn-psychosis', 5000);
+                return;
+            }
+            // SHOOT — enable shooting mode for 3s
+            if (fx === 'shoot') {
+                var shootBtn = document.getElementById('btn-shooting');
+                if (shootBtn && !shootBtn.classList.contains('on')) {
+                    shootBtn.click();
+                    setTimeout(function() { if (shootBtn.classList.contains('on')) shootBtn.click(); }, 3000);
+                } else {
+                    _flashFXBtn('btn-shooting', 3000);
+                }
+                return;
+            }
+            // RESET — hard reset (one-shot)
+            if (fx === 'reset') {
+                if (typeof triggerHardReset === 'function') triggerHardReset();
+                _flashFXBtn('btn-reset', 1000);
+                return;
+            }
+            // BANK B — VNGRD_B GPU shader burst (3s one-shot via coupling)
+            if (fx.indexOf('vb-') === 0) {
+                var shaderMap = {
+                    'vb-slit-scan':'SLIT_SCAN','vb-luma-bloom':'LUMA_BLOOM',
+                    'vb-dither-luxe':'DITHER_LUXE','vb-caustics':'CAUSTICS',
+                    'vb-ghost-echo':'GHOST_ECHO','vb-spectral-mosh':'SPECTRAL_MOSH'
+                };
+                var sn = shaderMap[fx];
+                if (sn) {
+                    if (typeof _setFXBank === 'function') _setFXBank('B');
+                    if (typeof window._vbCoupleActivate === 'function') {
+                        window._vbCoupleActivate(sn);
+                    } else if (typeof window._vbActivate === 'function') {
+                        window._vbActivate(sn, false);
+                    }
+                }
+                return;
+            }
+            // CSS class-based FX: nvg, void, lucy, scan, tear, etc. — 3s one-shot
+            var cls = 'fx-' + fx;
+            var wasOn = document.body.classList.contains(cls);
+            if (typeof toggleFX === 'function' && !wasOn) {
+                toggleFX(fx);
+                setTimeout(function() {
+                    if (document.body.classList.contains(cls)) toggleFX(fx);
+                }, 3000);
+            } else {
+                document.body.classList.add(cls);
+                setTimeout(function() { if (!wasOn) document.body.classList.remove(cls); }, 3000);
+            }
+        }
+
+        // ── GEAR DROPDOWN — global toggle (closes others) ────────────────
+        // Menu is portaled to <body> on open because .sidebar has
+        // transform+overflow, which makes position:fixed inside it scope
+        // to the sidebar instead of the viewport.
+        function _closeAllGearMenus() {
+            document.querySelectorAll('.pad-gear.open').forEach(function(g) {
+                g.classList.remove('open');
+                var pad = g.closest('.sfx-pad');
+                if (pad) pad.classList.remove('z-elevated');
+            });
+            // Restore any portaled menus to their original parent
+            document.querySelectorAll('.pad-gear-menu[data-portaled="1"]').forEach(function(m) {
+                m.removeAttribute('style');
+                m.removeAttribute('data-portaled');
+                var homeSel = m.getAttribute('data-gear-home');
+                var home = homeSel && document.querySelector(homeSel);
+                if (home) home.appendChild(m);
+            });
+            var padBody = document.getElementById('sfx-pad-body');
+            if (padBody) padBody.classList.remove('gear-open');
+        }
+        window._padGearToggle = function(iconEl) {
+            var gearEl = iconEl.parentElement;
+            var isOpen = gearEl.classList.contains('open');
+            _closeAllGearMenus();
+            if (!isOpen) {
+                gearEl.classList.add('open');
+                var pad = gearEl.closest('.sfx-pad');
+                if (pad) pad.classList.add('z-elevated');
+                var padBody = document.getElementById('sfx-pad-body');
+                if (padBody) padBody.classList.add('gear-open');
+
+                // VIEWPORT-AWARE POSITIONING — portal to <body> so that
+                // ancestor transforms/overflow don't clip or re-scope us.
+                var menu = gearEl.querySelector('.pad-gear-menu');
+                if (menu) {
+                    var ir = iconEl.getBoundingClientRect();
+                    var mW = 110;   // menu min-width
+                    var mH = 300;   // approximate max menu height
+
+                    // Default: open upward, right-aligned to icon
+                    var top  = ir.top - mH - 4;
+                    var left = ir.right - mW;
+
+                    // Flip downward if not enough room above
+                    if (top < 8) top = ir.bottom + 4;
+                    // Clamp horizontally to viewport
+                    if (left < 8) left = 8;
+                    if (left + mW > window.innerWidth - 8) left = window.innerWidth - mW - 8;
+                    // Clamp vertically
+                    if (top + mH > window.innerHeight - 8) top = window.innerHeight - mH - 8;
+                    if (top < 8) top = 8;
+
+                    // Remember original home so we can restore on close.
+                    // Identify the gear by the pad's sfx id (unique).
+                    if (pad && pad.id) {
+                        menu.setAttribute('data-gear-home', '#' + pad.id + ' > .pad-gear');
+                    }
+                    menu.setAttribute('data-portaled', '1');
+                    document.body.appendChild(menu);
+
+                    menu.style.cssText = [
+                        'display:block',
+                        'position:fixed',
+                        'top:' + top + 'px',
+                        'left:' + left + 'px',
+                        'bottom:auto',
+                        'right:auto',
+                        'z-index:99999',
+                        'max-height:' + (window.innerHeight - top - 12) + 'px',
+                        'overflow-y:auto'
+                    ].join(';');
+                    // Sync active-fx-opt to reflect current coupling
+                    if (typeof window._syncPadGearActive === 'function' && pad && pad.id) {
+                        window._syncPadGearActive(pad.id);
+                    }
+                }
+            }
+        };
+        // Close on outside click
+        document.addEventListener('click', function() { _closeAllGearMenus(); });
+
+        // ── SAMPLER COLLAPSE TOGGLE ───────────────────────────────────────
+        window._toggleSamplerBody = function() {
+            var body = document.getElementById('sfx-pad-body');
+            var arrow = document.getElementById('sfx-collapse-arrow');
+            if (!body) return;
+            var isOpen = !body.classList.contains('collapsed');
+            body.classList.toggle('collapsed', isOpen);
+            if (arrow) arrow.textContent = isOpen ? '\u25B8' : '\u25BE';
+        };
+
+        // ── SAMPLER HELP MODAL (legacy — kept for compat) ────────────────
+        window._toggleSamplerHelp = function() {
+            var modal = document.getElementById('sampler-help-modal');
+            if (modal) modal.classList.toggle('visible');
+        };
+
+        // ═══════════════════════════════════════════════════════════════
+        // SECTION HELP OVERLAY — unified HUD "How to Use" for all panels
+        // ═══════════════════════════════════════════════════════════════
+        var _SECTION_HELP = {
+            'camera': {
+                title: 'CAMERA_4K',
+                rows: [
+                    ['CAM CAPTURE', 'Requests camera access and starts the live 4K preview feed.'],
+                    ['GO LIVE',     '3-2-1 countdown, then broadcasts the live camera to the canvas.'],
+                    ['INJECT LOOP', 'Records a 10-second loop from the camera and injects it as media.'],
+                    ['MIC',         'Arms microphone input alongside the camera capture.'],
+                    ['REC BCAST',   'Records the live canvas output. Tap again to stop and save.']
+                ],
+                footer: 'VNGRD // CAMERA_4K · LIVE CAPTURE'
+            },
+            'ai': {
+                title: 'AI_INJECTION',
+                rows: [
+                    ['MODEL',    'Choose a generation engine: FLUX (free), GPT IMAGE, SEEDREAM, and more.'],
+                    ['⚙',        'Gear icon reveals an optional API key field for premium model access.'],
+                    ['PROMPT',   'Type your scene description, then press GENERATE.'],
+                    ['GENERATE', 'Sends the prompt. Result composites live over the canvas automatically.'],
+                    ['STATUS',   'Shows READY or PROCESSING — wait for READY before re-generating.']
+                ],
+                footer: 'VNGRD // AI_INJECTION · GENERATIVE LAYER'
+            },
+            'identity': {
+                title: 'IDENTITY',
+                rows: [
+                    ['● COLOR',  'Colour picker on the text row sets the bug tint in real-time.'],
+                    ['SET BUG',  'Commits the station name as a live watermark overlay on the canvas.'],
+                    ['PL/PU/GL', 'Style — PLAIN: solid fill. PULSE: animated alpha. GLITCH: RGB split.'],
+                    ['SLD/K/O/INV', 'Render mode — SLD: solid fill. K/O: knockout (stroke outline, video shows through). INV: difference blend, auto-contrasts on any background.'],
+                    ['[X]',      'Toggle the station name bug visible or hidden on the canvas.'],
+                    ['2D LOGO',  'Load a PNG/JPG/GIF as a corner logo overlay on the canvas.'],
+                    ['3D LOGO',  'Load a .OBJ/.FBX model — renders and spins live on the canvas.']
+                ],
+                footer: 'VNGRD // IDENTITY · STATION BRAND'
+            },
+            'lower-third': {
+                title: 'LOWER_THIRD',
+                rows: [
+                    ['NAME',   'Enter the subject name — renders as the primary lower-third line.'],
+                    ['ROLE',   'Enter the title or role — renders as the secondary subtitle line.'],
+                    ['GUEST',  'Fires the lower-third in name/role format. Stays on canvas.'],
+                    ['TRACK',  'Swaps to track-title mode (green tint). Updates live.'],
+                    ['BREAK',  'Fires a BREAKING NEWS style lower-third (red tint).'],
+                    ['×',      'Fades the lower-third out with an exit animation, then removes it.'],
+                    ['STYLE',  'Graphic preset — DEFAULT: clean bar. NEON: glowing border. SPLIT: two-column. GLITCH: rounded pill, electric violet, chromatic aberration + glitch bars.'],
+                    ['ENTER/EXIT', 'All styles animate in (slide + fade). × triggers a smooth exit before clearing.']
+                ],
+                footer: 'VNGRD // LOWER_THIRD · BROADCAST GRAPHIC'
+            },
+            'midi': {
+                title: 'MIDI_HOST',
+                rows: [
+                    ['MIDI INIT',  'Request browser MIDI access — allow the popup when prompted.'],
+                    ['LEARN: OFF', 'Click to arm learn mode — the next button you click waits for MIDI.'],
+                    ['BIND',       'Press a key on your controller to bind it to the armed button.'],
+                    ['STATUS',     'Shows connected device name or NO DEVICE if none detected.'],
+                    ['BINDINGS',   'Cyan list of active MIDI → button mappings. Auto-saved on bind.']
+                ],
+                footer: 'VNGRD // MIDI_HOST · CONTROLLER BRIDGE'
+            },
+            'reactivity': {
+                title: 'REACTIVITY',
+                rows: [
+                    ['X-RAY',   'Toggles a luminance-invert scan effect on the canvas.'],
+                    ['TEAR',    'Horizontal tear glitch — slices the canvas frame on beat.'],
+                    ['FAILURE', 'System-failure cascade: flicker, RGB split, screen chaos.'],
+                    ['SHOOT',   'Arms a crosshair — each canvas click shatters the glass.'],
+                    ['VOID',    'Full grayscale crunch and color collapse. Extreme mode.'],
+                    ['LUCY',    'Chromatic hallucination — trails and hue drift on bass.'],
+                    ['VHS_OVR', 'Overlays a VHS scanline and tape-degradation effect.'],
+                    ['NVG',     'Night-vision green filter. Click to toggle on or off.'],
+                    ['RESET',   'Hard reset — clears all active FX and restores canvas.']
+                ],
+                footer: 'VNGRD // REACTIVITY · VISUAL FX ENGINE'
+            },
+            'audio-engine': {
+                title: 'AUDIO_ENGINE',
+                rows: [
+                    ['LOAD AUDIO',  'Load an audio or video file to play through the engine.'],
+                    ['▶ / ❚❚',      'Play or pause the loaded track or video source.'],
+                    ['SCAN INPUTS', 'Detect and list available audio input devices.'],
+                    ['STEREO',      'Flat stereo playback — direct, unprocessed output.'],
+                    ['3D_SPATIAL',  'HRTF spatial mode — positions audio in a virtual 3D room.'],
+                    ['DOLBY_DSP',   'Enhanced DSP with expanded stereo width and depth.']
+                ],
+                footer: 'VNGRD // AUDIO_ENGINE · DAW CORE'
+            },
+            'audio-reactive': {
+                title: 'AUDIO_REACTIVE',
+                rows: [
+                    ['PARTY',   'Beat-reactive mode — UI themes and canvas morph on bass hits.'],
+                    ['SEISMIC', 'Arms viewport shake on kick. Single tap = 3s demo. Dbl-click = lock.'],
+                    ['PUNCH',   'Spring-elastic canvas punch on beats. Dbl-click to lock permanently.'],
+                    ['SAMPLER', 'Tap the (?) on Sampler SFX header for pad-specific controls.']
+                ],
+                footer: 'VNGRD // AUDIO_REACTIVE · BEAT ENGINE'
+            },
+            'polytranslator': {
+                title: 'POLYTRANSLATOR',
+                rows: [
+                    ['OFF-AIR',    'Click to toggle ON-AIR and start live subtitle translation.'],
+                    ['SLOTS',      'Expand to configure up to 4 output language channels.'],
+                    ['LANG 1–4',   'Each slot outputs live subtitles in the selected language.'],
+                    ['SUB_BG',     'Cycles subtitle background opacity: 0% → 33% → 67%.'],
+                    ['STT',        'Switch speech-to-text source between local mic and P2P guest.'],
+                    ['INPUT LANG', 'Set the language you will speak into the microphone.']
+                ],
+                footer: 'VNGRD // POLYTRANSLATOR · V3.0_MODULAR'
+            },
+            'session-lab': {
+                title: 'SESSION_LAB',
+                rows: [
+                    ['CAPTURE CLIP', 'Records and saves a VNGRD-branded clip from the canvas output.'],
+                    ['SAVE',         'Saves all current settings and state to browser local storage.'],
+                    ['IMPORT',       'Load a saved session from a .VGD or .JSON file from disk.'],
+                    ['SHARE_QR',     'Exports the session and generates a shareable QR code link.'],
+                    ['ENTER_VR',     'Launches the spatial WebXR gateway — requires a VR headset.']
+                ],
+                footer: 'VNGRD // SESSION_LAB · STATE PERSISTENCE'
+            },
+            'nft-vault': {
+                title: 'NFT_VAULT',
+                rows: [
+                    ['ETH ADDR',     'Enter an ETH address or ENS name (e.g. vitalik.eth) to scan.'],
+                    ['TEZ ADDR',     'Enter a Tezos address or TezDomains name (e.g. alice.tez).'],
+                    ['SCAN WALLET',  'Fetches and displays all NFTs linked to the entered addresses.'],
+                    ['NFT GRID',     'Click any NFT thumbnail to load it as live canvas media.'],
+                    ['ASSETS: N',    'Shows the total count of discovered assets across all wallets.']
+                ],
+                footer: 'VNGRD // NFT_VAULT · ON-CHAIN MEDIA'
+            },
+            'sampler': {
+                title: 'SAMPLER SFX',
+                rows: [
+                    ['TAP',       'Fire any pad immediately. Works with mouse, touch, or MIDI.'],
+                    ['ZONE 1',    'SIG BANK — 3 sig pads + BOOM wide-pad. Core Vanguard sounds.'],
+                    ['ZONE 2',    'CUSTOM — tap C-01–C-03 to load audio. C-04 wide-pad. R-click: arm mic REC.'],
+                    ['ZONE 3',    'LIQUID LIB — 4 synthesized bass pads at 0.75× speed. Select pack below.'],
+                    ['⚙ FX',     'Gear icon on any pad couples a visual effect that fires with the sound.'],
+                    ['TAP',       'Every tap fires sound zero-latency.'],
+                    ['MIDI',      'Use MIDI LEARN in the MIDI_HOST section to bind any pad to your controller.']
+                ],
+                footer: 'VNGRD // SAMPLER SFX · 12-PAD'
+            }
+        };
+
+        // Shared helper — hide SHOOT when any overlay is open, restore when all are closed
+        function _syncShootBtn() {
+            var shoot = document.getElementById('btn-shooting');
+            if (!shoot) return;
+            shoot.style.visibility = document.querySelector('.section-help-overlay.visible') ? 'hidden' : '';
+        }
+
+        window._toggleSectionHelp = function(btn, sectionId) {
+            var section = btn.closest('.section');
+            if (!section) return;
+
+            var overlay = section.querySelector('.section-help-overlay');
+            if (!overlay) {
+                overlay = document.createElement('div');
+                overlay.className = 'section-help-overlay';
+                section.appendChild(overlay);
+            }
+
+            // Toggle off if already showing this section's content
+            if (overlay.classList.contains('visible') && overlay.dataset.shoId === sectionId) {
+                overlay.classList.remove('visible');
+                _syncShootBtn();
+                return;
+            }
+
+            // Auto-expand collapsed sections so the overlay has room to render
+            var colHead = section.querySelector('.sec-head.collapsible');
+            if (colHead && !colHead.classList.contains('open')) {
+                colHead.classList.add('open');
+                var colBody = colHead.nextElementSibling;
+                if (colBody) {
+                    colBody.style.maxHeight = '500px';
+                    colBody.style.padding = '10px 12px';
+                }
+                var colArrow = colHead.querySelector('.sec-arrow');
+                if (colArrow) colArrow.textContent = '\u25BE';
+            }
+
+            // CAMERA: force-expand to the post-capture state so the overlay fills a
+            // properly-sized section (preview 16:9 box + cam-ctrls buttons visible)
+            if (sectionId === 'camera') {
+                var prevFloat = document.getElementById('cam-preview-float');
+                var camCtrls  = document.getElementById('cam-ctrls');
+                if (prevFloat && !prevFloat.classList.contains('active')) {
+                    prevFloat.classList.add('active');
+                }
+                if (camCtrls && camCtrls.style.display === 'none') {
+                    camCtrls.style.display = 'block';
+                }
+            }
+
+            var d = _SECTION_HELP[sectionId];
+            if (!d) { overlay.classList.remove('visible'); return; }
+            overlay.dataset.shoId = sectionId;
+            overlay.innerHTML =
+                '<div class="sho-header">' +
+                    '<span>HOW TO USE</span>' +
+                    '<button class="sho-close" onclick="event.stopPropagation();_closeSectionHelp(this)">&#x2715;</button>' +
+                '</div>' +
+                '<div class="sho-rows">' +
+                d.rows.map(function(r) {
+                    return '<div class="sho-row">' +
+                        '<span class="sho-key">' + r[0] + '</span>' +
+                        '<span class="sho-desc">' + r[1] + '</span>' +
+                    '</div>';
+                }).join('') +
+                '</div>' +
+                '<div class="sho-footer">' + d.footer + '</div>';
+
+            overlay.classList.add('visible');
+            _syncShootBtn();   // hide SHOOT while any overlay is open
+        };
+
+        window._closeSectionHelp = function(closeBtn) {
+            var overlay = closeBtn.closest('.section-help-overlay');
+            if (overlay) overlay.classList.remove('visible');
+            _syncShootBtn();   // restore SHOOT once all overlays are closed
+        };
+
+        // Wire up gear menu items for every pad
+        document.querySelectorAll('.sfx-btn').forEach(function(btn) {
+            var sfxName = btn.dataset.sfx;
+            if (!sfxName) return;
+            _padCoupling[sfxName] = 'none';
+
+            btn.querySelectorAll('.pad-gear-menu [data-fx]').forEach(function(opt) {
+                opt.addEventListener('click', function(e) {
+                    e.stopPropagation();
+                    var gearEl = opt.closest('.pad-gear');
+                    if (gearEl) gearEl.classList.remove('open');
+
+                    // CLEAR — only for custom pads; wipes audio buffer and resets UI
+                    if (opt.dataset.fx === 'clear' && sfxName.startsWith('custom')) {
+                        var bufs = SFX_ENGINE._buffers();
+                        if (bufs[sfxName]) delete bufs[sfxName];
+                        btn.classList.remove('loaded', 'coupled', ...ALL_COUPLING_CLASSES, 'armed', 'recording');
+                        _padCoupling[sfxName] = 'none';
+                        var slotNum = sfxName.replace('custom', '');
+                        var nm = btn.querySelector('.pad-name');
+                        var hint = btn.querySelector('.pad-hint');
+                        var lcd = btn.querySelector('.pad-lcd');
+                        var fxLbl = btn.querySelector('.pad-fx-label');
+                        if (nm) nm.textContent = 'C-0' + slotNum;
+                        if (hint) hint.textContent = 'LOAD SAMPLE';
+                        if (lcd) lcd.textContent = '— empty —';
+                        if (fxLbl) fxLbl.textContent = '';
+                        log('SFX: CLEARED ' + sfxName.toUpperCase());
+                        return;
+                    }
+
+                    _setCouplingByName(btn, sfxName, opt.dataset.fx);
+                });
+            });
+
+            // Single click → fire coupled FX only if this pad has an explicit coupling
+            btn.addEventListener('click', function() {
+                if (_padCoupling[sfxName] && _padCoupling[sfxName] !== 'none') {
+                    _fireCoupledFX(sfxName);
+                }
+            });
+        });
+
+        // Sync gear menu active-fx-opt after portaling (called by _padGearToggle)
+        window._syncPadGearActive = function(padId) {
+            var btn = document.getElementById(padId);
+            if (!btn) return;
+            var sn = btn.dataset.sfx;
+            var fx = sn && _padCoupling[sn];
+            if (!fx || fx === 'none') return;
+            var menu = document.querySelector('.pad-gear-menu[data-gear-home="#' + padId + ' > .pad-gear"]')
+                    || btn.querySelector('.pad-gear-menu');
+            if (!menu) return;
+            menu.querySelectorAll('[data-fx]').forEach(function(o) {
+                o.classList.toggle('active-fx-opt', o.dataset.fx === fx);
+            });
+        };
+    })();
+
+    // --- MIDI CONTROLLER (JIT — user gesture gated) ---
+    $('btn-midi').onclick = async () => {
+        // Allow re-scan even if already active (catches newly plugged devices)
+        APP.status.isMidiActive = false;
+        const midiAccess = await igniteMIDI();
+        if (!midiAccess) return;
+        try {
+            setupMidiHandlers(midiAccess);
+        } catch (e) {
+            log('MIDI_ERROR: ' + e.message);
+        }
+    };
+    
+    function triggerMidiBinding(binding, velocity) {
+        const el = binding.element;
+        const target = binding.target;
+        const intensity = velocity / 127;
+        
+        switch(target) {
+            case 'stutter': impactStutter(); break;
+            case 'invert': impactInvert(); break;
+            case 'crush': impactCrush(); break;
+            case 'shatter': if (typeof createGlassFracture === 'function') createGlassFracture(window.innerWidth/2, window.innerHeight/2); break;
+            case 'lens-drip': el.click(); break;
+            case 'heat-haze': el.click(); break;
+            // VNGRD_VST — drum/bass layers
+            case 'vst:808_kick':   if (typeof VNGRD_VST !== 'undefined') VNGRD_VST.playDrumSound('808', 'kick',  velocity); break;
+            case 'vst:808_snare':  if (typeof VNGRD_VST !== 'undefined') VNGRD_VST.playDrumSound('808', 'snare', velocity); break;
+            case 'vst:909_kick':   if (typeof VNGRD_VST !== 'undefined') VNGRD_VST.playDrumSound('909', 'kick',  velocity); break;
+            case 'vst:909_snare':  if (typeof VNGRD_VST !== 'undefined') VNGRD_VST.playDrumSound('909', 'snare', velocity); break;
+            case 'vst:808_hihat':  if (typeof VNGRD_VST !== 'undefined') VNGRD_VST.playDrumSound('808', 'hihat_closed', velocity); break;
+            case 'vst:909_hihat':  if (typeof VNGRD_VST !== 'undefined') VNGRD_VST.playDrumSound('909', 'hihat_closed', velocity); break;
+            // SFX_ENGINE — 8-pad hybrid sampler
+            case 'sfx:applause':   SFX_ENGINE.play('applause'); if(window._sfxMidiPulse) _sfxMidiPulse('applause'); break;
+            case 'sfx:cheer':      SFX_ENGINE.play('cheer');    if(window._sfxMidiPulse) _sfxMidiPulse('cheer');    break;
+            case 'sfx:horn':       SFX_ENGINE.play('horn');     if(window._sfxMidiPulse) _sfxMidiPulse('horn');     break;
+            case 'sfx:boom':       SFX_ENGINE.play('boom');     if(window._sfxMidiPulse) _sfxMidiPulse('boom');     break;
+            case 'sfx:custom1':    SFX_ENGINE.play('custom1');  if(window._sfxMidiPulse) _sfxMidiPulse('custom1'); break;
+            case 'sfx:custom2':    SFX_ENGINE.play('custom2');  if(window._sfxMidiPulse) _sfxMidiPulse('custom2'); break;
+            case 'sfx:custom3':    SFX_ENGINE.play('custom3');  if(window._sfxMidiPulse) _sfxMidiPulse('custom3'); break;
+            case 'sfx:custom4':    SFX_ENGINE.play('custom4');  if(window._sfxMidiPulse) _sfxMidiPulse('custom4'); break;
+            default: if (el && el.click) el.click();
+        }
+    }
+    
+    function triggerMidiCCBinding(binding, val) {
+        const el = binding.element;
+        const target = binding.target;
+        
+        if (el.tagName === 'INPUT' && el.type === 'range') {
+            const min = parseFloat(el.min);
+            const max = parseFloat(el.max);
+            el.value = min + (max - min) * val;
+            el.dispatchEvent(new Event('input'));
+        }
+    }
+    
+    function updateMidiBindingsDisplay() {
+        const container = $('midi-bindings');
+        if (!container) return;
+        
+        const bindings = Object.entries(APP.midi.bindings);
+        if (bindings.length === 0) {
+            container.textContent = '';
+            return;
+        }
+        
+        container.innerHTML = bindings.map(([key, val]) => `${key}:${val.target}`).join(' | ');
+    }
+
+    // --- AUTO-MIDI INIT: Probe on load if device already connected ---
+    async function autoInitMIDI() {
+        if (!navigator.requestMIDIAccess) return;
+        try {
+            const midiAccess = await navigator.requestMIDIAccess({ sysex: false });
+            const inputs = Array.from(midiAccess.inputs.values());
+            if (inputs.length === 0) return;
+            APP.midi.access = midiAccess;
+            APP.status.isMidiActive = true;
+            setupMidiHandlers(midiAccess);
+            log('MIDI_AUTO: SIGNAL_RESTORED');
+        } catch (e) {
+            log('MIDI_PROBE_FAIL: ' + e.message);
+        }
+    }
+
+    // --- WebXR VR MODE ---
+    $('btn-vr').onclick = async () => {
+        // Toggle off if already in VR
+        if (APP.vr && APP.vr.active && APP.vr.session) {
+            APP.vr.session.end();
+            return;
+        }
+
+        if (!navigator.xr) {
+            log('WEBXR_NOT_SUPPORTED');
+            alert('WebXR not supported. Try a VR-capable browser like Oculus Browser, Firefox Reality, or Chrome with a VR headset.');
+            return;
+        }
+
+        try {
+            const supported = await navigator.xr.isSessionSupported('immersive-vr');
+            if (!supported) {
+                const inlineSupported = await navigator.xr.isSessionSupported('inline');
+                if (inlineSupported) {
+                    log('VR: Inline mode available');
+                    alert('Full VR not available. For phone VR, open in a WebXR-compatible browser.');
+                } else {
+                    log('NO_VR_SUPPORT');
+                    alert('No VR headset detected. Connect a VR device and try again.');
+                }
+                return;
+            }
+
+            log('VR: Starting immersive session');
+            $('btn-vr').classList.add('on');
+            $('btn-vr').textContent = 'EXIT_VR';
+
+            const session = await navigator.xr.requestSession('immersive-vr', {
+                requiredFeatures: ['local-floor'],
+                optionalFeatures: ['bounded-floor', 'hand-tracking']
+            });
+
+            APP.vr = { session: session, active: true };
+
+            // Create WebGL2 context for VR
+            const vrCanvas = document.createElement('canvas');
+            const gl = vrCanvas.getContext('webgl2', { xrCompatible: true });
+            if (!gl) { log('VR: WebGL2 not available'); session.end(); return; }
+
+            await gl.makeXRCompatible();
+            const baseLayer = new XRWebGLLayer(session, gl);
+            session.updateRenderState({ baseLayer: baseLayer });
+            const refSpace = await session.requestReferenceSpace('local-floor');
+
+            // Build fullscreen-quad shader to blit VJ canvas into VR
+            var vsrc = 'attribute vec2 a;varying vec2 v;void main(){v=a*0.5+0.5;v.y=1.0-v.y;gl_Position=vec4(a,0,1);}';
+            var fsrc = 'precision mediump float;varying vec2 v;uniform sampler2D t;void main(){gl_FragColor=texture2D(t,v);}';
+            function makeShader(type, src) { var s = gl.createShader(type); gl.shaderSource(s, src); gl.compileShader(s); return s; }
+            var prog = gl.createProgram();
+            gl.attachShader(prog, makeShader(gl.VERTEX_SHADER, vsrc));
+            gl.attachShader(prog, makeShader(gl.FRAGMENT_SHADER, fsrc));
+            gl.linkProgram(prog);
+            gl.useProgram(prog);
+            var buf = gl.createBuffer();
+            gl.bindBuffer(gl.ARRAY_BUFFER, buf);
+            gl.bufferData(gl.ARRAY_BUFFER, new Float32Array([-1,-1, 1,-1, -1,1, -1,1, 1,-1, 1,1]), gl.STATIC_DRAW);
+            var aLoc = gl.getAttribLocation(prog, 'a');
+            gl.enableVertexAttribArray(aLoc);
+            gl.vertexAttribPointer(aLoc, 2, gl.FLOAT, false, 0, 0);
+            var tex = gl.createTexture();
+
+            // VR render loop — blit APP.render.canvas into each eye
+            session.requestAnimationFrame(function vrLoop(time, frame) {
+                if (!APP.vr.active) return;
+                session.requestAnimationFrame(vrLoop);
+                var pose = frame.getViewerPose(refSpace);
+                if (!pose) return;
+                gl.bindFramebuffer(gl.FRAMEBUFFER, baseLayer.framebuffer);
+                for (var i = 0; i < pose.views.length; i++) {
+                    var view = pose.views[i];
+                    var vp = baseLayer.getViewport(view);
+                    gl.viewport(vp.x, vp.y, vp.width, vp.height);
+                    gl.bindTexture(gl.TEXTURE_2D, tex);
+                    gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, gl.RGBA, gl.UNSIGNED_BYTE, APP.render.canvas);
+                    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.LINEAR);
+                    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE);
+                    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE);
+                    gl.drawArrays(gl.TRIANGLES, 0, 6);
+                }
+            });
+
+            session.addEventListener('end', () => {
+                APP.vr.active = false;
+                $('btn-vr').classList.remove('on');
+                $('btn-vr').textContent = 'ENTER_VR';
+                log('VR: Session ended');
+            });
+
+        } catch (e) {
+            log('VR_ERROR: ' + e.message);
+            $('btn-vr').classList.remove('on');
+            $('btn-vr').textContent = 'ENTER_VR';
+        }
+    };
+
+    $('btn-nft-30').onclick = startNFTRecording;
+
+    // ── SESSION LAB BUTTONS ──
+    $('btn-save').onclick = function() { $('save-modal').style.display = 'flex'; };
+    $('btn-save-modal-close').onclick = function() { $('save-modal').style.display = 'none'; };
+    $('btn-save-local').onclick = function() {
+        downloadWorkspaceSnapshot();
+        $('save-modal').style.display = 'none';
+    };
+    $('btn-save-wallet').onclick = function() {
+        $('save-modal').style.display = 'none';
+        saveSessionToCloud();
+    };
+
+    $('btn-import-dna').onclick = function() { $('file-vgd').click(); };
+    $('file-vgd').onchange = function(e) {
+        var file = e.target.files[0];
+        if (!file) return;
+        var reader = new FileReader();
+        reader.onload = function(ev) {
+            try {
+                var s = JSON.parse(ev.target.result);
+                if (s.theme) setTheme(s.theme);
+                if (s.bug) { APP.bug.text = s.bug; $('bug-text').value = s.bug; $('station-bug').textContent = s.bug; }
+                if (s.vj) APP.vj = Object.assign({}, APP.vj, s.vj);
+                if (s.layers) {
+                    APP.layers = Object.assign({}, APP.layers, s.layers);
+                    APP.trinity.logo.scale = APP.layers.logoScale || 1.0;
+                    APP.trinity.bug.scale = APP.layers.bugScale || 1.5;
+                }
+                if (s.logo2d && isValidDataURI(s.logo2d)) {
+                    var ll = $('user-logo-layer');
+                    if (ll) { ll.src = s.logo2d; ll.style.display = 'block'; APP.trinity.logo.visible = true; }
+                }
+                if (s.lowerThird) {
+                    if (s.lowerThird.title) { if ($('lt-title-text')) $('lt-title-text').textContent = s.lowerThird.title; if ($('lt-title')) $('lt-title').value = s.lowerThird.title; }
+                    if (s.lowerThird.subtitle) { if ($('lt-subtitle-text')) $('lt-subtitle-text').textContent = s.lowerThird.subtitle; if ($('lt-sub')) $('lt-sub').value = s.lowerThird.subtitle; }
+                    if (s.lowerThird.preset) APP.lowerThird.preset = s.lowerThird.preset;
+                    APP.lowerThird.visible = !!s.lowerThird.visible;
+                }
+                if ($('sl-b')) $('sl-b').value = Math.round(APP.vj.brightness * 100);
+                if ($('sl-c')) $('sl-c').value = Math.round(APP.vj.contrast * 100);
+                if ($('sl-s')) $('sl-s').value = Math.round(APP.vj.saturation * 100);
+                if ($('sl-h')) $('sl-h').value = APP.vj.hue;
+                log('VGD: ' + file.name.toUpperCase());
+            } catch(err) { log('VGD_ERR: ' + err.message); }
+        };
+        reader.readAsText(file);
+        e.target.value = '';
+    };
+
+    $('btn-share-qr').onclick = executeWorkspaceExport;
+
+    // ========================================
+    // ========================================
+    // KINETIC_MATERIAL_IMPACTS + WEAPON_STATE_ISOLATION
+    // STRUCTURAL_INTEGRITY + ACOUSTIC_SYNTHESIS
+    // ========================================
+    
+    // ACOUSTIC SYNTHESIS - NO EXTERNAL FILES
+    function getAudioCtx() {
+        if (!APP.shooting.audioCtx) {
+            APP.shooting.audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+        }
+        return APP.shooting.audioCtx;
+    }
+    
+    // GLASS BREAK: HPF crack snap + high shimmer tines + sine thud + BPF noise tail
+    function playGlassShatter() {
+        const ctx = getAudioCtx();
+        const now = ctx.currentTime;
+        const out = ctx.destination;
+        // L1: 8ms shaped noise HPF @4200Hz
+        const crackBuf = ctx.createBuffer(1, Math.ceil(ctx.sampleRate * 0.008), ctx.sampleRate);
+        const cd = crackBuf.getChannelData(0);
+        for (let i = 0; i < cd.length; i++) cd[i] = (Math.random()*2-1) * Math.pow(1 - i/cd.length, 2.5);
+        const crack = ctx.createBufferSource(); crack.buffer = crackBuf;
+        const crackHpf = ctx.createBiquadFilter(); crackHpf.type='highpass'; crackHpf.frequency.value=4200;
+        const crackGain = ctx.createGain();
+        crackGain.gain.setValueAtTime(1.3, now); crackGain.gain.exponentialRampToValueAtTime(0.001, now+0.01);
+        crack.connect(crackHpf); crackHpf.connect(crackGain); crackGain.connect(out);
+        crack.start(now); crack.stop(now+0.012);
+        // L2: 5 inharmonic sine tines staggered
+        [2900, 3700, 4600, 5400, 7100].forEach((f, i) => {
+            const freq = f * (0.92 + Math.random()*0.16);
+            const t0 = now + i*0.007; const dur = 0.13 + Math.random()*0.11;
+            const osc = ctx.createOscillator(); osc.type='sine'; osc.frequency.value=freq;
+            const g = ctx.createGain();
+            g.gain.setValueAtTime(0, t0); g.gain.linearRampToValueAtTime(0.14, t0+0.003);
+            g.gain.exponentialRampToValueAtTime(0.001, t0+dur);
+            osc.connect(g); g.connect(out); osc.start(t0); osc.stop(t0+dur+0.01);
+        });
+        // L3: 160→50Hz sine thud
+        const thud = ctx.createOscillator(); thud.type='sine';
+        thud.frequency.setValueAtTime(160, now); thud.frequency.exponentialRampToValueAtTime(50, now+0.12);
+        const thudG = ctx.createGain();
+        thudG.gain.setValueAtTime(0.38, now); thudG.gain.exponentialRampToValueAtTime(0.001, now+0.16);
+        thud.connect(thudG); thudG.connect(out); thud.start(now); thud.stop(now+0.18);
+        // L4: BPF noise tail @3200Hz
+        const tailBuf = ctx.createBuffer(1, Math.ceil(ctx.sampleRate*0.28), ctx.sampleRate);
+        const td = tailBuf.getChannelData(0); for (let i=0;i<td.length;i++) td[i]=Math.random()*2-1;
+        const tail = ctx.createBufferSource(); tail.buffer=tailBuf;
+        const tailBpf = ctx.createBiquadFilter(); tailBpf.type='bandpass'; tailBpf.frequency.value=3200; tailBpf.Q.value=0.7;
+        const tailG = ctx.createGain();
+        tailG.gain.setValueAtTime(0.07, now+0.012); tailG.gain.exponentialRampToValueAtTime(0.001, now+0.32);
+        tail.connect(tailBpf); tailBpf.connect(tailG); tailG.connect(out);
+        tail.start(now+0.008); tail.stop(now+0.33);
+    }
+    
+    // METAL CONSOLE HIT: heavy noise thump, no tones
+    function playMetalTink() {
+        const ctx = getAudioCtx();
+        const now = ctx.currentTime;
+        const out = ctx.destination;
+
+        // L1: impact transient — short full-spectrum noise burst, very fast decay
+        const transBuf = ctx.createBuffer(1, Math.ceil(ctx.sampleRate*0.025), ctx.sampleRate);
+        const tr = transBuf.getChannelData(0);
+        for (let i=0;i<tr.length;i++) tr[i]=(Math.random()*2-1)*Math.pow(1-i/tr.length, 1.5);
+        const trans = ctx.createBufferSource(); trans.buffer=transBuf;
+        const tG = ctx.createGain();
+        tG.gain.setValueAtTime(1.2, now); tG.gain.exponentialRampToValueAtTime(0.001, now+0.028);
+        trans.connect(tG); tG.connect(out);
+        trans.start(now); trans.stop(now+0.03);
+
+        // L2: heavy body thud — LPF noise ~120Hz, dull and low, 200ms decay
+        const thudBuf = ctx.createBuffer(1, Math.ceil(ctx.sampleRate*0.22), ctx.sampleRate);
+        const tb = thudBuf.getChannelData(0); for (let i=0;i<tb.length;i++) tb[i]=Math.random()*2-1;
+        const thudSrc = ctx.createBufferSource(); thudSrc.buffer=thudBuf;
+        const lpf = ctx.createBiquadFilter(); lpf.type='lowpass'; lpf.frequency.value=120; lpf.Q.value=0.5;
+        const thudG = ctx.createGain();
+        thudG.gain.setValueAtTime(1.4, now); thudG.gain.exponentialRampToValueAtTime(0.001, now+0.21);
+        thudSrc.connect(lpf); lpf.connect(thudG); thudG.connect(out);
+        thudSrc.start(now); thudSrc.stop(now+0.23);
+    }
+    
+    // TERMINAL SMASH: electrical crack + chassis thud + screen fracture + CRT discharge hum
+    function playTerminalSmash() {
+        const ctx = getAudioCtx();
+        const now = ctx.currentTime;
+        const out = ctx.destination;
+
+        // Layer 1 — broadband impact crack (20ms, full spectrum, shaped envelope)
+        const crackBuf = ctx.createBuffer(1, Math.ceil(ctx.sampleRate*0.02), ctx.sampleRate);
+        const cd = crackBuf.getChannelData(0);
+        for (let i=0;i<cd.length;i++) cd[i]=(Math.random()*2-1)*Math.pow(1-i/cd.length, 1.8);
+        const crack = ctx.createBufferSource(); crack.buffer=crackBuf;
+        const ckG = ctx.createGain();
+        ckG.gain.setValueAtTime(1.5, now); ckG.gain.exponentialRampToValueAtTime(0.001, now+0.022);
+        crack.connect(ckG); ckG.connect(out); crack.start(now); crack.stop(now+0.025);
+
+        // Layer 2 — deep chassis thud (heavy object, long decay)
+        const thud = ctx.createOscillator(); thud.type='sine';
+        thud.frequency.setValueAtTime(85, now); thud.frequency.exponentialRampToValueAtTime(24, now+0.28);
+        const thudG = ctx.createGain();
+        thudG.gain.setValueAtTime(0.75, now); thudG.gain.exponentialRampToValueAtTime(0.001, now+0.32);
+        thud.connect(thudG); thudG.connect(out); thud.start(now); thud.stop(now+0.35);
+
+        // Layer 3 — screen/plastic fracture (BPF noise, mid-range, 250ms tail)
+        const fracBuf = ctx.createBuffer(1, Math.ceil(ctx.sampleRate*0.26), ctx.sampleRate);
+        const fd = fracBuf.getChannelData(0); for (let i=0;i<fd.length;i++) fd[i]=Math.random()*2-1;
+        const frac = ctx.createBufferSource(); frac.buffer=fracBuf;
+        const fracBpf = ctx.createBiquadFilter(); fracBpf.type='bandpass'; fracBpf.frequency.value=2100; fracBpf.Q.value=1.1;
+        const fracG = ctx.createGain();
+        fracG.gain.setValueAtTime(0.32, now+0.006); fracG.gain.exponentialRampToValueAtTime(0.001, now+0.27);
+        frac.connect(fracBpf); fracBpf.connect(fracG); fracG.connect(out);
+        frac.start(now+0.004); frac.stop(now+0.28);
+
+        // Layer 4 — electrical discharge (HPF noise burst, simulates capacitor pop)
+        const elecBuf = ctx.createBuffer(1, Math.ceil(ctx.sampleRate*0.035), ctx.sampleRate);
+        const ed = elecBuf.getChannelData(0); for (let i=0;i<ed.length;i++) ed[i]=Math.random()*2-1;
+        const elec = ctx.createBufferSource(); elec.buffer=elecBuf;
+        const elecHpf = ctx.createBiquadFilter(); elecHpf.type='highpass'; elecHpf.frequency.value=7000;
+        const elecG = ctx.createGain();
+        elecG.gain.setValueAtTime(0.6, now); elecG.gain.exponentialRampToValueAtTime(0.001, now+0.038);
+        elec.connect(elecHpf); elecHpf.connect(elecG); elecG.connect(out);
+        elec.start(now); elec.stop(now+0.04);
+
+        // Layer 5 — CRT/screen resonance dying (sawtooth pitch sweep, 400Hz→55Hz)
+        const hum = ctx.createOscillator(); hum.type='sawtooth';
+        hum.frequency.setValueAtTime(380, now+0.008); hum.frequency.exponentialRampToValueAtTime(55, now+0.42);
+        const humG = ctx.createGain();
+        humG.gain.setValueAtTime(0.12, now+0.008); humG.gain.exponentialRampToValueAtTime(0.001, now+0.44);
+        hum.connect(humG); humG.connect(out); hum.start(now+0.008); hum.stop(now+0.46);
+    }
+    
+   
+    
+    // STRUCTURAL INTEGRITY SYSTEM
+    function updateIntegrityBar() {
+        const bar = $('integrity-bar');
+        const fill = $('integrity-fill');
+        const text = $('integrity-text');
+        
+        if (!bar || !fill || !text) return;
+        
+        bar.classList.add('active');
+        fill.style.width = APP.glassIntegrity + '%';
+        text.textContent = 'INTEGRITY: ' + APP.glassIntegrity + '%';
+        
+        // Color based on integrity
+        if (APP.glassIntegrity > 60) {
+            fill.style.background = 'linear-gradient(90deg, var(--g) 0%, var(--g) 100%)';
+        } else if (APP.glassIntegrity > 30) {
+            fill.style.background = 'linear-gradient(90deg, var(--y) 0%, var(--y) 100%)';
+        } else {
+            fill.style.background = 'linear-gradient(90deg, var(--r) 0%, var(--r) 100%)';
+        }
+    }
+    
+    function triggerTerminalShatter() {
+        APP.lensShattered = true;
+        document.body.classList.add('lens-shattered');
+        playTerminalSmash();
+        
+        log('TERMINAL_SHATTER: LENS_FAILURE');
+
+        $('glass-fracture-layer').innerHTML = '';
+        APP.shooting.fractures = [];
+    }
+    
+    function repairLens() {
+        if (!APP.lensShattered && APP.glassIntegrity >= 100) return;
+        
+        playHydraulicHiss();
+        APP.glassIntegrity = 100;
+        APP.lensShattered = false;
+        document.body.classList.remove('lens-shattered');
+        updateIntegrityBar();
+        
+        // Clear all damage
+        APP.shooting.bullets.forEach(b => b.remove());
+        APP.shooting.bullets = [];
+        APP.shooting.fractures.forEach(f => f.remove());
+        APP.shooting.fractures = [];
+        APP.shooting.dents.forEach(d => d.classList.remove('dented'));
+        APP.shooting.dents = [];
+        $('glass-fracture-layer').innerHTML = '';
+        
+        log('LENS_REPAIR: INTEGRITY_RESTORED');
+        
+        setTimeout(() => {
+            if (!APP.shooting.active) {
+                $('integrity-bar').classList.remove('active');
+            }
+        }, 2000);
+    }
+    
+    function startRepairTimer() {
+        if (APP.shooting.repairTimer) {
+            clearTimeout(APP.shooting.repairTimer);
+        }
+        APP.shooting.repairTimer = setTimeout(() => {
+            if (APP.glassIntegrity < 100 || APP.lensShattered) {
+                repairLens();
+            }
+        }, 15000); // 15 second auto-repair
+    }
+    
+    // GLASS FRACTURE WITH 20S PURGE
+    function createGlassFracture(x, y) {
+        const stage = $('stage');
+        const rect = stage.getBoundingClientRect();
+        const localX = x - rect.left;
+        const localY = y - rect.top;
+        
+        const fracture = document.createElement('div');
+        fracture.className = 'glass-fracture';
+        fracture.style.left = localX + 'px';
+        fracture.style.top = localY + 'px';
+        
+        const numCracks = 5 + Math.floor(Math.random() * 6);
+        let svg = '<svg width="100" height="100" style="position:absolute;left:-50px;top:-50px;mix-blend-mode:lighter;">';
+        
+        for (let i = 0; i < numCracks; i++) {
+            const angle = (i / numCracks) * Math.PI * 2 + (Math.random() - 0.5) * 0.5;
+            const len = 20 + Math.random() * 35;
+            let path = `M50,50 `;
+            let cx = 50, cy = 50;
+            const segments = 3 + Math.floor(Math.random() * 3);
+            
+            for (let s = 0; s < segments; s++) {
+                const segLen = len / segments;
+                const jitter = (Math.random() - 0.5) * 12;
+                cx += Math.cos(angle + jitter * 0.1) * segLen;
+                cy += Math.sin(angle + jitter * 0.1) * segLen;
+                path += `L${cx.toFixed(1)},${cy.toFixed(1)} `;
+            }
+            
+            svg += `<path d="${path}" class="fracture-glow" fill="none"/>`;
+            svg += `<path d="${path}" class="fracture-line" fill="none"/>`;
+        }
+        
+        svg += '<circle cx="50" cy="50" r="4" fill="rgba(255,255,255,0.9)" filter="blur(2px)"/>';
+        svg += '<circle cx="50" cy="50" r="2" fill="#fff"/>';
+        svg += '</svg>';
+        
+        fracture.innerHTML = svg;
+        $('glass-fracture-layer').appendChild(fracture);
+        APP.shooting.fractures.push(fracture);
+        
+        playGlassShatter();
+        
+        // 20S MEMORY PURGE
+        setTimeout(() => {
+            fracture.style.opacity = '0';
+            fracture.style.transition = 'opacity 0.5s';
+            setTimeout(() => {
+                fracture.remove();
+                const idx = APP.shooting.fractures.indexOf(fracture);
+                if (idx > -1) APP.shooting.fractures.splice(idx, 1);
+            }, 500);
+        }, 20000);
+    }
+    
+    // METAL DENT
+    function createMetalDent(el) {
+        if (!el.classList.contains('dented')) {
+            el.classList.add('dented');
+            APP.shooting.dents.push(el);
+        }
+        playMetalTink();
+    }
+    
+    // BULLET HOLE WITH 20S PURGE
+    function createBulletHole(x, y) {
+        const hole = document.createElement('div');
+        hole.className = 'bullet-hole';
+        hole.style.left = (x - 10) + 'px';
+        hole.style.top = (y - 10) + 'px';
+        document.body.appendChild(hole);
+        APP.shooting.bullets.push(hole);
+        
+        const smoke = document.createElement('div');
+        smoke.className = 'smoke-puff';
+        smoke.style.left = (x - 20) + 'px';
+        smoke.style.top = (y - 20) + 'px';
+        document.body.appendChild(smoke);
+        setTimeout(() => smoke.remove(), 1500);
+        
+        // 20S PURGE
+        setTimeout(() => {
+            hole.style.opacity = '0';
+            hole.style.transition = 'opacity 0.5s';
+            setTimeout(() => {
+                hole.remove();
+                const idx = APP.shooting.bullets.indexOf(hole);
+                if (idx > -1) APP.shooting.bullets.splice(idx, 1);
+            }, 500);
+        }, 20000);
+    }
+    
+    // FIRE WEAPON - CORE FUNCTION WITH THROTTLE AND INTEGRITY
+    function fireWeapon(x, y) {
+        // 100MS THROTTLE
+        const now = Date.now();
+        if (now - APP.shooting.lastFireTime < APP.shooting.fireThrottle) return;
+        APP.shooting.lastFireTime = now;
+        
+        // INTEGRITY DAMAGE
+        APP.glassIntegrity = Math.max(0, APP.glassIntegrity - 2);
+        updateIntegrityBar();
+        startRepairTimer();
+        
+        // Check for terminal shatter
+        if (APP.glassIntegrity <= 0 && !APP.lensShattered) {
+            triggerTerminalShatter();
+            return;
+        }
+        
+        const stage = $('stage');
+        const stageRect = stage.getBoundingClientRect();
+        const target = document.elementFromPoint(x, y);
+        
+        // Material detection
+        const isGlass = x >= stageRect.left && x <= stageRect.right &&
+                        y >= stageRect.top && y <= stageRect.bottom;
+        
+        const isMetal = target && (
+            target.classList.contains('btn') ||
+            target.closest('.sidebar') ||
+            target.closest('#top-bar') ||
+            target.closest('#bottom-bar')
+        );
+        
+        if (isGlass && !isMetal) {
+            createGlassFracture(x, y);
+        } else if (isMetal) {
+            const metalEl = target.classList.contains('btn') ? target : 
+                           (target.closest('.sidebar') || target.closest('#top-bar') || target.closest('#bottom-bar'));
+            if (metalEl) createMetalDent(metalEl);
+            createBulletHole(x, y);
+        } else {
+            createBulletHole(x, y);
+            playMetalTink();
+        }
+        
+        // Screen shake
+        document.body.style.transform = `translate(${(Math.random()-0.5)*8}px, ${(Math.random()-0.5)*8}px)`;
+        setTimeout(() => document.body.style.transform = '', 40);
+    }
+    
+    // WEAPON STATE ISOLATION - GLOBAL CAPTURE PHASE LISTENER
+    function weaponGlobalInterceptor(e) {
+        if (!APP.shooting.active) return;
+        
+        // Allow clicking the weapon toggle button
+        const target = e.target;
+        if (target.id === 'btn-shooting' || target.closest('#btn-shooting')) {
+            return; // Let the click through
+        }
+        
+        // PREVENT ALL OTHER CLICKS - Complete input safety
+        e.preventDefault();
+        e.stopPropagation();
+        e.stopImmediatePropagation();
+        
+        // Fire weapon at click location
+        fireWeapon(e.clientX, e.clientY);
+    }
+    
+    // MACHINE GUN - 100MS RAPID FIRE ON MOUSEDOWN
+    let machineGunActive = false;
+    
+    function startMachineGun(e) {
+        if (!APP.shooting.active) return;
+        
+        const target = e.target;
+        if (target.id === 'btn-shooting' || target.closest('#btn-shooting')) {
+            return;
+        }
+        
+        e.preventDefault();
+        machineGunActive = true;
+        APP.shooting.lastX = e.clientX;
+        APP.shooting.lastY = e.clientY;
+        
+        fireWeapon(e.clientX, e.clientY);
+        
+        APP.shooting.machineGunInterval = setInterval(() => {
+            if (machineGunActive && APP.shooting.active) {
+                const jitterX = APP.shooting.lastX + (Math.random() - 0.5) * 20;
+                const jitterY = APP.shooting.lastY + (Math.random() - 0.5) * 20;
+                fireWeapon(jitterX, jitterY);
+            }
+        }, 100);
+    }
+    
+    function stopMachineGun() {
+        machineGunActive = false;
+        if (APP.shooting.machineGunInterval) {
+            clearInterval(APP.shooting.machineGunInterval);
+            APP.shooting.machineGunInterval = null;
+        }
+    }
+    
+    function trackMouse(e) {
+        APP.shooting.lastX = e.clientX;
+        APP.shooting.lastY = e.clientY;
+    }
+    
+    $('btn-shooting').onclick = () => {
+        APP.shooting.active = !APP.shooting.active;
+        $('btn-shooting').classList.toggle('on', APP.shooting.active);
+        document.body.classList.toggle('shooting-mode', APP.shooting.active);
+        
+        if (APP.shooting.active) {
+            log('MACHINE_GUN: ARMED');
+            updateIntegrityBar();
+            
+            // WEAPON STATE ISOLATION - Capture phase for complete input safety
+            window.addEventListener('click', weaponGlobalInterceptor, true);
+            document.addEventListener('mousemove', trackMouse);
+            document.addEventListener('mousedown', startMachineGun);
+            document.addEventListener('mouseup', stopMachineGun);
+            
+        } else {
+            stopMachineGun();
+            window.removeEventListener('click', weaponGlobalInterceptor, true);
+            document.removeEventListener('mousemove', trackMouse);
+            document.removeEventListener('mousedown', startMachineGun);
+            document.removeEventListener('mouseup', stopMachineGun);
+            
+            // Clear repair timer but keep damage visible
+            if (APP.shooting.repairTimer) {
+                clearTimeout(APP.shooting.repairTimer);
+                APP.shooting.repairTimer = null;
+            }
+            
+            // Hide integrity bar after delay
+            setTimeout(() => {
+                if (!APP.shooting.active) {
+                    $('integrity-bar').classList.remove('active');
+                }
+            }, 3000);
+            
+            log('MACHINE_GUN: OFF');
+        }
+    };
+
+    // --- P2P / E2E CALL (FIXED) ---
+
+// Helper to reset buttons to default state
+const resetP2PButtons = () => {
+    var _btn = $('btn-call-guest');
+    _btn.textContent = 'CALL';
+    _btn.style.borderColor = 'var(--text-main)';
+    _btn.style.color = 'var(--text-main)';
+    _btn.classList.remove('accepting', 'call-active');
+
+    $('btn-init-peer').textContent = 'INIT';
+    $('btn-init-peer').style.display = 'inline-block';
+    
+    // Clear the temp incoming call object
+    if (APP.peer) APP.peer.incomingCall = null;
+};
+
+// ═══ P2P RING TONE (Web Audio API) — Uplifting ascending arpeggio ═══
+var _p2pRing = { ctx: null, oscs: [], gain: null, timeout: null, active: false };
+function startP2PRing() {
+    stopP2PRing();
+    try {
+        var ctx = new (window.AudioContext || window.webkitAudioContext)();
+        var gain = ctx.createGain();
+        gain.gain.value = 0;
+        gain.connect(ctx.destination);
+        _p2pRing.ctx = ctx;
+        _p2pRing.gain = gain;
+        _p2pRing.active = true;
+        // Ascending arpeggio: C5 E5 G5 C6 — bright major chord
+        var notes = [523.25, 659.25, 783.99, 1046.50];
+        var noteLen = 0.15, gap = 0.05, vol = 0.12;
+        function playArpeggio() {
+            if (!_p2pRing.active) return;
+            var t = ctx.currentTime;
+            for (var i = 0; i < notes.length; i++) {
+                var osc = ctx.createOscillator();
+                var noteGain = ctx.createGain();
+                osc.type = 'sine';
+                osc.frequency.value = notes[i];
+                osc.connect(noteGain);
+                noteGain.connect(gain);
+                var start = t + i * (noteLen + gap);
+                noteGain.gain.setValueAtTime(0, start);
+                noteGain.gain.linearRampToValueAtTime(vol, start + 0.02);
+                noteGain.gain.setValueAtTime(vol, start + noteLen - 0.03);
+                noteGain.gain.linearRampToValueAtTime(0, start + noteLen);
+                osc.start(start);
+                osc.stop(start + noteLen + 0.01);
+                _p2pRing.oscs.push(osc);
+            }
+            gain.gain.setValueAtTime(1, t);
+            // Repeat after pause (arpeggio ~0.8s + 1.2s silence = 2s cycle)
+            _p2pRing.timeout = setTimeout(playArpeggio, 2000);
+        }
+        playArpeggio();
+    } catch (e) { /* silent fail */ }
+}
+function stopP2PRing() {
+    _p2pRing.active = false;
+    if (_p2pRing.timeout) { clearTimeout(_p2pRing.timeout); _p2pRing.timeout = null; }
+    _p2pRing.oscs.forEach(function(o) { try { o.stop(); } catch(e){} });
+    _p2pRing.oscs = [];
+    if (_p2pRing.ctx) { try { _p2pRing.ctx.close(); } catch(e){} _p2pRing.ctx = null; }
+    _p2pRing.gain = null;
+}
+
+// ═══ P2P FLOATING PANEL: TOGGLE / MINIMIZE / DRAG (mouse + touch) ═══
+$('btn-open-p2p-modal').onclick = () => {
+    var p = $('p2p-modal');
+    if (p.style.display === 'none' || p.style.display === '') {
+        // Always open expanded with body visible
+        $('p2p-body').style.display = '';
+        p.style.display = 'block';
+    } else {
+        p.style.display = 'none';
+    }
+};
+$('btn-close-p2p-modal').onclick = () => {
+    // If there's an active call, end it fully for both sides
+    if (APP.peer && (APP.peer.call || APP.peer.incomingCall)) {
+        if (APP.peer.call) APP.peer.call.close();
+        if (APP.peer.incomingCall) { APP.peer.incomingCall.close(); }
+        endCallCleanup();
+    }
+    $('p2p-modal').style.display = 'none';
+};
+$('btn-min-p2p').onclick = () => {
+    // Snap back to the P2P button — hide the floating HUD.
+    // Pressing the top-bar button re-expands it.
+    $('p2p-modal').style.display = 'none';
+};
+// Drag logic (mouse + touch)
+(function() {
+    var bar = $('p2p-titlebar'), panel = $('p2p-modal'), dx = 0, dy = 0, dragging = false;
+    function startDrag(cx, cy, e) {
+        if (e.target.tagName === 'BUTTON') return;
+        dragging = true;
+        dx = cx - panel.offsetLeft;
+        dy = cy - panel.offsetTop;
+        bar.style.cursor = 'grabbing';
+        e.preventDefault();
+    }
+    function moveDrag(cx, cy) {
+        if (!dragging) return;
+        panel.style.left = Math.max(0, Math.min(window.innerWidth - 60, cx - dx)) + 'px';
+        panel.style.top = Math.max(0, Math.min(window.innerHeight - 30, cy - dy)) + 'px';
+        panel.style.right = 'auto';
+    }
+    function endDrag() { dragging = false; bar.style.cursor = 'grab'; }
+    // Mouse
+    bar.addEventListener('mousedown', function(e) { startDrag(e.clientX, e.clientY, e); });
+    document.addEventListener('mousemove', function(e) { moveDrag(e.clientX, e.clientY); });
+    document.addEventListener('mouseup', endDrag);
+    // Touch
+    bar.addEventListener('touchstart', function(e) {
+        var t = e.touches[0];
+        startDrag(t.clientX, t.clientY, e);
+    }, { passive: false });
+    document.addEventListener('touchmove', function(e) {
+        if (!dragging) return;
+        var t = e.touches[0];
+        moveDrag(t.clientX, t.clientY);
+        e.preventDefault();
+    }, { passive: false });
+    document.addEventListener('touchend', endDrag);
+})();
+
+// Resize logic (mouse + touch)
+(function() {
+    var handle = $('p2p-resize'), panel = $('p2p-modal'), resizing = false, startW, startH, startX, startY;
+    function startResize(cx, cy, e) {
+        resizing = true; startW = panel.offsetWidth; startH = panel.offsetHeight; startX = cx; startY = cy;
+        e.preventDefault(); e.stopPropagation();
+    }
+    function moveResize(cx, cy) {
+        if (!resizing) return;
+        panel.style.width = Math.max(200, startW + (cx - startX)) + 'px';
+    }
+    function endResize() { resizing = false; }
+    handle.addEventListener('mousedown', function(e) { startResize(e.clientX, e.clientY, e); });
+    document.addEventListener('mousemove', function(e) { if (resizing) { moveResize(e.clientX, e.clientY); e.preventDefault(); } });
+    document.addEventListener('mouseup', endResize);
+    handle.addEventListener('touchstart', function(e) { var t = e.touches[0]; startResize(t.clientX, t.clientY, e); }, { passive: false });
+    document.addEventListener('touchmove', function(e) { if (resizing) { var t = e.touches[0]; moveResize(t.clientX, t.clientY); e.preventDefault(); } }, { passive: false });
+    document.addEventListener('touchend', endResize);
+})();
+
+$('btn-init-peer').onclick = () => {
+    if (APP.peer && APP.peer.peer) {
+        log('PEER: Already initialized');
+        return;
+    }
+
+    try {
+        // Use custom callsign from field → localStorage → generated fallback
+        var _typed = ($('peer-id-display').value || '').trim().toUpperCase().replace(/[^A-Z0-9\-_]/g,'').slice(0, 24);
+        var _saved = localStorage.getItem('vngrd_station_id') || '';
+        var peerId = _typed || _saved || ('VNGRD-' + Math.random().toString(36).substr(2, 8).toUpperCase());
+        APP.peer = {
+            peer: new Peer(peerId, {
+                host: '0.peerjs.com',
+                secure: true,
+                port: 443,
+                path: '/',
+                config: {
+                    iceServers: [{ urls: 'stun:stun.l.google.com:19302' }]
+                },
+                debug: 0
+            }),
+            call: null,
+            incomingCall: null,
+            localStream: null,
+            dataConn: null
+        };
+        
+        APP.peer.peer.on('open', (id) => {
+            $('peer-id-display').value = id;
+            localStorage.setItem('vngrd_station_id', id);
+            if ($('guest-dot')) $('guest-dot').classList.remove('off');
+            $('call-status').textContent = 'READY TO CALL';
+            $('call-status').style.color = 'var(--g)';
+            log('PEER: ' + id);
+        });
+        
+        APP.peer.peer.on('error', (err) => {
+            log('PEER ERROR: ' + err.type);
+            $('call-status').textContent = 'ERR: ' + err.type;
+            $('call-status').style.color = 'var(--r)';
+        });
+        
+        // --- INCOMING CALL HANDLER ---
+        // Store the call object. btn-call-guest FORK A reads it to answer.
+        APP.peer.peer.on('call', (call) => {
+            log('INCOMING_CALL FROM ' + call.peer);
+
+            APP.peer.incomingCall = call;   // ← MUST be set before the button is clicked
+
+            $('call-status').textContent = 'IN LOBBY: ' + call.peer;
+            $('call-status').style.color = '#ffcc00';
+            $('p2p-modal').style.display = 'block';
+            $('p2p-modal').classList.add('incoming');
+            $('p2p-body').style.display = '';
+            $('btn-open-p2p-modal').classList.add('lobby');
+            startP2PRing();
+
+            var btnCall = $('btn-call-guest');
+            btnCall.textContent = 'INCOMING: ACCEPT?';
+            btnCall.style.borderColor = '';
+            btnCall.style.color = '';
+            btnCall.classList.add('accepting');
+        });
+
+        // --- INCOMING DATA CONNECTION (Guest Side) ---
+        APP.peer.peer.on('connection', (conn) => {
+            log('DATA_CHANNEL: INCOMING FROM ' + conn.peer);
+            conn.on('open', () => {
+                APP.peer.dataConn = conn;
+                log('DATA_CHANNEL: OPEN');
+                _flushSyncQueue();
+                _pushCurrentState();
+            });
+            conn.on('data', (data) => {
+                try {
+                    const msg = typeof data === 'string' ? JSON.parse(data) : data;
+                    // Debug: confirm packet arrival before any DOM work
+                    console.log('RECEIVED P2P DATA:', msg);
+                    log('DATA_CHANNEL: RECV ' + (msg.target || 'UNKNOWN'));
+                    if (msg.type === 'UI_SYNC') handleUISync(msg);
+                } catch (e) {
+                    console.error('DATA_CHANNEL PARSE ERROR:', e, data);
+                    log('DATA_CHANNEL: PARSE_ERR');
+                }
+            });
+            conn.on('close', () => {
+                log('DATA_CHANNEL: CLOSED');
+                if (APP.peer.dataConn === conn) APP.peer.dataConn = null;
+                // FORK A (answerer) does not initiate reconnect — the caller (FORK B) will
+                // re-connect via peer.connect() and this peer.on('connection', ...) will handle it.
+                // Log so we can diagnose if reconnect never arrives.
+                if (APP.peer.call) log('DATA_CHANNEL: AWAITING_RECONNECT_FROM_CALLER');
+            });
+        });
+
+    } catch (e) {
+        log('PEER INIT ERROR: ' + e.message);
+    }
+};
+
+// Pre-fill callsign from last session
+(function() {
+    var _savedId = localStorage.getItem('vngrd_station_id');
+    if (_savedId && $('peer-id-display')) $('peer-id-display').value = _savedId;
+})();
+
+$('btn-copy-id').onclick = () => {
+    const idField = $('peer-id-display');
+    if (idField && idField.value) {
+        navigator.clipboard.writeText(idField.value);
+        const originalText = $('btn-copy-id').textContent;
+        $('btn-copy-id').textContent = '✓ COPIED';
+        setTimeout(() => $('btn-copy-id').textContent = originalText, 2000);
+    }
+};
+
+// ─── CONTACT BOOK ────────────────────────────────────────────────────────────
+function saveP2PContact(id) {
+    if (!id) return;
+    var contacts = JSON.parse(localStorage.getItem('vngrd_contacts') || '[]');
+    contacts = contacts.filter(function(c) { return c !== id; });
+    contacts.unshift(id);
+    contacts = contacts.slice(0, 3);
+    localStorage.setItem('vngrd_contacts', JSON.stringify(contacts));
+}
+
+function renderP2PContacts() {
+    var overlay = $('p2p-contacts-overlay');
+    var empty   = $('p2p-contacts-empty');
+    if (!overlay) return;
+    // Remove old dynamic items
+    overlay.querySelectorAll('.contact-item').forEach(function(el) { el.remove(); });
+    var contacts = JSON.parse(localStorage.getItem('vngrd_contacts') || '[]');
+    if (contacts.length === 0) {
+        if (empty) empty.style.display = '';
+    } else {
+        if (empty) empty.style.display = 'none';
+        contacts.forEach(function(id) {
+            var div = document.createElement('div');
+            div.className = 'contact-item';
+            div.textContent = id;
+            div.onclick = function() {
+                $('remote-peer-id').value = id;
+                overlay.style.display = 'none';
+            };
+            overlay.appendChild(div);
+        });
+    }
+}
+
+$('btn-contacts').onclick = function(e) {
+    e.stopPropagation();
+    var overlay = $('p2p-contacts-overlay');
+    if (!overlay) return;
+    renderP2PContacts();
+    overlay.style.display = overlay.style.display === 'block' ? 'none' : 'block';
+};
+
+// Close contacts overlay when clicking outside it
+document.addEventListener('click', function(e) {
+    var overlay = $('p2p-contacts-overlay');
+    if (overlay && overlay.style.display === 'block') {
+        if (!overlay.contains(e.target) && e.target.id !== 'btn-contacts') {
+            overlay.style.display = 'none';
+        }
+    }
+});
+// ─────────────────────────────────────────────────────────────────────────────
+
+// --- UNIFIED CALL / ANSWER BUTTON ---
+// Strict fork: incoming call → answer only. No active call → dial out.
+// Using localStream directly (no composite canvas stream) eliminates the
+// spurious peer.on('call') re-fire caused by captureStream() side-effects.
+$('btn-call-guest').onclick = async () => {
+    if (!APP.peer || !APP.peer.peer) { alert('CLICK_INIT_FIRST'); return; }
+
+    // ── Shared media acquisition ──────────────────────────────────────────
+    // CRITICAL: echoCancellation + noiseSuppression MUST be true for any WebRTC voice call.
+    // The remote peer's audio plays through the host's speakers; with AEC off the mic picks
+    // that up and ships it back to the guest — instant echo / runaway feedback loop.
+    // These flags do NOT affect the recording path (which taps outputLimiter + micGainNode
+    // separately via their own getUserMedia capture in switchAudioInput).
+    const audioConstraints = APP.inputDevices && APP.inputDevices.selectedId
+        ? { deviceId: { exact: APP.inputDevices.selectedId }, echoCancellation: true, noiseSuppression: true, autoGainControl: true, channelCount: 2 }
+        : { echoCancellation: true, noiseSuppression: true, autoGainControl: true, channelCount: 2 };
+
+    let localStream;
+    try {
+        localStream = await navigator.mediaDevices.getUserMedia({
+            video: { facingMode: 'user', width: { ideal: 1920 }, height: { ideal: 1080 }, frameRate: { ideal: 30 } },
+            audio: audioConstraints
+        });
+    } catch (e) {
+        log('MEDIA_ERR: ' + e.message);
+        $('call-status').textContent = 'MEDIA_ERR: ' + e.message;
+        $('call-status').style.color = 'var(--r)';
+        return;
+    }
+
+    APP.peer.localStream = localStream;
+
+    // Wake up hardware — ensures no track starts in a disabled/black state
+    localStream.getTracks().forEach(function(t) { t.enabled = true; });
+
+    // Feed the local camera into the 4K monitor float so the host can see themselves
+    var previewVid = $('preview-vid-float');
+    if (previewVid) {
+        previewVid.srcObject = localStream;
+        previewVid.play().catch(function() {});
+        APP.camera.previewEl = previewVid;
+    }
+    var floatEl = $('cam-preview-float');
+    if (floatEl) { floatEl.style.display = ''; floatEl.classList.add('active'); }
+
+    // ── FORK A: answer an incoming call ───────────────────────────────────
+    if (APP.peer.incomingCall) {
+        try {
+            log('ANSWERING CALL FROM ' + APP.peer.incomingCall.peer);
+            $('call-status').textContent = 'CONNECTING...';
+            $('call-status').style.color = 'var(--y)';
+
+            APP.peer.incomingCall.answer(localStream);
+            handleCallStream(APP.peer.incomingCall);
+            saveP2PContact(APP.peer.incomingCall.peer);
+
+            // Clean up lobby state
+            APP.peer.incomingCall = null;
+            $('p2p-modal').classList.remove('incoming');
+            $('btn-open-p2p-modal').classList.remove('lobby');
+            $('btn-call-guest').classList.remove('accepting');
+            $('btn-call-guest').textContent = 'CALL (ACTIVE)';
+            $('btn-call-guest').classList.add('call-active');
+            stopP2PRing();
+        } catch (e) {
+            log('ANSWER_ERR: ' + e.message);
+            resetP2PButtons();
+        }
+        return;
+    }
+
+    // ── FORK B: dial out to a remote peer ────────────────────────────────
+    const remoteId = $('remote-peer-id') ? $('remote-peer-id').value.trim() : '';
+    if (!remoteId) { alert('ENTER_GUEST_ID_TO_CALL'); return; }
+
+    try {
+        $('call-status').textContent = 'CALLING ' + remoteId + '...';
+        $('call-status').style.color = 'var(--y)';
+        startP2PRing();
+
+        const call = APP.peer.peer.call(remoteId, localStream);
+        handleCallStream(call);
+
+        // Parallel data channel for UI sync (LT, logo, bug)
+        const dataConn = APP.peer.peer.connect(remoteId);
+        dataConn.on('open', function() {
+            APP.peer.dataConn = dataConn;
+            log('DATA_CHANNEL: OPEN TO ' + remoteId);
+            _flushSyncQueue();
+            _pushCurrentState();
+        });
+        dataConn.on('data', function(data) {
+            try {
+                const msg = typeof data === 'string' ? JSON.parse(data) : data;
+                if (msg.type === 'UI_SYNC') handleUISync(msg);
+            } catch (e) { log('DATA_CHANNEL: PARSE_ERR'); }
+        });
+        dataConn.on('close', function() {
+            log('DATA_CHANNEL: CLOSED');
+            if (APP.peer.dataConn === dataConn) APP.peer.dataConn = null;
+            // Auto-reconnect: caller side re-initiates the data channel if the media call is still alive.
+            // Receiver side accepts the reconnect via peer.on('connection', ...) automatically.
+            if (APP.peer.call && APP.peer.peer) {
+                setTimeout(function() {
+                    if (APP.peer.dataConn && APP.peer.dataConn.open) return; // already reconnected
+                    if (!APP.peer.call) return; // call ended in the meantime
+                    log('DATA_CHANNEL: RECONNECTING TO ' + remoteId);
+                    var _dc = APP.peer.peer.connect(remoteId);
+                    _dc.on('open', function() {
+                        APP.peer.dataConn = _dc;
+                        log('DATA_CHANNEL: RECONNECTED');
+                        _flushSyncQueue();
+                        // Re-send current state so the remote peer has the latest identity bug
+                        sendUISync('STATION_LOGO', { text: APP.bug.text, visible: APP.trinity.bug.visible });
+                    });
+                    _dc.on('data', function(data) {
+                        try {
+                            var msg = typeof data === 'string' ? JSON.parse(data) : data;
+                            if (msg.type === 'UI_SYNC') handleUISync(msg);
+                        } catch(e) {}
+                    });
+                    _dc.on('close', function() {
+                        if (APP.peer.dataConn === _dc) APP.peer.dataConn = null;
+                    });
+                }, 2000);
+            }
+        });
+
+    } catch (e) {
+        log('CALL_ERR: ' + e.message);
+        stopP2PRing();
+        $('call-status').textContent = 'FAILED: ' + e.message;
+        $('call-status').style.color = 'var(--r)';
+    }
+};
+
+// Shared Logic for both Incoming and Outgoing calls
+function handleCallStream(call) {
+    call.on('stream', (remoteStream) => {
+        // Guard: PeerJS fires 'stream' multiple times on ICE renegotiation / track additions.
+        // Skip if this is the exact same stream object we already set up.
+        if (APP.guest.stream === remoteStream) { log('STREAM_DUP_SKIPPED'); return; }
+        // Ensure video element exists — must be in DOM for iOS Safari to play
+        if (!APP.guest.videoElement) {
+            APP.guest.videoElement = document.createElement('video');
+            APP.guest.videoElement.id = 'p2p-remote-feed';
+            APP.guest.videoElement.setAttribute('autoplay', '');
+            APP.guest.videoElement.setAttribute('playsinline', '');
+            APP.guest.videoElement.muted = false;
+            // Off-screen but large enough for browser to actually decode
+            // opacity:0 keeps the video pipeline alive for drawImage(); display:none stops frame delivery
+            APP.guest.videoElement.style.cssText = 'opacity:0;position:fixed;bottom:0;right:0;width:320px;height:240px;pointer-events:none;z-index:-1;';
+            document.body.appendChild(APP.guest.videoElement);
+        }
+
+        // Remote stream plays via HTML5 video element.
+        // DO NOT route into APP.audio.ctx or masterGain — creates echo.
+        APP.guest.videoElement.srcObject = remoteStream;
+        APP.guest.stream = remoteStream;
+        APP.guest.isActive = true;
+
+        // iOS Safari requires explicit play() after srcObject assignment
+        APP.guest.videoElement.play().catch(function(e) { log('GUEST_PLAY_ERR: ' + e.message); });
+
+        stopP2PRing();
+        saveP2PContact(call.peer);
+        $('call-status').textContent = 'CONNECTED';
+        $('call-status').style.color = 'var(--g)';
+        $('btn-call-guest').textContent = 'CALL (ACTIVE)';
+        $('btn-call-guest').classList.add('call-active');
+        $('btn-open-p2p-modal').classList.add('call-active');
+
+        // Show local identity bug in the preview float (host sees their own brand).
+        // The main canvas will show the remote peer's bug via APP.bug.p2pText.
+        var _pov = $('p2p-bug-overlay');
+        if (_pov) {
+            _pov.textContent = APP.bug.text || 'VNGRD';
+            _pov.style.display = 'block';
+        }
+
+        log('CALL_ESTABLISHED_WITH: ' + call.peer);
+    });
+
+    call.on('close', () => {
+        // Delay cleanup slightly — PeerJS fires 'close' on transient ICE restarts
+        setTimeout(() => {
+            // Only clean up if the call is truly dead (no new call replaced it)
+            if (APP.peer && APP.peer.call === call) {
+                endCallCleanup();
+            }
+        }, 1500);
+    });
+
+    call.on('error', (err) => {
+        log('CALL_ERROR: ' + err);
+        endCallCleanup();
+    });
+
+    APP.peer.call = call;
+}
+
+// ═══ P2P ORIENTATION / VISIBILITY RESILIENCE ═══
+// Prevent call from dying when user rotates phone or switches apps briefly
+(function() {
+    // On orientation change, iOS Safari may tear down getUserMedia tracks.
+    // Re-acquire media and replace tracks in the existing peer connection.
+    var _orientationTimer = null;
+    function handleOrientationChange() {
+        if (!APP.peer || !APP.peer.call) return;
+        clearTimeout(_orientationTimer);
+        _orientationTimer = setTimeout(async () => {
+            try {
+                if (!APP.peer || !APP.peer.call || !APP.peer.call.peerConnection) return;
+                var pc = APP.peer.call.peerConnection;
+                // Re-acquire camera with same constraints
+                var newStream = await navigator.mediaDevices.getUserMedia({
+                    video: { facingMode: 'user', width: { ideal: 1920 }, height: { ideal: 1080 }, frameRate: { ideal: 30 } },
+                    audio: APP.inputDevices && APP.inputDevices.selectedId
+                        ? { deviceId: { exact: APP.inputDevices.selectedId }, echoCancellation: true, noiseSuppression: true, autoGainControl: true }
+                        : { echoCancellation: true, noiseSuppression: true, autoGainControl: true }
+                });
+                // Replace tracks in the live RTCPeerConnection (no renegotiation needed)
+                var senders = pc.getSenders();
+                newStream.getTracks().forEach(function(newTrack) {
+                    var sender = senders.find(function(s) { return s.track && s.track.kind === newTrack.kind; });
+                    if (sender) sender.replaceTrack(newTrack);
+                });
+                // Stop old tracks, store new stream
+                if (APP.peer.localStream) {
+                    APP.peer.localStream.getTracks().forEach(function(t) { t.stop(); });
+                }
+                APP.peer.localStream = newStream;
+                log('P2P: TRACKS_REPLACED_AFTER_ROTATE');
+            } catch (e) {
+                log('P2P: TRACK_REPLACE_ERR: ' + e.message);
+            }
+        }, 500); // Wait for orientation to settle
+    }
+
+    window.addEventListener('orientationchange', handleOrientationChange);
+    // Some browsers fire resize instead of orientationchange
+    var _lastW = window.innerWidth, _lastH = window.innerHeight;
+    window.addEventListener('resize', function() {
+        // Detect actual orientation flip (width/height swap)
+        var w = window.innerWidth, h = window.innerHeight;
+        var wasLandscape = _lastW > _lastH, isLandscape = w > h;
+        if (wasLandscape !== isLandscape) handleOrientationChange();
+        _lastW = w; _lastH = h;
+    });
+
+    // On visibility change (app switch, lock screen), keep peer alive
+    document.addEventListener('visibilitychange', function() {
+        if (document.visibilityState === 'visible' && APP.peer && APP.peer.call) {
+            // Re-play remote video (iOS pauses media when backgrounded)
+            if (APP.guest.videoElement && APP.guest.videoElement.paused) {
+                APP.guest.videoElement.play().catch(function() {});
+            }
+            // Check if local tracks are still alive; re-acquire if dead
+            if (APP.peer.localStream) {
+                var dead = APP.peer.localStream.getTracks().some(function(t) { return t.readyState === 'ended'; });
+                if (dead) handleOrientationChange(); // reuse the track-replace logic
+            }
+        }
+    });
+})();
+
+$('btn-hangup').onclick = () => {
+    if (APP.peer && APP.peer.call) {
+        APP.peer.call.close();
+    }
+    // Also reject if it was just ringing
+    if (APP.peer && APP.peer.incomingCall) {
+        APP.peer.incomingCall.close();
+        log('INCOMING CALL REJECTED');
+    }
+    endCallCleanup();
+};
+
+// --- P2P DATA SYNC: Send & Receive UI State ---
+function sendUISync(target, payload) {
+    // Sync-loop guard: if we are currently inside handleUISync bail to prevent echo-back.
+    if (APP.peer && APP.peer.isSyncing) return;
+    if (APP.peer && APP.peer.dataConn && APP.peer.dataConn.open) {
+        APP.peer.dataConn.send(JSON.stringify({
+            type: 'UI_SYNC',
+            target: target,
+            payload: payload
+        }));
+        log('DATA_SYNC_SENT: ' + target);
+    } else if (APP.peer && APP.peer.call) {
+        // Call is active but data channel not open yet (timing race on answerer side).
+        // Queue the message — flushed automatically when the channel opens.
+        if (!APP.peer._syncQueue) APP.peer._syncQueue = [];
+        // Keep only the latest message per target to avoid stale queued data
+        APP.peer._syncQueue = APP.peer._syncQueue.filter(function(q) { return q.target !== target; });
+        APP.peer._syncQueue.push({ target: target, payload: payload });
+        log('DATA_SYNC_QUEUED: ' + target);
+    }
+}
+
+// Push host's current graphics state to peer the moment the data channel opens.
+// This ensures logos / bug / LT set BEFORE the call are still received by the guest.
+function _pushCurrentState() {
+    // Station bug — always send local identity if text is set so the remote peer
+    // can display it on their canvas over our video stream immediately at call start.
+    if (APP.bug.text) {
+        sendUISync('STATION_LOGO', { text: APP.bug.text, visible: true });
+    }
+    // 2D logo — compress to JPEG before sending (stays within ~64KB data channel limit)
+    var _ll = $('user-logo-layer');
+    if (APP.trinity.logo.visible && _ll && _ll.naturalWidth > 0 &&
+            _ll.src && !_ll.src.startsWith(window.location.href)) {
+        var _maxDim = 200;
+        var _s = Math.min(1, _maxDim / Math.max(_ll.naturalWidth, _ll.naturalHeight));
+        var _tc = document.createElement('canvas');
+        _tc.width  = Math.max(1, Math.round(_ll.naturalWidth  * _s));
+        _tc.height = Math.max(1, Math.round(_ll.naturalHeight * _s));
+        _tc.getContext('2d').drawImage(_ll, 0, 0, _tc.width, _tc.height);
+        var _tUri = _tc.toDataURL('image/jpeg', 0.82);
+        sendUISync('2D_LOGO', { action: 'show', dataURI: _tUri });
+        log('STATE_PUSH: 2D_LOGO ' + Math.round(_tUri.length / 1024) + 'KB');
+    }
+    // Lower third
+    if (APP.lowerThird && APP.lowerThird.visible) {
+        sendUISync('LOWER_THIRD', {
+            action: 'show',
+            title:    APP.lowerThird.title    || '',
+            subtitle: APP.lowerThird.subtitle || '',
+            preset:   APP.lowerThird.preset   || 'guest'
+        });
+    }
+}
+
+function _flushSyncQueue() {
+    if (!APP.peer || !APP.peer.dataConn || !APP.peer.dataConn.open) return;
+    if (!APP.peer._syncQueue || APP.peer._syncQueue.length === 0) return;
+    APP.peer._syncQueue.forEach(function(q) {
+        APP.peer.dataConn.send(JSON.stringify({ type: 'UI_SYNC', target: q.target, payload: q.payload }));
+        log('DATA_SYNC_QUEUE_FLUSH: ' + q.target);
+    });
+    APP.peer._syncQueue = [];
+}
+
+function handleUISync(msg) {
+    // RECEIVER PATH — NO Mix-Minus check here, ever.
+    // The "skip local render" rule applies ONLY to the person clicking the button (sender).
+    // This function always renders what it receives so the guest's canvas shows the graphics.
+    //
+    // Sync-loop guard: raise isSyncing flag so sendUISync() is a no-op for any
+    // side-effect calls (e.g. oninput handlers) triggered while we process this packet.
+    if (APP.peer) APP.peer.isSyncing = true;
+    try {
+    if (msg.target === 'LOWER_THIRD') {
+        if (msg.payload.action === 'show') {
+            // Render the peer's LT directly in the DOM.
+            // NEVER touch lt-title/lt-sub input fields — setting those causes
+            // oninput to treat received text as local input and echo it back,
+            // creating an infinite edit loop where both users modify the same LT.
+            // NEVER call showLowerThird() — that sets APP.lowerThird.visible which
+            // enables the oninput sendUISync path on the receiver side.
+            var _lt  = $('lower-third');
+            var _ltc = _lt ? _lt.querySelector('.lt-container') : null;
+            if (_ltc) {
+                var _p = msg.payload.preset || 'guest';
+                _ltc.classList.remove('lt-guest','lt-track','lt-breaking','lt-neon','lt-split','lt-scan');
+                _ltc.classList.add('lt-' + _p);
+            }
+            if (msg.payload.title    !== undefined && $('lt-title-text'))    $('lt-title-text').textContent    = msg.payload.title;
+            if (msg.payload.subtitle !== undefined && $('lt-subtitle-text')) $('lt-subtitle-text').textContent = msg.payload.subtitle;
+            if (_lt) _lt.classList.add('visible');
+            log('DATA_SYNC_RECV: LT/' + (msg.payload.preset || '?') + ' "' + msg.payload.title + '"');
+        } else if (msg.payload.action === 'hide') {
+            // Remove visible class directly — do NOT call hideLowerThird() which
+            // would reset APP.lowerThird.visible and break local LT state.
+            var _lt2 = $('lower-third');
+            if (_lt2) _lt2.classList.remove('visible');
+            log('DATA_SYNC_RECV: LT/HIDE');
+        }
+    } else if (msg.target === '2D_LOGO') {
+        const logoLayer = $('user-logo-layer');
+        if (!logoLayer) { log('[ERROR] SYNC: #user-logo-layer NOT FOUND'); return; }
+        if (msg.payload.action === 'show') {
+            // Receive image as base64 data URI from peer
+            if (msg.payload.dataURI) {
+                // Always treat received logo as static (compressed JPEG, not animated GIF)
+                APP.layers.logo2dIsGif = false;
+                APP.layers._gifFrames = null;
+                logoLayer.removeAttribute('crossOrigin');
+                logoLayer.removeAttribute('crossorigin');
+                logoLayer.style.filter = 'none';
+                logoLayer.style.willChange = 'auto';
+                // Wait for image decode before making visible to compositor
+                logoLayer.onload = () => {
+                    APP.trinity.logo.visible = true;
+                    if (!APP.trinity.logo.scale) APP.trinity.logo.scale = 1.0;
+                    if (!APP.trinity.logo.x) APP.trinity.logo.x = 0.05;
+                    if (!APP.trinity.logo.y) APP.trinity.logo.y = 0.05;
+                    log('DATA_SYNC_RECV: 2D_LOGO/LOADED');
+                };
+                logoLayer.src = msg.payload.dataURI;
+            } else {
+                // No image data, just toggle visibility on
+                APP.trinity.logo.visible = true;
+            }
+            log('DATA_SYNC_RECV: 2D_LOGO/SHOW');
+        } else if (msg.payload.action === 'hide') {
+            APP.trinity.logo.visible = false;
+            log('DATA_SYNC_RECV: 2D_LOGO/HIDE');
+        } else if (msg.payload.action === 'clear') {
+            APP.trinity.logo.visible = false;
+            logoLayer.removeAttribute('src');
+            log('DATA_SYNC_RECV: 2D_LOGO/CLEAR');
+        }
+    } else if (msg.target === 'STATION_LOGO') {
+        // Store as REMOTE identity — never overwrite APP.bug.text (local identity).
+        // The render loop reads APP.bug.p2pText when APP.guest.isActive so the
+        // remote peer's brand appears on top of their video stream on our canvas.
+        APP.bug.p2pText = msg.payload.text || '';
+        APP.bug.p2pVisible = msg.payload.visible !== false;
+        // Ensure the trinity block in the render loop is active
+        APP.trinity.bug.visible = true;
+        log('DATA_SYNC_RECV: STATION_LOGO "' + msg.payload.text + '"');
+    }
+    } finally {
+        // Always lower the flag, even if a handler throws, so the next legitimate
+        // sendUISync (from a real user action) is not silently blocked.
+        if (APP.peer) APP.peer.isSyncing = false;
+    }
+}
+
+function endCallCleanup() {
+    stopP2PRing();
+    if (APP.peer && APP.peer.localStream) {
+        APP.peer.localStream.getTracks().forEach(t => t.stop());
+    }
+    if (APP.peer && APP.peer.dataConn) {
+        APP.peer.dataConn.close();
+        APP.peer.dataConn = null;
+    }
+
+    // Remove hidden video element from DOM (cleanup for iOS)
+    if (APP.guest.videoElement) {
+        APP.guest.videoElement.srcObject = null;
+        if (APP.guest.videoElement.parentNode) APP.guest.videoElement.parentNode.removeChild(APP.guest.videoElement);
+        APP.guest.videoElement = null;
+    }
+
+    APP.guest.isActive = false;
+    APP.guest.stream = null;
+    if (APP.peer) {
+        APP.peer.call = null;
+        APP.peer.incomingCall = null;
+    }
+
+    $('call-status').textContent = 'DISCONNECTED';
+    $('call-status').style.color = 'var(--text-dim)';
+    $('p2p-modal').classList.remove('incoming');
+
+    // Clear remote identity — back to local bug rendering
+    APP.bug.p2pText = '';
+    APP.bug.p2pVisible = false;
+
+    // Restore host's own station bug text + visibility from APP state
+    var _rb = $('station-bug');
+    if (_rb) {
+        _rb.textContent = APP.bug.text || 'VNGRD';
+        _rb.classList.toggle('hidden', !APP.trinity.bug.visible);
+    }
+
+    // Hide preview bug overlay
+    var _pov = $('p2p-bug-overlay');
+    if (_pov) _pov.style.display = 'none';
+
+    // Close the preview float and the HUD panel
+    var _pf = $('cam-preview-float');
+    if (_pf) { _pf.classList.remove('active'); _pf.style.display = 'none'; }
+    $('p2p-modal').style.display = 'none';
+    $('btn-open-p2p-modal').classList.remove('call-active', 'lobby');
+
+    resetP2PButtons();
+    log('CALL_ENDED_CLEANUP');
+}
+    // ========================================
+    // ========================================
+    // PRO-AUDIO: 48KHZ RAW DIRECT PATH
+    // NO ECHO/NOISE PROCESSING
+    // ========================================
+    async function scanAudioInputDevices() {
+        try {
+            // Request permission, then immediately release — we only need the label list.
+            const _permStream = await navigator.mediaDevices.getUserMedia({ audio: true });
+            _permStream.getTracks().forEach(t => t.stop());
+            
+            const devices = await navigator.mediaDevices.enumerateDevices();
+            const audioInputs = devices.filter(d => d.kind === 'audioinput');
+            
+            APP.inputDevices.list = audioInputs;
+            
+            const select = $('audio-input-select');
+            select.innerHTML = '<option value="">SELECT_DEVICE...</option>';
+            
+            audioInputs.forEach((device, idx) => {
+                const option = document.createElement('option');
+                option.value = device.deviceId;
+                option.textContent = device.label || `INPUT_${idx + 1}`;
+                select.appendChild(option);
+            });
+
+            select.style.display = audioInputs.length ? 'block' : 'none';
+            log('SCAN: ' + audioInputs.length + ' AUDIO_INPUTS');
+            return audioInputs;
+        } catch (e) {
+            log('SCAN_ERROR: ' + e.message);
+            return [];
+        }
+    }
+    
+    // 48KHZ RAW DIRECT PATH - DISABLE ALL BROWSER PROCESSING
+    async function switchAudioInput(deviceId) {
+        // ── PHASE C: reset guard so monitorInputLevel() re-initialises buffers for the new analyzer ──
+        _inputLevelActive = false;
+        // 1. HARDWARE RELEASE (MEMORY CLEAR)
+        // Stop the active input-device stream so the OS releases the hardware lock.
+        if (APP.inputDevices.stream) {
+            APP.inputDevices.stream.getTracks().forEach(t => t.stop());
+        }
+        // Also stop any stream tracked directly on the audio object (e.g. internal mic).
+        if (APP.audio.currentStream) {
+            APP.audio.currentStream.getTracks().forEach(t => t.stop());
+        }
+        // CLEANUP: disconnect old pre-amp to prevent audio doubling on re-selection.
+        if (APP.audio.livePreAmp) {
+            try { APP.audio.livePreAmp.disconnect(); } catch (_) {}
+            APP.audio.livePreAmp = null;
+        }
+
+        try {
+            // 2. RAW AUDIO CONSTRAINTS (THE CONDENSER FIX)
+            // PRO-AUDIO CONSTRAINTS: 48kHz, NO PROCESSING
+            // channelCount: 1 forces Input 1 mono — maps condenser to centre,
+            // preventing signal loss when stuck in the left channel only.
+            const stream = await navigator.mediaDevices.getUserMedia({
+                audio: {
+                    deviceId: { exact: deviceId },
+                    sampleRate: { ideal: 48000 },
+                    sampleSize: { ideal: 24 },
+                    channelCount: 1,
+                    echoCancellation: false,
+                    noiseSuppression: false,
+                    autoGainControl: false
+                }
+            });
+
+            APP.inputDevices.stream = stream;
+            APP.audio.currentStream = stream;
+            APP.inputDevices.selectedId = deviceId;
+
+            // CRITICAL: reuse the MAIN audio chain context, never create a new one.
+            // Creating a separate AudioContext causes "different AudioContext" error
+            // when startNFTRecording() tries to connect nodes across contexts.
+            ensureAudioChain();
+            var _ctx = APP.audio.ctx;
+
+            // 3. THE DIGITAL GRAPH CONNECTION (METERS + REC)
+            // Disconnect the previous MediaStreamSource before building the new graph.
+            if (APP.audio.micSource) {
+                try { APP.audio.micSource.disconnect(); } catch (_) {}
+            }
+            // Race-condition guard: a concurrent call may have connected a new livePreAmp
+            // while we were awaiting getUserMedia. Disconnect it before creating ours.
+            if (APP.audio.livePreAmp) {
+                try { APP.audio.livePreAmp.disconnect(); } catch (_) {}
+                APP.audio.livePreAmp = null;
+            }
+
+            // Create new source node and store it for future teardown.
+            APP.audio.micSource = _ctx.createMediaStreamSource(stream);
+
+            // VINYL PRE-AMP: +8dB boost so quiet analog signals hit visual thresholds.
+            APP.audio.livePreAmp = _ctx.createGain();
+            APP.audio.livePreAmp.gain.value = 2.5;
+            APP.audio.micSource.connect(APP.audio.livePreAmp);
+
+            // Level monitoring analyser (drives the input-level-bar) — post-boost.
+            APP.inputDevices.analyzer = _ctx.createAnalyser();
+            APP.inputDevices.analyzer.fftSize = 512;
+            APP.inputDevices.analyzer.smoothingTimeConstant = 0.3;
+            APP.audio.livePreAmp.connect(APP.inputDevices.analyzer);
+
+            // SPATIAL BUS: route vinyl through 3D panning network → EQ → compressor → limiter → output.
+            // Recording (NFT/broadcast) taps outputLimiter downstream — do NOT also connect
+            // livePreAmp directly to recorderDest or the signal doubles in the recording bus.
+            if (APP.audio.panner) {
+                APP.audio.livePreAmp.connect(APP.audio.panner);
+            } else if (APP.audio.masterGain) {
+                APP.audio.livePreAmp.connect(APP.audio.masterGain);
+            }
+            // FEEDBACK PREVENTION: source is NOT connected to ctx.destination directly.
+
+            // 4. UI CONFIRMATION: display the real hardware label from the stream.
+            var _trackLabel = (stream.getAudioTracks()[0] && stream.getAudioTracks()[0].label)
+                ? stream.getAudioTracks()[0].label.toUpperCase()
+                : 'HARDWARE';
+            var _ti = document.getElementById('track-info');
+            if (_ti) _ti.textContent = 'LIVE: ' + _trackLabel;
+
+            monitorInputLevel();
+            log('PRO_AUDIO: MIC_READY // ' + deviceId.substring(0, 8));
+        } catch (e) {
+            // Fallback without sampleRate/sampleSize constraints (wider device compatibility).
+            try {
+                const stream = await navigator.mediaDevices.getUserMedia({
+                    audio: {
+                        deviceId: { exact: deviceId },
+                        channelCount: 1,
+                        echoCancellation: false,
+                        noiseSuppression: false,
+                        autoGainControl: false
+                    }
+                });
+
+                APP.inputDevices.stream = stream;
+                APP.audio.currentStream = stream;
+                APP.inputDevices.selectedId = deviceId;
+
+                ensureAudioChain();
+                var _ctx2 = APP.audio.ctx;
+
+                // Disconnect previous source before rewiring.
+                if (APP.audio.micSource) {
+                    try { APP.audio.micSource.disconnect(); } catch (_) {}
+                }
+                // Race-condition guard: same as primary path.
+                if (APP.audio.livePreAmp) {
+                    try { APP.audio.livePreAmp.disconnect(); } catch (_) {}
+                    APP.audio.livePreAmp = null;
+                }
+
+                APP.audio.micSource = _ctx2.createMediaStreamSource(stream);
+
+                // VINYL PRE-AMP (fallback path): same +8dB boost.
+                APP.audio.livePreAmp = _ctx2.createGain();
+                APP.audio.livePreAmp.gain.value = 2.5;
+                APP.audio.micSource.connect(APP.audio.livePreAmp);
+
+                APP.inputDevices.analyzer = _ctx2.createAnalyser();
+                APP.inputDevices.analyzer.fftSize = 512;
+                APP.inputDevices.analyzer.smoothingTimeConstant = 0.3;
+                APP.audio.livePreAmp.connect(APP.inputDevices.analyzer);
+
+                // SPATIAL BUS (fallback path): panner → EQ → compressor → limiter → output.
+                // Recording taps outputLimiter downstream — no direct recorderDest connection.
+                if (APP.audio.panner) {
+                    APP.audio.livePreAmp.connect(APP.audio.panner);
+                } else if (APP.audio.masterGain) {
+                    APP.audio.livePreAmp.connect(APP.audio.masterGain);
+                }
+                // FEEDBACK PREVENTION: NOT connected to ctx.destination directly.
+
+                var _trackLabel2 = (stream.getAudioTracks()[0] && stream.getAudioTracks()[0].label)
+                    ? stream.getAudioTracks()[0].label.toUpperCase()
+                    : 'HARDWARE';
+                var _ti2 = document.getElementById('track-info');
+                if (_ti2) _ti2.textContent = 'LIVE: ' + _trackLabel2;
+
+                monitorInputLevel();
+                log('INPUT_SWITCHED: ' + deviceId.substring(0, 8));
+            } catch (e2) {
+                log('INPUT_ERROR: ' + e2.message);
+            }
+        }
+    }
+    
+    // SEISMIC SHAKE TRIGGER THRESHOLD
+    let seismicTimeout = null;
+    // ── PHASE C: loop-stack guard + pre-allocated buffers ──
+    let _inputLevelActive = false;
+    let _inputLevelData   = null;
+    let _inputLevelBass   = null;
+
+    // Pure tick — called from mainLoop every frame; replaces the old inner update() rAF loop.
+    // Exposed via window._inputLevelTick so mainLoop (outside this closure) can call it.
+    function updateInputLevel() {
+        if (!_inputLevelActive || !APP.inputDevices.analyzer) return;
+
+        APP.inputDevices.analyzer.getByteFrequencyData(_inputLevelData);
+
+        // Overall level
+        const avg = _inputLevelData.reduce((a, b) => a + b, 0) / _inputLevelData.length;
+        const level = Math.min(100, (avg / 128) * 100);
+
+        // Bass level (first 16 bins = low frequencies)
+        for (let i = 0; i < 16; i++) _inputLevelBass[i] = _inputLevelData[i];
+        const bassAvg = _inputLevelBass.reduce((a, b) => a + b, 0) / _inputLevelBass.length;
+        const bassLevel = Math.min(100, (bassAvg / 128) * 100);
+
+        $('input-level-bar').style.width = level + '%';
+
+        // KINETIC RACK LOGIC GATES — visual effects fire only when the matching
+        // UI control is explicitly armed; audio threshold alone is never enough.
+        if (bassLevel > 70 || level > 80) {
+            if (!seismicTimeout) {
+                // SEISMIC GATE: vb-seismic (+ body shake) only when Rumble is armed
+                if (APP.vj.rumbleEnabled) {
+                    document.body.classList.add('seismic-active', 'vb-seismic');
+                }
+                // PUNCH GATE: vb-punch only when Punch FX is explicitly armed
+                if (document.body.classList.contains('fx-punch')) {
+                    document.body.classList.add('vb-punch');
+                }
+                // Schedule cleanup only if at least one gate was triggered
+                if (APP.vj.rumbleEnabled || document.body.classList.contains('fx-punch')) {
+                    seismicTimeout = setTimeout(() => {
+                        document.body.classList.remove('seismic-active', 'vb-seismic', 'vb-punch');
+                        seismicTimeout = null;
+                    }, 150);
+                }
+            }
+        }
+
+        // Voice reactivity - WHITE_FLASH
+        if (APP.atmosphere.voiceReact && level > 60) {
+            document.body.classList.add('voice-flash');
+            setTimeout(() => document.body.classList.remove('voice-flash'), 80);
+        }
+    }
+    window._inputLevelTick = updateInputLevel;
+
+    // ── PHASE C: guard prevents a new rAF loop stacking on every input switch ──
+    function monitorInputLevel() {
+        if (!APP.inputDevices.analyzer) return;
+        if (_inputLevelActive) return;
+        // Allocate typed buffers once per activation; updateInputLevel() reuses them every frame
+        _inputLevelData = new Uint8Array(APP.inputDevices.analyzer.frequencyBinCount);
+        _inputLevelBass = new Uint8Array(16);
+        _inputLevelActive = true;
+    }
+    
+    $('btn-scan-inputs').onclick = scanAudioInputDevices;
+    $('audio-input-select').onchange = (e) => {
+        if (e.target.value) {
+            switchAudioInput(e.target.value);
+        }
+    };
+
+    // ========================================
+    // SATELLITE_WEATHER_DATA (FX STRIPPED)
+    // GEO_HANDSHAKE + OPEN-METEO API
+    // ========================================
+
+    // GEO_HANDSHAKE: Get real coordinates
+   async function initAtmosphere() {
+    log('GEO_HANDSHAKE: ACQUIRING...');
+    const geoStatus = $('geo-status');
+    if (geoStatus) geoStatus.textContent = 'GEO: ACQUIRING...';
+    
+    return new Promise((resolve) => {
+        if (!navigator.geolocation) {
+            log('GEO: NOT_SUPPORTED');
+            resolve(false);
+            return;
+        }
+        
+        // This triggers the real browser popup
+        navigator.geolocation.getCurrentPosition(
+            async (position) => {
+                APP.atmosphere.latitude = position.coords.latitude;
+                APP.atmosphere.longitude = position.coords.longitude;
+                log(`GPS_LOCKED: ${APP.atmosphere.latitude.toFixed(2)}`);
+                await fetchSatelliteWeather();
+                resolve(true);
+            },
+            async (error) => {
+                log('GPS_DENIED: FALLBACK_ENGAGED');
+                // Use the IP lookup ONLY if the user said NO to GPS
+                try {
+                    const res = await fetch('https://ipapi.co/json/');
+                    const data = await res.json();
+                    APP.atmosphere.latitude = data.latitude;
+                    APP.atmosphere.longitude = data.longitude;
+                    APP.atmosphere.city = data.city.toUpperCase();
+                    await fetchSatelliteWeather();
+                } catch (e) {
+                    APP.atmosphere.latitude = 52.52; // Absolute backup
+                    APP.atmosphere.longitude = 13.41;
+                    await fetchSatelliteWeather();
+                }
+                resolve(false);
+            },
+            { enableHighAccuracy: true, timeout: 8000 }
+        );
+    });
+}
+    
+    // Fetch weather from Open-Meteo with reverse geocoding
+    async function fetchSatelliteWeather() {
+        try {
+            const lat = APP.atmosphere.latitude || 52.52;
+            const lon = APP.atmosphere.longitude || 13.41;
+            
+            // Weather data
+            const weatherResp = await fetch(
+                `https://api.open-meteo.com/v1/forecast?latitude=${lat}&longitude=${lon}&current_weather=true&hourly=weathercode`
+            );
+            const weather = await weatherResp.json();
+            
+            const temp = weather.current_weather.temperature;
+            const weatherCode = weather.current_weather.weathercode;
+            const windSpeed = weather.current_weather.windspeed;
+            
+            APP.atmosphere.temperature = temp;
+            APP.atmosphere.weatherCode = weatherCode;
+            
+            // Weather code interpretation
+            const weatherMap = {
+                0: 'CLEAR', 1: 'MAINLY_CLEAR', 2: 'PARTLY_CLOUDY', 3: 'OVERCAST',
+                45: 'FOG', 48: 'RIME_FOG',
+                51: 'LIGHT_DRIZZLE', 53: 'DRIZZLE', 55: 'DENSE_DRIZZLE',
+                61: 'LIGHT_RAIN', 63: 'RAIN', 65: 'HEAVY_RAIN',
+                71: 'LIGHT_SNOW', 73: 'SNOW', 75: 'HEAVY_SNOW',
+                80: 'LIGHT_SHOWERS', 81: 'SHOWERS', 82: 'VIOLENT_SHOWERS',
+                95: 'THUNDERSTORM', 96: 'HAIL_STORM', 99: 'HEAVY_HAIL'
+            };
+            
+            const condition = weatherMap[weatherCode] || 'UNKNOWN';
+            APP.atmosphere.metar = `${temp}C // ${condition} // ${windSpeed}KMH`;
+            
+            // Check if raining
+            APP.atmosphere.isRaining = [51, 53, 55, 61, 63, 65, 80, 81, 82, 95, 96, 99].includes(weatherCode);
+            
+            // Reverse geocoding for city name
+            try {
+                const geoResp = await fetch(
+                    `https://nominatim.openstreetmap.org/reverse?lat=${lat}&lon=${lon}&format=json`
+                );
+                const geo = await geoResp.json();
+                APP.atmosphere.city = (geo.address?.city || geo.address?.town || geo.address?.village || 'UNKNOWN').toUpperCase();
+                APP.atmosphere.country = (geo.address?.country_code || '').toUpperCase();
+            } catch (e) {
+                APP.atmosphere.city = 'UNKNOWN';
+            }
+            
+            // Update geo status
+            const geoStatus = $('geo-status');
+            if (geoStatus) geoStatus.textContent = `GEO: ${APP.atmosphere.city} [${APP.atmosphere.country}]`;
+            
+            // Update ticker with METAR data
+            updateTickerWithMetar();
+            
+            // Update UI with weather data (FX stripped)
+            updateWeatherUI(condition, APP.atmosphere.isRaining);
+            
+            log(`SATELLITE: [${APP.atmosphere.city}] ${APP.atmosphere.metar}`);
+            
+        } catch (e) {
+            log('SATELLITE_ERROR: ' + e.message);
+            const weatherStatus = $('weather-status');
+            if (weatherStatus) weatherStatus.textContent = 'WEATHER: ERROR';
+        }
+    }
+    
+    // Update ticker with fresh weather data (feeds into cycle engine)
+    function updateTickerWithMetar() {
+        updateTickerCycle();
+        if (APP.atmosphere.city) log(`REAL_TIME_SYNC: ${APP.atmosphere.city} @ ${APP.atmosphere.temperature}°C`);
+    }
+    
+
+    
+    
+    
+    
+    // Update weather UI status displays (data only, no FX)
+    function updateWeatherUI(condition, isRaining) {
+        const weatherStatus = $('weather-status');
+        const atmosDot = $('atmos-dot');
+        if (weatherStatus) weatherStatus.textContent = 'WEATHER: ' + condition.toUpperCase();
+        if (atmosDot) atmosDot.classList.toggle('off', !isRaining);
+        if ($('weather-fx')) $('weather-fx').textContent = isRaining ? 'RAIN_DETECTED (DATA ONLY)' : 'CLEAR (DATA ONLY)';
+    }
+    
+
+    
+
+    
+    
+    
+    
+    
+    
+
+    
+    // Initialize satellite atmosphere on load (10-minute polling)
+    initAtmosphere();
+    setInterval(fetchSatelliteWeather, 600000); // 10 min refresh
+
+    // ========================================
+    // NFT_VAULT: SCAN WALLET ASSETS (ETH + TEZOS)
+    // ========================================
+
+    // Helper: resolve IPFS URLs to gateway
+    function resolveNFTUrl(url) {
+        if (!url) return '';
+        if (url.startsWith('ipfs://')) return 'https://ipfs.io/ipfs/' + url.slice(7);
+        if (url.startsWith('https://ipfs.io/')) return url;
+        return url;
+    }
+
+   // Helper: build vault HTML + populate APP.user.assets from a flat array
+    function renderVaultList(allNfts) {
+        APP.user.assets = [];
+        APP.wallet.nfts = allNfts;
+        var html = '';
+        var assetIdx = 0;
+        
+        allNfts.forEach(function(nft) {
+            var imageUrl = resolveNFTUrl(nft.imageUrl);
+            if (imageUrl) {
+                // 1. Detect if the URL is a video file
+var isVideo = nft.forceVideo || (imageUrl.toLowerCase().match(/\.(mp4|webm|mov|ogg)(\?|$)/) !== null);                var mediaEl;
+
+                if (isVideo) {
+                    // --- THE GHOST VIDEO FIX ---
+                    mediaEl = document.createElement('video');
+                    mediaEl.crossOrigin = 'anonymous';
+                    mediaEl.src = imageUrl;
+                    mediaEl.muted = true;
+                    mediaEl.loop = true;
+                    mediaEl.playsInline = true;
+
+                    // Force browser to render frames in the background
+                    mediaEl.style.position = 'absolute';
+                    mediaEl.style.opacity = '0';
+                    mediaEl.style.pointerEvents = 'none';
+                    mediaEl.style.width = '1px';
+                    mediaEl.style.height = '1px';
+                    mediaEl.style.zIndex = '-9999';
+
+                    document.body.appendChild(mediaEl);
+
+                    // Start playback so the canvas can scrape the live frames
+                    mediaEl.play().catch(e => console.warn('NFT Video Auto-Play Blocked:', e));
+
+                } else {
+                    // --- STANDARD IMAGE / GIF ---
+                    mediaEl = new Image();
+                    mediaEl.crossOrigin = 'anonymous';
+                    mediaEl.src = imageUrl;
+                    var _gh = document.getElementById('gif-host');
+                    if (_gh) _gh.appendChild(mediaEl);
+                }
+
+                // 2. Save the media element to your app state
+                APP.user.assets.push({
+                    name: nft.name,
+                    imageUrl: imageUrl,
+                    image: mediaEl, // Now this holds EITHER an <img> or a playing <video>!
+                    isVideo: isVideo,
+                    duration: isVideo ? null : 8  // seconds on-screen; null = play full length
+                });
+
+                // 3. Build the sidebar UI
+                html += '<div class="nft-vault-item" data-nft-index="' + assetIdx + '" style="margin:2px 0;padding:3px 4px;color:var(--accent);cursor:pointer;border:1px solid transparent;transition:border-color 0.15s;" onmouseenter="this.style.borderColor=\'var(--accent)\'" onmouseleave="this.style.borderColor=\'transparent\'">' + nft.name.substring(0, 20) + ' <span style="color:var(--text-dim);font-size:7px;">[' + nft.chain + ']</span></div>';
+                assetIdx++;
+            } else {
+                html += '<div style="margin:2px 0;color:var(--text-dim);">' + nft.name.substring(0, 20) + ' [' + nft.chain + ']</div>';
+            }
+        });
+        
+        return html;
+    }
+
+    // Scan ETH via Alchemy
+    async function scanETHNfts(address) {
+        var alchemyKey = (window.VNGRD_CONFIG && window.VNGRD_CONFIG.ALCHEMY_KEY)
+            || (document.querySelector('meta[name="alchemy-key"]') ? document.querySelector('meta[name="alchemy-key"]').content : null)
+            || 'demo';
+        var results = [];
+        var resp = await fetch('https://eth-mainnet.g.alchemy.com/nft/v2/' + alchemyKey + '/getNFTs?owner=' + address + '&pageSize=20');
+        var data = await resp.json();
+        if (data.ownedNfts) {
+            data.ownedNfts.forEach(function(nft) {
+                var name = nft.title || (nft.contract && nft.contract.name) || 'UNKNOWN';
+                var imageUrl = (nft.media && nft.media[0] && nft.media[0].gateway)
+                    || (nft.metadata && nft.metadata.image)
+                    || '';
+                results.push({ name: name, imageUrl: imageUrl, chain: 'ETH' });
+            });
+        }
+        return results;
+    }
+
+  // Scan Tezos via TzKT (free, no key needed, CORS-enabled)
+   // Scan Tezos via TzKT (free, no key needed, CORS-enabled)
+    async function scanTezosNfts(tezAddr) {
+        var results = [];
+        var resp = await fetch('https://api.tzkt.io/v1/tokens/balances?account=' + tezAddr + '&token.standard=fa2&balance.gt=0&limit=20&select=token');
+        if (!resp.ok) throw new Error('TZKT_' + resp.status);
+        var tokens = await resp.json();
+        
+        tokens.forEach(function(tok) {
+            var meta = tok.metadata || {};
+            var name = meta.name || tok.contract?.alias || ('TEZ#' + (tok.tokenId || '?'));
+
+            var isVid = false;
+            var isGif = false;
+            
+            // 1. Check Tezos metadata formats for Video OR GIF
+            if (meta.formats && meta.formats.length > 0) {
+                var mime = meta.formats[0].mimeType || '';
+                if (mime.startsWith('video/')) isVid = true;
+                if (mime === 'image/gif') isGif = true;
+            }
+
+            // 2. Fallback: check the actual artifact string just in case
+            var artifact = meta.artifactUri || '';
+            if (artifact.toLowerCase().match(/\.(mp4|webm|mov|ogg)(\?|$)/)) isVid = true;
+            if (artifact.toLowerCase().match(/\.(gif)(\?|$)/)) isGif = true;
+
+            // 3. If animated (Video or GIF), grab the raw artifact. If static, grab the display thumbnail.
+            var imageUrl = '';
+            if ((isVid || isGif) && artifact) {
+                imageUrl = artifact;
+            } else {
+                imageUrl = meta.displayUri || artifact || meta.thumbnailUri || '';
+            }
+
+            // Pass forceVideo ONLY for true videos. GIFs will naturally fall into your <img> logic!
+            results.push({ name: name, imageUrl: imageUrl, chain: 'TEZ', forceVideo: isVid });
+        });
+        return results;
+    }
+
+    // ── ENS resolution: name.eth → 0x address ──
+    async function resolveEnsName(name) {
+        if (typeof ethers === 'undefined') throw new Error('ETHERS_NOT_LOADED');
+        var provider;
+        if (window.ethereum) {
+            provider = new ethers.providers.Web3Provider(window.ethereum);
+        } else {
+            // Fallback: ethers default provider (uses public Infura/ALCHEMY endpoints)
+            provider = ethers.getDefaultProvider('homestead');
+        }
+        var addr = await provider.resolveName(name);
+        if (!addr) throw new Error('ENS_NOT_FOUND: ' + name);
+        return addr;
+    }
+
+    // ── TezDomains resolution: name.tez → tz1/tz2 address ──
+    async function resolveTezDomain(name) {
+        // TzDomains public GraphQL endpoint (no API key needed)
+        var query = JSON.stringify({
+            query: '{ domain(name: "' + name + '") { address } }'
+        });
+        var resp = await fetch('https://api.tezos.domains/graphql', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: query
+        });
+        if (!resp.ok) throw new Error('TEZDOMAIN_HTTP_' + resp.status);
+        var data = await resp.json();
+        var addr = data && data.data && data.data.domain && data.data.domain.address;
+        if (!addr) throw new Error('TEZDOMAIN_NOT_FOUND: ' + name);
+        return addr;
+    }
+
+    $('btn-scan-nfts').onclick = async () => {
+        var ethManual    = $('eth-addr-manual') ? $('eth-addr-manual').value.trim() : '';
+        var tezInput     = $('tezos-addr')      ? $('tezos-addr').value.trim()      : '';
+        var resolvedLabel = $('vault-resolved-label');
+
+        // Hide the resolved-name strip until we need it
+        if (resolvedLabel) { resolvedLabel.style.display = 'none'; resolvedLabel.textContent = ''; }
+
+        // ── ETH address resolution ──
+        // Priority: manual input field > connected wallet address
+        var ethDisplayName = null; // tracks the human-readable name for the label
+        var ethAddr = null;
+
+        if (ethManual) {
+            if (ethManual.toLowerCase().endsWith('.eth')) {
+                $('nft-vault-list').innerHTML = 'RESOLVING ENS...';
+                log('NFT_VAULT: RESOLVING ' + ethManual);
+                try {
+                    ethAddr = await resolveEnsName(ethManual);
+                    ethDisplayName = ethManual; // keep the pretty name
+                    log('NFT_VAULT: ENS_OK ' + ethManual + ' → ' + ethAddr);
+                } catch (e) {
+                    log('NFT_VAULT: ENS_ERR ' + e.message);
+                    $('nft-vault-list').innerHTML = 'ENS_ERR: ' + e.message;
+                    return;
+                }
+            } else if (ethManual.startsWith('0x')) {
+                ethAddr = ethManual;
+            } else {
+                $('nft-vault-list').innerHTML = 'INVALID_ETH_INPUT (need 0x... or name.eth)';
+                return;
+            }
+        } else if (APP.wallet.connected && APP.wallet.address) {
+            ethAddr = APP.wallet.address;
+        }
+
+        // ── TEZOS address resolution ──
+        var tezDisplayName = null;
+        var tezAddr = null;
+
+        if (tezInput) {
+            if (tezInput.toLowerCase().endsWith('.tez')) {
+                $('nft-vault-list').innerHTML = 'RESOLVING TEZDOMAIN...';
+                log('NFT_VAULT: RESOLVING ' + tezInput);
+                try {
+                    tezAddr = await resolveTezDomain(tezInput);
+                    tezDisplayName = tezInput;
+                    log('NFT_VAULT: TEZDOMAIN_OK ' + tezInput + ' → ' + tezAddr);
+                } catch (e) {
+                    log('NFT_VAULT: TEZDOMAIN_ERR ' + e.message);
+                    $('nft-vault-list').innerHTML = 'TEZDOMAIN_ERR: ' + e.message;
+                    return;
+                }
+            } else if (tezInput.startsWith('tz')) {
+                tezAddr = tezInput;
+            } else {
+                $('nft-vault-list').innerHTML = 'INVALID_TEZ_INPUT (need tz1... or name.tez)';
+                return;
+            }
+        }
+
+        var hasEth = !!ethAddr;
+        var hasTez = !!tezAddr;
+
+        if (!hasEth && !hasTez) {
+            $('nft-vault-list').innerHTML = 'CONNECT_WALLET_OR_ENTER_ADDRESS';
+            return;
+        }
+
+        // Show resolved-name privacy label (display the friendly name, not the raw hex)
+        var labelParts = [];
+        if (ethDisplayName) labelParts.push('ETH: ' + ethDisplayName);
+        if (tezDisplayName) labelParts.push('TEZ: ' + tezDisplayName);
+        if (labelParts.length && resolvedLabel) {
+            resolvedLabel.textContent = labelParts.join('  |  ');
+            resolvedLabel.style.display = 'block';
+        }
+
+        $('nft-vault-list').innerHTML = 'SCANNING...';
+        log('NFT_VAULT: SCANNING...');
+
+        var allNfts = [];
+        var errors = [];
+
+        var promises = [];
+        if (hasEth) promises.push(
+            scanETHNfts(ethAddr)
+                .then(function(r) { allNfts = allNfts.concat(r); log('NFT_VAULT: ETH_FOUND ' + r.length); })
+                .catch(function(e) { errors.push('ETH:' + e.message); log('NFT_VAULT: ETH_FAIL ' + e.message); })
+        );
+        if (hasTez) promises.push(
+            scanTezosNfts(tezAddr)
+                .then(function(r) { allNfts = allNfts.concat(r); log('NFT_VAULT: TEZ_FOUND ' + r.length); })
+                .catch(function(e) { errors.push('TEZ:' + e.message); log('NFT_VAULT: TEZ_FAIL ' + e.message); })
+        );
+
+        await Promise.all(promises);
+
+        if (allNfts.length > 0) {
+            var html = renderVaultList(allNfts);
+            $('nft-vault-list').innerHTML = html;
+            $('nft-count').textContent = 'ASSETS: ' + allNfts.length;
+            $('vault-dot').classList.remove('off');
+            log('NFT_VAULT: ' + allNfts.length + ' TOTAL ASSETS LOADED');
+        } else {
+            var msg = '';
+            if (errors.length > 0) {
+                msg = 'SCAN_ERR: ' + errors.join(', ');
+            } else if (hasEth && !hasTez) {
+                msg = 'NO_ETH_NFTS — ADD TEZ ADDR ABOVE FOR TEZOS';
+            } else {
+                msg = 'NO_NFTS_FOUND';
+            }
+            $('nft-vault-list').innerHTML = msg;
+            $('nft-count').textContent = 'ASSETS: 0';
+        }
+    };
+
+    // NFT_VAULT — Event delegation: clicking a sidebar NFT item summons it to canvas
+    $('nft-vault-list').addEventListener('click', function(e) {
+        var item = e.target.closest('.nft-vault-item');
+        if (!item) return;
+        var idx = parseInt(item.getAttribute('data-nft-index'), 10);
+        if (!isNaN(idx) && typeof summonNFTByIndex === 'function') {
+            summonNFTByIndex(idx);
+        }
+    });
+
+    // ========================================
+    // v19 FEATURE PACK: TRANSITIONS + AI
+    // ========================================
+
+    // v19 SMOOTH TRANSITIONS — crossfade layers for AI/media swap
+    const v19_Transitions = {
+        init: () => {
+            const style = document.createElement('style');
+            style.innerHTML = `
+                .vngrd-layer { position: absolute; top: 0; left: 0; width: 100%; height: 100%;
+                    background-size: cover; background-position: center;
+                    transition: opacity 1.5s cubic-bezier(0.4, 0, 0.2, 1);
+                    opacity: 0; z-index: 1; pointer-events: none; }
+                .vngrd-layer.active { opacity: 1; z-index: 2; }
+            `;
+            document.head.appendChild(style);
+        },
+        swap: (imgUrl) => {
+            const stage = $('stage');
+            if (!stage) return;
+            const active = stage.querySelector('.vngrd-layer.active');
+            const next = document.createElement('div');
+            next.className = 'vngrd-layer';
+            next.style.backgroundImage = `url('${imgUrl}')`;
+            stage.appendChild(next);
+            void next.offsetWidth;
+            next.classList.add('active');
+            if (active) {
+                active.classList.remove('active');
+                setTimeout(() => active.remove(), 1600);
+            }
+        }
+    };
+
+    // ═══════════════════════════════════════════════════════════════════
+    // AI IMAGE GENERATOR v11 — Pollinations.AI cascade, 100% free.
+    // Uses fetch → blob URL (sidesteps all CORS/canvas-taint issues).
+    // Puter.AI removed — it requires a paid account.
+    // ═══════════════════════════════════════════════════════════════════
+    var _aiGenerating = false;
+
+    function _aiStatus(msg, color) {
+        var el = $('ai-status');
+        if (el) { el.textContent = msg; el.style.color = color || 'var(--text-dim)'; }
+    }
+
+    function _aiDone(btn) {
+        _aiGenerating = false;
+        if (btn) { btn.classList.remove('on'); btn.textContent = 'GENERATE'; }
+    }
+
+    function _aiInject(img, prompt) {
+        var label = 'AI_' + prompt.substring(0, 20).replace(/\s+/g, '_');
+        var preview = $('ai-preview');
+        var previewImg = $('ai-preview-img');
+        if (preview && previewImg) { previewImg.src = img.src; preview.style.display = 'block'; }
+        var host = document.getElementById('gif-host');
+        if (host && !img.parentNode) host.appendChild(img);
+        APP.render.source = null;
+        APP.media.queue.push({ type: 'image', url: img.src, element: img, name: label });
+        APP.media.currentIndex = APP.media.queue.length - 1;
+        APP.media.currentElement = img;
+        if (typeof updateQueueDisplay === 'function') updateQueueDisplay();
+        if ($('media-dot')) $('media-dot').classList.remove('off');
+        var stage = $('stage');
+        if (stage) {
+            stage.style.transition = 'none';
+            stage.style.filter = 'brightness(3) saturate(2)';
+            setTimeout(function() { stage.style.transition = 'filter 0.5s'; stage.style.filter = ''; }, 100);
+        }
+        log('AI: INJECTED >> ' + label);
+    }
+
+    // ── fetch URL → blob URL → loaded HTMLImageElement ─────────────────
+    // Blob URL is same-origin, so drawImage() on canvas never taints it.
+    async function _aiLoadUrl(url, timeoutMs) {
+        var controller = new AbortController();
+        var tid = setTimeout(function() { controller.abort(); }, timeoutMs || 90000);
+        try {
+            var resp = await fetch(url, { signal: controller.signal });
+            if (!resp.ok) throw new Error('HTTP ' + resp.status);
+            var blob = await resp.blob();
+            var blobUrl = URL.createObjectURL(blob);
+            return await new Promise(function(res, rej) {
+                var img = new Image();
+                img.onload = function() { res(img); };
+                img.onerror = function() { URL.revokeObjectURL(blobUrl); rej(new Error('BLOB_DECODE_FAILED')); };
+                img.src = blobUrl;
+            });
+        } finally {
+            clearTimeout(tid);
+        }
+    }
+
+    // ── Pollinations model map (real model names) ──────────────────────
+    var _pollinationsModels = {
+        'flux':           { model: 'flux',            extra: '' },
+        'flux-anime':     { model: 'flux-anime',      extra: '' },
+        'flux-3d':        { model: 'flux-3d',         extra: '' },
+        'flux-cinematic': { model: 'flux-cinematic',  extra: '' },
+        'gptimage':       { model: 'flux',            extra: ', fast, vivid' },
+        'seedream':       { model: 'flux',            extra: ', dreamy, painterly, soft light' },
+        'dirtberry':      { model: 'flux-realism',    extra: '' },
+        'nanobanana':     { model: 'flux',            extra: ', vivid surreal colors' }
+    };
+
+    // ── Build Pollinations URL — minimal params, no invalid flags ──────
+    function _polUrl(promptText, modelName) {
+        var seed = Math.floor(Math.random() * 2147483647);
+        return 'https://image.pollinations.ai/prompt/' +
+            encodeURIComponent(promptText) +
+            '?model=' + encodeURIComponent(modelName) +
+            '&width=1024&height=1024&seed=' + seed +
+            '&nologo=true';
+    }
+
+    // ── MAIN: try selected model → flux-realism → flux (bare) ─────────
+    async function aiGenerate(prompt) {
+        if (!prompt) { _aiStatus('TYPE A PROMPT', 'var(--y)'); return; }
+        if (_aiGenerating) return;
+        _aiGenerating = true;
+
+        var btn = document.getElementById('btn-generate-ai');
+        if (btn) { btn.classList.add('on'); btn.textContent = 'GENERATING...'; }
+        var neuralDot = document.getElementById('neural-dot');
+        if (neuralDot) neuralDot.classList.remove('off');
+
+        var modelSel = document.getElementById('ai-model-select');
+        var key = (modelSel ? modelSel.value : 'flux') || 'flux';
+        var mp = _pollinationsModels[key] || _pollinationsModels['flux'];
+        var fullPrompt = prompt + (mp.extra ? ' ' + mp.extra : '');
+
+        // Build fallback chain: chosen model → flux-realism → plain flux
+        var tryCandidates = [
+            { label: mp.model.toUpperCase(), url: _polUrl(fullPrompt, mp.model) },
+            { label: 'FLUX-REALISM',         url: _polUrl(prompt, 'flux-realism') },
+            { label: 'FLUX',                 url: _polUrl(prompt, 'flux') }
+        ];
+        // Deduplicate by model name
+        var seenModels = {};
+        var tries = tryCandidates.filter(function(t) {
+            var m = t.label;
+            if (seenModels[m]) return false;
+            seenModels[m] = true; return true;
+        });
+
+        var lastErr = null;
+        for (var i = 0; i < tries.length; i++) {
+            try {
+                _aiStatus('GENERATING [' + tries[i].label + ']...', 'var(--v)');
+                log('AI: [POLLINATIONS/' + tries[i].label + '] >> ' + fullPrompt);
+                var img = await _aiLoadUrl(tries[i].url, 90000);
+                _aiInject(img, prompt);
+                _aiDone(btn);
+                _aiStatus('DONE [' + tries[i].label + ']', 'var(--g)');
+                return;
+            } catch(e) {
+                lastErr = e;
+                log('AI: ' + tries[i].label + ' FAIL: ' + e.message);
+                if (i < tries.length - 1) _aiStatus('RETRYING...', 'var(--y)');
+            }
+        }
+
+        _aiDone(btn);
+        _aiStatus('FAIL: ' + (lastErr ? lastErr.message : 'unknown'), 'var(--r)');
+        log('AI: ALL ATTEMPTS EXHAUSTED');
+    }
+
+    window.aiGenerate = aiGenerate;
+
+    // ── Per-pad controls: kill × (custom only) + mute M (all pads) ──────────
+    (function() {
+        document.querySelectorAll('.sfx-pad').forEach(function(pad) {
+            var name = pad.dataset && pad.dataset.sfx;
+            if (!name) return;
+
+            // Kill × — only on custom pads (sfx-cust), bottom-right corner
+            if (pad.classList.contains('sfx-cust')) {
+                var xBtn = document.createElement('button');
+                xBtn.className = 'pad-xclear';
+                xBtn.textContent = '×';
+                xBtn.title = 'Clear sample';
+                xBtn.addEventListener('click', function(e) {
+                    e.stopPropagation();
+                    Sampler.purgePad(name);
+                });
+                pad.appendChild(xBtn);
+            }
+
+            // Mute M — all pads, bottom-left corner
+            var mBtn = document.createElement('button');
+            mBtn.className = 'pad-mute';
+            mBtn.textContent = 'M';
+            mBtn.title = 'Mute pad';
+            mBtn.addEventListener('click', function(e) {
+                e.stopPropagation();
+                var muted = pad.classList.toggle('pad-muted');
+                mBtn.title = muted ? 'Unmute pad' : 'Mute pad';
+            });
+            pad.appendChild(mBtn);
+        });
+    })();
+
+    // Wire button + Enter key
+    if ($('btn-generate-ai')) {
+        $('btn-generate-ai').onclick = function() {
+            var p = $('ai-prompt') ? $('ai-prompt').value.trim() : '';
+            aiGenerate(p);
+        };
+    }
+    if ($('ai-prompt')) {
+        $('ai-prompt').addEventListener('keydown', function(e) {
+            if (e.key === 'Enter') {
+                e.preventDefault();
+                var p = e.target.value.trim();
+                if (p) aiGenerate(p);
+            }
+        });
+    }
+
+    // API key gear toggle — hidden by default, persists to localStorage
+    (function() {
+        var toggle = $('ai-key-toggle');
+        var wrap = $('ai-key-wrap');
+        var input = $('ai-api-key');
+        if (!toggle || !wrap || !input) return;
+        try { var saved = localStorage.getItem('vngrd_ai_key'); if (saved) input.value = saved; } catch(e) {}
+        toggle.onclick = function() {
+            var open = wrap.style.display !== 'none';
+            wrap.style.display = open ? 'none' : 'flex';
+            toggle.style.opacity = open ? '0.35' : '0.8';
+        };
+        input.addEventListener('change', function() {
+            try { localStorage.setItem('vngrd_ai_key', input.value.trim()); } catch(e) {}
+        });
+    })();
+
+    // Collapsible sections with arrow indicators
+    ['session-lab-body', 'p2p-call-body', 'midi-host-body', 'nft-vault-body', 'lexica-nano-body'].forEach(function(id) {
+        var el = $(id);
+        if (!el) return;
+        var head = el.previousElementSibling;
+        if (!head) return;
+        var arrow = head.querySelector('.sec-arrow');
+        head.onclick = function() {
+            var isOpen = head.classList.toggle('open');
+            el.style.maxHeight = isOpen ? '500px' : '0';
+            el.style.padding = isOpen ? '10px 12px' : '0 12px';
+            if (arrow) arrow.textContent = isOpen ? '\u25BE' : '\u25B8';
+        };
+    });
+    // CINEMA_ENGINE collapsible — starts closed, max-height toggle
+    (function() {
+        var _sveBody = $('sve-body');
+        var _sveHead = _sveBody && _sveBody.previousElementSibling;
+        if (!_sveHead) return;
+        var _sveArrow = _sveHead.querySelector('.sec-arrow');
+        _sveHead.onclick = function(e) {
+            if (e.target.closest('.section-help-overlay') || e.target.closest('.sampler-help-btn')) return;
+            var isOpen = _sveHead.classList.toggle('open');
+            _sveBody.style.maxHeight = isOpen ? '400px' : '0';
+            _sveBody.style.padding = isOpen ? '6px 8px' : '0 8px';
+            if (_sveArrow) _sveArrow.textContent = isOpen ? '\u25BE' : '\u25B8';
+        };
+    })();
+
+    // Init v19 transitions
+    v19_Transitions.init();
+
+    // --- DRAG INITIALIZATION (mid-script) ---
+    makeLogSafeDraggable($('sys-log'));
+
+    // ── SYS-LOG v2: smart dim/alert + handle drag + pin ──────────────────
+    (function() {
+        var sl    = document.getElementById('sys-log');
+        var handle= document.getElementById('sys-log-handle');
+        var badge = document.getElementById('sys-log-badge');
+        if (!sl || !handle) return;
+
+        var _pinned      = false;
+        var _unread      = 0;
+        var _dimTimer    = null;
+        var _alertTimer  = null;
+
+        var STATES = ['sl-dim','sl-idle','sl-active','sl-alert','sl-pinned'];
+        function _setState(cls) {
+            sl.classList.remove('sl-dim','sl-idle','sl-active','sl-alert','sl-pinned');
+            if (cls) sl.classList.add(cls);
+        }
+
+        // Dim after inactivity
+        function _scheduleDim(ms) {
+            clearTimeout(_dimTimer);
+            _dimTimer = setTimeout(function() {
+                if (!_pinned) _setState('');  // back to base (opacity 0.12)
+            }, ms || 8000);
+        }
+
+        // Expose to log()
+        window._sysLogWake = function(level) {
+            clearTimeout(_alertTimer);
+            if (_pinned) return; // pinned: no state override
+            if (level === 'err') {
+                _setState('sl-alert');
+                _unread++;
+                if (badge) { badge.textContent = _unread; badge.style.display = 'inline-block'; }
+                _alertTimer = setTimeout(function() { _setState('sl-idle'); _scheduleDim(10000); }, 7000);
+            } else if (level === 'warn') {
+                _setState('sl-active');
+                _scheduleDim(6000);
+            } else if (level === 'ok') {
+                if (!sl.classList.contains('sl-alert')) _setState('sl-idle');
+                _scheduleDim(4000);
+            } else {
+                // 'info' — only show if already visible; never wake from deep dim
+                if (sl.classList.contains('sl-active') || sl.classList.contains('sl-alert') || sl.classList.contains('sl-idle')) {
+                    _scheduleDim(4000); // just reset timer, no state change
+                }
+                // otherwise stay dimmed
+            }
+        };
+
+        // Pin toggle
+        window._sysLogTogglePin = function() {
+            _pinned = !_pinned;
+            var btn = document.getElementById('sys-log-pin-btn');
+            if (_pinned) {
+                _setState('sl-pinned');
+                clearTimeout(_dimTimer);
+                if (btn) btn.classList.add('pinned');
+            } else {
+                if (btn) btn.classList.remove('pinned');
+                _setState('sl-idle');
+                _scheduleDim(8000);
+            }
+        };
+
+        // Clear
+        window._sysLogClear = function() {
+            var body = document.getElementById('sys-log-body');
+            if (body) body.innerHTML = '';
+            _unread = 0;
+            if (badge) { badge.textContent = '0'; badge.style.display = 'none'; }
+        };
+
+        // Hover: briefly show
+        sl.addEventListener('mouseenter', function() {
+            clearTimeout(_dimTimer);
+            if (!_pinned && !sl.classList.contains('sl-alert')) _setState('sl-active');
+        });
+        sl.addEventListener('mouseleave', function() {
+            if (!_pinned) _scheduleDim(5000);
+        });
+        // Click badge: clear unread
+        if (badge) badge.addEventListener('click', function(e) {
+            e.stopPropagation();
+            _unread = 0; badge.style.display = 'none';
+        });
+
+        // ── HANDLE DRAG ───────────────────────────────────────────────
+        var _drag = { on: false, ox: 0, oy: 0, px: 0, py: 0 };
+
+        handle.addEventListener('mousedown', function(e) {
+            if (e.target.tagName === 'BUTTON') return;
+            var r = sl.getBoundingClientRect();
+            _drag.ox = e.clientX; _drag.oy = e.clientY;
+            _drag.px = r.left;   _drag.py = r.top;
+            _drag.on = true;
+            sl.style.transition = 'opacity 0.5s ease, border-color 0.4s, box-shadow 0.4s';
+            e.preventDefault();
+        });
+        document.addEventListener('mousemove', function(e) {
+            if (!_drag.on) return;
+            var nx = _drag.px + (e.clientX - _drag.ox);
+            var ny = _drag.py + (e.clientY - _drag.oy);
+            nx = Math.max(0, Math.min(nx, window.innerWidth  - sl.offsetWidth));
+            ny = Math.max(0, Math.min(ny, window.innerHeight - sl.offsetHeight));
+            sl.style.left   = nx + 'px';
+            sl.style.top    = ny + 'px';
+            sl.style.right  = 'auto';
+            sl.style.bottom = 'auto';
+        });
+        document.addEventListener('mouseup', function() { _drag.on = false; });
+
+        // Double-click handle: snap back to default corner
+        handle.addEventListener('dblclick', function(e) {
+            if (e.target.tagName === 'BUTTON') return;
+            sl.style.left = ''; sl.style.top = '';
+            sl.style.right = '200px'; sl.style.bottom = '55px';
+        });
+
+        // Start dimmed
+        _setState('');
+    })();
+
+
+    
+    
+    
+    
+
+    
+
+    
+    // Shatter all button
+    if ($('btn-shatter-all')) {
+        $('btn-shatter-all').onclick = () => {
+            for (let i = 0; i < 5; i++) {
+                const x = Math.random() * window.innerWidth;
+                const y = Math.random() * window.innerHeight;
+                if (typeof createGlassFracture === 'function') createGlassFracture(x, y);
+            }
+            log('SHATTER_ALL: TRIGGERED');
+        };
+    }
+    
+    // ========================================
+    // CAMERA PREVIEW - FLOATING BOX
+    // ========================================
+    function updateCameraPreview() {
+        const preview = $('cam-preview-float');
+        const previewVid = $('preview-vid-float');
+        
+        if (APP.camera.stream && preview && previewVid) {
+            previewVid.srcObject = APP.camera.stream;
+            previewVid.muted = true;
+            preview.classList.add('active');
+            APP.camera.previewEl = previewVid;
+        }
+    }
+    
+    // Hook into camera init
+    const originalInitCamera = window.initCamera;
+    window.initCamera = async function() {
+        if (typeof originalInitCamera === 'function') {
+            await originalInitCamera();
+        }
+        setTimeout(updateCameraPreview, 500);
+    };
+    
+    // ========================================
+    // GEODATA TICKER INJECTION
+    // ========================================
+    function injectGeoToTicker() {
+        const ticker = $('ticker-text');
+        if (!ticker || !APP.atmosphere.city) return;
+        
+        const geoData = `[LOC: ${APP.atmosphere.city.toUpperCase()}] // [LAT: ${APP.atmosphere.latitude?.toFixed(2) || '?'}] // [LON: ${APP.atmosphere.longitude?.toFixed(2) || '?'}]`;
+        
+        // Prepend geo data to ticker
+        if (!ticker.textContent.includes('[LOC:')) {
+            ticker.textContent = geoData + ' // ' + ticker.textContent;
+        }
+    }
+    
+    // ========================================
+    // PRO-AUDIO: SPATIAL PANNING + PITCH RANDOMIZATION
+    // ========================================
+    // Per-bullet spatial impact: transient tick + metal ring + micro-thud, panned to hit position
+    function playImpactSoundWithSpatial(x, y) {
+        if (!APP.shooting.audioCtx) return;
+        const ctx = APP.shooting.audioCtx;
+        const now = ctx.currentTime;
+        const pm = 0.7 + Math.random()*0.6; // wide pitch variance — no two shots alike
+
+        // Stereo panner (hit X position → left/right)
+        const panner = ctx.createStereoPanner();
+        panner.pan.value = Math.max(-1, Math.min(1, (x / window.innerWidth)*2 - 1));
+        panner.connect(ctx.destination);
+
+        // Layer 1 — sharp transient tick (HPF noise, 5ms)
+        const tickBuf = ctx.createBuffer(1, Math.ceil(ctx.sampleRate*0.005), ctx.sampleRate);
+        const tkd = tickBuf.getChannelData(0);
+        for (let i=0;i<tkd.length;i++) tkd[i]=(Math.random()*2-1)*(1-i/tkd.length);
+        const tick = ctx.createBufferSource(); tick.buffer=tickBuf;
+        const tickHpf = ctx.createBiquadFilter(); tickHpf.type='highpass'; tickHpf.frequency.value=3500;
+        const tkG = ctx.createGain();
+        tkG.gain.setValueAtTime(0.8, now); tkG.gain.exponentialRampToValueAtTime(0.001, now+0.006);
+        tick.connect(tickHpf); tickHpf.connect(tkG); tkG.connect(panner);
+        tick.start(now); tick.stop(now+0.007);
+
+        // Layer 2 — metal ring with pitch droop
+        const rf = 920 * pm;
+        const ring = ctx.createOscillator(); ring.type='sine';
+        ring.frequency.setValueAtTime(rf*1.02, now); ring.frequency.exponentialRampToValueAtTime(rf, now+0.02);
+        const rG = ctx.createGain();
+        rG.gain.setValueAtTime(0.2, now); rG.gain.exponentialRampToValueAtTime(0.001, now+0.14);
+        ring.connect(rG); rG.connect(panner); ring.start(now); ring.stop(now+0.16);
+
+        // Layer 3 — micro body thud
+        const body = ctx.createOscillator(); body.type='sine';
+        body.frequency.setValueAtTime(75, now); body.frequency.exponentialRampToValueAtTime(28, now+0.055);
+        const bG = ctx.createGain();
+        bG.gain.setValueAtTime(0.28, now); bG.gain.exponentialRampToValueAtTime(0.001, now+0.065);
+        body.connect(bG); bG.connect(panner); body.start(now); body.stop(now+0.07);
+    }
+    
+    // Override playMetalTink to use spatial panning
+    const originalPlayMetalTink = window.playMetalTink;
+    window.playMetalTink = function(x, y) {
+        playImpactSoundWithSpatial(x || window.innerWidth/2, y || window.innerHeight/2);
+    };
+
+    // Trinity drag is now canvas-space (initTrinityDrag) — no DOM drag needed
+
+    // Initialize geo ticker injection
+    setTimeout(injectGeoToTicker, 3000);
+
+    // ── PRESENCE MONITOR ──────────────────────────────────────────────────────
+    // Lightweight cross-tab heartbeat via BroadcastChannel API (no server needed).
+    // Puter.js removed — presence tracking is now 100% local / offline-capable.
+    (function() {
+        var _nodeId    = Math.random().toString(36).substr(2, 10);
+        var _peers     = new Set([_nodeId]);
+        var _pingTimer = null;
+
+        function _updateCount() {
+            var el = document.getElementById('presence-count');
+            if (el) el.textContent = _peers.size;
+        }
+
+        try {
+            var bc = new BroadcastChannel('vngrd_presence');
+
+            bc.onmessage = function(ev) {
+                var d = ev.data || {};
+                if (d.type === 'ping') {
+                    _peers.add(d.id);
+                    bc.postMessage({ type: 'pong', id: _nodeId });
+                } else if (d.type === 'pong') {
+                    _peers.add(d.id);
+                } else if (d.type === 'bye') {
+                    _peers.delete(d.id);
+                }
+                _updateCount();
+            };
+
+            // Broadcast a ping every 30 s; clear stale peers first
+            _pingTimer = setInterval(function() {
+                _peers.clear();
+                _peers.add(_nodeId);
+                bc.postMessage({ type: 'ping', id: _nodeId });
+                setTimeout(_updateCount, 1200);
+            }, 30000);
+
+            window.addEventListener('beforeunload', function() {
+                clearInterval(_pingTimer);
+                bc.postMessage({ type: 'bye', id: _nodeId });
+                bc.close();
+            });
+
+            // Initial ping so other open tabs register this one
+            bc.postMessage({ type: 'ping', id: _nodeId });
+            setTimeout(_updateCount, 1200);
+
+        } catch (e) {
+            // BroadcastChannel not supported (e.g. file:// in Safari) — degrade silently
+        }
+    })();
+    // ── END PRESENCE MONITOR ──────────────────────────────────────────────────
+
+}); // THIS IS THE END of the startup block. Do not put code after this line.
+
+// ─────────────────────────────────────────────────────────────────────────────
+// MAIN LOOP — Phase A: Central animation hub
+// Migrated functions tick here instead of running their own rAF loops.
+// startMainLoop() is guarded — boots exactly once from DOMContentLoaded.
+// ─────────────────────────────────────────────────────────────────────────────
+var _mainLoopRunning = false;
+
+function mainLoop(timestamp) {
+    requestAnimationFrame(mainLoop);
+
+    // Phase B: NFT recording timer (was an unbounded rAF loop — now a pure tick)
+    updateNFTTimer();
+
+    // Phase C: audio input level meter (was an rAF loop that stacked on every input switch)
+    if (window._inputLevelTick) window._inputLevelTick();
+
+    // Phase E Task 1: VU meter (was its own rAF loop)
+    updateVU();
+
+    // Phase E Task 2: audio reactor (was its own rAF loop in a separate script block)
+    if (window._audioReactorTick) window._audioReactorTick();
+
+    // Phase F Task 1: WebGL VU bar shader (was _vbRender own rAF)
+    if (window._vbRenderTick) window._vbRenderTick();
+
+    // Phase F Task 2: VFXLayer chromatic aberration shader (was _frame IIFE rAF)
+    if (window._vfxFrameTick) window._vfxFrameTick(timestamp);
+
+    // Phase F Task 3: mic ducking monitor (was monitorDucking own rAF)
+    updateDucking();
+}
+
+function startMainLoop() {
+    if (_mainLoopRunning) return; // single-boot guard
+    _mainLoopRunning = true;
+    requestAnimationFrame(mainLoop);
+}
+// --- TACTICAL FX ELITE BRIDGE ---
