@@ -1574,6 +1574,7 @@ function drawMediaQueue(ctx, w, h, bottomY) {
     APP.media.queueStrip.seams      = [];
     APP.media.queueStrip.ctrlZones  = [];
     APP.media.queueStrip.audioSyncZone = null;
+    APP.media.queueStrip.barZone = { x: 0, y: barY, w: w, h: barH };
 
     var totalW = queue.length * (thumbSize + padding) - padding;
     var startX = Math.max(padding, (w - totalW) / 2);
@@ -1924,6 +1925,13 @@ function initSummonerLogic() {
                 }
                 return;
             }
+        }
+
+        // ── CAROUSEL BAR — tap anywhere on bar (outside thumbnails) to collapse ──
+        var barZ = APP.media.queueStrip && APP.media.queueStrip.barZone;
+        if (barZ && APP.state.showMediaStrips && cy >= barZ.y && cy <= barZ.y + barZ.h) {
+            APP.state.showMediaStrips = false;
+            return;
         }
 
         // ── NFT VAULT STRIP — duration badge (cyan, bottom) ──
