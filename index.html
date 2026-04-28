@@ -20459,6 +20459,10 @@ window._gestureState = {
     // Pinch rising-edge latch (with hysteresis) → triggers a pluck note.
     var _prevPinchHigh = false;
     var NOTE_LABELS = ['A1','C2','D2','E2','G2','A2','C3','D3','E3','G3'];
+    // Hold-over: keep handPresent=true for 250ms after a dropout to absorb
+    // single missed camera frames without silencing the arp.
+    var _lastHandSeen = 0;
+    var _HAND_HOLD_MS = 250;
 
     window._handTrackFeed = function(rightLm, leftLm) {
         var rack = window.KineticRack;
@@ -20483,11 +20487,21 @@ window._gestureState = {
         var lDraw = _oeFilter(_oeL, leftLm,  tNow);
 
         // ── 3. PERFORMANCE GATE (no right hand = silence) ───────────────────
-        window._gestureState.handPresent = !!rDraw;
-        window._gestureState.vol         = rDraw ? 0.6 : 0;
         if (!rDraw) {
-            window._gestureState.fm       = 0;
-            window._gestureState.lfoDepth = 0;
+            // Hold for 250ms before actually silencing — absorbs single missed
+            // camera frames so the arp and voice don't stutter on brief dropouts.
+            if (tNow - _lastHandSeen < _HAND_HOLD_MS) {
+                if (lDraw && ctx) {
+                    ctx.save();
+                    _drawHand(ctx, lDraw, canvas.width, canvas.height, false);
+                    ctx.restore();
+                }
+                return;
+            }
+            window._gestureState.handPresent = false;
+            window._gestureState.vol         = 0;
+            window._gestureState.fm          = 0;
+            window._gestureState.lfoDepth    = 0;
             _prevPinchHigh = false;
             var vs = document.querySelector('[data-ctrl="vol"]');
             if (vs) vs.value = 0;
@@ -20498,6 +20512,9 @@ window._gestureState = {
             }
             return;
         }
+        _lastHandSeen = tNow;
+        window._gestureState.handPresent = true;
+        window._gestureState.vol         = 0.6;
 
         var lm8 = rDraw[8];
 
