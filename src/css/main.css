@@ -2783,16 +2783,19 @@ body.shooting-mode #btn-shooting {
             z-index: -1;
         }
 
-        /* Ghost terminal: mobile viewport + visible close button */
+        /* Ghost terminal: mobile — compact corner widget, not full-width */
         #ghost-terminal {
-            left: 10px !important; right: 10px !important;
+            left: auto !important; right: 8px !important;
             bottom: 50px !important;
-            width: auto !important; max-width: none !important;
+            width: 190px !important; max-width: 200px !important;
             height: auto !important; max-height: none !important;
+            font-size: 9px !important;
+            opacity: 0.88;
         }
         #ghost-terminal.expanded #ghost-terminal-body {
-            max-height: 30vh !important;
+            max-height: 110px !important;
         }
+        #ghost-input { font-size: 9px !important; }
         #ghost-close-btn { display: block !important; }
         #btn-ghost-mic.on { color: var(--accent) !important; border-color: var(--accent) !important; background: rgba(0,243,255,0.08) !important; box-shadow: 0 0 8px rgba(0,243,255,0.5), 0 0 0 1px rgba(0,243,255,0.25) !important; text-shadow: 0 0 6px var(--accent); animation: mic-pulse 1.4s ease-in-out infinite; }
         @keyframes mic-pulse { 0%,100%{opacity:1; box-shadow: 0 0 8px rgba(0,243,255,0.5), 0 0 0 1px rgba(0,243,255,0.25);} 50%{opacity:0.65; box-shadow: 0 0 4px rgba(0,243,255,0.2), 0 0 0 1px rgba(0,243,255,0.1);} }
