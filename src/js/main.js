@@ -51,6 +51,7 @@ const APP = {
     audio: { ctx: null, analyzer: null, source: null, element: null, playlist: [], currentTrack: -1, currentTrackName: '', bassLevel: 0, vuData: new Uint8Array(32), isPlaying: false, isConnected: false, videoSource: null, videoMuted: false, videoGain: null, spatialMode: 'stereo', panner: null, compressor: null, masterGain: null, lowShelf: null, highShelf: null, spatialInterval: null, recorderDest: null },
 
     nft: { recorder: null, chunks: [], isRecording: false, startTime: 0, duration: 30000, dnaSnapshot: null, audioDest: null },
+    timeMachine: { recorder: null, chunks: [], isRecording: false, audioDest: null, maxDuration: 600000 },
     broadcast: { recorder: null, chunks: [], isRecording: false },
     loop: { recorder: null, chunks: [], activeUrl: null, timer: null, counter: 10 },
     guest: { peer: null, connection: null, stream: null, videoElement: null, audioSource: null, isActive: false, peerId: null },
@@ -8235,6 +8236,27 @@ function loadFromMemory() {
 async function startNFTRecording() {
     if (APP.nft.isRecording) { stopNFTRecording(); return; }
 
+    // If TimeMachine was pre-armed (ON-AIR click), drain its buffer and re-arm
+    if (APP.timeMachine.isRecording && APP.timeMachine.chunks.length > 0) {
+        var btn = $('btn-nft-30');
+        btn.textContent = 'EXPORTING…';
+        APP.timeMachine.recorder.onstop = function() {
+            var blobs = APP.timeMachine.chunks.map(function(c) { return c.data; });
+            var blob = new Blob(blobs, { type: 'video/webm' });
+            var a = document.createElement('a');
+            a.href = URL.createObjectURL(blob);
+            a.download = 'CAPTURE_VNGRD_' + Date.now() + '.webm';
+            a.click();
+            APP.timeMachine.chunks = [];
+            APP.timeMachine.isRecording = false;
+            btn.textContent = 'CAPTURE_VNGRD_CLIP';
+            log('TIMEMACHINE: CAPTURED');
+            setTimeout(initTimeMachine, 500);
+        };
+        APP.timeMachine.recorder.stop();
+        return;
+    }
+
     // Force-enable button in case layer check left it disabled
     var btn = $('btn-nft-30');
     btn.disabled = false; btn.style.opacity = '1';
@@ -8305,6 +8327,39 @@ function stopNFTRecording() {
     $('nft-hud').classList.remove('active');
 
     log('VGD_REC_STOP');
+}
+
+// ── TimeMachine: background rolling buffer, armed on POLYTRANSLATOR ON-AIR ──
+function initTimeMachine() {
+    if (APP.timeMachine.isRecording) return;
+    var tmCanvas = (APP.render.recordCanvas || APP.render.canvas);
+    if (!tmCanvas) return;
+    var canvasStream = tmCanvas.captureStream(60);
+    if (APP.audio.ctx && APP.audio.masterGain) {
+        try {
+            APP.timeMachine.audioDest = APP.audio.ctx.createMediaStreamDestination();
+            APP.audio.masterGain.connect(APP.timeMachine.audioDest);
+            var audioTrack = APP.timeMachine.audioDest.stream.getAudioTracks()[0];
+            if (audioTrack) canvasStream.addTrack(audioTrack);
+        } catch(e) {}
+    }
+    try {
+        APP.timeMachine.recorder = new MediaRecorder(canvasStream, { mimeType: 'video/webm;codecs=vp9,opus', videoBitsPerSecond: 15000000, audioBitsPerSecond: 128000 });
+    } catch(e) {
+        try { APP.timeMachine.recorder = new MediaRecorder(canvasStream, { mimeType: 'video/webm' }); }
+        catch(e2) { APP.timeMachine.recorder = new MediaRecorder(canvasStream); }
+    }
+    APP.timeMachine.chunks = [];
+    APP.timeMachine.recorder.ondataavailable = function(e) {
+        if (e.data && e.data.size > 0) {
+            APP.timeMachine.chunks.push({ data: e.data, time: Date.now() });
+            var cutoff = Date.now() - APP.timeMachine.maxDuration;
+            APP.timeMachine.chunks = APP.timeMachine.chunks.filter(function(c) { return c.time > cutoff; });
+        }
+    };
+    APP.timeMachine.recorder.start(1000);
+    APP.timeMachine.isRecording = true;
+    log('TIMEMACHINE: ARMED');
 }
 
 // ── PHASE B: own rAF removed — called from mainLoop every frame ──
