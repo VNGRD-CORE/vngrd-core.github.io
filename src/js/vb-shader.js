@@ -152,93 +152,101 @@ var FS = {
     ].join('\n'),
 
     // ── THERMAL ──────────────────────────────────────────────────────────
-    // FLIR "iron" infrared palette — cold black-blue through purple, red,
-    // orange to white-hot. Audio boosts the heat level and drives shimmer.
+    // FLIR iron palette. Shimmer is noise-driven (not luma-dependent) so it
+    // moves on any content including dark frames. Mouse creates a heat bloom.
     THERMAL: [
         '#version 300 es',
         'precision mediump float;',
-        'in vec2 v; uniform sampler2D t; uniform float time; uniform float uAudio; out vec4 o;',
-        // FLIR iron palette: 5-stop gradient
+        'in vec2 v; uniform sampler2D t; uniform float time; uniform float uAudio; uniform vec2 uMouse; out vec4 o;',
         'vec3 iron(float x){',
-        '  vec3 c0=vec3(0.0,0.0,0.13);',    // 0.00 cold black-blue
-        '  vec3 c1=vec3(0.25,0.0,0.52);',   // 0.25 deep purple
-        '  vec3 c2=vec3(0.88,0.0,0.10);',   // 0.50 hot red
-        '  vec3 c3=vec3(1.0,0.58,0.0);',    // 0.75 orange
-        '  vec3 c4=vec3(1.0,1.0,1.0);',     // 1.00 white hot
-        '  if(x<0.25)return mix(c0,c1,x*4.0);',
-        '  if(x<0.50)return mix(c1,c2,(x-0.25)*4.0);',
-        '  if(x<0.75)return mix(c2,c3,(x-0.50)*4.0);',
-        '  return mix(c3,c4,(x-0.75)*4.0);',
+        '  float s=clamp(x,0.0,1.0)*4.0;',
+        '  vec3 c0=vec3(0.0,0.0,0.13),c1=vec3(0.25,0.0,0.52);',
+        '  vec3 c2=vec3(0.88,0.0,0.10),c3=vec3(1.0,0.58,0.0),c4=vec3(1.0,1.0,1.0);',
+        '  if(s<1.0)return mix(c0,c1,s);',
+        '  if(s<2.0)return mix(c1,c2,s-1.0);',
+        '  if(s<3.0)return mix(c2,c3,s-2.0);',
+        '  return mix(c3,c4,s-3.0);',
         '}',
         'void main(){',
-        // Heat shimmer: bright areas refract like hot air above tarmac
-        '  float base=dot(texture(t,v).rgb,vec3(0.2126,0.7152,0.0722));',
-        '  float shimX=base*0.009*(1.0+uAudio*2.5)*sin(v.y*38.0+time*4.2);',
-        '  float shimY=base*0.006*(1.0+uAudio*2.5)*cos(v.x*32.0+time*3.5);',
-        '  float luma=dot(texture(t,clamp(v+vec2(shimX,shimY),0.0,1.0)).rgb,vec3(0.2126,0.7152,0.0722));',
-        // Audio pushes palette toward hot end — loud hit = everything white
-        '  float heat=clamp(luma+uAudio*0.32,0.0,1.0);',
+        // Shimmer is noise-driven, NOT luma-gated — active on any content
+        '  float amp=0.014+uAudio*0.042;',
+        '  float dx=amp*sin(v.y*24.0+time*4.5+v.x*6.0);',
+        '  float dy=amp*0.55*cos(v.x*20.0+time*3.2+v.y*5.0);',
+        '  float luma=dot(texture(t,clamp(v+vec2(dx,dy),0.0,1.0)).rgb,vec3(0.2126,0.7152,0.0722));',
+        // Mouse: inverse-distance heat bloom around cursor
+        '  float mHeat=(1.0-smoothstep(0.0,0.22,length(v-uMouse)))*0.70;',
+        // Audio lifts entire frame toward hot end of palette
+        '  float heat=clamp(luma+mHeat+uAudio*0.42,0.0,1.0);',
         '  o=vec4(iron(heat),1.0);',
         '}'
     ].join('\n'),
 
     // ── DATAMOSH ─────────────────────────────────────────────────────────
-    // 16×16 block displacement with tPrev accumulation. Blocks drift via
-    // noise motion vectors. Hard bass hit (uAudio > 0.6) injects the
-    // current frame — same codec-corruption aesthetic as real datamoshing.
+    // Block displacement with tPrev accumulation. 18% base injection means
+    // the image is immediately visible. Audio drops injection → deeper freeze.
+    // Mouse warps nearby blocks toward the cursor.
     DATAMOSH: [
         '#version 300 es',
         'precision highp float;',
         'in vec2 v; uniform sampler2D t; uniform sampler2D tPrev;',
-        'uniform float time; uniform float uAudio; uniform vec2 res; out vec4 o;',
+        'uniform float time; uniform float uAudio; uniform vec2 res; uniform vec2 uMouse; out vec4 o;',
         'vec2 h2(vec2 p){',
         '  p=vec2(dot(p,vec2(127.1,311.7)),dot(p,vec2(269.5,183.3)));',
         '  return fract(sin(p)*43758.5453)-0.5;',
         '}',
         'void main(){',
-        // Snap to 16×16 block grid
-        '  vec2 bSz=vec2(16.0);',
+        // Block size shrinks on high audio — more blocks = more chaos
+        '  float bSz=max(18.0-uAudio*14.0,4.0);',
         '  vec2 bCoord=floor(v*res/bSz);',
-        // Motion vector changes ~once per second — blocks drift slowly, lurch on beat
-        '  float tBkt=floor(time*0.9);',
-        '  vec2 motion=h2(bCoord+tBkt*0.13)*(0.055+uAudio*0.11);',
-        // Current frame displaced by this block's vector
+        '  vec2 bNoise=h2(bCoord);',
+        // Continuously animated drift (not time-bucketed — always moving)
+        '  float drift=0.032+uAudio*0.14;',
+        '  vec2 motion=vec2(',
+        '    bNoise.x*drift+sin(time*0.8+bNoise.y*6.28)*0.013,',
+        '    bNoise.y*drift+cos(time*0.6+bNoise.x*6.28)*0.013',
+        '  );',
+        // Mouse warps blocks toward cursor within a 0.4-radius influence zone
+        '  vec2 toMouse=uMouse-v;',
+        '  float mPull=(1.0-smoothstep(0.0,0.4,length(toMouse)))*0.14;',
+        '  motion+=normalize(toMouse+0.0001)*mPull;',
         '  vec4 cur=texture(t,clamp(v+motion,0.0,1.0));',
-        // Previous moshed state — near-perfect persistence
         '  vec4 prev=texture(tPrev,v);',
-        // Injection: bass hit forces fresh frame; otherwise hold the mosh
-        '  float inject=smoothstep(0.58,0.92,uAudio);',
-        '  o=mix(prev*0.976,cur,max(inject,0.015));',
+        // inject=0.18 at silence (visible immediately); drops to 0.02 at peak (deep freeze)
+        '  float inject=0.18-uAudio*0.16;',
+        '  o=mix(prev*0.982,cur,inject);',
         '}'
     ].join('\n'),
 
     // ── CHROMAFLOW ───────────────────────────────────────────────────────
-    // Each RGB channel orbits independently with different angular velocity,
-    // feeding back at different decay rates. Creates chromatic rainbow trails
-    // that evolve based on content and audio.
+    // RGB channels orbit independently. Base sep=0.025 always visible.
+    // Mouse directly displaces each channel in a different direction.
+    // Asymmetric decay rates create rainbow trails — R lingers, B fades fast.
     CHROMAFLOW: [
         '#version 300 es',
         'precision highp float;',
         'in vec2 v; uniform sampler2D t; uniform sampler2D tPrev;',
-        'uniform float time; uniform float uAudio; out vec4 o;',
+        'uniform float time; uniform float uAudio; uniform vec2 uMouse; out vec4 o;',
         'void main(){',
-        '  float spd=0.006+uAudio*0.016;',
-        // Three channels orbit at different speeds and phases
-        '  vec2 vR=vec2(cos(time*spd*1.00),         sin(time*spd*0.73))        *(0.009+uAudio*0.024);',
-        '  vec2 vG=vec2(cos(time*spd*0.79+2.09),    sin(time*spd*1.13+0.87))   *(0.011+uAudio*0.021);',
-        '  vec2 vB=vec2(-cos(time*spd*1.17+1.39),  -sin(time*spd*0.91+2.67))  *(0.010+uAudio*0.027);',
+        '  float sep=0.025+uAudio*0.09;',
+        '  float t1=time*0.45;',
+        // Mouse offsets all three channels in different directions
+        '  vec2 mc=(uMouse-0.5)*(0.07+uAudio*0.13);',
+        '  vec2 vR=vec2(cos(t1),         sin(t1*0.71))       *sep+mc;',
+        '  vec2 vG=vec2(cos(t1*0.78+2.1),sin(t1*1.10+0.9))   *sep-mc*0.7;',
+        '  vec2 vB=vec2(-cos(t1*1.2+1.4),-sin(t1*0.88+2.7)) *sep+vec2(mc.y,-mc.x);',
         '  float r=texture(t,clamp(v+vR,0.0,1.0)).r;',
         '  float g=texture(t,clamp(v+vG,0.0,1.0)).g;',
         '  float b=texture(t,clamp(v+vB,0.0,1.0)).b;',
         '  vec4 cur=vec4(r,g,b,1.0);',
         '  vec4 prev=texture(tPrev,v);',
-        // Per-channel decay — R trails longest, B shortest → rainbow smear
+        // R trails longest (warm), B fades fastest (cold) → warm→cool smear
         '  vec3 trail=vec3(',
-        '    prev.r*(0.96+uAudio*0.025),',
-        '    prev.g*(0.93+uAudio*0.025),',
-        '    prev.b*(0.90+uAudio*0.025)',
+        '    prev.r*(0.92+uAudio*0.06),',
+        '    prev.g*(0.87+uAudio*0.06),',
+        '    prev.b*(0.82+uAudio*0.06)',
         '  );',
-        '  float blend=0.20+uAudio*0.40;',
+        // 40% current at silence (immediately visible); 15% at loud (long trails)
+        '  float blend=0.40-uAudio*0.25;',
         '  o=vec4(mix(trail,cur.rgb,blend),1.0);',
         '}'
     ].join('\n')
@@ -396,6 +404,17 @@ function _vbActivate(shaderName, persistent) {
     var vbCanvas = document.getElementById('vb-canvas');
     _vbShader = shaderName;
     if (vbCanvas) vbCanvas.style.display = 'block';
+    // Prime tPrev with current vj-canvas so feedback shaders start with content
+    if (shaderName === 'DATAMOSH' || shaderName === 'CHROMAFLOW' || shaderName === 'GHOST_ECHO') {
+        var _vjC = document.getElementById('vj-canvas');
+        if (_vjC && _vbPrevCvs && _vbPrevCtx2d) {
+            var _pw = _vjC.width || _vjC.offsetWidth, _ph = _vjC.height || _vjC.offsetHeight;
+            if (_pw > 2 && _ph > 2) {
+                _vbPrevCvs.width = _pw; _vbPrevCvs.height = _ph;
+                try { _vbPrevCtx2d.drawImage(_vjC, 0, 0, _pw, _ph); } catch(e) {}
+            }
+        }
+    }
     // ── PHASE F: rAF boot removed — mainLoop drives _vbRender via window._vbRenderTick ──
     if (persistent) {
         _vbLocked[shaderName] = true;
