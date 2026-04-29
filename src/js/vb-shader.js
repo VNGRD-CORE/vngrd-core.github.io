@@ -174,8 +174,9 @@ var FS = {
     ].join('\n'),
 
     // ── THERMAL ──────────────────────────────────────────────────────────
-    // FLIR iron palette. Shimmer is noise-driven (not luma-dependent) so it
-    // moves on any content including dark frames. Mouse creates a heat bloom.
+    // FLIR iron palette. Heat haze uses upward-scrolling cross-product noise —
+    // completely distinct from SLIT_SCAN's horizontal sine bands.
+    // Mouse creates a hotspot that amplifies shimmer amplitude, not just color.
     THERMAL: [
         '#version 300 es',
         'precision mediump float;',
@@ -190,24 +191,32 @@ var FS = {
         '  return mix(c3,c4,s-3.0);',
         '}',
         'void main(){',
-        // Shimmer is noise-driven, NOT luma-gated — active on any content
-        '  float amp=0.014+uAudio*0.042;',
-        '  float dx=amp*sin(v.y*24.0+time*4.5+v.x*6.0);',
-        '  float dy=amp*0.55*cos(v.x*20.0+time*3.2+v.y*5.0);',
-        '  float luma=dot(texture(t,clamp(v+vec2(dx,dy),0.0,1.0)).rgb,vec3(0.2126,0.7152,0.0722));',
-        // Mouse: inverse-distance heat bloom around cursor
-        '  float mHeat=(1.0-smoothstep(0.0,0.22,length(v-uMouse)))*0.70;',
-        // Audio lifts entire frame toward hot end of palette
-        '  float heat=clamp(luma+mHeat+uAudio*0.42,0.0,1.0);',
+        // Rising heat haze: noise scrolls UPWARD (v.y space - time) not left-right
+        // Cross-product sines create turbulent 2D field, not banded horizontal strips
+        '  vec2 up=vec2(v.x*3.8,v.y*5.5-time*0.48);',
+        '  float n1=sin(up.x*2.73+sin(up.y*1.91+time*0.19))*0.5+0.5;',
+        '  float n2=sin(up.y*3.14+sin(up.x*2.27+time*0.15))*0.5+0.5;',
+        // Mouse hotspot: amplifies shimmer (hand over heat source = more haze above it)
+        '  float mDist=length(v-uMouse);',
+        '  float mZone=(1.0-smoothstep(0.0,0.28,mDist))*1.8;',
+        '  float amp=(0.010+uAudio*0.020)*(1.0+mZone);',
+        // Distortion: both axes present, upward-bias (rising air bends light vertically)
+        '  vec2 shimmer=vec2((n1-0.5)*amp,(n2-0.5)*amp*0.55);',
+        '  vec2 uv=clamp(v+shimmer,0.0,1.0);',
+        '  float luma=dot(texture(t,uv).rgb,vec3(0.2126,0.7152,0.0722));',
+        // FLIR sensor noise (characteristic per-pixel thermal grain)
+        '  float grain=(fract(sin(dot(v,vec2(731.2,537.8))*47.3+time*31.7)*43758.5)-0.5)*0.032;',
+        '  float mHeat=(1.0-smoothstep(0.0,0.26,mDist))*0.52;',
+        '  float heat=clamp(luma+mHeat+uAudio*0.36+grain,0.0,1.0);',
         '  o=vec4(iron(heat),1.0);',
         '}'
     ].join('\n'),
 
     // ── DATAMOSH ─────────────────────────────────────────────────────────
-    // Three modes via uMode uniform (0=CORRUPT, 1=CENSOR, 2=DATAFLOW).
-    // CORRUPT: block displacement + frame feedback, effect inside cursor radius.
-    // CENSOR: heavy pixelation near mouse, clean video outside.
-    // DATAFLOW: vertical terminal-green data streams overlay the video.
+    // Two modes via uMode (0=CORRUPT, 1=CENSOR). Effect is always inside cursor radius.
+    // CORRUPT: H.264-style macroblock corruption — 3 per-block artifact types
+    //   (far-displaced, channel-swapped, prev-ghost) + visible block-edge ringing.
+    // CENSOR: tight broadcast-style mosaic (14px max) + cold desaturation + cyan fringe.
     DATAMOSH: [
         '#version 300 es',
         'precision highp float;',
@@ -217,55 +226,57 @@ var FS = {
         '  p=vec2(dot(p,vec2(127.1,311.7)),dot(p,vec2(269.5,183.3)));',
         '  return fract(sin(p)*43758.5453)-0.5;',
         '}',
-        'float h1(float p){return fract(sin(p*127.1)*43758.5453);}',
         'void main(){',
         '  int mode=int(uMode+0.5);',
-        // ── CENSOR: pixelated mosaic follows mouse ──
+        '  vec4 clean=texture(t,v);',
+        '  float dist=length(v-uMouse);',
+
+        // ── CENSOR: broadcast mosaic ──
         '  if(mode==1){',
-        '    float dist=length(v-uMouse);',
-        '    float zone=1.0-smoothstep(0.10,0.30,dist);',
-        '    float blockPx=mix(2.0,52.0+uAudio*36.0,zone*zone);',
+        '    float zone=1.0-smoothstep(0.09,0.26,dist);',
+        // Tight blocks: realistic broadcast censoring (8-14px, not 52px)
+        '    float blockPx=mix(2.0,14.0+uAudio*8.0,zone*zone);',
         '    vec2 bv=floor(v*res/blockPx)*blockPx/res;',
         '    vec4 pix=texture(t,bv);',
-        '    vec4 clean=texture(t,v);',
         '    float luma=dot(pix.rgb,vec3(0.299,0.587,0.114));',
-        '    o=mix(clean,mix(pix,vec4(vec3(luma*0.85),1.0),zone*0.45),zone);',
-        // ── DATAFLOW: vertical hacker data-stream overlay ──
-        '  }else if(mode==2){',
-        '    vec4 base=texture(t,v);',
-        '    float col=floor(v.x*64.0)/64.0;',
-        '    float colSeed=h1(col*43.7);',
-        '    float colSpeed=0.2+colSeed*0.9+uAudio*0.55;',
-        '    float rowNoise=h1(col*91.1+floor((v.y+time*colSpeed)*52.0));',
-        '    float bit=step(0.82-uAudio*0.22,rowNoise);',
-        '    float mouseGlow=1.0-smoothstep(0.0,0.22,length(v-uMouse));',
-        '    float activeCol=smoothstep(0.50-uAudio*0.35,0.78,h1(col*73.3+floor(time*3.0)));',
-        '    activeCol=max(activeCol,mouseGlow*0.9);',
-        '    float br=(0.4+rowNoise*0.6)*(1.0+mouseGlow*2.0);',
-        '    vec3 dataCol=vec3(0.0,min(br,1.8),br*0.28);',
-        '    vec3 darkBase=base.rgb*mix(vec3(1.0),vec3(0.08,0.38,0.12),activeCol*0.7);',
-        '    o=vec4(mix(darkBase,dataCol,bit*activeCol*(0.85+uAudio*0.15)),1.0);',
-        // ── CORRUPT: block displacement with frame feedback (default) ──
+        // Cold desaturation inside zone (broadcast censoring looks bluish-grey)
+        '    vec4 cold=vec4(luma*0.70,luma*0.70,luma*0.82,1.0);',
+        '    vec4 censored=mix(pix,cold,zone*0.58);',
+        // Cyan chromatic fringe exactly at zone boundary
+        '    float edge=smoothstep(0.22,0.26,dist)*(1.0-smoothstep(0.26,0.31,dist));',
+        '    censored.rgb=mix(censored.rgb,vec3(0.05,0.92,1.0),edge*0.85);',
+        '    o=mix(clean,censored,max(zone,edge));',
+
+        // ── CORRUPT: H.264-style macroblock corruption ──
         '  }else{',
-        '    float bSz=max(18.0-uAudio*14.0,4.0);',
+        '    float mR=0.17+uAudio*0.10;',
+        '    float zone=1.0-smoothstep(mR*0.5,mR,dist);',
+        // Visible macroblocks: audio shrinks them (calm=big blocks, loud=many small)
+        '    float bSz=mix(20.0,8.0,uAudio);',
         '    vec2 bCoord=floor(v*res/bSz);',
-        '    vec2 bNoise=h2(bCoord);',
-        '    float drift=0.032+uAudio*0.14;',
-        '    vec2 motion=vec2(',
-        '      bNoise.x*drift+sin(time*0.8+bNoise.y*6.28)*0.013,',
-        '      bNoise.y*drift+cos(time*0.6+bNoise.x*6.28)*0.013',
-        '    );',
-        '    vec2 toMouse=uMouse-v;',
-        '    float mPull=(1.0-smoothstep(0.0,0.4,length(toMouse)))*0.14;',
-        '    motion+=normalize(toMouse+0.0001)*mPull;',
-        '    vec4 cur=texture(t,clamp(v+motion,0.0,1.0));',
-        '    vec4 prev=texture(tPrev,v);',
-        '    float inject=0.18-uAudio*0.16;',
-        '    vec4 moshd=mix(prev*0.982,cur,inject);',
-        '    vec4 clean=texture(t,v);',
-        '    float mR=0.18+uAudio*0.10;',
-        '    float mask=1.0-smoothstep(mR*0.55,mR,length(v-uMouse));',
-        '    o=mix(clean,moshd,mask);',
+        '    vec2 bN1=h2(bCoord);',
+        '    vec2 bN2=h2(bCoord+vec2(7.3,11.7));',
+        '    vec2 bCenter=(bCoord*bSz+bSz*0.5)/res;',
+        // Each block picks a corruption type that refreshes at ~2.5Hz
+        '    float bTick=floor(time*2.5+abs(h2(bCoord+0.1).x)*4.0);',
+        '    float corruptT=fract(abs(h2(bCoord+bTick*0.07).x)*3.0)*3.0;',
+        // Three corruption types: far-displaced / channel-swapped / prev-frame ghost
+        '    float farMag=0.15+uAudio*0.26;',
+        '    vec4 farSamp=texture(t,clamp(bCenter+bN1*farMag,0.0,1.0));',
+        '    vec4 swapped=vec4(farSamp.b,farSamp.r,farSamp.g,1.0);',
+        '    vec4 ghostSamp=mix(texture(tPrev,bCenter),texture(t,clamp(v+bN2*0.06,0.0,1.0)),0.45);',
+        '    vec4 corrupt;',
+        '    if(corruptT<1.0)corrupt=farSamp;',
+        '    else if(corruptT<2.0)corrupt=swapped;',
+        '    else corrupt=ghostSamp;',
+        // Frame accumulation (feedback loop)
+        '    float inject=0.13-uAudio*0.11;',
+        '    vec4 moshd=mix(texture(tPrev,v)*0.987,corrupt,inject);',
+        // Visible macroblock-edge ringing (magenta border = codec artifact)
+        '    vec2 bEdge=fract(v*res/bSz);',
+        '    float ring=1.0-smoothstep(0.0,0.09,min(min(bEdge.x,1.0-bEdge.x),min(bEdge.y,1.0-bEdge.y)));',
+        '    moshd.rgb=mix(moshd.rgb,vec3(0.88,0.04,0.88),ring*zone*0.38);',
+        '    o=mix(clean,moshd,zone);',
         '  }',
         '}'
     ].join('\n'),
