@@ -2014,7 +2014,7 @@ function initSeamControls() {
         toItem.transitionDuration = Math.round((dz.min + pct * (dz.max - dz.min)) * 10) / 10;
     }
 
-    // ── mousemove: hover + drag ──
+    // ── mousemove: hover + drag + NVG binocular tracking ──
     stage.addEventListener('mousemove', function(e) {
         var c   = _cc(e);
         var idx = _hitSeam(c.x, c.y);
@@ -2034,11 +2034,27 @@ function initSeamControls() {
 
         // Drag duration
         if (APP.media._durDragging) _applyDur(c.x);
+
+        // NVG binocular tracking
+        if (!window._nvgPos) window._nvgPos = {x: 0.5, y: 0.5, locked: false};
+        if (!window._nvgPos.locked && document.body.classList.contains('fx-nvg')) {
+            var sr = stage.getBoundingClientRect();
+            window._nvgPos.x = (e.clientX - sr.left) / sr.width;
+            window._nvgPos.y = (e.clientY - sr.top)  / sr.height;
+        }
     });
 
     stage.addEventListener('mouseleave', function() {
         APP.media._hoveredSeam = -1;
         if (!APP.media._durDragging) canvas.style.cursor = '';
+    });
+
+    // ── dblclick: lock / unlock NVG binocular position ──
+    stage.addEventListener('dblclick', function() {
+        if (!document.body.classList.contains('fx-nvg')) return;
+        if (!window._nvgPos) window._nvgPos = {x: 0.5, y: 0.5, locked: false};
+        window._nvgPos.locked = !window._nvgPos.locked;
+        typeof ghostLog === 'function' && ghostLog('NVG SCOPE ' + (window._nvgPos.locked ? 'LOCKED' : 'TRACKING'), 'sys');
     });
 
     // ── mousedown: start duration drag ──
@@ -3141,8 +3157,12 @@ if (T.logo.visible) {
             ctx.save();
             ctx.setTransform(1, 0, 0, 1, 0, 0); ctx.filter = 'none'; ctx.globalAlpha = 1; ctx.globalCompositeOperation = 'source-over';
 
-            // Tube vignette
-            var _nvgV = ctx.createRadialGradient(_ow/2, _oh/2, _oh*0.22, _ow/2, _oh/2, _oh*0.75);
+            // Binocular center (mouse-tracked, double-click to lock)
+            if (!window._nvgPos) window._nvgPos = {x: 0.5, y: 0.5, locked: false};
+            var _ncx = window._nvgPos.x * _ow, _ncy = window._nvgPos.y * _oh;
+
+            // Tube vignette (follows scope center)
+            var _nvgV = ctx.createRadialGradient(_ncx, _ncy, _oh*0.22, _ncx, _ncy, _oh*0.75);
             _nvgV.addColorStop(0, 'rgba(0,0,0,0)'); _nvgV.addColorStop(1, 'rgba(0,0,0,0.92)');
             ctx.fillStyle = _nvgV; ctx.fillRect(0, 0, _ow, _oh);
 
@@ -3162,7 +3182,7 @@ if (T.logo.visible) {
             ctx.globalAlpha = 1;
 
             // ── GPNVG-18 tactical reticle ──
-            var _cx = _ow / 2, _cy = _oh / 2;
+            var _cx = _ncx, _cy = _ncy;
             var _rr = Math.min(_ow, _oh) * 0.32;
             var _g = 'rgba(0,255,65,';
 
@@ -9986,7 +10006,7 @@ document.addEventListener('DOMContentLoaded', () => {
             'coupled-seismic','coupled-punch','coupled-party','coupled-glitch',
             // Bank B GPU shaders
             'coupled-vb-slit-scan','coupled-vb-luma-bloom','coupled-vb-dither-luxe',
-            'coupled-vb-caustics','coupled-vb-ghost-echo','coupled-vb-spectral-mosh'
+            'coupled-vb-caustics','coupled-vb-ghost-echo','coupled-vb-acid'
         ];
         var COUPLING_LABELS = {
             none:'', nvg:'NVG', shoot:'SHOOT', reset:'RESET',
@@ -9994,7 +10014,7 @@ document.addEventListener('DOMContentLoaded', () => {
             seismic:'SEISMIC', punch:'PUNCH', party:'PARTY', glitch:'GLITCH',
             'vb-slit-scan':'SLIT_SCN', 'vb-luma-bloom':'LUM_BLM',
             'vb-dither-luxe':'DITHER', 'vb-caustics':'CAUSTIC',
-            'vb-ghost-echo':'GHO_ECH', 'vb-spectral-mosh':'SPEC_MSH'
+            'vb-ghost-echo':'GHO_ECH', 'vb-acid':'ACID'
         };
 
         function _setCouplingByName(btn, sfxName, fx) {
@@ -10113,7 +10133,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 var shaderMap = {
                     'vb-slit-scan':'SLIT_SCAN','vb-luma-bloom':'LUMA_BLOOM',
                     'vb-dither-luxe':'DITHER_LUXE','vb-caustics':'CAUSTICS',
-                    'vb-ghost-echo':'GHOST_ECHO','vb-spectral-mosh':'SPECTRAL_MOSH'
+                    'vb-ghost-echo':'GHOST_ECHO','vb-acid':'ACID'
                 };
                 var sn = shaderMap[fx];
                 if (sn) {
