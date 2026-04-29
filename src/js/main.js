@@ -3136,40 +3136,160 @@ if (T.logo.visible) {
     // Drawn at identity transform (after punch restore) so they sit on top of all content.
     if (!(APP.peer && APP.peer.call)) {
         var _ow = APP.render.canvas.width, _oh = APP.render.canvas.height;
-        // NVG: circular tube vignette + fine scan lines (green tint already baked via filter above)
+        // NVG: tube vignette + phosphor scanlines + GPNVG-18 tactical reticle
         if (_fxCls.contains('fx-nvg')) {
             ctx.save();
             ctx.setTransform(1, 0, 0, 1, 0, 0); ctx.filter = 'none'; ctx.globalAlpha = 1; ctx.globalCompositeOperation = 'source-over';
+
+            // Tube vignette
             var _nvgV = ctx.createRadialGradient(_ow/2, _oh/2, _oh*0.22, _ow/2, _oh/2, _oh*0.75);
             _nvgV.addColorStop(0, 'rgba(0,0,0,0)'); _nvgV.addColorStop(1, 'rgba(0,0,0,0.92)');
             ctx.fillStyle = _nvgV; ctx.fillRect(0, 0, _ow, _oh);
-            ctx.fillStyle = 'rgba(0,0,0,0.18)';
-            for (var _nl = 0; _nl < _oh; _nl += 3) ctx.fillRect(0, _nl, _ow, 1);
+
+            // CRT phosphor scanlines (cached 1×3 pattern — single fillRect)
+            if (!window._nvgScanPat || window._nvgScanPatCtx !== ctx) {
+                var _np = document.createElement('canvas'); _np.width = 1; _np.height = 3;
+                var _npx = _np.getContext('2d');
+                _npx.fillStyle = 'rgba(0,0,0,0.18)';   _npx.fillRect(0, 0, 1, 1);
+                _npx.fillStyle = 'rgba(0,30,0,0.08)';  _npx.fillRect(0, 1, 1, 1);
+                _npx.fillStyle = 'rgba(0,0,0,0.14)';   _npx.fillRect(0, 2, 1, 1);
+                window._nvgScanPat = ctx.createPattern(_np, 'repeat');
+                window._nvgScanPatCtx = ctx;
+            }
+            ctx.globalAlpha = 0.75;
+            ctx.fillStyle = window._nvgScanPat;
+            ctx.fillRect(0, 0, _ow, _oh);
+            ctx.globalAlpha = 1;
+
+            // ── GPNVG-18 tactical reticle ──
+            var _cx = _ow / 2, _cy = _oh / 2;
+            var _rr = Math.min(_ow, _oh) * 0.32;
+            var _g = 'rgba(0,255,65,';
+
+            // Outer scope ring
+            ctx.beginPath(); ctx.arc(_cx, _cy, _rr, 0, Math.PI * 2);
+            ctx.strokeStyle = _g + '0.5)'; ctx.lineWidth = 1; ctx.stroke();
+
+            // Inner boundary ring (dual-tube gap indicator)
+            ctx.beginPath(); ctx.arc(_cx, _cy, _rr * 0.84, 0, Math.PI * 2);
+            ctx.strokeStyle = _g + '0.2)'; ctx.lineWidth = 0.5; ctx.stroke();
+
+            // Cardinal tick marks (N/E/S/W, pointing inward)
+            ctx.strokeStyle = _g + '0.7)'; ctx.lineWidth = 1;
+            var _dirs = [[0,-1],[1,0],[0,1],[-1,0]];
+            for (var _ti = 0; _ti < 4; _ti++) {
+                var _tdx = _dirs[_ti][0], _tdy = _dirs[_ti][1];
+                ctx.beginPath();
+                ctx.moveTo(_cx + _tdx * _rr, _cy + _tdy * _rr);
+                ctx.lineTo(_cx + _tdx * _rr * 0.87, _cy + _tdy * _rr * 0.87);
+                ctx.stroke();
+            }
+
+            // 45° minor ticks
+            ctx.strokeStyle = _g + '0.28)'; ctx.lineWidth = 0.5;
+            var _d45 = 0.7071;
+            var _diag45 = [[_d45,-_d45],[_d45,_d45],[-_d45,_d45],[-_d45,-_d45]];
+            for (var _di = 0; _di < 4; _di++) {
+                ctx.beginPath();
+                ctx.moveTo(_cx + _diag45[_di][0]*_rr, _cy + _diag45[_di][1]*_rr);
+                ctx.lineTo(_cx + _diag45[_di][0]*_rr*0.91, _cy + _diag45[_di][1]*_rr*0.91);
+                ctx.stroke();
+            }
+
+            // Center crosshair (gapped)
+            var _arm = _rr * 0.09, _gap = _rr * 0.025;
+            ctx.strokeStyle = _g + '0.65)'; ctx.lineWidth = 1;
+            ctx.beginPath();
+            ctx.moveTo(_cx - _arm, _cy); ctx.lineTo(_cx - _gap, _cy);
+            ctx.moveTo(_cx + _gap, _cy); ctx.lineTo(_cx + _arm, _cy);
+            ctx.moveTo(_cx, _cy - _arm); ctx.lineTo(_cx, _cy - _gap);
+            ctx.moveTo(_cx, _cy + _gap); ctx.lineTo(_cx, _cy + _arm);
+            ctx.stroke();
+
+            // IR illuminator bloom at center
+            var _bl = ctx.createRadialGradient(_cx, _cy, 0, _cx, _cy, _rr * 0.14);
+            _bl.addColorStop(0, 'rgba(0,255,65,0.14)');
+            _bl.addColorStop(0.5, 'rgba(0,255,65,0.04)');
+            _bl.addColorStop(1, 'rgba(0,255,65,0)');
+            ctx.fillStyle = _bl;
+            ctx.fillRect(_cx - _rr*0.14, _cy - _rr*0.14, _rr*0.28, _rr*0.28);
+
             ctx.restore();
         }
-        // VHS: horizontal scan lines + slow rolling glitch band
+        // VHS: real tape sim — full-frame chroma bleed, per-scanline jitter, dropout, head-switch
         if (_fxCls.contains('vhs')) {
             ctx.save();
             ctx.setTransform(1, 0, 0, 1, 0, 0); ctx.filter = 'none'; ctx.globalAlpha = 1; ctx.globalCompositeOperation = 'source-over';
-            // ── Chromatic aberration: snapshot canvas, draw red channel +4px right, cyan -4px left ──
+
+            // Snapshot current frame
             if (!window._vhsSnap) window._vhsSnap = document.createElement('canvas');
             if (window._vhsSnap.width !== _ow || window._vhsSnap.height !== _oh) { window._vhsSnap.width = _ow; window._vhsSnap.height = _oh; }
             window._vhsSnap.getContext('2d').drawImage(APP.render.canvas, 0, 0, _ow, _oh);
-            ctx.globalCompositeOperation = 'screen';
-            ctx.globalAlpha = 0.28;
-            ctx.filter = 'sepia(1) saturate(10) hue-rotate(315deg)'; // red channel
-            ctx.drawImage(window._vhsSnap, 4, 0, _ow, _oh);
-            ctx.filter = 'sepia(1) saturate(10) hue-rotate(158deg)'; // cyan channel
-            ctx.drawImage(window._vhsSnap, -4, 0, _ow, _oh);
+
+            // ── Full-frame luma/chroma separation (flat offset) ──
+            ctx.globalCompositeOperation = 'screen'; ctx.globalAlpha = 0.30;
+            ctx.filter = 'sepia(1) saturate(18) hue-rotate(320deg)';
+            ctx.drawImage(window._vhsSnap, 3.5, 0, _ow, _oh);  // red right
+            ctx.filter = 'sepia(1) saturate(18) hue-rotate(160deg)';
+            ctx.drawImage(window._vhsSnap, -3.5, 0, _ow, _oh); // cyan left
             ctx.filter = 'none'; ctx.globalCompositeOperation = 'source-over'; ctx.globalAlpha = 1;
-            // ── Scanlines ──
-            ctx.fillStyle = 'rgba(0,0,0,0.22)';
-            for (var _vl = 0; _vl < _oh; _vl += 2) ctx.fillRect(0, _vl, _ow, 1);
-            // ── Rolling tracking bar ──
-            var _ry = (timestamp * 0.04) % _oh;
-            var _vb = ctx.createLinearGradient(0, _ry - 12, 0, _ry + 12);
-            _vb.addColorStop(0, 'rgba(255,255,255,0)'); _vb.addColorStop(0.5, 'rgba(255,255,255,0.16)'); _vb.addColorStop(1, 'rgba(255,255,255,0)');
-            ctx.fillStyle = _vb; ctx.fillRect(0, Math.max(0, _ry - 12), _ow, 24);
+
+            // ── Per-scanline jitter (~20 random rows per frame, tracking instability) ──
+            var _tBkt = Math.floor(timestamp / 55); // ~18 buckets/sec
+            var _prng = (_tBkt * 1664525 + 1013904223) >>> 0;
+            for (var _ji = 0; _ji < 20; _ji++) {
+                _prng = ((_prng * 1664525 + 1013904223) >>> 0);
+                var _jy  = (_prng >> 8) % _oh;
+                var _jx  = (((_prng & 0xFF) - 128) * 0.18); // ±23px
+                ctx.globalCompositeOperation = 'screen'; ctx.globalAlpha = 0.45;
+                ctx.filter = 'sepia(1) saturate(18) hue-rotate(320deg)';
+                ctx.drawImage(window._vhsSnap, _jx + 3.5, 0, _ow, _oh, 0, _jy, _ow, 1);
+                ctx.filter = 'sepia(1) saturate(18) hue-rotate(160deg)';
+                ctx.drawImage(window._vhsSnap, -_jx - 3.5, 0, _ow, _oh, 0, _jy, _ow, 1);
+                ctx.filter = 'none'; ctx.globalCompositeOperation = 'source-over'; ctx.globalAlpha = 1;
+            }
+
+            // ── CRT phosphor scanlines (cached pattern, single fillRect) ──
+            if (!window._vhsScanPat || window._vhsScanPatCtx !== ctx) {
+                var _vp = document.createElement('canvas'); _vp.width = 1; _vp.height = 3;
+                var _vpx = _vp.getContext('2d');
+                _vpx.fillStyle = 'rgba(255,10,0,0.055)';  _vpx.fillRect(0, 0, 1, 1);
+                _vpx.fillStyle = 'rgba(0,255,10,0.045)';  _vpx.fillRect(0, 1, 1, 1);
+                _vpx.fillStyle = 'rgba(0,10,255,0.07)';   _vpx.fillRect(0, 2, 1, 1);
+                window._vhsScanPat = ctx.createPattern(_vp, 'repeat');
+                window._vhsScanPatCtx = ctx;
+            }
+            ctx.fillStyle = window._vhsScanPat;
+            ctx.fillRect(0, 0, _ow, _oh);
+
+            // ── Random dropout flickers (4 white single-row bursts) ──
+            for (var _di = 0; _di < 4; _di++) {
+                _prng = ((_prng * 1664525 + 1013904223) >>> 0);
+                var _dy = (_prng >> 8) % _oh;
+                var _da = ((_prng & 0xFF) / 255) * 0.72;
+                ctx.fillStyle = 'rgba(255,255,255,' + _da.toFixed(2) + ')';
+                ctx.fillRect(0, _dy, _ow, 1);
+            }
+
+            // ── Head-switch artifact: bottom 3.5% — heavy jitter + luminance wash ──
+            var _hsY = Math.floor(_oh * 0.965);
+            for (var _hy = _hsY; _hy < _oh; _hy++) {
+                _prng = ((_prng * 1664525 + 1013904223) >>> 0);
+                var _hx2 = ((_prng & 0xFF) - 128) * 0.45;
+                ctx.globalCompositeOperation = 'screen'; ctx.globalAlpha = 0.55;
+                ctx.filter = 'sepia(1) saturate(18) hue-rotate(320deg)';
+                ctx.drawImage(window._vhsSnap, _hx2 + 3.5, 0, _ow, _oh, 0, _hy, _ow, 1);
+                ctx.filter = 'sepia(1) saturate(18) hue-rotate(160deg)';
+                ctx.drawImage(window._vhsSnap, -_hx2 - 3.5, 0, _ow, _oh, 0, _hy, _ow, 1);
+                ctx.filter = 'none'; ctx.globalCompositeOperation = 'source-over'; ctx.globalAlpha = 1;
+            }
+            var _hsg = ctx.createLinearGradient(0, _oh * 0.965, 0, _oh);
+            _hsg.addColorStop(0, 'rgba(255,255,255,0)');
+            _hsg.addColorStop(0.35, 'rgba(200,165,110,0.20)');
+            _hsg.addColorStop(1, 'rgba(0,0,0,0.45)');
+            ctx.fillStyle = _hsg;
+            ctx.fillRect(0, _oh * 0.965, _ow, _oh * 0.035);
+
             ctx.restore();
         }
         // SCAN / X-RAY: animated cyan laser sweep bar

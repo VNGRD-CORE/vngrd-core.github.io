@@ -419,7 +419,7 @@
         #vj-canvas { position: absolute; top: 0; left: 0; width: 100%; height: 100%; z-index: 1000; pointer-events: none !important; }
         #overlay-layer { position: absolute; inset: 0; z-index: 2000; pointer-events: none; }
         
-        #stage::before { content: ""; position: absolute; inset: 0; z-index: 3000; pointer-events: none; background: repeating-linear-gradient(0deg, transparent, transparent 2px, rgba(0,0,0,0.03) 2px, rgba(0,0,0,0.03) 4px); opacity: 0.3; }
+        #stage::before { content: ""; position: absolute; inset: 0; z-index: 3000; pointer-events: none; background: repeating-linear-gradient(0deg, rgba(255,10,0,0.03) 0px, rgba(255,10,0,0.03) 1px, rgba(0,255,10,0.025) 1px, rgba(0,255,10,0.025) 2px, rgba(0,10,255,0.04) 2px, rgba(0,10,255,0.04) 3px, transparent 3px, transparent 4px); opacity: 0.5; }
         #stage::after { content: ""; position: absolute; inset: 0; z-index: 3001; pointer-events: none; background: radial-gradient(ellipse at center, transparent 50%, rgba(0,0,0,0.5) 100%); }
 
         body.fullscreen #stage { position: fixed; inset: 0; z-index: 9999; border: none; }
@@ -2422,11 +2422,9 @@ body.vhs #stage {
     filter: contrast(1.3) saturate(0.8) sepia(0.2) drop-shadow(3px 0px 0 rgba(255,0,0,0.5)) drop-shadow(-3px 0px 0 rgba(0,255,255,0.5)) !important;
 }
 
-/* 2. VHS: Aggressive Tape Scanlines */
-body.vhs #stage::before { 
-    background: repeating-linear-gradient(0deg, transparent, transparent 2px, rgba(0,0,0,0.3) 2px, rgba(0,0,0,0.3) 5px) !important; 
-    animation: vhs-track 0.08s steps(3) infinite !important; 
-    opacity: 0.8 !important; 
+/* 2. VHS: scanlines now drawn in canvas — suppress CSS duplicate */
+body.vhs #stage::before {
+    display: none !important;
 }
 
 /* 3. VHS: Rolling Tracking Bar */
@@ -2946,18 +2944,12 @@ body.fx-nvg .sidebar { z-index: 9999; }
     pointer-events: none !important;
 }
 
-/* VINYL VISUAL LOCK — prevent layout overflow during seismic/punch events.
-   Constrains the primary canvas and off-screen AI video to viewport bounds
-   so boosted vinyl bass cannot cause elements to spill outside the screen. */
+/* VINYL VISUAL LOCK — clip canvas during seismic/punch so overscan buffer
+   absorbs body-translate and punch-zoom without exposing black edges. */
 body.seismic-active #vj-canvas,
 body.vb-seismic #vj-canvas,
 body.vb-punch #vj-canvas,
 body.fx-punch #vj-canvas {
-    object-fit: contain !important;
-    width: 100vw !important;
-    height: 100vh !important;
-    max-width: 100% !important;
-    max-height: 100% !important;
     overflow: hidden;
 }
 #kr-ai-video {
@@ -3016,31 +3008,13 @@ body.fx-nvg::after {
             transparent 38%,
             rgba(0,8,0,0.50) 62%,
             rgba(0,4,0,0.92) 80%,
-            #000 100%),
-        repeating-linear-gradient(
-            0deg,
-            transparent 0px,
-            transparent 2px,
-            rgba(0,28,0,0.11) 2px,
-            rgba(0,28,0,0.11) 3px
-        );
+            #000 100%);
     pointer-events: none;
     z-index: 9998;
 }
-/* 3. Scope reticle — thin crosshair ring */
+/* 3. Scope reticle — drawn in canvas; suppress CSS version */
 body.fx-nvg #stage::after {
-    content: "";
-    position: absolute;
-    top: 50%; left: 50%;
-    transform: translate(-50%, -50%);
-    width: 60px; height: 60px;
-    border: 1px solid rgba(0, 255, 65, 0.45);
-    border-radius: 50%;
-    box-shadow:
-        0 0 0 1px rgba(0,255,65,0.10),
-        inset 0 0 8px rgba(0,255,65,0.08);
-    pointer-events: none;
-    z-index: 9997;
+    content: none;
 }
 @keyframes nvg-stage-flicker {
     0%, 88%, 92%, 100% { opacity: 1; }
