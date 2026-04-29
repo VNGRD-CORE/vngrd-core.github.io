@@ -27,12 +27,17 @@ var FS = {
     SLIT_SCAN: [
         '#version 300 es',
         'precision mediump float;',
-        'in vec2 v; uniform sampler2D t; uniform float time; out vec4 o;',
+        'in vec2 v; uniform sampler2D t; uniform float time; uniform float uAudio; uniform vec2 uMouse; out vec4 o;',
         'void main(){',
-        '  float a=sin(v.y*20.0+time*3.0)*0.045+sin(v.y*7.0+time*1.2)*0.018;',
+        // Mouse X: total amplitude (left=calm, right=extreme)
+        '  float amp=0.012+uMouse.x*0.10+uAudio*0.04;',
+        // Mouse Y: focal point — strongest distortion near cursor Y, falls off away
+        '  float yFocus=exp(-abs(v.y-uMouse.y)*7.0);',
+        '  float localAmp=amp*(0.35+yFocus*0.65);',
+        '  float a=sin(v.y*20.0+time*3.0)*localAmp+sin(v.y*7.0+time*1.2)*localAmp*0.45;',
         '  vec4 r=texture(t,vec2(clamp(v.x+a,0.0,1.0),v.y));',
-        '  vec4 g=texture(t,vec2(clamp(v.x+a*0.8,0.0,1.0),v.y));',
-        '  vec4 b=texture(t,vec2(clamp(v.x+a*1.2,0.0,1.0),v.y));',
+        '  vec4 g=texture(t,vec2(clamp(v.x+a*0.78,0.0,1.0),v.y));',
+        '  vec4 b=texture(t,vec2(clamp(v.x+a*1.22,0.0,1.0),v.y));',
         '  o=vec4(r.r,g.g,b.b,1.0);',
         '}'
     ].join('\n'),
@@ -125,29 +130,32 @@ var FS = {
         '}'
     ].join('\n'),
 
-    SPECTRAL_MOSH: [
+    // ── ACID ─────────────────────────────────────────────────────────────
+    // Psychedelic hue cycling. Three sine waves phase through R/G/B at
+    // different speeds; luma offsets the phase so each brightness band
+    // cycles to a different colour. Always animated at silence, blazes with
+    // audio. Mouse cursor creates a local speed-up zone.
+    ACID: [
         '#version 300 es',
-        'precision highp float;',
-        'in vec2 v;',
-        'uniform sampler2D t;',
-        'uniform float time;',
-        'uniform float uAudio;',
-        'uniform vec2 res;',
-        'out vec4 o;',
+        'precision mediump float;',
+        'in vec2 v; uniform sampler2D t; uniform float time; uniform float uAudio; uniform vec2 uMouse; out vec4 o;',
         'void main(){',
-        '  vec2 px=1.0/max(res,vec2(1.0));',
-        '  vec3 c0=texture(t,v).rgb;',
-        '  float lumC=dot(c0,vec3(0.299,0.587,0.114));',
-        '  float lumR=dot(texture(t,v+vec2(px.x,0.0)).rgb,vec3(0.299,0.587,0.114));',
-        '  float lumU=dot(texture(t,v+vec2(0.0,px.y)).rgb,vec3(0.299,0.587,0.114));',
-        '  float mag=(0.006+uAudio*0.022)*26.0;',
-        '  vec2 shift=vec2(lumR-lumC,lumU-lumC)*mag;',
-        '  float tmod=time*0.38;',
-        '  float r=texture(t,clamp(v+shift*1.9,0.0,1.0)).r;',
-        '  float g=texture(t,clamp(v+shift*0.55+vec2(sin(tmod)*0.0025,0.0),0.0,1.0)).g;',
-        '  float b=texture(t,clamp(v-shift*1.4+vec2(0.0,cos(tmod)*0.002),0.0,1.0)).b;',
-        '  float edge=clamp(length(shift)*35.0,0.0,1.0);',
-        '  o=vec4(mix(c0,vec3(r,g,b),edge),1.0);',
+        '  vec4 col=texture(t,v);',
+        '  float luma=dot(col.rgb,vec3(0.2126,0.7152,0.0722));',
+        // Mouse proximity boosts local cycle speed
+        '  float mBoost=(1.0-smoothstep(0.0,0.38,length(v-uMouse)))*3.5;',
+        '  float spd=0.35+uAudio*2.2+mBoost;',
+        '  float cycle=time*spd;',
+        // luma offsets phase so each brightness band gets a distinct colour
+        '  float lumPh=luma*3.14159*(1.8+uAudio*2.5);',
+        '  vec3 acid=vec3(',
+        '    sin(lumPh+cycle*1.00)*0.5+0.5,',
+        '    sin(lumPh+cycle*0.79+2.09)*0.5+0.5,',
+        '    sin(lumPh+cycle*1.13+4.19)*0.5+0.5',
+        '  );',
+        // Blend: 65% acid at silence, fully acid at peak
+        '  float str=0.65+uAudio*0.32;',
+        '  o=vec4(mix(col.rgb,acid,str),1.0);',
         '}'
     ].join('\n'),
 
@@ -213,7 +221,12 @@ var FS = {
         '  vec4 prev=texture(tPrev,v);',
         // inject=0.18 at silence (visible immediately); drops to 0.02 at peak (deep freeze)
         '  float inject=0.18-uAudio*0.16;',
-        '  o=mix(prev*0.982,cur,inject);',
+        '  vec4 moshd=mix(prev*0.982,cur,inject);',
+        // Mouse mask: datamosh only inside cursor radius, clean image outside
+        '  vec4 clean=texture(t,v);',
+        '  float mR=0.18+uAudio*0.10;',
+        '  float mask=1.0-smoothstep(mR*0.55,mR,length(v-uMouse));',
+        '  o=mix(clean,moshd,mask);',
         '}'
     ].join('\n'),
 
