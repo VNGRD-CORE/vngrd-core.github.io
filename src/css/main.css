@@ -2719,7 +2719,7 @@ body.shooting-mode #btn-shooting {
             overflow-y: auto; overflow-x: hidden;
             -webkit-overflow-scrolling: touch;
         }
-        #stage { flex: 1; min-height: 0; }
+        #stage { top: 36px; bottom: 40px; }
         #top-bar { height: 36px; }
         /* Scale down logo + brand elements to fit mobile header */
         .logo { font-size: 20px !important; }
