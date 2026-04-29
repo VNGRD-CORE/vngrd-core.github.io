@@ -27,18 +27,32 @@ var FS = {
     SLIT_SCAN: [
         '#version 300 es',
         'precision mediump float;',
-        'in vec2 v; uniform sampler2D t; uniform float time; uniform float uAudio; uniform vec2 uMouse; out vec4 o;',
+        'in vec2 v; uniform sampler2D t; uniform sampler2D tPrev;',
+        'uniform float time; uniform float uAudio; uniform vec2 uMouse; out vec4 o;',
         'void main(){',
-        // Mouse X: total amplitude (left=calm, right=extreme)
-        '  float amp=0.012+uMouse.x*0.10+uAudio*0.04;',
-        // Mouse Y: focal point — strongest distortion near cursor Y, falls off away
-        '  float yFocus=exp(-abs(v.y-uMouse.y)*7.0);',
-        '  float localAmp=amp*(0.35+yFocus*0.65);',
-        '  float a=sin(v.y*20.0+time*3.0)*localAmp+sin(v.y*7.0+time*1.2)*localAmp*0.45;',
-        '  vec4 r=texture(t,vec2(clamp(v.x+a,0.0,1.0),v.y));',
-        '  vec4 g=texture(t,vec2(clamp(v.x+a*0.78,0.0,1.0),v.y));',
-        '  vec4 b=texture(t,vec2(clamp(v.x+a*1.22,0.0,1.0),v.y));',
-        '  o=vec4(r.r,g.g,b.b,1.0);',
+        // Mouse Y = focal band: rows near cursor get max distortion, falls off above/below
+        '  float focal=exp(-abs(v.y-uMouse.y)*5.5);',
+        '  float amp=(0.012+uMouse.x*0.11+uAudio*0.055)*(0.18+focal*0.82);',
+        // 4-harmonic X-wave stack: fundamental + 3 overtones at different speeds
+        '  float wx=sin(v.y*17.0+time*3.4)*amp',
+        '          +sin(v.y*41.0+time*5.7)*amp*0.35',
+        '          +sin(v.y*8.0+time*1.3)*amp*0.55',
+        '          +sin(v.y*97.0+time*9.1)*amp*0.12;',
+        // Subtle Y-axis bowing for 2D depth (not just horizontal strips)
+        '  float wy=cos(v.x*11.0+time*2.3)*amp*0.28+cos(v.x*26.0+time*4.1)*amp*0.14;',
+        // Per-channel chromatic separation: R leads, B lags
+        '  float rX=clamp(v.x+wx*1.35,0.0,1.0);',
+        '  float gX=clamp(v.x+wx,0.0,1.0);',
+        '  float bX=clamp(v.x+wx*0.62,0.0,1.0);',
+        '  float yW=clamp(v.y+wy,0.0,1.0);',
+        '  float r=texture(t,vec2(rX,yW)).r;',
+        '  float g=texture(t,vec2(gX,yW)).g;',
+        '  float b=texture(t,vec2(bX,yW)).b;',
+        '  vec4 cur=vec4(r,g,b,1.0);',
+        // Temporal smear: out-of-focus rows blend with prev frame for depth/streaking
+        '  vec4 prev=texture(tPrev,vec2(gX,yW));',
+        '  float smear=(1.0-focal)*(0.52+uAudio*0.18);',
+        '  o=mix(cur,prev,smear);',
         '}'
     ].join('\n'),
 
@@ -190,43 +204,69 @@ var FS = {
     ].join('\n'),
 
     // ── DATAMOSH ─────────────────────────────────────────────────────────
-    // Block displacement with tPrev accumulation. 18% base injection means
-    // the image is immediately visible. Audio drops injection → deeper freeze.
-    // Mouse warps nearby blocks toward the cursor.
+    // Three modes via uMode uniform (0=CORRUPT, 1=CENSOR, 2=DATAFLOW).
+    // CORRUPT: block displacement + frame feedback, effect inside cursor radius.
+    // CENSOR: heavy pixelation near mouse, clean video outside.
+    // DATAFLOW: vertical terminal-green data streams overlay the video.
     DATAMOSH: [
         '#version 300 es',
         'precision highp float;',
         'in vec2 v; uniform sampler2D t; uniform sampler2D tPrev;',
-        'uniform float time; uniform float uAudio; uniform vec2 res; uniform vec2 uMouse; out vec4 o;',
+        'uniform float time; uniform float uAudio; uniform vec2 res; uniform vec2 uMouse; uniform float uMode; out vec4 o;',
         'vec2 h2(vec2 p){',
         '  p=vec2(dot(p,vec2(127.1,311.7)),dot(p,vec2(269.5,183.3)));',
         '  return fract(sin(p)*43758.5453)-0.5;',
         '}',
+        'float h1(float p){return fract(sin(p*127.1)*43758.5453);}',
         'void main(){',
-        // Block size shrinks on high audio — more blocks = more chaos
-        '  float bSz=max(18.0-uAudio*14.0,4.0);',
-        '  vec2 bCoord=floor(v*res/bSz);',
-        '  vec2 bNoise=h2(bCoord);',
-        // Continuously animated drift (not time-bucketed — always moving)
-        '  float drift=0.032+uAudio*0.14;',
-        '  vec2 motion=vec2(',
-        '    bNoise.x*drift+sin(time*0.8+bNoise.y*6.28)*0.013,',
-        '    bNoise.y*drift+cos(time*0.6+bNoise.x*6.28)*0.013',
-        '  );',
-        // Mouse warps blocks toward cursor within a 0.4-radius influence zone
-        '  vec2 toMouse=uMouse-v;',
-        '  float mPull=(1.0-smoothstep(0.0,0.4,length(toMouse)))*0.14;',
-        '  motion+=normalize(toMouse+0.0001)*mPull;',
-        '  vec4 cur=texture(t,clamp(v+motion,0.0,1.0));',
-        '  vec4 prev=texture(tPrev,v);',
-        // inject=0.18 at silence (visible immediately); drops to 0.02 at peak (deep freeze)
-        '  float inject=0.18-uAudio*0.16;',
-        '  vec4 moshd=mix(prev*0.982,cur,inject);',
-        // Mouse mask: datamosh only inside cursor radius, clean image outside
-        '  vec4 clean=texture(t,v);',
-        '  float mR=0.18+uAudio*0.10;',
-        '  float mask=1.0-smoothstep(mR*0.55,mR,length(v-uMouse));',
-        '  o=mix(clean,moshd,mask);',
+        '  int mode=int(uMode+0.5);',
+        // ── CENSOR: pixelated mosaic follows mouse ──
+        '  if(mode==1){',
+        '    float dist=length(v-uMouse);',
+        '    float zone=1.0-smoothstep(0.10,0.30,dist);',
+        '    float blockPx=mix(2.0,52.0+uAudio*36.0,zone*zone);',
+        '    vec2 bv=floor(v*res/blockPx)*blockPx/res;',
+        '    vec4 pix=texture(t,bv);',
+        '    vec4 clean=texture(t,v);',
+        '    float luma=dot(pix.rgb,vec3(0.299,0.587,0.114));',
+        '    o=mix(clean,mix(pix,vec4(vec3(luma*0.85),1.0),zone*0.45),zone);',
+        // ── DATAFLOW: vertical hacker data-stream overlay ──
+        '  }else if(mode==2){',
+        '    vec4 base=texture(t,v);',
+        '    float col=floor(v.x*64.0)/64.0;',
+        '    float colSeed=h1(col*43.7);',
+        '    float colSpeed=0.2+colSeed*0.9+uAudio*0.55;',
+        '    float rowNoise=h1(col*91.1+floor((v.y+time*colSpeed)*52.0));',
+        '    float bit=step(0.82-uAudio*0.22,rowNoise);',
+        '    float mouseGlow=1.0-smoothstep(0.0,0.22,length(v-uMouse));',
+        '    float activeCol=smoothstep(0.50-uAudio*0.35,0.78,h1(col*73.3+floor(time*3.0)));',
+        '    activeCol=max(activeCol,mouseGlow*0.9);',
+        '    float br=(0.4+rowNoise*0.6)*(1.0+mouseGlow*2.0);',
+        '    vec3 dataCol=vec3(0.0,min(br,1.8),br*0.28);',
+        '    vec3 darkBase=base.rgb*mix(vec3(1.0),vec3(0.08,0.38,0.12),activeCol*0.7);',
+        '    o=vec4(mix(darkBase,dataCol,bit*activeCol*(0.85+uAudio*0.15)),1.0);',
+        // ── CORRUPT: block displacement with frame feedback (default) ──
+        '  }else{',
+        '    float bSz=max(18.0-uAudio*14.0,4.0);',
+        '    vec2 bCoord=floor(v*res/bSz);',
+        '    vec2 bNoise=h2(bCoord);',
+        '    float drift=0.032+uAudio*0.14;',
+        '    vec2 motion=vec2(',
+        '      bNoise.x*drift+sin(time*0.8+bNoise.y*6.28)*0.013,',
+        '      bNoise.y*drift+cos(time*0.6+bNoise.x*6.28)*0.013',
+        '    );',
+        '    vec2 toMouse=uMouse-v;',
+        '    float mPull=(1.0-smoothstep(0.0,0.4,length(toMouse)))*0.14;',
+        '    motion+=normalize(toMouse+0.0001)*mPull;',
+        '    vec4 cur=texture(t,clamp(v+motion,0.0,1.0));',
+        '    vec4 prev=texture(tPrev,v);',
+        '    float inject=0.18-uAudio*0.16;',
+        '    vec4 moshd=mix(prev*0.982,cur,inject);',
+        '    vec4 clean=texture(t,v);',
+        '    float mR=0.18+uAudio*0.10;',
+        '    float mask=1.0-smoothstep(mR*0.55,mR,length(v-uMouse));',
+        '    o=mix(clean,moshd,mask);',
+        '  }',
         '}'
     ].join('\n'),
 
@@ -302,7 +342,8 @@ function _initVB() {
             dirLoc:    gl.getUniformLocation(prog, 'dir'),
             audioLoc:  gl.getUniformLocation(prog, 'uAudio'),
             prevLoc:   gl.getUniformLocation(prog, 'tPrev'),
-            mouseLoc:  gl.getUniformLocation(prog, 'uMouse')
+            mouseLoc:  gl.getUniformLocation(prog, 'uMouse'),
+            modeLoc:   gl.getUniformLocation(prog, 'uMode')
         };
     });
 
@@ -391,10 +432,11 @@ function _vbRender() {
     if (p.resLoc)   gl.uniform2f(p.resLoc, w, h);
     if (p.dirLoc)   gl.uniform2f(p.dirLoc, 1.0, 0.5);
     if (p.mouseLoc) gl.uniform2f(p.mouseLoc, _vbMouse[0], _vbMouse[1]);
+    if (p.modeLoc)  gl.uniform1f(p.modeLoc, window._vbDatamoshMode !== undefined ? window._vbDatamoshMode : 0.0);
     gl.drawArrays(gl.TRIANGLE_STRIP, 0, 4);
 
     // Save rendered output as previous frame for all feedback shaders
-    if ((shader === 'GHOST_ECHO' || shader === 'DATAMOSH' || shader === 'CHROMAFLOW') && _vbPrevCvs && _vbPrevCtx2d) {
+    if ((shader === 'GHOST_ECHO' || shader === 'DATAMOSH' || shader === 'CHROMAFLOW' || shader === 'SLIT_SCAN') && _vbPrevCvs && _vbPrevCtx2d) {
         if (_vbPrevCvs.width !== w || _vbPrevCvs.height !== h) {
             _vbPrevCvs.width = w; _vbPrevCvs.height = h;
         }
@@ -418,7 +460,7 @@ function _vbActivate(shaderName, persistent) {
     _vbShader = shaderName;
     if (vbCanvas) vbCanvas.style.display = 'block';
     // Prime tPrev with current vj-canvas so feedback shaders start with content
-    if (shaderName === 'DATAMOSH' || shaderName === 'CHROMAFLOW' || shaderName === 'GHOST_ECHO') {
+    if (shaderName === 'DATAMOSH' || shaderName === 'CHROMAFLOW' || shaderName === 'GHOST_ECHO' || shaderName === 'SLIT_SCAN') {
         var _vjC = document.getElementById('vj-canvas');
         if (_vjC && _vbPrevCvs && _vbPrevCtx2d) {
             var _pw = _vjC.width || _vjC.offsetWidth, _ph = _vjC.height || _vjC.offsetHeight;

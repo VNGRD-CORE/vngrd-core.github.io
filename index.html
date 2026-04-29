@@ -275,8 +275,16 @@
                 </div>
                 <div class="btn-grid-3" style="margin-bottom:4px;">
                     <button class="btn va-btn vb-btn" id="vb-THERMAL" data-shader="THERMAL" style="--va-color:#ff4400;" title="Tap=3s burst · Double-tap=lock · FLIR iron infrared palette · Bass = heat surge">THERMAL</button>
-                    <button class="btn va-btn vb-btn" id="vb-DATAMOSH" data-shader="DATAMOSH" style="--va-color:#ff00aa;" title="Tap=3s burst · Double-tap=lock · Block codec corruption · Bass hit = frame inject">DATAMOSH</button>
+                    <button class="btn va-btn vb-btn" id="vb-DATAMOSH" data-shader="DATAMOSH" style="--va-color:#ff00aa;" title="Tap=3s burst · Double-tap=lock · 3 modes: corrupt/censor/dataflow">DATAMOSH</button>
                     <button class="btn va-btn vb-btn" id="vb-CHROMAFLOW" data-shader="CHROMAFLOW" style="--va-color:#aaff00;" title="Tap=3s burst · Double-tap=lock · RGB channels orbit independently · creates rainbow trails">CHROMA</button>
+                </div>
+                <div style="display:flex;align-items:center;gap:6px;margin-bottom:4px;padding:0 1px;">
+                    <span style="font-size:6px;letter-spacing:1.5px;color:rgba(255,0,170,0.55);white-space:nowrap;font-family:var(--font-mono,'JetBrains Mono',monospace);">MOSH</span>
+                    <select id="datamosh-mode" onchange="window._vbDatamoshMode=+this.value" style="flex:1;background:#050505;color:#ff00aa;border:1px solid rgba(255,0,170,0.3);font-size:7px;padding:2px 4px;font-family:var(--font-mono,'JetBrains Mono',monospace);letter-spacing:1px;cursor:pointer;outline:none;border-radius:2px;appearance:none;-webkit-appearance:none;">
+                        <option value="0">▸ CORRUPT</option>
+                        <option value="1">▸ CENSOR</option>
+                        <option value="2">▸ DATAFLOW</option>
+                    </select>
                 </div>
                 <div style="font-size:7px;text-align:center;letter-spacing:1.5px;color:rgba(0,243,255,0.3);padding-bottom:2px;" id="vb-sys-status">SYSTEM_STATUS: STANDBY</div>
                 <button class="btn va-btn" onclick="_vbClearAll()" style="width:100%;margin-top:2px;--va-color:#ff3333;">[ CLEAR ALL ]</button>
