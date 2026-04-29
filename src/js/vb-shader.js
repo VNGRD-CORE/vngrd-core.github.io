@@ -2,23 +2,23 @@
 'use strict';
 
 // ── State ─────────────────────────────────────────────────────────────
-var _vbActive    = false;   // Bank B currently selected
-var _vbShader    = null;    // Currently active shader name
-var _vbLocked    = {};      // { shaderName: true } — persistent/locked
-var _vbBurstTimer= null;    // One-shot timer handle
-var _dblTapTimer = {};      // Per-button double-tap detection
-var _vbTime      = 0;       // Shader uniform time
-var _vbRAF       = null;    // requestAnimationFrame handle
-var _vbGl        = null;    // WebGL2 context
-var _vbProgs     = {};      // Compiled shader programs
-var _vbTex       = null;    // Input texture (from vj-canvas)
-var _vbPrevTex   = null;    // Previous-frame texture for GHOST_ECHO feedback
-var _vbPrevCvs   = null;    // Off-screen 2D canvas storing last rendered frame
-var _vbPrevCtx2d = null;    // 2D context for _vbPrevCvs
+var _vbActive    = false;
+var _vbShader    = null;
+var _vbLocked    = {};
+var _vbBurstTimer= null;
+var _dblTapTimer = {};
+var _vbTime      = 0;
+var _vbRAF       = null;
+var _vbGl        = null;
+var _vbProgs     = {};
+var _vbTex       = null;
+var _vbPrevTex   = null;
+var _vbPrevCvs   = null;
+var _vbPrevCtx2d = null;
 var _vbInited    = false;
-// ── PHASE E Task 3: cached canvas dimensions — avoids offsetWidth/offsetHeight inside the loop ──
 var _vbW         = 0;
 var _vbH         = 0;
+var _vbMouse     = [0.5, 0.5]; // normalised [0-1] mouse position over #stage
 
 // ── GLSL Shaders (GLSL ES 3.00) ───────────────────────────────────────
 var VS = '#version 300 es\nin vec2 a;out vec2 v;void main(){v=a*0.5+0.5;v.y=1.0-v.y;gl_Position=vec4(a,0,1);}';
@@ -82,7 +82,7 @@ var FS = {
     CAUSTICS: [
         '#version 300 es',
         'precision mediump float;',
-        'in vec2 v; uniform sampler2D t; uniform float time; out vec4 o;',
+        'in vec2 v; uniform sampler2D t; uniform float time; uniform float uAudio; uniform vec2 uMouse; out vec4 o;',
         'float h(vec2 p){return fract(sin(dot(p,vec2(127.1,311.7)))*43758.5453);}',
         'float n(vec2 p){',
         '  vec2 i=floor(p),f=fract(p);',
@@ -91,10 +91,16 @@ var FS = {
         '  return mix(a,b,u.x)+(c-a)*u.y*(1.0-u.x)+(d-b)*u.x*u.y;',
         '}',
         'void main(){',
-        '  float n1=n(v*5.0+time*0.4);',
-        '  float n2=n(v*11.0-time*0.25);',
-        '  float n3=n(v*17.0+time*0.15);',
-        '  vec2 off=vec2(n1-0.5,n2-0.5)*0.03+vec2(n3-0.5)*0.01;',
+        // Mouse pulls the water surface origin — moves where the caustic pattern is centred
+        '  vec2 pull=(uMouse-0.5)*0.22;',
+        // Audio drives choppiness and displacement intensity
+        '  float chop=1.0+uAudio*1.8;',
+        '  float intensity=0.028+uAudio*0.055;',
+        '  vec2 p=v+pull;',
+        '  float n1=n(p*5.0*chop+time*0.4);',
+        '  float n2=n(p*11.0*chop-time*0.25);',
+        '  float n3=n(p*17.0+time*0.15);',
+        '  vec2 off=vec2(n1-0.5,n2-0.5)*intensity+vec2(n3-0.5)*intensity*0.38;',
         '  o=texture(t,clamp(v+off,0.0,1.0));',
         '}'
     ].join('\n'),
@@ -130,22 +136,109 @@ var FS = {
         'out vec4 o;',
         'void main(){',
         '  vec2 px=1.0/max(res,vec2(1.0));',
-        // Luminance gradient → per-pixel velocity estimate
         '  vec3 c0=texture(t,v).rgb;',
         '  float lumC=dot(c0,vec3(0.299,0.587,0.114));',
         '  float lumR=dot(texture(t,v+vec2(px.x,0.0)).rgb,vec3(0.299,0.587,0.114));',
         '  float lumU=dot(texture(t,v+vec2(0.0,px.y)).rgb,vec3(0.299,0.587,0.114));',
-        // Displacement magnitude grows with bass
         '  float mag=(0.006+uAudio*0.022)*26.0;',
         '  vec2 shift=vec2(lumR-lumC,lumU-lumC)*mag;',
-        // Time-modulated channel separation — each channel bleeds differently
         '  float tmod=time*0.38;',
         '  float r=texture(t,clamp(v+shift*1.9,0.0,1.0)).r;',
         '  float g=texture(t,clamp(v+shift*0.55+vec2(sin(tmod)*0.0025,0.0),0.0,1.0)).g;',
         '  float b=texture(t,clamp(v-shift*1.4+vec2(0.0,cos(tmod)*0.002),0.0,1.0)).b;',
-        // Blend: only apply mosh where gradient is strong enough
         '  float edge=clamp(length(shift)*35.0,0.0,1.0);',
         '  o=vec4(mix(c0,vec3(r,g,b),edge),1.0);',
+        '}'
+    ].join('\n'),
+
+    // ── NEW: PIXEL_SORT ───────────────────────────────────────────────
+    // Per-column luminance threshold sort — bright pixels streak downward.
+    // TouchDesigner-style glitch staple, fully GPU-driven.
+    PIXEL_SORT: [
+        '#version 300 es',
+        'precision highp float;',
+        'in vec2 v; uniform sampler2D t; uniform float time; uniform float uAudio; uniform vec2 res; out vec4 o;',
+        'float hash(float x){return fract(sin(x*127.1+311.7)*43758.5453);}',
+        'void main(){',
+        '  vec2 px=1.0/res;',
+        // Per-column threshold varies slowly — creates organic banded regions
+        '  float col=floor(v.x*res.x)/res.x;',
+        '  float colSeed=hash(col*5.3+floor(time*0.35)*0.23);',
+        '  float thresh=0.18+colSeed*0.52-uAudio*0.14;',
+        '  vec4 c=texture(t,v);',
+        '  float luma=dot(c.rgb,vec3(0.299,0.587,0.114));',
+        // On high audio flip sort direction upward for a sudden reversal
+        '  float dir=uAudio>0.72?-1.0:1.0;',
+        '  if(luma>thresh){',
+        // Walk the column until a dark pixel breaks the run (max 80 steps)
+        '    float span=0.0;',
+        '    for(int i=1;i<=80;i++){',
+        '      vec2 uv2=vec2(v.x,v.y+dir*float(i)*px.y);',
+        '      if(uv2.y<0.0||uv2.y>1.0)break;',
+        '      if(dot(texture(t,uv2).rgb,vec3(0.299,0.587,0.114))<thresh)break;',
+        '      span=float(i);',
+        '    }',
+        '    o=texture(t,vec2(v.x,clamp(v.y+dir*span*px.y,0.0,1.0)));',
+        '  }else{o=c;}',
+        '}'
+    ].join('\n'),
+
+    // ── NEW: FEEDBACK_ZOOM ────────────────────────────────────────────
+    // Each frame the previous frame is zoomed in slightly and rotated,
+    // creating an infinite vortex tunnel. Audio drives zoom speed.
+    FEEDBACK_ZOOM: [
+        '#version 300 es',
+        'precision highp float;',
+        'in vec2 v; uniform sampler2D t; uniform sampler2D tPrev;',
+        'uniform float time; uniform float uAudio; out vec4 o;',
+        'void main(){',
+        '  vec2 ctr=v-0.5;',
+        '  float zoom=0.011+uAudio*0.030;',
+        '  float rot =0.004+uAudio*0.010;',
+        '  float s=sin(rot),c2=cos(rot);',
+        '  vec2 r=vec2(ctr.x*c2-ctr.y*s, ctr.x*s+ctr.y*c2);',
+        '  vec2 zUV=r/(1.0+zoom)+0.5;',
+        '  vec4 cur =texture(t,v);',
+        '  vec4 prev=texture(tPrev,clamp(zUV,0.0,1.0));',
+        // Decay prevents colour blowout; more current frame on loud hits
+        '  float blend=0.18+uAudio*0.42;',
+        '  o=vec4(mix(prev.rgb*0.92,cur.rgb,blend),1.0);',
+        '}'
+    ].join('\n'),
+
+    // ── NEW: PRISM_BREAK ─────────────────────────────────────────────
+    // Voronoi fracture: image shattered into cells, borders glow cyan.
+    // Cell count and edge brightness both respond to bass.
+    PRISM_BREAK: [
+        '#version 300 es',
+        'precision highp float;',
+        'in vec2 v; uniform sampler2D t; uniform float time; uniform float uAudio; out vec4 o;',
+        'vec2 h2(vec2 p){',
+        '  p=vec2(dot(p,vec2(127.1,311.7)),dot(p,vec2(269.5,183.3)));',
+        '  return fract(sin(p)*43758.5453);',
+        '}',
+        'void main(){',
+        '  float scale=6.5+uAudio*9.0;',
+        '  vec2 uv=v*scale;',
+        '  vec2 cell=floor(uv),local=fract(uv);',
+        '  float minD=1e6;',
+        '  vec2 nearCell=vec2(0.0);',
+        '  for(int y=-1;y<=1;y++)for(int x=-1;x<=1;x++){',
+        '    vec2 nb=vec2(float(x),float(y));',
+        '    vec2 pt=nb+0.5+h2(cell+nb)*(0.40+sin(time*0.55)*0.09);',
+        '    float d=length(local-pt);',
+        '    if(d<minD){minD=d;nearCell=cell+nb;}',
+        '  }',
+        // Sample image from cell centre (slight parallax per cell)
+        '  vec2 cc=(nearCell+0.5)/scale;',
+        '  vec4 img=texture(t,clamp(cc+(v-cc)*0.87,0.0,1.0));',
+        // Per-cell hue tint — slowly drifts
+        '  float hue=fract(dot(nearCell,vec2(0.131,0.073))+time*0.04);',
+        '  vec3 tint=mix(img.rgb,img.gbr,hue*0.22);',
+        // Glowing cell edges
+        '  float edge=1.0-smoothstep(0.0,0.052,minD);',
+        '  vec3 glow=vec3(0.0,0.95,1.0)*(edge*(1.3+uAudio*2.8));',
+        '  o=vec4(min(tint+glow,1.0),1.0);',
         '}'
     ].join('\n')
 };
@@ -185,8 +278,9 @@ function _initVB() {
             timeLoc:   gl.getUniformLocation(prog, 'time'),
             resLoc:    gl.getUniformLocation(prog, 'res'),
             dirLoc:    gl.getUniformLocation(prog, 'dir'),
-            audioLoc:  gl.getUniformLocation(prog, 'uAudio'),  // bass 0-1
-            prevLoc:   gl.getUniformLocation(prog, 'tPrev')    // feedback frame
+            audioLoc:  gl.getUniformLocation(prog, 'uAudio'),
+            prevLoc:   gl.getUniformLocation(prog, 'tPrev'),
+            mouseLoc:  gl.getUniformLocation(prog, 'uMouse')
         };
     });
 
@@ -268,16 +362,17 @@ function _vbRender() {
         gl.activeTexture(gl.TEXTURE0);
     }
 
-    // Audio uniform — bass level normalised 0-1
+    // Uniforms
     var _audio = (typeof APP !== 'undefined' && APP.audio && APP.audio.bassLevel) ? APP.audio.bassLevel / 255 : 0;
     if (p.audioLoc) gl.uniform1f(p.audioLoc, _audio);
     if (p.timeLoc)  gl.uniform1f(p.timeLoc, _vbTime);
     if (p.resLoc)   gl.uniform2f(p.resLoc, w, h);
     if (p.dirLoc)   gl.uniform2f(p.dirLoc, 1.0, 0.5);
+    if (p.mouseLoc) gl.uniform2f(p.mouseLoc, _vbMouse[0], _vbMouse[1]);
     gl.drawArrays(gl.TRIANGLE_STRIP, 0, 4);
 
-    // Save rendered output as previous frame for GHOST_ECHO feedback
-    if (shader === 'GHOST_ECHO' && _vbPrevCvs && _vbPrevCtx2d) {
+    // Save rendered output as previous frame for GHOST_ECHO + FEEDBACK_ZOOM
+    if ((shader === 'GHOST_ECHO' || shader === 'FEEDBACK_ZOOM') && _vbPrevCvs && _vbPrevCtx2d) {
         if (_vbPrevCvs.width !== w || _vbPrevCvs.height !== h) {
             _vbPrevCvs.width = w; _vbPrevCvs.height = h;
         }
@@ -439,10 +534,21 @@ function _vbWireButtons() {
 document.addEventListener('DOMContentLoaded', _vbWireButtons);
 if (document.readyState !== 'loading') { _vbWireButtons(); }
 
-// ── PHASE E Task 3: update cached dimensions whenever the window resizes ──
+// ── Cached dimensions: update on resize ──
 window.addEventListener('resize', function() {
     var vbCanvas = document.getElementById('vb-canvas');
     if (vbCanvas) { _vbW = vbCanvas.offsetWidth; _vbH = vbCanvas.offsetHeight; }
+});
+
+// ── Mouse tracking over #stage for CAUSTICS uMouse uniform ──
+document.addEventListener('DOMContentLoaded', function() {
+    var _stageEl = document.getElementById('stage');
+    if (!_stageEl) return;
+    _stageEl.addEventListener('mousemove', function(e) {
+        var r = _stageEl.getBoundingClientRect();
+        _vbMouse[0] = Math.max(0, Math.min(1, (e.clientX - r.left) / r.width));
+        _vbMouse[1] = Math.max(0, Math.min(1, (e.clientY - r.top)  / r.height));
+    });
 });
 
 })();
