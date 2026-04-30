@@ -145,31 +145,43 @@ var FS = {
     ].join('\n'),
 
     // ── ACID ─────────────────────────────────────────────────────────────
-    // Psychedelic hue cycling. Three sine waves phase through R/G/B at
-    // different speeds; luma offsets the phase so each brightness band
-    // cycles to a different colour. Always animated at silence, blazes with
-    // audio. Mouse cursor creates a local speed-up zone.
+    // LSD trip: UV warp makes the image breathe and melt. Phase is driven by
+    // spatial position (angle + radius + ripples) so colour bands are organic
+    // and non-circular — no luma-ring artifact. tPrev trails warp too, giving
+    // smeared psychedelic afterimages. Mouse boosts local speed.
     ACID: [
         '#version 300 es',
         'precision mediump float;',
-        'in vec2 v; uniform sampler2D t; uniform float time; uniform float uAudio; uniform vec2 uMouse; out vec4 o;',
+        'in vec2 v; uniform sampler2D t; uniform sampler2D tPrev;',
+        'uniform float time; uniform float uAudio; uniform vec2 uMouse; out vec4 o;',
         'void main(){',
-        '  vec4 col=texture(t,v);',
-        '  float luma=dot(col.rgb,vec3(0.2126,0.7152,0.0722));',
-        // Mouse proximity boosts local cycle speed
+        // 2D breathing warp: cross-product sines — no horizontal banding
+        '  float wamp=0.018+uAudio*0.024;',
+        '  float wx=sin(v.y*3.8+time*1.2)*sin(v.x*2.3+time*0.65)*wamp;',
+        '  float wy=cos(v.x*4.1+time*0.85)*cos(v.y*2.7+time*1.35)*wamp;',
+        '  vec2 wUV=clamp(v+vec2(wx,wy),0.0,1.0);',
+        '  vec4 wrp=texture(t,wUV);',
+        '  float luma=dot(wrp.rgb,vec3(0.2126,0.7152,0.0722));',
+        // Spatial phase: angle + radius + ripple waves break up luma-only rings
+        '  vec2 c=v-0.5;',
+        '  float ang=atan(c.y,c.x);',
+        '  float rad=length(c);',
         '  float mBoost=(1.0-smoothstep(0.0,0.38,length(v-uMouse)))*3.5;',
-        '  float spd=0.35+uAudio*2.2+mBoost;',
-        '  float cycle=time*spd;',
-        // luma offsets phase so each brightness band gets a distinct colour
-        '  float lumPh=luma*3.14159*(1.8+uAudio*2.5);',
+        '  float cycle=time*(0.4+uAudio*2.2+mBoost);',
+        '  float phase=luma*1.6+ang*1.1+rad*4.0',
+        '             +sin(v.x*6.2+time*0.6)*0.5',
+        '             +cos(v.y*5.8+time*0.45)*0.4',
+        '             +cycle;',
         '  vec3 acid=vec3(',
-        '    sin(lumPh+cycle*1.00)*0.5+0.5,',
-        '    sin(lumPh+cycle*0.79+2.09)*0.5+0.5,',
-        '    sin(lumPh+cycle*1.13+4.19)*0.5+0.5',
+        '    sin(phase*1.00)*0.5+0.5,',
+        '    sin(phase*0.79+2.09)*0.5+0.5,',
+        '    sin(phase*1.13+4.19)*0.5+0.5',
         '  );',
-        // Blend: 65% acid at silence, fully acid at peak
-        '  float str=0.65+uAudio*0.32;',
-        '  o=vec4(mix(col.rgb,acid,str),1.0);',
+        // tPrev trails sampled at warped UV — trails warp with the image
+        '  vec4 prev=texture(tPrev,wUV);',
+        '  float trails=0.30+uAudio*0.18;',
+        '  float str=0.65+uAudio*0.28;',
+        '  o=vec4(mix(mix(wrp.rgb,acid,str),prev.rgb*0.96,trails),1.0);',
         '}'
     ].join('\n'),
 
@@ -214,10 +226,10 @@ var FS = {
 
     // ── DATAMOSH ─────────────────────────────────────────────────────────
     // Two modes via uMode (0=CORRUPT, 1=CENSOR).
-    // CORRUPT: matrix digit-scramble fills entire frame; cursor is a hotspot of
-    //   maximum intensity — no visible circle boundary because effect exists everywhere.
-    // CENSOR: smooth continuous pixelation with no discrete block-size steps and
-    //   no mix() boundary — blockPx=1 at the fringe equals the original video.
+    // CENSOR: distance is computed from BLOCK CENTER not per-pixel — every pixel
+    //   in the same block gets the same zone value → zero ring artifacts.
+    //   mix(clean, pixelated, zone²) with bDist > radius returns pure clean.
+    // CORRUPT: global matrix scramble, cursor is hotspot, no circle boundary.
     DATAMOSH: [
         '#version 300 es',
         'precision highp float;',
@@ -228,42 +240,33 @@ var FS = {
         '  int mode=int(uMode+0.5);',
         '  float dist=length(v-uMouse);',
 
-        // ── CENSOR: continuous pixelation gradient, no visible edge ──
+        // ── CENSOR: block-center distance → no per-pixel ring variation ──
         '  if(mode==1){',
-        // zone is a smooth quadratic falloff from cursor — no abrupt steps
-        '    float zone=max(0.0,1.0-dist/0.30);',
-        // blockPx never gets floored — continuous value → no discrete ring artifacts
-        '    float blockPx=max(1.0,1.0+zone*zone*(11.0+uAudio*7.0));',
-        '    vec2 bv=floor(v*res/blockPx)*blockPx/res;',
-        // No mix() at all — when blockPx=1 bv equals v, output IS the original pixel
-        '    o=texture(t,bv);',
+        '    float GRID=12.0+uAudio*8.0;',
+        // All pixels in the same block share this center → same bDist → same zone
+        '    vec2 bCtr=(floor(v*res/GRID)*GRID+GRID*0.5)/res;',
+        '    float bDist=length(bCtr-uMouse);',
+        '    float zone=1.0-smoothstep(0.0,0.25,bDist);',
+        '    o=mix(texture(t,v),texture(t,bCtr),zone*zone);',
 
-        // ── CORRUPT: global matrix scramble, cursor is max-intensity hotspot ──
+        // ── CORRUPT: global matrix scramble, no circle boundary ──
         '  }else{',
-        // proximity 0→1 from edge→cursor; effect lives everywhere so no circle edge
         '    float proximity=1.0-smoothstep(0.0,0.44,dist);',
         '    float str=0.06+proximity*0.90;',
-        // 9px character cells
         '    float csz=9.0;',
         '    vec2 cCoord=floor(v*res/csz);',
         '    vec2 cUV=fract(v*res/csz);',
-        // Refresh freq: slow base everywhere, blazes fast at cursor / high audio
         '    float freq=4.0+proximity*(6.0+uAudio*26.0);',
         '    float t2=floor(time*freq+cCoord.y*0.7);',
         '    float cv=h1(cCoord.x*93.7+cCoord.y*41.3+t2);',
-        // Digit stroke pattern within cell interior
         '    float digit=step(0.45,fract(cv*5.3+cUV.y*2.0))',
         '              *step(0.1,cUV.x)*step(cUV.x,0.9)',
         '              *step(0.08,cUV.y)*step(cUV.y,0.92);',
-        // Per-cell horizontal video shift — stronger near cursor
         '    float hShift=(h1(cCoord.x*17.1+t2*0.1)-0.5)*str*0.09;',
         '    vec3 vid=texture(t,clamp(v+vec2(hShift,0.0),0.0,1.0)).rgb;',
-        // Green digit with head-glow at top of each cell
         '    float headBright=1.0-smoothstep(0.0,0.35,cUV.y);',
         '    vec3 digitColor=vec3(0.0,0.75+headBright*0.25,0.18)*digit;',
-        // Dim video in proportion to str, add digit overlay
         '    vec3 corrupted=vid*(1.0-str*0.5)+digitColor*str;',
-        // tPrev smear scaled to proximity only (no smear far from cursor)
         '    vec3 final=mix(corrupted,texture(tPrev,v).rgb*0.97,0.22*proximity);',
         '    o=vec4(final,1.0);',
         '  }',
@@ -436,7 +439,7 @@ function _vbRender() {
     gl.drawArrays(gl.TRIANGLE_STRIP, 0, 4);
 
     // Save rendered output as previous frame for all feedback shaders
-    if ((shader === 'GHOST_ECHO' || shader === 'DATAMOSH' || shader === 'CHROMAFLOW' || shader === 'SLIT_SCAN') && _vbPrevCvs && _vbPrevCtx2d) {
+    if ((shader === 'GHOST_ECHO' || shader === 'DATAMOSH' || shader === 'CHROMAFLOW' || shader === 'SLIT_SCAN' || shader === 'ACID') && _vbPrevCvs && _vbPrevCtx2d) {
         if (_vbPrevCvs.width !== w || _vbPrevCvs.height !== h) {
             _vbPrevCvs.width = w; _vbPrevCvs.height = h;
         }
@@ -460,7 +463,7 @@ function _vbActivate(shaderName, persistent) {
     _vbShader = shaderName;
     if (vbCanvas) vbCanvas.style.display = 'block';
     // Prime tPrev with current vj-canvas so feedback shaders start with content
-    if (shaderName === 'DATAMOSH' || shaderName === 'CHROMAFLOW' || shaderName === 'GHOST_ECHO' || shaderName === 'SLIT_SCAN') {
+    if (shaderName === 'DATAMOSH' || shaderName === 'CHROMAFLOW' || shaderName === 'GHOST_ECHO' || shaderName === 'SLIT_SCAN' || shaderName === 'ACID') {
         var _vjC = document.getElementById('vj-canvas');
         if (_vjC && _vbPrevCvs && _vbPrevCtx2d) {
             var _pw = _vjC.width || _vjC.offsetWidth, _ph = _vjC.height || _vjC.offsetHeight;
