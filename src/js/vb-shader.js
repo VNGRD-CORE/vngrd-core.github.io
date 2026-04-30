@@ -213,70 +213,59 @@ var FS = {
     ].join('\n'),
 
     // ── DATAMOSH ─────────────────────────────────────────────────────────
-    // Two modes via uMode (0=CORRUPT, 1=CENSOR). Effect is always inside cursor radius.
-    // CORRUPT: H.264-style macroblock corruption — 3 per-block artifact types
-    //   (far-displaced, channel-swapped, prev-ghost) + visible block-edge ringing.
-    // CENSOR: tight broadcast-style mosaic (14px max) + cold desaturation + cyan fringe.
+    // Two modes via uMode (0=CORRUPT, 1=CENSOR).
+    // CORRUPT: matrix-style digit-cell scramble — 9px cells flash rapidly,
+    //   video is shifted per-cell, green character overlay, tPrev smear.
+    // CENSOR: seamless pixelation — block size scales with cursor distance,
+    //   1px at edge (clean), 12-20px at centre. No hard boundary.
     DATAMOSH: [
         '#version 300 es',
         'precision highp float;',
         'in vec2 v; uniform sampler2D t; uniform sampler2D tPrev;',
         'uniform float time; uniform float uAudio; uniform vec2 res; uniform vec2 uMouse; uniform float uMode; out vec4 o;',
-        'vec2 h2(vec2 p){',
-        '  p=vec2(dot(p,vec2(127.1,311.7)),dot(p,vec2(269.5,183.3)));',
-        '  return fract(sin(p)*43758.5453)-0.5;',
-        '}',
+        'float h1(float p){return fract(sin(p*127.1)*43758.5453);}',
         'void main(){',
         '  int mode=int(uMode+0.5);',
         '  vec4 clean=texture(t,v);',
         '  float dist=length(v-uMouse);',
 
-        // ── CENSOR: broadcast mosaic ──
+        // ── CENSOR: seamless mosaic gradient ──
         '  if(mode==1){',
-        '    float zone=1.0-smoothstep(0.09,0.26,dist);',
-        // Tight blocks: realistic broadcast censoring (8-14px, not 52px)
-        '    float blockPx=mix(2.0,14.0+uAudio*8.0,zone*zone);',
+        // zone is 1 at cursor, 0 at dist=0.26 — no hard edge
+        '    float zone=1.0-smoothstep(0.0,0.26,dist);',
+        // block size follows zone directly: large at centre, shrinks to 1px at fringe
+        '    float blockPx=max(1.0,floor(zone*(12.0+uAudio*8.0)));',
         '    vec2 bv=floor(v*res/blockPx)*blockPx/res;',
-        '    vec4 pix=texture(t,bv);',
-        '    float luma=dot(pix.rgb,vec3(0.299,0.587,0.114));',
-        // Cold desaturation inside zone (broadcast censoring looks bluish-grey)
-        '    vec4 cold=vec4(luma*0.70,luma*0.70,luma*0.82,1.0);',
-        '    vec4 censored=mix(pix,cold,zone*0.58);',
-        // Cyan chromatic fringe exactly at zone boundary
-        '    float edge=smoothstep(0.22,0.26,dist)*(1.0-smoothstep(0.26,0.31,dist));',
-        '    censored.rgb=mix(censored.rgb,vec3(0.05,0.92,1.0),edge*0.85);',
-        '    o=mix(clean,censored,max(zone,edge));',
+        // mix with zone: at fringe (zone≈0) blockPx=1 AND mix weight≈0 → always seamless
+        '    o=mix(clean,texture(t,bv),zone);',
 
-        // ── CORRUPT: H.264-style macroblock corruption ──
+        // ── CORRUPT: matrix digit scramble ──
         '  }else{',
-        '    float mR=0.17+uAudio*0.10;',
+        '    float mR=0.20+uAudio*0.08;',
         '    float zone=1.0-smoothstep(mR*0.5,mR,dist);',
-        // Visible macroblocks: audio shrinks them (calm=big blocks, loud=many small)
-        '    float bSz=mix(20.0,8.0,uAudio);',
-        '    vec2 bCoord=floor(v*res/bSz);',
-        '    vec2 bN1=h2(bCoord);',
-        '    vec2 bN2=h2(bCoord+vec2(7.3,11.7));',
-        '    vec2 bCenter=(bCoord*bSz+bSz*0.5)/res;',
-        // Each block picks a corruption type that refreshes at ~2.5Hz
-        '    float bTick=floor(time*2.5+abs(h2(bCoord+0.1).x)*4.0);',
-        '    float corruptT=fract(abs(h2(bCoord+bTick*0.07).x)*3.0)*3.0;',
-        // Three corruption types: far-displaced / channel-swapped / prev-frame ghost
-        '    float farMag=0.15+uAudio*0.26;',
-        '    vec4 farSamp=texture(t,clamp(bCenter+bN1*farMag,0.0,1.0));',
-        '    vec4 swapped=vec4(farSamp.b,farSamp.r,farSamp.g,1.0);',
-        '    vec4 ghostSamp=mix(texture(tPrev,bCenter),texture(t,clamp(v+bN2*0.06,0.0,1.0)),0.45);',
-        '    vec4 corrupt;',
-        '    if(corruptT<1.0)corrupt=farSamp;',
-        '    else if(corruptT<2.0)corrupt=swapped;',
-        '    else corrupt=ghostSamp;',
-        // Frame accumulation (feedback loop)
-        '    float inject=0.13-uAudio*0.11;',
-        '    vec4 moshd=mix(texture(tPrev,v)*0.987,corrupt,inject);',
-        // Visible macroblock-edge ringing (magenta border = codec artifact)
-        '    vec2 bEdge=fract(v*res/bSz);',
-        '    float ring=1.0-smoothstep(0.0,0.09,min(min(bEdge.x,1.0-bEdge.x),min(bEdge.y,1.0-bEdge.y)));',
-        '    moshd.rgb=mix(moshd.rgb,vec3(0.88,0.04,0.88),ring*zone*0.38);',
-        '    o=mix(clean,moshd,zone);',
+        // 9-pixel character cells
+        '    float csz=9.0;',
+        '    vec2 cCoord=floor(v*res/csz);',
+        '    vec2 cUV=fract(v*res/csz);',
+        // Each cell gets a value that changes at audio-scaled rate
+        '    float freq=12.0+uAudio*28.0;',
+        '    float t2=floor(time*freq+cCoord.y*0.7);',
+        '    float cv=h1(cCoord.x*93.7+cCoord.y*41.3+t2);',
+        // Digit stroke: threshold noise within inner 80%×84% of cell
+        '    float digit=step(0.45,fract(cv*5.3+cUV.y*2.0))',
+        '              *step(0.1,cUV.x)*step(cUV.x,0.9)',
+        '              *step(0.08,cUV.y)*step(cUV.y,0.92);',
+        // Per-cell horizontal video shift (corrupted data read)
+        '    float hShift=(h1(cCoord.x*17.1+t2*0.1)-0.5)*zone*0.10;',
+        '    vec3 vid=texture(t,clamp(v+vec2(hShift,0.0),0.0,1.0)).rgb;',
+        // Green digit: brighter at top of cell (matrix head glow)
+        '    float headBright=1.0-smoothstep(0.0,0.35,cUV.y);',
+        '    vec3 digitColor=vec3(0.0,0.75+headBright*0.25,0.18)*digit;',
+        // Darken video inside zone, add digit overlay
+        '    vec3 corrupted=vid*(1.0-zone*0.55)+digitColor*zone;',
+        // Light tPrev smear for persistence
+        '    vec3 final=mix(corrupted,texture(tPrev,v).rgb*0.96,0.28*zone);',
+        '    o=mix(clean,vec4(final,1.0),zone);',
         '  }',
         '}'
     ].join('\n'),
