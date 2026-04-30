@@ -3161,9 +3161,10 @@ if (T.logo.visible) {
             if (!window._nvgPos) window._nvgPos = {x: 0.5, y: 0.5, locked: false};
             var _ncx = window._nvgPos.x * _ow, _ncy = window._nvgPos.y * _oh;
 
-            // Tube vignette (follows scope center)
-            var _nvgV = ctx.createRadialGradient(_ncx, _ncy, _oh*0.22, _ncx, _ncy, _oh*0.75);
-            _nvgV.addColorStop(0, 'rgba(0,0,0,0)'); _nvgV.addColorStop(1, 'rgba(0,0,0,0.92)');
+            // Tube vignette — use min dimension so circle is always circular
+            var _vr = Math.min(_ow, _oh);
+            var _nvgV = ctx.createRadialGradient(_ncx, _ncy, _vr*0.42, _ncx, _ncy, _vr*0.58);
+            _nvgV.addColorStop(0, 'rgba(0,0,0,0)'); _nvgV.addColorStop(1, 'rgba(0,0,0,0.94)');
             ctx.fillStyle = _nvgV; ctx.fillRect(0, 0, _ow, _oh);
 
             // CRT phosphor scanlines (cached 1×3 pattern — single fillRect)
