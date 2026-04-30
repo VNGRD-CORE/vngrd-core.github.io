@@ -214,10 +214,10 @@ var FS = {
 
     // ── DATAMOSH ─────────────────────────────────────────────────────────
     // Two modes via uMode (0=CORRUPT, 1=CENSOR).
-    // CORRUPT: matrix-style digit-cell scramble — 9px cells flash rapidly,
-    //   video is shifted per-cell, green character overlay, tPrev smear.
-    // CENSOR: seamless pixelation — block size scales with cursor distance,
-    //   1px at edge (clean), 12-20px at centre. No hard boundary.
+    // CORRUPT: matrix digit-scramble fills entire frame; cursor is a hotspot of
+    //   maximum intensity — no visible circle boundary because effect exists everywhere.
+    // CENSOR: smooth continuous pixelation with no discrete block-size steps and
+    //   no mix() boundary — blockPx=1 at the fringe equals the original video.
     DATAMOSH: [
         '#version 300 es',
         'precision highp float;',
@@ -226,46 +226,46 @@ var FS = {
         'float h1(float p){return fract(sin(p*127.1)*43758.5453);}',
         'void main(){',
         '  int mode=int(uMode+0.5);',
-        '  vec4 clean=texture(t,v);',
         '  float dist=length(v-uMouse);',
 
-        // ── CENSOR: seamless mosaic gradient ──
+        // ── CENSOR: continuous pixelation gradient, no visible edge ──
         '  if(mode==1){',
-        // zone is 1 at cursor, 0 at dist=0.26 — no hard edge
-        '    float zone=1.0-smoothstep(0.0,0.26,dist);',
-        // block size follows zone directly: large at centre, shrinks to 1px at fringe
-        '    float blockPx=max(1.0,floor(zone*(12.0+uAudio*8.0)));',
+        // zone is a smooth quadratic falloff from cursor — no abrupt steps
+        '    float zone=max(0.0,1.0-dist/0.30);',
+        // blockPx never gets floored — continuous value → no discrete ring artifacts
+        '    float blockPx=max(1.0,1.0+zone*zone*(11.0+uAudio*7.0));',
         '    vec2 bv=floor(v*res/blockPx)*blockPx/res;',
-        // mix with zone: at fringe (zone≈0) blockPx=1 AND mix weight≈0 → always seamless
-        '    o=mix(clean,texture(t,bv),zone);',
+        // No mix() at all — when blockPx=1 bv equals v, output IS the original pixel
+        '    o=texture(t,bv);',
 
-        // ── CORRUPT: matrix digit scramble ──
+        // ── CORRUPT: global matrix scramble, cursor is max-intensity hotspot ──
         '  }else{',
-        '    float mR=0.20+uAudio*0.08;',
-        '    float zone=1.0-smoothstep(mR*0.5,mR,dist);',
-        // 9-pixel character cells
+        // proximity 0→1 from edge→cursor; effect lives everywhere so no circle edge
+        '    float proximity=1.0-smoothstep(0.0,0.44,dist);',
+        '    float str=0.06+proximity*0.90;',
+        // 9px character cells
         '    float csz=9.0;',
         '    vec2 cCoord=floor(v*res/csz);',
         '    vec2 cUV=fract(v*res/csz);',
-        // Each cell gets a value that changes at audio-scaled rate
-        '    float freq=12.0+uAudio*28.0;',
+        // Refresh freq: slow base everywhere, blazes fast at cursor / high audio
+        '    float freq=4.0+proximity*(6.0+uAudio*26.0);',
         '    float t2=floor(time*freq+cCoord.y*0.7);',
         '    float cv=h1(cCoord.x*93.7+cCoord.y*41.3+t2);',
-        // Digit stroke: threshold noise within inner 80%×84% of cell
+        // Digit stroke pattern within cell interior
         '    float digit=step(0.45,fract(cv*5.3+cUV.y*2.0))',
         '              *step(0.1,cUV.x)*step(cUV.x,0.9)',
         '              *step(0.08,cUV.y)*step(cUV.y,0.92);',
-        // Per-cell horizontal video shift (corrupted data read)
-        '    float hShift=(h1(cCoord.x*17.1+t2*0.1)-0.5)*zone*0.10;',
+        // Per-cell horizontal video shift — stronger near cursor
+        '    float hShift=(h1(cCoord.x*17.1+t2*0.1)-0.5)*str*0.09;',
         '    vec3 vid=texture(t,clamp(v+vec2(hShift,0.0),0.0,1.0)).rgb;',
-        // Green digit: brighter at top of cell (matrix head glow)
+        // Green digit with head-glow at top of each cell
         '    float headBright=1.0-smoothstep(0.0,0.35,cUV.y);',
         '    vec3 digitColor=vec3(0.0,0.75+headBright*0.25,0.18)*digit;',
-        // Darken video inside zone, add digit overlay
-        '    vec3 corrupted=vid*(1.0-zone*0.55)+digitColor*zone;',
-        // Light tPrev smear for persistence
-        '    vec3 final=mix(corrupted,texture(tPrev,v).rgb*0.96,0.28*zone);',
-        '    o=mix(clean,vec4(final,1.0),zone);',
+        // Dim video in proportion to str, add digit overlay
+        '    vec3 corrupted=vid*(1.0-str*0.5)+digitColor*str;',
+        // tPrev smear scaled to proximity only (no smear far from cursor)
+        '    vec3 final=mix(corrupted,texture(tPrev,v).rgb*0.97,0.22*proximity);',
+        '    o=vec4(final,1.0);',
         '  }',
         '}'
     ].join('\n'),
