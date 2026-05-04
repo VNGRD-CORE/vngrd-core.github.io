@@ -2719,7 +2719,7 @@ body.shooting-mode #btn-shooting {
             overflow-y: auto; overflow-x: hidden;
             -webkit-overflow-scrolling: touch;
         }
-        #stage { flex: 1; min-height: 0; }
+        #stage { top: 36px; bottom: 40px; }
         #top-bar { height: 36px; }
         /* Scale down logo + brand elements to fit mobile header */
         .logo { font-size: 20px !important; }
@@ -3001,19 +3001,10 @@ body.fx-nvg #stage {
     will-change: filter;
     animation: nvg-stage-flicker 7s steps(1) infinite;
 }
-/* 2. Full-screen overlay: hard circular tube vignette + fine scanlines */
+/* 2. Vignette is drawn by canvas in main.js (mouse-tracked binocular).
+      Disable the old fixed-position overlay so it doesn't bleed over the console UI. */
 body.fx-nvg::after {
-    content: "";
-    position: fixed;
-    top: 0; left: 0; width: 100vw; height: 100vh;
-    background:
-        radial-gradient(ellipse 60% 70% at 50% 50%,
-            transparent 38%,
-            rgba(0,8,0,0.50) 62%,
-            rgba(0,4,0,0.92) 80%,
-            #000 100%);
-    pointer-events: none;
-    z-index: 9998;
+    content: none;
 }
 /* 3. Scope reticle — drawn in canvas; suppress CSS version */
 body.fx-nvg #stage::after {

@@ -1,5 +1,4 @@
-# VNGRD// CORE
-
+# VNGRD//
 **Browser-native system for real-time audiovisual production**
 
 ![VNGRD// CORE Interface](./assets/vngrd-hero.gif)
