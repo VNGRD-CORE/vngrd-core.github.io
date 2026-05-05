@@ -5173,15 +5173,7 @@ function endCallCleanup() {
             APP.inputDevices.analyzer.smoothingTimeConstant = 0.3;
             APP.audio.livePreAmp.connect(APP.inputDevices.analyzer);
 
-            // SPATIAL BUS: route vinyl through 3D panning network → EQ → compressor → limiter → output.
-            // Recording (NFT/broadcast) taps outputLimiter downstream — do NOT also connect
-            // livePreAmp directly to recorderDest or the signal doubles in the recording bus.
-            if (APP.audio.panner) {
-                APP.audio.livePreAmp.connect(APP.audio.panner);
-            } else if (APP.audio.masterGain) {
-                APP.audio.livePreAmp.connect(APP.audio.masterGain);
-            }
-            // FEEDBACK PREVENTION: source is NOT connected to ctx.destination directly.
+            // livePreAmp feeds level meter only — NOT routed to speakers (prevents feedback).
 
             // 4. UI CONFIRMATION: display the real hardware label from the stream.
             var _trackLabel = (stream.getAudioTracks()[0] && stream.getAudioTracks()[0].label)
@@ -5234,14 +5226,7 @@ function endCallCleanup() {
                 APP.inputDevices.analyzer.smoothingTimeConstant = 0.3;
                 APP.audio.livePreAmp.connect(APP.inputDevices.analyzer);
 
-                // SPATIAL BUS (fallback path): panner → EQ → compressor → limiter → output.
-                // Recording taps outputLimiter downstream — no direct recorderDest connection.
-                if (APP.audio.panner) {
-                    APP.audio.livePreAmp.connect(APP.audio.panner);
-                } else if (APP.audio.masterGain) {
-                    APP.audio.livePreAmp.connect(APP.audio.masterGain);
-                }
-                // FEEDBACK PREVENTION: NOT connected to ctx.destination directly.
+                // livePreAmp feeds level meter only — NOT routed to speakers (prevents feedback).
 
                 var _trackLabel2 = (stream.getAudioTracks()[0] && stream.getAudioTracks()[0].label)
                     ? stream.getAudioTracks()[0].label.toUpperCase()
