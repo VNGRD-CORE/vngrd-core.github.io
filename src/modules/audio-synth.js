@@ -151,7 +151,7 @@ const SFX_ENGINE = (() => {
 
     function init() {
         Object.entries(URLS).forEach(([name, url]) => {
-            console.log('LOADING LOCAL SFX:', name);
+            log('SFX: ' + name);
             fetch(url)
                 .then(r => { if (!r.ok) throw new Error(r.status); return r.arrayBuffer(); })
                 .then(ab => { _raw[name] = ab; log('SFX_ENGINE: FETCHED ' + name.toUpperCase()); })

@@ -121,8 +121,7 @@ async function signVideoDNA(videoBlob) {
             log('DNA: SEALED_SHA256 (GUEST)');
         }
     } catch (e) {
-        console.error(e);
-        log('DNA_SEAL_ERR: ' + e.message);
+        log('DNA_SEAL_ERR: ' + (e.message || e));
     }
     return result;
 }

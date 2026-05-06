@@ -267,7 +267,7 @@ function summonNFTByIndex(index) {
                 // User interacted, so we can safely unmute and play!
                 vid.muted = false;
                 vid.currentTime = 0;
-                vid.play().catch(e => console.warn('NFT Autoplay blocked:', e));
+                vid.play().catch(() => {});
 
                 // Plug into the Workstation Mixer
                 if (!vid.audioRouted && APP.audio && APP.audio.ctx) {
@@ -277,9 +277,9 @@ function summonNFTByIndex(index) {
                         var destination = APP.audio.masterGain || APP.audio.ctx.destination;
                         trackSource.connect(destination);
                         vid.audioRouted = true;
-                        console.log('NFT_AUDIO: ROUTED TO MASTER MIX');
+                        log('NFT_AUDIO: ROUTED');
                     } catch (e) {
-                        console.warn('NFT_AUDIO: ROUTING FAILED', e);
+                        log('NFT_AUDIO: ROUTING_FAILED');
                     }
                 }
             }
