@@ -139,10 +139,10 @@ function setupAudioChain() {
     APP.audio.isConnected = true;
     if (APP.audio.livePreAmp) {
         try { APP.audio.livePreAmp.disconnect(); } catch(_) {}
-        APP.audio.livePreAmp.connect(APP.audio.panner);
         if (APP.inputDevices && APP.inputDevices.analyzer) {
             APP.audio.livePreAmp.connect(APP.inputDevices.analyzer);
         }
+        // livePreAmp feeds level meter only — NOT routed to panner (prevents feedback).
     }
     log('DAW_ENGINE: TRIPLE_PATH + LIMITER + DUCKING');
     updateVU();
