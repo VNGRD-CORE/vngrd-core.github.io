@@ -3716,6 +3716,9 @@ body.fullscreen #transcription-hud { pointer-events: none !important; } /* keep 
 }
 .ss-card-btn:hover { color: #00f3ff; border-color: #00f3ff; }
 .ss-card-btn.playing { color: #ff4444; border-color: #ff4444; box-shadow: 0 0 8px rgba(255,60,60,.4); }
+/* ── MPC / 303 / XY step highlight ── */
+.mpc-active { outline: 2px solid rgba(0,243,255,.75) !important; outline-offset: -1px; }
+.mpc-lbl    { font-size: 9px; color: rgba(0,243,255,.55); letter-spacing: 2px; font-family: 'JetBrains Mono', monospace; }
 .ss-card-body {
     padding: 10px 12px;
     display: flex; flex-direction: column; gap: 8px;

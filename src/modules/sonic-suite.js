@@ -411,7 +411,7 @@ window.SonicSuite = (function() {
         const btn = document.getElementById('vt-sonic-launch-btn');
         if (btn) btn.classList.remove('active');
         const status = document.getElementById('vt-sonic-status');
-        if (status) { status.textContent = 'DRUMS · BASS · CODE · MIXER'; status.classList.remove('live'); }
+        if (status) { status.textContent = 'MPC · 303 · XY PAD · MIXER'; status.classList.remove('live'); }
     }
     function toggle() { state.open ? close() : open(); }
 
