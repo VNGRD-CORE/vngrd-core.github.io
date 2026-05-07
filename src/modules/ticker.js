@@ -24,7 +24,7 @@ async function fetchCrypto() {
     } catch(e) {
         APP.crypto.tickerHTML = '<span style="color:var(--r)">CRYPTO_FEED_OFFLINE</span>';
         updateTickerCycle();
-        console.warn("Binance data sync paused.");
+        log('CRYPTO: SYNC_PAUSED');
     }
 }
 

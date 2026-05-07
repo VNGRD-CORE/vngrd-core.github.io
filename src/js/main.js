@@ -20,15 +20,11 @@ function takeScreenshot() {
     }
 }
 
-// --- BROADCAST SAFE DRAG MODULE ---
-function makeLogSafeDraggable(el) {
-    // Legacy no-op — handle-based drag is wired in _sysLogInit()
-}
 // --- KILL SWITCH ---
 document.addEventListener('keydown', e => {
     if ((e.ctrlKey || e.metaKey) && (e.key === 's' || e.key === 'S')) {
         e.preventDefault();
-        if (e.shiftKey) { takeScreenshot(); } else { console.log('SYS: SAVE_DISABLED'); }
+        if (e.shiftKey) { takeScreenshot(); } else { log('SYS: SAVE_DISABLED'); }
     }
 });
 document.ondragstart = function() { return false; };
@@ -659,7 +655,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
         } catch(e) {
             // THE FALLBACK FIX: Native English/Smart voice if API fails
-            console.warn('ElevenLabs Failed, switching to Native:', e.message);
+            log('SVE: FALLBACK_NATIVE');
             if (statusEl) statusEl.textContent = 'FALLBACK: NATIVE_VOICE';
             
             var msg = new SpeechSynthesisUtterance(script);
@@ -3006,7 +3002,6 @@ $('btn-init-peer').onclick = () => {
                 try {
                     const msg = typeof data === 'string' ? JSON.parse(data) : data;
                     // Debug: confirm packet arrival before any DOM work
-                    console.log('RECEIVED P2P DATA:', msg);
                     log('DATA_CHANNEL: RECV ' + (msg.target || 'UNKNOWN'));
                     if (msg.type === 'UI_SYNC') handleUISync(msg);
                 } catch (e) {
@@ -4261,8 +4256,6 @@ var isVideo = nft.forceVideo || (imageUrl.toLowerCase().match(/\.(mp4|webm|mov|o
     // Init v19 transitions
     v19_Transitions.init();
 
-    // --- DRAG INITIALIZATION (mid-script) ---
-    makeLogSafeDraggable($('sys-log'));
 
     // ── SYS-LOG v2: smart dim/alert + handle drag + pin ──────────────────
     (function() {
@@ -4555,41 +4548,3 @@ var isVideo = nft.forceVideo || (imageUrl.toLowerCase().match(/\.(mp4|webm|mov|o
 
 }); // THIS IS THE END of the startup block. Do not put code after this line.
 
-// ─────────────────────────────────────────────────────────────────────────────
-// MAIN LOOP — Phase A: Central animation hub
-// Migrated functions tick here instead of running their own rAF loops.
-// startMainLoop() is guarded — boots exactly once from DOMContentLoaded.
-// ─────────────────────────────────────────────────────────────────────────────
-var _mainLoopRunning = false;
-
-function mainLoop(timestamp) {
-    requestAnimationFrame(mainLoop);
-
-    // Phase B: NFT recording timer (was an unbounded rAF loop — now a pure tick)
-    updateNFTTimer();
-
-    // Phase C: audio input level meter (was an rAF loop that stacked on every input switch)
-    if (window._inputLevelTick) window._inputLevelTick();
-
-    // Phase E Task 1: VU meter (was its own rAF loop)
-    updateVU();
-
-    // Phase E Task 2: audio reactor (was its own rAF loop in a separate script block)
-    if (window._audioReactorTick) window._audioReactorTick();
-
-    // Phase F Task 1: WebGL VU bar shader (was _vbRender own rAF)
-    if (window._vbRenderTick) window._vbRenderTick();
-
-    // Phase F Task 2: VFXLayer chromatic aberration shader (was _frame IIFE rAF)
-    if (window._vfxFrameTick) window._vfxFrameTick(timestamp);
-
-    // Phase F Task 3: mic ducking monitor (was monitorDucking own rAF)
-    updateDucking();
-}
-
-function startMainLoop() {
-    if (_mainLoopRunning) return; // single-boot guard
-    _mainLoopRunning = true;
-    requestAnimationFrame(mainLoop);
-}
-// --- TACTICAL FX ELITE BRIDGE ---

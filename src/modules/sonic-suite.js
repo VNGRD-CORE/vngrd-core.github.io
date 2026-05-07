@@ -127,7 +127,7 @@ window.SonicSuite = (function() {
                 const card = state.cards[id];
                 if (card && typeof card.spec.onTick === 'function') {
                     try { card.spec.onTick(t, s16, s); }
-                    catch (e) { console.warn('[SS] onTick ' + id, e); }
+                    catch (e) { log('SS: TICK_ERR ' + id); }
                 }
             });
             state.nextTime += _stepDur();
@@ -225,7 +225,7 @@ window.SonicSuite = (function() {
         _addMbToggle(id, spec);
 
         try { spec.mount && spec.mount(dom.body, ctx); }
-        catch (e) { console.warn('[SS] mount ' + id, e); }
+        catch (e) { log('SS: MOUNT_ERR ' + id); }
         return card;
     }
 

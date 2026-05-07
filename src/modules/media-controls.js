@@ -66,7 +66,7 @@ function rotateMedia() {
         item.element = img;
         APP.media.currentElement = null; // GIFs do not render to vj-canvas
         APP.media._tx = null;
-        console.warn('[VNGRD] GIF asset "' + item.name + '" is rendered as a DOM element and will NOT be captured by vj-canvas.captureStream(). Convert animated assets to .webm for full recording compatibility.');
+        ghostLog('GIF: ' + item.name + ' — DOM render only, not captured by captureStream. Convert to .webm for recording.', 'sys');
         updateMediaControls();
         checkCycleLogic();
         return;
@@ -116,7 +116,7 @@ function previousMedia() {
         if (gifOverlay) gifOverlay.appendChild(img);
         item.element = img;
         APP.media.currentElement = null;
-        console.warn('[VNGRD] GIF asset "' + item.name + '" is rendered as a DOM element and will NOT be captured by vj-canvas.captureStream(). Convert animated assets to .webm for full recording compatibility.');
+        ghostLog('GIF: ' + item.name + ' — DOM render only, not captured by captureStream. Convert to .webm for recording.', 'sys');
         updateMediaControls();
         checkCycleLogic();
         return;
