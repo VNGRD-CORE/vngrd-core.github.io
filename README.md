@@ -1,5 +1,4 @@
-# VNGRD// CORE
-
+# VNGRD//
 **Browser-native system for real-time audiovisual production**
 
 ![VNGRD// CORE Interface](./assets/vngrd-hero.gif)
@@ -77,6 +76,10 @@ This is an **experimental, in-progress prototype**.
 - Real-time collaboration  
 - Multilingual transcription  
 - Decentralized media workflows  
+
+## Latest Update
+
+See the latest feature and audio engine release notes in [`CHANGELOG.md`](./CHANGELOG.md).
 
 ---
 

@@ -6,6 +6,14 @@
  * No NeuralComposer.js.
  */
 
+// ── MAIN IIFE — keeps every class/const/function out of global scope.
+// Without this wrapper, `class KineticRack {}` creates a lexical binding in the
+// global Declarative Record that *shadows* window.KineticRack, so onclick
+// handlers that use the bare identifier `KineticRack.toggle()` resolve to the
+// CLASS (no static toggle) instead of the instance → TypeError.
+(function () {
+'use strict';
+
 const THREE = window.THREE;
 // ─────────────────────────────────────────────────────────────────────────────
 //  GLSL Shaders
@@ -66,8 +74,25 @@ void main() {
 //  FFTParticles — 8192 shader-driven GPU particles on a sphere
 // ─────────────────────────────────────────────────────────────────────────────
 
-const N_PARTICLES     = 8192;
+// ── DIAGNOSTIC TOGGLES — flip to isolate subsystems, revert when done ────────
+const DISABLE_DETECTION = false;  // skip _detectHandsOnce entirely
+const REDUCE_PARTICLES  = false;  // drop particle count to 512 for render test
+// ─────────────────────────────────────────────────────────────────────────────
+
+const N_PARTICLES     = REDUCE_PARTICLES ? 512 : 8192;
 const SUB_BASS_THRESH = 0.68;
+
+// ── Playability helpers ───────────────────────────────────────────────────────
+function applyDeadzone(v, dead = 0.08) {
+    if (Math.abs(v - 0.5) < dead) return 0.5;
+    return v;
+}
+const PENTA_SCALE = [0, 2, 4, 7, 9];
+function quantizePitch(v) {
+    const i = Math.min(Math.floor(v * PENTA_SCALE.length), PENTA_SCALE.length - 1);
+    return PENTA_SCALE[i] / 12;
+}
+// ─────────────────────────────────────────────────────────────────────────────
 
 class FFTParticles {
     constructor(scene) {
@@ -166,16 +191,14 @@ class AudioCore {
         this._analyser   = null;
         this._masterGain = null;
         this._fftBuf     = null;
-        this._oscs       = [];
+        this._oscs       = [];           // upper-octave detuned saws (body)
         this._oscGains   = [];
+        this._sub        = null;         // sub-octave sine (weight)
+        this._subGain    = null;
+        this._noise      = null;         // brown-noise atmosphere bed
+        this._noiseGain  = null;
         this._filter     = null;
-        this._spatialGain = null;
-
-        // FM "grit" — sine modulator into each carrier's frequency
-        this._modulator  = null;
-        this._modGain    = null;
-
-        // LFO "wobble" — sine LFO into filter frequency
+        this._voiceGain  = null;         // voice-level gate (fades on hand lose)
         this._lfo        = null;
         this._lfoGain    = null;
     }
@@ -186,82 +209,157 @@ class AudioCore {
 
         const ctx = this.ctx;
 
-        // Master chain: masterGain → compressor → analyser → destination
+        // Master chain: masterGain → compressor → lowShelf boost → SAFETY
+        // lowpass → analyser → destination. The safety lowpass at 900 Hz is
+        // non-negotiable — no matter what the XY pad does, nothing above the
+        // low-mid band ever reaches the speakers. Ears-first design.
         this._masterGain = ctx.createGain();
-        this._masterGain.gain.value = 0.7;
+        this._masterGain.gain.value = 0.55;
 
         const compressor = ctx.createDynamicsCompressor();
-        compressor.threshold.value = -18;
-        compressor.knee.value      = 10;
-        compressor.ratio.value     = 6;
-        compressor.attack.value    = 0.003;
-        compressor.release.value   = 0.25;
+        compressor.threshold.value = -12;
+        compressor.knee.value      = 6;
+        compressor.ratio.value     = 10;
+        compressor.attack.value    = 0.004;
+        compressor.release.value   = 0.18;
+
+        // Brick-wall limiter — catches transients from pluck/arp so the
+        // lifted 3.5 kHz ceiling is safe.
+        const limiter = ctx.createDynamicsCompressor();
+        limiter.threshold.value = -3;
+        limiter.knee.value      = 0;
+        limiter.ratio.value     = 20;
+        limiter.attack.value    = 0.001;
+        limiter.release.value   = 0.08;
+
+        // Safety ceiling lifted 900 → 3500 Hz so the synth can actually
+        // sound bright / percussive. Still cut above 3.5 kHz so piercing
+        // high harmonics can never reach the speakers.
+        this._safetyLP = ctx.createBiquadFilter();
+        this._safetyLP.type            = 'lowpass';
+        this._safetyLP.frequency.value = 3500;
+        this._safetyLP.Q.value         = 0.707;
 
         this._analyser = ctx.createAnalyser();
         this._analyser.fftSize             = 512;
         this._analyser.smoothingTimeConstant = 0.8;
 
         this._masterGain.connect(compressor);
-        compressor.connect(this._analyser);
+        compressor.connect(limiter);
+        limiter.connect(this._safetyLP);
+        this._safetyLP.connect(this._analyser);
         this._analyser.connect(ctx.destination);
 
         this._fftBuf = new Float32Array(this._analyser.frequencyBinCount); // 256
 
-        // Spatial synth: 3 detuned saws → filter → spatialGain → masterGain
+        // Gentle sweep lowpass (no resonance) — the XY pad's Y axis drives
+        // this within a narrow bass-only range. Q≤0.9 keeps it warm, not
+        // whistle-y.
         this._filter = ctx.createBiquadFilter();
         this._filter.type            = 'lowpass';
-        this._filter.frequency.value = 800;
-        this._filter.Q.value         = 3;
+        this._filter.frequency.value = 300;
+        this._filter.Q.value         = 0.7;
 
-        this._spatialGain = ctx.createGain();
-        this._spatialGain.gain.value = 0;  // MUTED until hand detected
+        // Voice gate — smooth fade-in/out when hand enters/leaves frame.
+        this._voiceGain = ctx.createGain();
+        this._voiceGain.gain.value = 0;
 
-        this._filter.connect(this._spatialGain);
-        this._spatialGain.connect(this._masterGain);
+        // Sidechain duck — kick pulses this gain down briefly so the bass
+        // pumps under every kick hit. Kick itself bypasses this gain (goes
+        // straight to masterGain), so it's only the melodic voices that duck.
+        this._duckGain = ctx.createGain();
+        this._duckGain.gain.value = 1.0;
 
-        const detunes = [-7, 0, 7];
-        for (let i = 0; i < 3; i++) {
+        this._filter.connect(this._voiceGain);
+        this._voiceGain.connect(this._duckGain);
+        this._duckGain.connect(this._masterGain);
+
+        // ── Soft-clip waveshaper adds odd-harmonic grit to the body oscs
+        //    so the bass has chest-thump weight even when the fundamental
+        //    is below what most laptop speakers can reproduce.
+        const shaper = ctx.createWaveShaper();
+        const _curveN = 2048;
+        const _curve  = new Float32Array(_curveN);
+        for (let i = 0; i < _curveN; i++) {
+            const x = (i * 2) / _curveN - 1;
+            _curve[i] = Math.tanh(x * 2.4) / Math.tanh(2.4);
+        }
+        shaper.curve      = _curve;
+        shaper.oversample = '4x';
+        shaper.connect(this._filter);
+
+        // ── Body: 2 triangles (-9 / +9 cents) at 70 Hz — true bass register,
+        //         a full octave below the old 110 Hz. Soft-clip adds warmth.
+        const detunes = [-9, 9];
+        for (let i = 0; i < detunes.length; i++) {
             const osc = ctx.createOscillator();
-            osc.type            = 'sawtooth';
-            osc.frequency.value = 220;
+            osc.type            = 'triangle';
+            osc.frequency.value = 70;
             osc.detune.value    = detunes[i];
 
             const g = ctx.createGain();
-            g.gain.value = 0.28;
+            g.gain.value = 0.34;
 
             osc.connect(g);
-            g.connect(this._filter);
+            g.connect(shaper);
             osc.start();
 
             this._oscs.push(osc);
             this._oscGains.push(g);
         }
 
-        // ── FM Modulator (sine → modGain → each carrier's .frequency) ────────
-        // Depth starts at 0 — silent until hand drives setFM().
-        this._modGain = ctx.createGain();
-        this._modGain.gain.value = 0;
+        // ── Sub: pure sine one octave below body — the main bassline tone. ───
+        this._sub = ctx.createOscillator();
+        this._sub.type            = 'sine';
+        this._sub.frequency.value = 35;
 
+        this._subGain = ctx.createGain();
+        this._subGain.gain.value = 1.15;
+
+        this._sub.connect(this._subGain);
+        this._subGain.connect(this._filter);
+        this._sub.start();
+
+        // ── Pluck voice — percussive ADSR-shaped sawtooth for arp + pinch
+        //    triggers. Uses a dedicated gain env so the drone keeps running
+        //    underneath while notes punch through on top.
+        this._pluck = ctx.createOscillator();
+        this._pluck.type            = 'sawtooth';
+        this._pluck.frequency.value = 55;
+        this._pluckGain = ctx.createGain();
+        this._pluckGain.gain.value  = 0;
+        this._pluck.connect(this._pluckGain);
+        this._pluckGain.connect(shaper);
+        this._pluck.start();
+
+        // ── FM modulator — silent by default. Pinch gesture opens _modGain
+        //    to inject growly sidebands into the body carriers (dubstep-style
+        //    wob when fully pinched). Modulator tracks 2× carrier for that
+        //    classic metallic-reese character; kept under the safety LP.
         this._modulator = ctx.createOscillator();
         this._modulator.type            = 'sine';
-        this._modulator.frequency.value = 220; // tracks carrier pitch
+        this._modulator.frequency.value = 140;
+        this._modGain = ctx.createGain();
+        this._modGain.gain.value = 0;
         this._modulator.connect(this._modGain);
         for (const osc of this._oscs) {
             this._modGain.connect(osc.frequency);
         }
         this._modulator.start();
 
-        // ── LFO (slow sine → lfoGain → filter.frequency) ─────────────────────
-        // ±200 Hz wobble around the current filter cutoff.
-        this._lfoGain = ctx.createGain();
-        this._lfoGain.gain.value = 200;
-
+        // ── LFO — silent by default. Finger-spread opens _lfoGain to wobble
+        //    the filter cutoff (dub-bass wub). Rate 0.2–12 Hz.
         this._lfo = ctx.createOscillator();
         this._lfo.type            = 'sine';
-        this._lfo.frequency.value = 2; // 2 Hz default wobble
+        this._lfo.frequency.value = 2.0;
+        this._lfoGain = ctx.createGain();
+        this._lfoGain.gain.value = 0;
         this._lfo.connect(this._lfoGain);
         this._lfoGain.connect(this._filter.frequency);
         this._lfo.start();
+
+        // Atmosphere noise bed removed — was feeding the filter resonance
+        // and adding painful high-frequency hiss.
     }
 
     getFFT() {
@@ -279,79 +377,171 @@ class AudioCore {
 
     setPitch(hz) {
         if (!this.ctx) return;
+        // Hard sub-bass clamp — defense-in-depth so stray callers can't
+        // ever push the body oscs into piercing register.
+        const clamped = Math.max(28, Math.min(240, hz));
         const t = this.ctx.currentTime;
+        // Slight portamento so XY sweeps feel musical, not stepped.
         for (const osc of this._oscs) {
-            osc.frequency.setTargetAtTime(hz, t, 0.02);
+            osc.frequency.setTargetAtTime(clamped, t, 0.04);
+        }
+        if (this._sub) this._sub.frequency.setTargetAtTime(clamped * 0.5, t, 0.04);
+        // Keep FM modulator at 2× carrier so growl tracks pitch.
+        if (this._modulator) {
+            this._modulator.frequency.setTargetAtTime(clamped * 2.0, t, 0.04);
         }
     }
 
     setFilter(hz) {
         if (!this._filter) return;
-        const clamped = Math.max(80, Math.min(8000, hz));
-        this._filter.frequency.setTargetAtTime(clamped, this.ctx.currentTime, 0.02);
+        const clamped = Math.max(60, Math.min(4500, hz));
+        this._filter.frequency.setTargetAtTime(clamped, this.ctx.currentTime, 0.03);
+    }
+
+    /** Minor-pentatonic scale quantiser — v in 0..1 → one of 10 notes
+     *  across two octaves rooted at A1 (55 Hz). Every hand position lands
+     *  on an in-key note so the arp / pluck triggers always sound musical. */
+    _scaleFreq(v01) {
+        const SEMIS = [0, 3, 5, 7, 10]; // A minor pentatonic
+        const idx   = Math.max(0, Math.min(9, Math.floor(v01 * 10)));
+        const oct   = Math.floor(idx / 5);
+        const deg   = idx % 5;
+        return 55 * Math.pow(2, (SEMIS[deg] + oct * 12) / 12);
+    }
+
+    /** Trigger a percussive note on the pluck voice. vel 0..1. */
+    noteOn(freq, vel = 0.7) {
+        if (!this._pluck || !this.ctx) return;
+        const t = this.ctx.currentTime;
+        this._pluck.frequency.setValueAtTime(freq, t);
+        const g = this._pluckGain.gain;
+        g.cancelScheduledValues(t);
+        g.setValueAtTime(g.value, t);
+        g.linearRampToValueAtTime(Math.min(0.45, vel * 0.55), t + 0.005);
+        g.exponentialRampToValueAtTime(0.001, t + 0.32);
+    }
+
+    /** Scale-index (0..9) + octave bias → note-on. Preset-aware entry point. */
+    noteOnAt(idx, octaveBias = 0, vel = 0.7) {
+        const base = this._scaleFreq(Math.max(0, Math.min(9, idx)) / 10 + 0.001);
+        const freq = base * Math.pow(2, octaveBias);
+        this.noteOn(freq, vel);
+    }
+
+    /** Macro (0..1) — opens filter + adds grit + thickens sub in one
+     *  choreographed move. Driven by hand proximity to camera. */
+    setMacro(v01) {
+        if (!this.ctx) return;
+        const v = Math.max(0, Math.min(1, v01));
+        const t = this.ctx.currentTime;
+        // Filter rides 180 → 2600 Hz (brighter) as macro opens
+        this._filter.frequency.setTargetAtTime(180 + v * 2420, t, 0.05);
+        // Sub gets heavier
+        if (this._subGain) this._subGain.gain.setTargetAtTime(0.8 + v * 0.9, t, 0.05);
+        // Body oscs grow slightly
+        for (const g of this._oscGains) {
+            g.gain.setTargetAtTime(0.22 + v * 0.22, t, 0.05);
+        }
     }
 
     setVolume(v) {
-        if (!this._masterGain) return;
-        this._masterGain.gain.setTargetAtTime(
+        if (!this._voiceGain) return;
+        // Route "vol" to the voice gate, not the master — master stays hot so
+        // the compressor keeps its curve. 80 ms gate = musical fade in/out.
+        this._voiceGain.gain.setTargetAtTime(
             Math.max(0, Math.min(1, v)),
             this.ctx.currentTime,
-            0.02
+            0.08
         );
     }
 
     setSpatialGate(v) {
-        if (!this._spatialGain || !this.ctx) return;
-        this._spatialGain.gain.setTargetAtTime(v, this.ctx.currentTime, 0.08);
+        if (!this._voiceGain || !this.ctx) return;
+        this._voiceGain.gain.setTargetAtTime(v, this.ctx.currentTime, 0.08);
     }
 
-    /** FM depth: 0..3000 Hz into each carrier frequency */
+    /** FM depth: 0..2500 Hz into each carrier frequency (pinch → growl). */
     setFM(depthHz) {
         if (!this._modGain || !this.ctx) return;
-        const clamped = Math.max(0, Math.min(3000, depthHz));
-        this._modGain.gain.setTargetAtTime(clamped, this.ctx.currentTime, 0.05);
-        // Keep modulator in tune with the current carrier pitch
-        if (this._modulator && this._oscs.length) {
-            this._modulator.frequency.setTargetAtTime(
-                this._oscs[0].frequency.value, this.ctx.currentTime, 0.02
-            );
-        }
+        const clamped = Math.max(0, Math.min(2500, depthHz));
+        this._modGain.gain.setTargetAtTime(clamped, this.ctx.currentTime, 0.04);
     }
 
-    /** LFO rate: 0.01..20 Hz wobble on the filter cutoff */
+    /** LFO rate: 0.1..14 Hz wobble on the filter cutoff. */
     setLFORate(hz) {
         if (!this._lfo || !this.ctx) return;
         this._lfo.frequency.setTargetAtTime(
-            Math.max(0.01, Math.min(20, hz)), this.ctx.currentTime, 0.1
+            Math.max(0.1, Math.min(14, hz)), this.ctx.currentTime, 0.08
         );
     }
 
-    triggerKick() {
+    /** LFO depth in Hz — how far the filter wobbles around its base cutoff. */
+    setLFODepth(hz) {
+        if (!this._lfoGain || !this.ctx) return;
+        const clamped = Math.max(0, Math.min(500, hz));
+        this._lfoGain.gain.setTargetAtTime(clamped, this.ctx.currentTime, 0.06);
+    }
+
+    /** Short, punchy kick with click transient + sidechain duck pulse. */
+    triggerKick(vel = 1.0) {
         if (!this.ctx) return;
         const ctx = this.ctx;
         const t   = ctx.currentTime;
+        const V   = Math.max(0, Math.min(1, vel));
 
-        // Sine osc with pitch envelope 100→30 Hz over 0.5s
-        const osc  = ctx.createOscillator();
-        osc.type   = 'sine';
-        osc.frequency.setValueAtTime(100, t);
-        osc.frequency.exponentialRampToValueAtTime(30, t + 0.5);
+        // Body: pitch-enveloped sine 140 → 42 Hz over 90 ms (snappy).
+        const body = ctx.createOscillator();
+        body.type  = 'sine';
+        body.frequency.setValueAtTime(140, t);
+        body.frequency.exponentialRampToValueAtTime(42, t + 0.09);
 
-        // Soft-clip waveshaper (distortion)
-        const ws        = ctx.createWaveShaper();
-        ws.curve        = _makeSoftClipCurve(256);
-        ws.oversample   = '2x';
+        const bodyEnv = ctx.createGain();
+        bodyEnv.gain.setValueAtTime(0, t);
+        bodyEnv.gain.linearRampToValueAtTime(V * 0.85, t + 0.003);
+        bodyEnv.gain.exponentialRampToValueAtTime(0.001, t + 0.28);
+        body.connect(bodyEnv);
+        bodyEnv.connect(this._masterGain);
+        body.start(t); body.stop(t + 0.3);
 
-        const env = ctx.createGain();
-        env.gain.setValueAtTime(1.2, t);
-        env.gain.exponentialRampToValueAtTime(0.001, t + 0.5);
+        // Click transient — 8 ms noise burst through a highpass.
+        const noiseBuf = ctx.createBuffer(1, 0.02 * ctx.sampleRate, ctx.sampleRate);
+        const data     = noiseBuf.getChannelData(0);
+        for (let i = 0; i < data.length; i++) data[i] = Math.random() * 2 - 1;
+        const noise   = ctx.createBufferSource();
+        noise.buffer  = noiseBuf;
+        const hp      = ctx.createBiquadFilter();
+        hp.type       = 'highpass';
+        hp.frequency.value = 1200;
+        const clickEnv = ctx.createGain();
+        clickEnv.gain.setValueAtTime(V * 0.6, t);
+        clickEnv.gain.exponentialRampToValueAtTime(0.001, t + 0.018);
+        noise.connect(hp); hp.connect(clickEnv);
+        clickEnv.connect(this._masterGain);
+        noise.start(t); noise.stop(t + 0.02);
 
-        osc.connect(ws);
-        ws.connect(env);
-        env.connect(this._masterGain);
+        // Sidechain duck — dip the duckGain to 0.22 on kick, rebound 220 ms.
+        if (this._duckGain) {
+            const g = this._duckGain.gain;
+            g.cancelScheduledValues(t);
+            g.setValueAtTime(g.value, t);
+            g.linearRampToValueAtTime(0.22, t + 0.012);
+            g.linearRampToValueAtTime(1.0,  t + 0.22);
+        }
+    }
 
-        osc.start(t);
-        osc.stop(t + 0.52);
+    /** Swap oscillator / pluck character per preset ('ambient'|'techno'|'dubstep'). */
+    setPresetSound(preset) {
+        if (!this._pluck || !this._oscs.length) return;
+        if (preset === 'ambient') {
+            for (const o of this._oscs) o.type = 'sine';
+            this._pluck.type = 'triangle';
+        } else if (preset === 'dubstep') {
+            for (const o of this._oscs) o.type = 'sawtooth';
+            this._pluck.type = 'square';
+        } else { // techno (default)
+            for (const o of this._oscs) o.type = 'triangle';
+            this._pluck.type = 'sawtooth';
+        }
     }
 
     createLoopNode() {
@@ -708,6 +898,14 @@ class KineticRack {
         this._rafId       = null;
         this._elapsed     = 0;
         this._lastNow     = 0;
+        this._frameCount  = 0;
+        this._lastLogAt   = 0;
+        this._lastPlayLogAt = 0;
+
+        // Playability — smoothed gesture state
+        this._smooth        = null;  // lazy init in _loop
+        this._lastPluckTime = 0;
+        this._velSmooth     = 0.8;
 
         // Smoothed gesture values
         this._s = {
@@ -772,6 +970,7 @@ class KineticRack {
         this._camera.position.set(0, 0, 3.2);
 
         canvas.classList.add('kr-online');
+        document.getElementById('kr-skeleton-canvas')?.classList.add('kr-online');
         document.getElementById('kr-rack')?.classList.add('kr-online');
         document.getElementById('kr-launch-btn')?.classList.add('kr-online');
 
@@ -803,52 +1002,53 @@ class KineticRack {
             }
             if (aiVid) {
                 aiVid.srcObject = stream;
+                this._aiVid = aiVid;
                 await aiVid.play().catch(() => {});
             }
             this._setStatus('CAM OK');
             console.log('[KineticRack] Phase 3: camera active');
+
+            // Kick the main-thread MediaPipe Hands tracker now that the video
+            // element has a live stream. Safe to call repeatedly — idempotent.
+            if (typeof window._startHandTracker === 'function') {
+                try { window._startHandTracker(); } catch (e) {
+                    console.warn('[KineticRack] _startHandTracker threw:', e);
+                }
+            }
         } catch (e) {
             console.warn('[KineticRack] Camera unavailable:', e);
-            this._setStatus('NO CAM — AUDIO ONLY');
+            this._setStatus('NO CAM: ' + (e && e.name || 'ERR'));
         }
 
         // Phase 4 — audio (non-fatal)
         try {
             await this._audio.start();
             this._setStatus('AUDIO OK');
-            console.log('[KineticRack] Phase 4: audio started (synth muted until hand detected)');
+            this._applyPreset('techno'); // default bank
+            this._startArp(120);         // 16th-note arp at 120 BPM, gated by _handPresent
+            console.log('[KineticRack] Phase 4: audio + arp + preset banks live');
         } catch (e) {
             console.warn('[KineticRack] AudioCore failed:', e);
         }
 
-        // Phase 5 — GestureLooper (non-fatal)
-        try {
-            const loopBus = this._audio.createLoopNode();
-            this._looper  = new GestureLooper(this._scene, loopBus, this._audio.ctx);
-        } catch (e) {
-            console.warn('[KineticRack] GestureLooper failed:', e);
-        }
+        // Phase 5 — GestureLooper + HandMesh REMOVED.
+        // The X/Y synth is driven by _handTrackFeed in index.html which draws a
+        // clean 21-point skeleton HUD on #kr-skeleton-canvas. The old 3D line
+        // meshes and pinch-to-loop playhead spheres are intentionally gone.
 
-        // Phase 6 — hand meshes (non-fatal)
-        try {
-            this._handMeshR = new HandMesh(this._scene, 0x00f3ff);
-            this._handMeshL = new HandMesh(this._scene, 0xff00cc);
-        } catch (e) {
-            console.warn('[KineticRack] HandMesh failed:', e);
-        }
-
-        // Phase 7 — MediaPipe (non-fatal)
-        try {
-            await this._initHandLandmarker();
-        } catch (e) {
-            console.warn('[KineticRack] MediaPipe failed:', e);
-        }
+        // Phase 6 — MediaPipe. The main-thread CDN tracker in
+        // src/hand-tracker.js is the single source of truth for landmarks;
+        // it writes window._latestHandsLm which _detectHands reads each
+        // frame. The old Web Worker path ran a SECOND MediaPipe instance
+        // and did a getImageData() per frame — that was tanking render
+        // FPS to single digits. It's gone; keep only the lean CDN path.
+        this._mpWorkerReady = false;
 
         window.addEventListener('resize', this._onResize);
         this._initialized = true;
 
         document.getElementById('kr-stage-hud')?.classList.add('kr-live');
-        this._setStatus('GESTURE LOOPER // LIVE', true);
+        this._setStatus('HAND SYNTH // LIVE', true);
         console.log('[KineticRack] All phases complete — LIVE');
     }
 
@@ -929,9 +1129,76 @@ class KineticRack {
         this._lastNow = now;
         this._elapsed += dt;
 
+        // ── FPS + worker-traffic diagnostics (log every second) ───────────────
+        this._frameCount++;
+        if (now - this._lastLogAt >= 1000) {
+            console.log('[DIAG] FPS:', this._frameCount,
+                '| worker sent:', window._dbgSent || 0,
+                '| worker recv:', window._dbgRecv || 0);
+            this._frameCount = 0;
+            this._lastLogAt  = now;
+            window._dbgSent  = 0;
+            window._dbgRecv  = 0;
+        }
+        // ─────────────────────────────────────────────────────────────────────
+
         this._leftPinchCooldown = Math.max(0, this._leftPinchCooldown - dt);
 
-        this._detectHands();
+        if (!DISABLE_DETECTION) {
+            this._detectHands();
+        }
+
+        // ── Playability: smooth + quantize _gestureState → ctrlChange ────────
+        const g = window._gestureState;
+        if (g) {
+            this._handPresent = g.handPresent || false;
+
+            if (!this._smooth) {
+                this._smooth = { pitch: 0.5, macro: 0.5, fm: 0, lfoRate: 0, lfoDepth: 0 };
+            }
+
+            // Deadzone → quantize → smooth (pitch)
+            const pitchQ = quantizePitch(applyDeadzone(g.pitch));
+            this._smooth.pitch    += (pitchQ             - this._smooth.pitch)    * 0.05;
+            this._smooth.macro    += (applyDeadzone(g.macro) - this._smooth.macro) * 0.1;
+            this._smooth.fm       += (g.fm               - this._smooth.fm)       * 0.1;
+            this._smooth.lfoRate  += (g.lfoRate          - this._smooth.lfoRate)  * 0.1;
+            this._smooth.lfoDepth += (g.lfoDepth         - this._smooth.lfoDepth) * 0.1;
+
+            this.ctrlChange('vol',      g.vol);
+            this.ctrlChange('pitch',    this._smooth.pitch);
+            this.ctrlChange('macro',    this._smooth.macro);
+            this.ctrlChange('fm',       this._smooth.fm);
+            this.ctrlChange('lfoRate',  this._smooth.lfoRate);
+            this.ctrlChange('lfoDepth', this._smooth.lfoDepth);
+
+            if (g.preset !== null) {
+                this.ctrlChange('preset', g.preset);
+                g.preset = null;
+            }
+
+            // Velocity smoothing + pluck cooldown
+            this._velSmooth += ((g.pluckVel || 0.8) - this._velSmooth) * 0.2;
+            if (g.pluck) {
+                g.pluck = false;
+                if (now - this._lastPluckTime > 200) {
+                    this._lastPluckTime = now;
+                    if (typeof this.triggerPluck === 'function') {
+                        this.triggerPluck(g.pluckX, this._velSmooth);
+                    }
+                }
+            }
+
+            // Debug log every second
+            if (now - this._lastPlayLogAt >= 1000) {
+                console.log('[PLAYABILITY] pitchRaw:', (g.pitch || 0).toFixed(3),
+                    '| pitchSmoothed:', this._smooth.pitch.toFixed(3),
+                    '| macro:', this._smooth.macro.toFixed(3),
+                    '| pluck:', g.pluck || false);
+                this._lastPlayLogAt = now;
+            }
+        }
+        // ─────────────────────────────────────────────────────────────────────
 
         const fft = this._audio.getFFT();
         this._particles?.update(fft, this._elapsed, dt);
@@ -942,76 +1209,22 @@ class KineticRack {
     // ── Hand detection ────────────────────────────────────────────────────────
 
     _detectHands() {
-        // Dispatch a video frame to the MediaPipe worker (Transferable ArrayBuffer)
-        // at the render loop cadence — the worker's LANDMARKS message updates
-        // this._latestRightLm / this._latestLeftLm asynchronously.
-        const video = document.getElementById('kr-ai-video');
-        if (this._mpWorkerReady && !this._mpPending && video && video.readyState >= 2) {
-            const fc = this._mpFrameCtx;
-            const fw = this._mpFrameCanvas.width;
-            const fh = this._mpFrameCanvas.height;
-            fc.drawImage(video, 0, 0, fw, fh);
-            const imgData = fc.getImageData(0, 0, fw, fh);
-            // Transfer the pixel buffer to the worker — zero-copy
-            const pixelBuf = imgData.data.buffer.slice(0); // clone for transfer
-            this._mpPending = true;
-            this._mpWorker.postMessage(
-                { type: 'DETECT', buffer: pixelBuf, width: fw, height: fh, timestamp: performance.now() },
-                [pixelBuf]
-            );
+        const cdnFeed = window._latestHandsLm || null;
+        const rightLm = cdnFeed ? cdnFeed.right : null;
+        const leftLm  = cdnFeed ? cdnFeed.left  : null;
+
+        // Only forward real landmarks — never null — so _handTrackFeed does not
+        // reset handPresent/vol between camera frames (hand-tracker.js handles
+        // the null case via its own _pushLandmarks call at camera frame rate).
+        if (rightLm && typeof window._handTrackFeed === 'function') {
+            try { window._handTrackFeed(rightLm, leftLm || null); }
+            catch (e) { /* never let UI feed kill the render loop */ }
         }
 
-        // Consume the latest landmark data produced by the worker
-        const rightLm = this._latestRightLm;
-        const leftLm  = this._latestLeftLm;
-
-        // Update visual meshes first (always)
-        this._handMeshR?.update(rightLm);
-        this._handMeshL?.update(leftLm);
-
-        // External feed override — if _handTrackFeed is wired, it owns audio
-        if (typeof window._handTrackFeed === 'function') {
-            window._handTrackFeed(rightLm || null, leftLm || null);
-        } else {
-            // Internal default: right hand → pitch + filter via index fingertip (lm8)
-            if (rightLm) {
-                this._audio.setSpatialGate(0.35);
-
-                const lm8 = rightLm[8];
-                this._s.rightX += (lm8.x - this._s.rightX) * LERP_FACTOR;
-                this._s.rightY += (lm8.y - this._s.rightY) * LERP_FACTOR;
-
-                const pitch  = 55 * Math.pow(16, this._s.rightX * 3);
-                const filter = 80 + this._s.rightY * 7920;
-                this._audio.setPitch(pitch);
-                this._audio.setFilter(filter);
-
-                this._looper?.update(rightLm);
-            } else {
-                this._audio.setSpatialGate(0);
-                this._looper?.update(null);
-            }
-        }
-
-        // Left hand → pinch triggers kick (always active, even with external feed)
-        if (leftLm) {
-            const lm4 = leftLm[4];
-            const lm8 = leftLm[8];
-            const dx   = lm4.x - lm8.x;
-            const dy   = lm4.y - lm8.y;
-            const dist = Math.sqrt(dx * dx + dy * dy);
-
-            this._s.leftPinchDist += (dist - this._s.leftPinchDist) * LERP_FACTOR;
-            const pinched = this._s.leftPinchDist < PINCH_THRESH;
-
-            if (pinched && !this._leftWasPinched && this._leftPinchCooldown <= 0) {
-                this._audio.triggerKick();
-                this._particles?.triggerKickFlash();
-                this._leftPinchCooldown = PINCH_COOLDOWN;
-            }
-            this._leftWasPinched = pinched;
-        } else {
-            this._leftWasPinched = false;
+        if (rightLm) {
+            const lm8 = rightLm[8];
+            this._s.rightX += (lm8.x - this._s.rightX) * LERP_FACTOR;
+            this._s.rightY += (lm8.y - this._s.rightY) * LERP_FACTOR;
         }
     }
 
@@ -1021,10 +1234,12 @@ class KineticRack {
         if (this._active) {
             // Stop
             this._active = false;
+            this._stopArp();
             if (this._rafId) cancelAnimationFrame(this._rafId);
             if (this._mpWorker) { this._mpWorker.terminate(); this._mpWorker = null; this._mpWorkerReady = false; }
             document.getElementById('kinetic-canvas')?.classList.remove('kr-online');
             document.getElementById('kinetic-cam-video')?.classList.remove('kr-online');
+            document.getElementById('kr-skeleton-canvas')?.classList.remove('kr-online');
             document.getElementById('kr-launch-btn')?.classList.remove('kr-online');
             document.getElementById('kr-rack')?.classList.remove('kr-online');
             document.getElementById('kr-stage-hud')?.classList.remove('kr-live');
@@ -1044,10 +1259,98 @@ class KineticRack {
             this._lastNow = performance.now();
             this._loop();
             document.getElementById('kinetic-canvas')?.classList.add('kr-online');
+            document.getElementById('kr-skeleton-canvas')?.classList.add('kr-online');
             document.getElementById('kr-launch-btn')?.classList.add('kr-online');
             document.getElementById('kr-stage-hud')?.classList.add('kr-live');
-            this._setStatus('GESTURE LOOPER // LIVE', true);
+            this._setStatus('HAND SYNTH // ' + (this._presetName || 'techno').toUpperCase(), true);
         }
+    }
+
+    // ── Preset banks — one gesture switches the whole instrument ─────────────
+    //  AMBIENT : sparse 1/4-note pluck, kick every 2 bars, soft waves
+    //  TECHNO  : straight 16ths, kick on 1+3, bright bite
+    //  DUBSTEP : syncopated 8ths, kick on 1+3 + ghost 15, growling saws
+    // Each preset is a dict of step-sets (booleans over 16 steps) + hop
+    // pattern + velocity curve + scale root offset.
+    static get PRESETS() {
+        return {
+            ambient: {
+                arpSteps: [0, 0, 0, 0,  1, 0, 0, 0,  0, 0, 0, 0,  1, 0, 0, 0],
+                kickSteps:[1, 0, 0, 0,  0, 0, 0, 0,  0, 0, 0, 0,  0, 0, 0, 0],
+                hops:     [0, 2, 4, 2],
+                velBase: 0.25, velAccent: 0.35,
+                kickVel: 0.55,
+                octaveBias: -1,   // drop one octave for pad-ness
+            },
+            techno: {
+                arpSteps: [1, 0, 1, 0,  1, 0, 1, 0,  1, 0, 1, 0,  1, 0, 1, 0],
+                kickSteps:[1, 0, 0, 0,  1, 0, 0, 0,  1, 0, 0, 0,  1, 0, 0, 0],
+                hops:     [0, 2, 1, 3, 0, 4, 2, 5],
+                velBase: 0.35, velAccent: 0.7,
+                kickVel: 0.95,
+                octaveBias: 0,
+            },
+            dubstep: {
+                arpSteps: [1, 0, 0, 1,  1, 0, 1, 0,  1, 0, 0, 1,  1, 0, 1, 0],
+                kickSteps:[1, 0, 0, 0,  0, 0, 1, 0,  1, 0, 0, 0,  0, 0, 1, 0],
+                hops:     [0, 0, 3, 0,  2, 0, 5, 2],
+                velBase: 0.45, velAccent: 0.95,
+                kickVel: 1.0,
+                octaveBias: 0,
+            },
+        };
+    }
+
+    _applyPreset(name) {
+        if (this._presetName === name) return;
+        this._presetName = name;
+        this._audio?.setPresetSound(name);
+        // Status line mirrors the active preset so the player sees it.
+        this._setStatus('HAND SYNTH // ' + name.toUpperCase(), true);
+    }
+
+    _startArp(bpm = 120) {
+        if (this._arpId) return;
+        const stepMs = (60 / bpm) / 4 * 1000; // 16th note
+        this._arpStep = 0;
+        this._arpId   = setInterval(() => this._arpTick(), stepMs);
+    }
+
+    _stopArp() {
+        if (this._arpId) { clearInterval(this._arpId); this._arpId = null; }
+    }
+
+    _arpTick() {
+        if (!this._active || !this._handPresent) return;
+        const name = this._presetName || 'techno';
+        const p    = KineticRack.PRESETS[name] || KineticRack.PRESETS.techno;
+        const step = this._arpStep % 16;
+
+        // Kick first (feels tight when bass ducks at the same sample).
+        if (p.kickSteps[step]) this._audio.triggerKick(p.kickVel);
+
+        // Arp note — only on active steps. Accent on beat 1 + 3.
+        if (p.arpSteps[step]) {
+            const pv    = this._lastPitchV ?? 0.5;
+            const mac   = this._lastMacro  ?? 0.3;
+            const pivot = Math.floor(pv * 10);
+            const hop   = p.hops[this._arpStep % p.hops.length];
+            const rawIdx = pivot + hop;
+            const clamped = Math.max(0, Math.min(9, rawIdx));
+            const isAccent = (step === 0 || step === 8);
+            const vel     = (isAccent ? p.velAccent : p.velBase) + mac * 0.3;
+            this._audio.noteOnAt(clamped, p.octaveBias, vel);
+        }
+
+        this._arpStep = (this._arpStep + 1) % 16;
+    }
+
+    /** Pinch rising-edge trigger — fires a scale-quantised pluck at current X. */
+    triggerPluck(xV01, vel = 0.8) {
+        if (!this._audio) return;
+        const idx = Math.max(0, Math.min(9, Math.floor(xV01 * 10)));
+        const bias = KineticRack.PRESETS[this._presetName || 'techno'].octaveBias;
+        this._audio.noteOnAt(idx, bias, vel);
     }
 
     // ── Public API ────────────────────────────────────────────────────────────
@@ -1056,17 +1359,47 @@ class KineticRack {
 
     ctrlChange(key, val) {
         const v = parseFloat(val);
-        if (key === 'vol')    { this._audio.setVolume(v);                   return; }
-        if (key === 'reverb') { /* no-op */                                  return; }
-        if (key === 'filter') { this._audio.setFilter(80 + v * 7920);       return; }
-        if (key === 'pitch')  { this._audio.setPitch(100 + v * 1100);       return; }
+        // Master volume capped at 0.55 — headroom for the pluck voice under
+        // the brick-wall limiter.
+        if (key === 'vol')    {
+            this._audio.setVolume(Math.min(v, 0.55));
+            this._handPresent = v > 0.01;
+            return;
+        }
+        if (key === 'reverb') { /* no-op */ return; }
+        // X (horizontal) — continuous log-mapped drone pitch, 35 → 220 Hz.
+        // Also tracked for the arpeggiator note selection.
+        if (key === 'pitch')  {
+            this._audio.setPitch(35 * Math.pow(6.3, v));
+            this._lastPitchV = v;
+            return;
+        }
+        // Y (vertical) — macro: filter + body + sub together.
+        if (key === 'macro')  {
+            this._audio.setMacro(v);
+            this._lastMacro = v;
+            return;
+        }
+        // Kept for legacy callers (sliders) — macro is preferred.
+        if (key === 'filter') { this._audio.setFilter(180 + v * 2420);  return; }
+        // Gestures → modulation. Pinch = FM growl, spread = wobble.
+        if (key === 'fm')       { this._audio.setFM(v * 2000);          return; }
+        if (key === 'lfoRate')  { this._audio.setLFORate(0.3 + v * 11); return; }
+        if (key === 'lfoDepth') { this._audio.setLFODepth(v * 420);     return; }
+        // Preset — left-hand Y selects ambient/techno/dubstep.
+        if (key === 'preset')   {
+            const names = ['ambient', 'techno', 'dubstep'];
+            const name  = typeof val === 'string' ? val : names[Math.max(0, Math.min(2, Math.floor(v)))];
+            this._applyPreset(name);
+            return;
+        }
         console.log('[KineticRack] ctrlChange', key, val);
     }
 
-    /** FM grit depth in Hz — driven by _smPoseFeed right-hand Y */
+    /** FM grit depth in Hz — optional external driver (e.g. _handTrackFeed) */
     setFM(depthHz) { this._audio.setFM(depthHz); }
 
-    /** LFO wobble rate in Hz — driven by _smPoseFeed left-hand Y */
+    /** LFO wobble rate in Hz — optional external driver (e.g. _handTrackFeed) */
     setLFORate(hz) { this._audio.setLFORate(hz); }
 
     midiLearn(target) {
@@ -1124,3 +1457,5 @@ if (typeof THREE === 'undefined') {
     }
     window.KineticRack = _rack;
 }
+
+})();

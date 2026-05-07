@@ -52,8 +52,13 @@ export class AudioEngine {
         this._atmosReverb = null;
         this._atmosPanner = null;
 
-        // SpatialSynth: native GainNode → masterGain
+        // SpatialSynth: Tone.Gain → masterGain; .input exposed as AudioNode
+        this._synthGain   = null;
         this._synthInput  = null;
+
+        // GestureLooper effects bus
+        this._loopDelay   = null;   // Tone.PingPongDelay
+        this._loopReverb  = null;   // Tone.Reverb
 
         this._kitIndex    = 0;
         this._recDest     = null;
@@ -82,14 +87,10 @@ export class AudioEngine {
         } catch (_) {}
 
         // ── SpatialSynth native input ─────────────────────────────────────────
-        this._synthInput = this.ctx.createGain();
-        this._synthInput.gain.value = 0.55;
-        try {
-            // Tone.Gain exposes .input (AudioNode)
-            this._synthInput.connect(this._masterGain.input);
-        } catch (_) {
-            try { this._synthInput.connect(this._limiter.input); } catch (_2) {}
-        }
+        // Use a Tone.Gain so the connection to _masterGain uses Tone's own
+        // routing — no .input property guessing, no silent-catch disconnect.
+        this._synthGain  = new Tone.Gain(0.55).connect(this._masterGain);
+        this._synthInput = this._synthGain.input;   // underlying GainNode
 
         // ── KickChannel ───────────────────────────────────────────────────────
         this._kickDist = new Tone.Distortion({ distortion: 0.35, wet: 0.4 })
@@ -111,12 +112,10 @@ export class AudioEngine {
             rolloff:   -24,
         }).connect(this._masterGain);
 
-        // ── SuperSaw: 3-oscillator stack via fatsawtooth ──────────────────────
-        // FM modulation (sine) provides the "grit"; spread detunes the 3 saws.
         this._bass = new Tone.FMSynth({
             harmonicity:        0.5,
             modulationIndex:    4,
-            oscillator:         { type: 'fatsawtooth', count: 3, spread: 20 },
+            oscillator:         { type: 'sawtooth' },
             envelope:           { attack: 0.6, decay: 0.1, sustain: 0.9, release: 3.0 },
             modulation:         { type: 'sine' },
             modulationEnvelope: { attack: 0.4, decay: 0, sustain: 1, release: 2.5 },
@@ -124,14 +123,9 @@ export class AudioEngine {
         this._bass.volume.value = -14;
         this._bass.triggerAttack('A1');
 
-        // ── LFO → Filter frequency wobble ────────────────────────────────────
-        this._lfo = new Tone.LFO({ frequency: 0.5, min: 80, max: 1200, type: 'sine' });
-        this._lfo.connect(this._bassFilter.frequency);
-        this._lfo.start();
-
         // ── GlitchChannel ─────────────────────────────────────────────────────
         this._pingPong = new Tone.PingPongDelay({
-            delayTime: '8n',
+            delayTime: 0.25,
             feedback:  0.4,
             wet:       0.5,
         }).connect(this._masterGain);
@@ -161,10 +155,37 @@ export class AudioEngine {
         }).connect(this._atmosReverb);
         this._atmos.volume.value = -20;
         this._atmos.triggerAttack(['G2', 'D3', 'A3']);
+
+        // ── GestureLooper effects bus (isolated — failure must NOT kill main init) ─
+        // Chain: FMSynth → _loopDelay → _loopReverb → masterGain
+        try {
+            this._loopReverb = new Tone.Reverb({ decay: 4.0, wet: 0.35 });
+            await this._loopReverb.ready;
+            this._loopReverb.connect(this._masterGain);
+
+            this._loopDelay = new Tone.PingPongDelay({
+                delayTime: 0.25,
+                feedback:  0.35,
+                wet:       0.28,
+            });
+            this._loopDelay.connect(this._loopReverb);
+        } catch (e) {
+            console.warn('[AudioEngine] Loop bus init failed — loops will use dry output:', e);
+            this._loopDelay = null;
+            this._loopReverb = null;
+        }
     }
 
     // ── SpatialSynth compat ───────────────────────────────────────────────────
     get synthInput() { return this._synthInput; }
+
+    // ── GestureLooper bus ─────────────────────────────────────────────────────
+    getLoopBus() { return this._loopDelay; }
+
+    setLoopDelayWet(v) {
+        try { this._loopDelay?.wet.rampTo(Math.max(0, Math.min(1, v)), 0.1); }
+        catch (_) {}
+    }
 
     // ── FFT ───────────────────────────────────────────────────────────────────
     /** @returns {Float32Array} 256 values normalized 0..1 */
@@ -294,20 +315,6 @@ export class AudioEngine {
     setFilterCutoff(y)    { this.setBassFilterCutoff(y); }
     setAutoFilterFreq(y)  { this.setBassFilterCutoff(y); }
 
-    /** FM grit depth (0..2000 → modulationIndex 0..20) */
-    setFM(depth) {
-        try {
-            this._bass?.modulationIndex.rampTo(Math.max(0, Math.min(20, depth / 100)), 0.05);
-        } catch (_) {}
-    }
-
-    /** LFO wobble rate (0..15 Hz) */
-    setLFORate(rate) {
-        try {
-            this._lfo?.frequency.rampTo(Math.max(0.05, Math.min(15, rate)), 0.1);
-        } catch (_) {}
-    }
-
     // ── HUD sliders ───────────────────────────────────────────────────────────
     setVolume(v) {
         try {
@@ -342,9 +349,10 @@ export class AudioEngine {
             [
                 this._kick, this._kickDist,
                 this._bass, this._bassFilter,
-                this._lfo,
                 this._glitch, this._bitCrusher, this._pingPong,
                 this._atmos, this._atmosReverb, this._atmosPanner,
+                this._loopDelay, this._loopReverb,
+                this._synthGain,
                 this._masterGain, this._limiter, this._analyser,
             ].forEach(n => { try { n?.dispose(); } catch (_) {} });
             this._synthInput?.disconnect();

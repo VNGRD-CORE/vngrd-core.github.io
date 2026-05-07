@@ -37,22 +37,11 @@
 
     html, body { width: 100%; height: 100%; overflow: hidden; background: #000; }
 
-    /* ── Camera backdrop ───────────────────────────────────────────────── */
-    #camera-feed {
+    /* ── Composite canvas (camera + burned-in subtitles) ──────────────── */
+    #composite-canvas {
       position: fixed; inset: 0;
       width: 100%; height: 100%;
-      object-fit: cover;
-      transform: scaleX(-1);   /* mirror like a selfie cam */
       z-index: 0;
-    }
-
-    /* Subtle vignette so HUD pops */
-    #camera-feed::after {
-      content: '';
-      position: fixed; inset: 0;
-      background: radial-gradient(ellipse at center,
-        transparent 40%, rgba(0,0,0,0.7) 100%);
-      pointer-events: none; z-index: 1;
     }
 
     /* ── HUD root ──────────────────────────────────────────────────────── */
@@ -189,60 +178,6 @@
       opacity: 0.8;
     }
 
-    /* ── Subtitle card ────────────────────────────────────────────────── */
-    .subtitle-wrap {
-      position: absolute;
-      bottom: 80px; left: 50%;
-      transform: translateX(-50%);
-      width: min(860px, 88vw);
-      text-align: center;
-    }
-
-    .subtitle-card {
-      display: inline-block;
-      padding: 14px 28px;
-      text-align: center;
-      min-width: 320px;
-    }
-
-    .subtitle-original {
-      font-size: 12px;
-      font-weight: 300;
-      color: var(--text);
-      letter-spacing: 0.5px;
-      margin-bottom: 6px;
-      font-style: italic;
-    }
-
-    .subtitle-translation {
-      font-size: 22px;
-      font-weight: 500;
-      color: var(--text-bright);
-      line-height: 1.35;
-      text-shadow: 0 2px 12px rgba(0,0,0,0.9);
-      letter-spacing: 0.3px;
-      transition: opacity 0.25s;
-    }
-
-    .subtitle-translation.flash {
-      animation: textflash 0.3s ease-out;
-    }
-
-    @keyframes textflash {
-      0%   { opacity: 0; transform: translateY(4px); }
-      100% { opacity: 1; transform: translateY(0); }
-    }
-
-    .subtitle-lang-tag {
-      display: inline-block;
-      margin-top: 8px;
-      font-size: 9px;
-      letter-spacing: 2px;
-      color: var(--accent);
-      opacity: 0.7;
-      text-transform: uppercase;
-    }
-
     /* ── Activity log (bottom-left) ───────────────────────────────────── */
     .activity-log {
       position: absolute;
@@ -346,12 +281,223 @@
       letter-spacing: 2px;
       z-index: -1;
     }
+
+    /* ── Subtitle Editor Overlay ──────────────────────────────────────────── */
+    .editor-overlay {
+      position: fixed; inset: 0;
+      z-index: 200;
+      display: flex; align-items: center; justify-content: center;
+      background: rgba(5, 5, 12, 0.9);
+      backdrop-filter: blur(10px);
+      -webkit-backdrop-filter: blur(10px);
+      padding: 20px;
+    }
+
+    .editor-panel {
+      width: min(960px, 96vw);
+      max-height: 90vh;
+      display: flex; flex-direction: column;
+      border-color: var(--accent);
+      box-shadow: 0 0 50px rgba(0, 243, 255, 0.12);
+    }
+
+    .editor-header {
+      display: flex; align-items: center; justify-content: space-between;
+      padding: 14px 20px;
+      border-bottom: 1px solid var(--glass-border);
+      flex-shrink: 0;
+    }
+
+    .editor-col-header {
+      display: grid;
+      grid-template-columns: 28px 220px 1fr 1fr 28px;
+      gap: 8px;
+      padding: 6px 20px 6px 20px;
+      border-bottom: 1px solid var(--glass-border);
+      flex-shrink: 0;
+    }
+    .editor-col-header span {
+      font-size: 9px;
+      letter-spacing: 2px;
+      color: var(--accent);
+      opacity: 0.6;
+      text-transform: uppercase;
+    }
+
+    .editor-body {
+      overflow-y: auto;
+      flex: 1;
+      padding: 6px 12px;
+    }
+    .editor-body::-webkit-scrollbar { width: 3px; }
+    .editor-body::-webkit-scrollbar-thumb { background: var(--accent-dim); border-radius: 2px; }
+
+    .cue-row {
+      display: grid;
+      grid-template-columns: 28px 220px 1fr 1fr 28px;
+      gap: 8px;
+      align-items: center;
+      padding: 6px 8px;
+      border-bottom: 1px solid rgba(0, 243, 255, 0.06);
+      border-radius: 2px;
+      transition: background 0.15s;
+    }
+    .cue-row:hover { background: rgba(0, 243, 255, 0.04); }
+
+    .cue-index {
+      font-size: 10px;
+      color: var(--accent);
+      opacity: 0.5;
+      text-align: right;
+      font-weight: 300;
+    }
+
+    .cue-times {
+      display: flex; align-items: center; gap: 4px;
+    }
+    .cue-arrow { font-size: 9px; color: var(--text); opacity: 0.4; flex-shrink: 0; }
+
+    .cue-input {
+      font-family: var(--mono);
+      font-size: 11px;
+      background: rgba(0, 243, 255, 0.04);
+      border: 1px solid rgba(0, 243, 255, 0.12);
+      border-radius: 3px;
+      color: var(--text-bright);
+      padding: 5px 8px;
+      outline: none;
+      width: 100%;
+      transition: border-color 0.2s, box-shadow 0.2s, background 0.2s;
+    }
+    .cue-input:focus {
+      border-color: var(--accent);
+      box-shadow: 0 0 8px rgba(0, 243, 255, 0.18);
+      background: rgba(0, 243, 255, 0.07);
+      color: #fff;
+    }
+    .cue-input.dim { color: var(--text); font-style: italic; font-size: 10px; }
+    .cue-input.time {
+      width: 96px;
+      font-size: 10px;
+      text-align: center;
+      flex-shrink: 0;
+      letter-spacing: 0.5px;
+    }
+
+    .cue-delete {
+      font-family: var(--mono);
+      font-size: 10px;
+      background: transparent;
+      border: 1px solid rgba(255, 0, 85, 0.2);
+      border-radius: 3px;
+      color: rgba(255, 0, 85, 0.45);
+      cursor: pointer;
+      padding: 5px;
+      line-height: 1;
+      transition: all 0.2s;
+    }
+    .cue-delete:hover {
+      border-color: var(--red);
+      color: var(--red);
+      box-shadow: 0 0 8px rgba(255, 0, 85, 0.25);
+    }
+
+    .editor-footer {
+      display: flex; align-items: center; justify-content: space-between;
+      padding: 12px 20px;
+      border-top: 1px solid var(--glass-border);
+      flex-shrink: 0;
+      gap: 10px;
+    }
+
+    .editor-close-btn {
+      font-family: var(--mono);
+      font-size: 10px;
+      font-weight: 500;
+      letter-spacing: 1.5px;
+      padding: 6px 14px;
+      border-radius: 3px;
+      border: 1px solid var(--glass-border);
+      background: transparent;
+      color: var(--text);
+      cursor: pointer;
+      text-transform: uppercase;
+      transition: all 0.2s;
+    }
+    .editor-close-btn:hover { border-color: var(--red); color: var(--red); }
+
+    /* Render button + progress */
+    .srt-render-btn {
+      font-family: var(--mono);
+      font-size: 10px; font-weight: 500;
+      letter-spacing: 1.5px;
+      padding: 6px 14px; border-radius: 3px;
+      border: 1px solid var(--green);
+      background: transparent; color: var(--green);
+      cursor: pointer; text-transform: uppercase;
+      transition: all 0.2s;
+    }
+    .srt-render-btn:hover:not(:disabled) {
+      background: var(--green-dim);
+      box-shadow: 0 0 10px rgba(0,255,136,0.25);
+    }
+    .srt-render-btn:disabled { opacity: 0.3; cursor: default; }
+
+    .render-progress-wrap {
+      position: relative; flex: 1;
+      height: 24px; border-radius: 3px;
+      border: 1px solid var(--glass-border);
+      overflow: hidden;
+      display: flex; align-items: center; justify-content: center;
+    }
+    .render-progress-bar {
+      position: absolute; left: 0; top: 0; bottom: 0;
+      background: var(--green-dim);
+      transition: width 0.4s linear;
+    }
+    .render-progress-label {
+      position: relative;
+      font-size: 10px; letter-spacing: 1px; color: var(--green);
+    }
+
+    .editor-empty {
+      text-align: center;
+      padding: 48px 20px;
+      color: var(--text);
+      font-size: 11px;
+      letter-spacing: 3px;
+      opacity: 0.4;
+    }
+
+    /* Review button in SRT panel */
+    .srt-review-btn {
+      font-family: var(--mono);
+      font-size: 10px;
+      font-weight: 500;
+      letter-spacing: 1.5px;
+      padding: 6px 14px;
+      border-radius: 3px;
+      border: 1px solid var(--glass-border);
+      background: transparent;
+      color: var(--text);
+      cursor: pointer;
+      text-transform: uppercase;
+      transition: all 0.2s;
+    }
+    .srt-review-btn:hover:not(:disabled) {
+      border-color: var(--accent);
+      color: var(--accent);
+      box-shadow: 0 0 10px rgba(0, 243, 255, 0.2);
+    }
+    .srt-review-btn:disabled { opacity: 0.3; cursor: default; }
   </style>
 </head>
 <body>
 
-<!-- Camera backdrop -->
-<video id="camera-feed" autoplay muted playsinline></video>
+<!-- Hidden camera source — feeds the composite canvas -->
+<video id="camera-src" autoplay muted playsinline style="position:fixed;top:-2px;left:-2px;width:1px;height:1px;opacity:0;pointer-events:none"></video>
+<!-- Composite canvas: camera frame + subtitle card burned in every rAF tick -->
+<canvas id="composite-canvas"></canvas>
 <div class="no-cam" id="no-cam-msg">[ CAMERA UNAVAILABLE ]</div>
 
 <!-- React mount point -->
@@ -369,6 +515,281 @@ const LANGS    = [
   { code: "es", label: "ES", full: "Spanish" },
 ];
 const MAX_LOG  = 6;
+
+// ── SRT time helpers ────────────────────────────────────────────────────────
+function p2(n) { return String(n).padStart(2, '0'); }
+function p3(n) { return String(n).padStart(3, '0'); }
+function msToSrtTime(ms) {
+  const h = Math.floor(ms / 3600000);
+  const m = Math.floor((ms % 3600000) / 60000);
+  const s = Math.floor((ms % 60000) / 1000);
+  const f = ms % 1000;
+  return `${p2(h)}:${p2(m)}:${p2(s)},${p3(f)}`;
+}
+function srtTimeToSeconds(t) {
+  const [hms, ms] = t.split(',');
+  const [h, m, s] = hms.split(':').map(Number);
+  return h * 3600 + m * 60 + s + Number(ms || 0) / 1000;
+}
+function cuesToSRT(cues) {
+  return cues.map(c => `${c.index}\n${c.start} --> ${c.end}\n${c.translation}\n`).join('\n');
+}
+
+// ── Canvas subtitle card (mirrors the DOM card's visual, burned into rAF) ──
+function drawSubtitleCard(ctx, W, H, original, translation, langFull) {
+  if (!translation && !original) return;
+
+  const PAD_X = 28, PAD_Y = 14, BOTTOM = 80;
+  const cx = W / 2;
+  const FONT = '"JetBrains Mono", monospace';
+
+  // Measure all text blocks to size the panel
+  let maxTextW = 280, totalH = PAD_Y * 2;
+  if (original) {
+    ctx.font = `italic 12px ${FONT}`;
+    maxTextW = Math.max(maxTextW, ctx.measureText(original).width);
+    totalH += 18 + 4;
+  }
+  if (translation) {
+    ctx.font = `500 22px ${FONT}`;
+    maxTextW = Math.max(maxTextW, ctx.measureText(translation).width);
+    totalH += 30 + 8;
+    if (langFull) {
+      ctx.font = `9px ${FONT}`;
+      maxTextW = Math.max(maxTextW, ctx.measureText(`◈  ${langFull.toUpperCase()}  ◈`).width);
+      totalH += 12;
+    }
+  }
+
+  const cardW = maxTextW + PAD_X * 2;
+  const cardH = totalH;
+  const cardX = cx - cardW / 2;
+  const cardY = H - BOTTOM - cardH;
+  const maxW  = cardW - PAD_X * 2;
+
+  // Background panel
+  ctx.save();
+  ctx.beginPath();
+  if (ctx.roundRect) ctx.roundRect(cardX, cardY, cardW, cardH, 4);
+  else ctx.rect(cardX, cardY, cardW, cardH);
+  ctx.fillStyle   = 'rgba(5, 5, 12, 0.78)';
+  ctx.fill();
+  ctx.strokeStyle = 'rgba(0, 243, 255, 0.28)';
+  ctx.lineWidth   = 1;
+  ctx.stroke();
+  ctx.restore();
+
+  // Text
+  ctx.textAlign    = 'center';
+  ctx.textBaseline = 'top';
+  let ty = cardY + PAD_Y;
+
+  if (original) {
+    ctx.font      = `italic 12px ${FONT}`;
+    ctx.fillStyle = 'rgba(160, 160, 168, 0.85)';
+    ctx.fillText(original, cx, ty, maxW);
+    ty += 18 + 4;
+  }
+  if (translation) {
+    ctx.font        = `500 22px ${FONT}`;
+    ctx.fillStyle   = '#e8e8ec';
+    ctx.shadowColor = 'rgba(0,0,0,0.9)';
+    ctx.shadowBlur  = 12;
+    ctx.fillText(translation, cx, ty, maxW);
+    ctx.shadowBlur  = 0;
+    ty += 30 + 8;
+    if (langFull) {
+      ctx.font      = `9px ${FONT}`;
+      ctx.fillStyle = 'rgba(0, 243, 255, 0.72)';
+      ctx.fillText(`◈  ${langFull.toUpperCase()}  ◈`, cx, ty, maxW);
+    }
+  }
+}
+
+// ── Subtitle Editor ─────────────────────────────────────────────────────────
+function SubtitleEditor({ initialCues, filename, targetLang, onClose, cleanRecording }) {
+  const [cues, setCues]               = useState(() =>
+    initialCues.map((c, i) => ({ ...c, index: i + 1 }))
+  );
+  const [rendering, setRendering]     = useState(false);
+  const [renderPct, setRenderPct]     = useState(0);
+
+  const update = (id, field, val) =>
+    setCues(prev => prev.map(c => c.id === id ? { ...c, [field]: val } : c));
+
+  const remove = (id) =>
+    setCues(prev => prev.filter(c => c.id !== id).map((c, i) => ({ ...c, index: i + 1 })));
+
+  const exportSRT = () => {
+    const content = cuesToSRT(cues);
+    const blob = new Blob([content], { type: 'text/plain;charset=utf-8' });
+    const url  = URL.createObjectURL(blob);
+    const a    = document.createElement('a');
+    a.href     = url;
+    a.download = filename || `transcription_${targetLang}.srt`;
+    a.click();
+    URL.revokeObjectURL(url);
+    onClose();
+  };
+
+  const renderFinalVideo = useCallback(async () => {
+    if (!cleanRecording || rendering) return;
+    setRendering(true);
+    setRenderPct(0);
+
+    const srcUrl = URL.createObjectURL(cleanRecording);
+    const videoEl = document.createElement('video');
+    videoEl.src = srcUrl;
+    videoEl.preload = 'auto';
+
+    await new Promise((res, rej) => {
+      videoEl.onloadedmetadata = res;
+      videoEl.onerror = rej;
+    });
+
+    const W = videoEl.videoWidth  || 1280;
+    const H = videoEl.videoHeight || 720;
+    const duration = videoEl.duration;
+    const langFull = LANGS.find(l => l.code === targetLang)?.full || '';
+
+    const canvas = document.createElement('canvas');
+    canvas.width = W; canvas.height = H;
+    const ctx = canvas.getContext('2d');
+
+    // Route audio from the source video into the output stream
+    let finalStream = canvas.captureStream(30);
+    try {
+      const audioCtx = new AudioContext();
+      const src = audioCtx.createMediaElementSource(videoEl);
+      const dst = audioCtx.createMediaStreamDestination();
+      src.connect(dst);
+      finalStream = new MediaStream([
+        ...canvas.captureStream(30).getVideoTracks(),
+        ...dst.stream.getAudioTracks(),
+      ]);
+    } catch (_) { /* audio routing failed — video only */ }
+
+    const mime = MediaRecorder.isTypeSupported('video/webm;codecs=vp9,opus')
+      ? 'video/webm;codecs=vp9,opus' : 'video/webm';
+    const chunks = [];
+    const rec = new MediaRecorder(finalStream, { mimeType: mime, videoBitsPerSecond: 8_000_000 });
+    rec.ondataavailable = e => { if (e.data.size > 0) chunks.push(e.data); };
+    rec.onstop = () => {
+      const blob = new Blob(chunks, { type: 'video/webm' });
+      const url  = URL.createObjectURL(blob);
+      const a    = document.createElement('a');
+      a.href = url;
+      a.download = (filename || 'output').replace(/\.srt$/, '') + '_final.webm';
+      a.click();
+      URL.revokeObjectURL(url);
+      URL.revokeObjectURL(srcUrl);
+      setRendering(false);
+      setRenderPct(0);
+    };
+
+    rec.start(500);
+
+    function drawFrame() {
+      if (videoEl.ended) { rec.stop(); return; }
+      ctx.drawImage(videoEl, 0, 0, W, H);
+      const t = videoEl.currentTime;
+      const active = cues.find(c =>
+        t >= srtTimeToSeconds(c.start) && t <= srtTimeToSeconds(c.end)
+      );
+      if (active) drawSubtitleCard(ctx, W, H, active.original, active.translation, langFull);
+      setRenderPct(Math.round((t / duration) * 100));
+      requestAnimationFrame(drawFrame);
+    }
+
+    videoEl.onplay = () => requestAnimationFrame(drawFrame);
+    videoEl.play().catch(() => setRendering(false));
+  }, [cleanRecording, rendering, cues, filename, targetLang]);
+
+  return (
+    <div className="editor-overlay">
+      <div className="editor-panel glass">
+
+        <div className="editor-header">
+          <span className="logo" style={{ fontSize: 12, letterSpacing: 3 }}>
+            DRIS//CORE — SUBTITLE REVIEW
+          </span>
+          <div style={{ display: 'flex', gap: 8 }}>
+            <button className="editor-close-btn" onClick={onClose}>CLOSE</button>
+            <button
+              className="srt-download-btn"
+              onClick={exportSRT}
+              disabled={cues.length === 0}
+            >
+              ⬇ Export .srt
+            </button>
+          </div>
+        </div>
+
+        <div className="editor-col-header">
+          <span>#</span>
+          <span>TIMECODE</span>
+          <span>ORIGINAL (EN)</span>
+          <span>TRANSLATION</span>
+          <span></span>
+        </div>
+
+        <div className="editor-body">
+          {cues.length === 0 ? (
+            <div className="editor-empty">[ NO CUES CAPTURED ]</div>
+          ) : cues.map(cue => (
+            <div key={cue.id} className="cue-row">
+              <span className="cue-index">{cue.index}</span>
+              <div className="cue-times">
+                <input
+                  className="cue-input time"
+                  value={cue.start}
+                  onChange={e => update(cue.id, 'start', e.target.value)}
+                />
+                <span className="cue-arrow">→</span>
+                <input
+                  className="cue-input time"
+                  value={cue.end}
+                  onChange={e => update(cue.id, 'end', e.target.value)}
+                />
+              </div>
+              <input
+                className="cue-input dim"
+                value={cue.original}
+                onChange={e => update(cue.id, 'original', e.target.value)}
+              />
+              <input
+                className="cue-input"
+                value={cue.translation}
+                onChange={e => update(cue.id, 'translation', e.target.value)}
+              />
+              <button className="cue-delete" onClick={() => remove(cue.id)}>✕</button>
+            </div>
+          ))}
+        </div>
+
+        <div className="editor-footer">
+          <span className="srt-counter">CUES: <span>{cues.length}</span></span>
+          {rendering ? (
+            <div className="render-progress-wrap" style={{ minWidth: 180 }}>
+              <div className="render-progress-bar" style={{ width: `${renderPct}%` }} />
+              <span className="render-progress-label">RENDERING {renderPct}%</span>
+            </div>
+          ) : (
+            <button
+              className="srt-render-btn"
+              onClick={renderFinalVideo}
+              disabled={!cleanRecording || cues.length === 0}
+              title={!cleanRecording ? "No recording from this session" : "Burn edited subs into video"}
+            >
+              ▶ Render Final Video
+            </button>
+          )}
+        </div>
+
+      </div>
+    </div>
+  );
+}
 
 // ── Signal bars animated helper ────────────────────────────────────────────
 function SignalMeter({ active }) {
@@ -398,20 +819,30 @@ function SignalMeter({ active }) {
 
 // ── Main HUD ───────────────────────────────────────────────────────────────
 function TranscriptionHUD() {
-  const [active,      setActive]      = useState(false);
-  const [targetLang,  setTargetLang]  = useState("fr");
-  const [statusMsg,   setStatusMsg]   = useState("GHOST> STANDBY ◼  Awaiting start.");
-  const [original,    setOriginal]    = useState("");
-  const [translation, setTranslation] = useState("");
-  const [langTag,     setLangTag]     = useState("FR");
-  const [flashKey,    setFlashKey]    = useState(0);
+  const [active,       setActive]       = useState(false);
+  const [targetLang,   setTargetLang]   = useState("fr");
+  const [statusMsg,    setStatusMsg]    = useState("GHOST> STANDBY ◼  Awaiting start.");
+  const [original,     setOriginal]     = useState("");
+  const [translation,  setTranslation]  = useState("");
   const [log,         setLog]         = useState([]);
-  const [srtCues,     setSrtCues]     = useState(0);
-  const [srtContent,  setSrtContent]  = useState("");
-  const [srtFilename, setSrtFilename] = useState("");
-  const [wsReady,     setWsReady]     = useState(false);
+  const [srtCuesData, setSrtCuesData] = useState([]);
+  const [srtFilename,  setSrtFilename]  = useState("");
+  const [wsReady,      setWsReady]      = useState(false);
+  const [showEditor,   setShowEditor]   = useState(false);
 
-  const wsRef = useRef(null);
+  const wsRef            = useRef(null);
+  const originalRef      = useRef("");
+  const sessionStartRef  = useRef(null);
+  const lastCueEndMsRef  = useRef(0);
+  const cameraStreamRef  = useRef(null);
+  const mediaRecorderRef = useRef(null);
+  const recordingChunks  = useRef([]);
+  const [cleanRecording, setCleanRecording] = useState(null);
+
+  // Refs read by the rAF loop — keep canvas in sync without triggering re-renders
+  const canvasTranslationRef = useRef("");
+  const canvasOriginalRef    = useRef("");
+  const canvasLangRef        = useRef("fr");
 
   const pushLog = useCallback((msg, isNew = false) => {
     const ts  = new Date().toLocaleTimeString("en-GB", { hour12: false });
@@ -449,21 +880,41 @@ function TranscriptionHUD() {
       }
 
       if (data.type === "transcript") {
+        originalRef.current = data.original;
         setOriginal(data.original);
       }
 
       if (data.type === "translation") {
+        const lang = (data.lang || "").toUpperCase();
+
+        // Live display — always runs first so subtitle card never blocks
         setTranslation(data.text);
-        setLangTag(data.lang.toUpperCase());
-        setFlashKey(k => k + 1);
-        setSrtCues(c => c + 1);
-        pushLog(`[${data.lang.toUpperCase()}] ${data.text}`, true);
+        pushLog(`[${lang}] ${data.text}`, true);
+
+        // Cue tracking for the editor — isolated so any failure can't break display
+        try {
+          const now     = Date.now();
+          const elapsed = sessionStartRef.current ? (now - sessionStartRef.current) : 3000;
+          const startMs = lastCueEndMsRef.current;
+          const endMs   = Math.max(elapsed, startMs + 800);
+          lastCueEndMsRef.current = endMs + 100;
+          const cue = {
+            id         : now + Math.random(),
+            start      : msToSrtTime(startMs),
+            end        : msToSrtTime(endMs),
+            original   : originalRef.current,
+            translation: data.text,
+            lang,
+          };
+          setSrtCuesData(prev => [...prev, { ...cue, index: prev.length + 1 }]);
+        } catch (e) {
+          console.warn("Cue tracking error:", e);
+        }
       }
 
       if (data.type === "srt_ready") {
-        setSrtContent(data.content);
         setSrtFilename(data.filename);
-        pushLog(`SRT saved: ${data.filename}`);
+        pushLog(`SRT ready: ${data.filename}`);
       }
 
       if (data.type === "error") {
@@ -478,19 +929,71 @@ function TranscriptionHUD() {
     return () => wsRef.current?.close();
   }, [connectWS]);
 
-  // ── Camera ──────────────────────────────────────────────────────────────
+  // ── Canvas compositor + camera ─────────────────────────────────────────
   useEffect(() => {
-    navigator.mediaDevices?.getUserMedia({ video: true, audio: false })
+    const canvas  = document.getElementById("composite-canvas");
+    const videoSrc = document.getElementById("camera-src");
+    if (!canvas) return;
+
+    const ctx = canvas.getContext("2d");
+
+    function resize() {
+      canvas.width  = window.innerWidth;
+      canvas.height = window.innerHeight;
+    }
+    resize();
+    window.addEventListener("resize", resize);
+
+    let animId;
+    function render() {
+      const W = canvas.width;
+      const H = canvas.height;
+
+      // Camera frame (mirrored, same as the old CSS scaleX(-1))
+      if (videoSrc && videoSrc.readyState >= 2) {
+        ctx.save();
+        ctx.translate(W, 0);
+        ctx.scale(-1, 1);
+        ctx.drawImage(videoSrc, 0, 0, W, H);
+        ctx.restore();
+      } else {
+        ctx.fillStyle = "#050508";
+        ctx.fillRect(0, 0, W, H);
+      }
+
+      // Vignette (replaces the old CSS ::after pseudo-element)
+      const vg = ctx.createRadialGradient(W / 2, H / 2, H * 0.28, W / 2, H / 2, Math.max(W, H) * 0.72);
+      vg.addColorStop(0, "rgba(0,0,0,0)");
+      vg.addColorStop(1, "rgba(0,0,0,0.7)");
+      ctx.fillStyle = vg;
+      ctx.fillRect(0, 0, W, H);
+
+      // Subtitle card — burned into every frame so recorders capture it
+      const langFull = LANGS.find(l => l.code === canvasLangRef.current)?.full || "";
+      drawSubtitleCard(ctx, W, H, canvasOriginalRef.current, canvasTranslationRef.current, langFull);
+
+      animId = requestAnimationFrame(render);
+    }
+    animId = requestAnimationFrame(render);
+
+    // Expose composite stream so broadcast/recording code can use it
+    canvas.compositeStream = () => canvas.captureStream(30);
+
+    // Camera + mic stream (audio needed for final render)
+    navigator.mediaDevices?.getUserMedia({ video: true, audio: true })
       .then(stream => {
-        const vid = document.getElementById("camera-feed");
-        if (vid) {
-          vid.srcObject = stream;
-          document.getElementById("no-cam-msg").style.display = "none";
-        }
+        cameraStreamRef.current = stream;
+        videoSrc.srcObject = stream;
+        document.getElementById("no-cam-msg").style.display = "none";
       })
       .catch(() => {
-        // Camera denied — HUD still works, just no video background
+        // Camera/mic denied — dark background, HUD still functions
       });
+
+    return () => {
+      cancelAnimationFrame(animId);
+      window.removeEventListener("resize", resize);
+    };
   }, []);
 
   // ── Toggle On-Air ───────────────────────────────────────────────────────
@@ -502,36 +1005,64 @@ function TranscriptionHUD() {
 
     const ws = wsRef.current;
     if (!active) {
-      setSrtCues(0);
-      setSrtContent("");
+      sessionStartRef.current  = Date.now();
+      lastCueEndMsRef.current  = 0;
+      setSrtCuesData([]);
       setSrtFilename("");
+      setCleanRecording(null);
       setOriginal("");
       setTranslation("");
+      setShowEditor(false);
+
+      // Start clean recording if camera stream is available
+      if (cameraStreamRef.current) {
+        recordingChunks.current = [];
+        const mime = MediaRecorder.isTypeSupported('video/webm;codecs=vp9,opus')
+          ? 'video/webm;codecs=vp9,opus' : 'video/webm';
+        const rec = new MediaRecorder(cameraStreamRef.current, { mimeType: mime });
+        rec.ondataavailable = e => { if (e.data.size > 0) recordingChunks.current.push(e.data); };
+        rec.onstop = () => {
+          const blob = new Blob(recordingChunks.current, { type: 'video/webm' });
+          setCleanRecording(blob);
+        };
+        rec.start(500);
+        mediaRecorderRef.current = rec;
+      }
+
       ws.send(JSON.stringify({
         action     : "start",
         target_lang: targetLang,
         source_lang: "en",
       }));
     } else {
+      mediaRecorderRef.current?.stop();
       ws.send(JSON.stringify({ action: "stop" }));
+      // Editor does NOT auto-open — user clicks "Review & Edit" if they want it
     }
     setActive(a => !a);
   }, [active, wsReady, targetLang, pushLog]);
 
-  // ── SRT Download ────────────────────────────────────────────────────────
+  // ── Quick SRT Download (skip editor) ───────────────────────────────────
   const downloadSRT = useCallback(() => {
-    if (!srtContent) return;
-    const blob = new Blob([srtContent], { type: "text/plain;charset=utf-8" });
+    if (!srtCuesData.length) return;
+    const content = cuesToSRT(srtCuesData);
+    const blob = new Blob([content], { type: "text/plain;charset=utf-8" });
     const url  = URL.createObjectURL(blob);
     const a    = document.createElement("a");
     a.href     = url;
     a.download = srtFilename || `transcription_${targetLang}.srt`;
     a.click();
     URL.revokeObjectURL(url);
-  }, [srtContent, srtFilename, targetLang]);
+  }, [srtCuesData, srtFilename, targetLang]);
+
+  // ── Sync state → canvas refs (read by rAF loop, no re-render needed) ───
+  canvasTranslationRef.current = translation;
+  canvasOriginalRef.current    = original;
+  canvasLangRef.current        = targetLang;
 
   // ── Render ──────────────────────────────────────────────────────────────
-  const langFull = LANGS.find(l => l.code === targetLang)?.full || "";
+  const langFull    = LANGS.find(l => l.code === targetLang)?.full || "";
+  const hasCues     = srtCuesData.length > 0;
 
   return (
     <div className={active ? "" : "idle"}>
@@ -563,7 +1094,7 @@ function TranscriptionHUD() {
             <button
               key={l.code}
               className={`lang-btn${targetLang === l.code ? " selected" : ""}`}
-              onClick={() => { setTargetLang(l.code); setLangTag(l.code.toUpperCase()); }}
+              onClick={() => setTargetLang(l.code)}
               disabled={active}
               title={l.full}
             >
@@ -581,29 +1112,7 @@ function TranscriptionHUD() {
       {/* ── Signal meter ── */}
       <SignalMeter active={active} />
 
-      {/* ── Subtitle area ── */}
-      {(original || translation) && (
-        <div className="subtitle-wrap">
-          <div className="subtitle-card glass">
-            {original && (
-              <div className="subtitle-original">{original}</div>
-            )}
-            {translation && (
-              <div
-                key={flashKey}
-                className="subtitle-translation flash"
-              >
-                {translation}
-              </div>
-            )}
-            {translation && (
-              <div className="subtitle-lang-tag">
-                ◈ &nbsp;{langFull.toUpperCase()}&nbsp; ◈
-              </div>
-            )}
-          </div>
-        </div>
-      )}
+      {/* Subtitle card is drawn directly on #composite-canvas — visible in all recorders */}
 
       {/* ── Activity log ── */}
       <div className="activity-log glass">
@@ -623,17 +1132,36 @@ function TranscriptionHUD() {
       {/* ── SRT panel ── */}
       <div className="srt-panel glass">
         <div className="srt-counter">
-          SRT CUES: <span>{srtCues}</span>
+          SRT CUES: <span>{srtCuesData.length}</span>
         </div>
+        <button
+          className="srt-review-btn"
+          onClick={() => setShowEditor(true)}
+          disabled={!hasCues}
+          title="Review and edit subtitles before export"
+        >
+          ✎ Review & Edit
+        </button>
         <button
           className="srt-download-btn"
           onClick={downloadSRT}
-          disabled={!srtContent}
-          title="Download .srt subtitle file"
+          disabled={!hasCues}
+          title="Download .srt subtitle file directly"
         >
           ⬇ Export .srt
         </button>
       </div>
+
+      {/* ── Subtitle Editor overlay ── */}
+      {showEditor && (
+        <SubtitleEditor
+          initialCues={srtCuesData}
+          filename={srtFilename}
+          targetLang={targetLang}
+          onClose={() => setShowEditor(false)}
+          cleanRecording={cleanRecording}
+        />
+      )}
 
     </div>
   );

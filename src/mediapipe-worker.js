@@ -1,118 +1,85 @@
 /**
- * mediapipe-worker.js — Isolated MediaPipe HandLandmarker for KineticRack
+ * mediapipe-worker.js — MediaPipe HandLandmarker running off the main thread.
  *
- * Runs in a Web Worker (type: 'module'). Receives raw video frame pixels
- * via Transferable ArrayBuffer, returns hand landmark data to main thread.
+ * Protocol (ImageBitmap path — no getImageData, no pixel reads):
+ *   Main → Worker:
+ *     { type: 'DETECT', imageBitmap: ImageBitmap, now: number }
+ *       imageBitmap is transferred (zero-copy); worker closes it after use.
  *
- * Protocol:
- *   Main → Worker  { type: 'INIT' }
- *   Worker → Main  { type: 'READY' }
+ *   Worker → Main:
+ *     { type: 'READY' }
+ *     { type: 'RESULT', right: {x,y,z}[] | null, left: {x,y,z}[] | null }
+ *     { type: 'ERROR',  message: string }
  *
- *   Main → Worker  { type: 'DETECT', buffer, width, height, timestamp }
- *   Worker → Main  { type: 'LANDMARKS', data: Float32Array.buffer,
- *                    handedness: Uint8Array.buffer, count }
- *
- * Landmark data: count × 21 × 3 floats (x, y, z per landmark)
- * Handedness:    count bytes — 1=Left, 2=Right
+ * No loops, no rAF. One frame in, one RESULT out.
  */
 
-import {
-    HandLandmarker,
-    FilesetResolver,
-} from 'https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@0.10.14/vision_bundle.mjs';
+'use strict';
+
+const TASKS_CDN = 'https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@0.10.14';
+const WASM_BASE = TASKS_CDN + '/wasm';
+const MODEL_URL = 'https://storage.googleapis.com/mediapipe-models/hand_landmarker/hand_landmarker/float16/latest/hand_landmarker.task';
 
 let _landmarker = null;
 let _ready      = false;
-let _lastTs     = -1;
 
 async function _init() {
     try {
-        const vision = await FilesetResolver.forVisionTasks(
-            'https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@0.10.14/wasm'
-        );
-        _landmarker = await HandLandmarker.createFromOptions(vision, {
+        const mod = await import(TASKS_CDN + '/vision_bundle.mjs');
+        const fs  = await mod.FilesetResolver.forVisionTasks(WASM_BASE);
+        _landmarker = await mod.HandLandmarker.createFromOptions(fs, {
             baseOptions: {
-                modelAssetPath:
-                    'https://storage.googleapis.com/mediapipe-models/' +
-                    'hand_landmarker/hand_landmarker/float16/1/hand_landmarker.task',
-                delegate: 'GPU',
+                modelAssetPath: MODEL_URL,
+                delegate:       'CPU',  // WebGL not available in Worker context
             },
             runningMode:                'VIDEO',
             numHands:                   2,
-            minHandDetectionConfidence: 0.6,
-            minHandPresenceConfidence:  0.6,
+            minHandDetectionConfidence: 0.5,
+            minHandPresenceConfidence:  0.5,
             minTrackingConfidence:      0.5,
         });
         _ready = true;
         self.postMessage({ type: 'READY' });
-    } catch (e) {
-        self.postMessage({ type: 'ERROR', message: String(e) });
+    } catch (err) {
+        self.postMessage({ type: 'ERROR', message: String(err) });
     }
 }
 
-self.onmessage = async function (e) {
-    const { type, buffer, width, height, timestamp } = e.data;
+function _pick(res) {
+    let right = null, left = null;
+    if (!res || !res.landmarks || !res.handednesses) return { right, left };
+    for (let i = 0; i < res.landmarks.length; i++) {
+        const label = res.handednesses[i]?.[0]?.categoryName;
+        // Map to plain {x,y,z} objects so structured clone is guaranteed clean.
+        const plain = res.landmarks[i].map(({ x, y, z }) => ({ x, y, z }));
+        if (label === 'Right') right = plain;
+        else if (label === 'Left')  left  = plain;
+    }
+    return { right, left };
+}
 
-    if (type === 'INIT') {
-        await _init();
+self.onmessage = function (e) {
+    const { type, imageBitmap, now } = e.data;
+
+    if (type !== 'DETECT') return;
+
+    console.log('[worker] received frame, ready:', _ready);
+
+    if (!_ready || !_landmarker) {
+        imageBitmap?.close();
+        self.postMessage({ type: 'RESULT', right: null, left: null });
         return;
     }
 
-    if (type === 'DETECT') {
-        if (!_ready || !_landmarker) {
-            _postEmpty();
-            return;
-        }
-
-        try {
-            // Reconstruct pixel data from transferred buffer
-            const pixels  = new Uint8ClampedArray(buffer);
-            const imgData = new ImageData(pixels, width, height);
-            const bitmap  = await createImageBitmap(imgData);
-
-            // Ensure monotonically increasing timestamp for VIDEO mode
-            const ts = (timestamp > _lastTs) ? timestamp : _lastTs + 1;
-            _lastTs  = ts;
-
-            const results = _landmarker.detectForVideo(bitmap, ts);
-            bitmap.close();
-
-            const count = results.landmarks?.length ?? 0;
-            const LM_F  = 21 * 3; // floats per hand
-
-            const lmBuf = new Float32Array(count * LM_F);
-            const hdBuf = new Uint8Array(count);
-
-            for (let h = 0; h < count; h++) {
-                const lms   = results.landmarks[h];
-                const label = results.handedness[h]?.[0]?.categoryName;
-                // MediaPipe returns mirrored labels — swap so 2=viewer's right
-                hdBuf[h] = (label === 'Left') ? 2 : 1;
-
-                const base = h * LM_F;
-                for (let i = 0; i < 21; i++) {
-                    lmBuf[base + i * 3]     = lms[i].x;
-                    lmBuf[base + i * 3 + 1] = lms[i].y;
-                    lmBuf[base + i * 3 + 2] = lms[i].z ?? 0;
-                }
-            }
-
-            self.postMessage(
-                { type: 'LANDMARKS', data: lmBuf.buffer, handedness: hdBuf.buffer, count },
-                [lmBuf.buffer, hdBuf.buffer]
-            );
-
-        } catch (err) {
-            _postEmpty();
-        }
-    }
+    let right = null, left = null;
+    console.time('detect');
+    try {
+        const res = _landmarker.detectForVideo(imageBitmap, now);
+        ({ right, left } = _pick(res));
+    } catch (_) { /* swallow blip — RESULT with nulls keeps _detectInFlight unblocked */ }
+    console.timeEnd('detect');
+    imageBitmap?.close();
+    self.postMessage({ type: 'RESULT', right, left });
 };
 
-function _postEmpty() {
-    self.postMessage({
-        type:       'LANDMARKS',
-        data:       new Float32Array(0).buffer,
-        handedness: new Uint8Array(0).buffer,
-        count:      0,
-    });
-}
+_init();
