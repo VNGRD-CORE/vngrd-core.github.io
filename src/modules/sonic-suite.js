@@ -17,7 +17,7 @@
 //  by the master bar's [D][B][C][M] toggles and a focus flag.
 // ═══════════════════════════════════════════════════════════════
 window.SonicSuite = (function() {
-    const LS_KEY = 'vngrd.sonicsuite.v2';
+    const LS_KEY = 'vngrd.sonicsuite.v3';   // bumped: resets card positions to 2-col grid
     const LOOK  = 0.12;   // 120 ms lookahead
     const TICK  = 25;     // 25 ms scheduler interval
 
@@ -365,16 +365,13 @@ window.SonicSuite = (function() {
             if (cp.top  != null) el.style.top  = cp.top  + 'px';
             if (cp.min) el.classList.add('minimised');
         } else {
-            // Default dock: cards land along the bottom edge so the centre
-            // canvas (images / video / VJ rig) stays visible while playing.
-            const n  = state.order.length;
-            const W  = 600, GAP = 16;
-            const vw = window.innerWidth  || 1920;
-            const vh = window.innerHeight || 1080;
-            const totalRow = 3 * W + 2 * GAP;
-            const startX   = Math.max(20, (vw - totalRow) / 2);
-            el.style.left = (startX + n * (W + GAP)) + 'px';
-            el.style.top  = (vh - 440) + 'px';
+            // Default: 2-column grid so all 4 cards stay on screen.
+            // Column width = 600px card + 14px gap = 614px per column.
+            const n   = state.order.length;
+            const col = n % 2;
+            const row = Math.floor(n / 2);
+            el.style.left = (16 + col * 614) + 'px';
+            el.style.top  = (76 + row * 500) + 'px';
         }
     }
 

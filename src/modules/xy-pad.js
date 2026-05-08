@@ -114,10 +114,9 @@
 
     function _draw() {
         if (!_canvas || !_ctx2d) return;
-        const W = _canvas.offsetWidth  || 580;
-        const H = _canvas.offsetHeight || 240;
-        if (_canvas.width  !== W) _canvas.width  = W;
-        if (_canvas.height !== H) _canvas.height = H;
+        // Use fixed canvas attribute dimensions (set at mount time)
+        const W = _canvas.width  || 560;
+        const H = _canvas.height || 240;
 
         const c = _ctx2d;
         c.clearRect(0, 0, W, H);
@@ -269,15 +268,21 @@
         ctrl.querySelector('.xy-res').oninput = function () { P.resonance = +this.value; if (_filter) _filter.Q.setTargetAtTime(P.resonance, _ctx.currentTime, 0.02); _save(); };
         ctrl.querySelector('.xy-rev').oninput = function () { P.reverbAmt = +this.value / 100; _save(); };
 
-        // — Canvas —
+        // — Canvas — fixed pixel dimensions (card is 600px, body padding 12px each side = 576px usable)
         _canvas = document.createElement('canvas');
-        _canvas.style.cssText = 'width:100%;height:240px;cursor:crosshair;border:1px solid rgba(255,136,255,.18);border-radius:4px;touch-action:none;display:block;box-sizing:border-box;';
+        _canvas.width  = 556;
+        _canvas.height = 240;
+        _canvas.style.cssText = 'width:100%;height:240px;cursor:crosshair;border:1px solid rgba(255,136,255,.18);border-radius:4px;touch-action:none;display:block;';
         body.appendChild(_canvas);
         _ctx2d  = _canvas.getContext('2d');
 
-        // Draw loop
+        // Draw loop — only runs when canvas is in a visible document
         cancelAnimationFrame(_animId);
-        (function loop() { _animId = requestAnimationFrame(loop); _draw(); })();
+        (function loop() {
+            _animId = requestAnimationFrame(loop);
+            if (document.hidden) return;   // pause when tab is hidden
+            _draw();
+        })();
 
         // ── Pointer events (unified mouse + touch) ──
         function _getXY(e) {
