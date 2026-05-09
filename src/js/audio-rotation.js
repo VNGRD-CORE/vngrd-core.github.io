@@ -1,60 +1,7 @@
-// --- AUDIO ROTATION SYSTEM ---
-const V_PLAYLIST = {
-    tracks: [],
-    index: 0,
-    player: document.getElementById('audio-el')
-};
-
-// Connect your file input to the handler
-document.getElementById('file-audio').addEventListener('change', function(e) {
-    handleAudioPlaylist(e.target.files);
+// Auto-advance when song ends — delegate to audio-chain.js nextTrack()
+document.getElementById('audio-el').addEventListener('ended', () => {
+    if (typeof nextTrack === 'function') nextTrack();
 });
-
-// Auto-advance when song ends
-V_PLAYLIST.player.addEventListener('ended', () => {
-    if (V_PLAYLIST.tracks.length > 0) {
-        V_PLAYLIST.index = (V_PLAYLIST.index + 1) % V_PLAYLIST.tracks.length;
-        runVanguardTrack();
-    }
-});
-
-function handleAudioPlaylist(files) {
-    // DO NOT reset V_PLAYLIST.tracks = [] here
-    const isFirstLoad = V_PLAYLIST.tracks.length === 0;
-
-    Array.from(files).forEach(f => {
-        if (f.type.startsWith('audio/')) {
-            // APPEND to the existing array
-            V_PLAYLIST.tracks.push(URL.createObjectURL(f));
-        }
-    });
-
-    if (V_PLAYLIST.tracks.length > 0) {
-        log(`QUEUE_UPDATE: ${V_PLAYLIST.tracks.length} TOTAL_TRACKS`);
-        
-        // Only trigger the player if nothing is playing yet
-        if (isFirstLoad) {
-            V_PLAYLIST.index = 0;
-            runVanguardTrack();
-        }
-    }
-}
-
-function runVanguardTrack() {
-    const url = V_PLAYLIST.tracks[V_PLAYLIST.index];
-    V_PLAYLIST.player.src = url;
-    V_PLAYLIST.player.play();
-    
-    // UPDATED: Target the audio module label instead of the bottom ticker
-    const trackID = `TRACK_0${V_PLAYLIST.index + 1}`;
-    const audioLabel = document.querySelector('.audio-engine .module-header') || $('audio-status');
-    
-    if (audioLabel) {
-        audioLabel.textContent = `AUDIO_ENGINE // ${trackID}`;
-    }
-    
-    log(`AUDIO_SYNC: ${trackID}_STARTED`);
-}
 
 
 // --- AUDIO DUCKING & UI CONTROLS ---
