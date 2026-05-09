@@ -178,7 +178,7 @@ function drawMediaQueue(ctx, w, h, bottomY) {
     // ── Bar background (thumbnails region) ──
     ctx.fillStyle = 'rgba(4,4,8,0.82)';
     ctx.fillRect(0, barY, w, barH);
-    ctx.fillStyle = 'rgba(160,80,255,0.45)';
+    ctx.fillStyle = 'rgba(195,130,255,0.9)';
     ctx.fillRect(0, barY, w, 1); // top accent
 
     // ── Expansion track background ──
@@ -187,10 +187,10 @@ function drawMediaQueue(ctx, w, h, bottomY) {
         ctx.fillStyle = 'rgba(3,3,14,0.97)';
         ctx.fillRect(0, _tY, w, _eH);
         // Top border of expansion track
-        ctx.fillStyle = 'rgba(130,55,255,0.35)';
+        ctx.fillStyle = 'rgba(175,105,255,0.75)';
         ctx.fillRect(0, _tY, w, 1);
         // Violet left rail (NLE track marker)
-        ctx.fillStyle = 'rgba(140,60,255,0.7)';
+        ctx.fillStyle = 'rgba(175,105,255,0.97)';
         ctx.fillRect(0, _tY, 3, _eH);
     }
 
@@ -220,7 +220,7 @@ function drawMediaQueue(ctx, w, h, bottomY) {
 
         // Border
         var isActive = (APP.media.currentIndex === i);
-        ctx.strokeStyle = isActive ? '#ff3333' : 'rgba(160,80,255,0.6)';
+        ctx.strokeStyle = isActive ? '#ff3333' : 'rgba(190,130,255,0.9)';
         ctx.lineWidth = isActive ? 2 : 1;
         ctx.strokeRect(tx, ty, thumbSize, thumbSize);
 
@@ -239,7 +239,7 @@ function drawMediaQueue(ctx, w, h, bottomY) {
             ctx.font = '700 ' + durFS + 'px monospace';
             ctx.textAlign    = 'left';
             ctx.textBaseline = 'bottom';
-            ctx.fillStyle    = 'rgba(160,80,255,0.82)';
+            ctx.fillStyle    = 'rgba(205,150,255,0.97)';
             ctx.fillText(durTxt, tx + 3, ty + thumbSize - 2);
         }
 
@@ -274,7 +274,7 @@ function drawMediaQueue(ctx, w, h, bottomY) {
                 ctx.shadowColor = 'rgba(160,80,255,0.7)';
                 ctx.shadowBlur  = 6;
             } else {
-                ctx.strokeStyle = 'rgba(120,50,220,0.25)';
+                ctx.strokeStyle = 'rgba(170,100,255,0.6)';
                 ctx.lineWidth   = 1;
             }
             ctx.beginPath();
@@ -351,14 +351,14 @@ function drawMediaQueue(ctx, w, h, bottomY) {
             // ── SEAM label ──
             ctx.font = '600 ' + _fs8 + 'px monospace';
             ctx.textAlign = 'left'; ctx.textBaseline = 'middle';
-            ctx.fillStyle = 'rgba(160,100,255,0.72)';
+            ctx.fillStyle = 'rgba(215,180,255,0.97)';
             ctx.fillText('S' + APP.media._activeSeam, _lpad + 3, _midY);
             var _seamLblW = ctx.measureText('S' + APP.media._activeSeam).width;
 
             // section divider helper
             var _div = function(x) {
                 ctx.save();
-                ctx.strokeStyle = 'rgba(130,55,255,0.22)';
+                ctx.strokeStyle = 'rgba(170,105,255,0.55)';
                 ctx.lineWidth   = 1;
                 ctx.beginPath(); ctx.moveTo(x, _tY + 10); ctx.lineTo(x, _tY + _eH - 10); ctx.stroke();
                 ctx.restore();
@@ -387,11 +387,11 @@ function drawMediaQueue(ctx, w, h, bottomY) {
                 // Active: bright white with a subtle bg; inactive: dim violet
                 if (_tActive) {
                     var _tlW = ctx.measureText(_t.label).width;
-                    ctx.fillStyle = 'rgba(160,80,255,0.18)';
+                    ctx.fillStyle = 'rgba(185,110,255,0.38)';
                     ctx.fillRect(_tX - 4, _midY - _fs9 * 0.72, _tlW + 8, _fs9 * 1.44);
-                    ctx.fillStyle = 'rgba(230,200,255,1.0)';
+                    ctx.fillStyle = 'rgba(240,220,255,1.0)';
                 } else {
-                    ctx.fillStyle = 'rgba(185,155,220,0.5)';
+                    ctx.fillStyle = 'rgba(210,180,255,0.82)';
                 }
                 ctx.fillText(_t.label, _tX, _midY);
                 APP.media.queueStrip.ctrlZones.push({
@@ -412,7 +412,7 @@ function drawMediaQueue(ctx, w, h, bottomY) {
             ctx.font         = '600 ' + _fs8 + 'px monospace';
             ctx.textAlign    = 'left';
             ctx.textBaseline = 'middle';
-            ctx.fillStyle    = 'rgba(160,100,255,0.72)';
+            ctx.fillStyle    = 'rgba(215,180,255,0.97)';
             ctx.fillText('DUR', _durLblX, _midY);
             var _durLblW2 = ctx.measureText('DUR').width;
 
@@ -420,14 +420,14 @@ function drawMediaQueue(ctx, w, h, bottomY) {
             var _scrX = _durLblX + _durLblW2 + 9;
             var _scrW = Math.round(w * 0.17);
             var _scrY = _midY;
-            ctx.fillStyle = 'rgba(60,35,100,0.8)';
+            ctx.fillStyle = 'rgba(90,55,140,0.9)';
             ctx.fillRect(_scrX, _scrY - 1, _scrW, 2);
-            ctx.fillStyle = 'rgba(150,80,255,0.75)';
+            ctx.fillStyle = 'rgba(185,115,255,0.97)';
             ctx.fillRect(_scrX, _scrY - 1, Math.round(_durPct * _scrW), 2);
             var _hX = _scrX + Math.round(_durPct * _scrW);
             ctx.beginPath(); ctx.arc(_hX, _scrY, 5, 0, Math.PI * 2);
-            ctx.fillStyle = 'rgba(200,145,255,0.97)';
-            ctx.shadowColor = 'rgba(160,80,255,0.6)'; ctx.shadowBlur = 7;
+            ctx.fillStyle = 'rgba(220,170,255,1.0)';
+            ctx.shadowColor = 'rgba(185,115,255,0.85)'; ctx.shadowBlur = 9;
             ctx.fill(); ctx.shadowBlur = 0;
 
             // Value label
@@ -435,7 +435,7 @@ function drawMediaQueue(ctx, w, h, bottomY) {
             ctx.font         = '700 ' + _fs9 + 'px monospace';
             ctx.textAlign    = 'left';
             ctx.textBaseline = 'middle';
-            ctx.fillStyle    = 'rgba(210,185,255,0.85)';
+            ctx.fillStyle    = 'rgba(235,215,255,0.97)';
             ctx.fillText(_durValStr, _scrX + _scrW + 9, _midY);
 
             APP.media.queueStrip.ctrlZones.push({
@@ -460,11 +460,11 @@ function drawMediaQueue(ctx, w, h, bottomY) {
                 ctx.textBaseline = 'middle';
                 if (_eActive) {
                     var _eW2 = ctx.measureText(_ea.label).width;
-                    ctx.fillStyle = 'rgba(160,80,255,0.18)';
+                    ctx.fillStyle = 'rgba(185,110,255,0.38)';
                     ctx.fillRect(_eX - 4, _midY - _fs9 * 0.72, _eW2 + 8, _fs9 * 1.44);
-                    ctx.fillStyle = 'rgba(230,200,255,1.0)';
+                    ctx.fillStyle = 'rgba(240,220,255,1.0)';
                 } else {
-                    ctx.fillStyle = 'rgba(185,155,220,0.5)';
+                    ctx.fillStyle = 'rgba(210,180,255,0.82)';
                 }
                 ctx.fillText(_ea.label, _eX, _midY);
                 APP.media.queueStrip.ctrlZones.push({
@@ -484,12 +484,12 @@ function drawMediaQueue(ctx, w, h, bottomY) {
                     var _gy2 = _tY + Math.random() * _eH;
                     var _gw2 = w * (0.2 + Math.random() * 0.6);
                     var _gx2 = Math.random() * (w - _gw2);
-                    ctx.fillStyle = Math.random() > 0.5 ? 'rgba(0,0,0,0.7)' : 'rgba(140,60,255,0.3)';
+                    ctx.fillStyle = Math.random() > 0.5 ? 'rgba(0,0,0,0.7)' : 'rgba(175,100,255,0.5)';
                     ctx.fillRect(_gx2, _gy2, _gw2, 1 + Math.random() * 2);
                 }
                 // Bright violet sweep line
                 if (Math.random() < _gi2 * 0.5) {
-                    ctx.fillStyle = 'rgba(160,80,255,0.4)';
+                    ctx.fillStyle = 'rgba(200,145,255,0.7)';
                     ctx.fillRect(0, _tY + Math.random() * _eH, w * (0.5 + Math.random() * 0.5), 1);
                 }
                 ctx.restore();
