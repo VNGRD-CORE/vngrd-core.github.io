@@ -17,9 +17,25 @@
 //  by the master bar's [D][B][C][M] toggles and a focus flag.
 // ═══════════════════════════════════════════════════════════════
 window.SonicSuite = (function() {
-    const LS_KEY = 'vngrd.sonicsuite.v3';   // bumped: resets card positions to 2-col grid
-    const LOOK  = 0.12;   // 120 ms lookahead
+    const LS_KEY = 'vngrd.sonicsuite.v4';
+    const LOOK  = 0.18;   // 180 ms lookahead — more headroom against jank
     const TICK  = 25;     // 25 ms scheduler interval
+
+    // ── Worker-based timer ────────────────────────────────────
+    // setInterval inside a Web Worker is isolated from main-thread
+    // jank (canvas rendering, GC, layout).  This eliminates audio
+    // dropouts caused by the browser throttling main-thread timers.
+    const _TIMER_SRC = 'var t;onmessage=function(e){if(e.data==="start"){t=setInterval(function(){postMessage(null)},25)}else{clearInterval(t);}};';
+    let _timerWorker = null;
+    function _getTimer() {
+        if (_timerWorker) return _timerWorker;
+        try {
+            var blob = new Blob([_TIMER_SRC], { type: 'text/javascript' });
+            _timerWorker = new Worker(URL.createObjectURL(blob));
+            _timerWorker.onmessage = function () { _scheduler(); };
+        } catch (e) { _timerWorker = null; }
+        return _timerWorker;
+    }
 
     const state = {
         open:     false,
@@ -170,7 +186,9 @@ window.SonicSuite = (function() {
         state.step     = 0;
         state.startT   = a.ctx.currentTime + 0.05;
         state.nextTime = state.startT;
-        _schedId = setInterval(_scheduler, TICK);
+        const wt = _getTimer();
+        if (wt) { wt.postMessage('start'); }
+        else { _schedId = setInterval(_scheduler, TICK); }
         const btn = document.getElementById('ss-play');
         if (btn) { btn.textContent = '▶ PLAYING'; btn.classList.add('playing'); }
         state.order.forEach(_paintCardPlay);
@@ -178,6 +196,7 @@ window.SonicSuite = (function() {
 
     function stop() {
         state.playing = false;
+        const wt = _getTimer(); if (wt) wt.postMessage('stop');
         if (_schedId) { clearInterval(_schedId); _schedId = null; }
         const btn = document.getElementById('ss-play');
         if (btn) { btn.textContent = '▶ PLAY ALL'; btn.classList.remove('playing'); }

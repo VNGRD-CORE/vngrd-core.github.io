@@ -144,23 +144,24 @@
         var out = oc.destination;
         var d   = p.decay;
 
-        // Noise component — the "snap"
+        // Noise component — HP snap + LP roll-off to tame harshness
         var nLen = Math.ceil(sr * (d + 0.04));
         var nBuf = oc.createBuffer(1, nLen, sr);
         var nd   = nBuf.getChannelData(0);
         for (var i = 0; i < nLen; i++) nd[i] = Math.random() * 2 - 1;
         var nSrc = oc.createBufferSource(); nSrc.buffer = nBuf;
-        var hp   = oc.createBiquadFilter(); hp.type = 'highpass'; hp.frequency.value = 1600; hp.Q.value = 0.7;
+        var hp   = oc.createBiquadFilter(); hp.type = 'highpass'; hp.frequency.value = 1800; hp.Q.value = 0.7;
+        var lp   = oc.createBiquadFilter(); lp.type = 'lowpass';  lp.frequency.value = 5500; lp.Q.value = 0.5;
         var nG   = oc.createGain();
-        nG.gain.setValueAtTime(0.72, 0);
+        nG.gain.setValueAtTime(0.65, 0);
         nG.gain.exponentialRampToValueAtTime(0.001, d);
-        nSrc.connect(hp).connect(nG).connect(out);
+        nSrc.connect(hp).connect(lp).connect(nG).connect(out);
         nSrc.start(0);
 
-        // Body tone — short pitched thud
+        // Body tone — sine gives rounder thud vs triangle
         var osc  = oc.createOscillator();
         var oG   = oc.createGain();
-        osc.type = 'triangle';
+        osc.type = 'sine';
         osc.frequency.setValueAtTime(200 * _semi(p), 0);
         osc.frequency.exponentialRampToValueAtTime(120 * _semi(p), 0.045);
         oG.gain.setValueAtTime(0.5, 0);
@@ -169,24 +170,25 @@
         osc.start(0); osc.stop(d * 0.45 + 0.01);
     }
 
-    // CLAP: 3 staggered noise bursts → reverb-like spread
+    // CLAP: 3 staggered noise bursts → reverb-like spread, LP-softened
     function _buildClap(oc, p, sr) {
         var out = oc.destination;
         var d   = p.decay;
         var nLen = Math.ceil(sr * (d + 0.06));
 
-        [0, 0.009, 0.020].forEach(function (off) {
+        [0, 0.009, 0.021].forEach(function (off) {
             var nBuf = oc.createBuffer(1, nLen, sr);
             var nd   = nBuf.getChannelData(0);
             for (var i = 0; i < nLen; i++) nd[i] = Math.random() * 2 - 1;
             var n    = oc.createBufferSource(); n.buffer = nBuf;
             var bp   = oc.createBiquadFilter(); bp.type = 'bandpass';
-            bp.frequency.value = 1100 * _semi(p); bp.Q.value = 0.65;
+            bp.frequency.value = 1100 * _semi(p); bp.Q.value = 0.55;
+            var lp   = oc.createBiquadFilter(); lp.type = 'lowpass'; lp.frequency.value = 5000;
             var g    = oc.createGain();
             g.gain.setValueAtTime(0, off);
-            g.gain.linearRampToValueAtTime(0.70, off + 0.003);
+            g.gain.linearRampToValueAtTime(0.52, off + 0.006);   // gentler attack
             g.gain.exponentialRampToValueAtTime(0.001, off + d);
-            n.connect(bp).connect(g).connect(out);
+            n.connect(bp).connect(lp).connect(g).connect(out);
             n.start(off);
         });
     }
@@ -203,8 +205,9 @@
         var mix  = oc.createGain(); mix.gain.value = 1 / RATIOS.length;
         var hp   = oc.createBiquadFilter(); hp.type = 'highpass'; hp.frequency.value = 7000;
         var bp   = oc.createBiquadFilter(); bp.type = 'bandpass'; bp.frequency.value = 9500; bp.Q.value = 0.5;
+        var lp   = oc.createBiquadFilter(); lp.type = 'lowpass';  lp.frequency.value = 13000;  // tame aliasing
         var envG = oc.createGain();
-        envG.gain.setValueAtTime(open ? 0.55 : 0.68, 0);
+        envG.gain.setValueAtTime(open ? 0.48 : 0.60, 0);
         envG.gain.exponentialRampToValueAtTime(0.0001, d);
 
         RATIOS.forEach(function (r) {
@@ -215,7 +218,7 @@
             osc.start(0); osc.stop(d + 0.01);
         });
 
-        mix.connect(hp).connect(bp).connect(envG).connect(out);
+        mix.connect(hp).connect(bp).connect(lp).connect(envG).connect(out);
     }
 
     // TOM: pitched sine sweep, fuller low end
@@ -382,10 +385,11 @@
         };
 
         // — Step number header —
-        var hdr = _div('display:flex;gap:2px;padding-left:56px;');
+        var hdr = _div('display:flex;gap:2px;padding-left:56px;align-items:center;');
         for (var s = 0; s < NUM_STEPS; s++) {
             var sp = document.createElement('span');
-            sp.style.cssText = 'font-size:7px;width:26px;text-align:center;flex-shrink:0;color:' + (s % 4 === 0 ? 'rgba(0,243,255,.65)' : 'rgba(0,243,255,.28)') + ';';
+            sp.style.cssText = 'font-size:7px;width:26px;text-align:center;flex-shrink:0;' +
+                (s % 4 === 0 ? 'color:rgba(0,243,255,.75);font-weight:600;' : 'color:rgba(0,243,255,.28);');
             sp.textContent = s + 1;
             hdr.appendChild(sp);
         }
@@ -410,6 +414,7 @@
             for (var s = 0; s < NUM_STEPS; s++) {
                 var btn = document.createElement('button');
                 btn.style.cssText = 'width:26px;height:22px;border:1px solid rgba(0,243,255,.15);background:rgba(0,0,0,.4);cursor:pointer;border-radius:2px;flex-shrink:0;';
+                if (s > 0 && s % 4 === 0) btn.classList.add('ic-beat-sep');
                 (function (vi, s, btn) {
                     btn.onclick = function () {
                         var cell = patterns[curPat][vi][s];

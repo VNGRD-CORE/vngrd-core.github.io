@@ -21,14 +21,14 @@
         return Array.from({ length: NUM_STEPS }, function () { return { on: false, note: 36, slide: false, accent: false }; });
     });
 
-    // Synth params — tuned for musical 303 sound
+    // Synth params — tuned for warm, musical 303 sound
     const P = {
         waveform:   'sawtooth',
-        cutoff:     500,      // base cutoff Hz
-        resonance:  9,        // Q (lower = less harsh)
-        envMod:     0.55,     // 0-1: scales how far cutoff opens
+        cutoff:     380,      // base cutoff Hz — warmer default
+        resonance:  7,        // Q — less aggressive squeal at default
+        envMod:     0.42,     // 0-1: filter envelope depth
         decay:      0.28,     // filter env decay (s)
-        accentVol:  0.25,     // extra gain for accents (added to base)
+        accentVol:  0.25,     // extra gain for accents
         distortion: 0,        // 0-1
         glide:      0.055,    // portamento time constant (s)
     };
@@ -77,11 +77,11 @@
 
     function _distCurve(amt) {
         const n = 512;
-        const k = amt * 100;
         const c = new Float32Array(n);
         for (let i = 0; i < n; i++) {
             const x = (i * 2) / n - 1;
-            c[i] = k === 0 ? x : (Math.PI + k) * x / (Math.PI + k * Math.abs(x));
+            // tanh saturation — warm analogue clipping, not harsh digital fold
+            c[i] = amt < 0.01 ? x : Math.tanh(x * (1 + amt * 3));
         }
         return c;
     }
@@ -191,10 +191,11 @@
         };
 
         // — Step numbers —
-        const nums = _div('display:flex;gap:3px;');
+        const nums = _div('display:flex;gap:3px;align-items:center;');
         for (let s = 0; s < NUM_STEPS; s++) {
             const sp = document.createElement('span');
-            sp.style.cssText = 'font-size:7px;width:37px;text-align:center;flex-shrink:0;color:' + (s % 4 === 0 ? 'rgba(255,136,255,.65)' : 'rgba(255,136,255,.28)') + ';';
+            sp.style.cssText = 'font-size:7px;width:37px;text-align:center;flex-shrink:0;' +
+                (s % 4 === 0 ? 'color:rgba(255,136,255,.75);font-weight:600;' : 'color:rgba(255,136,255,.28);');
             sp.textContent = s + 1;
             nums.appendChild(sp);
         }
@@ -206,6 +207,7 @@
         for (let s = 0; s < NUM_STEPS; s++) {
             const btn = document.createElement('button');
             btn.style.cssText = 'width:37px;height:34px;border:1px solid rgba(255,136,255,.15);background:rgba(0,0,0,.4);cursor:pointer;border-radius:3px;font-size:8px;color:rgba(255,136,255,.4);flex-shrink:0;line-height:1.2;';
+            if (s > 0 && s % 4 === 0) btn.classList.add('ic-beat-sep-b3');
             (function (s, btn) {
                 btn.onclick = function () {
                     const cell = patterns[curPat][s];
@@ -226,6 +228,7 @@
             const btn = document.createElement('button');
             btn.style.cssText = 'width:37px;height:15px;border:1px solid rgba(0,243,255,.1);background:rgba(0,0,0,.3);cursor:pointer;border-radius:2px;font-size:7px;color:rgba(0,243,255,.35);flex-shrink:0;';
             btn.textContent = 'SLD';
+            if (s > 0 && s % 4 === 0) btn.classList.add('ic-beat-sep-b3');
             (function (s) {
                 btn.onclick = function () { patterns[curPat][s].slide = !patterns[curPat][s].slide; _renderPat(); _save(); };
             }(s));
@@ -241,6 +244,7 @@
             const btn = document.createElement('button');
             btn.style.cssText = 'width:37px;height:15px;border:1px solid rgba(255,80,80,.1);background:rgba(0,0,0,.3);cursor:pointer;border-radius:2px;font-size:7px;color:rgba(255,80,80,.35);flex-shrink:0;';
             btn.textContent = 'ACC';
+            if (s > 0 && s % 4 === 0) btn.classList.add('ic-beat-sep-b3');
             (function (s) {
                 btn.onclick = function () { patterns[curPat][s].accent = !patterns[curPat][s].accent; _renderPat(); _save(); };
             }(s));
@@ -296,9 +300,10 @@
         body.appendChild(kb);
 
         // — Synth knobs —
-        const knobs = _div('display:flex;align-items:flex-start;gap:8px;flex-wrap:wrap;padding-top:6px;border-top:1px solid rgba(255,136,255,.1);');
+        const knobs = _div('display:flex;align-items:flex-start;gap:8px;flex-wrap:wrap;padding-top:6px;');
+        knobs.classList.add('ic-section');
         [
-            ['CUTOFF', 80, 5000, P.cutoff,                    'Hz', function (v) { P.cutoff = v; if (_filter) _filter.frequency.setTargetAtTime(v, _ctx.currentTime, 0.05); }],
+            ['CUTOFF', 60, 4000, P.cutoff,                    'Hz', function (v) { P.cutoff = v; if (_filter) _filter.frequency.setTargetAtTime(v, _ctx.currentTime, 0.05); }],
             ['RES',    1,   18, P.resonance,                   '',  function (v) { P.resonance = v; if (_filter) _filter.Q.setTargetAtTime(v, _ctx.currentTime, 0.05); }],
             ['ENV',    0,  100, Math.round(P.envMod * 100),    '%', function (v) { P.envMod = v / 100; }],
             ['DECAY',  5,  100, Math.round(P.decay * 100),     '%', function (v) { P.decay = v / 100; }],
