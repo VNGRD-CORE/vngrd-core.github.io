@@ -58,10 +58,16 @@ function initSummonerLogic() {
         }
 
         // ── CAROUSEL BAR — tap anywhere on bar (outside thumbnails) to collapse ──
+        // Skip if the click is on a seam — the seam editor click handler must run instead.
         var barZ = APP.media.queueStrip && APP.media.queueStrip.barZone;
         if (barZ && APP.state.showMediaStrips && cy >= barZ.y && cy <= barZ.y + barZ.h) {
-            APP.state.showMediaStrips = false;
-            return;
+            var _seams = (APP.media.queueStrip && APP.media.queueStrip.seams) || [];
+            var _onSeam = false;
+            for (var _si = 0; _si < _seams.length; _si++) {
+                var _s = _seams[_si];
+                if (cx >= _s.hitX && cx <= _s.hitX + _s.hitW && cy >= _s.hitY && cy <= _s.hitY + _s.hitH) { _onSeam = true; break; }
+            }
+            if (!_onSeam) { APP.state.showMediaStrips = false; return; }
         }
 
         // ── NFT VAULT STRIP — duration badge (cyan, bottom) ──
