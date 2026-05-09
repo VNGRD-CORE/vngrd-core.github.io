@@ -1306,12 +1306,6 @@
 <canvas id="kr-skeleton-canvas"></canvas>
 
 <script type="module">
-// Auto-advance when song ends — delegate to audio-chain.js nextTrack()
-document.getElementById('audio-el').addEventListener('ended', () => {
-    if (typeof nextTrack === 'function') nextTrack();
-});
-
-
 // --- AUDIO DUCKING & UI CONTROLS ---
 
 // MASTER DUCKING FUNCTION
