@@ -1283,17 +1283,14 @@ function playTrack() {
     APP.audio.currentTrack = (APP.audio.currentTrack + 1) % APP.audio.playlist.length;
     const track = APP.audio.playlist[APP.audio.currentTrack];
     APP.audio.currentTrackName = track.name;
-    
+
     APP.audio.element.src = track.url;
+    $('track-info').textContent = track.name.toUpperCase();
+    if (APP.lowerThird.visible && APP.lowerThird.preset === 'track') {
+        $('lt-title-text').textContent = track.name;
+    }
     APP.audio.element.play().then(() => {
         APP.audio.isPlaying = true;
-        $('track-info').textContent = track.name.toUpperCase();
-        
-        // Auto-update lower third if showing track
-        if (APP.lowerThird.visible && APP.lowerThird.preset === 'track') {
-            $('lt-title-text').textContent = track.name;
-        }
-        
         log(`PLAY: ${track.name}`);
     });
     
