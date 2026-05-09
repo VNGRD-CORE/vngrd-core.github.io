@@ -274,15 +274,19 @@ window.SonicSuite = (function() {
         playBtn.addEventListener('click', function() {
             const card = state.cards[id];
             if (card && typeof card.spec.onCardPlay === 'function') {
-                // Card handles its own transport (e.g. CODE)
                 card.spec.onCardPlay(playBtn);
                 return;
             }
-            // Default: master transport + mute toggle for this card
             const muted = !!state.mutes[id];
-            if (!state.playing) start();
-            if (muted) setMute(id, false);
-            else if (state.playing) setMute(id, true);
+            if (!state.playing) {
+                // Transport was stopped: start it. Only unmute if this card was muted; leave others alone.
+                start();
+                if (muted) setMute(id, false);
+                // Do NOT mute — starting transport plays whatever is currently unmuted.
+            } else {
+                // Transport running: toggle this card's mute only.
+                setMute(id, !muted);
+            }
             _paintCardPlay(id);
         });
         // Minimise + focus

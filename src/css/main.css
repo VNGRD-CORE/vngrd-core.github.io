@@ -3677,56 +3677,91 @@ body.fullscreen #transcription-hud { pointer-events: none !important; } /* keep 
 }
 .ss-slicer-step.active { background: rgba(0,243,255,.2); box-shadow: 0 0 6px rgba(0,243,255,.4); }
 
-/* Card base */
+/* ═══ SONIC SUITE CARDS — DAW-grade instrument panels ═══ */
 .ss-card {
     position: absolute;
     width: 600px;
-    background: rgba(4,10,16,.45);
-    border: 1px solid rgba(0,243,255,.28);
-    border-top: 1px solid rgba(255,255,255,.14);
-    border-radius: 3px;
-    box-shadow: 0 6px 24px rgba(0,0,0,.6), 0 0 18px rgba(0,243,255,.08);
-    backdrop-filter: blur(6px); -webkit-backdrop-filter: blur(6px);
+    background: rgba(4,10,16,.88);
+    border: 1px solid rgba(0,243,255,.22);
+    border-top: 2px solid rgba(0,243,255,.45);
+    border-radius: 4px;
+    box-shadow: 0 8px 32px rgba(0,0,0,.75), 0 0 20px rgba(0,243,255,.06);
+    backdrop-filter: blur(8px); -webkit-backdrop-filter: blur(8px);
     color: rgba(0,243,255,.75);
-    font-family: 'Orbitron', sans-serif; font-size: 8px;
+    font-family: 'JetBrains Mono', monospace; font-size: 8px;
     display: flex; flex-direction: column;
     pointer-events: auto;
+    overflow: hidden;   /* prevent content spill on minimize */
+    transition: opacity .15s ease, box-shadow .15s ease;
 }
+/* Per-instrument accent colours on the top border + head */
+.ss-card[data-card-id="mpc"]     { border-top-color: rgba(0,243,255,.6); }
+.ss-card[data-card-id="bass303"] { border-top-color: rgba(255,136,255,.6); border-color: rgba(255,136,255,.2); }
+.ss-card[data-card-id="xypad"]   { border-top-color: rgba(255,180,0,.6);  border-color: rgba(255,180,0,.2); }
+.ss-card[data-card-id="mixer"]   { border-top-color: rgba(0,255,136,.6);  border-color: rgba(0,255,136,.2); }
+
 .ss-card.minimised .ss-card-body { display: none; }
-.ss-card.minimised { width: 200px; }
-.ss-card.focused { border-color: rgba(0,243,255,.75); box-shadow: 0 6px 24px rgba(0,0,0,.7), 0 0 28px rgba(0,243,255,.28); }
-.ss-card.muted { opacity: .38; }
+.ss-card.minimised { width: 220px; overflow: hidden; }
+.ss-card.focused { box-shadow: 0 8px 32px rgba(0,0,0,.8), 0 0 32px rgba(0,243,255,.32); }
+.ss-card.muted { opacity: .48; }
+
 .ss-card-head {
     display: flex; align-items: center;
-    padding: 6px 10px;
-    background: rgba(0,18,24,.75);
-    border-bottom: 1px solid rgba(0,243,255,.18);
+    padding: 7px 10px;
+    background: rgba(0,14,20,.82);
+    border-bottom: 1px solid rgba(0,243,255,.14);
     cursor: grab;
-    font-size: 7.5px; letter-spacing: 2px;
-    user-select: none;
+    font-size: 7px; letter-spacing: 2.5px;
+    user-select: none; gap: 3px;
 }
+.ss-card[data-card-id="bass303"] .ss-card-head { border-bottom-color: rgba(255,136,255,.14); }
+.ss-card[data-card-id="xypad"]   .ss-card-head { border-bottom-color: rgba(255,180,0,.14); }
+.ss-card[data-card-id="mixer"]   .ss-card-head { border-bottom-color: rgba(0,255,136,.14); }
 .ss-card-head:active { cursor: grabbing; }
-.ss-card-title { flex: 1; color: rgba(0,243,255,.85); }
-.ss-card-tag { color: rgba(0,243,255,.45); font-size: 6.5px; letter-spacing: 1px; margin-right: 6px; }
+.ss-card-title { flex: 1; color: rgba(0,243,255,.9); font-size: 7.5px; letter-spacing: 2px; }
+.ss-card[data-card-id="bass303"] .ss-card-title { color: rgba(255,136,255,.9); }
+.ss-card[data-card-id="xypad"]   .ss-card-title { color: rgba(255,180,0,.9); }
+.ss-card[data-card-id="mixer"]   .ss-card-title { color: rgba(0,255,136,.9); }
+.ss-card-tag { color: rgba(0,243,255,.4); font-size: 6px; letter-spacing: 1px; margin-right: 4px; }
+
 .ss-card-btn {
-    width: 18px; height: 18px; margin-left: 2px; padding: 0;
+    height: 18px; min-width: 18px; margin-left: 2px; padding: 0 4px;
     background: transparent; border: 1px solid rgba(0,243,255,.22);
     color: rgba(0,243,255,.55); font-family: 'JetBrains Mono', monospace;
-    font-size: 9px; cursor: pointer; border-radius: 2px;
+    font-size: 9px; cursor: pointer; border-radius: 2px; white-space: nowrap;
 }
-.ss-card-btn:hover { color: #00f3ff; border-color: #00f3ff; }
-.ss-card-btn.playing { color: #ff4444; border-color: #ff4444; box-shadow: 0 0 8px rgba(255,60,60,.4); }
+.ss-card-btn:hover { color: #00f3ff; border-color: #00f3ff; background: rgba(0,243,255,.07); }
+.ss-card-btn.playing  { color: #ff5555; border-color: rgba(255,60,60,.7); box-shadow: 0 0 6px rgba(255,60,60,.35); }
+.ss-card-btn.ss-card-play { min-width: 22px; }
+
 /* ── MPC / 303 / XY step highlight ── */
-.mpc-active    { outline: 2px solid rgba(0,243,255,.75) !important; outline-offset: -1px; }
-.mpc-lbl       { font-size: 9px; color: rgba(0,243,255,.55); letter-spacing: 2px; font-family: 'JetBrains Mono', monospace; }
-/* Beat-group left-border separators — overrides per-step border-color set by JS */
-.ic-beat-sep   { border-left: 2px solid rgba(0,243,255,.38) !important; }
-.ic-beat-sep-b3{ border-left: 2px solid rgba(255,136,255,.38) !important; }
-/* Instrument card section divider */
-.ic-section    { border-top: 1px solid rgba(255,255,255,.06); padding-top: 6px; margin-top: 2px; }
+.mpc-active    { outline: 2px solid rgba(0,243,255,.8) !important; outline-offset: -1px; }
+.mpc-lbl       { font-size: 8px; color: rgba(0,243,255,.55); letter-spacing: 1.5px; font-family: 'JetBrains Mono', monospace; white-space: nowrap; }
+
+/* Beat-group separators — left border override (set by JS class) */
+.ic-beat-sep    { border-left: 2px solid rgba(0,243,255,.4)   !important; }
+.ic-beat-sep-b3 { border-left: 2px solid rgba(255,136,255,.4) !important; }
+.ic-beat-sep-xy { border-left: 2px solid rgba(255,180,0,.4)   !important; }
+
+/* Section divider inside a card body */
+.ic-section {
+    border-top: 1px solid rgba(255,255,255,.06);
+    padding-top: 7px; margin-top: 4px;
+}
+/* Horizontal label above a group of controls */
+.ic-group-lbl {
+    font-size: 7px; letter-spacing: 2px; color: rgba(255,255,255,.28);
+    font-family: 'JetBrains Mono', monospace;
+    margin-bottom: 3px;
+}
+/* Per-voice mute button in MPC */
+.ic-mute { width:16px !important; height:16px !important; font-size:7px !important; padding:0 !important; }
+.ic-mute.on { color: #ff5555 !important; border-color: rgba(255,60,60,.7) !important; background: rgba(255,40,40,.12) !important; }
+
 .ss-card-body {
-    padding: 10px 12px;
-    display: flex; flex-direction: column; gap: 8px;
+    padding: 8px 10px;
+    display: flex; flex-direction: column; gap: 6px;
+    overflow: hidden;
 }
 .ss-card-placeholder {
     padding: 18px 10px; text-align: center;

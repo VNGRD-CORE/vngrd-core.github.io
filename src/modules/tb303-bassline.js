@@ -31,6 +31,7 @@
         accentVol:  0.25,     // extra gain for accents
         distortion: 0,        // 0-1
         glide:      0.055,    // portamento time constant (s)
+        volume:     0.65,     // master output 0-1
     };
 
     let curPat      = 0;
@@ -71,6 +72,7 @@
         _dist.curve           = _distCurve(P.distortion);
         _dist.oversample      = '2x';
 
+        _amp.gain.value = 0;
         _osc.connect(_filter).connect(_amp).connect(_dist).connect(_bus);
         _osc.start();
     }
@@ -158,7 +160,7 @@
         _ctx = ctx.audioCtx;
         _bus = ctx.bus;
         _buildVoice();
-        body.style.cssText = 'display:flex;flex-direction:column;gap:8px;padding:8px 4px;min-width:660px;user-select:none;';
+        body.style.cssText = 'display:flex;flex-direction:column;gap:7px;padding:7px 8px;user-select:none;overflow:hidden;';
 
         // — Top row —
         const top = _div('display:flex;align-items:center;gap:10px;flex-wrap:wrap;');
@@ -310,6 +312,7 @@
             ['ACCENT', 0,  100, Math.round(P.accentVol * 100), '%', function (v) { P.accentVol = v / 100; }],
             ['DIST',   0,  100, Math.round(P.distortion * 100),'%', function (v) { P.distortion = v / 100; if (_dist) _dist.curve = _distCurve(P.distortion); }],
             ['GLIDE',  10, 400, Math.round(P.glide * 1000),    'ms',function (v) { P.glide = v / 1000; }],
+            ['VOL',    0,  100, Math.round(P.volume * 100),    '%', function (v) { P.volume = v / 100; if (_bus) _bus.gain.setTargetAtTime(P.volume * 0.95, _ctx.currentTime, 0.03); }],
         ].forEach(function (args) {
             var lbl = args[0], min = args[1], max = args[2], val = args[3], unit = args[4], fn = args[5];
             const wrap = _div('display:flex;flex-direction:column;align-items:center;gap:2px;');
