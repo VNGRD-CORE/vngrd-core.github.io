@@ -16,11 +16,11 @@ function playTrack(idx) {
     const track = APP.audio.playlist[APP.audio.currentTrack];
     APP.audio.currentTrackName = track.name;
     APP.audio.element.src = track.url;
+    $('track-info').textContent = track.name.toUpperCase();
+    if (APP.lowerThird.visible && APP.lowerThird.mode === 'track') $('lt-title-text').textContent = track.name;
     if (!APP.audio.ctx) APP.audio.ctx = new (window.AudioContext || window.webkitAudioContext)();
     APP.audio.element.play().then(() => {
         APP.audio.isPlaying = true;
-        $('track-info').textContent = track.name.toUpperCase();
-        if (APP.lowerThird.visible && APP.lowerThird.mode === 'track') $('lt-title-text').textContent = track.name;
         log(`PLAY: ${track.name}`);
         updatePlayIcon();
     });
