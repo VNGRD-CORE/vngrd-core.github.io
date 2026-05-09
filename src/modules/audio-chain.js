@@ -19,12 +19,17 @@ function playTrack(idx) {
     $('track-info').textContent = track.name.toUpperCase();
     if (APP.lowerThird.visible && APP.lowerThird.mode === 'track') $('lt-title-text').textContent = track.name;
     if (!APP.audio.ctx) APP.audio.ctx = new (window.AudioContext || window.webkitAudioContext)();
-    APP.audio.element.play().then(() => {
-        APP.audio.isPlaying = true;
-        log(`PLAY: ${track.name}`);
-        updatePlayIcon();
-    });
+    if (APP.audio.ctx.state === 'suspended') APP.audio.ctx.resume();
     if (!APP.audio.isConnected) setupAudioChain();
+    APP.audio.isPlaying = true;
+    updatePlayIcon();
+    APP.audio.element.play().then(() => {
+        log(`PLAY: ${track.name}`);
+    }).catch(err => {
+        APP.audio.isPlaying = false;
+        updatePlayIcon();
+        log('PLAY_ERR: ' + err.message);
+    });
 }
 
 function nextTrack() {
@@ -41,6 +46,7 @@ function prevTrack() {
 
 function togglePlayPause() {
     if (!APP.audio.playlist.length) return;
+    if (APP.audio.ctx && APP.audio.ctx.state === 'suspended') APP.audio.ctx.resume();
     if (APP.audio.element.paused) {
         if (APP.audio.element.src) APP.audio.element.play();
         else playTrack();
