@@ -17,7 +17,7 @@
 //  by the master bar's [D][B][C][M] toggles and a focus flag.
 // ═══════════════════════════════════════════════════════════════
 window.SonicSuite = (function() {
-    const LS_KEY = 'vngrd.sonicsuite.v4';
+    const LS_KEY = 'vngrd.sonicsuite.v5';   // bumped: bottom-bar layout, new default positions
     const LOOK  = 0.18;   // 180 ms lookahead — more headroom against jank
     const TICK  = 25;     // 25 ms scheduler interval
 
@@ -388,13 +388,13 @@ window.SonicSuite = (function() {
             if (cp.top  != null) el.style.top  = cp.top  + 'px';
             if (cp.min) el.classList.add('minimised');
         } else {
-            // Default: 2-column grid so all 4 cards stay on screen.
-            // Column width = 600px card + 14px gap = 614px per column.
+            // Default 2-column grid. Col width = 600px card + 14px gap = 614px.
+            // Master bar is 54px fixed at bottom — cards start at top: 16px.
             const n   = state.order.length;
             const col = n % 2;
             const row = Math.floor(n / 2);
             el.style.left = (16 + col * 614) + 'px';
-            el.style.top  = (76 + row * 500) + 'px';
+            el.style.top  = (16 + row * 496) + 'px';
         }
     }
 
@@ -402,9 +402,17 @@ window.SonicSuite = (function() {
         const bd = document.getElementById('ss-backdrop');
         if (!bd) return;
         bd.classList.add('visible');
-        // Default to stealth (canvas visible) unless user explicitly turned it off
-        const pref = localStorage.getItem('vngrd.sonicsuite.stealth');
-        if (pref !== '0') bd.classList.add('stealth');
+        // Restore saved opacity (default 88% opaque)
+        const savedOp = localStorage.getItem('vngrd.sonicsuite.opacity');
+        const op = document.getElementById('ss-opacity');
+        const opVal = savedOp != null ? +savedOp : 88;
+        if (op) op.value = opVal;
+        _applyOpacity(opVal);
+        // Restore master volume
+        const savedVol = localStorage.getItem('vngrd.sonicsuite.mastervol');
+        const mv = document.getElementById('ss-master-vol');
+        const mvv = document.getElementById('ss-master-vol-val');
+        if (mv && savedVol != null) { mv.value = +savedVol; if (mvv) mvv.textContent = +savedVol + '%'; }
         _syncCanvasBtn();
         state.open = true;
         const btn = document.getElementById('vt-sonic-launch-btn');
@@ -412,16 +420,16 @@ window.SonicSuite = (function() {
         const status = document.getElementById('vt-sonic-status');
         if (status) { status.textContent = 'STUDIO LIVE'; status.classList.add('live'); }
         _ensureAudio();
+        // Start VU meter
+        setTimeout(_startVU, 400);
     }
     function _syncCanvasBtn() {
         const bd = document.getElementById('ss-backdrop');
         const b  = document.getElementById('ss-canvas-btn');
         if (!bd || !b) return;
-        const on = bd.classList.contains('stealth');
-        b.style.borderColor = on ? '#00f3ff' : '';
-        b.style.color       = on ? '#00f3ff' : '';
-        b.style.background  = on ? 'rgba(0,243,255,.14)' : '';
-        b.textContent       = on ? '◈ CANVAS ON' : '◈ CANVAS';
+        const transparent = bd.classList.contains('stealth');
+        b.classList.toggle('active', transparent);
+        b.title = transparent ? 'Canvas passthrough ON — click to restore opacity' : 'Click to toggle full canvas passthrough';
     }
     function close() {
         stop();
@@ -435,6 +443,106 @@ window.SonicSuite = (function() {
     }
     function toggle() { state.open ? close() : open(); }
 
+    // ── Tap tempo ─────────────────────────────────────────────
+    let _tapTimes = [];
+    function _tap() {
+        const now = performance.now();
+        _tapTimes = _tapTimes.filter(function (t) { return now - t < 3500; });
+        _tapTimes.push(now);
+        if (_tapTimes.length >= 2) {
+            var sum = 0;
+            for (var i = 1; i < _tapTimes.length; i++) sum += _tapTimes[i] - _tapTimes[i - 1];
+            var bpm = Math.round(60000 / (sum / (_tapTimes.length - 1)));
+            setBPM(bpm);
+        }
+    }
+
+    // ── Layout snap ───────────────────────────────────────────
+    function snapLayout() {
+        const s = _loadState();
+        s.cards = {};
+        _saveState(s);
+        state.order.forEach(function (id, n) {
+            const card = state.cards[id];
+            if (!card) return;
+            const col = n % 2;
+            const row = Math.floor(n / 2);
+            const el  = card.dom.root;
+            el.style.left = (16 + col * 614) + 'px';
+            el.style.top  = (16 + row * 496) + 'px';
+            el.classList.remove('minimised');
+        });
+    }
+
+    // ── VU meter ──────────────────────────────────────────────
+    let _vuBuf = null, _vuAnimId = null, _vuPeak = 0, _vuPeakAge = 0;
+    function _startVU() {
+        if (_vuAnimId) return;
+        const canvas = document.getElementById('ss-vu');
+        if (!canvas) return;
+        const c = canvas.getContext('2d');
+        const W = canvas.width, H = canvas.height;
+
+        function _draw() {
+            _vuAnimId = requestAnimationFrame(_draw);
+            if (!_audio || !_audio.analyser) return;
+            if (!_vuBuf || _vuBuf.length !== _audio.analyser.fftSize) {
+                _vuBuf = new Float32Array(_audio.analyser.fftSize);
+            }
+            _audio.analyser.getFloatTimeDomainData(_vuBuf);
+            var rms = 0;
+            for (var i = 0; i < _vuBuf.length; i++) rms += _vuBuf[i] * _vuBuf[i];
+            rms = Math.sqrt(rms / _vuBuf.length);
+            var norm = Math.max(0, Math.min(1, (20 * Math.log10(rms + 1e-7) + 60) / 60));
+
+            if (norm > _vuPeak) { _vuPeak = norm; _vuPeakAge = 0; }
+            else { _vuPeakAge++; if (_vuPeakAge > 50) _vuPeak = Math.max(0, _vuPeak - 0.005); }
+
+            c.clearRect(0, 0, W, H);
+            c.fillStyle = 'rgba(0,0,0,.55)'; c.fillRect(0, 0, W, H);
+
+            if (norm > 0.002) {
+                var grd = c.createLinearGradient(0, 0, W, 0);
+                grd.addColorStop(0,    '#00f3ff');
+                grd.addColorStop(0.6,  '#00ff88');
+                grd.addColorStop(0.82, '#ffcc00');
+                grd.addColorStop(1,    '#ff4444');
+                c.fillStyle = grd;
+                c.fillRect(1, 2, (W - 2) * norm, H - 4);
+            }
+            // Peak hold
+            if (_vuPeak > 0.02) {
+                c.fillStyle = _vuPeak > 0.9 ? '#ff4444' : 'rgba(0,243,255,.9)';
+                c.fillRect(Math.floor((W - 2) * _vuPeak), 1, 2, H - 2);
+            }
+            // Scale ticks: -24, -12, -6, -3, 0 dBFS
+            [-24, -12, -6, -3].forEach(function (db) {
+                var x = Math.floor((W - 2) * Math.max(0, (db + 60) / 60));
+                c.fillStyle = 'rgba(0,243,255,.2)';
+                c.fillRect(x, H - 3, 1, 3);
+            });
+        }
+        _draw();
+    }
+
+    // ── Opacity slider ────────────────────────────────────────
+    function _applyOpacity(v) {
+        const bd = document.getElementById('ss-backdrop');
+        if (!bd) return;
+        const t = v / 100;
+        if (t < 0.02) {
+            bd.classList.add('stealth');
+            bd.style.background    = '';
+            bd.style.backdropFilter = '';
+        } else {
+            bd.classList.remove('stealth');
+            bd.style.background    = 'rgba(1,5,11,' + (t * 0.96) + ')';
+            bd.style.backdropFilter = 'blur(' + Math.round(t * 18) + 'px) saturate(1.1)';
+        }
+        localStorage.setItem('vngrd.sonicsuite.opacity', v);
+        _syncCanvasBtn();
+    }
+
     document.addEventListener('DOMContentLoaded', function() {
         const bpm = document.getElementById('ss-bpm');
         if (bpm) bpm.addEventListener('input', function() { setBPM(bpm.value); });
@@ -444,13 +552,41 @@ window.SonicSuite = (function() {
         if (stopB) stopB.addEventListener('click', stop);
         const hide = document.getElementById('ss-hide');
         if (hide) hide.addEventListener('click', close);
+
+        // Tap tempo
+        const tapBtn = document.getElementById('ss-tap');
+        if (tapBtn) tapBtn.addEventListener('click', _tap);
+
+        // Master volume
+        const masterVol = document.getElementById('ss-master-vol');
+        const masterVolVal = document.getElementById('ss-master-vol-val');
+        if (masterVol) masterVol.addEventListener('input', function () {
+            const v = +this.value;
+            if (masterVolVal) masterVolVal.textContent = v + '%';
+            if (_audio && _audio.master) _audio.master.gain.setTargetAtTime(v / 100 * 0.82, _audio.ctx.currentTime, 0.04);
+            localStorage.setItem('vngrd.sonicsuite.mastervol', v);
+        });
+
+        // Snap layout
+        const snapBtn = document.getElementById('ss-snap-btn');
+        if (snapBtn) snapBtn.addEventListener('click', snapLayout);
+
+        // Opacity slider (replaces toggle)
+        const opSlider = document.getElementById('ss-opacity');
+        if (opSlider) {
+            const saved = localStorage.getItem('vngrd.sonicsuite.opacity');
+            if (saved != null) { opSlider.value = +saved; }
+            opSlider.addEventListener('input', function () { _applyOpacity(+this.value); });
+        }
+
         const canvasBtn = document.getElementById('ss-canvas-btn');
         if (canvasBtn) canvasBtn.addEventListener('click', function() {
-            const bd = document.getElementById('ss-backdrop');
-            if (!bd) return;
-            bd.classList.toggle('stealth');
-            localStorage.setItem('vngrd.sonicsuite.stealth', bd.classList.contains('stealth') ? '1' : '0');
-            _syncCanvasBtn();
+            const op = document.getElementById('ss-opacity');
+            if (op) {
+                const newVal = +op.value < 10 ? 88 : 0;  // toggle between transparent and opaque
+                op.value = newVal;
+                _applyOpacity(newVal);
+            }
         });
 
         // ── REC: MediaRecorder tap off the limiter, downloads .webm on stop ──
@@ -499,6 +635,7 @@ window.SonicSuite = (function() {
         open, close, toggle,
         start, stop, setBPM,
         registerCard, setMute, setFocus,
+        snapLayout,
         _state: state,
     };
 })();

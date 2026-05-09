@@ -3570,112 +3570,159 @@ body.fullscreen #transcription-hud { pointer-events: none !important; } /* keep 
 }
 
 /* ═══ VNGRD SONIC SUITE — STUDIO SHELL ═══ */
+/* ═══════════════════════════════════════════════════════════════════
+   VNGRD//STUDIO — SONIC SUITE  DAW-grade styles
+   ═══════════════════════════════════════════════════════════════════ */
+
+/* ── Backdrop ───────────────────────────────────────────────── */
 #ss-backdrop {
     position: fixed; inset: 0; z-index: 4000;
     display: none; pointer-events: none;
-    background: radial-gradient(ellipse at 50% 30%, rgba(0,18,28,.88), rgba(2,4,10,.94));
-    backdrop-filter: blur(14px) saturate(1.1); -webkit-backdrop-filter: blur(14px) saturate(1.1);
-    opacity: 0; transition: opacity .24s ease;
-    font-family: 'Orbitron', sans-serif;
+    background: radial-gradient(ellipse at 50% 40%, rgba(0,14,22,.92), rgba(1,3,8,.96));
+    backdrop-filter: blur(16px) saturate(1.15);
+    -webkit-backdrop-filter: blur(16px) saturate(1.15);
+    opacity: 0; transition: opacity .22s ease;
+    font-family: 'JetBrains Mono', monospace;
 }
 #ss-backdrop.visible { display: block; pointer-events: auto; opacity: 1; }
-/* Stealth mode: let the DRIS//CORE canvas show through. Clicks pass to the
-   app underneath; only the master bar + cards capture pointer events. */
-#ss-backdrop.stealth {
-    background: transparent;
-    backdrop-filter: none; -webkit-backdrop-filter: none;
-    pointer-events: none;
-}
-#ss-backdrop.stealth::before { display: none; }
-#ss-backdrop.stealth #ss-master-bar,
-#ss-backdrop.stealth #ss-workspace { pointer-events: auto; }
-#ss-backdrop.stealth #ss-workspace { pointer-events: none; }
-#ss-backdrop.stealth .ss-card { pointer-events: auto; }
+/* Fine grid overlay — only in opaque mode */
 #ss-backdrop::before {
     content: ''; position: absolute; inset: 0; pointer-events: none;
     background-image:
-        linear-gradient(rgba(0,243,255,.04) 1px, transparent 1px),
-        linear-gradient(90deg, rgba(0,243,255,.04) 1px, transparent 1px);
-    background-size: 44px 44px;
-    mask-image: radial-gradient(ellipse at 50% 50%, #000 40%, transparent 75%);
-    -webkit-mask-image: radial-gradient(ellipse at 50% 50%, #000 40%, transparent 75%);
+        linear-gradient(rgba(0,243,255,.028) 1px, transparent 1px),
+        linear-gradient(90deg, rgba(0,243,255,.028) 1px, transparent 1px);
+    background-size: 48px 48px;
+    mask-image: radial-gradient(ellipse at 50% 50%, #000 35%, transparent 70%);
+    -webkit-mask-image: radial-gradient(ellipse at 50% 50%, #000 35%, transparent 70%);
 }
+/* Stealth / opacity mode — canvas visible behind the suite */
+#ss-backdrop.stealth {
+    background: transparent !important;
+    backdrop-filter: none !important;
+    -webkit-backdrop-filter: none !important;
+    pointer-events: none;
+}
+#ss-backdrop.stealth::before { display: none; }
+#ss-backdrop.stealth #ss-master-bar { pointer-events: auto; }
+#ss-backdrop.stealth .ss-card      { pointer-events: auto; }
+
+/* ── Master Transport Bar ───────────────────────────────────── */
 #ss-master-bar {
-    position: fixed; top: 120px; left: 50%; transform: translateX(-50%);
+    position: fixed;
+    bottom: 0; left: 0; right: 0;
     z-index: 9999;
-    display: flex; align-items: center; gap: 10px;
-    padding: 8px 14px;
-    background: rgba(2,8,14,.85);
-    border: 1px solid rgba(0,243,255,.3);
-    border-top: 1px solid rgba(255,255,255,.16);
-    border-radius: 3px;
-    box-shadow: 0 4px 20px rgba(0,0,0,.6), 0 0 24px rgba(0,243,255,.12);
-    font-size: 8px; letter-spacing: 1.5px;
-    color: rgba(0,243,255,.75);
+    display: flex; align-items: center;
+    height: 54px; padding: 0 14px; gap: 0;
+    background: rgba(1,5,11,.97);
+    border-top: 2px solid rgba(0,243,255,.28);
+    box-shadow: 0 -6px 32px rgba(0,0,0,.85), 0 -1px 0 rgba(0,243,255,.1);
+    backdrop-filter: blur(24px); -webkit-backdrop-filter: blur(24px);
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 8px; letter-spacing: 1px;
+    color: rgba(0,243,255,.7);
     user-select: none;
+    pointer-events: auto;
 }
-.ss-mb-label { font-size: 7px; color: rgba(0,243,255,.45); letter-spacing: 2px; }
+/* Groups — logical sections within the bar */
+.ss-mb-group {
+    display: flex; align-items: center; gap: 6px;
+    padding: 0 12px;
+    flex-shrink: 0;
+}
+.ss-mb-sep {
+    width: 1px; height: 28px; flex-shrink: 0;
+    background: rgba(0,243,255,.14);
+}
+/* Brand */
+.ss-mb-brand-group { padding-left: 4px; }
+.ss-mb-brand {
+    font-family: 'Orbitron', sans-serif;
+    font-size: 9px; font-weight: 800; letter-spacing: 3px;
+    color: rgba(0,243,255,.85);
+}
+.ss-mb-brand-sep { color: rgba(0,243,255,.3); }
+/* BPM input */
+.ss-mb-label {
+    font-size: 6.5px; color: rgba(0,243,255,.38);
+    letter-spacing: 2px; white-space: nowrap;
+}
 .ss-mb-bpm {
-    width: 42px; height: 20px;
-    background: rgba(0,0,0,.55); border: 1px solid rgba(0,243,255,.3);
-    color: #00f3ff; font-family: 'JetBrains Mono', monospace; font-size: 10px;
+    width: 44px; height: 24px;
+    background: rgba(0,0,0,.6); border: 1px solid rgba(0,243,255,.28);
+    color: #00f3ff; font-family: 'JetBrains Mono', monospace; font-size: 12px;
     text-align: center; padding: 0; outline: none; border-radius: 2px;
 }
 .ss-mb-bpm::-webkit-inner-spin-button,
 .ss-mb-bpm::-webkit-outer-spin-button { -webkit-appearance: none; margin: 0; }
+/* All bar buttons */
 .ss-mb-btn {
-    height: 22px; padding: 0 10px;
-    background: transparent; border: 1px solid rgba(0,243,255,.3);
-    color: rgba(0,243,255,.7); font-family: 'Orbitron', sans-serif;
-    font-size: 7.5px; font-weight: 700; letter-spacing: 1.5px;
-    cursor: pointer; border-radius: 2px; transition: all .12s;
+    height: 26px; padding: 0 9px; flex-shrink: 0;
+    background: rgba(0,243,255,.04); border: 1px solid rgba(0,243,255,.22);
+    color: rgba(0,243,255,.65); font-family: 'JetBrains Mono', monospace;
+    font-size: 8px; font-weight: 600; letter-spacing: 1.5px;
+    cursor: pointer; border-radius: 2px;
+    transition: color .1s, border-color .1s, background .1s, box-shadow .1s;
+    white-space: nowrap;
 }
-.ss-mb-btn:hover { border-color: #00f3ff; color: #00f3ff; box-shadow: 0 0 8px rgba(0,243,255,.3); }
-.ss-mb-btn.playing { border-color: #ff4444; color: #ff6666; box-shadow: 0 0 10px rgba(255,60,60,.4); }
-.ss-mb-btn.stop { border-color: rgba(255,120,0,.45); color: rgba(255,160,60,.8); }
-.ss-mb-metro { display: flex; gap: 4px; align-items: center; padding: 0 6px; }
+.ss-mb-btn:hover { color: #00f3ff; border-color: rgba(0,243,255,.6); background: rgba(0,243,255,.08); }
+/* Transport-specific */
+.ss-mb-play-btn { border-color: rgba(0,243,255,.35); }
+.ss-mb-play-btn.playing { color: #ff5555; border-color: rgba(255,60,60,.6); background: rgba(255,40,40,.06); box-shadow: 0 0 10px rgba(255,60,60,.2); }
+.ss-mb-stop-btn { border-color: rgba(255,140,0,.3); color: rgba(255,160,60,.7); }
+.ss-mb-stop-btn:hover { border-color: rgba(255,140,0,.7); color: #ffaa30; background: rgba(255,140,0,.06); }
+.ss-mb-rec-btn  { border-color: rgba(255,40,40,.35); color: rgba(255,100,100,.75); }
+.ss-mb-rec-btn:hover { border-color: rgba(255,40,40,.8); color: #ff6060; background: rgba(255,40,40,.08); }
+.ss-mb-rec-btn.playing { color: #ff3333; border-color: #ff3333; background: rgba(255,0,0,.14); box-shadow: 0 0 12px rgba(255,0,0,.35); animation: rec-pulse .9s ease-in-out infinite; }
+@keyframes rec-pulse { 0%,100%{opacity:1;} 50%{opacity:.55;} }
+.ss-mb-hide-btn { border-color: rgba(255,50,50,.25); color: rgba(255,100,100,.6); margin-left: 4px; }
+.ss-mb-hide-btn:hover { border-color: rgba(255,50,50,.7); color: #ff6060; }
+/* Canvas toggle active */
+.ss-mb-btn.active { color: #00f3ff; border-color: rgba(0,243,255,.65); background: rgba(0,243,255,.1); box-shadow: 0 0 8px rgba(0,243,255,.2); }
+/* Metro dots */
+.ss-mb-metro { display: flex; gap: 5px; align-items: center; }
 .ss-mb-dot {
-    width: 7px; height: 7px; border-radius: 50%;
-    background: rgba(0,243,255,.12); border: 1px solid rgba(0,243,255,.28);
-    transition: background .08s, box-shadow .08s;
+    width: 8px; height: 8px; border-radius: 50%;
+    background: rgba(0,243,255,.1); border: 1px solid rgba(0,243,255,.25);
+    transition: background .06s, box-shadow .06s;
 }
-.ss-mb-dot.on { background: #00f3ff; box-shadow: 0 0 8px #00f3ff; }
-.ss-mb-dot.downbeat.on { background: #ff4444; box-shadow: 0 0 10px #ff4444; }
+.ss-mb-dot.on          { background: #00f3ff; box-shadow: 0 0 8px rgba(0,243,255,.8); }
+.ss-mb-dot.downbeat.on { background: #ff4444; box-shadow: 0 0 10px rgba(255,50,50,.8); }
+/* Clock readout */
+.ss-mb-clock-group { gap: 10px; }
 .ss-mb-clock {
     display: inline-flex; flex-direction: column; align-items: center;
-    padding: 0 10px; margin-left: 2px;
-    border-left: 1px solid rgba(0,243,255,.18);
-    font-family: 'JetBrains Mono', monospace;
-    line-height: 1;
+    font-family: 'JetBrains Mono', monospace; line-height: 1;
 }
-.ss-mb-clock .ss-mb-clock-bar  { font-size: 11px; color: #00f3ff; letter-spacing: 1px; text-shadow: 0 0 6px rgba(0,243,255,.5); }
-.ss-mb-clock .ss-mb-clock-time { font-size: 8px;  color: rgba(0,243,255,.5); letter-spacing: 1px; margin-top: 2px; }
-.ss-mb-cardtoggles { display: flex; gap: 4px; padding: 0 6px; border-left: 1px solid rgba(0,243,255,.18); border-right: 1px solid rgba(0,243,255,.18); }
+.ss-mb-clock-bar  { font-size: 13px; font-weight: 600; color: #00f3ff; letter-spacing: 2px; text-shadow: 0 0 8px rgba(0,243,255,.5); }
+.ss-mb-clock-time { font-size: 8px; color: rgba(0,243,255,.42); letter-spacing: 1px; margin-top: 2px; }
+/* VU meter canvas */
+#ss-vu {
+    border: 1px solid rgba(0,243,255,.18); border-radius: 2px;
+    background: rgba(0,0,0,.55); flex-shrink: 0;
+    align-self: center;
+}
+/* Sliders in master bar */
+.ss-mb-slider { width: 72px; accent-color: #00f3ff; cursor: pointer; }
+.ss-mb-slider-val { font-size: 8px; color: rgba(0,243,255,.6); min-width: 28px; }
+/* Card toggle buttons */
+.ss-mb-cardtoggles { display: flex; gap: 3px; padding: 0 4px; }
 .ss-mb-ct {
-    width: 20px; height: 20px; padding: 0;
-    background: transparent; border: 1px solid rgba(0,243,255,.3);
-    color: rgba(0,243,255,.6); font-family: 'JetBrains Mono', monospace;
+    width: 24px; height: 24px; padding: 0;
+    background: rgba(0,243,255,.05); border: 1px solid rgba(0,243,255,.25);
+    color: rgba(0,243,255,.55); font-family: 'JetBrains Mono', monospace;
     font-size: 10px; font-weight: 700; cursor: pointer; border-radius: 2px;
     transition: all .1s;
 }
-.ss-mb-ct:hover { color: #00f3ff; border-color: #00f3ff; }
-.ss-mb-ct.muted { opacity: .3; text-decoration: line-through; }
-.ss-mb-ct.focused { background: rgba(0,243,255,.22); color: #eafeff; border-color: #00f3ff; box-shadow: 0 0 8px rgba(0,243,255,.5); }
-.ss-mb-hide { margin-left: 4px; }
+.ss-mb-ct:hover { color: #00f3ff; border-color: rgba(0,243,255,.6); background: rgba(0,243,255,.1); }
+.ss-mb-ct.muted { opacity: .28; text-decoration: line-through; }
+.ss-mb-ct.focused { background: rgba(0,243,255,.2); color: #eafeff; border-color: #00f3ff; box-shadow: 0 0 8px rgba(0,243,255,.45); }
 
-/* ── SLICER card ── */
-.ss-slicer-pad {
-    width: 100%; height: 30px; padding: 0;
-    font-size: 7px; letter-spacing: .5px;
-    border-radius: 2px; transition: background .06s, box-shadow .06s;
+/* ── Workspace (card container) ─────────────────────────────── */
+#ss-workspace {
+    position: absolute;
+    top: 0; left: 0; right: 0;
+    bottom: 54px;   /* leave room for the fixed bottom master bar */
 }
-.ss-slicer-pad.hit { background: rgba(0,243,255,.18); box-shadow: 0 0 8px rgba(0,243,255,.5); }
-.ss-slicer-step {
-    width: 100%; height: 20px; padding: 0;
-    font-size: 6.5px; letter-spacing: 0;
-    border-radius: 1px; transition: background .05s;
-}
-.ss-slicer-step.active { background: rgba(0,243,255,.2); box-shadow: 0 0 6px rgba(0,243,255,.4); }
 
 /* ═══ SONIC SUITE CARDS — DAW-grade instrument panels ═══ */
 .ss-card {

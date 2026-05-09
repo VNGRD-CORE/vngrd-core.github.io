@@ -21,6 +21,7 @@
         portamento: 0.04,        // freq glide time constant (s)
         filterMin:  90,          // Hz
         filterMax:  11000,       // Hz
+        volume:     0.80,        // 0–1 master output level
         // ADSR
         attack:     0.015,       // s
         decay:      0.12,        // s
@@ -51,6 +52,7 @@
     // ── Web Audio state ───────────────────────────────────────
     let _ctx, _bus, _reverbTap;
     let _osc1 = null, _osc2 = null, _filter = null, _ampGain = null, _revGain = null;
+    let _volGain = null;   // persistent output gain — controls master vol independently of ADSR
     let _playing = false;
     let _mx = 0.5, _my = 0.5;
 
@@ -79,7 +81,7 @@
 
         _osc1.connect(_filter);
         _osc2.connect(_filter);
-        _filter.connect(_ampGain).connect(_bus);
+        _filter.connect(_ampGain).connect(_volGain);
 
         if (_reverbTap) {
             _revGain = _ctx.createGain();
@@ -273,6 +275,11 @@
         _bus      = ctx.bus;
         _reverbTap= ctx.reverbTap;
 
+        // Persistent volume node — sits between ampGain and bus, survives note on/off
+        _volGain = _ctx.createGain();
+        _volGain.gain.value = P.volume !== undefined ? P.volume : 0.8;
+        _volGain.connect(_bus);
+
         body.style.cssText = 'display:flex;flex-direction:column;gap:7px;padding:8px 8px;user-select:none;overflow:hidden;';
 
         // ── ROW 1: Voice + Octave ──────────────────────────────
@@ -384,6 +391,10 @@
         }));
         row2.appendChild(_knob('REV', 0, 100, Math.round(P.reverbAmt * 100), '%', function (v) {
             P.reverbAmt = v / 100;
+        }));
+        row2.appendChild(_knob('VOL', 0, 100, Math.round(P.volume * 100), '%', function (v) {
+            P.volume = v / 100;
+            if (_volGain) _volGain.gain.setTargetAtTime(P.volume, _ctx.currentTime, 0.02);
         }));
 
         body.appendChild(row2);

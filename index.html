@@ -4168,30 +4168,79 @@ window._gestureState = {
      Master bar + card workspace. Cards are injected by stage 3+.
      ═══════════════════════════════════════════════════════════ -->
 <div id="ss-backdrop" aria-hidden="true">
+    <!-- ═══ VNGRD//STUDIO MASTER BAR ═══ -->
     <div id="ss-master-bar">
-        <span class="ss-mb-label">BPM</span>
-        <input type="number" class="ss-mb-bpm" id="ss-bpm" value="120" min="40" max="300">
-        <button class="ss-mb-btn" id="ss-play">▶ PLAY ALL</button>
-        <button class="ss-mb-btn stop" id="ss-stop">■ STOP</button>
-        <div class="ss-mb-metro" id="ss-metro">
-            <span class="ss-mb-dot downbeat"></span>
-            <span class="ss-mb-dot"></span>
-            <span class="ss-mb-dot"></span>
-            <span class="ss-mb-dot"></span>
+
+        <!-- Brand -->
+        <div class="ss-mb-group ss-mb-brand-group">
+            <span class="ss-mb-brand">VNGRD<span class="ss-mb-brand-sep">//</span>STUDIO</span>
         </div>
-        <div class="ss-mb-clock" id="ss-clock">
-            <span class="ss-mb-clock-bar"  id="ss-clock-bar">001.1.01</span>
-            <span class="ss-mb-clock-time" id="ss-clock-time">00:00.00</span>
+        <div class="ss-mb-sep"></div>
+
+        <!-- BPM + Tap -->
+        <div class="ss-mb-group">
+            <span class="ss-mb-label">BPM</span>
+            <input type="number" class="ss-mb-bpm" id="ss-bpm" value="120" min="40" max="300">
+            <button class="ss-mb-btn" id="ss-tap" title="Tap tempo">TAP</button>
         </div>
+        <div class="ss-mb-sep"></div>
+
+        <!-- Transport -->
+        <div class="ss-mb-group">
+            <button class="ss-mb-btn ss-mb-play-btn" id="ss-play" title="Play all">▶ PLAY</button>
+            <button class="ss-mb-btn ss-mb-stop-btn" id="ss-stop" title="Stop">■ STOP</button>
+            <button class="ss-mb-btn ss-mb-rec-btn"  id="ss-rec"  title="Record master output to file">● REC</button>
+        </div>
+        <div class="ss-mb-sep"></div>
+
+        <!-- Metronome + Clock -->
+        <div class="ss-mb-group ss-mb-clock-group">
+            <div class="ss-mb-metro" id="ss-metro">
+                <span class="ss-mb-dot downbeat"></span>
+                <span class="ss-mb-dot"></span>
+                <span class="ss-mb-dot"></span>
+                <span class="ss-mb-dot"></span>
+            </div>
+            <div class="ss-mb-clock" id="ss-clock">
+                <span class="ss-mb-clock-bar"  id="ss-clock-bar">001.1.01</span>
+                <span class="ss-mb-clock-time" id="ss-clock-time">00:00.00</span>
+            </div>
+        </div>
+
+        <!-- VU Meter -->
+        <canvas id="ss-vu" width="100" height="22" title="Master output level (post-limiter)"></canvas>
+        <div class="ss-mb-sep"></div>
+
+        <!-- Card mute toggles -->
         <div class="ss-mb-cardtoggles" id="ss-cardtoggles"></div>
-        <button class="ss-mb-btn" id="ss-canvas-btn" title="Toggle canvas visibility (see DRIS//CORE behind the suite)">◈ CANVAS</button>
-        <button class="ss-mb-btn" id="ss-rec" style="border-color:rgba(255,60,60,.45);color:rgba(255,120,120,.85);">● REC</button>
-        <a href="https://andreamerella.github.io/DrisLab/" target="_blank" rel="noopener noreferrer"
-           id="ss-drislab"
-           class="ss-mb-btn"
-           style="text-decoration:none;letter-spacing:1px;color:rgba(0,243,255,.75);"
-           onclick="event.preventDefault();event.stopPropagation();window.open('https://andreamerella.github.io/DrisLab/','_blank','noopener,noreferrer');return false;">◈ DRISLAB ↗</a>
-        <button class="ss-mb-btn ss-mb-hide" id="ss-hide">HIDE</button>
+        <div class="ss-mb-sep"></div>
+
+        <!-- Master Volume -->
+        <div class="ss-mb-group">
+            <span class="ss-mb-label">MASTER VOL</span>
+            <input type="range" id="ss-master-vol" class="ss-mb-slider" min="0" max="100" value="72" title="Master output volume">
+            <span class="ss-mb-slider-val" id="ss-master-vol-val">72%</span>
+        </div>
+        <div class="ss-mb-sep"></div>
+
+        <!-- Canvas / Opacity controls -->
+        <div class="ss-mb-group">
+            <span class="ss-mb-label">OPACITY</span>
+            <input type="range" id="ss-opacity" class="ss-mb-slider" min="0" max="100" value="88" title="Suite backdrop opacity — slide left to see canvas/video behind">
+            <button class="ss-mb-btn" id="ss-canvas-btn" title="Toggle full canvas passthrough">◈</button>
+        </div>
+        <div class="ss-mb-sep"></div>
+
+        <!-- Layout + Links + Hide -->
+        <div class="ss-mb-group">
+            <button class="ss-mb-btn" id="ss-snap-btn" title="Snap all panels back to default grid positions">⊞ SNAP</button>
+            <a href="https://andreamerella.github.io/DrisLab/" target="_blank" rel="noopener noreferrer"
+               id="ss-drislab" class="ss-mb-btn"
+               style="text-decoration:none;"
+               onclick="event.preventDefault();event.stopPropagation();window.open('https://andreamerella.github.io/DrisLab/','_blank','noopener,noreferrer');return false;">DRISLAB ↗</a>
+            <button class="ss-mb-btn ss-mb-hide-btn" id="ss-hide" title="Close studio">✕ HIDE</button>
+        </div>
+
     </div>
     <div id="ss-workspace"></div>
 </div>
