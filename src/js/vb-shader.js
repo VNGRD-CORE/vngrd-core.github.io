@@ -162,21 +162,14 @@ var FS = {
         '  vec2 wUV=clamp(v+vec2(wx,wy),0.0,1.0);',
         '  vec4 wrp=texture(t,wUV);',
         '  float luma=dot(wrp.rgb,vec3(0.2126,0.7152,0.0722));',
-        // Spatial phase: angle + radius + ripple waves break up luma-only rings
+        // Spatial phase: linear position gradient breaks luma-ring artifacts without atan
         '  vec2 c=v-0.5;',
-        '  float ang=atan(c.y,c.x);',
+        '  float ang=c.x*3.5-c.y*2.8;',
         '  float rad=length(c);',
         '  float mBoost=(1.0-smoothstep(0.0,0.38,length(v-uMouse)))*3.5;',
         '  float cycle=time*(0.4+uAudio*2.2+mBoost);',
-        '  float phase=luma*1.6+ang*1.1+rad*4.0',
-        '             +sin(v.x*6.2+time*0.6)*0.5',
-        '             +cos(v.y*5.8+time*0.45)*0.4',
-        '             +cycle;',
-        '  vec3 acid=vec3(',
-        '    sin(phase*1.00)*0.5+0.5,',
-        '    sin(phase*0.79+2.09)*0.5+0.5,',
-        '    sin(phase*1.13+4.19)*0.5+0.5',
-        '  );',
+        '  float phase=luma*1.6+ang*1.1+rad*4.0+sin(v.x*6.2+time*0.6)*0.5+cos(v.y*5.8+time*0.45)*0.4+cycle;',
+        '  vec3 acid=vec3(sin(phase*1.00)*0.5+0.5,sin(phase*0.79+2.09)*0.5+0.5,sin(phase*1.13+4.19)*0.5+0.5);',
         // tPrev trails sampled at warped UV — trails warp with the image
         '  vec4 prev=texture(tPrev,wUV);',
         '  float trails=0.30+uAudio*0.18;',
@@ -195,8 +188,11 @@ var FS = {
         'in vec2 v; uniform sampler2D t; uniform float time; uniform float uAudio; uniform vec2 uMouse; out vec4 o;',
         'vec3 iron(float x){',
         '  float s=clamp(x,0.0,1.0)*4.0;',
-        '  vec3 c0=vec3(0.0,0.0,0.13),c1=vec3(0.25,0.0,0.52);',
-        '  vec3 c2=vec3(0.88,0.0,0.10),c3=vec3(1.0,0.58,0.0),c4=vec3(1.0,1.0,1.0);',
+        '  vec3 c0=vec3(0.0,0.0,0.13);',
+        '  vec3 c1=vec3(0.25,0.0,0.52);',
+        '  vec3 c2=vec3(0.88,0.0,0.10);',
+        '  vec3 c3=vec3(1.0,0.58,0.0);',
+        '  vec3 c4=vec3(1.0,1.0,1.0);',
         '  if(s<1.0)return mix(c0,c1,s);',
         '  if(s<2.0)return mix(c1,c2,s-1.0);',
         '  if(s<3.0)return mix(c2,c3,s-2.0);',
@@ -237,11 +233,10 @@ var FS = {
         'uniform float time; uniform float uAudio; uniform vec2 res; uniform vec2 uMouse; uniform float uMode; out vec4 o;',
         'float h1(float p){return fract(sin(p*127.1)*43758.5453);}',
         'void main(){',
-        '  int mode=int(uMode+0.5);',
         '  float dist=length(v-uMouse);',
 
         // ── CENSOR: block-center distance → no per-pixel ring variation ──
-        '  if(mode==1){',
+        '  if(uMode>0.5){',
         '    float GRID=12.0+uAudio*8.0;',
         // All pixels in the same block share this center → same bDist → same zone
         '    vec2 bCtr=(floor(v*res/GRID)*GRID+GRID*0.5)/res;',
@@ -320,17 +315,25 @@ function _initVB() {
     function compileShader(type, src) {
         var s = gl.createShader(type);
         gl.shaderSource(s, src); gl.compileShader(s);
-        if (!gl.getShaderParameter(s, gl.COMPILE_STATUS))
-            console.error('[VB] Shader compile error:', gl.getShaderInfoLog(s));
+        if (!gl.getShaderParameter(s, gl.COMPILE_STATUS)) {
+            var err = gl.getShaderInfoLog(s);
+            console.error('[VB] Shader compile error:', err);
+            if (typeof log === 'function') log('GLSL_ERR: ' + (err || '').split('\n')[0].substring(0, 80));
+        }
         return s;
     }
     function makeProgram(fs) {
         var prog = gl.createProgram();
-        gl.attachShader(prog, compileShader(gl.VERTEX_SHADER, VS));
-        gl.attachShader(prog, compileShader(gl.FRAGMENT_SHADER, fs));
+        var vs = compileShader(gl.VERTEX_SHADER, VS);
+        var fsh = compileShader(gl.FRAGMENT_SHADER, fs);
+        gl.attachShader(prog, vs);
+        gl.attachShader(prog, fsh);
         gl.linkProgram(prog);
-        if (!gl.getProgramParameter(prog, gl.LINK_STATUS))
-            console.error('[VB] Program link error:', gl.getProgramInfoLog(prog));
+        if (!gl.getProgramParameter(prog, gl.LINK_STATUS)) {
+            var lerr = gl.getProgramInfoLog(prog);
+            console.error('[VB] Program link error:', lerr);
+            if (typeof log === 'function') log('GLSL_LINK_ERR: ' + (lerr || '').substring(0, 80));
+        }
         return prog;
     }
 
