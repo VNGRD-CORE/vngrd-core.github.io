@@ -3145,6 +3145,11 @@ if (btn3dX) {
                 try {
                     recognition.start();
                     setOnAirUI(true);
+                    // Arm the TimeMachine now (user gesture) so CAPTURE VNGRD
+                    // has a pre-filled buffer instead of starting cold on click.
+                    if (typeof initTimeMachine === 'function' && !APP.timeMachine.isRecording) {
+                        try { initTimeMachine(); } catch (_) {}
+                    }
                 } catch (e) {
                     setStatus('STT_ERR: START_FAIL');
                     if (typeof ghostLog === 'function') ghostLog('STT START ERR: ' + e.message, 'crit');
