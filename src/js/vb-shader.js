@@ -5,6 +5,7 @@
 var _vbActive    = false;
 var _vbShader    = null;
 var _vbLocked    = {};
+var _vbMouseLocks= {}; // {shaderName: [x,y]} — per-shader locked mouse positions
 var _vbBurstTimer= null;
 var _dblTapTimer = {};
 var _vbTime      = 0;
@@ -145,32 +146,32 @@ var FS = {
     ].join('\n'),
 
     // ── ACID ─────────────────────────────────────────────────────────────
-    // LSD trip: UV warp makes the image breathe and melt. Phase is driven by
-    // spatial position (angle + radius + ripples) so colour bands are organic
-    // and non-circular — no luma-ring artifact. tPrev trails warp too, giving
-    // smeared psychedelic afterimages. Mouse boosts local speed.
+    // LSD trip: image melts and breathes via UV warp. Phase driven purely by
+    // X/Y/diagonal spatial sines — NO polar coords, so zero circular ring
+    // artifacts. Edge-fade on warp prevents left-edge clamp line. tPrev trails
+    // smear with the warp. Mouse creates a local speed-up zone.
     ACID: [
         '#version 300 es',
         'precision mediump float;',
         'in vec2 v; uniform sampler2D t; uniform sampler2D tPrev;',
         'uniform float time; uniform float uAudio; uniform vec2 uMouse; out vec4 o;',
         'void main(){',
-        // 2D breathing warp: cross-product sines — no horizontal banding
-        '  float wamp=0.018+uAudio*0.024;',
+        // Edge-fade: ramps warp to 0 near all 4 edges → no clamp artifact lines
+        '  float ef=smoothstep(0.0,0.05,min(min(v.x,1.0-v.x),min(v.y,1.0-v.y)));',
+        '  float wamp=(0.018+uAudio*0.028)*ef;',
         '  float wx=sin(v.y*3.8+time*1.2)*sin(v.x*2.3+time*0.65)*wamp;',
         '  float wy=cos(v.x*4.1+time*0.85)*cos(v.y*2.7+time*1.35)*wamp;',
         '  vec2 wUV=clamp(v+vec2(wx,wy),0.0,1.0);',
         '  vec4 wrp=texture(t,wUV);',
         '  float luma=dot(wrp.rgb,vec3(0.2126,0.7152,0.0722));',
-        // Spatial phase: angle + radius + ripple waves break up luma-only rings
-        '  vec2 c=v-0.5;',
-        '  float ang=atan(c.y,c.x);',
-        '  float rad=length(c);',
+        // Purely spatial phase (X, Y, diagonals) — no ang/rad → no circular rings
         '  float mBoost=(1.0-smoothstep(0.0,0.38,length(v-uMouse)))*3.5;',
         '  float cycle=time*(0.4+uAudio*2.2+mBoost);',
-        '  float phase=luma*1.6+ang*1.1+rad*4.0',
-        '             +sin(v.x*6.2+time*0.6)*0.5',
-        '             +cos(v.y*5.8+time*0.45)*0.4',
+        '  float phase=luma*1.4',
+        '             +sin(v.x*7.3+time*0.55)*0.9',
+        '             +cos(v.y*6.8+time*0.40)*0.7',
+        '             +sin((v.x+v.y)*5.1+time*0.62)*0.55',
+        '             +sin((v.x-v.y)*4.3+time*0.78)*0.45',
         '             +cycle;',
         '  vec3 acid=vec3(',
         '    sin(phase*1.00)*0.5+0.5,',
@@ -434,7 +435,8 @@ function _vbRender() {
     if (p.timeLoc)  gl.uniform1f(p.timeLoc, _vbTime);
     if (p.resLoc)   gl.uniform2f(p.resLoc, w, h);
     if (p.dirLoc)   gl.uniform2f(p.dirLoc, 1.0, 0.5);
-    if (p.mouseLoc) gl.uniform2f(p.mouseLoc, _vbMouse[0], _vbMouse[1]);
+    var _ml = _vbMouseLocks[shader] || _vbMouse;
+    if (p.mouseLoc) gl.uniform2f(p.mouseLoc, _ml[0], _ml[1]);
     if (p.modeLoc)  gl.uniform1f(p.modeLoc, window._vbDatamoshMode !== undefined ? window._vbDatamoshMode : 0.0);
     gl.drawArrays(gl.TRIANGLE_STRIP, 0, 4);
 
@@ -516,6 +518,17 @@ function _vbUpdateUI(shaderName, locked) {
 // Expose internals for coupling and ghost voice commands
 window._vbActivate   = function(sn, p) { _vbActivate(sn, p); };
 window._vbDeactivate = function(sn)    { _vbDeactivate(sn); };
+// Toggle per-shader mouse position lock (double-click from stage handler)
+window._vbToggleMouseLock = function() {
+    if (!_vbShader) return;
+    if (_vbMouseLocks[_vbShader]) {
+        delete _vbMouseLocks[_vbShader];
+        typeof ghostLog === 'function' && ghostLog('FX ' + _vbShader + ' TRACKING', 'sys');
+    } else {
+        _vbMouseLocks[_vbShader] = [_vbMouse[0], _vbMouse[1]];
+        typeof ghostLog === 'function' && ghostLog('FX ' + _vbShader + ' LOCKED', 'sys');
+    }
+};
 // ── PHASE F Task 1: expose tick so mainLoop (outside this IIFE) can drive rendering ──
 window._vbRenderTick = _vbRender;
 

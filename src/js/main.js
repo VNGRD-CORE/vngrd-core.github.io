@@ -2049,12 +2049,14 @@ function initSeamControls() {
         if (!APP.media._durDragging) canvas.style.cursor = '';
     });
 
-    // ── dblclick: lock / unlock NVG binocular position ──
+    // ── dblclick: lock / unlock NVG position OR active Bank B shader position ──
     stage.addEventListener('dblclick', function() {
-        if (!document.body.classList.contains('fx-nvg')) return;
-        if (!window._nvgPos) window._nvgPos = {x: 0.5, y: 0.5, locked: false};
-        window._nvgPos.locked = !window._nvgPos.locked;
-        typeof ghostLog === 'function' && ghostLog('NVG SCOPE ' + (window._nvgPos.locked ? 'LOCKED' : 'TRACKING'), 'sys');
+        if (document.body.classList.contains('fx-nvg')) {
+            if (!window._nvgPos) window._nvgPos = {x: 0.5, y: 0.5, locked: false};
+            window._nvgPos.locked = !window._nvgPos.locked;
+            typeof ghostLog === 'function' && ghostLog('NVG SCOPE ' + (window._nvgPos.locked ? 'LOCKED' : 'TRACKING'), 'sys');
+        }
+        if (typeof window._vbToggleMouseLock === 'function') window._vbToggleMouseLock();
     });
 
     // ── mousedown: start duration drag ──
@@ -3161,10 +3163,12 @@ if (T.logo.visible) {
             if (!window._nvgPos) window._nvgPos = {x: 0.5, y: 0.5, locked: false};
             var _ncx = window._nvgPos.x * _ow, _ncy = window._nvgPos.y * _oh;
 
-            // Tube vignette — use min dimension so circle is always circular
+            // Tube vignette — very gradual fade so the edge is invisible
             var _vr = Math.min(_ow, _oh);
-            var _nvgV = ctx.createRadialGradient(_ncx, _ncy, _vr*0.42, _ncx, _ncy, _vr*0.58);
-            _nvgV.addColorStop(0, 'rgba(0,0,0,0)'); _nvgV.addColorStop(1, 'rgba(0,0,0,0.94)');
+            var _nvgV = ctx.createRadialGradient(_ncx, _ncy, _vr*0.50, _ncx, _ncy, _vr*0.80);
+            _nvgV.addColorStop(0,   'rgba(0,0,0,0)');
+            _nvgV.addColorStop(0.5, 'rgba(0,0,0,0.04)');
+            _nvgV.addColorStop(1,   'rgba(0,0,0,0.92)');
             ctx.fillStyle = _nvgV; ctx.fillRect(0, 0, _ow, _oh);
 
             // CRT phosphor scanlines (cached 1×3 pattern — single fillRect)
