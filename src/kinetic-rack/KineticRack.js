@@ -1213,8 +1213,11 @@ class KineticRack {
         const rightLm = cdnFeed ? cdnFeed.right : null;
         const leftLm  = cdnFeed ? cdnFeed.left  : null;
 
-        if (typeof window._handTrackFeed === 'function') {
-            try { window._handTrackFeed(rightLm || null, leftLm || null); }
+        // Only forward real landmarks — never null — so _handTrackFeed does not
+        // reset handPresent/vol between camera frames (hand-tracker.js handles
+        // the null case via its own _pushLandmarks call at camera frame rate).
+        if (rightLm && typeof window._handTrackFeed === 'function') {
+            try { window._handTrackFeed(rightLm, leftLm || null); }
             catch (e) { /* never let UI feed kill the render loop */ }
         }
 
@@ -1222,9 +1225,6 @@ class KineticRack {
             const lm8 = rightLm[8];
             this._s.rightX += (lm8.x - this._s.rightX) * LERP_FACTOR;
             this._s.rightY += (lm8.y - this._s.rightY) * LERP_FACTOR;
-            this._audio.setSpatialGate(0.4);
-        } else {
-            this._audio.setSpatialGate(0);
         }
     }
 
