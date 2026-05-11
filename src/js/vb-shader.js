@@ -146,54 +146,61 @@ var FS = {
     ].join('\n'),
 
     // ── ACID ─────────────────────────────────────────────────────────────
-    // LSD trip: image melts and breathes via UV warp. Phase driven purely by
-    // X/Y/diagonal spatial sines — NO polar coords, so zero circular ring
-    // artifacts. Edge-fade on warp prevents left-edge clamp line. tPrev trails
-    // smear with the warp. Mouse creates a local speed-up zone.
+    // Full-frame psychedelic melt. Heavy UV warp + full-saturation hue cycling.
+    // Phase = X/Y/diagonal spatial sines only — NO ang/rad polar coords so
+    // zero circular ring artifacts. Edge-fade kills left-edge clamp line.
+    // tPrev smear builds up vivid afterimage trails.
     ACID: [
         '#version 300 es',
         'precision mediump float;',
         'in vec2 v; uniform sampler2D t; uniform sampler2D tPrev;',
         'uniform float time; uniform float uAudio; uniform vec2 uMouse; out vec4 o;',
         'void main(){',
-        // Edge-fade: ramps warp to 0 near all 4 edges → no clamp artifact lines
-        '  float ef=smoothstep(0.0,0.05,min(min(v.x,1.0-v.x),min(v.y,1.0-v.y)));',
-        '  float wamp=(0.018+uAudio*0.028)*ef;',
-        '  float wx=sin(v.y*3.8+time*1.2)*sin(v.x*2.3+time*0.65)*wamp;',
-        '  float wy=cos(v.x*4.1+time*0.85)*cos(v.y*2.7+time*1.35)*wamp;',
+        // Edge-fade: warp → 0 at screen boundaries, removes clamp artifact
+        '  float ef=smoothstep(0.0,0.06,min(min(v.x,1.0-v.x),min(v.y,1.0-v.y)));',
+        '  float wamp=(0.038+uAudio*0.055)*ef;',
+        '  float wx=sin(v.y*3.8+time*1.2)*sin(v.x*2.3+time*0.65)*wamp',
+        '          +sin(v.y*7.1+time*2.1)*wamp*0.4;',
+        '  float wy=cos(v.x*4.1+time*0.85)*cos(v.y*2.7+time*1.35)*wamp',
+        '          +cos(v.x*6.3+time*1.7)*wamp*0.35;',
         '  vec2 wUV=clamp(v+vec2(wx,wy),0.0,1.0);',
         '  vec4 wrp=texture(t,wUV);',
         '  float luma=dot(wrp.rgb,vec3(0.2126,0.7152,0.0722));',
-        // Spatial phase: linear position gradient breaks luma-ring artifacts without atan
-        '  vec2 c=v-0.5;',
-        '  float ang=c.x*3.5-c.y*2.8;',
-        '  float rad=length(c);',
-        '  float mBoost=(1.0-smoothstep(0.0,0.38,length(v-uMouse)))*3.5;',
-        '  float cycle=time*(0.4+uAudio*2.2+mBoost);',
-        '  float phase=luma*1.6+ang*1.1+rad*4.0+sin(v.x*6.2+time*0.6)*0.5+cos(v.y*5.8+time*0.45)*0.4+cycle;',
-        '  vec3 acid=vec3(sin(phase*1.00)*0.5+0.5,sin(phase*0.79+2.09)*0.5+0.5,sin(phase*1.13+4.19)*0.5+0.5);',
-        // tPrev trails sampled at warped UV — trails warp with the image
+        // Pure spatial phase — X, Y, two diagonals, NO polar coords
+        '  float mBoost=(1.0-smoothstep(0.0,0.35,length(v-uMouse)))*4.5;',
+        '  float spd=time*(0.5+uAudio*2.8+mBoost);',
+        '  float phase=luma*2.2',
+        '             +sin(v.x*8.4+time*0.7)*1.1',
+        '             +cos(v.y*7.6+time*0.5)*0.9',
+        '             +sin((v.x+v.y)*5.8+time*0.8)*0.7',
+        '             +sin((v.x-v.y)*4.9+time*0.95)*0.55',
+        '             +spd;',
+        '  vec3 acid=vec3(',
+        '    sin(phase)*0.5+0.5,',
+        '    sin(phase*0.77+2.09)*0.5+0.5,',
+        '    sin(phase*1.18+4.19)*0.5+0.5',
+        '  );',
         '  vec4 prev=texture(tPrev,wUV);',
-        '  float trails=0.30+uAudio*0.18;',
-        '  float str=0.65+uAudio*0.28;',
-        '  o=vec4(mix(mix(wrp.rgb,acid,str),prev.rgb*0.96,trails),1.0);',
+        '  float trails=0.35+uAudio*0.20;',
+        '  float str=0.78+uAudio*0.20;',
+        '  o=vec4(mix(mix(wrp.rgb,acid,str),prev.rgb*0.95,trails),1.0);',
         '}'
     ].join('\n'),
 
     // ── THERMAL ──────────────────────────────────────────────────────────
-    // FLIR iron palette. Heat haze uses upward-scrolling cross-product noise —
-    // completely distinct from SLIT_SCAN's horizontal sine bands.
-    // Mouse creates a hotspot that amplifies shimmer amplitude, not just color.
+    // FLIR iron palette (black→purple→red→orange→white). Upward heat haze via
+    // turbulent cross-product noise scrolling on Y — totally distinct from
+    // SLIT_SCAN lateral warp. Mouse cursor = thermal hotspot (boosts heat+shimmer).
     THERMAL: [
         '#version 300 es',
         'precision mediump float;',
         'in vec2 v; uniform sampler2D t; uniform float time; uniform float uAudio; uniform vec2 uMouse; out vec4 o;',
         'vec3 iron(float x){',
         '  float s=clamp(x,0.0,1.0)*4.0;',
-        '  vec3 c0=vec3(0.0,0.0,0.13);',
-        '  vec3 c1=vec3(0.25,0.0,0.52);',
-        '  vec3 c2=vec3(0.88,0.0,0.10);',
-        '  vec3 c3=vec3(1.0,0.58,0.0);',
+        '  vec3 c0=vec3(0.0,0.0,0.18);',
+        '  vec3 c1=vec3(0.30,0.0,0.62);',
+        '  vec3 c2=vec3(0.95,0.0,0.08);',
+        '  vec3 c3=vec3(1.0,0.62,0.0);',
         '  vec3 c4=vec3(1.0,1.0,1.0);',
         '  if(s<1.0)return mix(c0,c1,s);',
         '  if(s<2.0)return mix(c1,c2,s-1.0);',
@@ -201,33 +208,29 @@ var FS = {
         '  return mix(c3,c4,s-3.0);',
         '}',
         'void main(){',
-        // Rising heat haze: noise scrolls UPWARD (v.y space - time) not left-right
-        // Cross-product sines create turbulent 2D field, not banded horizontal strips
-        '  vec2 up=vec2(v.x*3.8,v.y*5.5-time*0.48);',
-        '  float n1=sin(up.x*2.73+sin(up.y*1.91+time*0.19))*0.5+0.5;',
-        '  float n2=sin(up.y*3.14+sin(up.x*2.27+time*0.15))*0.5+0.5;',
-        // Mouse hotspot: amplifies shimmer (hand over heat source = more haze above it)
+        // Upward-scrolling turbulent noise — heat rises
+        '  vec2 up=vec2(v.x*4.2,v.y*6.0-time*0.55);',
+        '  float n1=sin(up.x*2.73+sin(up.y*1.91+time*0.22))*0.5+0.5;',
+        '  float n2=sin(up.y*3.14+sin(up.x*2.27+time*0.17))*0.5+0.5;',
+        '  float n3=sin(up.x*5.1+up.y*3.7+time*0.31)*0.5+0.5;',
+        // Mouse hotspot amplifies shimmer amplitude + raises local heat
         '  float mDist=length(v-uMouse);',
-        '  float mZone=(1.0-smoothstep(0.0,0.28,mDist))*1.8;',
-        '  float amp=(0.010+uAudio*0.020)*(1.0+mZone);',
-        // Distortion: both axes present, upward-bias (rising air bends light vertically)
-        '  vec2 shimmer=vec2((n1-0.5)*amp,(n2-0.5)*amp*0.55);',
+        '  float mZone=(1.0-smoothstep(0.0,0.30,mDist))*2.5;',
+        '  float amp=(0.022+uAudio*0.038)*(1.0+mZone);',
+        '  vec2 shimmer=vec2((n1-0.5)*amp,(n2+n3*0.4-0.7)*amp*0.7);',
         '  vec2 uv=clamp(v+shimmer,0.0,1.0);',
         '  float luma=dot(texture(t,uv).rgb,vec3(0.2126,0.7152,0.0722));',
-        // FLIR sensor noise (characteristic per-pixel thermal grain)
-        '  float grain=(fract(sin(dot(v,vec2(731.2,537.8))*47.3+time*31.7)*43758.5)-0.5)*0.032;',
-        '  float mHeat=(1.0-smoothstep(0.0,0.26,mDist))*0.52;',
-        '  float heat=clamp(luma+mHeat+uAudio*0.36+grain,0.0,1.0);',
+        '  float grain=(fract(sin(dot(v,vec2(731.2,537.8))*47.3+time*31.7)*43758.5)-0.5)*0.028;',
+        '  float mHeat=(1.0-smoothstep(0.0,0.28,mDist))*0.65;',
+        '  float heat=clamp(luma+mHeat+uAudio*0.45+grain,0.0,1.0);',
         '  o=vec4(iron(heat),1.0);',
         '}'
     ].join('\n'),
 
     // ── DATAMOSH ─────────────────────────────────────────────────────────
-    // Two modes via uMode (0=CORRUPT, 1=CENSOR).
-    // CENSOR: distance is computed from BLOCK CENTER not per-pixel — every pixel
-    //   in the same block gets the same zone value → zero ring artifacts.
-    //   mix(clean, pixelated, zone²) with bDist > radius returns pure clean.
-    // CORRUPT: global matrix scramble, cursor is hotspot, no circle boundary.
+    // uMode=0 → CORRUPT: full-frame matrix rain (green digits + RGB glitch)
+    // uMode=1 → CENSOR: hard pixel-block mosaic follows mouse, no ring edges.
+    //   All pixels in a block share the block center UV → identical zone value.
     DATAMOSH: [
         '#version 300 es',
         'precision highp float;',
@@ -237,34 +240,33 @@ var FS = {
         'void main(){',
         '  float dist=length(v-uMouse);',
 
-        // ── CENSOR: block-center distance → no per-pixel ring variation ──
+        // ── CENSOR: mosaic block pixelation centered on mouse, seamless blend ──
         '  if(uMode>0.5){',
-        '    float GRID=12.0+uAudio*8.0;',
-        // All pixels in the same block share this center → same bDist → same zone
+        '    float GRID=floor(18.0+uAudio*22.0);',
         '    vec2 bCtr=(floor(v*res/GRID)*GRID+GRID*0.5)/res;',
         '    float bDist=length(bCtr-uMouse);',
-        '    float zone=1.0-smoothstep(0.0,0.25,bDist);',
-        '    o=mix(texture(t,v),texture(t,bCtr),zone*zone);',
+        '    float zone=1.0-smoothstep(0.0,0.30,bDist);',
+        '    o=mix(texture(t,v),texture(t,bCtr),zone);',
 
-        // ── CORRUPT: global matrix scramble, no circle boundary ──
+        // ── CORRUPT: full-frame matrix rain + horizontal glitch tears ──
         '  }else{',
-        '    float proximity=1.0-smoothstep(0.0,0.44,dist);',
-        '    float str=0.06+proximity*0.90;',
-        '    float csz=9.0;',
+        '    float proximity=1.0-smoothstep(0.0,0.50,dist);',
+        '    float str=0.12+proximity*0.88;',
+        '    float csz=8.0;',
         '    vec2 cCoord=floor(v*res/csz);',
         '    vec2 cUV=fract(v*res/csz);',
-        '    float freq=4.0+proximity*(6.0+uAudio*26.0);',
-        '    float t2=floor(time*freq+cCoord.y*0.7);',
+        '    float freq=6.0+proximity*(8.0+uAudio*32.0);',
+        '    float t2=floor(time*freq+cCoord.y*0.9);',
         '    float cv=h1(cCoord.x*93.7+cCoord.y*41.3+t2);',
-        '    float digit=step(0.45,fract(cv*5.3+cUV.y*2.0))',
-        '              *step(0.1,cUV.x)*step(cUV.x,0.9)',
-        '              *step(0.08,cUV.y)*step(cUV.y,0.92);',
-        '    float hShift=(h1(cCoord.x*17.1+t2*0.1)-0.5)*str*0.09;',
+        '    float digit=step(0.42,fract(cv*7.1+cUV.y*2.5))',
+        '              *step(0.08,cUV.x)*step(cUV.x,0.92)',
+        '              *step(0.06,cUV.y)*step(cUV.y,0.94);',
+        '    float hShift=(h1(cCoord.x*17.1+t2*0.1)-0.5)*str*0.12;',
         '    vec3 vid=texture(t,clamp(v+vec2(hShift,0.0),0.0,1.0)).rgb;',
-        '    float headBright=1.0-smoothstep(0.0,0.35,cUV.y);',
-        '    vec3 digitColor=vec3(0.0,0.75+headBright*0.25,0.18)*digit;',
-        '    vec3 corrupted=vid*(1.0-str*0.5)+digitColor*str;',
-        '    vec3 final=mix(corrupted,texture(tPrev,v).rgb*0.97,0.22*proximity);',
+        '    float bright=0.6+cUV.y*0.4;',
+        '    vec3 digitColor=vec3(0.0,0.85*bright,0.22*bright)*digit;',
+        '    vec3 corrupted=vid*(1.0-str*0.6)+digitColor*str;',
+        '    vec3 final=mix(corrupted,texture(tPrev,v).rgb*0.96,0.28*proximity);',
         '    o=vec4(final,1.0);',
         '  }',
         '}'
