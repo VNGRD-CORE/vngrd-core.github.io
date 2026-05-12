@@ -3914,7 +3914,7 @@ var isVideo = nft.forceVideo || (imageUrl.toLowerCase().match(/\.(mp4|webm|mov|o
                 var imageUrl = (nft.media && nft.media[0] && nft.media[0].gateway)
                     || (nft.metadata && nft.metadata.image)
                     || '';
-                results.push({ name: name, imageUrl: imageUrl, chain: 'ETH' });
+                results.push({ name: name, imageUrl: imageUrl, chain: 'ETH', contractAddress: (nft.contract && nft.contract.address) || null });
             });
         }
         return results;
@@ -4098,6 +4098,7 @@ var isVideo = nft.forceVideo || (imageUrl.toLowerCase().match(/\.(mp4|webm|mov|o
             $('nft-count').textContent = 'ASSETS: ' + allNfts.length;
             $('vault-dot').classList.remove('off');
             log('NFT_VAULT: ' + allNfts.length + ' TOTAL ASSETS LOADED');
+            if (typeof window.runTokenGate === 'function') window.runTokenGate(allNfts);
         } else {
             var msg = '';
             if (errors.length > 0) {
