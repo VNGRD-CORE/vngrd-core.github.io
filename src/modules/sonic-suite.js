@@ -17,7 +17,7 @@
 //  by the master bar's [D][B][C][M] toggles and a focus flag.
 // ═══════════════════════════════════════════════════════════════
 window.SonicSuite = (function() {
-    const LS_KEY = 'vngrd.sonicsuite.v5';   // bumped: bottom-bar layout, new default positions
+    const LS_KEY = 'vngrd.sonicsuite.v6';   // bumped: responsive card widths + snap-on-open
     const LOOK  = 0.18;   // 180 ms lookahead — more headroom against jank
     const TICK  = 25;     // 25 ms scheduler interval
 
@@ -402,17 +402,9 @@ window.SonicSuite = (function() {
             if (cp.top  != null) el.style.top  = cp.top  + 'px';
             if (cp.min) el.classList.add('minimised');
         } else {
-            const def = _DEFAULT_POS[id];
-            if (def) {
-                el.style.left = def.left + 'px';
-                el.style.top  = def.top  + 'px';
-            } else {
-                const n   = state.order.length;
-                const col = n % 2;
-                const row = Math.floor(n / 2);
-                el.style.left = (14 + col * 664) + 'px';
-                el.style.top  = (14 + row * 496) + 'px';
-            }
+            // No saved position — park off-screen; snapLayout will place properly
+            el.style.left = '-9999px';
+            el.style.top  = '0px';
         }
     }
 
@@ -438,6 +430,9 @@ window.SonicSuite = (function() {
         const status = document.getElementById('vt-sonic-status');
         if (status) { status.textContent = 'STUDIO LIVE'; status.classList.add('live'); }
         _ensureAudio();
+        // Auto-snap layout if no saved card positions (first open or after key bump)
+        const _hasPositions = Object.keys((_loadState().cards) || {}).length > 0;
+        if (!_hasPositions) setTimeout(snapLayout, 180);
         // Start VU meter
         setTimeout(_startVU, 400);
     }
@@ -476,20 +471,57 @@ window.SonicSuite = (function() {
     }
 
     // ── Layout snap ───────────────────────────────────────────
+    // Two-column DAW layout: drums+xy left, bass+fx right, mixer full-width.
+    // Measures actual rendered card heights so nothing ever overlaps.
     function snapLayout() {
+        const GAP  = 12;
+        const M    = 14;
+        const WW   = window.innerWidth;
+        const colW = Math.max(340, Math.floor((WW - M * 2 - GAP) / 2));
+
+        // Which column each card lives in (0 = left, 1 = right)
+        const COL_MAP = { mpc: 0, xypad: 0, bass303: 1, fxunit: 1, mixer: 0 };
+
+        // Build per-column card lists in a sensible vertical order
+        const COL_ORDER = { mpc: 0, bass303: 0, xypad: 1, fxunit: 1, mixer: 2 };
+        const byCol = [[], []];
+        const seen = {};
+        // Process in preferred vertical order
+        ['mpc', 'bass303', 'xypad', 'fxunit', 'mixer'].forEach(function(id) {
+            if (!state.cards[id]) return;
+            seen[id] = true;
+            const ci = (COL_MAP[id] !== undefined) ? COL_MAP[id] : 0;
+            byCol[ci].push(id);
+        });
+        // Any extra registered cards go right
+        state.order.forEach(function(id) {
+            if (!seen[id] && state.cards[id]) byCol[1].push(id);
+        });
+
+        // First pass: expand all minimised cards so we measure real height
+        state.order.forEach(function(id) {
+            const card = state.cards[id];
+            if (card) card.dom.root.classList.remove('minimised');
+        });
+
+        // Second pass: set width, then measure + place
+        const colTops = [M, M];
+        [0, 1].forEach(function(ci) {
+            byCol[ci].forEach(function(id) {
+                const card = state.cards[id];
+                if (!card) return;
+                const el = card.dom.root;
+                el.style.width = colW + 'px';
+                el.style.left  = (M + ci * (colW + GAP)) + 'px';
+                el.style.top   = colTops[ci] + 'px';
+                colTops[ci] += el.offsetHeight + GAP;
+            });
+        });
+
+        // Persist cleared card positions (new snap state)
         const s = _loadState();
         s.cards = {};
         _saveState(s);
-        state.order.forEach(function (id, n) {
-            const card = state.cards[id];
-            if (!card) return;
-            const col = n % 2;
-            const row = Math.floor(n / 2);
-            const el  = card.dom.root;
-            el.style.left = (16 + col * 614) + 'px';
-            el.style.top  = (16 + row * 496) + 'px';
-            el.classList.remove('minimised');
-        });
     }
 
     // ── VU meter ──────────────────────────────────────────────

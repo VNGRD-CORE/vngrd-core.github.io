@@ -3735,7 +3735,9 @@ body.fullscreen #transcription-hud { pointer-events: none !important; } /* keep 
 
 .ss-card {
     position: absolute;
-    width: 660px;
+    width: calc(50vw - 18px);
+    max-width: 720px;
+    min-width: 320px;
     background: rgba(3,8,14,.92);
     border: 1px solid var(--acc-dim, rgba(0,243,255,.18));
     border-top: 2px solid var(--acc, #00f3ff);
