@@ -1182,6 +1182,9 @@ document.addEventListener('DOMContentLoaded', () => {
             const bend = ((velocity << 7) | note) - 8192;
             APP.vj.hue = (bend / 8192) * 180 + 180;
         }
+
+        // Forward to Sonic Suite instruments
+        document.dispatchEvent(new CustomEvent('ss-midi', { detail: { status, note, vel: velocity } }));
     }
 
     // Attach message handlers to all current inputs + listen for hot-plug

@@ -98,9 +98,12 @@ window.SonicSuite = (function() {
         analyser.fftSize = 512;
         limiter.connect(analyser);
 
-        // Public handles for the mixer card
+        // Public handles for the mixer card and FX unit
         window._ssAnalyser     = analyser;
         window._ssReverbReturn = reverbReturn;
+        window._ssGlue         = glue;
+        window._ssLimiter      = limiter;
+        window._ssMaster       = master;
 
         _audio = { ctx, master, reverb, reverbSend, reverbReturn, analyser, glue, limiter };
         return _audio;
