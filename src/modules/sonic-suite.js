@@ -17,7 +17,7 @@
 //  by the master bar's [D][B][C][M] toggles and a focus flag.
 // ═══════════════════════════════════════════════════════════════
 window.SonicSuite = (function() {
-    const LS_KEY = 'vngrd.sonicsuite.v6';   // bumped: responsive card widths + snap-on-open
+    const LS_KEY = 'vngrd.sonicsuite.v7';   // bumped: ID-based default positions, clear stale layout
     const LOOK  = 0.18;   // 180 ms lookahead — more headroom against jank
     const TICK  = 25;     // 25 ms scheduler interval
 
@@ -383,15 +383,15 @@ window.SonicSuite = (function() {
         };
         _saveState(s);
     }
-    // ID-based default positions — keeps the layout musical:
-    // Beat Forge (drums) top-left, Acid Line (bass) top-right,
-    // Void Pad (XY) bottom-left, FX Unit bottom-right, Mixer bottom strip.
-    const _DEFAULT_POS = {
-        mpc:     { left: 14,  top: 14  },
-        bass303: { left: 678, top: 14  },
-        xypad:   { left: 14,  top: 510 },
-        fxunit:  { left: 678, top: 510 },
-        mixer:   { left: 14,  top: 14  },   // fallback; will usually be saved
+    // Default positions designed for ~1440px wide viewport.
+    // Left col (x=14): Beat Forge top, Void Pad below.
+    // Right col (x=50%+6px): Acid Line top, FX Unit below, Mixer below that.
+    const _POS = {
+        mpc:     { left: '14px',            top: '14px'  },
+        xypad:   { left: '14px',            top: '400px' },
+        bass303: { left: 'calc(50% + 6px)', top: '14px'  },
+        fxunit:  { left: 'calc(50% + 6px)', top: '275px' },
+        mixer:   { left: 'calc(50% + 6px)', top: '630px' },
     };
 
     function _restoreCardPos(id, el) {
@@ -402,9 +402,15 @@ window.SonicSuite = (function() {
             if (cp.top  != null) el.style.top  = cp.top  + 'px';
             if (cp.min) el.classList.add('minimised');
         } else {
-            // No saved position — place somewhere visible; snapLayout corrects later
-            el.style.left = '14px';
-            el.style.top  = '14px';
+            const def = _POS[id];
+            if (def) {
+                el.style.left = def.left;
+                el.style.top  = def.top;
+            } else {
+                const n = state.order.length;
+                el.style.left = (16 + (n % 2) * 614) + 'px';
+                el.style.top  = (16 + Math.floor(n / 2) * 496) + 'px';
+            }
         }
     }
 
@@ -430,10 +436,6 @@ window.SonicSuite = (function() {
         const status = document.getElementById('vt-sonic-status');
         if (status) { status.textContent = 'STUDIO LIVE'; status.classList.add('live'); }
         _ensureAudio();
-        // Auto-snap layout if no saved card positions (first open or after key bump).
-        // 400ms gives all modules time to mount (they each wait 120ms then registerCard).
-        const _hasPositions = Object.keys((_loadState().cards) || {}).length > 0;
-        if (!_hasPositions) setTimeout(snapLayout, 400);
         // Start VU meter
         setTimeout(_startVU, 400);
     }
@@ -472,56 +474,47 @@ window.SonicSuite = (function() {
     }
 
     // ── Layout snap ───────────────────────────────────────────
-    // Two-column DAW layout: drums+xy left, bass+fx right, mixer full-width.
-    // Measures actual rendered card heights so nothing ever overlaps.
+    // Two columns: left (mpc, xypad) and right (bass303, fxunit, mixer).
+    // Heights are measured live so nothing overlaps regardless of content.
     function snapLayout() {
         const GAP  = 12;
         const M    = 14;
         const WW   = window.innerWidth;
-        const colW = Math.max(340, Math.floor((WW - M * 2 - GAP) / 2));
-
-        // Which column each card lives in (0 = left, 1 = right)
-        const COL_MAP = { mpc: 0, xypad: 0, bass303: 1, fxunit: 1, mixer: 0 };
-
-        // Build per-column card lists in a sensible vertical order
-        const COL_ORDER = { mpc: 0, bass303: 0, xypad: 1, fxunit: 1, mixer: 2 };
+        const half = Math.max(320, Math.floor((WW - M * 2 - GAP) / 2));
+        const COL  = { mpc: 0, xypad: 0, bass303: 1, fxunit: 1, mixer: 1 };
+        const ORDER = ['mpc', 'bass303', 'xypad', 'fxunit', 'mixer'];
         const byCol = [[], []];
-        const seen = {};
-        // Process in preferred vertical order
-        ['mpc', 'bass303', 'xypad', 'fxunit', 'mixer'].forEach(function(id) {
+        ORDER.forEach(function(id) {
             if (!state.cards[id]) return;
-            seen[id] = true;
-            const ci = (COL_MAP[id] !== undefined) ? COL_MAP[id] : 0;
-            byCol[ci].push(id);
+            byCol[(COL[id] !== undefined ? COL[id] : 0)].push(id);
         });
-        // Any extra registered cards go right
+        // Extra registered cards go right
         state.order.forEach(function(id) {
-            if (!seen[id] && state.cards[id]) byCol[1].push(id);
+            if (!state.cards[id]) return;
+            if (ORDER.indexOf(id) === -1) byCol[1].push(id);
         });
-
-        // First pass: expand all minimised cards so we measure real height
-        state.order.forEach(function(id) {
-            const card = state.cards[id];
-            if (card) card.dom.root.classList.remove('minimised');
-        });
-
-        // Second pass: set width, then measure + place
-        const colTops = [M, M];
+        const tops = [M, M];
         [0, 1].forEach(function(ci) {
             byCol[ci].forEach(function(id) {
                 const card = state.cards[id];
                 if (!card) return;
                 const el = card.dom.root;
-                el.style.width = colW + 'px';
-                el.style.left  = (M + ci * (colW + GAP)) + 'px';
-                el.style.top   = colTops[ci] + 'px';
-                colTops[ci] += el.offsetHeight + GAP;
+                el.classList.remove('minimised');
+                el.style.width = half + 'px';
+                el.style.left  = (M + ci * (half + GAP)) + 'px';
+                el.style.top   = tops[ci] + 'px';
+                tops[ci] += el.offsetHeight + GAP;
             });
         });
-
-        // Persist cleared card positions (new snap state)
+        // Save new positions
         const s = _loadState();
         s.cards = {};
+        state.order.forEach(function(id) {
+            const card = state.cards[id];
+            if (!card) return;
+            const el = card.dom.root;
+            s.cards[id] = { left: parseInt(el.style.left, 10), top: parseInt(el.style.top, 10) };
+        });
         _saveState(s);
     }
 

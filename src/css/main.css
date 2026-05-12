@@ -3722,6 +3722,7 @@ body.fullscreen #transcription-hud { pointer-events: none !important; } /* keep 
     position: absolute;
     top: 0; left: 0; right: 0;
     bottom: 54px;   /* leave room for the fixed bottom master bar */
+    overflow: auto;  /* scroll if cards extend below fold */
 }
 
 /* ═══ SONIC SUITE CARDS — DAW-grade instrument panels ═══ */
@@ -3748,9 +3749,10 @@ body.fullscreen #transcription-hud { pointer-events: none !important; } /* keep 
     font-family: 'JetBrains Mono', monospace; font-size: 9px;
     display: flex; flex-direction: column;
     pointer-events: auto;
-    overflow: hidden;
+    overflow: visible;
     transition: opacity .15s ease, box-shadow .18s ease;
     min-width: 260px;
+    resize: horizontal;  /* drag right edge to widen */
 }
 
 .ss-card.minimised .ss-card-body { display: none; }
@@ -3831,7 +3833,8 @@ body.fullscreen #transcription-hud { pointer-events: none !important; } /* keep 
 .ss-card-body {
     padding: 10px 12px;
     display: flex; flex-direction: column; gap: 7px;
-    overflow: hidden;
+    overflow-y: auto;
+    max-height: 420px;  /* cap height so no card eats full screen */
 }
 .ss-card-placeholder {
     padding: 22px 12px; text-align: center;
