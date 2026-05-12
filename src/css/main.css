@@ -3725,96 +3725,192 @@ body.fullscreen #transcription-hud { pointer-events: none !important; } /* keep 
 }
 
 /* ═══ SONIC SUITE CARDS — DAW-grade instrument panels ═══ */
+
+/* Accent colour variables per instrument */
+.ss-card[data-card-id="mpc"]     { --acc: #00f3ff; --acc-rgb: 0,243,255;   --acc-dim: rgba(0,243,255,.18); }
+.ss-card[data-card-id="bass303"] { --acc: #ff88ff; --acc-rgb: 255,136,255; --acc-dim: rgba(255,136,255,.16); }
+.ss-card[data-card-id="xypad"]   { --acc: #ffb400; --acc-rgb: 255,180,0;   --acc-dim: rgba(255,180,0,.16); }
+.ss-card[data-card-id="fxunit"]  { --acc: #aa44ff; --acc-rgb: 170,68,255;  --acc-dim: rgba(170,68,255,.16); }
+.ss-card[data-card-id="mixer"]   { --acc: #00ff88; --acc-rgb: 0,255,136;   --acc-dim: rgba(0,255,136,.16); }
+
 .ss-card {
     position: absolute;
-    width: 600px;
-    background: rgba(4,10,16,.88);
-    border: 1px solid rgba(0,243,255,.22);
-    border-top: 2px solid rgba(0,243,255,.45);
-    border-radius: 4px;
-    box-shadow: 0 8px 32px rgba(0,0,0,.75), 0 0 20px rgba(0,243,255,.06);
-    backdrop-filter: blur(8px); -webkit-backdrop-filter: blur(8px);
-    color: rgba(0,243,255,.75);
-    font-family: 'JetBrains Mono', monospace; font-size: 8px;
+    width: 660px;
+    background: rgba(3,8,14,.92);
+    border: 1px solid var(--acc-dim, rgba(0,243,255,.18));
+    border-top: 2px solid var(--acc, #00f3ff);
+    border-radius: 5px;
+    box-shadow: 0 12px 40px rgba(0,0,0,.85), 0 0 24px rgba(var(--acc-rgb, 0,243,255),.07);
+    backdrop-filter: blur(12px); -webkit-backdrop-filter: blur(12px);
+    color: rgba(var(--acc-rgb, 0,243,255),.75);
+    font-family: 'JetBrains Mono', monospace; font-size: 9px;
     display: flex; flex-direction: column;
     pointer-events: auto;
-    overflow: hidden;   /* prevent content spill on minimize */
-    transition: opacity .15s ease, box-shadow .15s ease;
+    overflow: hidden;
+    transition: opacity .15s ease, box-shadow .18s ease;
+    min-width: 260px;
 }
-/* Per-instrument accent colours on the top border + head */
-.ss-card[data-card-id="mpc"]     { border-top-color: rgba(0,243,255,.6); }
-.ss-card[data-card-id="bass303"] { border-top-color: rgba(255,136,255,.6); border-color: rgba(255,136,255,.2); }
-.ss-card[data-card-id="xypad"]   { border-top-color: rgba(255,180,0,.6);  border-color: rgba(255,180,0,.2); }
-.ss-card[data-card-id="mixer"]   { border-top-color: rgba(0,255,136,.6);  border-color: rgba(0,255,136,.2); }
 
 .ss-card.minimised .ss-card-body { display: none; }
-.ss-card.minimised { width: 220px; overflow: hidden; }
-.ss-card.focused { box-shadow: 0 8px 32px rgba(0,0,0,.8), 0 0 32px rgba(0,243,255,.32); }
-.ss-card.muted { opacity: .48; }
+.ss-card.minimised { width: 240px !important; overflow: hidden; }
+.ss-card.focused {
+    box-shadow: 0 12px 40px rgba(0,0,0,.9),
+                0 0 0 1px rgba(var(--acc-rgb, 0,243,255),.35),
+                0 0 36px rgba(var(--acc-rgb, 0,243,255),.18);
+    z-index: 100;
+}
+.ss-card.muted { opacity: .42; }
 
+/* ── Card header (drag handle) ── */
 .ss-card-head {
     display: flex; align-items: center;
-    padding: 7px 10px;
-    background: rgba(0,14,20,.82);
-    border-bottom: 1px solid rgba(0,243,255,.14);
+    padding: 0 10px;
+    height: 34px; flex-shrink: 0;
+    background: linear-gradient(180deg, rgba(var(--acc-rgb, 0,243,255),.08) 0%, rgba(0,0,0,0) 100%),
+                rgba(0,10,18,.9);
+    border-bottom: 1px solid rgba(var(--acc-rgb, 0,243,255),.16);
     cursor: grab;
-    font-size: 7px; letter-spacing: 2.5px;
-    user-select: none; gap: 3px;
+    user-select: none; gap: 4px;
 }
-.ss-card[data-card-id="bass303"] .ss-card-head { border-bottom-color: rgba(255,136,255,.14); }
-.ss-card[data-card-id="xypad"]   .ss-card-head { border-bottom-color: rgba(255,180,0,.14); }
-.ss-card[data-card-id="mixer"]   .ss-card-head { border-bottom-color: rgba(0,255,136,.14); }
 .ss-card-head:active { cursor: grabbing; }
-.ss-card-title { flex: 1; color: rgba(0,243,255,.9); font-size: 7.5px; letter-spacing: 2px; }
-.ss-card[data-card-id="bass303"] .ss-card-title { color: rgba(255,136,255,.9); }
-.ss-card[data-card-id="xypad"]   .ss-card-title { color: rgba(255,180,0,.9); }
-.ss-card[data-card-id="mixer"]   .ss-card-title { color: rgba(0,255,136,.9); }
-.ss-card-tag { color: rgba(0,243,255,.4); font-size: 6px; letter-spacing: 1px; margin-right: 4px; }
 
-.ss-card-btn {
-    height: 18px; min-width: 18px; margin-left: 2px; padding: 0 4px;
-    background: transparent; border: 1px solid rgba(0,243,255,.22);
-    color: rgba(0,243,255,.55); font-family: 'JetBrains Mono', monospace;
-    font-size: 9px; cursor: pointer; border-radius: 2px; white-space: nowrap;
+.ss-card-title {
+    flex: 1;
+    color: var(--acc, #00f3ff);
+    font-family: 'Orbitron', sans-serif;
+    font-size: 9px; font-weight: 700; letter-spacing: 2.5px;
+    text-shadow: 0 0 12px rgba(var(--acc-rgb, 0,243,255),.45);
 }
-.ss-card-btn:hover { color: #00f3ff; border-color: #00f3ff; background: rgba(0,243,255,.07); }
-.ss-card-btn.playing  { color: #ff5555; border-color: rgba(255,60,60,.7); box-shadow: 0 0 6px rgba(255,60,60,.35); }
-.ss-card-btn.ss-card-play { min-width: 22px; }
+.ss-card-tag {
+    color: rgba(var(--acc-rgb, 0,243,255),.35);
+    font-size: 6.5px; letter-spacing: 1px; margin-right: 5px;
+}
 
-/* ── MPC / 303 / XY step highlight ── */
-.mpc-active    { outline: 2px solid rgba(0,243,255,.8) !important; outline-offset: -1px; }
-.mpc-lbl       { font-size: 8px; color: rgba(0,243,255,.55); letter-spacing: 1.5px; font-family: 'JetBrains Mono', monospace; white-space: nowrap; }
+/* ── Card action buttons (header + body) ── */
+.ss-card-btn {
+    height: 22px; min-width: 22px; margin-left: 2px; padding: 0 6px;
+    background: rgba(var(--acc-rgb, 0,243,255),.04);
+    border: 1px solid rgba(var(--acc-rgb, 0,243,255),.22);
+    color: rgba(var(--acc-rgb, 0,243,255),.6);
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 9px; font-weight: 700; letter-spacing: 1px;
+    cursor: pointer; border-radius: 3px; white-space: nowrap;
+    transition: color .1s, border-color .1s, background .1s, box-shadow .1s;
+}
+.ss-card-btn:hover {
+    color: var(--acc, #00f3ff);
+    border-color: rgba(var(--acc-rgb, 0,243,255),.65);
+    background: rgba(var(--acc-rgb, 0,243,255),.1);
+    box-shadow: 0 0 8px rgba(var(--acc-rgb, 0,243,255),.2);
+}
+/* Playing / active state — green glow, not red */
+.ss-card-btn.playing {
+    color: #00ff88;
+    border-color: rgba(0,255,136,.7);
+    background: rgba(0,255,136,.1);
+    box-shadow: 0 0 10px rgba(0,255,136,.35);
+}
+/* Muted state */
+.ss-card-btn.muted {
+    color: #ff5555;
+    border-color: rgba(255,60,60,.6);
+    background: rgba(255,40,40,.1);
+}
+/* Focused/solo state */
+.ss-card-btn.focused {
+    color: #ffcc00;
+    border-color: rgba(255,200,0,.7);
+    background: rgba(255,200,0,.12);
+    box-shadow: 0 0 8px rgba(255,200,0,.3);
+}
+.ss-card-btn.ss-card-play { min-width: 28px; }
 
-/* Beat-group separators — left border override (set by JS class) */
+/* ── Card body ── */
+.ss-card-body {
+    padding: 10px 12px;
+    display: flex; flex-direction: column; gap: 7px;
+    overflow: hidden;
+}
+.ss-card-placeholder {
+    padding: 22px 12px; text-align: center;
+    color: rgba(var(--acc-rgb, 0,243,255),.28); font-size: 8px; letter-spacing: 2px;
+}
+
+/* ── Step sequencer ── */
+/* Current-step playhead */
+.ss-drums-step.cur {
+    outline: 2px solid #00ff88 !important;
+    outline-offset: -2px;
+    background: rgba(0,255,136,.08) !important;
+}
+/* Selected/active step */
+.mpc-active {
+    outline: 2px solid var(--acc, #00f3ff) !important;
+    outline-offset: -2px;
+    box-shadow: inset 0 0 6px rgba(var(--acc-rgb, 0,243,255),.35);
+}
+/* Voice/row labels */
+.mpc-lbl {
+    font-size: 9px; color: rgba(var(--acc-rgb, 0,243,255),.55);
+    letter-spacing: 1px; font-family: 'JetBrains Mono', monospace; white-space: nowrap;
+}
+
+/* Beat-group separators */
 .ic-beat-sep    { border-left: 2px solid rgba(0,243,255,.4)   !important; }
 .ic-beat-sep-b3 { border-left: 2px solid rgba(255,136,255,.4) !important; }
 .ic-beat-sep-xy { border-left: 2px solid rgba(255,180,0,.4)   !important; }
 
 /* Section divider inside a card body */
 .ic-section {
-    border-top: 1px solid rgba(255,255,255,.06);
-    padding-top: 7px; margin-top: 4px;
+    border-top: 1px solid rgba(255,255,255,.07);
+    padding-top: 8px; margin-top: 5px;
 }
 /* Horizontal label above a group of controls */
 .ic-group-lbl {
-    font-size: 7px; letter-spacing: 2px; color: rgba(255,255,255,.28);
+    font-size: 7.5px; letter-spacing: 2px; color: rgba(255,255,255,.3);
     font-family: 'JetBrains Mono', monospace;
-    margin-bottom: 3px;
+    margin-bottom: 4px;
 }
+
 /* Per-voice mute button in MPC */
-.ic-mute { width:16px !important; height:16px !important; font-size:7px !important; padding:0 !important; }
+.ic-mute { width:18px !important; height:18px !important; font-size:8px !important; padding:0 !important; }
 .ic-mute.on { color: #ff5555 !important; border-color: rgba(255,60,60,.7) !important; background: rgba(255,40,40,.12) !important; }
 
-.ss-card-body {
-    padding: 8px 10px;
-    display: flex; flex-direction: column; gap: 6px;
-    overflow: hidden;
+/* ── BEAT FORGE — live pad grid ── */
+.bf-live-pad {
+    flex: 1; min-width: 0;
+    height: 52px;
+    background: rgba(var(--acc-rgb, 0,243,255),.06);
+    border: 1px solid rgba(var(--acc-rgb, 0,243,255),.22);
+    border-radius: 4px;
+    cursor: pointer;
+    display: flex; flex-direction: column;
+    align-items: center; justify-content: center; gap: 3px;
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 8px; font-weight: 700; letter-spacing: 1px;
+    color: rgba(var(--acc-rgb, 0,243,255),.65);
+    transition: background .06s, box-shadow .06s, border-color .06s;
+    user-select: none;
 }
-.ss-card-placeholder {
-    padding: 18px 10px; text-align: center;
-    color: rgba(0,243,255,.3); font-size: 7px; letter-spacing: 2px;
+.bf-live-pad:hover {
+    background: rgba(var(--acc-rgb, 0,243,255),.12);
+    border-color: rgba(var(--acc-rgb, 0,243,255),.5);
 }
-.ss-drums-step.cur { outline: 1px solid #ff4444 !important; outline-offset: -1px; }
+.bf-live-pad:active,
+.bf-live-pad.flash {
+    background: rgba(var(--acc-rgb, 0,243,255),.28) !important;
+    border-color: var(--acc, #00f3ff) !important;
+    box-shadow: 0 0 14px rgba(var(--acc-rgb, 0,243,255),.55), inset 0 0 8px rgba(var(--acc-rgb, 0,243,255),.2) !important;
+    color: var(--acc, #00f3ff) !important;
+}
+.bf-live-pad .bf-pad-name { font-size: 8px; letter-spacing: 1.5px; }
+.bf-live-pad .bf-pad-note { font-size: 6.5px; color: rgba(var(--acc-rgb, 0,243,255),.4); letter-spacing: 1px; }
+
+@keyframes bf-flash {
+    0%   { filter: brightness(2.2) saturate(1.6); }
+    100% { filter: brightness(1) saturate(1); }
+}
+.bf-live-pad.bf-pad-flash { animation: bf-flash .1s ease-out forwards !important; }
 
 /* ═══ VNGRD SONIC SUITE LAUNCHER (sidebar, between SFX and HAND SYNTH) ═══ */
 #vt-sonic-rack { margin-top: 6px; position: relative; }
