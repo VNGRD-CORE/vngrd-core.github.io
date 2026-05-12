@@ -19,7 +19,19 @@
 <script src="https://unpkg.com/tone@14.8.49/build/Tone.js" crossorigin="anonymous"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/ethers/5.7.2/ethers.umd.min.js"></script>
 <script src="src/Compositor.js"></script>
-<script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
+<!-- QR: local copy preferred (drop qrcode.min.js into src/js/), CDN fallback for online use -->
+<script>
+(function() {
+    var s = document.createElement('script');
+    s.src = './src/js/qrcode.min.js';
+    s.onerror = function() {
+        var cdn = document.createElement('script');
+        cdn.src = 'https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js';
+        document.head.appendChild(cdn);
+    };
+    document.head.appendChild(s);
+})();
+</script>
 <!-- Three.js r128 loaded globally above; importmap removed -->
     <link rel="stylesheet" href="./src/css/main.css">
 </head>

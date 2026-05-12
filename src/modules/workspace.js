@@ -3,6 +3,44 @@
 // Extracted from main.js. Depends on: $, APP, log, setTheme (globals)
 // ═══════════════════════════════════════════════════════════════
 
+// Tracks blob URLs created during IPFS import so they can be revoked before
+// the next import, preventing unbounded memory growth.
+var _importedBlobURLs = [];
+
+// Shared download helper — schedules revokeObjectURL after 60s so the browser
+// has time to start the transfer before we release the object.
+function _triggerDownload(blob, filename) {
+    var url = URL.createObjectURL(blob);
+    var a = document.createElement('a');
+    a.href = url;
+    a.download = filename;
+    a.click();
+    setTimeout(function() { URL.revokeObjectURL(url); }, 60000);
+}
+
+// Infer a safe file extension from a Blob's MIME type.
+function _extForBlob(blob, fallback) {
+    var t = (blob && blob.type) || '';
+    if (t.startsWith('video/'))      return '.webm';
+    if (t === 'image/gif')           return '.gif';
+    if (t.startsWith('image/jpeg'))  return '.jpg';
+    if (t.startsWith('image/png'))   return '.png';
+    if (t.startsWith('audio/'))      return '.webm';
+    return fallback || '';
+}
+
+// Fetch a URL as a Blob, preserving the server's Content-Type when
+// the local blob.type is empty (common for blob: URLs on some browsers).
+async function _fetchBlob(url) {
+    var resp = await fetch(url);
+    if (!resp.ok) throw new Error('HTTP_' + resp.status);
+    var b = await resp.blob();
+    if (!b.type && resp.headers.get('content-type')) {
+        b = b.slice(0, b.size, resp.headers.get('content-type'));
+    }
+    return b;
+}
+
 // Internal: build the same session snapshot that SAVE_SESSION uses
 function _buildSessionSnapshot() {
     var logo64 = null;
@@ -161,16 +199,20 @@ window.saveSessionToCloud = async function() {
                     try {
                         var mblob;
                         if (item.type === 'image' && item.element && item.element.naturalWidth) {
+                            // Static image — re-encode to JPEG via offscreen canvas
                             var mc = document.createElement('canvas');
                             mc.width = item.element.naturalWidth; mc.height = item.element.naturalHeight;
                             mc.getContext('2d').drawImage(item.element, 0, 0);
                             mblob = await new Promise(function(r) { mc.toBlob(r, 'image/jpeg', 0.9); });
                         } else if (item.url) {
-                            mblob = await fetch(item.url).then(function(r) { return r.blob(); });
+                            // Video, GIF, or anything else — fetch the raw blob to preserve codec
+                            mblob = await _fetchBlob(item.url);
                         }
                         if (mblob) {
-                            form.append('file', mblob, DIR + 'media/media_' + i + (item.name ? '_' + item.name : ''));
-                            log('WALLET_SAVE: QUEUED_MEDIA ' + (item.name || i));
+                            var mExt = _extForBlob(mblob, '');
+                            var mBase = 'media/media_' + i + (item.name ? '_' + item.name : '');
+                            form.append('file', mblob, DIR + mBase + mExt);
+                            log('WALLET_SAVE: QUEUED_MEDIA ' + (item.name || i) + ' [' + (mblob.type || 'unknown') + ']');
                         }
                     } catch(e) { log('WALLET_SAVE: MEDIA_SKIP ' + (item.name || i) + ' — ' + e.message); }
                 }
@@ -181,9 +223,11 @@ window.saveSessionToCloud = async function() {
                 for (var i = 0; i < APP.audio.playlist.length; i++) {
                     var track = APP.audio.playlist[i];
                     try {
-                        var ablob = await fetch(track.url).then(function(r) { return r.blob(); });
-                        form.append('file', ablob, DIR + 'audio/audio_' + i + (track.name ? '_' + track.name : ''));
-                        log('WALLET_SAVE: QUEUED_AUDIO ' + (track.name || i));
+                        var ablob = await _fetchBlob(track.url);
+                        var aExt = _extForBlob(ablob, '.webm');
+                        var aBase = 'audio/audio_' + i + (track.name ? '_' + track.name : '');
+                        form.append('file', ablob, DIR + aBase + aExt);
+                        log('WALLET_SAVE: QUEUED_AUDIO ' + (track.name || i) + ' [' + (ablob.type || 'unknown') + ']');
                     } catch(e) { log('WALLET_SAVE: AUDIO_SKIP ' + (track.name || i) + ' — ' + e.message); }
                 }
             }
@@ -350,26 +394,30 @@ async function executeWorkspaceExport() {
               + (APP.audio && APP.audio.playlist ? APP.audio.playlist.length : 0);
     var done = 0;
 
-    // ── Upload media files (images + videos) ────────────────────────
+    // ── Upload media files (images / GIFs / videos) ──────────────────
     if (APP.media && APP.media.queue && APP.media.queue.length) {
         for (var i = 0; i < APP.media.queue.length; i++) {
             var item = APP.media.queue[i];
             try {
                 var blob;
-                if (item.type === 'image' && item.element && item.element.naturalWidth) {
+                if (item.type === 'image' && item.element && item.element.naturalWidth
+                    && !item.name.toLowerCase().endsWith('.gif')) {
+                    // Static raster — canvas-encode to JPEG (lossless enough, smaller than PNG)
                     var c = document.createElement('canvas');
                     c.width = item.element.naturalWidth;
                     c.height = item.element.naturalHeight;
                     c.getContext('2d').drawImage(item.element, 0, 0);
                     blob = await new Promise(function(r) { c.toBlob(r, 'image/jpeg', 0.9); });
                 } else if (item.url) {
-                    var resp = await fetch(item.url);
-                    blob = await resp.blob();
+                    // Video / GIF / anything with a fetchable URL — preserve original codec/format
+                    blob = await _fetchBlob(item.url);
                 }
                 if (blob) {
-                    var cid = await _pinFile(blob, item.name || ('media_' + i), jwt);
-                    snap.media.push({ type: item.type, name: item.name, cid: cid });
-                    log('IPFS: PINNED_MEDIA ' + (++done) + '/' + total + ' ' + (item.name || ''));
+                    var ext = _extForBlob(blob, '');
+                    var pinName = (item.name || ('media_' + i)) + ext;
+                    var cid = await _pinFile(blob, pinName, jwt);
+                    snap.media.push({ type: item.type, name: item.name, cid: cid, mime: blob.type });
+                    log('IPFS: PINNED_MEDIA ' + (++done) + '/' + total + ' ' + pinName + ' [' + (blob.type || '?') + ']');
                 }
             } catch(e) {
                 log('IPFS: MEDIA_SKIP ' + (item.name || i) + ' — ' + e.message);
@@ -382,11 +430,12 @@ async function executeWorkspaceExport() {
         for (var i = 0; i < APP.audio.playlist.length; i++) {
             var track = APP.audio.playlist[i];
             try {
-                var resp = await fetch(track.url);
-                var blob = await resp.blob();
-                var cid  = await _pinFile(blob, (track.name || 'track_' + i), jwt);
-                snap.audioTracks.push({ name: track.name, cid: cid });
-                log('IPFS: PINNED_AUDIO ' + (++done) + '/' + total + ' ' + (track.name || ''));
+                var blob = await _fetchBlob(track.url);
+                var ext  = _extForBlob(blob, '.webm');
+                var pinName = (track.name || ('track_' + i)) + ext;
+                var cid  = await _pinFile(blob, pinName, jwt);
+                snap.audioTracks.push({ name: track.name, cid: cid, mime: blob.type });
+                log('IPFS: PINNED_AUDIO ' + (++done) + '/' + total + ' ' + pinName + ' [' + (blob.type || '?') + ']');
             } catch(e) {
                 log('IPFS: AUDIO_SKIP ' + (track.name || i) + ' — ' + e.message);
             }
@@ -479,17 +528,17 @@ function _renderQRModal(cid, url) {
     if (typeof QRCode !== 'undefined') {
         new QRCode(container, {
             text: url,
-            width: 200,
-            height: 200,
+            width: 256,
+            height: 256,
             colorDark: '#000000',
             colorLight: '#ffffff',
             correctLevel: QRCode.CorrectLevel.M
         });
     } else {
-        container.textContent = url;
-        container.style.wordBreak = 'break-all';
-        container.style.color = '#000';
-        container.style.fontSize = '8px';
+        // QR library unavailable — show a scannable text fallback with a warning
+        container.innerHTML = '<div style="color:#ff4400;font-size:8px;margin-bottom:6px;">QR_LIB_UNAVAILABLE — COPY URL BELOW</div>'
+            + '<div style="word-break:break-all;color:#000;font-size:7px;">' + url + '</div>';
+        log('QR: LIBRARY_MISSING — FALLING_BACK_TO_TEXT');
     }
 
     modal.style.display = 'flex';
@@ -519,6 +568,10 @@ async function importFromIPFS(cid) {
     log('IPFS: IMPORTING_PORTFOLIO CID=' + cid);
     if (typeof ghostLog === 'function') ghostLog('GHOST> LOADING PORTFOLIO FROM IPFS…', 'ai');
 
+    // Release blob URLs from any previous import before creating new ones
+    _importedBlobURLs.forEach(function(u) { try { URL.revokeObjectURL(u); } catch(_) {} });
+    _importedBlobURLs = [];
+
     var snap = null;
     for (var g = 0; g < gateways.length; g++) {
         try {
@@ -532,16 +585,18 @@ async function importFromIPFS(cid) {
     _applySessionSnapshot(snap);
     log('IPFS: SESSION_RESTORED');
 
+    // Find the fastest responding gateway for binary assets
     var gateway = gateways[0];
     for (var g = 0; g < gateways.length; g++) {
         try {
-            if (snap.media && snap.media[0] && snap.media[0].cid) {
-                var test = await fetch(gateways[g] + snap.media[0].cid, { method: 'HEAD' });
-                if (test.ok) { gateway = gateways[g]; break; }
-            } else if (snap.audioTracks && snap.audioTracks[0] && snap.audioTracks[0].cid) {
-                var test = await fetch(gateways[g] + snap.audioTracks[0].cid, { method: 'HEAD' });
-                if (test.ok) { gateway = gateways[g]; break; }
-            } else { break; }
+            var probeCid = snap.media && snap.media[0] && snap.media[0].cid
+                ? snap.media[0].cid
+                : (snap.audioTracks && snap.audioTracks[0] && snap.audioTracks[0].cid
+                    ? snap.audioTracks[0].cid
+                    : null);
+            if (!probeCid) break;
+            var test = await fetch(gateways[g] + probeCid, { method: 'HEAD' });
+            if (test.ok) { gateway = gateways[g]; break; }
         } catch(e) { continue; }
     }
 
@@ -551,22 +606,30 @@ async function importFromIPFS(cid) {
             if (!m.cid) continue;
             try {
                 var resp = await fetch(gateway + m.cid);
+                if (!resp.ok) throw new Error('HTTP_' + resp.status);
                 var blob = await resp.blob();
+                // Restore MIME from manifest if browser stripped it
+                if (!blob.type && m.mime) blob = blob.slice(0, blob.size, m.mime);
                 var url  = URL.createObjectURL(blob);
+                _importedBlobURLs.push(url);
                 var item = { type: m.type, url: url, element: null, name: m.name };
 
                 if (m.type === 'video') {
                     var vid = document.createElement('video');
-                    vid.src = url; vid.muted = true; vid.loop = true; vid.playsInline = true; vid.preload = 'auto';
+                    vid.src = url;
+                    vid.muted = true; vid.loop = true; vid.playsInline = true; vid.preload = 'auto';
+                    vid.onerror = function() { log('IPFS: VIDEO_LOAD_ERR ' + m.name); };
                     item.element = vid;
                     if ($('media-container')) $('media-container').appendChild(vid);
                 } else {
                     var img = new Image();
+                    img.crossOrigin = 'anonymous';
                     img.src = url;
+                    img.onerror = function() { log('IPFS: IMG_LOAD_ERR ' + m.name); };
                     item.element = img;
                 }
                 APP.media.queue.push(item);
-                log('IPFS: LOADED_MEDIA ' + (i + 1) + '/' + snap.media.length + ' ' + m.name);
+                log('IPFS: LOADED_MEDIA ' + (i + 1) + '/' + snap.media.length + ' ' + m.name + ' [' + (blob.type || '?') + ']');
             } catch(e) {
                 log('IPFS: MEDIA_ERR ' + m.name + ' — ' + e.message);
             }
@@ -585,9 +648,13 @@ async function importFromIPFS(cid) {
             if (!t.cid) continue;
             try {
                 var resp = await fetch(gateway + t.cid);
+                if (!resp.ok) throw new Error('HTTP_' + resp.status);
                 var blob = await resp.blob();
-                APP.audio.playlist.push({ url: URL.createObjectURL(blob), name: t.name });
-                log('IPFS: LOADED_AUDIO ' + (i + 1) + '/' + snap.audioTracks.length + ' ' + t.name);
+                if (!blob.type && t.mime) blob = blob.slice(0, blob.size, t.mime);
+                var url = URL.createObjectURL(blob);
+                _importedBlobURLs.push(url);
+                APP.audio.playlist.push({ url: url, name: t.name });
+                log('IPFS: LOADED_AUDIO ' + (i + 1) + '/' + snap.audioTracks.length + ' ' + t.name + ' [' + (blob.type || '?') + ']');
             } catch(e) {
                 log('IPFS: AUDIO_ERR ' + t.name + ' — ' + e.message);
             }
