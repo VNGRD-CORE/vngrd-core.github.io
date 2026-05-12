@@ -1163,14 +1163,28 @@ function toggleRec() {
         document.querySelector('.preview-label').textContent = 'LIVE';
     } else {
         APP.camera.chunks = [];
-        APP.camera.recorder = new MediaRecorder(APP.camera.stream);
+        // Build a combined stream: camera video + audio chain output (if available)
+        var _recStream = new MediaStream(APP.camera.stream.getVideoTracks());
+        if (APP.audio && APP.audio.ctx && APP.audio.outputLimiter) {
+            try {
+                var _recAudioDest = APP.audio.ctx.createMediaStreamDestination();
+                APP.audio.outputLimiter.connect(_recAudioDest);
+                _recAudioDest.stream.getAudioTracks().forEach(function(t) { _recStream.addTrack(t); });
+            } catch(_) {}
+        }
+        var _recOpts = {};
+        try { _recOpts = { mimeType: 'video/webm;codecs=vp9,opus' }; new MediaRecorder(_recStream, _recOpts); }
+        catch(_) { try { _recOpts = { mimeType: 'video/webm;codecs=vp8,opus' }; new MediaRecorder(_recStream, _recOpts); } catch(_) { _recOpts = {}; } }
+        APP.camera.recorder = new MediaRecorder(_recStream, _recOpts);
         APP.camera.recorder.ondataavailable = e => APP.camera.chunks.push(e.data);
         APP.camera.recorder.onstop = () => {
             const blob = new Blob(APP.camera.chunks, { type: 'video/webm' });
+            const _recUrl = URL.createObjectURL(blob);
             const a = document.createElement('a');
-            a.href = URL.createObjectURL(blob);
+            a.href = _recUrl;
             a.download = `DRIS_${Date.now()}.webm`;
             a.click();
+            setTimeout(function() { URL.revokeObjectURL(_recUrl); }, 60000);
             APP.camera.isRecording = false;
             $('btn-rec').textContent = '● REC';
             $('btn-rec').classList.remove('on');
@@ -1795,12 +1809,12 @@ function doCapture30s() {
 
             // Phase 3: Sign the video DNA
             signVideoDNA(result.blob).then(sealData => {
-                // Download the video
+                const _compUrl = URL.createObjectURL(result.blob);
                 const a = document.createElement('a');
-                a.href = URL.createObjectURL(result.blob);
+                a.href = _compUrl;
                 a.download = 'DRIS_Compositor_' + Date.now() + '.webm';
                 a.click();
-
+                setTimeout(function() { URL.revokeObjectURL(_compUrl); }, 60000);
                 log('COMPOSITOR_CAPTURED: ' + (result.totalSize / 1024 / 1024).toFixed(1) + 'MB [SEALED]');
             });
         });
@@ -1834,11 +1848,13 @@ function downloadTimeMachine() {
     const finalBlob = new Blob(blobs, { type: 'video/webm' });
     
     // Download
+    const _tmUrl = URL.createObjectURL(finalBlob);
     const a = document.createElement('a');
-    a.href = URL.createObjectURL(finalBlob);
+    a.href = _tmUrl;
     a.download = `DRIS_TimeMachine_${Date.now()}.webm`;
     a.click();
-    
+    setTimeout(function() { URL.revokeObjectURL(_tmUrl); }, 60000);
+
     const duration = Math.round(APP.timeMachine.chunks.length);
     log(`TIMEMACHINE: CAPTURED_${duration}s`);
 }

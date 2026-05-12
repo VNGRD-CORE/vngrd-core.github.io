@@ -160,6 +160,7 @@ $('btn-rec').onclick = () => {
                 const url = URL.createObjectURL(blob);
                 const a = document.createElement('a');
                 a.href = url; a.download = `VNGRD_BROADCAST_${Date.now()}.webm`; a.click();
+                setTimeout(function() { URL.revokeObjectURL(url); }, 60000);
                 btn.innerText = 'REC_BROADCAST'; log('BROADCAST_SAVED');
             };
             APP.broadcast.recorder.start(1000);

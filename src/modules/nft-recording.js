@@ -148,6 +148,7 @@ function finalizeNFT() {
     a.href = url;
     a.download = `CAPTURE_VNGRD_${Date.now()}.webm`;
     a.click();
+    setTimeout(function() { URL.revokeObjectURL(url); }, 60000);
     APP.nft.chunks = [];
     log('VGD_EXPORTED');
 }

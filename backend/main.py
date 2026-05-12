@@ -33,7 +33,7 @@ import uvicorn
 import websockets
 from deep_translator import GoogleTranslator
 from dotenv import load_dotenv
-from fastapi import FastAPI, Request, WebSocket, WebSocketDisconnect
+from fastapi import FastAPI, File, Request, UploadFile, WebSocket, WebSocketDisconnect
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 from pydantic import BaseModel
@@ -348,6 +348,57 @@ async def export_to_pinata(request: Request):
     except Exception as exc:
         print(f"[export-to-pinata] ERROR: {exc}")
         return JSONResponse(status_code=500, content={"error": str(exc)})
+
+# ── POST /pin-file — pin a single binary file (video/audio/image) to IPFS ────
+# Accepts multipart/form-data with a single "file" field.
+# Optional query param: name=<filename>
+# Returns { cid, url, size, mime }
+
+@app.post("/pin-file")
+async def pin_file(request: Request, file: UploadFile = File(...), name: str = None):
+    """Pin a binary file to IPFS via Pinata. Supports video, audio, image."""
+    if not PINATA_JWT:
+        return JSONResponse(
+            status_code=503,
+            content={"error": "PINATA_JWT not set — add it to backend/.env or env vars"}
+        )
+
+    try:
+        data = await file.read()
+        filename = name or file.filename or f"vngrd_asset_{int(time.time() * 1000)}"
+        mime     = file.content_type or "application/octet-stream"
+        size_mb  = len(data) / 1_000_000
+
+        print(f"[pin-file] uploading {filename} ({size_mb:.1f} MB, {mime})")
+
+        # Pinata multipart upload — 300s timeout for large video files
+        async with httpx.AsyncClient(timeout=300) as client:
+            resp = await client.post(
+                "https://api.pinata.cloud/pinning/pinFileToIPFS",
+                headers={"Authorization": f"Bearer {PINATA_JWT}"},
+                files={"file": (filename, data, mime)},
+                data={"pinataMetadata": json.dumps({"name": f"VNGRD_{filename}"})},
+            )
+
+        result = resp.json()
+        if resp.status_code == 200 and result.get("IpfsHash"):
+            cid = result["IpfsHash"]
+            return {
+                "cid":  cid,
+                "url":  f"https://gateway.pinata.cloud/ipfs/{cid}",
+                "size": len(data),
+                "mime": mime,
+            }
+
+        return JSONResponse(
+            status_code=502,
+            content={"error": "Pinata rejected the file", "details": result},
+        )
+
+    except Exception as exc:
+        print(f"[pin-file] ERROR: {exc}")
+        return JSONResponse(status_code=500, content={"error": str(exc)})
+
 
 # ── Entrypoint ────────────────────────────────────────────────────────────────
 
