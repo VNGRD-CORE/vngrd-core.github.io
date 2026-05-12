@@ -15,24 +15,24 @@
     const P = {
         // Delay
         delayBypass: false,
-        delayTime:   0.25,   // seconds (synced to BPM: 1/4 note at 120 = 0.5s)
-        delaySync:   '1/4',  // '1/8', '1/4', '1/2', '3/8', '1/16'
+        delayTime:   0.5,
+        delaySync:   '1/4',
         delayFB:     0.35,
-        delayWet:    0.28,
+        delayWet:    0.0,
         // Chorus
         chorBypass:  false,
         chorRate:    1.8,
         chorDepth:   0.003,
-        chorWet:     0.30,
+        chorWet:     0.0,
         // Overdrive
         driveBypass: false,
         driveGain:   0.35,
         driveTone:   0.55,
-        driveWet:    0.40,
+        driveWet:    0.0,
         // Lo-Fi
         lofiBypass:  false,
         lofiBits:    16,
-        lofiSrDiv:   1,      // sample rate divisor (1 = no reduction, 2 = half, etc.)
+        lofiSrDiv:   1,
         lofiWet:     0.0,
     };
 

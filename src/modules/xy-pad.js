@@ -58,11 +58,11 @@
     var _mx = 0.5, _my = 0.5;
 
     // ── Loop recording state ──────────────────────────────────
-    // Each event: { step16: int, x: float, y: float, type: 'on'|'off' }
-    var _loopEvents  = [];    // recorded events
+    // _loopSlots[step] = {x, y} if note played at that step, else null
+    // Populated by _onTick during recording (snapshots XY every 16th note).
+    var _loopSlots   = [];    // fixed array, length = _loopLen16
     var _recActive   = false; // currently recording
     var _loopActive  = false; // loop playback on
-    var _recStart16  = 0;     // transport step when rec started
     var _loopLen16   = 32;    // steps = P.loopBars * 16
     var _loopBtnEl   = null;
     var _recBtnEl    = null;
@@ -167,17 +167,23 @@
         }
     }
 
-    // ── onTick — loop playback ────────────────────────────────
+    // ── onTick — recording snapshot + loop playback ───────────
     function _onTick(time, step16, totalStep) {
-        if (!_loopActive || _loopEvents.length === 0) return;
         var pos = totalStep % _loopLen16;
-        _loopEvents.forEach(function (ev) {
-            if (ev.loopStep === pos) _playLoopEvent(ev, time);
-        });
-        // Flash loop indicator
-        if (_loopBtnEl && pos === 0) {
-            _loopBtnEl.classList.add('playing');
-            setTimeout(function () { if (_loopBtnEl && !_loopActive) _loopBtnEl.classList.remove('playing'); }, 80);
+
+        // Recording: snapshot XY position at this grid step
+        if (_recActive) {
+            _loopSlots[pos] = _playing ? { x: _mx, y: _my } : null;
+            if (window._xyEvCount) {
+                var n = _loopSlots.filter(Boolean).length;
+                window._xyEvCount.textContent = '● ' + n + ' steps';
+            }
+        }
+
+        // Playback
+        if (_loopActive && _loopSlots.length > 0) {
+            var slot = _loopSlots[pos];
+            if (slot) _playLoopEvent({ type: 'on', x: slot.x, y: slot.y }, time);
         }
     }
 
@@ -218,12 +224,12 @@
         }
         c.textAlign = 'left';
 
-        // Recorded loop dots
-        if (_loopActive && _loopEvents.length > 0) {
-            _loopEvents.forEach(function (ev) {
-                if (ev.type !== 'on') return;
-                var ex = ev.x * W, ey = ev.y * H;
-                c.fillStyle = 'rgba(255,180,0,.3)';
+        // Recorded loop dots — one per active step
+        if (_loopActive && _loopSlots.length > 0) {
+            _loopSlots.forEach(function (slot) {
+                if (!slot) return;
+                var ex = slot.x * W, ey = slot.y * H;
+                c.fillStyle = 'rgba(255,180,0,.35)';
                 c.beginPath(); c.arc(ex, ey, 3, 0, Math.PI * 2); c.fill();
             });
         }
@@ -358,16 +364,12 @@
             _mx = p.x; _my = p.y;
             _addRipple(p.px, p.py);
             _startVoice();
-            if (_recActive) _recordEvent('on', p.x, p.y);
         }
         function _handleMove(p) {
             if (!_playing) return;
             _mx = p.x; _my = p.y; _updateVoice();
         }
-        function _handleUp() {
-            if (_recActive && _playing) _recordEvent('off', _mx, _my);
-            _stopVoice();
-        }
+        function _handleUp() { _stopVoice(); }
 
         _canvas.addEventListener('mousedown', function (e) { _handleDown(_getXY(e)); });
         _canvas.addEventListener('mousemove', function (e) { _handleMove(_getXY(e)); });
@@ -414,8 +416,9 @@
         loopClrBtn.style.cssText += 'border-color:rgba(255,60,60,.3);color:rgba(255,100,100,.65);';
         loopClrBtn.textContent = 'CLR';
         loopClrBtn.onclick = function () {
-            _loopEvents = []; _loopActive = false;
+            _loopSlots  = []; _loopActive = false;
             _loopBtnEl.classList.remove('playing'); _loopBtnEl.textContent = '▶ LOOP';
+            if (window._xyEvCount) window._xyEvCount.textContent = '0 steps';
         };
         loopRow.appendChild(loopClrBtn);
 
@@ -467,32 +470,24 @@
 
     // ── Recording logic ───────────────────────────────────────
     function _startRec() {
-        _loopEvents = [];
-        _recActive = true;
+        _loopLen16  = +(_loopLenSel ? _loopLenSel.value : 32);
+        _loopSlots  = new Array(_loopLen16).fill(null);
+        _recActive  = true;
         _loopActive = false;
-        _recStart16 = SonicSuite._state.step;
-        _loopLen16 = +(_loopLenSel ? _loopLenSel.value : 32);
         if (_recBtnEl) { _recBtnEl.textContent = '■ STOP REC'; _recBtnEl.classList.add('playing'); }
         if (_loopBtnEl) { _loopBtnEl.classList.remove('playing'); _loopBtnEl.textContent = '▶ LOOP'; }
-        if (window._xyEvCount) window._xyEvCount.textContent = '● REC';
+        if (window._xyEvCount) window._xyEvCount.textContent = '● REC…';
     }
 
     function _stopRec() {
         _recActive = false;
         if (_recBtnEl) { _recBtnEl.textContent = '● REC'; _recBtnEl.classList.remove('playing'); }
-        var n = _loopEvents.filter(function (e) { return e.type === 'on'; }).length;
-        if (window._xyEvCount) window._xyEvCount.textContent = n + ' events';
+        var n = _loopSlots.filter(Boolean).length;
+        if (window._xyEvCount) window._xyEvCount.textContent = n + ' steps';
         if (n > 0) {
             _loopActive = true;
             if (_loopBtnEl) { _loopBtnEl.classList.add('playing'); _loopBtnEl.textContent = '■ LOOP'; }
         }
-    }
-
-    function _recordEvent(type, x, y) {
-        var cur16 = SonicSuite._state.step;
-        var offset = (cur16 - _recStart16 + 999999) % _loopLen16;
-        _loopEvents.push({ type: type, x: x, y: y, loopStep: offset });
-        if (window._xyEvCount) window._xyEvCount.textContent = '● ' + _loopEvents.filter(function (e) { return e.type === 'on'; }).length;
     }
 
     // ── Persistence ───────────────────────────────────────────

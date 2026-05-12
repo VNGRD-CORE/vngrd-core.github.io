@@ -383,6 +383,17 @@ window.SonicSuite = (function() {
         };
         _saveState(s);
     }
+    // ID-based default positions — keeps the layout musical:
+    // Beat Forge (drums) top-left, Acid Line (bass) top-right,
+    // Void Pad (XY) bottom-left, FX Unit bottom-right, Mixer bottom strip.
+    const _DEFAULT_POS = {
+        mpc:     { left: 14,  top: 14  },
+        bass303: { left: 678, top: 14  },
+        xypad:   { left: 14,  top: 510 },
+        fxunit:  { left: 678, top: 510 },
+        mixer:   { left: 14,  top: 14  },   // fallback; will usually be saved
+    };
+
     function _restoreCardPos(id, el) {
         const s = _loadState();
         const cp = (s.cards || {})[id];
@@ -391,13 +402,17 @@ window.SonicSuite = (function() {
             if (cp.top  != null) el.style.top  = cp.top  + 'px';
             if (cp.min) el.classList.add('minimised');
         } else {
-            // Default 2-column grid. Col width = 600px card + 14px gap = 614px.
-            // Master bar is 54px fixed at bottom — cards start at top: 16px.
-            const n   = state.order.length;
-            const col = n % 2;
-            const row = Math.floor(n / 2);
-            el.style.left = (16 + col * 614) + 'px';
-            el.style.top  = (16 + row * 496) + 'px';
+            const def = _DEFAULT_POS[id];
+            if (def) {
+                el.style.left = def.left + 'px';
+                el.style.top  = def.top  + 'px';
+            } else {
+                const n   = state.order.length;
+                const col = n % 2;
+                const row = Math.floor(n / 2);
+                el.style.left = (14 + col * 664) + 'px';
+                el.style.top  = (14 + row * 496) + 'px';
+            }
         }
     }
 

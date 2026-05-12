@@ -9,7 +9,7 @@
 //  VNGRD MIXER CARD — per-card fader/mute/solo + master meter + reverb
 // ═══════════════════════════════════════════════════════════════
 (function() {
-    const TRACK_IDS = ['mpc', 'bass303', 'xypad', 'fxunit'];
+    const TRACK_IDS = ['mpc', 'bass303', 'xypad'];
     const LS_KEY = 'vngrd.sonicsuite.mixer.v1';
 
     function _load() {
