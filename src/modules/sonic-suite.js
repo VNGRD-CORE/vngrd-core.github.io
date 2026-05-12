@@ -402,9 +402,9 @@ window.SonicSuite = (function() {
             if (cp.top  != null) el.style.top  = cp.top  + 'px';
             if (cp.min) el.classList.add('minimised');
         } else {
-            // No saved position — park off-screen; snapLayout will place properly
-            el.style.left = '-9999px';
-            el.style.top  = '0px';
+            // No saved position — place somewhere visible; snapLayout corrects later
+            el.style.left = '14px';
+            el.style.top  = '14px';
         }
     }
 
@@ -430,9 +430,10 @@ window.SonicSuite = (function() {
         const status = document.getElementById('vt-sonic-status');
         if (status) { status.textContent = 'STUDIO LIVE'; status.classList.add('live'); }
         _ensureAudio();
-        // Auto-snap layout if no saved card positions (first open or after key bump)
+        // Auto-snap layout if no saved card positions (first open or after key bump).
+        // 400ms gives all modules time to mount (they each wait 120ms then registerCard).
         const _hasPositions = Object.keys((_loadState().cards) || {}).length > 0;
-        if (!_hasPositions) setTimeout(snapLayout, 180);
+        if (!_hasPositions) setTimeout(snapLayout, 400);
         // Start VU meter
         setTimeout(_startVU, 400);
     }
