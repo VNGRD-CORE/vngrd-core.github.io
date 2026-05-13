@@ -17,7 +17,7 @@
 //  by the master bar's [D][B][C][M] toggles and a focus flag.
 // ═══════════════════════════════════════════════════════════════
 window.SonicSuite = (function() {
-    const LS_KEY = 'vngrd.sonicsuite.v7';   // bumped: ID-based default positions, clear stale layout
+    const LS_KEY = 'vngrd.sonicsuite.v8';   // bumped: tiling layout + rack
     const LOOK  = 0.18;   // 180 ms lookahead — more headroom against jank
     const TICK  = 25;     // 25 ms scheduler interval
 
@@ -50,6 +50,7 @@ window.SonicSuite = (function() {
         cards:    {},      // id → { spec, dom, bus }
         order:    [],
     };
+    const _expandedPos = {};  // stores pre-minimise position per card id
     let _schedId = null;
     let _audio   = null;  // { ctx, master, reverb, reverbSend }
 
@@ -294,8 +295,7 @@ window.SonicSuite = (function() {
         });
         // Minimise + focus
         root.querySelector('[data-act=min]').addEventListener('click', function() {
-            root.classList.toggle('minimised');
-            _saveCardPos(id, root);
+            _toggleMinimize(id, root);
         });
         root.querySelector('[data-act=focus]').addEventListener('click', function() {
             setFocus(state.focused === id ? null : id);
@@ -379,38 +379,25 @@ window.SonicSuite = (function() {
         s.cards[id] = {
             left: parseInt(el.style.left, 10) || null,
             top:  parseInt(el.style.top, 10)  || null,
+            w:    el.style.width  || null,
+            h:    el.style.height || null,
             min:  el.classList.contains('minimised')
         };
         _saveState(s);
     }
-    // Default positions designed for ~1440px wide viewport.
-    // Left col (x=14): Beat Forge top, Void Pad below.
-    // Right col (x=50%+6px): Acid Line top, FX Unit below, Mixer below that.
-    const _POS = {
-        mpc:     { left: '14px',            top: '14px'  },
-        xypad:   { left: '14px',            top: '400px' },
-        bass303: { left: 'calc(50% + 6px)', top: '14px'  },
-        fxunit:  { left: 'calc(50% + 6px)', top: '275px' },
-        mixer:   { left: 'calc(50% + 6px)', top: '630px' },
-    };
-
     function _restoreCardPos(id, el) {
         const s = _loadState();
         const cp = (s.cards || {})[id];
         if (cp) {
             if (cp.left != null) el.style.left = cp.left + 'px';
             if (cp.top  != null) el.style.top  = cp.top  + 'px';
-            if (cp.min) el.classList.add('minimised');
+            if (cp.w)   el.style.width  = cp.w;
+            if (cp.h && !cp.min) el.style.height = cp.h;
+            if (cp.min) { el.classList.add('minimised'); el.style.height = ''; }
         } else {
-            const def = _POS[id];
-            if (def) {
-                el.style.left = def.left;
-                el.style.top  = def.top;
-            } else {
-                const n = state.order.length;
-                el.style.left = (16 + (n % 2) * 614) + 'px';
-                el.style.top  = (16 + Math.floor(n / 2) * 496) + 'px';
-            }
+            // No saved pos — park temporarily; auto-snap will position properly
+            el.style.left = '10px';
+            el.style.top  = '10px';
         }
     }
 
@@ -436,6 +423,13 @@ window.SonicSuite = (function() {
         const status = document.getElementById('vt-sonic-status');
         if (status) { status.textContent = 'STUDIO LIVE'; status.classList.add('live'); }
         _ensureAudio();
+        // Auto-snap if no saved layout, otherwise restore rack for minimised cards
+        const _savedCards = (_loadState().cards) || {};
+        if (!Object.keys(_savedCards).length) {
+            setTimeout(function() { _snapWhenReady(0); }, 150);
+        } else {
+            setTimeout(_updateRack, 80);
+        }
         // Start VU meter
         setTimeout(_startVU, 400);
     }
@@ -473,49 +467,104 @@ window.SonicSuite = (function() {
         }
     }
 
+    // ── Minimize / rack ───────────────────────────────────────
+    function _toggleMinimize(id, el) {
+        if (el.classList.contains('minimised')) {
+            // Restore to last expanded position
+            el.classList.remove('minimised');
+            const pos = _expandedPos[id];
+            if (pos) {
+                el.style.left   = pos.left + 'px';
+                el.style.top    = pos.top  + 'px';
+                el.style.width  = pos.w;
+                el.style.height = pos.h;
+            }
+        } else {
+            // Save expanded state then collapse
+            _expandedPos[id] = {
+                left: parseInt(el.style.left, 10) || 10,
+                top:  parseInt(el.style.top,  10) || 10,
+                w:    el.style.width,
+                h:    el.style.height
+            };
+            el.classList.add('minimised');
+            el.style.height = '';
+        }
+        _updateRack();
+        _saveCardPos(id, el);
+    }
+
+    function _updateRack() {
+        const WS = document.getElementById('ss-workspace');
+        if (!WS) return;
+        const W = WS.offsetWidth, H = WS.offsetHeight;
+        const GAP = 8, M = 10, RACK_H = 38;
+        const rackY = H - RACK_H - M;
+        const minIds = state.order.filter(function(id) {
+            const c = state.cards[id];
+            return c && c.dom.root.classList.contains('minimised');
+        });
+        if (!minIds.length) return;
+        const itemW = Math.min(220, Math.floor((W - 2*M - GAP * Math.max(0, minIds.length - 1)) / minIds.length));
+        minIds.forEach(function(id, i) {
+            const el = state.cards[id].dom.root;
+            el.style.left  = (M + i * (itemW + GAP)) + 'px';
+            el.style.top   = rackY + 'px';
+            el.style.width = itemW + 'px';
+        });
+    }
+
     // ── Layout snap ───────────────────────────────────────────
-    // Two columns: left (mpc, xypad) and right (bass303, fxunit, mixer).
-    // Heights are measured live so nothing overlaps regardless of content.
+    // Left col: Beat Forge + Void Pad  (2 equal tiles)
+    // Right col: Acid Line + FX Unit + Mixer  (3 equal tiles)
+    // All cards fill their tile; body scrolls if content overflows.
     function snapLayout() {
-        const GAP  = 12;
-        const M    = 14;
-        const WW   = window.innerWidth;
-        const half = Math.max(320, Math.floor((WW - M * 2 - GAP) / 2));
-        const COL  = { mpc: 0, xypad: 0, bass303: 1, fxunit: 1, mixer: 1 };
-        const ORDER = ['mpc', 'bass303', 'xypad', 'fxunit', 'mixer'];
-        const byCol = [[], []];
-        ORDER.forEach(function(id) {
-            if (!state.cards[id]) return;
-            byCol[(COL[id] !== undefined ? COL[id] : 0)].push(id);
+        const WS = document.getElementById('ss-workspace');
+        if (!WS) return;
+        const W = WS.offsetWidth, H = WS.offsetHeight;
+        const GAP = 10, M = 10;
+        const colW = Math.max(280, Math.floor((W - 2*M - GAP) / 2));
+        const LEFT  = ['mpc',     'xypad'];
+        const RIGHT = ['bass303', 'fxunit', 'mixer'];
+        const leftH  = Math.max(180, Math.floor((H - 2*M - GAP  * (LEFT.length  - 1)) / LEFT.length));
+        const rightH = Math.max(120, Math.floor((H - 2*M - GAP  * (RIGHT.length - 1)) / RIGHT.length));
+        LEFT.forEach(function(id, i) {
+            const card = state.cards[id]; if (!card) return;
+            const el = card.dom.root;
+            el.classList.remove('minimised');
+            el.style.left   = M + 'px';
+            el.style.top    = (M + i * (leftH + GAP)) + 'px';
+            el.style.width  = colW + 'px';
+            el.style.height = leftH + 'px';
         });
-        // Extra registered cards go right
-        state.order.forEach(function(id) {
-            if (!state.cards[id]) return;
-            if (ORDER.indexOf(id) === -1) byCol[1].push(id);
+        RIGHT.forEach(function(id, i) {
+            const card = state.cards[id]; if (!card) return;
+            const el = card.dom.root;
+            el.classList.remove('minimised');
+            el.style.left   = (M + colW + GAP) + 'px';
+            el.style.top    = (M + i * (rightH + GAP)) + 'px';
+            el.style.width  = colW + 'px';
+            el.style.height = rightH + 'px';
         });
-        const tops = [M, M];
-        [0, 1].forEach(function(ci) {
-            byCol[ci].forEach(function(id) {
-                const card = state.cards[id];
-                if (!card) return;
-                const el = card.dom.root;
-                el.classList.remove('minimised');
-                el.style.width = half + 'px';
-                el.style.left  = (M + ci * (half + GAP)) + 'px';
-                el.style.top   = tops[ci] + 'px';
-                tops[ci] += el.offsetHeight + GAP;
-            });
-        });
-        // Save new positions
+        // Save
         const s = _loadState();
         s.cards = {};
         state.order.forEach(function(id) {
-            const card = state.cards[id];
-            if (!card) return;
+            const card = state.cards[id]; if (!card) return;
             const el = card.dom.root;
-            s.cards[id] = { left: parseInt(el.style.left, 10), top: parseInt(el.style.top, 10) };
+            s.cards[id] = { left: parseInt(el.style.left,10), top: parseInt(el.style.top,10), w: el.style.width, h: el.style.height };
         });
         _saveState(s);
+    }
+
+    // Polls until all expected cards are mounted, then snaps.
+    function _snapWhenReady(n) {
+        const EXPECT = ['mpc', 'bass303', 'xypad', 'fxunit', 'mixer'];
+        if (EXPECT.every(function(id) { return !!state.cards[id]; })) {
+            snapLayout();
+        } else if (n < 30) {
+            setTimeout(function() { _snapWhenReady(n + 1); }, 100);
+        }
     }
 
     // ── VU meter ──────────────────────────────────────────────
