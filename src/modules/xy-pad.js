@@ -391,6 +391,8 @@
             if (_recActive) {
                 _stopRec();
             } else {
+                // Transport must be running for onTick to fire — start it if needed
+                if (!SonicSuite._state.playing) SonicSuite.start();
                 _startRec();
             }
         };
@@ -405,6 +407,7 @@
             _loopActive = !_loopActive;
             _loopBtnEl.classList.toggle('playing', _loopActive);
             _loopBtnEl.textContent = _loopActive ? '■ LOOP' : '▶ LOOP';
+            if (_loopActive && !SonicSuite._state.playing) SonicSuite.start();
         };
         loopRow.appendChild(_loopBtnEl);
 

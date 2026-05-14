@@ -3749,14 +3749,22 @@ body.fullscreen #transcription-hud { pointer-events: none !important; } /* keep 
     font-family: 'JetBrains Mono', monospace; font-size: 9px;
     display: flex; flex-direction: column;
     pointer-events: auto;
-    overflow: visible;
+    overflow: hidden;   /* body scrolls internally; card clips to its tile */
     transition: opacity .15s ease, box-shadow .18s ease;
-    min-width: 260px;
-    resize: horizontal;  /* drag right edge to widen */
+    min-width: 240px;
+    resize: both;       /* user can grab bottom-right corner to resize */
+    box-sizing: border-box;
 }
 
+/* Minimised = header-only rack strip */
 .ss-card.minimised .ss-card-body { display: none; }
-.ss-card.minimised { width: 240px !important; overflow: hidden; }
+.ss-card.minimised {
+    height: 38px !important;
+    overflow: hidden !important;
+    resize: none !important;
+    border-top-width: 2px;
+    box-shadow: 0 2px 8px rgba(0,0,0,.6), 0 0 10px rgba(var(--acc-rgb,0,243,255),.12);
+}
 .ss-card.focused {
     box-shadow: 0 12px 40px rgba(0,0,0,.9),
                 0 0 0 1px rgba(var(--acc-rgb, 0,243,255),.35),
@@ -3833,8 +3841,8 @@ body.fullscreen #transcription-hud { pointer-events: none !important; } /* keep 
 .ss-card-body {
     padding: 10px 12px;
     display: flex; flex-direction: column; gap: 7px;
+    flex: 1; min-height: 0;   /* fills the tile height set by snapLayout */
     overflow-y: auto;
-    max-height: 420px;  /* cap height so no card eats full screen */
 }
 .ss-card-placeholder {
     padding: 22px 12px; text-align: center;
