@@ -204,7 +204,7 @@ class AudioCore {
     }
 
     async start() {
-        this.ctx = new (window.AudioContext || window.webkitAudioContext)({ latencyHint: 'interactive' });
+        this.ctx = new (window.AudioContext || window.webkitAudioContext)();
         if (this.ctx.state === 'suspended') await this.ctx.resume();
 
         const ctx = this.ctx;
@@ -866,7 +866,7 @@ function _interpTrack(track, duration, phase) {
 //  KineticRack — main controller
 // ─────────────────────────────────────────────────────────────────────────────
 
-const LERP_FACTOR    = 0.38;
+const LERP_FACTOR    = 0.12;
 const PINCH_THRESH   = 0.05;
 const PINCH_COOLDOWN = 0.35; // seconds
 
