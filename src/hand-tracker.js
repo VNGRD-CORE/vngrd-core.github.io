@@ -22,7 +22,7 @@
 
     const TASKS_CDN  = 'https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@0.10.14';
     const WASM_BASE  = TASKS_CDN + '/wasm';
-    const MODEL_URL  = 'https://storage.googleapis.com/mediapipe-models/hand_landmarker/hand_landmarker/float16/latest/hand_landmarker.task';
+    const MODEL_URL  = 'https://storage.googleapis.com/mediapipe-models/hand_landmarker/hand_landmarker_lite/float16/latest/hand_landmarker_lite.task';
 
     let _started       = false;
     let _landmarker    = null;
@@ -65,10 +65,10 @@
                 delegate:       'GPU',
             },
             runningMode:                'VIDEO',
-            numHands:                   2,
+            numHands:                   1,
             minHandDetectionConfidence: 0.5,
             minHandPresenceConfidence:  0.5,
-            minTrackingConfidence:      0.5,
+            minTrackingConfidence:      0.4,
         });
         console.log('[HandSynth] MediaPipe Tasks HandLandmarker (GPU) ready');
     }
