@@ -654,42 +654,20 @@ document.addEventListener('DOMContentLoaded', () => {
             voSrc.start();
 
         } catch(e) {
-            // THE FALLBACK FIX: Native English/Smart voice if API fails
-            log('SVE: FALLBACK_NATIVE');
-            if (statusEl) statusEl.textContent = 'FALLBACK: NATIVE_VOICE';
-            
-            var msg = new SpeechSynthesisUtterance(script);
-            var voices = window.speechSynthesis.getVoices();
-            var englishVoice = voices.find(v => v.name.includes('Google US English') || v.name.includes('Daniel') || v.lang === 'en-US');
-            var intlVoice = voices.find(v => v.lang.startsWith('it') || v.lang.startsWith('en'));
-            
-            msg.voice = englishVoice || intlVoice || voices[0];
-            msg.pitch = 0.85; 
-            msg.rate = 0.95;
-
-            msg.onstart = function() {
-                if (APP.audio.duckingGain && APP.audio.ctx) {
-                    var _dg3 = APP.audio.duckingGain.gain;
-                    _dg3.cancelScheduledValues(APP.audio.ctx.currentTime);
-                    _dg3.setValueAtTime(_dg3.value, APP.audio.ctx.currentTime);
-                    _dg3.linearRampToValueAtTime(0.15, APP.audio.ctx.currentTime + 0.3);
-                }
-            };
-            
-            msg.onend = function() {
-                APP.ui.svePlaying = false;
-                if (APP.audio.duckingGain && APP.audio.ctx) {
-                    var _dg4 = APP.audio.duckingGain.gain;
-                    _dg4.cancelScheduledValues(APP.audio.ctx.currentTime);
-                    _dg4.setValueAtTime(_dg4.value, APP.audio.ctx.currentTime);
-                    _dg4.linearRampToValueAtTime(1.0, APP.audio.ctx.currentTime + 0.5);
-                }
-                if (APP.ui.sveSync && typeof carouselNext === 'function') carouselNext();
-                if (statusEl) statusEl.textContent = 'COMPLETE (NATIVE)';
-                if (btn) btn.textContent = '[ VOICEOVER ]';
-            };
-            
-            window.speechSynthesis.speak(msg);
+            // speechSynthesis routes to the OS directly — it bypasses Web Audio and
+            // is never captured by the Iron-Clad Recorder.  Delegate to SVE.speak()
+            // instead: it fetches audio via ElevenLabs key rotation or OpenAI, decodes
+            // to AudioBuffer, and routes through masterGain → outputLimiter → Compositor.
+            APP.ui.svePlaying = false;
+            if (btn) btn.textContent = '[ VOICEOVER ]';
+            if (window.SVE && typeof window.SVE.speak === 'function') {
+                log('SVE: FALLBACK→SVE_MODULE');
+                if (statusEl) statusEl.textContent = 'FALLBACK: SVE_MODULE';
+                window.SVE.speak(script);
+            } else {
+                log('SVE: API_ERR ' + e.message);
+                if (statusEl) statusEl.textContent = 'ERR: ' + e.message;
+            }
         }
     };
 
