@@ -79,7 +79,7 @@
         _delayNode.delayTime.value = P.delayTime;
         _delayFB   = _ctx.createGain(); _delayFB.gain.value = P.delayFB;
         _delayDry  = _ctx.createGain(); _delayDry.gain.value = 1 - P.delayWet;
-        _delayWetG = _ctx.createGain(); _delayWetG.gain.value = P.delayWet;
+        _delayWetG = _ctx.createGain(); _delayWetG.gain.value = P.delayBypass ? 0 : P.delayWet;
         var delayLP = _ctx.createBiquadFilter(); delayLP.type = 'lowpass'; delayLP.frequency.value = 6000;
         _delayIn.connect(_delayDry);
         _delayIn.connect(_delayNode);
@@ -96,7 +96,7 @@
         var lfoGain  = _ctx.createGain(); lfoGain.gain.value = P.chorDepth;
         var lfoGain2 = _ctx.createGain(); lfoGain2.gain.value = -P.chorDepth;
         _chorDry  = _ctx.createGain(); _chorDry.gain.value = 1 - P.chorWet;
-        _chorWetG = _ctx.createGain(); _chorWetG.gain.value = P.chorWet;
+        _chorWetG = _ctx.createGain(); _chorWetG.gain.value = P.chorBypass ? 0 : P.chorWet;
         var chorMix = _ctx.createGain(); chorMix.gain.value = 0.5;
         _chorLFO.connect(lfoGain).connect(chorDelay1.delayTime);
         _chorLFO.connect(lfoGain2).connect(chorDelay2.delayTime);
@@ -117,7 +117,7 @@
         _driveToneF.frequency.value = 3000;
         _driveToneF.gain.value = (P.driveTone - 0.5) * 12;
         _driveDry  = _ctx.createGain(); _driveDry.gain.value = 1 - P.driveWet;
-        _driveWetG = _ctx.createGain(); _driveWetG.gain.value = P.driveWet;
+        _driveWetG = _ctx.createGain(); _driveWetG.gain.value = P.driveBypass ? 0 : P.driveWet;
         driveIn.connect(_driveDry);
         driveIn.connect(_driveSat).connect(_driveToneF).connect(_driveWetG);
         var driveOut = _ctx.createGain(); driveOut.gain.value = 1;
@@ -127,7 +127,7 @@
         var lofiIn  = _ctx.createGain(); lofiIn.gain.value = 1;
         var lofiOut = _ctx.createGain(); lofiOut.gain.value = 1;
         var lofiDry = _ctx.createGain(); lofiDry.gain.value = 1 - P.lofiWet;
-        var lofiWet = _ctx.createGain(); lofiWet.gain.value = P.lofiWet;
+        var lofiWet = _ctx.createGain(); lofiWet.gain.value = P.lofiBypass ? 0 : P.lofiWet;
         // Use a ScriptProcessorNode for bit-crush + sample-rate reduction
         var bufSize = 512;
         var lofiProc = _ctx.createScriptProcessor(bufSize, 1, 1);
