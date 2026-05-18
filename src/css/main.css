@@ -3723,73 +3723,73 @@ body.fullscreen #transcription-hud { pointer-events: none !important; } /* keep 
     position: relative; z-index: 1;
     flex: 1; min-height: 0;
     display: grid;
-    grid-template-columns: 1fr 360px;
-    grid-template-rows: 1fr;
-    overflow: hidden;
+    grid-template-columns: 1fr 300px;
+    overflow: hidden;   /* NO outer scroll — everything fits */
 }
 
-/* Instrument Rack — left column, instruments stacked vertically */
+/* Instrument Rack — left column: cards divide height equally */
 #ss-rack {
     display: flex;
     flex-direction: column;
-    overflow-y: auto;
-    overflow-x: hidden;
-    border-right: 1px solid rgba(0,243,255,.12);
-    background: rgba(0,4,10,.6);
-    scrollbar-width: thin;
-    scrollbar-color: rgba(0,243,255,.25) transparent;
-}
-#ss-rack::-webkit-scrollbar { width: 5px; }
-#ss-rack::-webkit-scrollbar-thumb { background: rgba(0,243,255,.22); border-radius: 2px; }
-
-/* Right side panel — mixer (top 60%) + fx (bottom 40%) */
-#ss-side-panel {
-    display: flex;
-    flex-direction: column;
-    overflow: hidden;
-    background: rgba(0,3,8,.7);
-}
-#ss-mixer-zone {
-    flex: 3;
-    min-height: 0;
-    overflow: hidden;
-    border-bottom: 1px solid rgba(0,243,255,.1);
-}
-#ss-fx-zone {
-    flex: 2;
-    min-height: 0;
-    overflow: hidden;
+    overflow: hidden;   /* no outer scroll */
+    border-right: 1px solid rgba(0,243,255,.14);
 }
 
-/* Cards inside the rack / side panel: NO absolute positioning */
-#ss-rack .ss-card,
-#ss-mixer-zone .ss-card,
-#ss-fx-zone .ss-card {
+/* Each instrument card fills its equal share of the rack height */
+#ss-rack .ss-card {
+    flex: 1;
+    min-height: 0;
     position: relative !important;
     left: auto !important; top: auto !important;
-    width: 100% !important;
-    max-width: none !important;
-    min-width: 0 !important;
+    width: 100% !important; max-width: none !important; min-width: 0 !important;
+    height: auto !important;
     resize: none !important;
     border-radius: 0 !important;
     border-left: none !important; border-right: none !important;
     box-shadow: none !important;
-}
-/* Rack cards: auto height based on content */
-#ss-rack .ss-card {
     border-bottom: 1px solid rgba(0,243,255,.1) !important;
-    flex-shrink: 0;
-}
-/* Side panel cards: fill their zone completely */
-#ss-mixer-zone .ss-card,
-#ss-fx-zone .ss-card {
-    height: 100% !important;
     box-sizing: border-box;
 }
-/* Card body in side zones scrolls internally */
+/* Last card: no bottom border */
+#ss-rack .ss-card:last-child { border-bottom: none !important; }
+
+/* Card body in rack: content scrolls internally if needed */
+#ss-rack .ss-card-body {
+    flex: 1; min-height: 0;
+    overflow-y: auto;
+    overflow-x: auto;
+}
+
+/* Right side panel — mixer (top ~62%) + fx (bottom ~38%) */
+#ss-side-panel {
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+}
+#ss-mixer-zone {
+    flex: 5; min-height: 0; overflow: hidden;
+    border-bottom: 1px solid rgba(0,243,255,.12);
+}
+#ss-fx-zone {
+    flex: 3; min-height: 0; overflow: hidden;
+}
+
+/* Side panel cards: fill their zone */
+#ss-mixer-zone .ss-card,
+#ss-fx-zone .ss-card {
+    position: relative !important;
+    left: auto !important; top: auto !important;
+    width: 100% !important; max-width: none !important; min-width: 0 !important;
+    height: 100% !important;
+    resize: none !important;
+    border-radius: 0 !important;
+    border-left: none !important; border-right: none !important;
+    box-shadow: none !important;
+    box-sizing: border-box;
+}
 #ss-mixer-zone .ss-card-body,
 #ss-fx-zone .ss-card-body {
-    overflow-y: auto;
+    flex: 1; min-height: 0; overflow-y: auto;
 }
 
 /* ═══ SONIC SUITE CARDS — DAW-grade instrument panels ═══ */

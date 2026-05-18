@@ -10,30 +10,30 @@
 (function () {
     'use strict';
 
-    const LS_KEY = 'vngrd.fxunit.v1';
+    const LS_KEY = 'vngrd.fxunit.v2';   // bumped: all FX default to OFF
 
     const P = {
-        // Delay
-        delayBypass: false,
-        delayTime:   0.25,   // seconds (synced to BPM: 1/4 note at 120 = 0.5s)
-        delaySync:   '1/4',  // '1/8', '1/4', '1/2', '3/8', '1/16'
+        // Delay — starts BYPASSED
+        delayBypass: true,
+        delayTime:   0.25,
+        delaySync:   '1/4',
         delayFB:     0.35,
         delayWet:    0.28,
-        // Chorus
-        chorBypass:  false,
+        // Chorus — starts BYPASSED
+        chorBypass:  true,
         chorRate:    1.8,
         chorDepth:   0.003,
         chorWet:     0.30,
-        // Overdrive
-        driveBypass: false,
+        // Overdrive — starts BYPASSED
+        driveBypass: true,
         driveGain:   0.35,
         driveTone:   0.55,
         driveWet:    0.40,
-        // Lo-Fi
-        lofiBypass:  false,
+        // Lo-Fi — starts BYPASSED
+        lofiBypass:  true,
         lofiBits:    16,
-        lofiSrDiv:   1,      // sample rate divisor (1 = no reduction, 2 = half, etc.)
-        lofiWet:     0.0,
+        lofiSrDiv:   1,
+        lofiWet:     0.25,
     };
 
     let _ctx, _inserted = false;
@@ -194,133 +194,114 @@
 
     var _lofiWetGRef = null, _lofiDryGRef = null;
 
-    // ── UI ────────────────────────────────────────────────────
+    // ── UI — compact single-row per effect ────────────────────
     function _mount(body, ctx) {
         _ctx = ctx.audioCtx;
 
-        body.style.cssText = 'display:flex;flex-direction:column;gap:8px;padding:8px;user-select:none;overflow:hidden;';
+        body.style.cssText = 'display:flex;flex-direction:column;gap:4px;padding:6px 8px;user-select:none;overflow-y:auto;';
 
-        // Attempt to insert into chain (may retry if master not ready)
         setTimeout(_buildChain, 200);
 
-        var ACCENT = '#ff44ff';
+        // One compact row per effect: [LABEL] [ON/BYPSS] [slider…val] [slider…val]
+        function _fxRow(label, color, getBypass, setBypass, sliders) {
+            var row = document.createElement('div');
+            row.style.cssText = 'display:flex;align-items:center;gap:6px;padding:4px 6px;' +
+                'border:1px solid ' + color + '28;border-radius:3px;' +
+                'background:rgba(0,0,0,.28);';
 
-        function _section(title, color) {
-            var s = document.createElement('div');
-            s.style.cssText = 'display:flex;flex-direction:column;gap:5px;padding:6px;border:1px solid ' + (color || 'rgba(255,68,255,.2)') + ';border-radius:3px;';
-            var h = document.createElement('div');
-            h.style.cssText = 'display:flex;align-items:center;gap:8px;';
-            var t = document.createElement('span');
-            t.style.cssText = 'font-size:9px;letter-spacing:2px;color:' + (color || ACCENT) + ';font-weight:bold;';
-            t.textContent = title;
-            h.appendChild(t);
-            s.appendChild(h);
-            return { wrap: s, head: h };
-        }
+            // Label
+            var lbl = document.createElement('span');
+            lbl.style.cssText = 'font-size:8px;font-weight:700;letter-spacing:1.5px;color:' + color + ';min-width:44px;';
+            lbl.textContent = label;
+            row.appendChild(lbl);
 
-        function _knobRow(params) {
-            var row = document.createElement('div'); row.style.cssText = 'display:flex;align-items:flex-start;gap:8px;flex-wrap:wrap;';
-            params.forEach(function (pm) {
-                var label = pm[0], min = pm[1], max = pm[2], val = pm[3], unit = pm[4], onChange = pm[5], color = pm[6] || ACCENT, step = pm[7] || 1;
-                var w = document.createElement('div'); w.style.cssText = 'display:flex;flex-direction:column;align-items:center;gap:2px;';
-                var lbl = document.createElement('span'); lbl.style.cssText = 'font-size:7px;color:' + color + '88;letter-spacing:1px;'; lbl.textContent = label;
-                var inp = document.createElement('input'); inp.type = 'range'; inp.min = min; inp.max = max; inp.value = val; inp.step = step;
-                inp.style.cssText = 'width:60px;accent-color:' + color + ';cursor:pointer;';
-                var disp = document.createElement('span'); disp.style.cssText = 'font-size:8px;color:' + color + ';min-width:32px;text-align:center;'; disp.textContent = val + unit;
-                inp.oninput = function () { var v = +this.value; disp.textContent = v + unit; onChange(v); _save(); };
-                w.appendChild(lbl); w.appendChild(inp); w.appendChild(disp);
-                row.appendChild(w);
+            // ON / BYPSS toggle
+            var btn = document.createElement('button');
+            btn.className = 'ss-card-btn';
+            btn.style.cssText = 'border-color:' + color + '55;color:' + color + ';min-width:42px;padding:0 5px;height:20px;font-size:7px;';
+            var _paint = function () {
+                var off = getBypass();
+                btn.textContent = off ? 'OFF' : 'ON';
+                btn.classList.toggle('playing', !off);
+                btn.style.opacity = off ? '.45' : '1';
+            };
+            _paint();
+            btn.onclick = function () { setBypass(!getBypass()); _paint(); _save(); };
+            row.appendChild(btn);
+
+            // Inline sliders
+            sliders.forEach(function (s) {
+                var lbl2 = document.createElement('span');
+                lbl2.style.cssText = 'font-size:7px;color:' + color + '88;letter-spacing:1px;white-space:nowrap;';
+                lbl2.textContent = s[0];
+                var inp = document.createElement('input');
+                inp.type = 'range'; inp.min = s[1]; inp.max = s[2]; inp.value = s[3]; inp.step = s[6] || 1;
+                inp.style.cssText = 'width:54px;accent-color:' + color + ';cursor:pointer;';
+                var val = document.createElement('span');
+                val.style.cssText = 'font-size:7px;color:' + color + ';min-width:26px;text-align:right;';
+                val.textContent = s[3] + s[4];
+                inp.oninput = function () { var v = +this.value; val.textContent = v + s[4]; s[5](v); _save(); };
+                row.appendChild(lbl2); row.appendChild(inp); row.appendChild(val);
             });
+
             return row;
         }
 
-        function _bypassBtn(label, color, getP, setP) {
-            var btn = document.createElement('button'); btn.className = 'ss-card-btn';
-            btn.style.cssText = 'border-color:' + color + '55;color:' + color + ';min-width:48px;';
-            btn.textContent = getP() ? 'BYPSS' : 'ON';
-            btn.classList.toggle('playing', !getP());
-            btn.onclick = function () {
-                setP(!getP()); btn.textContent = getP() ? 'BYPSS' : 'ON'; btn.classList.toggle('playing', !getP()); _save();
-            };
-            return btn;
-        }
-
         // ── DELAY ─────────────────────────────────────────────
-        var delSec = _section('◈ DELAY', '#00f3ff');
-        var delBypass = _bypassBtn('ON', '#00f3ff', function () { return P.delayBypass; }, function (v) {
-            P.delayBypass = v;
-            if (_delayWetG) _delayWetG.gain.setTargetAtTime(v ? 0 : P.delayWet, _ctx.currentTime, 0.05);
-        });
-        delSec.head.appendChild(delBypass);
-
-        // Sync selector
-        var syncLbl = document.createElement('span'); syncLbl.style.cssText = 'font-size:7px;color:#00f3ff88;letter-spacing:1px;margin-left:8px;'; syncLbl.textContent = 'SYNC';
-        var syncSel = document.createElement('select'); syncSel.className = 'ss-card-btn'; syncSel.style.cssText = 'font-size:9px;padding:1px 3px;accent-color:#00f3ff;';
+        var syncSel = document.createElement('select');
+        syncSel.className = 'ss-card-btn';
+        syncSel.style.cssText = 'font-size:8px;padding:1px 2px;height:20px;';
         ['1/16','1/8','1/4','3/8','1/2'].forEach(function (v) {
             var o = document.createElement('option'); o.value = v; o.textContent = v;
             if (v === P.delaySync) o.selected = true;
             syncSel.appendChild(o);
         });
         syncSel.onchange = function () { P.delaySync = this.value; _setDelayTime(); _save(); };
-        delSec.head.appendChild(syncLbl); delSec.head.appendChild(syncSel);
 
-        delSec.wrap.appendChild(_knobRow([
-            ['FB',  0, 90,  Math.round(P.delayFB * 100), '%', function (v) { P.delayFB = v / 100; if (_delayFB) _delayFB.gain.setTargetAtTime(P.delayFB, _ctx.currentTime, 0.05); }, '#00f3ff'],
-            ['WET', 0, 100, Math.round(P.delayWet * 100), '%', function (v) { P.delayWet = v / 100; if (_delayWetG && !P.delayBypass) _delayWetG.gain.setTargetAtTime(P.delayWet, _ctx.currentTime, 0.05); if (_delayDry) _delayDry.gain.setTargetAtTime(1 - P.delayWet, _ctx.currentTime, 0.05); }, '#00f3ff'],
-        ]));
-        body.appendChild(delSec.wrap);
+        var delRow = _fxRow('DELAY', '#00f3ff',
+            function () { return P.delayBypass; },
+            function (v) { P.delayBypass = v; if (_delayWetG) _delayWetG.gain.setTargetAtTime(v ? 0 : P.delayWet, _ctx.currentTime, 0.05); },
+            [
+                ['FB',  0, 90,  Math.round(P.delayFB * 100),  '%', function (v) { P.delayFB = v/100; if (_delayFB) _delayFB.gain.setTargetAtTime(P.delayFB, _ctx.currentTime, 0.05); }],
+                ['WET', 0, 100, Math.round(P.delayWet * 100), '%', function (v) { P.delayWet = v/100; if (_delayWetG && !P.delayBypass) _delayWetG.gain.setTargetAtTime(P.delayWet, _ctx.currentTime, 0.05); if (_delayDry) _delayDry.gain.setTargetAtTime(1-P.delayWet, _ctx.currentTime, 0.05); }],
+            ]
+        );
+        delRow.appendChild(syncSel);
+        body.appendChild(delRow);
 
         // ── CHORUS ────────────────────────────────────────────
-        var chorSec = _section('◈ CHORUS', '#88ff44');
-        var chorBypass = _bypassBtn('ON', '#88ff44', function () { return P.chorBypass; }, function (v) {
-            P.chorBypass = v;
-            if (_chorWetG) _chorWetG.gain.setTargetAtTime(v ? 0 : P.chorWet, _ctx.currentTime, 0.05);
-        });
-        chorSec.head.appendChild(chorBypass);
-        chorSec.wrap.appendChild(_knobRow([
-            ['RATE',  1, 80, Math.round(P.chorRate * 10), '', function (v) { P.chorRate = v / 10; if (_chorLFO) _chorLFO.frequency.setTargetAtTime(P.chorRate, _ctx.currentTime, 0.1); }, '#88ff44', 1],
-            ['DEPTH', 1, 100, Math.round(P.chorDepth * 10000), '', function (v) { P.chorDepth = v / 10000; }, '#88ff44'],
-            ['WET',   0, 100, Math.round(P.chorWet * 100), '%', function (v) { P.chorWet = v / 100; if (_chorWetG && !P.chorBypass) _chorWetG.gain.setTargetAtTime(P.chorWet, _ctx.currentTime, 0.05); if (_chorDry) _chorDry.gain.setTargetAtTime(1 - P.chorWet, _ctx.currentTime, 0.05); }, '#88ff44'],
-        ]));
-        body.appendChild(chorSec.wrap);
+        body.appendChild(_fxRow('CHORUS', '#88ff44',
+            function () { return P.chorBypass; },
+            function (v) { P.chorBypass = v; if (_chorWetG) _chorWetG.gain.setTargetAtTime(v ? 0 : P.chorWet, _ctx.currentTime, 0.05); },
+            [
+                ['RATE',  1, 80,  Math.round(P.chorRate * 10),    '', function (v) { P.chorRate = v/10; if (_chorLFO) _chorLFO.frequency.setTargetAtTime(P.chorRate, _ctx.currentTime, 0.1); }],
+                ['WET',   0, 100, Math.round(P.chorWet * 100),   '%', function (v) { P.chorWet = v/100; if (_chorWetG && !P.chorBypass) _chorWetG.gain.setTargetAtTime(P.chorWet, _ctx.currentTime, 0.05); if (_chorDry) _chorDry.gain.setTargetAtTime(1-P.chorWet, _ctx.currentTime, 0.05); }],
+            ]
+        ));
 
         // ── OVERDRIVE ─────────────────────────────────────────
-        var driveSec = _section('◈ OVERDRIVE', '#ff8800');
-        var driveBypass = _bypassBtn('ON', '#ff8800', function () { return P.driveBypass; }, function (v) {
-            P.driveBypass = v;
-            if (_driveWetG) _driveWetG.gain.setTargetAtTime(v ? 0 : P.driveWet, _ctx.currentTime, 0.05);
-        });
-        driveSec.head.appendChild(driveBypass);
-        driveSec.wrap.appendChild(_knobRow([
-            ['DRIVE', 0, 100, Math.round(P.driveGain * 100), '%', function (v) { P.driveGain = v / 100; if (_driveSat) _driveSat.curve = _driveCurve(P.driveGain, P.driveTone); }, '#ff8800'],
-            ['TONE',  0, 100, Math.round(P.driveTone * 100), '%', function (v) { P.driveTone = v / 100; if (_driveToneF) _driveToneF.gain.value = (P.driveTone - 0.5) * 12; if (_driveSat) _driveSat.curve = _driveCurve(P.driveGain, P.driveTone); }, '#ff8800'],
-            ['WET',   0, 100, Math.round(P.driveWet * 100), '%', function (v) { P.driveWet = v / 100; if (_driveWetG && !P.driveBypass) _driveWetG.gain.setTargetAtTime(P.driveWet, _ctx.currentTime, 0.05); if (_driveDry) _driveDry.gain.setTargetAtTime(1 - P.driveWet, _ctx.currentTime, 0.05); }, '#ff8800'],
-        ]));
-        body.appendChild(driveSec.wrap);
+        body.appendChild(_fxRow('DRIVE', '#ff8800',
+            function () { return P.driveBypass; },
+            function (v) { P.driveBypass = v; if (_driveWetG) _driveWetG.gain.setTargetAtTime(v ? 0 : P.driveWet, _ctx.currentTime, 0.05); },
+            [
+                ['DRIVE', 0, 100, Math.round(P.driveGain * 100), '%', function (v) { P.driveGain = v/100; if (_driveSat) _driveSat.curve = _driveCurve(P.driveGain, P.driveTone); }],
+                ['TONE',  0, 100, Math.round(P.driveTone * 100), '%', function (v) { P.driveTone = v/100; if (_driveToneF) _driveToneF.gain.value = (P.driveTone-0.5)*12; if (_driveSat) _driveSat.curve = _driveCurve(P.driveGain, P.driveTone); }],
+                ['WET',   0, 100, Math.round(P.driveWet * 100),  '%', function (v) { P.driveWet = v/100; if (_driveWetG && !P.driveBypass) _driveWetG.gain.setTargetAtTime(P.driveWet, _ctx.currentTime, 0.05); if (_driveDry) _driveDry.gain.setTargetAtTime(1-P.driveWet, _ctx.currentTime, 0.05); }],
+            ]
+        ));
 
         // ── LO-FI ─────────────────────────────────────────────
-        var lofiSec = _section('◈ LO-FI', '#aa44ff');
-        var lofiBypass = _bypassBtn('ON', '#aa44ff', function () { return P.lofiBypass; }, function (v) {
-            P.lofiBypass = v;
-            if (_lofiWetGRef) _lofiWetGRef.gain.setTargetAtTime(v ? 0 : P.lofiWet, _ctx.currentTime, 0.05);
-        });
-        lofiSec.head.appendChild(lofiBypass);
-        lofiSec.wrap.appendChild(_knobRow([
-            ['BITS',    1, 16, P.lofiBits,  'bit', function (v) { P.lofiBits = v; }, '#aa44ff'],
-            ['S.RATE',  1, 16, P.lofiSrDiv, 'x',   function (v) { P.lofiSrDiv = v; }, '#aa44ff'],
-            ['WET',     0, 100, Math.round(P.lofiWet * 100), '%', function (v) { P.lofiWet = v / 100; if (_lofiWetGRef && !P.lofiBypass) _lofiWetGRef.gain.setTargetAtTime(P.lofiWet, _ctx.currentTime, 0.05); if (_lofiDryGRef) _lofiDryGRef.gain.setTargetAtTime(1 - P.lofiWet, _ctx.currentTime, 0.05); }, '#aa44ff'],
-        ]));
-        body.appendChild(lofiSec.wrap);
-
-        // BPM sync hint
-        var hint = document.createElement('span');
-        hint.style.cssText = 'font-size:7px;color:rgba(255,68,255,.35);letter-spacing:1px;text-align:center;';
-        hint.textContent = 'DELAY SYNCS TO MASTER BPM • ALL SLIDERS MIDI CC LEARNABLE';
-        body.appendChild(hint);
+        body.appendChild(_fxRow('LO-FI', '#aa44ff',
+            function () { return P.lofiBypass; },
+            function (v) { P.lofiBypass = v; if (_lofiWetGRef) _lofiWetGRef.gain.setTargetAtTime(v ? 0 : P.lofiWet, _ctx.currentTime, 0.05); },
+            [
+                ['BITS', 1, 16, P.lofiBits,  'b', function (v) { P.lofiBits = v; }],
+                ['SR÷',  1, 16, P.lofiSrDiv, 'x', function (v) { P.lofiSrDiv = v; }],
+                ['WET',  0, 100, Math.round(P.lofiWet * 100), '%', function (v) { P.lofiWet = v/100; if (_lofiWetGRef && !P.lofiBypass) _lofiWetGRef.gain.setTargetAtTime(P.lofiWet, _ctx.currentTime, 0.05); if (_lofiDryGRef) _lofiDryGRef.gain.setTargetAtTime(1-P.lofiWet, _ctx.currentTime, 0.05); }],
+            ]
+        ));
 
         _loadSaved();
-
-        // BPM-sync delay update on transport tick
         _onBpmChange = function () { _setDelayTime(); };
     }
 
