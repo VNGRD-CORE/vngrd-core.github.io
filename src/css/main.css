@@ -3575,53 +3575,54 @@ body.fullscreen #transcription-hud { pointer-events: none !important; } /* keep 
    ═══════════════════════════════════════════════════════════════════ */
 
 /* ── Backdrop ───────────────────────────────────────────────── */
+/* ═══════════════════════════════════════════════════════════════
+   VNGRD//STUDIO — Full DAW Layout
+   Transport (top) → Instrument Rack (left) | Mixer + FX (right)
+   No floating cards. No overlap. CSS Grid-driven.
+   ═══════════════════════════════════════════════════════════════ */
 #ss-backdrop {
     position: fixed; inset: 0; z-index: 4000;
     display: none; pointer-events: none;
-    background: radial-gradient(ellipse at 50% 40%, rgba(0,14,22,.92), rgba(1,3,8,.96));
-    backdrop-filter: blur(16px) saturate(1.15);
-    -webkit-backdrop-filter: blur(16px) saturate(1.15);
+    flex-direction: column;          /* transport top → workspace fills rest */
+    background: rgba(1,4,9,.97);
     opacity: 0; transition: opacity .22s ease;
     font-family: 'JetBrains Mono', monospace;
 }
-#ss-backdrop.visible { display: block; pointer-events: auto; opacity: 1; }
-/* Fine grid overlay — only in opaque mode */
+/* Fine grid overlay */
 #ss-backdrop::before {
-    content: ''; position: absolute; inset: 0; pointer-events: none;
+    content: ''; position: absolute; inset: 0; pointer-events: none; z-index: 0;
     background-image:
-        linear-gradient(rgba(0,243,255,.028) 1px, transparent 1px),
-        linear-gradient(90deg, rgba(0,243,255,.028) 1px, transparent 1px);
+        linear-gradient(rgba(0,243,255,.018) 1px, transparent 1px),
+        linear-gradient(90deg, rgba(0,243,255,.018) 1px, transparent 1px);
     background-size: 48px 48px;
-    mask-image: radial-gradient(ellipse at 50% 50%, #000 35%, transparent 70%);
-    -webkit-mask-image: radial-gradient(ellipse at 50% 50%, #000 35%, transparent 70%);
 }
-/* Stealth / opacity mode — canvas visible behind the suite */
+#ss-backdrop.visible { display: flex; pointer-events: auto; opacity: 1; }
+
+/* Stealth / passthrough mode */
 #ss-backdrop.stealth {
     background: transparent !important;
-    backdrop-filter: none !important;
-    -webkit-backdrop-filter: none !important;
     pointer-events: none;
 }
 #ss-backdrop.stealth::before { display: none; }
 #ss-backdrop.stealth #ss-master-bar { pointer-events: auto; }
 #ss-backdrop.stealth .ss-card      { pointer-events: auto; }
 
-/* ── Master Transport Bar ───────────────────────────────────── */
+/* ── Transport Bar — TOP of the DAW ─────────────────────────── */
 #ss-master-bar {
-    position: fixed;
-    bottom: 0; left: 0; right: 0;
-    z-index: 9999;
+    position: relative; z-index: 10;
+    flex-shrink: 0;
     display: flex; align-items: center;
-    height: 54px; padding: 0 14px; gap: 0;
-    background: rgba(1,5,11,.97);
-    border-top: 2px solid rgba(0,243,255,.28);
-    box-shadow: 0 -6px 32px rgba(0,0,0,.85), 0 -1px 0 rgba(0,243,255,.1);
+    height: 52px; padding: 0 12px; gap: 0;
+    background: rgba(0,6,14,.98);
+    border-bottom: 2px solid rgba(0,243,255,.3);
+    box-shadow: 0 4px 24px rgba(0,0,0,.9), 0 1px 0 rgba(0,243,255,.08);
     backdrop-filter: blur(24px); -webkit-backdrop-filter: blur(24px);
     font-family: 'JetBrains Mono', monospace;
     font-size: 8px; letter-spacing: 1px;
     color: rgba(0,243,255,.7);
     user-select: none;
     pointer-events: auto;
+    overflow-x: auto; overflow-y: hidden;
 }
 /* Groups — logical sections within the bar */
 .ss-mb-group {
@@ -3717,12 +3718,78 @@ body.fullscreen #transcription-hud { pointer-events: none !important; } /* keep 
 .ss-mb-ct.muted { opacity: .28; text-decoration: line-through; }
 .ss-mb-ct.focused { background: rgba(0,243,255,.2); color: #eafeff; border-color: #00f3ff; box-shadow: 0 0 8px rgba(0,243,255,.45); }
 
-/* ── Workspace (card container) ─────────────────────────────── */
+/* ── DAW Workspace — fills everything below the transport bar ── */
 #ss-workspace {
-    position: absolute;
-    top: 0; left: 0; right: 0;
-    bottom: 54px;   /* leave room for the fixed bottom master bar */
-    overflow: auto;  /* scroll if cards extend below fold */
+    position: relative; z-index: 1;
+    flex: 1; min-height: 0;
+    display: grid;
+    grid-template-columns: 1fr 360px;
+    grid-template-rows: 1fr;
+    overflow: hidden;
+}
+
+/* Instrument Rack — left column, instruments stacked vertically */
+#ss-rack {
+    display: flex;
+    flex-direction: column;
+    overflow-y: auto;
+    overflow-x: hidden;
+    border-right: 1px solid rgba(0,243,255,.12);
+    background: rgba(0,4,10,.6);
+    scrollbar-width: thin;
+    scrollbar-color: rgba(0,243,255,.25) transparent;
+}
+#ss-rack::-webkit-scrollbar { width: 5px; }
+#ss-rack::-webkit-scrollbar-thumb { background: rgba(0,243,255,.22); border-radius: 2px; }
+
+/* Right side panel — mixer (top 60%) + fx (bottom 40%) */
+#ss-side-panel {
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+    background: rgba(0,3,8,.7);
+}
+#ss-mixer-zone {
+    flex: 3;
+    min-height: 0;
+    overflow: hidden;
+    border-bottom: 1px solid rgba(0,243,255,.1);
+}
+#ss-fx-zone {
+    flex: 2;
+    min-height: 0;
+    overflow: hidden;
+}
+
+/* Cards inside the rack / side panel: NO absolute positioning */
+#ss-rack .ss-card,
+#ss-mixer-zone .ss-card,
+#ss-fx-zone .ss-card {
+    position: relative !important;
+    left: auto !important; top: auto !important;
+    width: 100% !important;
+    max-width: none !important;
+    min-width: 0 !important;
+    resize: none !important;
+    border-radius: 0 !important;
+    border-left: none !important; border-right: none !important;
+    box-shadow: none !important;
+}
+/* Rack cards: auto height based on content */
+#ss-rack .ss-card {
+    border-bottom: 1px solid rgba(0,243,255,.1) !important;
+    flex-shrink: 0;
+}
+/* Side panel cards: fill their zone completely */
+#ss-mixer-zone .ss-card,
+#ss-fx-zone .ss-card {
+    height: 100% !important;
+    box-sizing: border-box;
+}
+/* Card body in side zones scrolls internally */
+#ss-mixer-zone .ss-card-body,
+#ss-fx-zone .ss-card-body {
+    overflow-y: auto;
 }
 
 /* ═══ SONIC SUITE CARDS — DAW-grade instrument panels ═══ */
@@ -3735,56 +3802,51 @@ body.fullscreen #transcription-hud { pointer-events: none !important; } /* keep 
 .ss-card[data-card-id="mixer"]   { --acc: #00ff88; --acc-rgb: 0,255,136;   --acc-dim: rgba(0,255,136,.16); }
 
 .ss-card {
-    position: absolute;
-    width: calc(50vw - 18px);
-    max-width: 720px;
-    min-width: 320px;
-    background: rgba(3,8,14,.92);
-    border: 1px solid var(--acc-dim, rgba(0,243,255,.18));
-    border-top: 2px solid var(--acc, #00f3ff);
-    border-radius: 5px;
-    box-shadow: 0 12px 40px rgba(0,0,0,.85), 0 0 24px rgba(var(--acc-rgb, 0,243,255),.07);
-    backdrop-filter: blur(12px); -webkit-backdrop-filter: blur(12px);
-    color: rgba(var(--acc-rgb, 0,243,255),.75);
+    position: relative;
+    background: rgba(2,6,12,.94);
+    border: 1px solid rgba(var(--acc-rgb, 0,243,255),.14);
+    border-top: 2px solid rgba(var(--acc-rgb, 0,243,255),.55);
+    color: rgba(var(--acc-rgb, 0,243,255),.78);
     font-family: 'JetBrains Mono', monospace; font-size: 9px;
     display: flex; flex-direction: column;
     pointer-events: auto;
-    overflow: hidden;   /* body scrolls internally; card clips to its tile */
-    transition: opacity .15s ease, box-shadow .18s ease;
-    min-width: 240px;
-    resize: both;       /* user can grab bottom-right corner to resize */
+    overflow: hidden;
+    transition: opacity .15s ease;
     box-sizing: border-box;
 }
 
-/* Minimised = header-only rack strip */
-.ss-card.minimised .ss-card-body { display: none; }
+/* Minimised = header-only strip (stays in flex flow, just hides body) */
+.ss-card.minimised .ss-card-body { display: none !important; }
 .ss-card.minimised {
-    height: 38px !important;
     overflow: hidden !important;
-    resize: none !important;
-    border-top-width: 2px;
-    box-shadow: 0 2px 8px rgba(0,0,0,.6), 0 0 10px rgba(var(--acc-rgb,0,243,255),.12);
+    flex-shrink: 0;
 }
 .ss-card.focused {
-    box-shadow: 0 12px 40px rgba(0,0,0,.9),
-                0 0 0 1px rgba(var(--acc-rgb, 0,243,255),.35),
-                0 0 36px rgba(var(--acc-rgb, 0,243,255),.18);
-    z-index: 100;
+    border-top-color: var(--acc, #00f3ff) !important;
+    background: rgba(2,8,16,.97);
 }
 .ss-card.muted { opacity: .42; }
 
-/* ── Card header (drag handle) ── */
+/* ── Card header — DAW track strip ── */
 .ss-card-head {
     display: flex; align-items: center;
-    padding: 0 10px;
-    height: 34px; flex-shrink: 0;
-    background: linear-gradient(180deg, rgba(var(--acc-rgb, 0,243,255),.08) 0%, rgba(0,0,0,0) 100%),
-                rgba(0,10,18,.9);
-    border-bottom: 1px solid rgba(var(--acc-rgb, 0,243,255),.16);
-    cursor: grab;
-    user-select: none; gap: 4px;
+    padding: 0 12px;
+    height: 36px; flex-shrink: 0;
+    background: linear-gradient(90deg,
+        rgba(var(--acc-rgb, 0,243,255),.12) 0%,
+        rgba(var(--acc-rgb, 0,243,255),.04) 60%,
+        rgba(0,0,0,0) 100%),
+        rgba(0,6,14,.96);
+    border-bottom: 1px solid rgba(var(--acc-rgb, 0,243,255),.18);
+    border-left: 3px solid rgba(var(--acc-rgb, 0,243,255),.7);
+    cursor: default;
+    user-select: none; gap: 6px;
 }
-.ss-card-head:active { cursor: grabbing; }
+/* Grid layout: no drag cursor */
+#ss-rack .ss-card-head,
+#ss-mixer-zone .ss-card-head,
+#ss-fx-zone .ss-card-head { cursor: default; }
+.ss-card-head:active { cursor: default; }
 
 .ss-card-title {
     flex: 1;
@@ -3841,8 +3903,17 @@ body.fullscreen #transcription-hud { pointer-events: none !important; } /* keep 
 .ss-card-body {
     padding: 10px 12px;
     display: flex; flex-direction: column; gap: 7px;
-    flex: 1; min-height: 0;   /* fills the tile height set by snapLayout */
     overflow-y: auto;
+    scrollbar-width: thin;
+    scrollbar-color: rgba(var(--acc-rgb,0,243,255),.2) transparent;
+}
+.ss-card-body::-webkit-scrollbar { width: 4px; }
+.ss-card-body::-webkit-scrollbar-thumb { background: rgba(var(--acc-rgb,0,243,255),.2); border-radius: 2px; }
+
+/* In side-panel zones: fill available height */
+#ss-mixer-zone .ss-card-body,
+#ss-fx-zone .ss-card-body {
+    flex: 1; min-height: 0;
 }
 .ss-card-placeholder {
     padding: 22px 12px; text-align: center;

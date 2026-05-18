@@ -60,56 +60,121 @@
     function _load() { try { return JSON.parse(localStorage.getItem(LS_KEY) || '{}'); } catch (e) { return {}; } }
     function _save() { try { localStorage.setItem(LS_KEY, JSON.stringify({ patterns, curPat, P })); } catch (e) {} }
 
+    // ── AudioWorklet BLEP oscillator (preferred) ──────────────
+    // Falls back to native OscillatorNode if worklet unavailable.
+    var _blepReady = false;
+    var _blepNode  = null;   // AudioWorkletNode when available
+
+    function _loadBlepWorklet(ctx) {
+        if (_blepReady || !ctx.audioWorklet) return;
+        ctx.audioWorklet.addModule('./src/modules/blep-oscillator-worklet.js')
+            .then(function () {
+                _blepReady = true;
+                // Rebuild the voice with the worklet if we haven't started yet
+                if (!_osc && _bus) _buildVoice();
+            })
+            .catch(function () { /* fallback to native oscillator */ });
+    }
+
     // ── Build shared voice ────────────────────────────────────
     function _buildVoice() {
         if (_osc || !_ctx) return;
-        _osc    = _ctx.createOscillator();
-        _filter = _ctx.createBiquadFilter();
-        _amp    = _ctx.createGain();
-        _dist   = _ctx.createWaveShaper();
 
-        _osc.type             = P.waveform;
-        _osc.frequency.value  = _midiToHz(36);
-        _filter.type          = 'lowpass';
-        _filter.frequency.value = P.cutoff;
-        _filter.Q.value       = P.resonance;
-        _amp.gain.value       = 0;
-        _dist.curve           = _distCurve(P.distortion);
-        _dist.oversample      = '2x';
+        _amp  = _ctx.createGain();
+        _dist = _ctx.createWaveShaper();
 
-        _osc.connect(_filter).connect(_amp).connect(_dist).connect(_bus);
-        _osc.start();
+        // Dual biquad lowpass in series for steeper 24 dB/oct slope (303-style ladder feel)
+        _filter  = _ctx.createBiquadFilter();
+        var _filter2 = _ctx.createBiquadFilter();
+        _filter.type  = 'lowpass';  _filter.frequency.value  = P.cutoff;  _filter.Q.value  = P.resonance * 0.7;
+        _filter2.type = 'lowpass';  _filter2.frequency.value = P.cutoff;  _filter2.Q.value = P.resonance * 0.4;
+
+        // Store second filter for parameter updates
+        _filterB = _filter2;
+
+        _amp.gain.value  = 0;
+        _dist.curve      = _distCurve(P.distortion);
+        _dist.oversample = '4x';   // 4x oversampling eliminates distortion aliasing
+
+        if (_blepReady) {
+            // ── BLEP AudioWorklet oscillator ──────────────────
+            _blepNode = new AudioWorkletNode(_ctx, 'blep-oscillator');
+            _blepNode.parameters.get('frequency').value = _midiToHz(36);
+            _blepNode.parameters.get('waveform').value  = P.waveform === 'sawtooth' ? 0 : (P.waveform === 'square' ? 1 : 2);
+            _osc = {
+                // Proxy object mimics OscillatorNode API used by trigger functions
+                frequency: _blepNode.parameters.get('frequency'),
+                type: P.waveform,
+                connect: function () {},  // already connected below
+                start:   function () {},
+                _node:   _blepNode,
+            };
+            _blepNode.connect(_filter).connect(_filter2).connect(_amp).connect(_dist).connect(_bus);
+        } else {
+            // ── Native oscillator fallback ────────────────────
+            _osc = _ctx.createOscillator();
+            _osc.type            = P.waveform;
+            _osc.frequency.value = _midiToHz(36);
+            _osc.connect(_filter).connect(_filter2).connect(_amp).connect(_dist).connect(_bus);
+            _osc.start();
+        }
     }
 
+    // Second filter reference for stereo cutoff tracking
+    var _filterB = null;
+
     function _distCurve(amt) {
-        var n = 512, c = new Float32Array(n);
+        // Asymmetric soft-clip (valve-style): adds odd + even harmonics
+        var n = 2048, c = new Float32Array(n);
         for (var i = 0; i < n; i++) {
             var x = (i * 2) / n - 1;
-            c[i] = amt < 0.01 ? x : Math.tanh(x * (1 + amt * 3));
+            if (amt < 0.01) {
+                c[i] = x;
+            } else {
+                var drive = 1 + amt * 5;
+                // Asymmetric tanh distortion (positive side clips harder)
+                c[i] = x > 0
+                    ? Math.tanh(x * drive) / Math.tanh(drive)
+                    : Math.tanh(x * drive * 0.7) / Math.tanh(drive * 0.7);
+            }
         }
         return c;
     }
 
     // ── Note trigger ──────────────────────────────────────────
+    function _syncFilters(freq, time, timeConst) {
+        if (timeConst != null) {
+            _filter.frequency.setTargetAtTime(freq, time, timeConst);
+            if (_filterB) _filterB.frequency.setTargetAtTime(freq, time, timeConst);
+        } else {
+            _filter.frequency.setValueAtTime(freq, time);
+            if (_filterB) _filterB.frequency.setValueAtTime(freq, time);
+        }
+    }
+
     function _trigNote(time, midi, isSlide, isAccent) {
         if (!_osc) return;
         var freq    = _midiToHz(midi);
         var baseVol = 0.65 + (isAccent ? P.accentVol : 0);
-        var cutOpen = P.cutoff + P.envMod * (10000 - P.cutoff);
+        // Accent opens filter farther and louder (classic 303)
+        var cutOpen = P.cutoff + P.envMod * (isAccent ? 1 : 0.75) * (14000 - P.cutoff);
+        cutOpen = Math.min(cutOpen, 14000);
 
         if (isSlide) {
             _osc.frequency.setTargetAtTime(freq, time, P.glide * 0.4);
             _filter.frequency.cancelScheduledValues(time);
-            _filter.frequency.setTargetAtTime(Math.min(cutOpen * 0.7, 8000), time, 0.015);
-            _filter.frequency.setTargetAtTime(P.cutoff, time + 0.04, P.decay);
+            if (_filterB) _filterB.frequency.cancelScheduledValues(time);
+            _syncFilters(Math.min(cutOpen * 0.65, 8000), time, 0.012);
+            _syncFilters(P.cutoff, time + 0.04, P.decay);
         } else {
             _osc.frequency.cancelScheduledValues(time);
             _osc.frequency.setValueAtTime(freq, time);
             _amp.gain.cancelScheduledValues(time);
             _amp.gain.setValueAtTime(baseVol, time);
             _filter.frequency.cancelScheduledValues(time);
-            _filter.frequency.setValueAtTime(cutOpen, time);
-            _filter.frequency.setTargetAtTime(P.cutoff, time + 0.008, P.decay);
+            if (_filterB) _filterB.frequency.cancelScheduledValues(time);
+            _syncFilters(cutOpen, time, null);
+            _syncFilters(P.cutoff, time + 0.006, P.decay);
         }
         _voiceOn = true;
     }
@@ -186,6 +251,9 @@
     function _mount(body, ctx) {
         _ctx = ctx.audioCtx;
         _bus = ctx.bus;
+        // Try to load the BLEP worklet for professional anti-aliased oscillator
+        _loadBlepWorklet(_ctx);
+        // Build with native oscillator first (worklet may replace it async)
         _buildVoice();
         body.style.cssText = 'display:flex;flex-direction:column;gap:7px;padding:7px 8px;user-select:none;overflow:hidden;';
 
@@ -210,7 +278,12 @@
                 P.waveform = this.dataset.w;
                 top.querySelectorAll('.al-wv').forEach(function (x) { x.classList.remove('playing'); });
                 this.classList.add('playing');
-                if (_osc) _osc.type = P.waveform;
+                if (_blepNode) {
+                    var wvMap = { sawtooth: 0, square: 1, triangle: 2 };
+                    _blepNode.parameters.get('waveform').value = wvMap[P.waveform] || 0;
+                } else if (_osc && _osc.type !== undefined) {
+                    _osc.type = P.waveform;
+                }
                 _save();
             };
         });
@@ -522,7 +595,12 @@
         var pn = document.querySelector('.al-pnum');
         if (pn) pn.textContent = curPat + 1;
         document.querySelectorAll('.al-wv').forEach(function (b) { b.classList.toggle('playing', b.dataset.w === P.waveform); });
-        if (_osc)    _osc.type = P.waveform;
+        if (_blepNode) {
+            var wvMap = { sawtooth: 0, square: 1, triangle: 2 };
+            _blepNode.parameters.get('waveform').value = wvMap[P.waveform] || 0;
+        } else if (_osc && _osc.type !== undefined) {
+            _osc.type = P.waveform;
+        }
         if (_filter) { _filter.frequency.value = P.cutoff; _filter.Q.value = P.resonance; }
         if (_dist)   _dist.curve = _distCurve(P.distortion);
     }

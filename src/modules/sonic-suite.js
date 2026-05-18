@@ -68,26 +68,27 @@ window.SonicSuite = (function() {
         const master = ctx.createGain();
         master.gain.value = 0.72;
 
+        // Glue compressor: medium ratio, slow attack to preserve drum transients
         const glue = ctx.createDynamicsCompressor();
-        glue.threshold.value = -14;
-        glue.knee.value      = 18;
-        glue.ratio.value     = 3.2;
-        glue.attack.value    = 0.005;
-        glue.release.value   = 0.12;
+        glue.threshold.value = -18;
+        glue.knee.value      = 12;
+        glue.ratio.value     = 4.0;
+        glue.attack.value    = 0.012;   // slow enough to let kick/snare punch through
+        glue.release.value   = 0.18;
 
+        // True peak limiter: brick-wall, ultra-fast, prevents inter-sample clipping
         const limiter = ctx.createDynamicsCompressor();
-        limiter.threshold.value = -3;
+        limiter.threshold.value = -1.5;
         limiter.knee.value      = 0;
         limiter.ratio.value     = 20;
-        limiter.attack.value    = 0.001;
-        limiter.release.value   = 0.05;
+        limiter.attack.value    = 0.0003;
+        limiter.release.value   = 0.035;
 
         master.connect(glue).connect(limiter).connect(masterOut);
 
-        // Shared reverb send (short plate IR). reverbSend is the input bus;
-        // reverbReturn controls how much wet signal the master hears.
+        // Shared reverb send — 2.2 s studio plate, early reflections included.
         const reverb = ctx.createConvolver();
-        reverb.buffer = _buildIR(ctx, 1.0, 2.4);
+        reverb.buffer = _buildIR(ctx, 2.2, 2.0);
         const reverbSend   = ctx.createGain();
         const reverbReturn = ctx.createGain();
         reverbSend.gain.value   = 1.0;
@@ -111,22 +112,53 @@ window.SonicSuite = (function() {
     }
 
     function _buildIR(ctx, seconds, decay) {
-        // Short plate-style IR: zero-padded pre-delay, per-channel decorrelated noise,
-        // exponential decay, gentle low-pass colouring so the tail sits behind the dry mix.
-        const rate    = ctx.sampleRate;
-        const len     = Math.floor(rate * seconds);
-        const pre     = Math.floor(rate * 0.012);
-        const ir      = ctx.createBuffer(2, len, rate);
+        // Professional studio plate reverb IR:
+        // - Pre-delay (12 ms) for space perception
+        // - 4 early reflection taps (adds room dimension)
+        // - Exponential noise tail with per-channel decorrelation
+        // - Two-pole LP filter colouring (warm, not metallic)
+        // - High-frequency damping that increases with time (natural energy loss)
+        const rate  = ctx.sampleRate;
+        const len   = Math.floor(rate * seconds);
+        const preMs = Math.floor(rate * 0.012);
+        const ir    = ctx.createBuffer(2, len, rate);
+
+        // Early reflection tap positions (in samples, slightly different L/R)
+        const tapsL = [0.021, 0.041, 0.068, 0.095].map(function(t) { return Math.floor(t * rate); });
+        const tapsR = [0.019, 0.044, 0.072, 0.098].map(function(t) { return Math.floor(t * rate); });
+        const tapGains = [0.72, 0.54, 0.38, 0.26];
+
         for (let c = 0; c < 2; c++) {
-            const d = ir.getChannelData(c);
-            let lp = 0;
+            const d    = ir.getChannelData(c);
+            const taps = c === 0 ? tapsL : tapsR;
+            // Phase offset for stereo decorrelation
+            const phaseOff = c === 0 ? 0.0 : 0.37;
+
+            let lp1 = 0, lp2 = 0;  // 2-pole LP state
             for (let i = 0; i < len; i++) {
-                if (i < pre) { d[i] = 0; continue; }
-                const env = Math.pow(1 - (i - pre) / (len - pre), decay);
-                const n   = (Math.random() * 2 - 1) * env;
-                lp += (n - lp) * 0.35; // one-pole LP for warmth
-                d[i] = lp;
+                if (i < preMs) { d[i] = 0; continue; }
+                const t = (i - preMs) / (len - preMs);
+
+                // Exponential decay with adjustable curve
+                const env = Math.exp(-decay * t * 3.5);
+
+                // HF damping increases with time (simulates air absorption)
+                const hfDamp = Math.max(0.08, 0.55 - t * 0.45);
+
+                // Decorrelated noise (different random seed per channel via phase offset)
+                const n = (Math.random() * 2 - 1) * env;
+
+                // 2-pole LP for warmth (hf content rolls off naturally)
+                lp1 += (n   - lp1) * hfDamp;
+                lp2 += (lp1 - lp2) * hfDamp;
+
+                d[i] = lp2;
             }
+
+            // Overlay early reflections
+            taps.forEach(function(pos, ti) {
+                if (pos < len) d[pos] += tapGains[ti] * (c === 0 ? 0.88 : 0.82);
+            });
         }
         return ir;
     }
@@ -225,13 +257,16 @@ window.SonicSuite = (function() {
         window.currentBPM = v;
     }
 
+    // Cards routed to right-panel zones (mixer + fx); all others go in the instrument rack
+    const SIDE_ZONES = { mixer: 'ss-mixer-zone', fxunit: 'ss-fx-zone' };
+
     function registerCard(id, spec) {
         if (state.cards[id]) return state.cards[id];
         const a = _ensureAudio();
         const bus = a ? a.ctx.createGain() : null;
         const reverbTap = a ? a.ctx.createGain() : null;
         if (bus && a) {
-            bus.gain.value = 0.62;        // per-card headroom so summed mix doesn't slam the limiter
+            bus.gain.value = 0.62;
             bus.connect(a.master);
             reverbTap.gain.value = 0.0;
             bus.connect(reverbTap).connect(a.reverbSend);
@@ -239,8 +274,11 @@ window.SonicSuite = (function() {
         const ctx = a ? { audioCtx: a.ctx, master: a.master, bus, reverbSend: a.reverbSend, reverbTap } : null;
 
         const dom = _buildCardDom(id, spec);
-        document.getElementById('ss-workspace').appendChild(dom.root);
-        _restoreCardPos(id, dom.root);
+
+        // Route to the correct DAW zone — no absolute positioning in grid layout
+        const zoneId = SIDE_ZONES[id] || 'ss-rack';
+        const zone = document.getElementById(zoneId) || document.getElementById('ss-workspace');
+        zone.appendChild(dom.root);
 
         const card = { spec, dom, bus, ctx };
         state.cards[id] = card;
@@ -267,11 +305,14 @@ window.SonicSuite = (function() {
             '<div class="ss-card-body"></div>';
         const body = root.querySelector('.ss-card-body');
 
-        // Drag
+        // Drag — only active for cards outside the DAW grid (legacy floating mode)
         const head = root.querySelector('.ss-card-head');
+        head.style.cursor = 'default';  // grid layout: no drag
         head.addEventListener('mousedown', function(e) {
             if (e.target.classList.contains('ss-card-btn')) return;
-            _startDrag(root, id, e);
+            // Only drag if card is absolutely positioned (not in DAW grid zone)
+            const inGrid = root.closest('#ss-rack, #ss-mixer-zone, #ss-fx-zone');
+            if (!inGrid) _startDrag(root, id, e);
         });
         // Per-card play/stop
         const playBtn = root.querySelector('[data-act=play]');
@@ -423,13 +464,6 @@ window.SonicSuite = (function() {
         const status = document.getElementById('vt-sonic-status');
         if (status) { status.textContent = 'STUDIO LIVE'; status.classList.add('live'); }
         _ensureAudio();
-        // Auto-snap if no saved layout, otherwise restore rack for minimised cards
-        const _savedCards = (_loadState().cards) || {};
-        if (!Object.keys(_savedCards).length) {
-            setTimeout(function() { _snapWhenReady(0); }, 150);
-        } else {
-            setTimeout(_updateRack, 80);
-        }
         // Start VU meter
         setTimeout(_startVU, 400);
     }
@@ -469,103 +503,32 @@ window.SonicSuite = (function() {
 
     // ── Minimize / rack ───────────────────────────────────────
     function _toggleMinimize(id, el) {
-        if (el.classList.contains('minimised')) {
-            // Restore to last expanded position
-            el.classList.remove('minimised');
-            const pos = _expandedPos[id];
-            if (pos) {
-                el.style.left   = pos.left + 'px';
-                el.style.top    = pos.top  + 'px';
-                el.style.width  = pos.w;
-                el.style.height = pos.h;
-            }
-        } else {
-            // Save expanded state then collapse
-            _expandedPos[id] = {
-                left: parseInt(el.style.left, 10) || 10,
-                top:  parseInt(el.style.top,  10) || 10,
-                w:    el.style.width,
-                h:    el.style.height
-            };
-            el.classList.add('minimised');
-            el.style.height = '';
-        }
+        el.classList.toggle('minimised');
+        // In grid layout: no saved positions, just toggle the class
         _updateRack();
-        _saveCardPos(id, el);
     }
 
-    function _updateRack() {
-        const WS = document.getElementById('ss-workspace');
-        if (!WS) return;
-        const W = WS.offsetWidth, H = WS.offsetHeight;
-        const GAP = 8, M = 10, RACK_H = 38;
-        const rackY = H - RACK_H - M;
-        const minIds = state.order.filter(function(id) {
-            const c = state.cards[id];
-            return c && c.dom.root.classList.contains('minimised');
-        });
-        if (!minIds.length) return;
-        const itemW = Math.min(220, Math.floor((W - 2*M - GAP * Math.max(0, minIds.length - 1)) / minIds.length));
-        minIds.forEach(function(id, i) {
-            const el = state.cards[id].dom.root;
-            el.style.left  = (M + i * (itemW + GAP)) + 'px';
-            el.style.top   = rackY + 'px';
-            el.style.width = itemW + 'px';
-        });
-    }
+    // In grid layout, minimised cards in the rack just show their header row.
+    // No absolute positioning needed.
+    function _updateRack() { /* grid layout: CSS handles minimised state */ }
 
     // ── Layout snap ───────────────────────────────────────────
-    // Left col: Beat Forge + Void Pad  (2 equal tiles)
-    // Right col: Acid Line + FX Unit + Mixer  (3 equal tiles)
-    // All cards fill their tile; body scrolls if content overflows.
+    // Grid layout is CSS-driven. snapLayout() expands all minimised cards
+    // and scrolls the rack to the top — no absolute positioning needed.
     function snapLayout() {
-        const WS = document.getElementById('ss-workspace');
-        if (!WS) return;
-        const W = WS.offsetWidth, H = WS.offsetHeight;
-        const GAP = 10, M = 10;
-        const colW = Math.max(280, Math.floor((W - 2*M - GAP) / 2));
-        const LEFT  = ['mpc',     'xypad'];
-        const RIGHT = ['bass303', 'fxunit', 'mixer'];
-        const leftH  = Math.max(180, Math.floor((H - 2*M - GAP  * (LEFT.length  - 1)) / LEFT.length));
-        const rightH = Math.max(120, Math.floor((H - 2*M - GAP  * (RIGHT.length - 1)) / RIGHT.length));
-        LEFT.forEach(function(id, i) {
-            const card = state.cards[id]; if (!card) return;
-            const el = card.dom.root;
-            el.classList.remove('minimised');
-            el.style.left   = M + 'px';
-            el.style.top    = (M + i * (leftH + GAP)) + 'px';
-            el.style.width  = colW + 'px';
-            el.style.height = leftH + 'px';
-        });
-        RIGHT.forEach(function(id, i) {
-            const card = state.cards[id]; if (!card) return;
-            const el = card.dom.root;
-            el.classList.remove('minimised');
-            el.style.left   = (M + colW + GAP) + 'px';
-            el.style.top    = (M + i * (rightH + GAP)) + 'px';
-            el.style.width  = colW + 'px';
-            el.style.height = rightH + 'px';
-        });
-        // Save
-        const s = _loadState();
-        s.cards = {};
         state.order.forEach(function(id) {
             const card = state.cards[id]; if (!card) return;
             const el = card.dom.root;
-            s.cards[id] = { left: parseInt(el.style.left,10), top: parseInt(el.style.top,10), w: el.style.width, h: el.style.height };
+            if (el.classList.contains('minimised')) {
+                el.classList.remove('minimised');
+            }
         });
-        _saveState(s);
+        const rack = document.getElementById('ss-rack');
+        if (rack) rack.scrollTop = 0;
     }
 
-    // Polls until all expected cards are mounted, then snaps.
-    function _snapWhenReady(n) {
-        const EXPECT = ['mpc', 'bass303', 'xypad', 'fxunit', 'mixer'];
-        if (EXPECT.every(function(id) { return !!state.cards[id]; })) {
-            snapLayout();
-        } else if (n < 30) {
-            setTimeout(function() { _snapWhenReady(n + 1); }, 100);
-        }
-    }
+    // No-op poll kept for compat — grid layout needs no positional init.
+    function _snapWhenReady(n) { /* CSS grid handles placement */ }
 
     // ── VU meter ──────────────────────────────────────────────
     let _vuBuf = null, _vuAnimId = null, _vuPeak = 0, _vuPeakAge = 0;
