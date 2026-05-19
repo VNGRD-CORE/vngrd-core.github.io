@@ -45,7 +45,7 @@ async function _fetchBlob(url) {
 function _buildSessionSnapshot() {
     var logo64 = null;
     var logoEl = $('user-logo-layer');
-    if (logoEl && logoEl.src && logoEl.src !== window.location.href && logoEl.naturalWidth > 0) {
+    if (APP.trinity.logo.visible && logoEl && logoEl.src && logoEl.src !== window.location.href && logoEl.naturalWidth > 0) {
         try {
             var tmpC = document.createElement('canvas');
             tmpC.width = logoEl.naturalWidth; tmpC.height = logoEl.naturalHeight;
@@ -82,7 +82,8 @@ function _applySessionSnapshot(s) {
     }
     if (s.logo2d) {
         var logoLayer = $('user-logo-layer');
-        if (logoLayer) { logoLayer.src = s.logo2d; logoLayer.style.display = 'block'; APP.trinity.logo.visible = true; }
+        // Load the data but keep logo hidden — user must explicitly show it
+        if (logoLayer) { logoLayer.src = s.logo2d; }
     }
     if (s.lowerThird) {
         if (s.lowerThird.title    && $('lt-title-text')) $('lt-title-text').textContent = s.lowerThird.title;
@@ -693,7 +694,8 @@ function loadFromMemory() {
         if (s.logo2d) {
             if (isValidDataURI(s.logo2d)) {
                 var _ll = $('user-logo-layer');
-                if (_ll) { _ll.src = s.logo2d; _ll.style.display = 'block'; APP.trinity.logo.visible = true; }
+                // Load the data but keep logo hidden — user must explicitly show it
+                if (_ll) { _ll.src = s.logo2d; }
             } else {
                 log('MEMORY: CORRUPT_LOGO_PURGED');
                 s.logo2d = null;

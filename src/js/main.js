@@ -2289,7 +2289,8 @@ document.addEventListener('DOMContentLoaded', () => {
                 }
                 if (s.logo2d && isValidDataURI(s.logo2d)) {
                     var ll = $('user-logo-layer');
-                    if (ll) { ll.src = s.logo2d; ll.style.display = 'block'; APP.trinity.logo.visible = true; }
+                    // Load the data but keep logo hidden — user must explicitly show it
+                    if (ll) { ll.src = s.logo2d; }
                 }
                 if (s.lowerThird) {
                     if (s.lowerThird.title) { if ($('lt-title-text')) $('lt-title-text').textContent = s.lowerThird.title; if ($('lt-title')) $('lt-title').value = s.lowerThird.title; }
